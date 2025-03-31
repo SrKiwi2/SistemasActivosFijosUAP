@@ -1,0 +1,32 @@
+<div class="modal-header">
+    <h4 class="modal-title" th:text="${edit}? 'Modificar Rol' : 'Registrar Rol'"></h4>
+    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+</div>
+<form id="formularioRol" method="post"
+    th:action="${edit}? @{/rol/modificar-rol} : @{/rol/registrar-rol}" novalidate>
+    <input type="hidden" th:if="${edit != null}" th:field="${rol.idRol}">
+    <div class="modal-body">
+        <div class="row">
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Rol</label>
+                <input type="text" th:field="${rol.nombre}" class="form-control" placeholder="..."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <div class="row">
+            <div class="col-12">
+                <a type="submit" class="btn btn-secondary" style="color: white;" data-bs-dismiss="modal">Cancelar</a>
+                <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
+
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    manejarEnvioFormulario('#formularioRol');
+</script>

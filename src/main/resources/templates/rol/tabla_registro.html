@@ -1,0 +1,64 @@
+<div class="card">
+    <div class="card-header d-flex justify-content-lg-between">
+        <h5>Registro Usuario</h5>
+        <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
+            data-bs-target="#modalFormularioRol">
+            <i class="fa-solid fa-user-plus"></i> Agregar Rol
+        </button>
+    </div>
+    <div class="card-datatable table-responsive pt-0">
+        <table class="datatables-basic table table-hover" id="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>ROL</th>
+                    <th>OPCIONES</th>
+                </tr>
+            </thead>
+            <tbody class="animate__animated animate__bounceInDown">
+                <tr th:each="rol, index: ${listaRoles}">
+                    <th th:text="${index.index+1}"></th>
+                    <th th:text="${rol.nombre}"></th>
+                    <th>
+                        <button type="button" class="btn btn-sm btn-primary"
+                            th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
+                            data-bs-toggle="modal" data-bs-target="#modalFormularioRol">
+                            <i class="fa-solid fa-pen-to-square"></i> Editar
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${rol.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
+                            <i class="fa-solid fa-trash"></i> Eliminar
+                        </button>
+                    </th>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    $('#data-table').DataTable({
+        language: {
+            "sProcessing": "Procesando...",
+            "sLengthMenu": "Mostrar _MENU_ registros",
+            "sZeroRecords": "No se encontraron resultados",
+            "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
+            "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
+            "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
+            "sInfoPostFix": "",
+            "sSearch": "Buscar:",
+            "sUrl": "",
+            "sInfoThousands": ",",
+            "sLoadingRecords": "Cargando...",
+            "oPaginate": {
+                "sFirst": "Primero",
+                "sLast": "Último",
+                "sNext": "Siguiente",
+                "sPrevious": "Anterior"
+            },
+            "oAria": {
+                "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
+                "sSortDescending": ": Activar para ordenar la columna de manera descendente"
+            }
+        }
+    });
+</script>

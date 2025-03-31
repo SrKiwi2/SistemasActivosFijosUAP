@@ -1,0 +1,39 @@
+<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Persona</h4>
+
+<div id="tablaRegistro"></div>
+
+<div class="modal fade" id="modalFormularioPersona" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="contenidoModalPersona"></div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        cargarTabla();
+
+    });
+
+    function cargarTabla() {
+        $.ajax({
+            type: 'POST',
+            url: "/persona/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
+            success: function (response) {
+                $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
+            }
+        });
+    }
+
+    function cargarFormulario() {
+        cargarFormularioAlert("/persona/formulario", "#contenidoModalPersona", "#formularioPersona");
+    }
+
+    function cargarFormularioEdit(id) {
+        cargarFormularioEditAlert(id, "/persona/formulario-edit", "#contenidoModalPersona", "#formularioPersona");
+    }
+
+    function eliminar(nombre, id) {
+        eliminarRegistroAlert(nombre, id, "/persona/eliminar",cargarTabla);
+    }
+
+</script>

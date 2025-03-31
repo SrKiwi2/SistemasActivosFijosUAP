@@ -1,0 +1,53 @@
+<div class="modal-header">
+    <h4 class="modal-title" th:text="${edit}? 'Modificar Persona' : 'Registrar Persona'"></h4>
+    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+</div>
+<form id="formularioPersona" method="post"
+    th:action="${edit}? @{/persona/modificar-persona} : @{/persona/registrar-persona}" novalidate>
+    <input type="hidden" th:if="${edit != null}" th:field="${persona.idPersona}">
+    <div class="modal-body">
+        <div class="row">
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">C.I.</label>
+                <input type="text" th:field="${persona.ci}" class="form-control" placeholder="Introduzca un C.I."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca una Contraseña.</div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserFirstName">Nombre</label>
+                <input type="text" th:field="${persona.nombre}" class="form-control" placeholder="Introduzca un nombre"
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un Nombre.</div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Paterno</label>
+                <input type="text" th:field="${persona.paterno}" class="form-control"
+                    placeholder="Introduzca un apellido" />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca su primer apellido.</div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Materno</label>
+                <input type="text" th:field="${persona.materno}" class="form-control"
+                    placeholder="Introduzca un apellido" />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca su segundo apellido.</div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <div class="row">
+            <div class="col-12">
+                <a type="submit" class="btn btn-secondary" style="color: white;" data-bs-dismiss="modal">Cancelar</a>
+                <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
+
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    manejarEnvioFormulario('#formularioPersona');
+</script>

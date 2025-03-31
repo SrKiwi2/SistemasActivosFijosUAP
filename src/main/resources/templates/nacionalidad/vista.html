@@ -1,0 +1,39 @@
+<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Nacionalidad</h4>
+
+<div id="tablaRegistro"></div>
+
+<div class="modal fade" id="modalFormularioNacionalidad" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="contenidoModalNacionalidad"></div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        cargarTabla();
+
+    });
+
+    function cargarTabla() {
+        $.ajax({
+            type: 'POST',
+            url: "/nacionalidad/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
+            success: function (response) {
+                $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
+            }
+        });
+    }
+
+    function cargarFormulario() {
+        cargarFormularioAlert("/nacionalidad/formulario", "#contenidoModalNacionalidad", "#formularioNacionalidad");
+    }
+
+    function cargarFormularioEdit(id) {
+        cargarFormularioEditAlert(id, "/nacionalidad/formulario-edit", "#contenidoModalNacionalidad", "#formularioNacionalidad");
+    }
+
+    function eliminar(nombre, id) {
+        eliminarRegistroAlert(nombre, id, "/nacionalidad/eliminar",cargarTabla);
+    }
+
+</script>
