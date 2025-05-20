@@ -1,0 +1,53 @@
+<div class="modal-header">
+    <h4 class="modal-title" th:text="${edit}? 'Modificar Predio' : 'Registrar Predio'"></h4>
+    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+</div>
+<form id="formularioPredio" method="post"
+    th:action="${edit}? @{/predio/modificar-predio} : @{/predio/registrar-predio}" novalidate>
+    <input type="hidden" th:if="${edit != null}" th:field="${predio.idPredio}">
+    <div class="modal-body">
+        <div class="row">
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Nombre Predio</label>
+                <input type="text" th:field="${predio.nombre}" class="form-control" placeholder="..."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Descripción</label>
+                <input type="text" th:field="${predio.descripcion}" class="form-control" placeholder="..."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Prefijo</label>
+                <input type="text" th:field="${predio.prefijo}" class="form-control" placeholder="..."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Código predio</label>
+                <input type="text" th:field="${predio.codigo}" class="form-control" placeholder="..."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <div class="row">
+            <div class="col-12">
+                <a type="submit" class="btn btn-secondary" style="color: white;" data-bs-dismiss="modal">Cancelar</a>
+                <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
+
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    manejarEnvioFormulario('#formularioPredio');
+</script>

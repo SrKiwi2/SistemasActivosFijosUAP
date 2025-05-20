@@ -67,4 +67,176 @@
     
     <!-- Scripts de fragmentos de alert que se usa en los modulos -->
     <script src="../../assets/vendor/js/fragment.js"></script>
+
+
+    <!-- CONFIGURACIÓN SIDEBAR -->
+    <script>
+        var botonPulsado;
+        $(document).ready(function () {
+
+            // ventana por defecto al iniciar sesión
+            cargarContenido("/adm/vista-administrador");
+            botonPulsado = document.getElementById("opcion_admin");
+            botonPulsado.classList.add("active");
+
+            // menú de rol
+            $("#opcion_rol").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/rol/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_rol");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+            // menú de usuario
+            $("#opcion_usuario").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/usuario/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_usuario");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+            // menú de persona
+            $("#opcion_persona").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/persona/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_persona");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+
+            $("#opcion_nacionalidad").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/nacionalidad/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_nacionalidad");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+            $("#opcion_genero").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/genero/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_genero");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+            $("#opcion_entidad").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/entidad/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_entidad");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+            $("#opcion_municipio").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/municipio/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_municipio");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+            $("#opcion_predio").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/predio/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_predio");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+
+            function cargarContenido(url) {
+
+                $.ajax({
+                    url: "/adm/cargar-datos",
+                    method: "GET",
+                    success: function () {
+
+                        $("#contenido").html(`
+                            <div class="d-flex justify-content-center">
+                                <div class="spinner-border m-5 text-secondary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>`);
+
+                        $.ajax({
+                            url: url,
+                            method: "GET",
+                            success: function (data) {
+                                $("#contenido").html(data);
+                            },
+                            error: function (xhr) {
+                                console.error('Error en la solicitud:', xhr);
+                            }
+                        });
+                    },
+                    error: function (xhr) {
+                        if (xhr.status === 401) {
+                            Swal.fire({
+                                title: 'Sesión expirada',
+                                text: 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
+                                icon: 'warning',
+                                confirmButtonText: 'Ir al login'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    window.location.href = '/';
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    </script>
 </div>
