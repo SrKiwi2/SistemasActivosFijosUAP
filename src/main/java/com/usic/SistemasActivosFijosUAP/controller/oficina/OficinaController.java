@@ -1,8 +1,11 @@
 package com.usic.SistemasActivosFijosUAP.controller.oficina;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -101,13 +104,17 @@ public class OficinaController {
     }
 
     @PostMapping("/importar")
-    public String importarOficinas(@RequestParam("archivo") MultipartFile archivo, Model model) {
+    public ResponseEntity<Map<String, String>> importarOficinas(@RequestParam("archivo") MultipartFile archivo) {
+        Map<String, String> respuesta = new HashMap<>();
         try {
+            System.out.println("Archivo recibido: " + archivo.getOriginalFilename());
+
             oficinaExcelService.cargarDesdeExcel(archivo);
-            model.addAttribute("mensaje", "Archivo importado exitosamente");
+            respuesta.put("message", "Archivo importado exitosamente");
+            return ResponseEntity.ok(respuesta);
         } catch (Exception e) {
-            model.addAttribute("mensaje", "Error al importar: " + e.getMessage());
+            respuesta.put("message", "Error al importar: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(respuesta);
         }
-        return "redirect:/oficinas";
     }
 }

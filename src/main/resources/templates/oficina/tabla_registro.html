@@ -16,6 +16,7 @@
                     <th>#</th>
                     <th>Oficina</th>
                     <th>Código</th>
+                    <th>Prefijo</th>
                     <th>Predio</th>
                     <th>OPCIONES</th>
                 </tr>
@@ -25,6 +26,7 @@
                     <th th:text="${index.index+1}"></th>
                     <th th:text="${oficina.nombre}"></th>
                     <th th:text="${oficina.codigo}"></th>
+                    <th th:text="${oficina.predio.prefijo}"></th>
                     <th th:text="${oficina.predio.nombre}"></th>
                     <th>
                         <button type="button" class="btn btn-sm btn-primary"
