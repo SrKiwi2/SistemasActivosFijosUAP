@@ -2,7 +2,7 @@
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Predio</h5>
         <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-            data-bs-target="#modalFormularioMunicipio">
+            data-bs-target="#modalFormularioPredio">
             <i class="fa-solid fa-user-plus"></i> Agregar Predio
         </button>
     </div>
@@ -12,7 +12,10 @@
                 <tr>
                     <th>#</th>
                     <th>Predio</th>
+                    <th>Descripción</th>
+                    <th>Prefijo</th>
                     <th>Código</th>
+                    <th>Municipio</th>
                     <th>OPCIONES</th>
                 </tr>
             </thead>
@@ -20,7 +23,10 @@
                 <tr th:each="predio, index: ${listasPredios}">
                     <th th:text="${index.index+1}"></th>
                     <th th:text="${predio.nombre}"></th>
+                    <th th:text="${predio.descripcion}"></th>
+                    <th th:text="${predio.prefijo}"></th>
                     <th th:text="${predio.codigo}"></th>
+                    <th th:text="${predio.municipio.nombre}"></th>
                     <th>
                         <button type="button" class="btn btn-sm btn-primary"
                             th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"

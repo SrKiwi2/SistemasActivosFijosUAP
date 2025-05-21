@@ -12,6 +12,9 @@ public interface IPredioDao extends JpaRepository<Predio, Long>{
     @Query("SELECT p FROM Predio p WHERE p.nombre = ?1 AND p.estado = 'ACTIVO'")
     Predio buscarPorNombre(String nombre);
 
+    @Query("SELECT p FROM Predio p WHERE p.prefijo = ?1 AND p.estado = 'ACTIVO'")
+    Predio buscarPorPrefijo(String prefijo);
+
     @Query("SELECT p FROM Predio p WHERE p.estado = 'ACTIVO'")
     List<Predio> listarPredios();
 }

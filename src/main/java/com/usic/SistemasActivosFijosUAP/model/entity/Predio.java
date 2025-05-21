@@ -31,8 +31,4 @@ public class Predio extends AuditoriaConfig{
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_municipio")
     private Municipio municipio;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_entidad")
-    private Entidad entidad;
 }

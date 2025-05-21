@@ -10,4 +10,5 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 public interface IPredioServicio extends IServiceGenerico<Predio, Long>{
     Predio buscarPorNombre(String nombre);
     List<Predio> listarPredios();
+    Predio buscarPorPrefijo(String prefijo);
 }

@@ -1,0 +1,50 @@
+<div class="modal-header">
+    <h4 class="modal-title" th:text="${edit}? 'Modificar Oficina' : 'Registrar Oficina'"></h4>
+    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+</div>
+<form id="formularioOficina" method="post"
+    th:action="${edit}? @{/oficina/modificar-oficina} : @{/oficina/registrar-oficina}" novalidate>
+    <input type="hidden" th:if="${edit != null}" th:field="${oficina.idPredio}">
+    <div class="modal-body">
+        <div class="row">
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Nombre Oficina</label>
+                <input type="text" th:field="${oficina.nombre}" class="form-control" placeholder="..."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Código oficina</label>
+                <input type="text" th:field="${oficina.codigo}" class="form-control" placeholder="..."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+            <div class="col-12 col-md-4">
+                <label for="select2Basic" class="form-label">Predio</label>
+                <select class="select2 form-select form-select-lg" data-allow-clear="true"
+                    th:field="${oficina.predio}">
+                    <option th:each="p : ${predio}" th:value="${p.idPredio}"
+                        th:selected="${p == oficina.predio}" th:text="${p.nombre}">
+                    </option>
+                </select>
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Debe seleccionar un predio para la oficina.</div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <div class="row">
+            <div class="col-12">
+                <a type="submit" class="btn btn-secondary" style="color: white;" data-bs-dismiss="modal">Cancelar</a>
+                <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
+
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    manejarEnvioFormulario('#formularioOficina');
+</script>

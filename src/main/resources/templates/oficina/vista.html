@@ -1,0 +1,62 @@
+<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Oficina</h4>
+
+<div id="tablaRegistro"></div>
+
+<div class="modal fade" id="modalFormularioOficina" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="prediocontenidoModalOficina"></div>
+    </div>
+</div>
+
+<!-- Modal oculto -->
+<div id="modalImportar" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+     background-color: rgba(0,0,0,0.5); z-index:1000; justify-content: center; align-items: center;">
+    <div style="background:white; padding:20px; border-radius:8px; min-width:300px; position:relative;">
+        <h3>Subir archivo Excel</h3>
+        <form th:action="@{/oficinas/importar}" method="post" enctype="multipart/form-data">
+            <input type="file" name="archivo" accept=".xlsx,.xls" required>
+            <br><br>
+            <button type="submit">Importar</button>
+            <button type="button" onclick="cerrarModal()">Cancelar</button>
+        </form>
+    </div>
+</div>
+
+
+<script>
+    $(document).ready(function () {
+        cargarTabla();
+
+    });
+
+    function cargarTabla() {
+        $.ajax({
+            type: 'POST',
+            url: "/oficina/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
+            success: function (response) {
+                $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
+            }
+        });
+    }
+
+    function cargarFormulario() {
+        cargarFormularioAlert("/oficina/formulario", "#prediocontenidoModalOficina", "#formularioOficina");
+    }
+
+    function cargarFormularioEdit(id) {
+        cargarFormularioEditAlert(id, "/oficina/formulario-edit", "#prediocontenidoModalOficina", "#formularioOficina");
+    }
+
+    function eliminar(nombre, id) {
+        eliminarRegistroAlert(nombre, id, "/oficina/eliminar",cargarTabla);
+    }
+
+    function abrirModal() {
+        document.getElementById('modalImportar').style.display = 'flex';
+    }
+
+    function cerrarModal() {
+        document.getElementById('modalImportar').style.display = 'none';
+    }
+
+</script>

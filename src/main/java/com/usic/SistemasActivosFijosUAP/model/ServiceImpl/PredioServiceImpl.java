@@ -43,5 +43,10 @@ public class PredioServiceImpl implements IPredioServicio{
     public List<Predio> listarPredios() {
         return dao.listarPredios();
     }
+
+    @Override
+    public Predio buscarPorPrefijo(String prefijo) {
+        return dao.buscarPorPrefijo(prefijo);
+    }
     
 }
