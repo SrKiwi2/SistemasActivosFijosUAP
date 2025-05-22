@@ -13,4 +13,7 @@ public interface IOficinaDao extends JpaRepository<Oficina, Long>{
 
     @Query("SELECT o FROM Oficina o WHERE o.estado = 'ACTIVO'")
     List<Oficina> listarOficinas();
+
+    @Query("SELECT o FROM Oficina o WHERE o.codigo = ?1 AND o.estado = 'ACTIVO'")
+    Oficina buscarPorCodigo(String codigo);
 }

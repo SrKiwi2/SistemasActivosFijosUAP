@@ -10,4 +10,5 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 public interface IOficinaService extends IServiceGenerico<Oficina, Long>{
     Oficina buscarPorNombre(String nombre);
     List<Oficina> listarOficinas();
+    Oficina buscarPorCodigo(String codigo);
 }

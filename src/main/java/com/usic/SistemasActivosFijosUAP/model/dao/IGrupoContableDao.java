@@ -13,4 +13,7 @@ public interface IGrupoContableDao extends JpaRepository<GrupoContable, Long> {
 
     @Query("SELECT gc FROM GrupoContable gc WHERE gc.estado = 'ACTIVO'")
     List<GrupoContable> listarGruposContables();
+
+    @Query("SELECT gc FROM GrupoContable gc WHERE gc.codigo = ?1 AND gc.estado = 'ACTIVO'")
+    GrupoContable buscarPorCodigo(String codigo);
 }

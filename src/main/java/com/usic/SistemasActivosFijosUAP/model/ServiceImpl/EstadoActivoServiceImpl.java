@@ -38,5 +38,10 @@ public class EstadoActivoServiceImpl implements IEstadoActivoService{
     public List<EstadoActivo> listarEstadoActivo() {
         return dao.listarEstadoActivo();
     }
+
+    @Override
+    public EstadoActivo buscarPorCodigo(String codigo) {
+        return dao.buscarPorCodigo(codigo);
+    }
     
 }

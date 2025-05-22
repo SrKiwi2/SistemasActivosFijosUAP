@@ -7,6 +7,9 @@ import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
+import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
+import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
 @Service
@@ -42,6 +45,11 @@ public class ResponsableServiceImpl implements IResponsableService{
     @Override
     public List<Responsable> listarResponsables() {
         return dao.listarResponsables();
+    }
+
+    @Override
+    public Responsable responsablePersonaOficinaCargo(Persona persona, Oficina oficina, Cargo cargo) {
+        return dao.responsablePersonaOficinaCargo(persona, oficina, cargo);
     }
     
 }

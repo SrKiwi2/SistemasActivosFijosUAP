@@ -194,6 +194,7 @@
                 botonPulsado.classList.add("active");
 
             });
+
             $("#opcion_oficina").click(function (e) {
                 e.preventDefault();
                 cargarContenido("/oficina/vista");
@@ -208,6 +209,19 @@
 
             });
 
+            $("#opcion_activo").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/activo/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_activo");;
+
+                botonPulsado.classList.add("active");
+
+            });
 
             function cargarContenido(url) {
 

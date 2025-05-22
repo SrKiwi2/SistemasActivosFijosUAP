@@ -44,4 +44,9 @@ public class PersonaServiceImpl implements IPersonaService {
     public Persona buscarPersonaPorCI(String ci) {
         return personaDao.buscarPersonaPorCI(ci);
     }
+
+    @Override
+    public Persona buscarPersonaPorNombrePaternoMaterno(String nombre, String paterno, String materno) {
+        return personaDao.buscarPersonaPorNombrePaternoMaterno(nombre, paterno, materno);
+    }
 }

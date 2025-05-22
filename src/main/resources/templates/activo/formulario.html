@@ -1,0 +1,114 @@
+<div class="modal-header">
+    <h4 class="modal-title" th:text="${edit}? 'Modificar Activo' : 'Registrar Activo'"></h4>
+    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+</div>
+<form id="formularioActivo" method="post"
+    th:action="${edit}? @{/activo/modificar-activo} : @{/activo/registrar-activo}" novalidate>
+    <input type="hidden" th:if="${edit != null}" th:field="${activo.idPredio}">
+    <div class="modal-body">
+        <div class="row">
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Código activo</label>
+                <input type="text" th:field="${activo.codigo}" class="form-control" placeholder="..."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Nombre Activo</label>
+                <input type="text" th:field="${activo.nombre}" class="form-control" placeholder="..."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Descripción</label>
+                <input type="text" th:field="${activo.descripcion}" class="form-control" placeholder="..."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Costo</label>
+                <input type="text" th:field="${activo.costo}" class="form-control" placeholder="..."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Vida Útil</label>
+                <input type="text" th:field="${activo.vida_util}" class="form-control" placeholder="..."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="modalEditUserLastName">Fecha Adquisición</label>
+                <input type="text" th:field="${activo.fecha_adquisición}" class="form-control" placeholder="..."
+                    required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+
+            <div class="col-12 col-md-4">
+                <label for="select2Basic" class="form-label">Estado Activo</label>
+                <select class="select2 form-select form-select-lg" data-allow-clear="true"
+                    th:field="${activo.estadoActivo}">
+                    <option th:each="e : ${estadoActivo}" th:value="${e.idEstadoActivo}"
+                        th:selected="${e == activo.estadoActivo}" th:text="${e.nombre}">
+                    </option>
+                </select>
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Debe seleccionar un predio para la activo.</div>
+            </div>
+            <div class="col-12 col-md-4">
+                <label for="select2Basic" class="form-label">Grupo contable</label>
+                <select class="select2 form-select form-select-lg" data-allow-clear="true"
+                    th:field="${activo.grupoContable}">
+                    <option th:each="gc : ${grupoContable}" th:value="${gc.idGrupoContable}"
+                        th:selected="${gc == activo.grupoContable}" th:text="${gc.nombre}">
+                    </option>
+                </select>
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Debe seleccionar un predio para la activo.</div>
+            </div>
+            <div class="col-12 col-md-4">
+                <label for="select2Basic" class="form-label">Oficina</label>
+                <select class="select2 form-select form-select-lg" data-allow-clear="true"
+                    th:field="${activo.oficina}">
+                    <option th:each="o : ${oficina}" th:value="${o.idOficina}"
+                        th:selected="${o == activo.oficina}" th:text="${o.nombre}">
+                    </option>
+                </select>
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Debe seleccionar un predio para la activo.</div>
+            </div>
+            <div class="col-12 col-md-4">
+                <label for="select2Basic" class="form-label">Responsabale</label>
+                <select class="select2 form-select form-select-lg" data-allow-clear="true"
+                    th:field="${activo.responsable}">
+                    <option th:each="r : ${responsable}" th:value="${r.idResponsable}"
+                        th:selected="${r == activo.responsable}" th:text="${r.persona.nombre}">
+                    </option>
+                </select>
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Debe seleccionar un predio para la activo.</div>
+            </div>
+
+
+        </div>
+    </div>
+    <div class="modal-footer">
+        <div class="row">
+            <div class="col-12">
+                <a type="submit" class="btn btn-secondary" style="color: white;" data-bs-dismiss="modal">Cancelar</a>
+                <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
+
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    manejarEnvioFormulario('#formularioActivo');
+</script>

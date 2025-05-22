@@ -43,5 +43,10 @@ public class GrupoContableServiceImpl implements IGrupoContableService{
     public List<GrupoContable> listarGruposContables() {
         return dao.listarGruposContables();
     }
+
+    @Override
+    public GrupoContable buscarPorCodigo(String codigo) {
+        return dao.buscarPorCodigo(codigo);
+    }
     
 }
