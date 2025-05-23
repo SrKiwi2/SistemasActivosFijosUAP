@@ -45,7 +45,7 @@ public class OficinaServiceImpl implements IOficinaService{
     }
 
     @Override
-    public Oficina buscarPorCodigo(String codigo) {
+    public List<Oficina> buscarPorCodigo(String codigo) {
         return dao.buscarPorCodigo(codigo);
     }
 }

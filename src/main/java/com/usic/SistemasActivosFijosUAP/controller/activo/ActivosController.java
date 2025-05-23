@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -15,12 +17,15 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
+import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.ActivoExcelService;
@@ -112,8 +117,57 @@ public class ActivosController {
             respuesta.put("message", "Archivo importado exitosamente");
             return ResponseEntity.ok(respuesta);
         } catch (Exception e) {
+            e.printStackTrace();
             respuesta.put("message", "Error al importar: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(respuesta);
         }
+    }
+
+    @PostMapping("/datatables")
+    @ResponseBody
+    public DataTablesResponse<ActivoDTO> listarActivosDatatables(@RequestParam Map<String, String> params){
+        int start = Integer.parseInt(params.get("start"));
+        int length = Integer.parseInt(params.get("length"));
+        String searchValue = params.get("search[value]");
+
+        String codigo = params.get("codigo");
+        String responsableId = params.get("responsable");
+        String oficinaId = params.get("oficina");
+        String fecha = params.get("fecha");
+
+        PageRequest pageRequest = PageRequest.of(start / length, length);
+
+        // Page<Activo> pagina = activoService.buscarPorNombreOCodigo(searchValue, pageRequest);
+        Page<Activo> pagina = activoService.buscarConFiltros(
+            searchValue, codigo, responsableId, oficinaId, fecha, pageRequest
+        );
+
+        List<ActivoDTO> activosDTO = pagina.getContent().stream().map(activo -> {
+            ActivoDTO dto = new ActivoDTO();
+            dto.setIndex("");
+            dto.setCodigo(activo.getCodigo());
+            dto.setDescripcion(activo.getDescripcion());
+            dto.setResponsable(activo.getResponsable().getPersona().getNombre() + " " + activo.getResponsable().getPersona().getPaterno() + " " + activo.getResponsable().getPersona().getMaterno());
+            dto.setOficina(activo.getOficina().getNombre());
+            dto.setCosto(activo.getCosto());
+            dto.setVidaUtil(activo.getVida_util());
+            dto.setFechaAdquisicion(activo.getFecha_adquisición().toString());
+            dto.setEstado(activo.getEstadoActivo().getNombre());
+            dto.setGrupoContable(activo.getGrupoContable().getNombre());
+        
+            try {
+                String idEncriptado = Encriptar.encrypt(activo.getIdActivo().toString());
+                dto.setAcciones("<button class='btn btn-sm btn-primary' onclick=\"editar('" + idEncriptado + "')\">Editar</button>" +
+                                " <button class='btn btn-sm btn-danger' onclick=\"eliminar('" + activo.getNombre() + "', '" + idEncriptado + "')\">Eliminar</button>");
+            } catch (Exception e) {
+                dto.setAcciones("<span class='text-danger'>Error al generar acciones</span>");
+                e.printStackTrace();
+            }
+        
+            return dto;
+        }).toList();
+        
+
+        return new DataTablesResponse<>(pagina.getTotalElements(), pagina.getTotalElements(), activosDTO);
     }
 }

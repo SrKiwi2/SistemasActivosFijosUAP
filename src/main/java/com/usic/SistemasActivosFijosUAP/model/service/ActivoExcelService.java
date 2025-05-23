@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -51,28 +52,52 @@ public class ActivoExcelService {
                 Row fila = hoja.getRow(i);
                 if (fila == null) continue;
 
+                int total = 0, exitosos = 0, fallidos = 0;
+
                 String codigo = getText(fila.getCell(0));
                 String nombre = getText(fila.getCell(1));
                 String descripcion = getText(fila.getCell(2));
-                Double costo = fila.getCell(3).getNumericCellValue();
-                Integer vidaUtil = (int) fila.getCell(4).getNumericCellValue();
+                Double costo = getNumeric(fila.getCell(3));
 
+                Cell vidaUtilCell = fila.getCell(4);
+                Integer vidaUtil = null;
+
+                if (vidaUtilCell != null) {
+                    if (vidaUtilCell.getCellType() == CellType.NUMERIC) {
+                        vidaUtil = (int) vidaUtilCell.getNumericCellValue();
+                    } else if (vidaUtilCell.getCellType() == CellType.STRING) {
+                        try {
+                            vidaUtil = Integer.parseInt(vidaUtilCell.getStringCellValue().trim());
+                        } catch (NumberFormatException e) {
+                            System.out.println("⚠ Vida útil no válida: " + vidaUtilCell.getStringCellValue());
+                        }
+                    } else {
+                        System.out.println("⚠ Tipo no esperado en vida útil: " + vidaUtilCell.getCellType());
+                    }
+                }
+
+                if (vidaUtil == null) {
+                    System.out.println("Fila " + fila.getRowNum() + " tiene vida útil inválida. Saltando...");
+                    continue;
+                }
+                
                 int dia = (int) fila.getCell(5).getNumericCellValue();
                 int mes = (int) fila.getCell(6).getNumericCellValue();
                 int anio = (int) fila.getCell(7).getNumericCellValue();
                 LocalDate fechaAdq = LocalDate.of(anio, mes, dia);
 
-                String estadoActivoCodigo = getText(fila.getCell(8));
-                String grupoContableCodigo = getText(fila.getCell(9));
-                String oficinaCodigo = getText(fila.getCell(10));
+                String estadoActivoCodigo = getText(fila.getCell(8)).trim().toUpperCase();
+                String grupoContableCodigo = getText(fila.getCell(9)).trim().toUpperCase();
+                String oficinaNombre = getText(fila.getCell(10));
+                String nombreResponsableCompleto = getText(fila.getCell(11));
+                String[] datosPersona = separarNombreCompleto(nombreResponsableCompleto);
+                String nombreResponsable = datosPersona[0];
+                String paterno = datosPersona[1];
+                String materno = datosPersona[2];
+                String cargoNombre = getText(fila.getCell(12));
 
-                String nombreResponsable = getText(fila.getCell(11));
-                String paterno = getText(fila.getCell(12));
-                String materno = getText(fila.getCell(13));
-                String cargoNombre = getText(fila.getCell(14));
-
-                // Buscar o crear la persona
-                Persona persona = personaService.buscarPersonaPorNombrePaternoMaterno(nombreResponsable, paterno, materno);
+                List<Persona> personas = personaService.buscarPersonaPorNombrePaternoMaterno(nombreResponsable, paterno, materno);
+                Persona persona = personas.isEmpty() ? null : personas.get(0);
                 if (persona == null) {
                     persona = new Persona();
                     persona.setNombre(nombreResponsable);
@@ -84,7 +109,6 @@ public class ActivoExcelService {
                     personaService.save(persona);
                 }
 
-                // Buscar o crear el cargo
                 Cargo cargo = cargoService.buscarPorNombre(cargoNombre);
                 if (cargo == null) {
                     cargo = new Cargo();
@@ -95,14 +119,13 @@ public class ActivoExcelService {
                     cargoService.save(cargo);
                 }
 
-                // Buscar oficina
-                Oficina oficina = oficinaService.buscarPorCodigo(oficinaCodigo);
+                Oficina oficina = oficinaService.buscarPorNombre(oficinaNombre);
                 if (oficina == null) {
-                    System.out.println("Oficina no encontrada para código: " + oficinaCodigo);
+                    fallidos++;
+                    System.out.println("❌ Oficina no encontrada: " + oficinaNombre + " (Fila " + fila.getRowNum() + ")");
                     continue;
                 }
 
-                // Buscar o crear responsable
                 Responsable responsable = responsableService.responsablePersonaOficinaCargo(persona, oficina, cargo);
                 if (responsable == null) {
                     responsable = new Responsable();
@@ -115,16 +138,16 @@ public class ActivoExcelService {
                     responsableService.save(responsable);
                 }
 
-                // Buscar estado activo y grupo contable
                 EstadoActivo estado = estadoActivoService.buscarPorCodigo(estadoActivoCodigo);
                 GrupoContable grupo = grupoContableService.buscarPorCodigo(grupoContableCodigo);
+                System.out.println("Codigo contable: " + grupo);
 
                 if (estado == null || grupo == null) {
-                    System.out.println("Estado o grupo contable no encontrado para activo: " + nombre);
+                    fallidos++;
+                    System.out.println("❌ Estado o grupo contable no encontrado. Estado: " + estadoActivoCodigo + ", Grupo: " + grupoContableCodigo);
                     continue;
                 }
 
-                // Crear activo
                 Activo activo = new Activo();
                 activo.setCodigo(codigo);
                 activo.setNombre(nombre);
@@ -136,24 +159,79 @@ public class ActivoExcelService {
                 activo.setGrupoContable(grupo);
                 activo.setOficina(oficina);
                 activo.setResponsable(responsable);
-
                 activo.setEstado("ACTIVO");
                 activo.setRegistro(new Date());
                 activo.setRegistroIdUsuario(1L);
-
                 activoService.save(activo);
-                System.out.println("Activo registrado: " + nombre);
-            }
 
+                System.out.println("Total procesados: " + total + ", Éxitos: " + exitosos + ", Fallos: " + fallidos);
+
+            }
         } catch (Exception e) {
+            e.printStackTrace();
             throw new IOException("Error al procesar archivo", e);
         }
     }
 
     private String getText(Cell cell) {
         if (cell == null) return "";
-        if (cell.getCellType() == CellType.STRING) return cell.getStringCellValue().trim();
-        if (cell.getCellType() == CellType.NUMERIC) return String.valueOf((int) cell.getNumericCellValue());
+
+        if (cell.getCellType() == CellType.STRING) {
+            return cell.getStringCellValue().trim();
+        }
+
+        if (cell.getCellType() == CellType.NUMERIC) {
+            DataFormatter formatter = new DataFormatter();
+            return formatter.formatCellValue(cell).trim();
+        }
         return "";
+    }
+
+
+    private String[] separarNombreCompleto(String nombreCompleto) {
+        nombreCompleto.trim().replaceAll("\\s+", " ");
+        String[] partes = nombreCompleto.trim().split("\\s+");
+        String nombre = "", paterno = "", materno = "";
+
+        for (int i = 0; i < partes.length; i++) {
+            partes[i] = capitalizar(partes[i]);
+        }
+    
+        if (partes.length >= 4) {
+            nombre = partes[0] + " " + partes[1];
+            paterno = partes[partes.length - 2];
+            materno = partes[partes.length - 1];
+        } else if (partes.length == 3) {
+            nombre = partes[0];
+            paterno = partes[1];
+            materno = partes[2];
+        } else if (partes.length == 2) {
+            nombre = partes[0];
+            paterno = partes[1];
+            materno = "";
+        } else if (partes.length == 1) {
+            nombre = partes[0];
+        } else {
+            nombre = nombreCompleto;
+        }
+        return new String[] { nombre, paterno, materno };
+    }
+    
+    private String capitalizar(String palabra) {
+        if (palabra == null || palabra.isEmpty()) return palabra;
+        return palabra.substring(0, 1).toUpperCase() + palabra.substring(1).toLowerCase();
+    }
+
+    private Double getNumeric(Cell cell) {
+        if (cell == null) return 0.0;
+        if (cell.getCellType() == CellType.NUMERIC) return cell.getNumericCellValue();
+        if (cell.getCellType() == CellType.STRING) {
+            try {
+                return Double.parseDouble(cell.getStringCellValue().trim().replace(",", "."));
+            } catch (NumberFormatException e) {
+                return 0.0;
+            }
+        }
+        return 0.0;
     }
 }
