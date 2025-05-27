@@ -37,7 +37,7 @@
     function cargarTabla() {
         $.ajax({
             type: 'POST',
-            url: "/oficina/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
+            url: "/administracion/oficina/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
             success: function (response) {
                 $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
             }
@@ -45,15 +45,15 @@
     }
 
     function cargarFormulario() {
-        cargarFormularioAlert("/oficina/formulario", "#prediocontenidoModalOficina", "#formularioOficina");
+        cargarFormularioAlert("/administracion/oficina/formulario", "#prediocontenidoModalOficina", "#formularioOficina");
     }
 
     function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/oficina/formulario-edit", "#prediocontenidoModalOficina", "#formularioOficina");
+        cargarFormularioEditAlert(id, "/administracion/oficina/formulario-edit", "#prediocontenidoModalOficina", "#formularioOficina");
     }
 
     function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/oficina/eliminar",cargarTabla);
+        eliminarRegistroAlert(nombre, id, "/administracion/oficina/eliminar",cargarTabla);
     }
 
     function abrirModal() {
@@ -75,7 +75,7 @@
         var form = document.getElementById('formImportarOficinas');
         var data = new FormData(form);
 
-        fetch('/oficina/importar', {
+        fetch('/administracion/oficina/importar', {
             method: 'POST',
             body: data
         }).then(response => response.json())

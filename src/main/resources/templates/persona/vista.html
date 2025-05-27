@@ -17,7 +17,7 @@
     function cargarTabla() {
         $.ajax({
             type: 'POST',
-            url: "/persona/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
+            url: "/administracion/persona/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
             success: function (response) {
                 $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
             }
@@ -25,15 +25,15 @@
     }
 
     function cargarFormulario() {
-        cargarFormularioAlert("/persona/formulario", "#contenidoModalPersona", "#formularioPersona");
+        cargarFormularioAlert("/administracion/persona/formulario", "#contenidoModalPersona", "#formularioPersona");
     }
 
     function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/persona/formulario-edit", "#contenidoModalPersona", "#formularioPersona");
+        cargarFormularioEditAlert(id, "/administracion/persona/formulario-edit", "#contenidoModalPersona", "#formularioPersona");
     }
 
     function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/persona/eliminar",cargarTabla);
+        eliminarRegistroAlert(nombre, id, "/administracion/persona/eliminar",cargarTabla);
     }
 
 </script>

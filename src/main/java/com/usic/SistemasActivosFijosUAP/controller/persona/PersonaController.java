@@ -23,7 +23,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
-@RequestMapping("/persona")
+@RequestMapping("/administracion/persona")
 @RequiredArgsConstructor
 public class PersonaController {
    

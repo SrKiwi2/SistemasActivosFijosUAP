@@ -17,7 +17,7 @@
     function cargarTabla() {
         $.ajax({
             type: 'POST',
-            url: "/predio/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
+            url: "/administracion/predio/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
             success: function (response) {
                 $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
             }
@@ -25,15 +25,15 @@
     }
 
     function cargarFormulario() {
-        cargarFormularioAlert("/predio/formulario", "#prediocontenidoModalPredio", "#formularioPredio");
+        cargarFormularioAlert("/administracion/predio/formulario", "#prediocontenidoModalPredio", "#formularioPredio");
     }
 
     function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/predio/formulario-edit", "#prediocontenidoModalPredio", "#formularioPredio");
+        cargarFormularioEditAlert(id, "/administracion/predio/formulario-edit", "#prediocontenidoModalPredio", "#formularioPredio");
     }
 
     function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/predio/eliminar",cargarTabla);
+        eliminarRegistroAlert(nombre, id, "/administracion/predio/eliminar",cargarTabla);
     }
 
 </script>

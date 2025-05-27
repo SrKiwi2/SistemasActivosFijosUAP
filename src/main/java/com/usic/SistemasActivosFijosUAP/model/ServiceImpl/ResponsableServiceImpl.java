@@ -51,5 +51,10 @@ public class ResponsableServiceImpl implements IResponsableService{
     public Responsable responsablePersonaOficinaCargo(Persona persona, Oficina oficina, Cargo cargo) {
         return dao.responsablePersonaOficinaCargo(persona, oficina, cargo);
     }
+
+    @Override
+    public Responsable findByPersonaIdPersona(Long idPersona) {
+        return dao.findByPersonaIdPersona(idPersona);
+    }
     
 }

@@ -1,5 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.controller.usuario;
 
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,18 +21,21 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IRolService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.GeneradorUsuarios;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @Controller
-@RequestMapping("/usuario")
+@RequestMapping("/administracion/usuario")
 @RequiredArgsConstructor
 public class UsuarioController {
     
     private final IUsuarioService usuarioService;
     private final IPersonaService personaService;
     private final IRolService rolService;
+    private final GeneradorUsuarios generadorUsuarios;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -116,5 +121,20 @@ public class UsuarioController {
         usuarioService.save(usuario);
 
         return ResponseEntity.ok("Registro Eliminado");
+    }
+
+    @PostMapping("/generar-usuarios")
+    public void generarUsuarios(HttpServletResponse response) throws IOException {
+        List<String[]> credenciales = generadorUsuarios.generarUsuariosMasivos();
+
+        response.setContentType("text/csv");
+        response.setHeader("Content-Disposition", "attachment; filename=\"usuarios_generados.csv\"");
+
+        try (PrintWriter writer = response.getWriter()) {
+            writer.println("usuario,contrasena");
+            for (String[] credencial : credenciales) {
+                writer.printf("%s,%s\n", credencial[0], credencial[1]);
+            }
+        }
     }
 }

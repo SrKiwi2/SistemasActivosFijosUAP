@@ -1,4 +1,7 @@
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Usuario</h4>
+<!-- <form action="/administracion/usuario/generar-usuarios" method="post">
+    <button type="submit">Generar Usuarios y Descargar CSV</button>
+</form> -->
 
 <div id="tablaRegistro"></div>
 
@@ -17,21 +20,21 @@
     function cargarTabla() {
         $.ajax({
             type: 'POST',
-            url: "/usuario/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
+            url: "/administracion/usuario/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
             success: function (response) {
                 $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
             }
         });
     }
     function cargarFormulario() {
-        cargarFormularioAlert("/usuario/formulario", "#contenidoModalUsuario", "#formularioUsuario");
+        cargarFormularioAlert("/administracion/usuario/formulario", "#contenidoModalUsuario", "#formularioUsuario");
     }
 
     function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/usuario/formulario-edit", "#contenidoModalUsuario", "#formularioUsuario");
+        cargarFormularioEditAlert(id, "/administracion/usuario/formulario-edit", "#contenidoModalUsuario", "#formularioUsuario");
     }
 
     function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/usuario/eliminar",cargarTabla);
+        eliminarRegistroAlert(nombre, id, "/administracion/usuario/eliminar",cargarTabla);
     }
 </script>

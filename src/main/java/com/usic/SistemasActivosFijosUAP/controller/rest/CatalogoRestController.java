@@ -27,7 +27,10 @@ public class CatalogoRestController {
     public List<ResponsableDTO> listarResponsables() {
         return responsableService.listarResponsables()
                 .stream()
-                .map(r -> new ResponsableDTO(r.getIdResponsable(), r.getPersona().getNombre()))
+                .map(r -> new ResponsableDTO(r.getIdResponsable(), r.getPersona().getNombre() + " " +  
+                                             r.getPersona().getPaterno() + " " + 
+                                             r.getPersona().getMaterno() + " " + 
+                                             r.getOficina().getCodigo()))
                 .toList();
     }
 

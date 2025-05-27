@@ -2,6 +2,7 @@ package com.usic.SistemasActivosFijosUAP.model.service;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -30,11 +31,20 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class ActivoExcelService {
+
+    @Data
+    @AllArgsConstructor
+    private static class ErrorImportacion {
+        private int fila;
+        private String motivo;
+    }
     
     private final IOficinaService oficinaService;
     private final IPersonaService personaService;
@@ -45,14 +55,13 @@ public class ActivoExcelService {
     private final IActivoService activoService;
 
     public void cargarActivosDesdeExcel(MultipartFile file) throws IOException {
+
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
             Sheet hoja = workbook.getSheetAt(0);
 
             for (int i = 1; i <= hoja.getLastRowNum(); i++) {
                 Row fila = hoja.getRow(i);
                 if (fila == null) continue;
-
-                int total = 0, exitosos = 0, fallidos = 0;
 
                 String codigo = getText(fila.getCell(0));
                 String nombre = getText(fila.getCell(1));
@@ -71,13 +80,11 @@ public class ActivoExcelService {
                         } catch (NumberFormatException e) {
                             System.out.println("⚠ Vida útil no válida: " + vidaUtilCell.getStringCellValue());
                         }
-                    } else {
-                        System.out.println("⚠ Tipo no esperado en vida útil: " + vidaUtilCell.getCellType());
                     }
                 }
 
                 if (vidaUtil == null) {
-                    System.out.println("Fila " + fila.getRowNum() + " tiene vida útil inválida. Saltando...");
+                    System.out.println("Vida util no procesada: " + vidaUtil);
                     continue;
                 }
                 
@@ -121,8 +128,7 @@ public class ActivoExcelService {
 
                 Oficina oficina = oficinaService.buscarPorNombre(oficinaNombre);
                 if (oficina == null) {
-                    fallidos++;
-                    System.out.println("❌ Oficina no encontrada: " + oficinaNombre + " (Fila " + fila.getRowNum() + ")");
+                    System.out.println("no se encontro la oficina: " + oficina);
                     continue;
                 }
 
@@ -140,11 +146,9 @@ public class ActivoExcelService {
 
                 EstadoActivo estado = estadoActivoService.buscarPorCodigo(estadoActivoCodigo);
                 GrupoContable grupo = grupoContableService.buscarPorCodigo(grupoContableCodigo);
-                System.out.println("Codigo contable: " + grupo);
 
                 if (estado == null || grupo == null) {
-                    fallidos++;
-                    System.out.println("❌ Estado o grupo contable no encontrado. Estado: " + estadoActivoCodigo + ", Grupo: " + grupoContableCodigo);
+                    System.out.println("no se encontro el estado: " + estado + " o no se encontro el grupo contable: " + grupo);
                     continue;
                 }
 
@@ -164,10 +168,11 @@ public class ActivoExcelService {
                 activo.setRegistroIdUsuario(1L);
                 activoService.save(activo);
 
-                System.out.println("Total procesados: " + total + ", Éxitos: " + exitosos + ", Fallos: " + fallidos);
-
+                System.out.println("Registro procesador: " + i);
             }
+
         } catch (Exception e) {
+            
             e.printStackTrace();
             throw new IOException("Error al procesar archivo", e);
         }

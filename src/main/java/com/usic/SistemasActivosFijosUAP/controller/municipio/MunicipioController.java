@@ -23,7 +23,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
-@RequestMapping("/municipio")
+@RequestMapping("/administracion/municipio")
 @RequiredArgsConstructor
 public class MunicipioController {
     private final IMunicipioService municipioService;

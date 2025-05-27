@@ -29,7 +29,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
-@RequestMapping("/oficina")
+@RequestMapping("/administracion/oficina")
 @RequiredArgsConstructor
 public class OficinaController {
     

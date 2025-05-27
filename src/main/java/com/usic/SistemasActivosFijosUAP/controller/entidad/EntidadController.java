@@ -23,7 +23,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
-@RequestMapping("/entidad")
+@RequestMapping("/administracion/entidad")
 @RequiredArgsConstructor
 public class EntidadController {
     private final IEntidadService entidadService;

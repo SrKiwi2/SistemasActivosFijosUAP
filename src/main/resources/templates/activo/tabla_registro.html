@@ -1,3 +1,4 @@
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <style>
     #data-table {
         font-size: 0.85rem;
@@ -13,49 +14,63 @@
         padding: 0.25rem 0.5rem;
         font-size: 0.75rem;
     }
+
+    .select2-container .select2-selection--single {
+        height: 31px !important;
+        font-size: 0.875rem;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 31px !important;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 31px !important;
+    }
 </style>
 <div class="card">
-    <div class="card-header d-flex justify-content-lg-between">
-        <h5>Registro Activo</h5>
-        <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-            data-bs-target="#modalFormularioActivo">
-            <i class="fa-solid fa-user-plus"></i> Agregar Activo
-        </button>
-        <!-- Botón para abrir el modal de improtacion excel-->
-        <button type="button" onclick="abrirModal()">Importar Activos</button>
-
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Registro Activo</h5>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal" data-bs-target="#modalFormularioActivo">
+                <i class="fa-solid fa-user-plus"></i> Agregar Activo
+            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="abrirModal()">Importar Activos</button>
+        </div>
     </div>
-    <div class="card-datatable table-responsive pt-0">
-        <div class="row mb-3">
-            <div class="col-md-2">
-                <input type="text" id="filtro-codigo" class="form-control form-control-sm" placeholder="Código">
-            </div>
 
-            <div class="col-md-2">
-                <select id="filtro-responsable" class="form-control form-control-sm">
-                    <option value="">Responsable</option>
+    <div class="card-body pb-0">
+        <div class="row g-2 mb-3">
+            <div class="col-md-3">
+                <label for="">Codigo Activo</label>
+                <input type="text" id="filtro-codigo" class="form-control form-control-sm" placeholder="Buscar por código...">
+            </div>
+            <div class="col-md-3">
+                <label for="">Responsable</label>
+                <select id="filtro-responsable" class="form-select form-select-sm">
+                    <option value="">Seleccionar Responsable</option>
                 </select>
             </div>
-            <div class="col-md-2">
-                <select id="filtro-oficina" class="form-control form-control-sm">
-                    <option value="">Oficina</option>
+            <div class="col-md-3">
+                <label for="">Oficina</label>
+                <select id="filtro-oficina" class="form-select form-select-sm">
+                    <option value="">Seleccionar Oficina</option>
                 </select>
             </div>
-            <div class="col-md-2">
-                <input type="date" id="filtro-fecha" class="form-control form-control-sm" placeholder="Fecha adquisición">
-            </div>
-            <div class="col-md-2">
-                <button class="btn btn-sm btn-primary w-100" id="btn-aplicar-filtros">Filtrar</button>
+            <div class="col-md-3">
+                <label for="">Fecha Adquisición</label>
+                <input type="date" id="filtro-fecha" class="form-control form-control-sm">
             </div>
         </div>
-        
+    </div>
+
+    <div class="card-datatable table-responsive pt-0 px-3">
         <table class="datatables-basic table table-hover" id="data-table">
             <thead>
                 <tr>
                     <th>#</th>
                     <th>Código</th>
                     <th>Nombre</th>
-                    <th>Descripción</th>
                     <th>Responsable</th>
                     <th>Oficina</th>
                     <th>Costo</th>
@@ -63,6 +78,7 @@
                     <th>Fecha Adqusiición</th>
                     <th>Estado Activo</th>
                     <th>Grupo contable</th>
+                    <th>Descripción</th>
                     <th>OPCIONES</th>
                 </tr>
             </thead>
@@ -71,16 +87,16 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
     var tablaActivos = $('#data-table').DataTable({
         processing: true,
         serverSide: true,
         ajax: {
-            url: '/activo/datatables',
+            url: '/administracion/activo/datatables',
             type: 'POST',
             data: function (d) {
                 d.codigo = $('#filtro-codigo').val();
-                d.nombre = $('#filtro-nombre').val();
                 d.responsable = $('#filtro-responsable').val();
                 d.oficina = $('#filtro-oficina').val();
                 d.fecha = $('#filtro-fecha').val();
@@ -90,7 +106,6 @@
             { data: 'index' },
             { data: 'codigo' },
             { data: 'nombre' },
-            { data: 'descripcion' },
             { data: 'responsable' },
             { data: 'oficina' },
             { data: 'costo' },
@@ -98,27 +113,41 @@
             { data: 'fechaAdquisicion' },
             { data: 'estado' },
             { data: 'grupoContable' },
+            { data: 'descripcion' },
             { data: 'acciones', orderable: false, searchable: false }
         ],
         responsive: true
     });
 
-    // Evento para aplicar filtros
-    $('#btn-aplicar-filtros').click(function () {
+    $('#filtro-codigo').on('input', function () {
+        tablaActivos.ajax.reload();
+    });
+
+    $('#filtro-responsable, #filtro-oficina, #filtro-fecha').on('change', function () {
         tablaActivos.ajax.reload();
     });
 
     $(document).ready(function () {
+        $('#filtro-responsable, #filtro-oficina').select2({ // puedes omitir esto si no usas el tema bootstrap
+            width: '100%',
+            placeholder: 'Seleccione una opción',
+            allowClear: true
+        });
+
         $.get('/api/responsables', function (data) {
             data.forEach(function (r) {
                 $('#filtro-responsable').append(`<option value="${r.id}">${r.nombre}</option>`);
             });
+
+            $('#filtro-responsable').trigger('change');
+
         });
 
         $.get('/api/oficinas', function (data) {
             data.forEach(function (o) {
                 $('#filtro-oficina').append(`<option value="${o.id}">${o.nombre}</option>`);
             });
+            $('#filtro-oficina').trigger('change');
         });
     });
 

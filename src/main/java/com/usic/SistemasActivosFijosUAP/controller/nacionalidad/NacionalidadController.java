@@ -23,7 +23,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
-@RequestMapping("/nacionalidad")
+@RequestMapping("/administracion/nacionalidad")
 @RequiredArgsConstructor
 public class NacionalidadController {
     

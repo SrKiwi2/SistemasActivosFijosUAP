@@ -23,7 +23,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
-@RequestMapping("/rol")
+@RequestMapping("/administracion/rol")
 @RequiredArgsConstructor
 public class RolController {
     

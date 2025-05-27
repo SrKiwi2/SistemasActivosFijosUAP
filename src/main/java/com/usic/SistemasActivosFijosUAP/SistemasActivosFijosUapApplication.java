@@ -6,6 +6,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IRolService;
@@ -24,7 +25,7 @@ public class SistemasActivosFijosUapApplication {
 	}
 
 	@Bean
-    ApplicationRunner init(IUsuarioService usuarioService, IPersonaService personaService, IRolService rolService) {
+    ApplicationRunner init(IUsuarioService usuarioService, IPersonaService personaService, IRolService rolService, PasswordEncoder passwordEncoder) {
         return args -> {
             logger.info("SISTEMA DE ACTIVOS FIJOS INICIADO...");
             String[] roles = { "SUPER USUARIO", "ADMINISTRADOR" };
@@ -61,7 +62,7 @@ public class SistemasActivosFijosUapApplication {
                 if (usuario == null) {
                     usuario = new Usuario();
                     usuario.setUsuario(usuarios[i]);
-                    usuario.setPassword(password[i]);
+                    usuario.setPassword(passwordEncoder.encode(password[i]));
                     usuario.setPersona(persona);
                     usuario.setRol(rolObjects[i % roles.length]);
 					usuario.setEstado("ACTIVO");

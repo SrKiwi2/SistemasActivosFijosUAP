@@ -27,6 +27,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.ActivoExcelService;
 
@@ -34,7 +35,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
-@RequestMapping("/activo")
+@RequestMapping("/administracion/activo")
 @RequiredArgsConstructor
 public class ActivosController {
     private final IActivoService activoService;
@@ -146,8 +147,11 @@ public class ActivosController {
             ActivoDTO dto = new ActivoDTO();
             dto.setIndex("");
             dto.setCodigo(activo.getCodigo());
+            dto.setNombre(activo.getNombre());
             dto.setDescripcion(activo.getDescripcion());
-            dto.setResponsable(activo.getResponsable().getPersona().getNombre() + " " + activo.getResponsable().getPersona().getPaterno() + " " + activo.getResponsable().getPersona().getMaterno());
+            dto.setResponsable(activo.getResponsable().getPersona().getNombre() + " " 
+                                + activo.getResponsable().getPersona().getPaterno() + " " 
+                                + activo.getResponsable().getPersona().getMaterno());
             dto.setOficina(activo.getOficina().getNombre());
             dto.setCosto(activo.getCosto());
             dto.setVidaUtil(activo.getVida_util());
@@ -169,5 +173,14 @@ public class ActivosController {
         
 
         return new DataTablesResponse<>(pagina.getTotalElements(), pagina.getTotalElements(), activosDTO);
+    }
+
+    @GetMapping("/mis-activos")
+    public String verMisActivos(HttpServletRequest request, Model model) {
+        Persona persona = (Persona) request.getSession().getAttribute("persona");
+
+        List<Activo> activos = activoService.obtenerActivosDelResponsable(persona);
+        model.addAttribute("activos", activos);
+        return "activo/mis_activos"; // crea esta vista con Thymeleaf
     }
 }

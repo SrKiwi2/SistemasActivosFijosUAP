@@ -17,7 +17,7 @@
     function cargarTabla() {
         $.ajax({
             type: 'POST',
-            url: "/rol/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
+            url: "/administracion/rol/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
             success: function (response) {
                 $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
             }
@@ -25,15 +25,15 @@
     }
 
     function cargarFormulario() {
-        cargarFormularioAlert("/rol/formulario", "#contenidoModalRol", "#formularioRol");
+        cargarFormularioAlert("/administracion/rol/formulario", "#contenidoModalRol", "#formularioRol");
     }
 
     function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/rol/formulario-edit", "#contenidoModalRol", "#formularioRol");
+        cargarFormularioEditAlert(id, "/administracion/rol/formulario-edit", "#contenidoModalRol", "#formularioRol");
     }
 
     function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/rol/eliminar",cargarTabla);
+        eliminarRegistroAlert(nombre, id, "/administracion/rol/eliminar",cargarTabla);
     }
 
 </script>

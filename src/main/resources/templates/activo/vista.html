@@ -1,3 +1,15 @@
+
+<style>
+    #preloader {
+        position: fixed;
+        z-index: 9999;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(255,255,255,0.8);
+        align-items: center;
+        justify-content: center;
+    }
+    </style>
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Oficina</h4>
 
 <div id="tablaRegistro"></div>
@@ -12,18 +24,42 @@
     <strong>¡Error!</strong> <span id="mensajeTexto"></span>
 </div>
 
+<div id="modalImportar" style="display: none;">
+    <div class="modal-overlay" style="
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1050;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    ">
+        <div class="bg-white p-4 rounded shadow" style="width: 100%; max-width: 400px; position: relative;">
+            <h5 class="mb-3 text-center">📁 Importar archivo Excel</h5>
+            <form id="formImportarActivos" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="archivoExcel" class="form-label">Seleccionar archivo</label>
+                    <input type="file" id="archivoExcel" name="archivo" class="form-control" accept=".xlsx,.xls" required>
+                </div>
 
-<!-- Modal oculto -->
-<div id="modalImportar" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
-     background-color: rgba(0,0,0,0.5); z-index:1000; justify-content: center; align-items: center;">
-    <div style="background:white; padding:20px; border-radius:8px; min-width:300px; position:relative;">
-        <h3>Subir archivo Excel</h3>
-        <form id="formImportarActivos" enctype="multipart/form-data">
-            <input type="file" name="archivo" accept=".xlsx,.xls" required>
-            <br><br>
-            <button type="button" onclick="importarOficinas()">Importar</button> <!-- 👈 Llama a la función JS -->
-            <button type="button" onclick="cerrarModal()">Cancelar</button>
-        </form>        
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-primary" onclick="importarOficinas()">
+                        <i class="fa-solid fa-file-import"></i> Importar
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="cerrarModal()">
+                        <i class="fa-solid fa-times"></i> Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="preloader" class="d-none">
+    <div>
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-center">Importando registros, por favor espere...</p>
     </div>
 </div>
 
@@ -37,32 +73,33 @@
     function cargarTabla() {
         $.ajax({
             type: 'POST',
-            url: "/activo/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
+            url: "/administracion/activo/tabla-registros",
             success: function (response) {
-                $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
+                $("#tablaRegistro").html(response);
             }
         });
     }
 
     function cargarFormulario() {
-        cargarFormularioAlert("/activo/formulario", "#prediocontenidoModalActivo", "#formularioActivo");
+        cargarFormularioAlert("/administracion/activo/formulario", "#prediocontenidoModalActivo", "#formularioActivo");
     }
 
     function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/activo/formulario-edit", "#prediocontenidoModalActivo", "#formularioActivo");
+        cargarFormularioEditAlert(id, "/administracion/activo/formulario-edit", "#prediocontenidoModalActivo", "#formularioActivo");
     }
 
     function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/activo/eliminar",cargarTabla);
+        eliminarRegistroAlert(nombre, id, "/administracion/activo/eliminar",cargarTabla);
     }
 
     function abrirModal() {
-        document.getElementById('modalImportar').style.display = 'flex';
+        document.getElementById('modalImportar').style.display = 'block';
     }
 
     function cerrarModal() {
         document.getElementById('modalImportar').style.display = 'none';
     }
+
 
     function mostrarMensaje(mensaje) {
         var div = document.getElementById('mensaje');
@@ -72,19 +109,54 @@
     }
 
     function importarOficinas() {
+        const inputArchivo = document.getElementById('archivoExcel');
+        const archivo = inputArchivo.files[0];
+
+        if (!archivo) {
+            mostrarMensaje("⚠️ Por favor, seleccione un archivo antes de importar.");
+            return;
+        }
+
         var form = document.getElementById('formImportarActivos');
         var data = new FormData(form);
 
-        fetch('/activo/importar', {
+        document.getElementById('preloader').classList.remove('d-none');
+        document.getElementById('preloader').classList.add('d-flex');
+        // ⏳ Mostrar preloader
+        
+        fetch('/administracion/activo/importar', {
             method: 'POST',
             body: data
         }).then(response => response.json())
         .then(data => {
-            mostrarMensaje(data.message);
-            cerrarModal();  // Cierra el modal después de importar
-            cargarTabla();  // Recarga la tabla con los nuevos registros
+            document.getElementById('preloader').classList.remove('d-flex');
+            document.getElementById('preloader').classList.add('d-none'); // ✅ Ocultar preloader
+            cerrarModal();
+            cargarTabla();
+
+            if (data.errores && data.errores.length > 0) {
+                let mensaje = `✔️ ${data.exitosos} registros importados correctamente.<br>❌ Errores encontrados:<ul>`;
+                data.errores.forEach(e => {
+                    mensaje += `<li>Fila ${e.fila}: ${e.motivo}</li>`;
+                });
+                mensaje += "</ul>";
+                mostrarMensajeHTML(mensaje);
+            } else {
+                mostrarMensaje("✅ " + data.mensaje);
+            }
         }).catch(error => {
-            mostrarMensaje('Error al importar el archivo: ' + error.message);
+            document.getElementById('preloader').classList.remove('d-flex');
+            document.getElementById('preloader').classList.add('d-none');
+
+            mostrarMensaje('❌ Error al importar el archivo: ' + error.message);
         });
     }
+
+    function mostrarMensajeHTML(mensajeHTML) {
+        const div = document.getElementById('mensaje');
+        const texto = document.getElementById('mensajeTexto');
+        texto.innerHTML = mensajeHTML;
+        div.style.display = 'block';
+    }
+
 </script>

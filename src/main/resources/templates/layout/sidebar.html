@@ -26,11 +26,11 @@
     </div>
 
     <ul class="menu-inner py-1">
-        <!-- INICIO -->
-        <li class="menu-header small text-uppercase">
+        <!-- VISTA ADMINISTRADOR Y SUPER USUARIO -->
+        <li class="menu-header small text-uppercase" th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
             <span class="menu-header-text">INICIO</span>
         </li>
-        <li class="menu-item" id="opcion_admin">
+        <li class="menu-item" id="opcion_admin" th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
             <a href="#" class="menu-link menu-toggle">
                 <i class="menu-icon tf-icons ti ti-users"></i>
                 <div>Administrar Usuarios</div>
@@ -54,28 +54,36 @@
             </ul>
         </li>
         <!-- COMPLEMENTOS -->
-        <li class="menu-header small text-uppercase">
+        <li class="menu-header small text-uppercase" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
             <span class="menu-header-text">COMPLEMENTOS</span>
         </li>
-        <li class="menu-item">
+        <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
             <a href="#" class="menu-link menu-toggle">
                 <i class="menu-icon tf-icons ti ti-users"></i>
                 <div>Administrar Complementos</div>
             </a>
             <ul class="menu-sub">
-                <li class="menu-item" id="opcion_nacionalidad">
+                <li class="menu-item" id="opcion_contable">
                     <a class="menu-link">
-                        <div>Nacionalidad</div>
+                        <div>Grupo Contable</div>
                     </a>
                 </li>
-                <li class="menu-item" id="opcion_genero">
+                <li class="menu-item" id="opcion_responsable">
                     <a class="menu-link">
-                        <div>Genero</div>
+                        <div>Responsables</div>
+                    </a>
+                </li>
+                <li class="menu-item" id="opcion_estadoA">
+                    <a class="menu-link">
+                        <div>Estado dle Activo</div>
                     </a>
                 </li>
             </ul>
         </li>
-        <li class="menu-item">
+        <li class="menu-header small text-uppercase" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+            <span class="menu-header-text">Gestion Activos</span>
+        </li>
+        <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
             <a href="#" class="menu-link menu-toggle">
                 <i class="menu-icon tf-icons ti ti-users"></i>
                 <div>Administración activos</div>
@@ -88,7 +96,7 @@
                 </li>
             </ul>
         </li>
-        <li class="menu-item">
+        <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
             <a href="#" class="menu-link menu-toggle">
                 <i class="menu-icon tf-icons ti ti-users"></i>
                 <div>Ambito Geografico</div>
@@ -112,6 +120,38 @@
                 <li class="menu-item" id="opcion_oficina">
                     <a class="menu-link">
                         <div>Oficinas </div>
+                    </a>
+                </li>
+            </ul>
+        </li>
+        <li class="menu-header small text-uppercase" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO' or session.nombre_rol == 'RESPONSABLE'}">
+            <span class="menu-header-text">Gestion Responsable</span>
+        </li>
+        <!-- OPCIONES RESPONSABLES -->
+        <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO' or session.nombre_rol == 'RESPONSABLE'}">
+            <a href="#" class="menu-link menu-toggle">
+                <i class="menu-icon tf-icons ti ti-users"></i>
+                <div>Gestion de activos</div>
+            </a>
+            <ul class="menu-sub">
+                <li class="menu-item" id="opcion_activo">
+                    <a class="menu-link">
+                        <div>Solicitud</div>
+                    </a>
+                </li>
+                <li class="menu-item" id="opcion_activo">
+                    <a class="menu-link">
+                        <div>Baja</div>
+                    </a>
+                </li>
+                <li class="menu-item" id="opcion_activo">
+                    <a class="menu-link">
+                        <div>Mantenimiento</div>
+                    </a>
+                </li>
+                <li class="menu-item" id="opcion_activo">
+                    <a class="menu-link">   
+                        <div>Devolucion</div>
                     </a>
                 </li>
             </ul>

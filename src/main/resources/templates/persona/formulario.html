@@ -3,7 +3,7 @@
     <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
 </div>
 <form id="formularioPersona" method="post"
-    th:action="${edit}? @{/persona/modificar-persona} : @{/persona/registrar-persona}" novalidate>
+    th:action="${edit}? @{/administracion/persona/modificar-persona} : @{/administracion/persona/registrar-persona}" novalidate>
     <input type="hidden" th:if="${edit != null}" th:field="${persona.idPersona}">
     <div class="modal-body">
         <div class="row">

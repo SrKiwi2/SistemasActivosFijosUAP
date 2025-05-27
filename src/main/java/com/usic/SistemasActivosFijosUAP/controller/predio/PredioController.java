@@ -23,7 +23,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
-@RequestMapping("/predio")
+@RequestMapping("/administracion/predio")
 @RequiredArgsConstructor
 public class PredioController {
     private final IPredioServicio predioServicio;

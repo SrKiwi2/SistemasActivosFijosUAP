@@ -12,8 +12,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
+import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
 import jakarta.persistence.criteria.Predicate;
 
@@ -21,6 +24,7 @@ import jakarta.persistence.criteria.Predicate;
 public class ActivoServiceImpl implements IActivoService{
 
     @Autowired private IActivoDao dao;
+    @Autowired private IResponsableService responsableService;
 
     @Override
     public List<Activo> findAll() {
@@ -99,4 +103,11 @@ public class ActivoServiceImpl implements IActivoService{
 
         return dao.findAll(spec, pageable);
     }
+
+    @Override
+    public List<Activo> obtenerActivosDelResponsable(Persona persona) {
+        Responsable responsable = responsableService.findByPersonaIdPersona(persona.getIdPersona());
+        return dao.findByResponsableIdResponsable(responsable.getIdResponsable());
+    }
+
 }

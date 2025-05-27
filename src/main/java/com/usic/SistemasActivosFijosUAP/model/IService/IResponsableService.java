@@ -14,4 +14,5 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     Responsable buscarPorCodigo(String codigo_funcionario);
     List<Responsable> listarResponsables();
     Responsable responsablePersonaOficinaCargo(Persona persona, Oficina oficina, Cargo cargo);
+    Responsable findByPersonaIdPersona(Long idPersona);
 }
