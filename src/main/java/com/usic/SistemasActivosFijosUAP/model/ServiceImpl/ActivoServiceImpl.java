@@ -106,8 +106,12 @@ public class ActivoServiceImpl implements IActivoService{
 
     @Override
     public List<Activo> obtenerActivosDelResponsable(Persona persona) {
-        Responsable responsable = responsableService.findByPersonaIdPersona(persona.getIdPersona());
-        return dao.findByResponsableIdResponsable(responsable.getIdResponsable());
+        List<Responsable> responsables = responsableService.findAllByPersonaIdPersona(persona.getIdPersona());
+        List<Activo> activos = new ArrayList<>();
+        for (Responsable responsable : responsables) {
+            activos.addAll(dao.findByResponsableIdResponsable(responsable.getIdResponsable()));
+        }
+        return activos;
     }
 
 }

@@ -17,31 +17,15 @@
             <div class="layout-page">
                 <nav th:replace="~{layout/topbar :: topbar}"></nav>
                 <div class="content-wrapper">
-                    <div class="container-xxl flex-grow-1 container-p-y" id="contenido">
-                        <div id="contenido-mis-activos"></div>
-                    </div>
+                    <div class="container-xxl flex-grow-1 container-p-y" id="contenido"></div>
+                    <!-- <div id="contenido-mis-activos" th:if="${session.nombre_rol == 'RESPONSABLE'}"></div> -->
                     <footer th:replace="~{layout/footer :: footer}"></footer>
                 </div>
             </div>
         </div>
     </div>
     <div th:replace="~{layout/script :: script}"></div>
-    <script>
-        $(document).ready(function () {
-            cargarTabla();
-
-        });
-        function cargarTabla() {
-            
-            $.ajax({
-            type: 'POST',
-            url: "/administracion/activo/mis-activos",
-            success: function (response) {
-                $("#contenido-mis-activos").html(response);
-            }
-            });
-        }
-    </script>
+    
 </body>
 
 </html>

@@ -2,6 +2,7 @@ package com.usic.SistemasActivosFijosUAP.model.IService;
 
 import java.util.List;
 
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
@@ -14,5 +15,5 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     Responsable buscarPorCodigo(String codigo_funcionario);
     List<Responsable> listarResponsables();
     Responsable responsablePersonaOficinaCargo(Persona persona, Oficina oficina, Cargo cargo);
-    Responsable findByPersonaIdPersona(Long idPersona);
+    List<Responsable> findAllByPersonaIdPersona(@Param("idPersona") Long idPersona);
 }

@@ -18,6 +18,43 @@
     .logo-hover:hover {
         transform: scale(1.08);
     }
+
+    table th, table td {
+        padding: 0.5rem !important;
+    }
+
+    table thead {
+        background: linear-gradient(to right, #1e3a8a11, #b91c1c11);
+    }
+
+    table th {
+        font-weight: 600;
+        color: #1e3a8a;
+    }
+
+    .table td, .table th {
+        border-color: #dee2e6 !important;
+    }
+
+    .text-truncate {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Tooltip personalizado */
+    .table td[data-bs-toggle="tooltip"] {
+        cursor: help;
+        position: relative;
+    }
+
+    .tooltip-inner {
+        max-width: 300px;
+        text-align: left;
+        white-space: pre-wrap;
+        font-size: 0.85rem;
+    }
+
 </style>
 
 <div class="card animated-card position-relative p-0 mb-4 overflow-hidden"
@@ -46,3 +83,63 @@
         </p>
     </div>
 </div>
+
+<div class="card shadow-sm p-4" th:if="${session.nombre_rol == 'RESPONSABLE'}">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="text-primary fw-bold mb-0">Activos asignados</h5>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#tablaActivosResponsable" aria-expanded="false">
+            Mostrar / Ocultar
+        </button>
+    </div>
+
+    <div id="tablaActivosResponsable" class="collapse show">
+        <div class="table-responsive">
+            <table id="tablaActivos" class="table table-sm align-middle table-bordered table-hover" style="font-size: 0.875rem;">
+                <thead class="table-primary text-center" style="font-size: 0.85rem;">
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Descripción</th>
+                        <th>Oficina</th>
+                        <th>Grupo Contable</th>
+                        <th>Estado</th>
+                        <th>Adquisición</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="activo : ${activos}">
+                        <td th:text="${activo.codigo}" class="text-truncate" style="max-width: 140px;"></td>
+                        <td th:text="${activo.nombre}" th:attr="data-bs-toggle='tooltip', title=${activo.nombre}" class="text-truncate" style="max-width: 140px;"></td>
+                        <td th:text="${activo.descripcion}" th:attr="data-bs-toggle='tooltip', title=${activo.descripcion}" class="text-truncate" style="max-width: 200px;"></td>
+                        <td th:text="${activo.oficina.nombre}" th:attr="data-bs-toggle='tooltip', title=${activo.oficina.nombre}" class="text-truncate" style="max-width: 120px;"></td>
+                        <td th:text="${activo.grupoContable.nombre}" th:attr="data-bs-toggle='tooltip', title=${activo.grupoContable.nombre}" class="text-truncate" style="max-width: 140px;"></td>
+                        <td th:text="${activo.estadoActivo.nombre}" class="text-center text-truncate" style="max-width: 100px;"></td>
+                        <td th:text="${#temporals.format(activo.fecha_adquisición, 'dd/MM/yyyy')}" class="text-center"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<script>
+    $(function () {
+        $('[data-bs-toggle="tooltip"]').tooltip();
+    });
+
+    $(document).ready(function () {
+        $('#tablaActivos').DataTable({
+            pageLength: 10,
+            lengthChange: false,
+            language: {
+                search: "Buscar:",
+                paginate: {
+                    next: "Siguiente",
+                    previous: "Anterior"
+                },
+                info: "Mostrando _START_ a _END_ de _TOTAL_ activos",
+                zeroRecords: "No se encontraron activos",
+                infoEmpty: "Sin activos asignados",
+            }
+        });
+    });
+</script>

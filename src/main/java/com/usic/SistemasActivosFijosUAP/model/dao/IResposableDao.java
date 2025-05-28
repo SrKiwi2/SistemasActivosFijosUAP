@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
@@ -21,5 +22,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
     @Query("SELECT r FROM Responsable r WHERE r.persona = ?1 AND r.oficina =?2 AND r.cargo = ?3 AND r.estado = 'ACTIVO'")
     Responsable responsablePersonaOficinaCargo(Persona persona, Oficina oficina, Cargo cargo);
 
-    Responsable findByPersonaIdPersona(Long idPersona);
+    @Query("SELECT r FROM Responsable r WHERE r.persona.idPersona = :idPersona")
+    List<Responsable> findAllByPersonaIdPersona(@Param("idPersona") Long idPersona);
+
 }

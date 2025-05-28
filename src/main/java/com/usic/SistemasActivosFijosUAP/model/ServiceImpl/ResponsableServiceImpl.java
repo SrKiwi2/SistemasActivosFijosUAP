@@ -53,8 +53,9 @@ public class ResponsableServiceImpl implements IResponsableService{
     }
 
     @Override
-    public Responsable findByPersonaIdPersona(Long idPersona) {
-        return dao.findByPersonaIdPersona(idPersona);
+    public List<Responsable> findAllByPersonaIdPersona(Long idPersona) {
+        return dao.findAllByPersonaIdPersona(idPersona);
     }
+
     
 }
