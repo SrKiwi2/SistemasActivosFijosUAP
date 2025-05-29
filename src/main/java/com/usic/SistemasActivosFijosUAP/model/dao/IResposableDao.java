@@ -25,4 +25,6 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
     @Query("SELECT r FROM Responsable r WHERE r.persona.idPersona = :idPersona")
     List<Responsable> findAllByPersonaIdPersona(@Param("idPersona") Long idPersona);
 
+    List<Responsable> findAllByPersona(Persona persona);
+
 }

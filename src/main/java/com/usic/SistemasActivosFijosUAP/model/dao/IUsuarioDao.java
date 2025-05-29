@@ -16,4 +16,6 @@ public interface IUsuarioDao extends JpaRepository <Usuario, Long>{
 
     @Query("SELECT u FROM Usuario u WHERE u.estado = 'ACTIVO'")
     List<Usuario> listarUsuarios();
+
+    boolean existsByUsuario(String usuario);
 }

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            background-image: url('../../asstes/img/fondo/0.jpg'); /* Fondo de hoja */
+            background-repeat: no-repeat;
+            background-size: cover;
+            font-family: 'Times New Roman', serif;
+            padding: 50px;
+        }
+
+        .encabezado {
+            text-align: center;
+            font-weight: bold;
+            font-size: 14pt;
+            margin-bottom: 20px;
+        }
+
+        .derecha {
+            text-align: right;
+            margin-bottom: 10px;
+        }
+
+        table {
+            width: 100%;
+            border: 1px solid black;
+            border-collapse: collapse;
+            font-size: 11pt;
+        }
+
+        td {
+            border: 1px solid black;
+            padding: 8px;
+        }
+
+        .leyenda {
+            margin-top: 20px;
+            font-size: 10pt;
+            text-align: justify;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="encabezado">
+        <div>UNIVERSIDAD AMAZÓNICA DE PANDO</div>
+        <div>SECCIÓN DE ACTIVOS FIJOS</div>
+        <br>
+        <div>DATOS DEL RESPONSABLE <br> PARA ASIGNACIÓN DE BIENES NUEVOS 2024</div>
+    </div>
+
+    <div class="derecha">
+        Nº H/R: <span th:text="${numeroHojaRuta}">...</span>
+    </div>
+
+    <table>
+        <tr>
+            <td><strong>DIRECCIÓN, UNIDAD Y/O SECCIÓN:</strong></td>
+            <td th:text="${direccion}">...</td>
+        </tr>
+        <tr>
+            <td><strong>NOMBRE COMPLETO DEL RESPONSABLE:</strong></td>
+            <td th:text="${nombreResponsable}">...</td>
+        </tr>
+        <tr>
+            <td><strong>CARGO:</strong></td>
+            <td th:text="${cargo}">...</td>
+        </tr>
+        <tr>
+            <td><strong>C.I.:</strong></td>
+            <td th:text="${ci}">...</td>
+            <td th:text="${expedido}">...</td>
+        </tr>
+        <tr>
+            <td><strong>UBICACIÓN DEL ACTIVO:</strong></td>
+            <td colspan="2" th:text="${ubicacionActivo}">...</td>
+        </tr>
+        <tr>
+            <td><strong>DESCRIPCIÓN DEL ACTIVO:</strong></td>
+            <td colspan="2" th:text="${descripcionActivo}">...</td>
+        </tr>
+    </table>
+
+    <div class="leyenda">
+        De acuerdo al D.S. 0181 Art. 146 (Asignación de Activos Fijos Muebles) I. La asignación de activos fijos muebles es el acto administrativo mediante el cual se entrega a un servidor público un activo o conjunto de estos, generando la consiguiente responsabilidad sobre su debido uso y custodia.
+    </div>
+
+</body>
+</html>

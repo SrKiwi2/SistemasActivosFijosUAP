@@ -49,5 +49,10 @@ public class UsuarioServiceImpl implements IUsuarioService{
     public List<Usuario> listarUsuarios() {
         return usuarioDao.listarUsuarios();
     }
+
+    @Override
+    public boolean existsByUsuario(String usuario) {
+        return usuarioDao.existsByUsuario(usuario);
+    }
     
 }

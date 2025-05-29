@@ -37,7 +37,7 @@ public class SeguridadConfig {
                 .anyRequest().authenticated()
             )
             .formLogin(login -> login
-                .loginPage("/adm/inicio")  // Aquí rediriges correctamente
+                .loginPage("/")  // Aquí rediriges correctamente
                 .permitAll()
             )
             .logout(logout -> logout

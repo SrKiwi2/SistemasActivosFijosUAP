@@ -24,8 +24,132 @@
             </div>
         </div>
     </div>
+    <!-- Modal -->
+    <div class="modal fade" id="modalPerfil" tabindex="-1" aria-labelledby="modalPerfilLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalPerfilLabel" style="color: aliceblue;">
+                        <i class="ti ti-user-circle me-2" style="color: aliceblue;"></i>Perfil del Responsable
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row align-items-center mb-4">
+                        <div class="col-auto">
+                            <img src="../../assets/img/avatars/1.png" alt="Avatar" class="rounded-circle" width="80"
+                                height="80">
+                        </div>
+                        <div class="col">
+                            <h5 class="mb-0" th:text="${session.persona.getNombreCompleto()}">Nombre Apellido</h5>
+                            <p class="text-muted mb-1" th:text="${session.persona.correo}">correo@ejemplo.com</p>
+                            <span class="badge bg-info text-dark"
+                                th:text="${session.persona.usuario.rol.nombre}">Rol</span>
+                        </div>
+                    </div>
+
+                    <div class="border-top pt-3">
+                        <h6 class="text-secondary"><i class="ti ti-building me-1"></i>Responsabilidades</h6>
+                        <div th:if="${session.responsable != null}">
+                            <div class="list-group">
+                                <div class="list-group-item list-group-item-action mb-2 border rounded"
+                                    th:each="resp : ${session.responsable}">
+                                    <p class="mb-1"><strong>Oficina:</strong> <span
+                                            th:text="${resp.oficina.nombre}"></span></p>
+                                    <p class="mb-1"><strong>Cargo:</strong> <span th:text="${resp.cargo.nombre}"></span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div th:if="${session.responsable == null}">
+                            <div class="alert alert-warning mt-3" role="alert">
+                                No tiene ninguna oficina asignada como responsable.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="ti ti-x me-1"></i> Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalConfirmLogout" tabindex="-1" aria-labelledby="modalConfirmLogoutLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="modalConfirmLogoutLabel" style="color: aliceblue;">
+                        <i class="ti ti-alert-triangle me-2" style="color: aliceblue;"></i>Confirmar cierre de sesión
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body text-center">
+                    <p class="mb-3">¿Estás seguro de que deseas cerrar sesión?</p>
+                    <i class="ti ti-logout" style="font-size: 3rem; color: #dc3545;"></i>
+                </div>
+
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="ti ti-x me-1"></i> Cancelar
+                    </button>
+                    <a href="/cerrar_sesion" class="btn btn-danger">
+                        <i class="ti ti-logout me-1"></i> Sí, cerrar sesión
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="formularioModalAsignacionActivo" tabindex="-1" aria-labelledby="formularioModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <form id="formResponsable" method="post" th:action="@{/asignar-activo-nuevo}">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Asignar activo</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-2">
+                            <label>DIRECCIÓN, UNIDAD Y/O SECCIÓN</label>
+                            <input type="text" class="form-control" name="unidad" required>
+                        </div>
+                        <div class="mb-2">
+                            <label>CÓDIGO FUNCIONARIO</label>
+                            <input type="text" class="form-control" name="codigoFuncionario" required>
+                        </div>
+                        <div class="mb-2">
+                            <label>C.I.</label>
+                            <input type="text" class="form-control" name="ci" required>
+                        </div>
+                        <div class="mb-2">
+                            <label>UBICACIÓN DEL ACTIVO</label>
+                            <input type="text" class="form-control" name="ubicacionActivo" required>
+                        </div>
+                        <div class="mb-2">
+                            <label>DESCRIPCIÓN DEL ACTIVO</label>
+                            <input type="text" class="form-control" name="descripcionActivo" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-success">Guardar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div th:replace="~{layout/script :: script}"></div>
-    
+
 </body>
 
 </html>

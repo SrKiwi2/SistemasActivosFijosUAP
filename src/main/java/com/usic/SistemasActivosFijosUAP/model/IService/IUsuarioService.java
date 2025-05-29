@@ -14,4 +14,6 @@ public interface IUsuarioService extends IServiceGenerico <Usuario, Long>{
     Usuario buscarUsuarioPorNombre(String usuario);
 
     List<Usuario> listarUsuarios();
+
+    boolean existsByUsuario(String usuario);
 }

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
@@ -29,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class IndexController {
     private final IActivoService activoService;
+    private final IResponsableService responsableService;
     private static final Logger logger = LoggerFactory.getLogger(IndexController.class);
 
     @ValidarUsuarioAutenticado
@@ -36,6 +38,12 @@ public class IndexController {
     public String VistaAdministrador(HttpServletRequest request) {
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         logger.info("Usuario en sesión: {}", usuario.getPersona().getNombre());
+
+        Persona persona = usuario.getPersona();
+        List<Responsable> responsables = responsableService.findAllByPersona(persona); // <- asegúrate de tener este método
+
+        request.getSession().setAttribute("persona", persona);
+        request.getSession().setAttribute("responsable", responsables); // <- guardar en sesión
         return "inicio-admin";
     }
 
