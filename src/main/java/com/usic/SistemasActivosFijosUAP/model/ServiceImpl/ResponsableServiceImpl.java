@@ -62,4 +62,9 @@ public class ResponsableServiceImpl implements IResponsableService{
         return dao.findAllByPersona(persona);
     }
 
+    @Override
+    public Responsable buscarResponsablePorPersona(Persona persona) {
+        return dao.buscarResponsablePorPersona(persona);
+    }
+
 }

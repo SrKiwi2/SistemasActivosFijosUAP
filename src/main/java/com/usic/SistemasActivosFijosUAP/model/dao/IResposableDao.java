@@ -27,4 +27,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
 
     List<Responsable> findAllByPersona(Persona persona);
 
+    @Query("SELECT r FROM Responsable r WHERE r.persona = ?1 AND r.estado = 'ACTIVO'")
+    Responsable buscarResponsablePorPersona(Persona persona);
+
 }

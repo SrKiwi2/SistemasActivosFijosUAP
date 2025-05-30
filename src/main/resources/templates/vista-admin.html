@@ -55,6 +55,68 @@
         font-size: 0.85rem;
     }
 
+    .btn-section {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .btn-lg-custom {
+        font-size: 1.1rem;
+        font-weight: 600;
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        color: #fff;
+        border: none;
+        transition: all 0.3s ease;
+        min-width: 260px;
+        text-align: center;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-lg-custom i {
+        margin-right: 10px;
+        font-size: 1.3rem;
+    }
+
+    .btn-asignar {
+        background-color: #1e3a8a;
+    }
+
+    .btn-asignar:hover {
+        background-color: #162f6a;
+        transform: scale(1.03);
+    }
+
+    .btn-reporte {
+        background-color: #b91c1c;
+    }
+
+    .btn-reporte:hover {
+        background-color: #991b1b;
+        transform: scale(1.03);
+    }
+
+    .btn-importar {
+        background-color: #15803d;
+    }
+
+    .btn-importar:hover {
+        background-color: #166534;
+        transform: scale(1.03);
+    }
+
+    .btn-visualizar {
+        background-color: #0e7490;
+    }
+
+    .btn-visualizar:hover {
+        background-color: #155e75;
+        transform: scale(1.03);
+    }
+
 </style>
 
 <div class="card animated-card position-relative p-0 mb-4 overflow-hidden"
@@ -84,13 +146,28 @@
     </div>
 </div>
 
-<div>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#formularioModalAsignacionActivo">
-        Registrar Asignación de Activo nuevo
+<!-- Sección de botones -->
+<div class="btn-section">
+    <!-- Botón 1 -->
+    <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal" data-bs-target="#formularioModalAsignacionActivo">
+        <i class="bi bi-plus-circle-fill"></i> Registrar Asignación
     </button>
-</div><br>
 
+    <!-- Botón 2 -->
+    <button class="btn btn-lg-custom btn-reporte" data-bs-toggle="modal" data-bs-target="#modalReporteActivo">
+        <i class="bi bi-file-earmark-bar-graph-fill"></i> Transferencia de Activos
+    </button>
 
+    <!-- Botón 3 -->
+    <button class="btn btn-lg-custom btn-importar" data-bs-toggle="modal" data-bs-target="#modalImportarExcel">
+        <i class="bi bi-file-earmark-arrow-up-fill"></i> Ingreso de Bienes Ajenos
+    </button>
+
+    <!-- Botón 4 -->
+    <button class="btn btn-lg-custom btn-visualizar" data-bs-toggle="modal" data-bs-target="#modalVisualizarActivos">
+        <i class="bi bi-eye-fill"></i> Baja de Activos
+    </button>
+</div>
 
 <div class="card shadow-sm p-4" th:if="${session.nombre_rol == 'RESPONSABLE'}">
     <div class="d-flex justify-content-between align-items-center mb-2">

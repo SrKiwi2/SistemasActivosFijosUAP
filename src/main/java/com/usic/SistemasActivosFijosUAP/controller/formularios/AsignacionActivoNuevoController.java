@@ -1,5 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.controller.formularios;
 
+import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpEntity;
@@ -20,9 +22,11 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Genero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.service.PdfGeneratorService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,12 +40,14 @@ public class AsignacionActivoNuevoController {
     private final IOficinaService oficinaService;
     private final ICargoService cargoService;
     private final IResponsableService responsableService;
+    private final PdfGeneratorService pdfGeneratorService;
 
     @PostMapping("/asignar-activo-nuevo")
-    public String registrarResponsable(
+    public ResponseEntity<byte[]> registrarResponsable(
             @RequestParam String unidad,
             @RequestParam String codigoFuncionario,
             @RequestParam String ci,
+            @RequestParam String hr,
             @RequestParam String ubicacionActivo,
             @RequestParam String descripcionActivo,
             RedirectAttributes redirectAttributes) {
@@ -68,52 +74,158 @@ public class AsignacionActivoNuevoController {
 
                 // Validar si ya existe la persona por CI
                 String ciPersona = (String) data.get("per_num_doc");
-                Persona persona = personaService.findByCi(ciPersona).orElseGet(() -> {
-                    Persona nueva = new Persona();
-                    nueva.setNombre((String) data.get("per_nombres"));
-                    nueva.setPaterno((String) data.get("per_ap_paterno"));
-                    nueva.setMaterno((String) data.get("per_ap_materno"));
-                    nueva.setCi(ciPersona);
-                    nueva.setCorreo((String) data.get("perd_email_personal"));
-                    nueva.setGenero(generoService.findByCodigo((String) data.get("per_sexo"))); // "M"/"F"
-                    return personaService.save(nueva);
-                });
+                String extencion = (String) data.get("cat_abreviacion");
+                String nombre = (String) data.get("per_nombres");
+                String paterno = (String) data.get("per_ap_paterno");
+                String materno = (String) data.get("per_ap_materno");
 
-                // Buscar o crear Oficina
-                Oficina oficina = oficinaService.findByNombre((String) data.get("eo_descripcion"))
-                        .orElseGet(() -> {
-                            Oficina o = new Oficina();
-                            o.setNombre((String) data.get("eo_descripcion"));
-                            return oficinaService.save(o);
-                        });
+                Persona personaci = personaService.buscarPersonaPorCI(ciPersona);
+                if (personaci == null) {
+                    Persona personaNPM = personaService.buscarPersonaPorNombreCompletoUno(nombre, paterno, materno);
+                    if (personaNPM == null) {
+                        personaNPM = new Persona();
+                        personaNPM.setNombre(nombre);
+                        personaNPM.setPaterno(paterno);
+                        personaNPM.setMaterno(materno);
+                        personaNPM.setCi(ciPersona);
+                        personaNPM.setCorreo((String) data.get("perd_email_personal"));
 
-                // Buscar o crear Cargo
-                Cargo cargo = cargoService.findByNombre((String) data.get("p_descripcion"))
-                        .orElseGet(() -> {
-                            Cargo c = new Cargo();
-                            c.setNombre((String) data.get("p_descripcion"));
-                            return cargoService.save(c);
-                        });
+                        Genero genero = generoService.buscarGeneroPorNombre((String) data.get("per_sexo"));
+                        if (genero == null) {
+                            genero = new Genero();
+                            genero.setEstado("ACTIVO");
+                            genero.setNombre((String) data.get("per_sexo"));
+                            genero.setRegistro(new Date());
+                            genero.setRegistroIdUsuario(1L);
+                            generoService.save(genero);
+                            personaNPM.setGenero(genero);
+                        }
 
-                // Crear Responsable
-                Responsable responsable = new Responsable();
-                responsable.setCodigo_funcionario((String) data.get("per_id").toString());
-                responsable.setPersona(persona);
-                responsable.setOficina(oficina);
-                responsable.setCargo(cargo);
-                responsableService.save(responsable);
+                        personaNPM.setEstado("ACTIVO");
+                        personaNPM.setGenero(genero);
+                        personaService.save(personaNPM);
 
-                // Aquí puedes usar unidad, ubicacionActivo y descripcionActivo como desees
+                        Oficina oficina = oficinaService.buscarPorNombre((String) data.get("eo_descripcion"));
+                        if (oficina == null) {
+                            oficina = new Oficina();
+                            oficina.setNombre((String) data.get("eo_descripcion"));
+                            oficina.setEstado("ACTIVO");
+                            oficina.setRegistro(new Date());
+                            oficina.setRegistroIdUsuario(1L);
+                            oficinaService.save(oficina);
+                        }
 
-                redirectAttributes.addFlashAttribute("success", "Responsable registrado correctamente.");
-            } else {
-                redirectAttributes.addFlashAttribute("error", "Error consultando API externa.");
+                        Cargo cargo = cargoService.buscarPorNombre((String) data.get("p_descripcion"));
+                        if (cargo == null) {
+                            cargo = new Cargo();
+                            cargo.setNombre(nombre);
+                            cargo.setEstado("ACTIVO");
+                            cargo.setRegistro(new Date());
+                            cargo.setRegistroIdUsuario(1L);
+                            cargoService.save(cargo);
+                        }
+
+                        Responsable responsable = responsableService.buscarResponsablePorPersona(personaNPM);
+                        if (responsable == null) {
+                            responsable = new Responsable();
+                            responsable.setPersona(personaNPM);
+                            responsable.setCargo(cargo);
+                            responsable.setOficina(oficina);
+                            responsable.setCodigo_funcionario(codigoFuncionario);
+                            responsable.setEstado("ACTIVO");
+                            responsable.setRegistroIdUsuario(1L);
+                            responsable.setRegistro(new Date());
+                            responsableService.save(responsable);
+                        }else{
+                            responsable.setPersona(personaNPM);
+                            responsable.setCargo(cargo);
+                            responsable.setOficina(oficina);
+                            responsable.setCodigo_funcionario(codigoFuncionario);
+                            responsable.setEstado("ACTIVO");
+                            responsable.setRegistroIdUsuario(1L);
+                            responsable.setRegistro(new Date());
+                            responsableService.save(responsable);
+                        }
+                    }else{
+                        personaNPM.setNombre(nombre);
+                        personaNPM.setPaterno(paterno);
+                        personaNPM.setMaterno(materno);
+                        personaNPM.setCi(ciPersona);
+                        personaNPM.setCorreo((String) data.get("perd_email_personal"));
+                        personaService.save(personaNPM);
+
+                        Oficina oficina = oficinaService.buscarPorNombre((String) data.get("eo_descripcion"));
+                        if (oficina == null) {
+                            oficina = new Oficina();
+                            oficina.setNombre((String) data.get("eo_descripcion"));
+                            oficina.setEstado("ACTIVO");
+                            oficina.setRegistro(new Date());
+                            oficina.setRegistroIdUsuario(1L);
+                            oficinaService.save(oficina);
+                        }
+
+                        Cargo cargo = cargoService.buscarPorNombre((String) data.get("p_descripcion"));
+                        if (cargo == null) {
+                            cargo = new Cargo();
+                            cargo.setNombre(nombre);
+                            cargo.setEstado("ACTIVO");
+                            cargo.setRegistro(new Date());
+                            cargo.setRegistroIdUsuario(1L);
+                            cargoService.save(cargo);
+                        }
+
+                        Responsable responsable = responsableService.buscarResponsablePorPersona(personaNPM);
+                        if (responsable == null) {
+                            responsable = new Responsable();
+                            responsable.setPersona(personaNPM);
+                            responsable.setCargo(cargo);
+                            responsable.setOficina(oficina);
+                            responsable.setCodigo_funcionario(codigoFuncionario);
+                            responsable.setEstado("ACTIVO");
+                            responsable.setRegistroIdUsuario(1L);
+                            responsable.setRegistro(new Date());
+                            responsableService.save(responsable);
+                        }else{
+                            responsable.setPersona(personaNPM);
+                            responsable.setCargo(cargo);
+                            responsable.setOficina(oficina);
+                            responsable.setCodigo_funcionario(codigoFuncionario);
+                            responsable.setEstado("ACTIVO");
+                            responsable.setRegistroIdUsuario(1L);
+                            responsable.setRegistro(new Date());
+                            responsableService.save(responsable);
+                        }
+                    }
+                }else{
+                    redirectAttributes.addFlashAttribute("success", "Ya existe este responsable");
+                }
+
+                byte[] pdfBytes = pdfGeneratorService.generarPdfAsignacion(
+                    unidad,
+                    nombre + " " + paterno + " " + materno,
+                    (String) data.get("p_descripcion"),
+                    ciPersona,
+                    (String) data.get("cat_abreviacion"),
+                    ubicacionActivo,
+                    descripcionActivo,
+                    hr  // Añade el campo del modal al controlador
+                );
+
+                HttpHeaders headers1 = new HttpHeaders();
+                headers1.setContentType(MediaType.APPLICATION_PDF);
+                headers1.setContentDispositionFormData("attachment", "responsable_activo.pdf");
+                headers1.setContentLength(pdfBytes.length);
+
+                return new ResponseEntity<>(pdfBytes, headers1, HttpStatus.OK);
+            }else {
+                // API externa no devolvió OK
+                String error = "Error consultando API externa.";
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error.getBytes());
             }
         } catch (Exception ex) {
-            redirectAttributes.addFlashAttribute("error", "Error procesando: " + ex.getMessage());
+            // Manejar errores internos
+            String errorMsg = "Error procesando: " + ex.getMessage();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
         }
-
-        return "redirect:/tu-vista-publica"; // Redirige a tu página
     }
-
 }

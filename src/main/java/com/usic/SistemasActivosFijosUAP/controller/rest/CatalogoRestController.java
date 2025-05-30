@@ -1,15 +1,22 @@
 package com.usic.SistemasActivosFijosUAP.controller.rest;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.OficinaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResponsableDTO;
+import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
+import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
 @RestController
 @RequestMapping("/api")
@@ -41,4 +48,27 @@ public class CatalogoRestController {
                 .map(o -> new OficinaDTO(o.getIdOficina(), o.getNombre()))
                 .toList();
     }
+
+    @GetMapping("/oficinas/sugerencias")
+    @ResponseBody
+    public List<String> sugerenciasOficinas(@RequestParam String termino) {
+        return oficinaService.buscarPorNombreParcial(termino)
+                            .stream()
+                            .map(Oficina::getNombre)
+                            .collect(Collectors.toList());
+    }
+
+    @GetMapping("/responsables/datos")
+    @ResponseBody
+    public Map<String, String> obtenerDatosResponsable(@RequestParam String codigo) {
+        Responsable responsable = responsableService.buscarPorCodigo(codigo);
+        Map<String, String> datos = new HashMap<>();
+        if (responsable != null && responsable.getPersona() != null) {
+            datos.put("ci", responsable.getPersona().getCi());
+            datos.put("nombreCompleto", responsable.getPersona().getNombreCompleto());
+        }
+        return datos;
+    }
+
+
 }

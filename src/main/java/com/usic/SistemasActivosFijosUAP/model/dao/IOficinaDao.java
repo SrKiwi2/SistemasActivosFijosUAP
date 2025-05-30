@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 
@@ -16,4 +17,7 @@ public interface IOficinaDao extends JpaRepository<Oficina, Long>{
 
     @Query("SELECT o FROM Oficina o WHERE o.codigo = ?1 AND o.estado = 'ACTIVO'")
     List<Oficina> buscarPorCodigo(String codigo);
+
+    @Query("SELECT o FROM Oficina o WHERE LOWER(o.nombre) LIKE LOWER(CONCAT('%', :termino, '%')) AND o.estado = 'ACTIVO'")
+    List<Oficina> buscarPorNombreParcial(@Param("termino") String termino);
 }

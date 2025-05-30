@@ -26,6 +26,7 @@ public class SeguridadConfig {
                 "/assets/**",
                 "/iniciar-sesion/**",
                 "/administracion/**",
+                "/asignacion/**",
                 "/adm/**",
                 "/api/**",
                 "/uploads/**",

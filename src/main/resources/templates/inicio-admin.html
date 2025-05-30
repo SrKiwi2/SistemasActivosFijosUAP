@@ -2,13 +2,55 @@
 
 <html lang="en" class="light-style layout-navbar-fixed layout-menu-fixed layout-compact" dir="ltr"
     data-theme="theme-default" data-assets-path="../../assets/" data-template="vertical-menu-template">
-
 <head th:replace="~{layout/head :: head}"></head>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
 <body>
     <style>
         .swal2-container {
             z-index: 9999 !important;
+        }
+
+        .ui-autocomplete {
+            z-index: 1055 !important;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 0.375rem;
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .ui-menu-item-wrapper {
+            padding: 0.5rem;
+            cursor: pointer;
+        }
+
+        .ui-menu-item-wrapper:hover {
+            background-color: #f0f0f0;
+        }
+
+        .modal.fade .modal-dialog {
+            transform: translateY(-20px);
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+
+        .modal.show .modal-dialog {
+            transform: translateY(0);
+        }
+
+        .is-invalid {
+            border-color: #dc3545 !important;
+        }
+
+        .invalid-feedback {
+            display: none;
+            font-size: 0.875em;
+            color: #dc3545;
+        }
+
+        .is-invalid + .invalid-feedback {
+            display: block;
         }
     </style>
     <div class="layout-wrapper layout-content-navbar">
@@ -109,47 +151,234 @@
         </div>
     </div>
 
+    <!-- MODAL DE ASIGNAR NUEVO ACTIVO -->
     <div class="modal fade" id="formularioModalAsignacionActivo" tabindex="-1" aria-labelledby="formularioModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog">
-            <form id="formResponsable" method="post" th:action="@{/asignar-activo-nuevo}">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Asignar activo</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <form id="formResponsable" method="post" th:action="@{/asignacion/asignar-activo-nuevo}">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title" style="color: #fff;"><i class="bi bi-box-arrow-in-down me-2"></i>Asignar Activo</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="mb-2">
-                            <label>DIRECCIÓN, UNIDAD Y/O SECCIÓN</label>
-                            <input type="text" class="form-control" name="unidad" required>
-                        </div>
-                        <div class="mb-2">
-                            <label>CÓDIGO FUNCIONARIO</label>
-                            <input type="text" class="form-control" name="codigoFuncionario" required>
-                        </div>
-                        <div class="mb-2">
-                            <label>C.I.</label>
-                            <input type="text" class="form-control" name="ci" required>
-                        </div>
-                        <div class="mb-2">
-                            <label>UBICACIÓN DEL ACTIVO</label>
-                            <input type="text" class="form-control" name="ubicacionActivo" required>
-                        </div>
-                        <div class="mb-2">
-                            <label>DESCRIPCIÓN DEL ACTIVO</label>
-                            <input type="text" class="form-control" name="descripcionActivo" required>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Dirección, Unidad y/o Sección</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-building"></i></span>
+                                    <input type="text" class="form-control" name="unidad" autocomplete="off" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Código Funcionario</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                                    <input type="text" class="form-control" name="codigoFuncionario" autocomplete="off" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">C.I.</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-card-text"></i></span>
+                                    <input type="text" class="form-control" name="ci" autocomplete="off" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Nº H.R.</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-card-text"></i></span>
+                                    <input type="text" class="form-control" name="hr" autocomplete="off" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Ubicación del Activo</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                                    <input type="text" class="form-control" name="ubicacionActivo" autocomplete="off" required>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Descripción del Activo</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-info-circle"></i></span>
+                                    <input type="text" class="form-control" name="descripcionActivo" required>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="submit" class="btn btn-success">Guardar</button>
+                    <div class="modal-footer bg-light">
+                        <button type="button" id="btnPreGuardar" class="btn btn-success">
+                            <i class="bi bi-check-circle me-1"></i>Guardar
+                        </button>
                     </div>
                 </div>
             </form>
         </div>
     </div>
 
+    <!-- MODAL PARA CONFIRMAR ASIGNAICON NUEVO ACTIVO -->
+    <div class="modal fade" id="modalConfirmacionDatos" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title"><i class="bi bi-person-lines-fill me-2"></i>Confirmar Datos del Responsable</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="contenidoConfirmacion" class="fs-6">
+                        <!-- Datos se rellenan dinámicamente -->
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button id="btnConfirmarGuardar" class="btn btn-success">
+                        <i class="bi bi-check-circle-fill me-1"></i>Confirmar y Guardar
+                    </button>
+                    <button  class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i>Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <div th:replace="~{layout/script :: script}"></div>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+    <script>
+        function validarCampo(input, mensaje) {
+            if (!input.value.trim()) {
+                input.classList.add("is-invalid");
+                if (!input.nextElementSibling || !input.nextElementSibling.classList.contains("invalid-feedback")) {
+                    const div = document.createElement("div");
+                    div.className = "invalid-feedback";
+                    div.innerText = mensaje;
+                    input.parentNode.appendChild(div);
+                }
+            } else {
+                input.classList.remove("is-invalid");
+                if (input.nextElementSibling && input.nextElementSibling.classList.contains("invalid-feedback")) {
+                    input.nextElementSibling.remove();
+                }
+            }
+        }
 
+        $(function () {
+            // Autocompletar UNIDAD y UBICACIÓN, mostrando resultados dentro del modal
+            $('input[name="unidad"], input[name="ubicacionActivo"]').autocomplete({
+                source: function (request, response) {
+                    $.ajax({
+                        url: '/api/oficinas/sugerencias',
+                        data: { termino: request.term },
+                        success: function (data) {
+                            response(data);
+                        }
+                    });
+                },
+                minLength: 2,
+                appendTo: '#formularioModalAsignacionActivo', // Asegura que se muestre DENTRO del modal
+                delay: 300
+            });
+
+            // Autocompletar CI cuando se ingrese código de funcionario
+            $('input[name="codigoFuncionario"]').on("input", function () {
+                const codigo = $(this).val();
+                if (codigo.length >= 4) {
+                    $.get("/api/responsables/datos", { codigo: codigo }, function (data) {
+                        if (data && data.ci) {
+                            $('input[name="ci"]').val(data.ci);
+                        } else {
+                            $('input[name="ci"]').val("");
+                        }
+                    });
+                }
+            });
+        });
+
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const campos = [
+                { name: "unidad", mensaje: "La unidad es obligatoria" },
+                { name: "codigoFuncionario", mensaje: "El código de funcionario es obligatorio" },
+                { name: "ci", mensaje: "El C.I. es obligatorio" },
+                { name: "ubicacionActivo", mensaje: "La ubicación es obligatoria" },
+                { name: "descripcionActivo", mensaje: "La descripción del activo es obligatoria" }
+            ];
+
+            campos.forEach(({ name, mensaje }) => {
+                const input = document.querySelector(`input[name="${name}"]`);
+                input.addEventListener("input", () => validarCampo(input, mensaje));
+            });
+
+            // Validar todos los campos antes de continuar
+            document.getElementById('btnPreGuardar').addEventListener('click', function () {
+                let esValido = true;
+
+                campos.forEach(({ name, mensaje }) => {
+                    const input = document.querySelector(`input[name="${name}"]`);
+                    validarCampo(input, mensaje);
+                    if (!input.value.trim()) {
+                        esValido = false;
+                    }
+                });
+
+                if (!esValido) {
+                    return;
+                }
+
+                // Continuar si todos los campos son válidos
+                const form = document.getElementById('formResponsable');
+                const codigoFuncionario = form.codigoFuncionario.value;
+                const ci = form.ci.value;
+                const unidad = form.unidad.value;
+                const hr = form.hr.value;
+                const ubicacionActivo = form.ubicacionActivo.value;
+                const descripcionActivo = form.descripcionActivo.value;
+
+                const requestBody = {
+                    usuario: codigoFuncionario,
+                    contrasena: ci
+                };
+
+                fetch("http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "key": "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10"
+                    },
+                    body: JSON.stringify(requestBody)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    let html = `
+                        <p><strong>Nombre:</strong> ${data.per_nombres} ${data.per_ap_paterno} ${data.per_ap_materno}</p>
+                        <p><strong>CI:</strong> ${data.per_num_doc}</p>
+                        <p><strong>Email:</strong> ${data.perd_email_personal}</p>
+                        <p><strong>Género:</strong> ${data.per_sexo}</p>
+                        <p><strong>Oficina:</strong> ${data.eo_descripcion}</p>
+                        <p><strong>Cargo:</strong> ${data.p_descripcion}</p>
+                        <hr/>
+                        <p><strong>Unidad:</strong> ${hr}</p>
+                        <p><strong>Unidad:</strong> ${unidad}</p>
+                        <p><strong>Ubicación del Activo:</strong> ${ubicacionActivo}</p>
+                        <p><strong>Descripción del Activo:</strong> ${descripcionActivo}</p>
+                    `;
+                    document.getElementById('contenidoConfirmacion').innerHTML = html;
+                    new bootstrap.Modal(document.getElementById('modalConfirmacionDatos')).show();
+                })
+                .catch(error => {
+                    alert("Error consultando los datos del funcionario.");
+                    console.error(error);
+                });
+            });
+
+            // Confirmar y enviar
+            document.getElementById('btnConfirmarGuardar').addEventListener('click', function () {
+                document.getElementById('formResponsable').submit();
+            });
+        });
+    </script>
+    
 </body>
 
 </html>

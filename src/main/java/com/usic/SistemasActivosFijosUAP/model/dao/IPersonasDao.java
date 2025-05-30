@@ -16,4 +16,7 @@ public interface IPersonasDao extends JpaRepository <Persona, Long>{
 
     @Query("SELECT p FROM Persona p WHERE p.nombre = ?1 AND p.paterno = ?2 AND p.materno = ?3 AND p.estado = 'ACTIVO'")
     List<Persona> buscarPersonaPorNombrePaternoMaterno(String nombre, String paterno, String materno);
+
+    @Query("SELECT p FROM Persona p WHERE p.nombre = ?1 AND p.paterno = ?2 AND p.materno = ?3 AND p.estado = 'ACTIVO'")
+    Persona buscarPersonaPorNombreCompletoUno(String nombre, String paterno, String materno);
 }

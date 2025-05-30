@@ -17,5 +17,6 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     Responsable responsablePersonaOficinaCargo(Persona persona, Oficina oficina, Cargo cargo);
     List<Responsable> findAllByPersonaIdPersona(@Param("idPersona") Long idPersona);
     List<Responsable> findAllByPersona(Persona persona);
+    Responsable buscarResponsablePorPersona(Persona persona);
 
 }
