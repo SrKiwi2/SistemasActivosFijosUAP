@@ -155,7 +155,7 @@
     <div class="modal fade" id="formularioModalAsignacionActivo" tabindex="-1" aria-labelledby="formularioModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
-            <form id="formResponsable" method="post" th:action="@{/asignacion/asignar-activo-nuevo}">
+            <form id="formResponsable" >
                 <div class="modal-content border-0 shadow-lg">
                     <div class="modal-header bg-primary text-white">
                         <h5 class="modal-title" style="color: #fff;"><i class="bi bi-box-arrow-in-down me-2"></i>Asignar Activo</h5>
@@ -241,6 +241,22 @@
             </div>
         </div>
     </div>
+
+    <!-- MODAL PARA VISUALIZAR EL PDF -->
+    <div class="modal fade" id="modalVisualizarPdf" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="bi bi-file-earmark-pdf me-2"></i>Vista previa del PDF</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <iframe id="iframePDF" src="" style="width: 100%; height: 600px; border: none;"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
     
     <div th:replace="~{layout/script :: script}"></div>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
@@ -373,9 +389,36 @@
             });
 
             // Confirmar y enviar
-            document.getElementById('btnConfirmarGuardar').addEventListener('click', function () {
-                document.getElementById('formResponsable').submit();
+            document.getElementById("btnConfirmarGuardar").addEventListener("click", function () {
+                const form = document.getElementById("formResponsable");
+                const formData = new FormData(form);
+
+                fetch("/asignacion/asignar-activo-nuevo", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error("Error generando PDF");
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    document.getElementById("iframePDF").src = url;
+
+                    // Mostrar el modal del PDF
+                    const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
+                    pdfModal.show();
+
+                    // Cerrar el modal anterior
+                    const confirmModal = bootstrap.Modal.getInstance(document.getElementById("modalConfirmacionDatos"));
+                    confirmModal.hide();
+                })
+                .catch(error => {
+                    alert("Ocurrió un error: " + error.message);
+                });
             });
+
+                
         });
     </script>
     

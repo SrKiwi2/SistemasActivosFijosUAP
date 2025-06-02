@@ -11,7 +11,10 @@ import com.itextpdf.text.Image;
 import com.itextpdf.text.PageSize;
 import com.itextpdf.text.Paragraph;
 import com.itextpdf.text.Phrase;
+import com.itextpdf.text.Rectangle;
+import com.itextpdf.text.pdf.PdfContentByte;
 import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPCellEvent;
 import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 
@@ -38,24 +41,42 @@ public class PdfGeneratorService {
 			System.err.println("No se pudo cargar el membrete: " + e.getMessage());
 		}
 
-		document.add(new Paragraph("\n\n\n\n\n"));
+		document.add(new Paragraph("\n\n"));
 
-		// Encabezado
-		Font tituloFont = new Font(Font.FontFamily.HELVETICA, 12, Font.BOLD);
-		Paragraph encabezado = new Paragraph("UNIVERSIDAD AMAZÓNICA DE PANDO\nSECCIÓN DE ACTIVOS FIJOS\n\n" +
-				"DATOS DEL RESPONSABLE PARA ASIGNACIÓN DE BIENES NUEVOS 2025", tituloFont);
-		encabezado.setAlignment(Element.ALIGN_CENTER);
-		document.add(encabezado);
+		// Encabezado personalizado con tamaños distintos
+		Paragraph linea1 = new Paragraph("UNIVERSIDAD AMAZÓNICA DE PANDO", new Font(Font.FontFamily.TIMES_ROMAN, 16, Font.BOLD));
+		linea1.setAlignment(Element.ALIGN_CENTER);
+		document.add(linea1);
 
+		Paragraph linea2 = new Paragraph("SECCIÓN DE ACTIVOS FIJOS", new Font(Font.FontFamily.TIMES_ROMAN, 14, Font.BOLD));
+		linea2.setAlignment(Element.ALIGN_CENTER);
+		document.add(linea2);
+
+		Paragraph linea3 = new Paragraph("DATOS DEL RESPONSABLE", new Font(Font.FontFamily.TIMES_ROMAN, 12));
+		linea3.setAlignment(Element.ALIGN_CENTER);
+		document.add(linea3);
+
+		Paragraph linea4 = new Paragraph("PARA ASIGNACIÓN DE BIENES NUEVOS 2025", new Font(Font.FontFamily.TIMES_ROMAN, 12));
+		linea4.setAlignment(Element.ALIGN_CENTER);
+		document.add(linea4);
+
+		document.add(new Paragraph("\n")); // espacio después del encabezado
+				
 		// H/R alineado a la derecha
-        Paragraph numeroHR = new Paragraph("Nº H/R: " + hr, new Font(Font.FontFamily.HELVETICA, 10));
-        numeroHR.setAlignment(Element.ALIGN_RIGHT);
-        document.add(numeroHR);
+        PdfPTable hrTable = new PdfPTable(1);
+		hrTable.setWidthPercentage(30); // solo ocupa el 30% del ancho
+		hrTable.setHorizontalAlignment(Element.ALIGN_RIGHT); // alineado a la derecha
 
-		document.add(new Paragraph("\n"));
+		PdfPCell hrCell = new PdfPCell(new Phrase("Nº H/R: " + hr, new Font(Font.FontFamily.TIMES_ROMAN, 12)));
+		hrCell.setBorder(Rectangle.NO_BORDER);
+		hrCell.setPaddingRight(20f); // margen desde el borde derecho
+		hrTable.addCell(hrCell);
+
+		document.add(hrTable);
 
 		PdfPTable tabla = new PdfPTable(2);
-        tabla.setWidthPercentage(100);
+        tabla.setWidthPercentage(90);
+		tabla.setHorizontalAlignment(Element.ALIGN_CENTER);
         tabla.setSpacingBefore(10f);
 
 		tabla.addCell(celda("DIRECCIÓN, UNIDAD Y/O SECCIÓN", true));
@@ -81,27 +102,48 @@ public class PdfGeneratorService {
 
 		document.add(tabla);
 
-		document.add(new Paragraph("\n"));
+		PdfPTable leyendaTable = new PdfPTable(1);
+		leyendaTable.setWidthPercentage(93); // achica ancho
+		leyendaTable.setHorizontalAlignment(Element.ALIGN_CENTER);
 
-		Font negrita = new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD);
+		Font negrita = new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD);
 		Paragraph leyenda = new Paragraph(
-				"De acuerdo al D.S. 0181 Art. 146 (Asignación de Activos Fijos Muebles) I. " +
-						"La asignación de activos fijos muebles es el acto administrativo mediante el cual se entrega a un servidor público un activo o conjunto de estos, "
-						+
-						"generando la consiguiente responsabilidad sobre su debido uso y custodia.",
-				negrita);
+			"De acuerdo al D.S. 0181 Art. 146 (Asignación de Activos Fijos Muebles) I. " +
+			"La asignación de activos fijos muebles es el acto administrativo mediante el cual se entrega a un servidor público un activo o conjunto de estos, " +
+			"generando la consiguiente responsabilidad sobre su debido uso y custodia.",
+			negrita);
 		leyenda.setAlignment(Element.ALIGN_JUSTIFIED);
-		document.add(leyenda);
+
+		PdfPCell celdaLeyenda = new PdfPCell();
+		celdaLeyenda.addElement(leyenda);
+		celdaLeyenda.setBorder(Rectangle.NO_BORDER);
+		celdaLeyenda.setPadding(8);
+		leyendaTable.addCell(celdaLeyenda);
+
+		document.add(leyendaTable);
 
 		document.close();
 		return baos.toByteArray();
 	}
 
 	private PdfPCell celda(String texto, boolean encabezado) {
-		Font font = encabezado ? new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD)
-				: new Font(Font.FontFamily.HELVETICA, 10);
+		Font font = encabezado ? new Font(Font.FontFamily.TIMES_ROMAN, 10, Font.BOLD)
+				: new Font(Font.FontFamily.TIMES_ROMAN, 10);
 		PdfPCell cell = new PdfPCell(new Phrase(texto, font));
-		cell.setPadding(8);
+		cell.setPadding(15);
+		cell.setBorder(Rectangle.NO_BORDER); // Desactiva el borde normal
+		cell.setCellEvent(new DottedBorder()); // Aplica borde punteado
 		return cell;
+	}
+
+	class DottedBorder implements PdfPCellEvent {
+		public void cellLayout(PdfPCell cell, Rectangle rect, PdfContentByte[] canvas) {
+			PdfContentByte cb = canvas[PdfPTable.LINECANVAS];
+			cb.setLineDash(2f, 2f); // Define punteado (longitud punto, espacio)
+			cb.setLineWidth(0.05f); // Grosor del borde
+			cb.rectangle(rect.getLeft(), rect.getBottom(), rect.getWidth(), rect.getHeight());
+			cb.stroke();
+			cb.setLineDash(0); // Resetea el dash después
+		}
 	}
 }

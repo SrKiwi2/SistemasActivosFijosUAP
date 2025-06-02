@@ -4,12 +4,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -213,7 +215,8 @@ public class AsignacionActivoNuevoController {
 
                 HttpHeaders headers1 = new HttpHeaders();
                 headers1.setContentType(MediaType.APPLICATION_PDF);
-                headers1.setContentDispositionFormData("attachment", "responsable_activo.pdf");
+                headers1.setContentDisposition(ContentDisposition.inline().filename("asignacion_activo_nuevo.pdf").build());
+
                 headers1.setContentLength(pdfBytes.length);
 
                 return new ResponseEntity<>(pdfBytes, headers1, HttpStatus.OK);
@@ -228,4 +231,31 @@ public class AsignacionActivoNuevoController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
         }
     }
+
+    @GetMapping("/ver-pdf")
+    public ResponseEntity<byte[]> verPdf(
+            @RequestParam String unidad,
+            @RequestParam String nombreCompleto,
+            @RequestParam String cargo,
+            @RequestParam String ci,
+            @RequestParam String extension,
+            @RequestParam String ubicacionActivo,
+            @RequestParam String descripcionActivo,
+            @RequestParam String hr) {
+        try {
+            byte[] pdfBytes = pdfGeneratorService.generarPdfAsignacion(
+                    unidad, nombreCompleto, cargo, ci, extension, ubicacionActivo, descripcionActivo, hr
+            );
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDisposition(ContentDisposition.inline().filename("responsable_activo.pdf").build());
+            headers.setContentLength(pdfBytes.length);
+
+            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
 }
