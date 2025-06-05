@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.dao;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,4 +24,6 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
     Page<Activo> buscarPorNombreOCodigo(@Param("filtro") String filtro, Pageable pageable);
 
     List<Activo> findByResponsableIdResponsable(Long idResponsable);
+
+    Optional<Activo> findByCodigo(String codigo);
 }

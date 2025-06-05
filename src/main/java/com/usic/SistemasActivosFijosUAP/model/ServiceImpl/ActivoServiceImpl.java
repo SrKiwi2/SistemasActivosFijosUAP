@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
@@ -112,6 +113,11 @@ public class ActivoServiceImpl implements IActivoService{
             activos.addAll(dao.findByResponsableIdResponsable(responsable.getIdResponsable()));
         }
         return activos;
+    }
+
+    @Override
+    public Optional<Activo> findByCodigo(String codigo) {
+       return dao.findByCodigo(codigo);
     }
 
 }

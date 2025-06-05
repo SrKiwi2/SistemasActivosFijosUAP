@@ -1,22 +1,34 @@
 package com.usic.SistemasActivosFijosUAP.controller.rest;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
+import com.usic.SistemasActivosFijosUAP.model.dto.ActivoConsultaDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.OficinaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResponsableDTO;
+import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.service.AiDescripcionService;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api")
@@ -24,10 +36,12 @@ public class CatalogoRestController {
     
     private final IResponsableService responsableService;
     private final IOficinaService oficinaService;
+    private final IActivoService activoService;
 
-    public CatalogoRestController(IResponsableService responsableService, IOficinaService oficinaService) {
+    public CatalogoRestController(IResponsableService responsableService, IOficinaService oficinaService, IActivoService activoService) {
         this.responsableService = responsableService;
         this.oficinaService = oficinaService;
+        this.activoService = activoService;
     }
 
     @GetMapping("/responsables")
@@ -70,5 +84,11 @@ public class CatalogoRestController {
         return datos;
     }
 
-
+    @GetMapping("/buscar-activo")
+    public ResponseEntity<ActivoConsultaDTO> obtenerPorCodigo(@RequestParam String codigo) {
+        Optional<Activo> activo = activoService.findByCodigo(codigo);
+        return activo
+            .map(a -> ResponseEntity.ok(new ActivoConsultaDTO(a.getCodigo(), a.getDescripcion())))
+            .orElseGet(() -> ResponseEntity.notFound().build());
+    }
 }

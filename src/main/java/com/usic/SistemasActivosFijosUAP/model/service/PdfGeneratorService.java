@@ -20,6 +20,7 @@ import com.itextpdf.text.pdf.PdfWriter;
 
 @Service
 public class PdfGeneratorService {
+
 	public byte[] generarPdfAsignacion(String unidad, String nombreCompleto, String cargo, String ci,
 			String extension,
 			String ubicacionActivo, String descripcionActivo, String hr) throws Exception {
@@ -125,7 +126,7 @@ public class PdfGeneratorService {
 		document.close();
 		return baos.toByteArray();
 	}
-
+	
 	private PdfPCell celda(String texto, boolean encabezado) {
 		Font font = encabezado ? new Font(Font.FontFamily.TIMES_ROMAN, 10, Font.BOLD)
 				: new Font(Font.FontFamily.TIMES_ROMAN, 10);

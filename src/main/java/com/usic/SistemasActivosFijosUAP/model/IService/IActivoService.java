@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.IService;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,4 +19,5 @@ public interface IActivoService extends IServiceGenerico<Activo, Long>{
     Page<Activo> buscarConFiltros(String searchValue, String codigo, String responsableId,
                               String oficinaId, String fecha, Pageable pageable);
     List<Activo> obtenerActivosDelResponsable(Persona persona);
+    Optional<Activo> findByCodigo(String codigo);
 }

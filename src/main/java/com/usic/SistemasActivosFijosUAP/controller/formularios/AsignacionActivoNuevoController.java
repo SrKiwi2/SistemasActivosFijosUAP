@@ -231,31 +231,4 @@ public class AsignacionActivoNuevoController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
         }
     }
-
-    @GetMapping("/ver-pdf")
-    public ResponseEntity<byte[]> verPdf(
-            @RequestParam String unidad,
-            @RequestParam String nombreCompleto,
-            @RequestParam String cargo,
-            @RequestParam String ci,
-            @RequestParam String extension,
-            @RequestParam String ubicacionActivo,
-            @RequestParam String descripcionActivo,
-            @RequestParam String hr) {
-        try {
-            byte[] pdfBytes = pdfGeneratorService.generarPdfAsignacion(
-                    unidad, nombreCompleto, cargo, ci, extension, ubicacionActivo, descripcionActivo, hr
-            );
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDisposition(ContentDisposition.inline().filename("responsable_activo.pdf").build());
-            headers.setContentLength(pdfBytes.length);
-
-            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
-    }
-
 }
