@@ -336,82 +336,16 @@
 
                         <!-- SECCIÓN DETALLE DEL ACTIVO -->
                         <fieldset class="border p-3 mb-4">
-                            <legend class="w-auto px-3 text-dark fw-bold"><i class="bi bi-box-seam me-1"></i>Detalle del
-                                Activo</legend>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Código</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
-                                        <input type="text" class="form-control" name="codigoActivo" autocomplete="off"
-                                            required>
-                                    </div>
+                            <legend class="w-auto px-3 text-dark fw-bold"><i class="bi bi-box-seam me-1"></i>Activos a transferir</legend>
+                                <div id="codigoActivoContainer">
+                                    <!-- Campo de código activo dinámico se insertará aquí -->
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Descripción</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-text-paragraph"></i></span>
-                                        <input type="text" class="form-control" name="descripcionActivoT"
-                                            autocomplete="off" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Ubicación de origen y Nº de oficina</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
-                                        <input type="text" class="form-control" name="ubicacionOrigen"
-                                            autocomplete="off" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Ubicación actual y Nº de oficina</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-geo-alt-fill"></i></span>
-                                        <input type="text" class="form-control" name="ubicacionActual"
-                                            autocomplete="off" required>
-                                    </div>
-                                </div>
-                            </div>
-                        </fieldset>
-
-                        <!-- SECCIÓN CARACTERÍSTICAS -->
-                        <fieldset class="border p-3 mb-4">
-                            <legend class="w-auto px-3 text-secondary fw-bold"><i
-                                    class="bi bi-gear-wide-connected me-1"></i>Características (según corresponda)
-                            </legend>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Marca</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-tags"></i></span>
-                                        <input type="text" class="form-control" name="marca" autocomplete="off">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Modelo</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-diagram-3"></i></span>
-                                        <input type="text" class="form-control" name="modelo" autocomplete="off">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Nº de Serie</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-hash"></i></span>
-                                        <input type="text" class="form-control" name="numeroSerie" autocomplete="off">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Dimensiones</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-fullscreen"></i></span>
-                                        <input type="text" class="form-control" name="dimensiones" autocomplete="off">
-                                    </div>
-                                </div>
-                            </div>
+                            
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="agregarCodigoBtn">
+                                    <i class="bi bi-plus-circle"></i> Agregar código
+                                </button>
                         </fieldset>
                     </div>
-
                     <div class="modal-footer bg-light">
                         <button type="button" class="btn btn-success" id="btnVerificarDatos">
                             <i class="bi bi-eye-fill me-1"></i>Verificar Datos
@@ -443,6 +377,9 @@
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
     <script>
+        let debounceTimers = {};
+        let campoIndex = 0;
+
         function validarCampo(input, mensaje) {
             if (!input.value.trim()) {
                 input.classList.add("is-invalid");
@@ -461,7 +398,7 @@
         }
 
         $(function () {
-            /*PARA ASIGNACION DE ACTIVOS FIJOS*/
+
             $('input[name="unidad"], input[name="ubicacionActivo"]').autocomplete({
                 source: function (request, response) {
                     $.ajax({
@@ -490,7 +427,6 @@
                 }
             });
 
-            /*PARA LA SECCION DE TRANSFERIR ACTIVO*/
             $('input[name="unidadDestino"], input[name="unidadOrigen"], input[name="ubicacionOrigen"], input[name="ubicacionActual"]').autocomplete({
                 source: function (request, response) {
                     $.ajax({
@@ -502,7 +438,7 @@
                     });
                 },
                 minLength: 2,
-                appendTo: '#formularioModalTranferenciaActivo', // Asegura que se muestre DENTRO del modal
+                appendTo: '#formularioModalTranferenciaActivo',
                 delay: 300
             });
 
@@ -511,7 +447,7 @@
                 const codigo = $this.val();
 
                 if (codigo.length >= 4) {
-                    const tipo = $this.attr("name").replace("codigoFuncionario", ""); // "Origen" o "Destino"
+                    const tipo = $this.attr("name").replace("codigoFuncionario", "");
                     $.get("/api/responsables/datos", { codigo: codigo }, function (data) {
                         if (data && data.ci) {
                             $(`input[name="ci${tipo}"]`).val(data.ci);
@@ -522,69 +458,111 @@
                 }
             });
 
-            let debounceTimer;
-            /*complemento de transferencia*/
-            $('input[name="codigoActivo"]').on("input", function () {
-                clearTimeout(debounceTimer);
-                const codigo = $(this).val().trim();
-                debounceTimer = setTimeout(function () {
-                    if (codigo.length >= 14) { // ajusta según la longitud real esperada de tus códigos
-                        $.get("/api/buscar-activo", { codigo: codigo }, function (data) {
-                            if (data && data.descripcion) {
-                                $('input[name="descripcionActivoT"]').val(data.descripcion);
+            function agregarCampoCodigo() {
+                campoIndex++;
+                const nuevoCampo = `
+                    <div class="row g-3 mb-2" data-index="${campoIndex}">
+                        <!-- Código del Activo -->
+                        <div class="col-md-4">
+                            <label class="form-label">Código del Activo</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+                                <input type="text" class="form-control codigo-input" 
+                                    name="codigoActivo[]" data-index="${campoIndex}" autocomplete="off" required>
+                                <span class="input-group-text estado-icono" id="estado-${campoIndex}">
+                                    <i class="bi"></i>
+                                </span>
+                            </div>
+                        </div>
 
-                                // Aquí analizamos la descripción con IA
-                                analizarDescripcionConAI(data.descripcion);
-                            } else {
-                                $('input[name="descripcionActivoT"]').val("");
-                                limpiarCaracteristicas();
+                        <!-- Ubicación de Origen y N° de Oficina -->
+                        <div class="col-md-4">
+                            <label class="form-label">Ubicación de Origen y N° de Oficina</label>
+                            <input type="text" class="form-control" name="ubicacionOrigen[]" autocomplete="off" required>
+                        </div>
+
+                        <!-- Ubicación Actual y N° de Oficina -->
+                        <div class="col-md-4">
+                            <label class="form-label">Ubicación Actual y N° de Oficina</label>
+                            <input type="text" class="form-control" name="ubicacionActual[]" autocomplete="off" required>
+                        </div>
+                    </div>`;
+                // Agregar al DOM
+                $('#codigoActivoContainer').append(nuevoCampo);
+
+                // Aplicar autocomplete a los nuevos inputs
+                $('#codigoActivoContainer input[name="ubicacionOrigen[]"]').last().autocomplete({
+                    source: function (request, response) {
+                        $.ajax({
+                            url: '/api/oficinas/sugerencias',
+                            data: { termino: request.term },
+                            success: function (data) {
+                                response(data);
                             }
-                        }).fail(() => {
-                            console.log("Activo no encontrado o error en la solicitud");
-                            limpiarCaracteristicas();
                         });
-                    } else {
-                        // Si borra el código o aún no completa el formato
-                        $('input[name="descripcionActivoT"]').val("");
-                        limpiarCaracteristicas();
-                    }
-                }, 500);
-            });
-
-            function limpiarCaracteristicas() {
-                $('input[name="marca"]').val("");
-                $('input[name="modelo"]').val("");
-                $('input[name="numeroSerie"]').val("");
-                $('input[name="dimensiones"]').val("");
-            }
-
-            /* IA*/
-            function analizarDescripcionConAI(descripcion) {
-                $.ajax({
-                    url: "/openai/analizar-descripcion",
-                    type: "POST",
-                    contentType: "application/json",
-                    data: JSON.stringify(descripcion),
-                    success: function (resultado) {
-                        console.log("Resultado IA:", resultado);
-
-                        // Usamos 'resultado' correctamente en lugar de 'data'
-                        $('input[name="marca"]').val(resultado.marca || "");
-                        $('input[name="modelo"]').val(resultado.modelo || "");
-                        $('input[name="numeroSerie"]').val(resultado.numeroSerie || "");
-                        $('input[name="dimensiones"]').val(resultado.dimensiones || "");
                     },
-                    error: function () {
-                        limpiarCaracteristicas();
-                    }
+                    minLength: 2,
+                    appendTo: '#formularioModalTranferenciaActivo',
+                    delay: 300
                 });
+
+                $('#codigoActivoContainer input[name="ubicacionActual[]"]').last().autocomplete({
+                    source: function (request, response) {
+                        $.ajax({
+                            url: '/api/oficinas/sugerencias',
+                            data: { termino: request.term },
+                            success: function (data) {
+                                response(data);
+                            }
+                        });
+                    },
+                    minLength: 2,
+                    appendTo: '#formularioModalTranferenciaActivo',
+                    delay: 300
+                }); 
             }
 
+            $(document).ready(function () {
+                agregarCampoCodigo();
+
+                $('#agregarCodigoBtn').on('click', function () {
+                    agregarCampoCodigo();
+                });
+
+                $('#codigoActivoContainer').on('input', '.codigo-input', function () {
+                    const $input = $(this);
+                    const index = $input.data('index');
+                    const codigo = $input.val().trim();
+
+                    clearTimeout(debounceTimers[index]);
+                    debounceTimers[index] = setTimeout(function () {
+                        if (codigo.length >= 14) {
+                            $.get("/api/buscar-activo", { codigo: codigo }, function (data) {
+                                mostrarEstado(index, true);
+                            }).fail(() => {
+                                mostrarEstado(index, false);
+                            });
+                        } else {
+                            mostrarEstado(index, null);
+                        }
+                    }, 500);
+                });
+
+                function mostrarEstado(index, encontrado) {
+                    const $icono = $(`#estado-${index} i`);
+                    if (encontrado === true) {
+                        $icono.removeClass().addClass('bi bi-check-circle-fill text-success');
+                    } else if (encontrado === false) {
+                        $icono.removeClass().addClass('bi bi-x-circle-fill text-danger');
+                    } else {
+                        $icono.removeClass();
+                    }
+                }
+            });
         });
 
         document.addEventListener("DOMContentLoaded", () => {
             const campos = [
-                /*Asignar Activos*/
                 { name: "unidad", mensaje: "La unidad es obligatoria" },
                 { name: "codigoFuncionario", mensaje: "El código de funcionario es obligatorio" },
                 { name: "ci", mensaje: "El C.I. es obligatorio" },
@@ -597,10 +575,8 @@
                 input.addEventListener("input", () => validarCampo(input, mensaje));
             });
 
-            // Validar todos los campos antes de continuar
             document.getElementById('btnPreGuardar').addEventListener('click', function () {
                 let esValido = true;
-
                 campos.forEach(({ name, mensaje }) => {
                     const input = document.querySelector(`input[name="${name}"]`);
                     validarCampo(input, mensaje);
@@ -613,7 +589,6 @@
                     return;
                 }
 
-                // Continuar si todos los campos son válidos
                 const form = document.getElementById('formResponsable');
                 const codigoFuncionario = form.codigoFuncionario.value;
                 const ci = form.ci.value;
@@ -621,12 +596,10 @@
                 const hr = form.hr.value;
                 const ubicacionActivo = form.ubicacionActivo.value;
                 const descripcionActivo = form.descripcionActivo.value;
-
                 const requestBody = {
                     usuario: codigoFuncionario,
                     contrasena: ci
                 };
-
                 fetch("http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos", {
                     method: "POST",
                     headers: {
@@ -659,11 +632,9 @@
                     });
             });
 
-            // Confirmar y enviar
             document.getElementById("btnConfirmarGuardar").addEventListener("click", function () {
                 const form = document.getElementById("formResponsable");
                 const formData = new FormData(form);
-
                 fetch("/asignacion/asignar-activo-nuevo", {
                     method: "POST",
                     body: formData
@@ -675,12 +646,8 @@
                     .then(blob => {
                         const url = URL.createObjectURL(blob);
                         document.getElementById("iframePDF").src = url;
-
-                        // Mostrar el modal del PDF
                         const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
                         pdfModal.show();
-
-                        // Cerrar el modal anterior
                         const confirmModal = bootstrap.Modal.getInstance(document.getElementById("modalConfirmacionDatos"));
                         confirmModal.hide();
                     })
@@ -704,10 +671,8 @@
                 .then(blob => {
                     const url = URL.createObjectURL(blob);
                     document.getElementById("iframePDF").src = url;
-                    // Mostrar el modal del PDF
                     const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
                     pdfModal.show();
-                    // Cerrar el modal anterior
                     const confirmModal = bootstrap.Modal.getInstance(document.getElementById("modalConfirmacionDatos"));
                     confirmModal.hide();
                 })

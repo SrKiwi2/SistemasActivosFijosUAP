@@ -1,8 +1,12 @@
 package com.usic.SistemasActivosFijosUAP.controller.formularios;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ContentDisposition;
@@ -17,21 +21,24 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
 
+import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGeneroService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
+import com.usic.SistemasActivosFijosUAP.model.dto.ActivoTransferenciaDTO;
+import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Genero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.service.AiDescripcionService;
 import com.usic.SistemasActivosFijosUAP.model.service.PdfTransferenciaService;
 
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 
 @Controller
@@ -45,6 +52,8 @@ public class TransferenciaActivos {
     private final IOficinaService oficinaService;
     private final IGeneroService generoService;
     private final PdfTransferenciaService pdfTransferenciaService;
+    private final IActivoService activoService;
+    private final AiDescripcionService aiDescripcionService;
 
     @PostMapping("/buscar-registrar")
     public ResponseEntity<byte[]> registrarTransferencia(
@@ -56,14 +65,10 @@ public class TransferenciaActivos {
             @RequestParam String codigoFuncionarioDestino,
             @RequestParam String ciDestino,
             @RequestParam String fechaRecepcion,
-            @RequestParam String codigoActivo,
-            @RequestParam String descripcionActivoT,
-            @RequestParam String ubicacionOrigen,
-            @RequestParam String ubicacionActual,
-            @RequestParam(required = false) String marca,
-            @RequestParam(required = false) String modelo,
-            @RequestParam(required = false) String numeroSerie,
-            @RequestParam(required = false) String dimensiones) {
+
+            @RequestParam List<String>  codigoActivo,
+            @RequestParam List<String>  ubicacionOrigen,
+            @RequestParam List<String>  ubicacionActual) {
         try {
             Responsable responsableOrigen = obtenerORegistrarResponsable(codigoFuncionarioOrigen, ciOrigen);
             Responsable responsableDestino = obtenerORegistrarResponsable(codigoFuncionarioDestino, ciDestino);
@@ -72,30 +77,52 @@ public class TransferenciaActivos {
             System.out.println("Responsable origen: " + responsableOrigen.getPersona().getNombreCompleto());
             System.out.println("Responsable destino: " + responsableDestino.getPersona().getNombreCompleto());
 
-            // Guardar en base de datos la transferencia si corresponde:
-            // transferenciaService.guardar(new Transferencia(...));
+            List<ActivoTransferenciaDTO> activosParaPdf = new ArrayList<>();
+
+            for (int i = 0; i < codigoActivo.size(); i++) {
+                String codigo = codigoActivo.get(i);
+                String ubicacionOrig = ubicacionOrigen.get(i);
+                String ubicacionAct = ubicacionActual.get(i);
+
+                Activo activo = activoService.findByCodigo(codigo)
+                        .orElseThrow(() -> new RuntimeException("Activo no encontrado: " + codigo));
+
+                Map<String, String> detallesIA = aiDescripcionService.analizarDescripcion(activo.getDescripcion());
+
+                ActivoTransferenciaDTO dto = new ActivoTransferenciaDTO();
+                dto.setCodigo(codigo);
+                dto.setDescripcion(activo.getDescripcion());
+                dto.setUbicacionOrigen(ubicacionOrig);
+                dto.setUbicacionActual(ubicacionAct);
+                dto.setMarca(detallesIA.get("marca"));
+                dto.setModelo(detallesIA.get("modelo"));
+                dto.setNumeroSerie(detallesIA.get("numeroSerie"));
+                dto.setDimensiones(detallesIA.get("dimensiones"));
+
+                activosParaPdf.add(dto);
+            }
+
             byte[] pdfBytes = pdfTransferenciaService.generarPdfTransferencia(
-                    unidadOrigen,
-                    responsableOrigen,
-                    fechaTransferencia,
-                    unidadDestino,
-                    responsableDestino,
-                    fechaRecepcion,
-                    codigoActivo,
-                    descripcionActivoT,
-                    ubicacionOrigen,
-                    ubicacionActual
-                );
+                unidadOrigen,
+                responsableOrigen,
+                fechaTransferencia,
+                unidadDestino,
+                responsableDestino,
+                fechaRecepcion,
+                activosParaPdf
+            );
 
-                HttpHeaders headers1 = new HttpHeaders();
-                headers1.setContentType(MediaType.APPLICATION_PDF);
-                headers1.setContentDisposition(ContentDisposition.inline().filename("asignacion_activo_nuevo.pdf").build());
 
-                headers1.setContentLength(pdfBytes.length);
+            HttpHeaders headers1 = new HttpHeaders();
+            headers1.setContentType(MediaType.APPLICATION_PDF);
+            headers1.setContentDisposition(ContentDisposition.inline().filename("asignacion_activo_nuevo.pdf").build());
 
-                return new ResponseEntity<>(pdfBytes, headers1, HttpStatus.OK);
+            headers1.setContentLength(pdfBytes.length);
+
+            return new ResponseEntity<>(pdfBytes, headers1, HttpStatus.OK);
 
         } catch (Exception ex) {
+            ex.printStackTrace(); // Esto mostrará el error real en consola
             String errorMsg = "Error procesando: " + ex.getMessage();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
         }
