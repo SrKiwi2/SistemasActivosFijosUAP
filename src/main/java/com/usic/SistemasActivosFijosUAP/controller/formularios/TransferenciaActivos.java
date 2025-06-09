@@ -87,17 +87,17 @@ public class TransferenciaActivos {
                 Activo activo = activoService.findByCodigo(codigo)
                         .orElseThrow(() -> new RuntimeException("Activo no encontrado: " + codigo));
 
-                Map<String, String> detallesIA = aiDescripcionService.analizarDescripcion(activo.getDescripcion());
+                /*Map<String, String> detallesIA = aiDescripcionService.analizarDescripcion(activo.getDescripcion());*/
 
                 ActivoTransferenciaDTO dto = new ActivoTransferenciaDTO();
                 dto.setCodigo(codigo);
                 dto.setDescripcion(activo.getDescripcion());
                 dto.setUbicacionOrigen(ubicacionOrig);
                 dto.setUbicacionActual(ubicacionAct);
-                dto.setMarca(detallesIA.get("marca"));
-                dto.setModelo(detallesIA.get("modelo"));
-                dto.setNumeroSerie(detallesIA.get("numeroSerie"));
-                dto.setDimensiones(detallesIA.get("dimensiones"));
+                // dto.setMarca(detallesIA.get("marca"));
+                // dto.setModelo(detallesIA.get("modelo"));
+                // dto.setNumeroSerie(detallesIA.get("numeroSerie"));
+                // dto.setDimensiones(detallesIA.get("dimensiones"));
 
                 activosParaPdf.add(dto);
             }

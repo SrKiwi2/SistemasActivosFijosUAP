@@ -192,10 +192,10 @@ public class PdfTransferenciaService {
         //Tabla de datos activos
 
         // Tabla de datos del activo
-        PdfPTable tablaActivo = new PdfPTable(9);
+        PdfPTable tablaActivo = new PdfPTable(5);
         tablaActivo.setWidthPercentage(100);
         tablaActivo.setSpacingBefore(10f);
-        tablaActivo.setWidths(new float[]{1f, 2f, 3f, 3f, 3f, 2f, 2f, 2f, 2f});
+        tablaActivo.setWidths(new float[]{1f, 2f, 3f, 3f, 3f});
 
         // Fuente para encabezados
         Font encabezado = new Font(Font.FontFamily.HELVETICA, 6, Font.BOLD);
@@ -237,17 +237,17 @@ public class PdfTransferenciaService {
         tablaActivo.addCell(ubiActCell);
 
         // Combinamos las 4 siguientes columnas
-        PdfPCell indispCell = new PdfPCell(new Phrase("INDISPENSABLE SEGÚN CORRESPONDA", encabezado));
-        indispCell.setColspan(4);
-        indispCell.setHorizontalAlignment(Element.ALIGN_CENTER);
-        indispCell.setBackgroundColor(cyanCustom);
-        tablaActivo.addCell(indispCell);
+        // PdfPCell indispCell = new PdfPCell(new Phrase("INDISPENSABLE SEGÚN CORRESPONDA", encabezado));
+        // indispCell.setColspan(4);
+        // indispCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+        // indispCell.setBackgroundColor(cyanCustom);
+        // tablaActivo.addCell(indispCell);
 
         // --- Fila 2: subencabezados
-        tablaActivo.addCell(new PdfPCell(new Phrase("MARCA", encabezado)));
-        tablaActivo.addCell(new PdfPCell(new Phrase("MODELO", encabezado)));
-        tablaActivo.addCell(new PdfPCell(new Phrase("Nº DE SERIE", encabezado)));
-        tablaActivo.addCell(new PdfPCell(new Phrase("DIMENSIONES", encabezado)));
+        // tablaActivo.addCell(new PdfPCell(new Phrase("MARCA", encabezado)));
+        // tablaActivo.addCell(new PdfPCell(new Phrase("MODELO", encabezado)));
+        // tablaActivo.addCell(new PdfPCell(new Phrase("Nº DE SERIE", encabezado)));
+        // tablaActivo.addCell(new PdfPCell(new Phrase("DIMENSIONES", encabezado)));
 
         // --- Fila 3: datos del activo (puedes modificar según necesites)
         for (int i = 0; i < activos.size(); i++) {
@@ -258,10 +258,10 @@ public class PdfTransferenciaService {
             tablaActivo.addCell(new PdfPCell(new Phrase(dto.getDescripcion(), normal_tabla)));
             tablaActivo.addCell(new PdfPCell(new Phrase(dto.getUbicacionOrigen(), normal_tabla)));
             tablaActivo.addCell(new PdfPCell(new Phrase(dto.getUbicacionActual(), normal_tabla)));
-            tablaActivo.addCell(new PdfPCell(new Phrase(dto.getMarca(), normal_tabla)));
-            tablaActivo.addCell(new PdfPCell(new Phrase(dto.getModelo(), normal_tabla)));
-            tablaActivo.addCell(new PdfPCell(new Phrase(dto.getNumeroSerie(), normal_tabla)));
-            tablaActivo.addCell(new PdfPCell(new Phrase(dto.getDimensiones(), normal_tabla)));
+            // tablaActivo.addCell(new PdfPCell(new Phrase(dto.getMarca(), normal_tabla)));
+            // tablaActivo.addCell(new PdfPCell(new Phrase(dto.getModelo(), normal_tabla)));
+            // tablaActivo.addCell(new PdfPCell(new Phrase(dto.getNumeroSerie(), normal_tabla)));
+            // tablaActivo.addCell(new PdfPCell(new Phrase(dto.getDimensiones(), normal_tabla)));
         }
 
         document.add(tablaActivo);
@@ -271,7 +271,7 @@ public class PdfTransferenciaService {
         tablaEstado.setSpacingBefore(10f);
         
         Font fontEstado = new Font(Font.FontFamily.HELVETICA, 8, Font.BOLD);
-        Phrase contenidoEstado = new Phrase("ESTADO FÍSICO DEL BIEN:     a) BUEN ESTADO          b) REGULAR          c) MAL ESTADO          d) INCOMPLETO", fontEstado);
+        Phrase contenidoEstado = new Phrase("ESTADO FÍSICO DEL BIEN:        a) BUEN ESTADO              b) REGULAR              c) MAL ESTADO           d) INCOMPLETO", fontEstado);
         
         PdfPCell cellEstado = new PdfPCell(contenidoEstado);
         cellEstado.setBorder(Rectangle.NO_BORDER);

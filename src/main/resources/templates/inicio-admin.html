@@ -252,20 +252,22 @@
             <form id="formTransferencia">
                 <div class="modal-content border-0 shadow-lg">
                     <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title" style="color: #fff;"><i class="bi bi-box-arrow-in-down me-2"></i>Transferencia de Activos</h5>
+                        <h5 class="modal-title" style="color: #fff;"><i
+                                class="bi bi-box-arrow-in-down me-2"></i>Transferencia de Activos</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <!-- SECCIÓN TRANSFIERE -->
                         <fieldset class="border p-3 mb-4">
                             <legend class="w-auto px-3 text-primary fw-bold"><i
-                                    class="bi bi-person-fill-up me-1"></i>Transfiere</legend>
+                                    class="bi bi-person-fill-up me-1"></i>Ingreso activos ajenos a la Universidad
+                                Amazonica de Pando</legend>
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label">Dirección, Unidad y/o Sección</label>
+                                    <label class="form-label">Fecha</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="bi bi-building"></i></span>
-                                        <input type="text" class="form-control" name="unidadOrigen" autocomplete="off"
+                                        <input type="Date" class="form-control" name="fechaIngresoActivo" autocomplete="off"
                                             required>
                                     </div>
                                 </div>
@@ -336,14 +338,15 @@
 
                         <!-- SECCIÓN DETALLE DEL ACTIVO -->
                         <fieldset class="border p-3 mb-4">
-                            <legend class="w-auto px-3 text-dark fw-bold"><i class="bi bi-box-seam me-1"></i>Activos a transferir</legend>
-                                <div id="codigoActivoContainer">
-                                    <!-- Campo de código activo dinámico se insertará aquí -->
-                                </div>
-                            
-                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="agregarCodigoBtn">
-                                    <i class="bi bi-plus-circle"></i> Agregar código
-                                </button>
+                            <legend class="w-auto px-3 text-dark fw-bold"><i class="bi bi-box-seam me-1"></i>Activos a
+                                transferir</legend>
+                            <div id="codigoActivoContainer">
+                                <!-- Campo de código activo dinámico se insertará aquí -->
+                            </div>
+
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="agregarCodigoBtn">
+                                <i class="bi bi-plus-circle"></i> Agregar código
+                            </button>
                         </fieldset>
                     </div>
                     <div class="modal-footer bg-light">
@@ -356,6 +359,151 @@
         </div>
     </div>
     <!-- TRANSFERENCIA ACTIVO NUEVO -->
+
+    <!-- INGRESOS ACTIVOS AJENOS -->
+    <div class="modal fade" id="formularioModalIngresoActivoAjeno" tabindex="-1" aria-labelledby="formularioModalLabel">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <form id="formTransferencia">
+                <div class="modal-content border-0 shadow-lg rounded-4">
+                    <!-- HEADER -->
+                    <div class="modal-header bg-primary text-white rounded-top-4">
+                        <h5 class="modal-title mb-0 fw-bold" style="color: #fff;">
+                            <i class="bi bi-box-arrow-in-down me-2"></i>INGRESO DE BIENES AJENOS
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <!-- Fecha de ingreso -->
+                        <fieldset class="border p-3 mb-4 rounded-3">
+                            <legend class="w-auto px-3 text-primary fw-semibold">
+                                <i class="bi bi-calendar-date me-1"></i> Fecha de ingreso
+                            </legend>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Fecha</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
+                                        <input type="date" class="form-control" name="fechaIngreso" required>
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- Activos ajenos -->
+                        <fieldset class="border p-3 mb-4 rounded-3">
+                            <legend class="w-auto px-3 text-danger fw-semibold">
+                                <i class="bi bi-box-arrow-in-down me-1"></i> Activos ajenos a registrar
+                            </legend>
+                            <div id="agregarActivoAjenoContainer"></div>
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2"
+                                id="agregarActivoAjenoBtn">
+                                <i class="bi bi-plus-circle"></i> Añadir más
+                            </button>
+                        </fieldset>
+
+                        <!-- Propietario del activo -->
+                        <fieldset class="border p-3 mb-4 rounded-3">
+                            <legend class="w-auto px-3 text-success fw-semibold">
+                                <i class="bi bi-person-fill-down me-1"></i> Propietario del activo
+                            </legend>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Código Funcionario</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-person-vcard"></i></span>
+                                        <input type="text" class="form-control" name="codigoFuncionarioPropietario"
+                                            required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">C.I.</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                                        <input type="text" class="form-control" name="ciPropietario" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Dirección / Unidad / Sección</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-diagram-3"></i></span>
+                                        <input type="text" class="form-control" name="unidadPropietario" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Unidad de ingreso -->
+                            <legend class="w-auto px-3 text-info fw-semibold mt-4">
+                                <i class="bi bi-building me-1"></i> Unidad de ingreso
+                            </legend>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Autorizado por</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-person-check"></i></span>
+                                        <input type="text" class="form-control" name="autorizador" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Cargo</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-briefcase"></i></span>
+                                        <input type="text" class="form-control" name="cargoAutorizador" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Dirección / Unidad / Sección</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-diagram-3"></i></span>
+                                        <input type="text" class="form-control" name="unidadAutoriza" required>
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- Identificación en activos fijos -->
+                        <fieldset class="border p-3 mb-4 rounded-3">
+                            <legend class="w-auto px-3 text-warning fw-semibold">
+                                <i class="bi bi-tag me-1"></i> Identificación en Activos Fijos
+                            </legend>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Nombre Completo</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                        <input type="text" class="form-control" name="nombreIdentificacion" value="Lic. Veronica Layme Cori" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Cargo</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-briefcase"></i></span>
+                                        <input type="text" class="form-control" name="cargoIdentificacion" value="Responsable de Activos Fijos" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Dirección / Unidad / Sección</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-diagram-3"></i></span>
+                                        <input type="text" class="form-control" name="unidadIdentificacion" value="Sección de Activos Fijos" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </div>
+
+                    <!-- FOOTER -->
+                    <div class="modal-footer bg-light rounded-bottom-4">
+                        <button type="button" class="btn btn-success px-4 fw-semibold" id="btnVerificarDatosIngreso">
+                            <i class="bi bi-eye-fill me-2"></i> Verificar Datos
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- FIN INGRESO ACTIVOS AJENOS -->
 
     <!-- MODAL PARA VISUALIZAR EL PDF -->
     <div class="modal fade" id="modalVisualizarPdf" tabindex="-1">
@@ -379,6 +527,7 @@
     <script>
         let debounceTimers = {};
         let campoIndex = 0;
+        let campoIndexA = 0;
 
         function validarCampo(input, mensaje) {
             if (!input.value.trim()) {
@@ -519,7 +668,7 @@
                     minLength: 2,
                     appendTo: '#formularioModalTranferenciaActivo',
                     delay: 300
-                }); 
+                });
             }
 
             $(document).ready(function () {
@@ -558,6 +707,38 @@
                         $icono.removeClass();
                     }
                 }
+            });
+
+            /* agregar activo ajeno*/
+
+            function agregarCampoActivoAjeno() {
+                campoIndexA++;
+                const nuevoCampoA = `
+                    <div class="row g-3 mb-2" data-index="${campoIndexA}">
+                        <!-- Código del Activo -->
+                        <div class="col-md-8">
+                            <label class="form-label">Descripción del activo (Tipo, Marca, Modelo, Color, etx)</label>
+                            <input type="text" class="form-control codigo-input" name="descripcionActivo[]" data-index="${campoIndexA}" autocomplete="off" required oninput="this.value = this.value.toUpperCase()">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Estado</label>
+                            <select class="form-control" name="estadoActivoAjeno[]" required>
+                                <option value="" selected disabled>Seleccione...</option>
+                                <option value="BUENO">BUENO</option>
+                                <option value="REGULAR">REGULAR</option>
+                            </select>
+                        </div>
+                    </div>`;
+                // Agregar al DOM
+                $('#agregarActivoAjenoContainer').append(nuevoCampoA);
+            }
+
+            $(document).ready(function () {
+                agregarCampoActivoAjeno();
+
+                $('#agregarActivoAjenoBtn').on('click', function () {
+                    agregarCampoActivoAjeno();
+                });
             });
         });
 
