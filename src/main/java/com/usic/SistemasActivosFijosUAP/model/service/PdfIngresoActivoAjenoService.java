@@ -1,6 +1,8 @@
 package com.usic.SistemasActivosFijosUAP.model.service;
 
 import java.io.ByteArrayOutputStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -43,10 +45,11 @@ public class PdfIngresoActivoAjenoService {
         try {
 			String imagePath = "/home/usic03/Documentos/SISTEMAS USIC/SistemasActivosFijosUAP/src/main/resources/static/assets/img/fondo/0.jpg"; // Ruta relativa o
 																					// absoluta
-			Image background = Image.getInstance(imagePath);
+            PdfContentByte canvas = writer.getDirectContentUnder();
+            Image background = Image.getInstance(imagePath);
 			background.setAbsolutePosition(0, 0);
 			background.scaleToFit(PageSize.LETTER.getWidth(), PageSize.LETTER.getHeight());
-			writer.getDirectContentUnder().addImage(background);
+			canvas.addImage(background);
 		} catch (Exception e) {
 			// Log de error si no encuentra imagen
 			System.err.println("No se pudo cargar el membrete: " + e.getMessage());
@@ -128,7 +131,7 @@ public class PdfIngresoActivoAjenoService {
         PdfPTable tablaActivos = new PdfPTable(3);
         tablaActivos.setWidthPercentage(100);
         tablaActivos.setSpacingBefore(10f);
-        tablaActivos.setWidths(new float[]{1f, 6f, 3f});
+        tablaActivos.setWidths(new float[]{0.5f, 8f, 1.5f});
 
         // Encabezados de la tabla
         Font fontHeader = new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD);
@@ -267,6 +270,55 @@ public class PdfIngresoActivoAjenoService {
         tablaUnidad.addCell(unidadAutorizadoraCell);
         
         document.add(tablaUnidad);
+
+        document.newPage();
+
+        // Título 4)
+        Paragraph tituloActivosFijos = new Paragraph("4) IDENTIFICACIÓN EN ACTIVOS FIJOS",
+            new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD));
+        tituloActivosFijos.setSpacingBefore(20f);
+        tituloActivosFijos.setSpacingAfter(10f);
+        document.add(tituloActivosFijos);
+
+        // Crear tabla de 3 columnas
+        PdfPTable tablaActivosFijos = new PdfPTable(3);
+        tablaActivosFijos.setWidthPercentage(100);
+        tablaActivosFijos.setWidths(new float[]{3f, 5f, 3f});
+
+        // Fila 1 - NOMBRE COMPLETO
+        tablaActivosFijos.addCell(new Phrase("NOMBRE COMPLETO:", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
+        PdfPCell nombreAFCell = new PdfPCell(new Phrase(nombreIdentificacion, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
+        nombreAFCell.setHorizontalAlignment(Element.ALIGN_LEFT);
+        tablaActivosFijos.addCell(nombreAFCell);
+
+        // Celda combinada para Firma/Sello
+        PdfPCell firmaAFCell = new PdfPCell(new Phrase("Firma/Sello", new Font(Font.FontFamily.TIMES_ROMAN, 11)));
+        firmaAFCell.setRowspan(3);
+        firmaAFCell.setFixedHeight(60f);
+        firmaAFCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        firmaAFCell.setVerticalAlignment(Element.ALIGN_BOTTOM);
+        tablaActivosFijos.addCell(firmaAFCell);
+
+        // Fila 2 - CARGO
+        tablaActivosFijos.addCell(new Phrase("CARGO:", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
+        PdfPCell cargoAFCell = new PdfPCell(new Phrase(cargoIdentificacion, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
+        cargoAFCell.setHorizontalAlignment(Element.ALIGN_LEFT);
+        tablaActivosFijos.addCell(cargoAFCell);
+
+        // Fila 3 - HORA Y FECHA
+        tablaActivosFijos.addCell(new Phrase("HORA Y FECHA:", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
+
+        // Obtener hora y fecha actual
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+        String fechaHoraActual = LocalDateTime.now().format(formatter);
+
+        PdfPCell horaFechaCell = new PdfPCell(new Phrase(fechaHoraActual, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
+        horaFechaCell.setHorizontalAlignment(Element.ALIGN_LEFT);
+        tablaActivosFijos.addCell(horaFechaCell);
+
+        // Agregar tabla al documento
+        document.add(tablaActivosFijos);
+
 
         document.close();
 
