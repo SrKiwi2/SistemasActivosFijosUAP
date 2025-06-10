@@ -42,18 +42,9 @@ public class PdfIngresoActivoAjenoService {
     
             document.open();
 
-        try {
-			String imagePath = "/home/usic03/Documentos/SISTEMAS USIC/SistemasActivosFijosUAP/src/main/resources/static/assets/img/fondo/0.jpg"; // Ruta relativa o
-																					// absoluta
-            PdfContentByte canvas = writer.getDirectContentUnder();
-            Image background = Image.getInstance(imagePath);
-			background.setAbsolutePosition(0, 0);
-			background.scaleToFit(PageSize.LETTER.getWidth(), PageSize.LETTER.getHeight());
-			canvas.addImage(background);
-		} catch (Exception e) {
-			// Log de error si no encuentra imagen
-			System.err.println("No se pudo cargar el membrete: " + e.getMessage());
-		}
+            String imagePath = "/home/usic03/Documentos/SISTEMAS USIC/SistemasActivosFijosUAP/src/main/resources/static/assets/img/fondo/0.jpg"; // Ruta relativa o
+            // absoluta
+            agregarFondo(writer, imagePath);
 
         document.add(new Paragraph("\n\n"));
 
@@ -272,6 +263,8 @@ public class PdfIngresoActivoAjenoService {
         document.add(tablaUnidad);
 
         document.newPage();
+        agregarFondo(writer, imagePath);
+        document.add(new Paragraph("\n\n"));
 
         // Título 4)
         Paragraph tituloActivosFijos = new Paragraph("4) IDENTIFICACIÓN EN ACTIVOS FIJOS",
@@ -289,6 +282,7 @@ public class PdfIngresoActivoAjenoService {
         tablaActivosFijos.addCell(new Phrase("NOMBRE COMPLETO:", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
         PdfPCell nombreAFCell = new PdfPCell(new Phrase(nombreIdentificacion, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
         nombreAFCell.setHorizontalAlignment(Element.ALIGN_LEFT);
+        nombreAFCell.setPadding(4f);
         tablaActivosFijos.addCell(nombreAFCell);
 
         // Celda combinada para Firma/Sello
@@ -297,12 +291,14 @@ public class PdfIngresoActivoAjenoService {
         firmaAFCell.setFixedHeight(60f);
         firmaAFCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
         firmaAFCell.setVerticalAlignment(Element.ALIGN_BOTTOM);
+        firmaAFCell.setPadding(4f);
         tablaActivosFijos.addCell(firmaAFCell);
 
         // Fila 2 - CARGO
         tablaActivosFijos.addCell(new Phrase("CARGO:", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
         PdfPCell cargoAFCell = new PdfPCell(new Phrase(cargoIdentificacion, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
         cargoAFCell.setHorizontalAlignment(Element.ALIGN_LEFT);
+        cargoAFCell.setPadding(4f);
         tablaActivosFijos.addCell(cargoAFCell);
 
         // Fila 3 - HORA Y FECHA
@@ -319,9 +315,60 @@ public class PdfIngresoActivoAjenoService {
         // Agregar tabla al documento
         document.add(tablaActivosFijos);
 
+        // Título "5) OBSERVACIONES"
+        Paragraph tituloObservaciones = new Paragraph("5) OBSERVACIONES", new Font(Font.FontFamily.HELVETICA, 12, Font.BOLD));
+        tituloObservaciones.setSpacingBefore(20f); // Espaciado superior
+        tituloObservaciones.setSpacingAfter(10f);  // Espaciado inferior
+        document.add(tituloObservaciones);
+
+        // Párrafo con contenido legal
+        Paragraph parrafoObservaciones = new Paragraph(
+            "EL EQUIPO MENCIONADO QUEDA A RESPONSABILIDAD DEL PROPIETARIO EN CUMPLIMIENTO AL: D.S. 0181 Art. 157 inciso g) INGRESAR BIENES PARTICULARES SIN AUTORIZACIÓN DE LA UNIDAD O RESPONSABLE DE ACTIVOS FIJOS TENIENDO QUE LLENAR EL FORMULARIO RESPECTIVO CASO CONTRARIO SE TOMARÁ COMO ACTIVO FIJO DE LA UNIVERSIDAD AMAZÓNICA DE PANDO",
+            new Font(Font.FontFamily.HELVETICA, 10)
+        );
+        parrafoObservaciones.setAlignment(Element.ALIGN_JUSTIFIED);
+        parrafoObservaciones.setIndentationLeft(20f);  // Sangría izquierda
+        parrafoObservaciones.setIndentationRight(20f); // Sangría derecha
+        parrafoObservaciones.setSpacingAfter(10f);
+        document.add(parrafoObservaciones);
+
+        // Espacio antes de la línea
+        document.add(new Paragraph("\n\n\n\n"));
+        document.add(new Paragraph(" ")); // Salto visual
+
+        // Tabla para simular línea con texto centrado
+        PdfPTable lineaFirmas = new PdfPTable(1);
+        lineaFirmas.setWidthPercentage(40); // Ajusta el ancho de la línea (más corto que la hoja)
+        lineaFirmas.setHorizontalAlignment(Element.ALIGN_CENTER); // Centrado en la página
+
+        PdfPCell celdaLinea = new PdfPCell(new Phrase("ACTIVOS FIJOS", new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD)));
+        celdaLinea.setHorizontalAlignment(Element.ALIGN_CENTER);
+        celdaLinea.setBorderWidthTop(1f);  // Línea superior visible
+        celdaLinea.setBorderWidthBottom(0);
+        celdaLinea.setBorderWidthLeft(0);
+        celdaLinea.setBorderWidthRight(0);
+        celdaLinea.setPaddingTop(10f);
+        celdaLinea.setPaddingBottom(5f);
+
+        lineaFirmas.addCell(celdaLinea);
+        document.add(lineaFirmas);
+
 
         document.close();
 
         return baos.toByteArray();
     }
+
+    private void agregarFondo(PdfWriter writer, String imagePath) {
+        try {
+            PdfContentByte canvas = writer.getDirectContentUnder();
+            Image background = Image.getInstance(imagePath);
+            background.setAbsolutePosition(0, 0);
+            background.scaleToFit(PageSize.LETTER.getWidth(), PageSize.LETTER.getHeight());
+            canvas.addImage(background);
+        } catch (Exception e) {
+            System.err.println("No se pudo cargar el membrete: " + e.getMessage());
+        }
+    }
+    
 }

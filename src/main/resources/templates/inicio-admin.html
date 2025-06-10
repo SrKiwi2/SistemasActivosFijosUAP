@@ -471,21 +471,21 @@
                                     <label class="form-label fw-semibold">Nombre Completo</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="bi bi-person"></i></span>
-                                        <input type="text" class="form-control" name="nombreIdentificacion" value="Lic. Veronica Layme Cori" readonly>
+                                        <input type="text" class="form-control" name="nombreIdentificacion" value="LIC. VERONICA LAYME CORI" readonly>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Cargo</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="bi bi-briefcase"></i></span>
-                                        <input type="text" class="form-control" name="cargoIdentificacion" value="Responsable de Activos Fijos" readonly>
+                                        <input type="text" class="form-control" name="cargoIdentificacion" value="RESPONSABLE DE ACTIVOS FIJOS" readonly>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Dirección / Unidad / Sección</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="bi bi-diagram-3"></i></span>
-                                        <input type="text" class="form-control" name="unidadIdentificacion" value="Sección de Activos Fijos" readonly>
+                                        <input type="text" class="form-control" name="unidadIdentificacion" value="SECCIÓN DE ACTIVOS FIJOS" readonly>
                                     </div>
                                 </div>
                             </div>
@@ -743,6 +743,12 @@
                                 <option value="REGULAR">REGULAR</option>
                             </select>
                         </div>
+                        <!-- Botón Quitar -->
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger quitar-activo-btn w-100" data-index="${campoIndexA}">
+                                <i class="bi bi-trash"></i> Quitar
+                            </button>
+                        </div>
                     </div>`;
                 // Agregar al DOM
                 $('#agregarActivoAjenoContainer').append(nuevoCampoA);
@@ -753,6 +759,21 @@
 
                 $('#agregarActivoAjenoBtn').on('click', function () {
                     agregarCampoActivoAjeno();
+                });
+                // Evento para quitar campos
+                $(document).on('click', '.quitar-activo-btn', function() {
+                    const index = $(this).data('index');
+                    const $fieldGroup = $(`[data-index="${index}"]`);
+                    
+                    // Solo permitir eliminar si no es el último grupo
+                    if ($('#agregarActivoAjenoContainer').children().length > 1) {
+                        $fieldGroup.remove();
+                    } else {
+                        // Si es el último, solo limpiar los campos
+                        $fieldGroup.find('input').val('');
+                        $fieldGroup.find('select').val('');
+                        alert("Debe haber al menos un activo registrado. Los campos han sido limpiados.");
+                    }
                 });
             });
         });
