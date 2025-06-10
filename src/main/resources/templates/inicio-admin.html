@@ -363,7 +363,7 @@
     <!-- INGRESOS ACTIVOS AJENOS -->
     <div class="modal fade" id="formularioModalIngresoActivoAjeno" tabindex="-1" aria-labelledby="formularioModalLabel">
         <div class="modal-dialog modal-lg modal-dialog-centered">
-            <form id="formTransferencia">
+            <form id="formIngresoActivos">
                 <div class="modal-content border-0 shadow-lg rounded-4">
                     <!-- HEADER -->
                     <div class="modal-header bg-primary text-white rounded-top-4">
@@ -427,7 +427,7 @@
                                     <label class="form-label fw-semibold">Dirección / Unidad / Sección</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="bi bi-diagram-3"></i></span>
-                                        <input type="text" class="form-control" name="unidadPropietario" required>
+                                        <input type="text" class="form-control" name="unidadPropietario" autocomplete="off" required>
                                     </div>
                                 </div>
                             </div>
@@ -588,6 +588,21 @@
                 },
                 minLength: 2,
                 appendTo: '#formularioModalTranferenciaActivo',
+                delay: 300
+            });
+
+            $('input[name="unidadPropietario"]').autocomplete({
+                source: function (request, response) {
+                    $.ajax({
+                        url: '/api/oficinas/sugerencias',
+                        data: { termino: request.term },
+                        success: function (data) {
+                            response(data);
+                        }
+                    });
+                },
+                minLength: 2,
+                appendTo: '#formIngresoActivos',
                 delay: 300
             });
 
@@ -842,6 +857,30 @@
             const form = document.getElementById("formTransferencia");
             const formData = new FormData(form);
             fetch("/trasnferencia/buscar-registrar", {
+                method: "POST",
+                body: formData
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error("Error generando PDF");
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    document.getElementById("iframePDF").src = url;
+                    const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
+                    pdfModal.show();
+                    const confirmModal = bootstrap.Modal.getInstance(document.getElementById("modalConfirmacionDatos"));
+                    confirmModal.hide();
+                })
+                .catch(error => {
+                    alert("Ocurrió un error: " + error.message);
+                });
+        });
+
+        document.getElementById("btnVerificarDatosIngreso").addEventListener("click", function () {
+            const form = document.getElementById("formIngresoActivos");
+            const formData = new FormData(form);
+            fetch("/ingreso/registrar", {
                 method: "POST",
                 body: formData
             })

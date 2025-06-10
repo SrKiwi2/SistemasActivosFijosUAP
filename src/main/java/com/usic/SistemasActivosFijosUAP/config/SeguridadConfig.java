@@ -28,6 +28,7 @@ public class SeguridadConfig {
                 "/administracion/**",
                 "/asignacion/**",
                 "/trasnferencia/**",
+                "/ingreso/**",
                 "/adm/**",
                 "/api/**",
                 "/openai/**",
