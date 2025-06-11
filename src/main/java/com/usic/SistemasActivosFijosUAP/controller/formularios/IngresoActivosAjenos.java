@@ -1,5 +1,8 @@
 package com.usic.SistemasActivosFijosUAP.controller.formularios;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -24,9 +27,11 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IGeneroService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IngresoActivoAjenoService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoIngresoAjenoDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Genero;
+import com.usic.SistemasActivosFijosUAP.model.entity.IngresoActivoAjeno;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
@@ -47,6 +52,8 @@ public class IngresoActivosAjenos {
     private final IGeneroService generoService;
     private final ICargoService cargoService;
     private final IOficinaService oficinaService;
+
+    private final IngresoActivoAjenoService ingresoActivoAjenoService;
 
     @PostMapping("/registrar")
     public ResponseEntity<byte[]> ingresoActivosAjenos(
@@ -99,7 +106,23 @@ public class IngresoActivosAjenos {
 
             headers1.setContentLength(pdfBytes.length);
 
-            return new ResponseEntity<>(pdfBytes, headers1, HttpStatus.OK);
+            IngresoActivoAjeno ingresoActivoAjeno = new IngresoActivoAjeno();
+            ingresoActivoAjeno.setCodigoFuncionarioPropietario(codigoFuncionarioPropietario);
+            ingresoActivoAjeno.setCiPropietario(ciPropietario);
+            ingresoActivoAjeno.setUnidadPropietario(unidadPropietario);
+            ingresoActivoAjeno.setDescripcion(unidadIdentificacion);
+            ingresoActivoAjenoService.save(ingresoActivoAjeno);
+
+            String archivoIngresoActivoAjeno = "activo_ajeno_" + ingresoActivoAjeno.getIdIngresoActivoAjeno() + ".pdf";
+            Path path = Paths.get("pdfs/activos-ajenos", archivoIngresoActivoAjeno);
+            Files.createDirectories(path.getParent());
+            Files.write(path, pdfBytes);
+            ingresoActivoAjeno.setRutaPdf(path.toString());
+            ingresoActivoAjenoService.save(ingresoActivoAjeno);
+
+            return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + archivoIngresoActivoAjeno)
+            .contentType(MediaType.APPLICATION_PDF)
+            .body(pdfBytes);
         } catch (Exception ex) {
             ex.printStackTrace(); // Esto mostrará el error real en consola
             String errorMsg = "Error procesando: " + ex.getMessage();
