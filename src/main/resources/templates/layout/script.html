@@ -223,6 +223,20 @@
 
             });
 
+            $("#opcion_iaa").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/reporte/vista_ingreso_ajeno");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_iaa");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
             function cargarContenido(url) {
 
                 $.ajax({

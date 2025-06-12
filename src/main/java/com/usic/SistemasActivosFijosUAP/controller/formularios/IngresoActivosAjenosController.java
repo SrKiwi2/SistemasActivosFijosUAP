@@ -44,7 +44,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 @Controller
 @RequestMapping("/ingreso")
 @RequiredArgsConstructor
-public class IngresoActivosAjenos {
+public class IngresoActivosAjenosController {
 
     private final PdfIngresoActivoAjenoService pdfIngresoActivoAjenoService;
     private final IPersonaService personaService;
@@ -68,7 +68,7 @@ public class IngresoActivosAjenos {
         @RequestParam String unidadAutoriza,
         @RequestParam String nombreIdentificacion,
         @RequestParam String cargoIdentificacion,
-        @RequestParam String unidadIdentificacion) {
+        @RequestParam String unidadIdentificacion) throws Exception{
         
         try{
 
@@ -111,6 +111,7 @@ public class IngresoActivosAjenos {
             ingresoActivoAjeno.setCiPropietario(ciPropietario);
             ingresoActivoAjeno.setUnidadPropietario(unidadPropietario);
             ingresoActivoAjeno.setDescripcion(unidadIdentificacion);
+            ingresoActivoAjeno.setFechaIngreso(fechaIngreso);
             ingresoActivoAjenoService.save(ingresoActivoAjeno);
 
             String archivoIngresoActivoAjeno = "activo_ajeno_" + ingresoActivoAjeno.getIdIngresoActivoAjeno() + ".pdf";
@@ -132,8 +133,7 @@ public class IngresoActivosAjenos {
 
     private Responsable obtenerORegistrarResponsable(String codigoFuncionario, String ci) {
         Responsable responsable = responsableService.buscarPorCodigo(codigoFuncionario);
-        if (responsable != null) return responsable;
-    
+        
         Map<String, String> requestBody = Map.of(
             "usuario", codigoFuncionario,
             "contrasena", ci
@@ -215,22 +215,21 @@ public class IngresoActivosAjenos {
             cargoService.save(cargo);
         }
     
-        Responsable responsableExistente = responsableService.buscarResponsablePorPersona(persona);
-        if (responsableExistente == null) {
-            responsableExistente = new Responsable();
+        if (responsable == null) {
+            responsable = new Responsable();
         }
     
-        responsableExistente.setPersona(persona);
-        responsableExistente.setCargo(cargo);
-        responsableExistente.setOficina(oficina);
-        responsableExistente.setCodigo_funcionario(codigoFuncionario);
-        responsableExistente.setEstado("ACTIVO");
-        responsableExistente.setRegistroIdUsuario(1L);
-        responsableExistente.setRegistro(new Date());
+        responsable.setPersona(persona);
+        responsable.setCargo(cargo);
+        responsable.setOficina(oficina);
+        responsable.setCodigo_funcionario(codigoFuncionario);
+        responsable.setEstado("ACTIVO");
+        responsable.setRegistroIdUsuario(1L);
+        responsable.setRegistro(new Date());
     
-        responsableService.save(responsableExistente);
+        responsableService.save(responsable);
     
-        return responsableExistente;
+        return responsable;
     }
     
 }

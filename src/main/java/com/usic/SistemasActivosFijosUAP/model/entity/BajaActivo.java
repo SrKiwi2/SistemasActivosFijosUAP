@@ -13,17 +13,16 @@ import lombok.Setter;
 @Entity
 @Setter
 @Getter
-@Table(name = "ingreso_activo_ajeno")
-public class IngresoActivoAjeno extends AuditoriaConfig{
+@Table(name = "baja_activo")
+public class BajaActivo extends AuditoriaConfig{
     private static final long serialVersionUID = 2629195288020321924L;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
 
-    private Long idIngresoActivoAjeno;
-    private String codigoFuncionarioPropietario;
-    private String ciPropietario;
-    private String unidadPropietario;
+    private Long idBajaActivo;
+    private String Codigo;
+    private String fechaBaja;
+    private String responsable;
     private String descripcion;
-    private String fechaIngreso;
     private String rutaPdf;
 }

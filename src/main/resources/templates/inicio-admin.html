@@ -502,8 +502,147 @@
             </form>
         </div>
     </div>
-
     <!-- FIN INGRESO ACTIVOS AJENOS -->
+
+    <!-- INICIO BAJA ACTIVOS -->
+    <div class="modal fade" id="formularioModalBajaActivo" tabindex="-1" aria-labelledby="formularioModalLabel">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <form id="formBajaActivos" class="needs-validation" novalidate>
+                <div class="modal-content border-0 shadow-lg rounded-4">
+                    <!-- HEADER con animación -->
+                    <div class="modal-header bg-gradient-primary text-white rounded-top-4">
+                        <h5 class="modal-title mb-0 fw-bold">
+                            <i class="bi bi-box-arrow-in-down me-2 animate__animated animate__pulse animate__infinite"></i>BAJA DE ACTIVOS
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <!-- Sección de fecha y número con validación -->
+                        <fieldset class="border p-3 mb-4 rounded-3 shadow-sm animate__animated animate__fadeIn">
+                            <legend class="w-auto px-3 text-primary fw-semibold bg-white rounded-pill shadow-sm">
+                                <i class="bi bi-calendar-date me-1"></i> DATOS ADMINISTRATIVOS
+                            </legend>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Fecha de baja <span class="text-danger">*</span></label>
+                                    <div class="input-group has-validation">
+                                        <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
+                                        <input type="date" class="form-control" name="fechaBaja" required>
+                                        <div class="invalid-feedback">
+                                            Por favor ingrese la fecha de baja.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Número de documento <span class="text-danger">*</span></label>
+                                    <div class="input-group has-validation">
+                                        <span class="input-group-text bg-light"><i class="bi bi-123"></i></span>
+                                        <input type="text" class="form-control" name="numeroDocumento" required>
+                                        <div class="invalid-feedback">
+                                            Por favor ingrese el número de documento.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- Sección de propietario con búsqueda dinámica -->
+                        <fieldset class="border p-3 mb-4 rounded-3 shadow-sm animate__animated animate__fadeIn animate__delay-1s">
+                            <legend class="w-auto px-3 text-success fw-semibold bg-white rounded-pill shadow-sm">
+                                <i class="bi bi-person-fill-down me-1"></i> PROPIETARIO DEL ACTIVO
+                            </legend>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Código Funcionario <span class="text-danger">*</span></label>
+                                    <div class="input-group has-validation">
+                                        <span class="input-group-text"><i class="bi bi-person-vcard"></i></span>
+                                        <input type="text" class="form-control" name="codigoFuncionarioBaja" required
+                                            placeholder="Ingresa codigo funcionario"
+                                            data-bs-toggle="tooltip" data-bs-placement="top" 
+                                            title="Ingrese código funcionario">
+                                        <div class="invalid-feedback">
+                                            Por favor ingrese el código del funcionario.
+                                        </div>
+                                    </div>
+                                    <div id="sugerenciasFuncionario" class="list-group mt-2 d-none"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">C.I. <span class="text-danger">*</span></label>
+                                    <div class="input-group has-validation">
+                                        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                                        <input type="text" class="form-control" name="ciFuncionarioBaja" placeholder="Ingresa tu C.I." required>
+                                        <div class="invalid-feedback">
+                                            Por favor ingrese la cédula de identidad.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- Sección del activo con búsqueda dinámica -->
+                        <fieldset class="border p-3 rounded-3 shadow-sm animate__animated animate__fadeIn animate__delay-2s">
+                            <legend class="w-auto px-3 text-info fw-semibold bg-white rounded-pill shadow-sm">
+                                <i class="bi bi-pc-display me-1"></i> DATOS DEL ACTIVO
+                            </legend>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Código del activo <span class="text-danger">*</span></label>
+                                    <div class="input-group has-validation">
+                                        <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+                                        <input type="text" class="form-control" name="codigoActivoBaja" required
+                                            placeholder="Ejemplo: xxx-xx-xx-xx-xxxx"
+                                            data-bs-toggle="tooltip" data-bs-placement="top" 
+                                            title="Ingrese código del activo">
+                                        <div class="invalid-feedback">
+                                            Por favor ingrese el código del activo.
+                                        </div>
+                                    </div>
+                                    <div id="sugerenciasActivo" class="list-group mt-2 d-none"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Causa de baja <span class="text-danger">*</span></label>
+                                    <div class="input-group has-validation">
+                                        <span class="input-group-text"><i class="bi bi-exclamation-triangle"></i></span>
+                                        <select class="form-select" name="causa" required>
+                                            <option value="" selected disabled>Seleccione una causa...</option>
+                                            <option value="DETERIORO">Deterioro o obsolescencia</option>
+                                            <option value="PERDIDA">Pérdida</option>
+                                            <option value="PERDIDA">Robo</option>
+                                        </select>
+                                        <div class="invalid-feedback">
+                                            Por favor seleccione la causa de baja.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Campo para observaciones -->
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Descripción de la baja</label>
+                                    <textarea class="form-control" name="descripcionBaja" id="observacionesBaja" 
+                                        rows="3" placeholder="Justifica la baja del activo..."></textarea>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </div>
+
+                    <!-- FOOTER con botones mejorados -->
+                    <div class="modal-footer bg-light rounded-bottom-4 d-flex justify-content-between">
+                        <button type="button" class="btn btn-outline-secondary px-4 fw-semibold" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-2"></i> Cancelar
+                        </button>
+                        <div>
+                            <button type="submit" class="btn btn-success px-4 fw-semibold" id="btnConfirmarBaja">
+                                <i class="bi bi-check-circle me-2"></i> Confirmar Baja
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- FIN BAJA ACTIVOS -->
 
     <!-- MODAL PARA VISUALIZAR EL PDF -->
     <div class="modal fade" id="modalVisualizarPdf" tabindex="-1">
@@ -610,7 +749,7 @@
                 const $this = $(this);
                 const codigo = $this.val();
 
-                if (codigo.length >= 4) {
+                if (codigo.length >= 1) {
                     const tipo = $this.attr("name").replace("codigoFuncionario", "");
                     $.get("/api/responsables/datos", { codigo: codigo }, function (data) {
                         if (data && data.ci) {
@@ -890,13 +1029,15 @@
                     document.getElementById("iframePDF").src = url;
                     const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
                     pdfModal.show();
-                    const confirmModal = bootstrap.Modal.getInstance(document.getElementById("modalConfirmacionDatos"));
+                    const confirmModal = bootstrap.Modal.getInstance(document.getElementById("formularioModalTranferenciaActivo"));
                     confirmModal.hide();
                 })
                 .catch(error => {
                     alert("Ocurrió un error: " + error.message);
                 });
         });
+
+        // INGRRESO ACTIVO AJENO
 
         document.getElementById("btnVerificarDatosIngreso").addEventListener("click", function () {
             const form = document.getElementById("formIngresoActivos");
@@ -914,13 +1055,42 @@
                     document.getElementById("iframePDF").src = url;
                     const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
                     pdfModal.show();
-                    const confirmModal = bootstrap.Modal.getInstance(document.getElementById("modalConfirmacionDatos"));
+                    const confirmModal = bootstrap.Modal.getInstance(document.getElementById("formularioModalIngresoActivoAjeno"));
                     confirmModal.hide();
                 })
                 .catch(error => {
                     alert("Ocurrió un error: " + error.message);
                 });
         });
+
+        // BAJA ACTIVO
+
+        document.getElementById("btnConfirmarBaja").addEventListener("click", function () {
+            const form = document.getElementById("formBajaActivos");
+            const formData = new FormData(form);
+            fetch("/baja/registro", {
+                method: "POST",
+                body: formData
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error("Error generando PDF");
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    document.getElementById("iframePDF").src = url;
+                    const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
+                    pdfModal.show();
+                    const confirmModal = bootstrap.Modal.getInstance(document.getElementById("formularioModalIngresoActivoAjeno"));
+                    confirmModal.hide();
+                })
+                .catch(error => {
+                    alert("Ocurrió un error: " + error.message);
+                });
+        });
+
+
+        
     </script>
 
 </body>

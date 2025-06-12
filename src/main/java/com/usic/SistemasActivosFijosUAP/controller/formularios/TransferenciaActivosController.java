@@ -44,7 +44,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 @Controller
 @RequestMapping("/trasnferencia")
 @RequiredArgsConstructor
-public class TransferenciaActivos {
+public class TransferenciaActivosController {
 
     private final IResponsableService responsableService;
     private final IPersonaService personaService;
@@ -68,7 +68,7 @@ public class TransferenciaActivos {
 
             @RequestParam List<String>  codigoActivo,
             @RequestParam List<String>  ubicacionOrigen,
-            @RequestParam List<String>  ubicacionActual) {
+            @RequestParam List<String>  ubicacionActual) throws Exception {
         try {
             Responsable responsableOrigen = obtenerORegistrarResponsable(codigoFuncionarioOrigen, ciOrigen);
             Responsable responsableDestino = obtenerORegistrarResponsable(codigoFuncionarioDestino, ciDestino);

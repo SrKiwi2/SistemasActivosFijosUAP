@@ -51,7 +51,7 @@ public class AsignacionActivoNuevoController {
             @RequestParam String hr,
             @RequestParam String ubicacionActivo,
             @RequestParam String descripcionActivo,
-            RedirectAttributes redirectAttributes) {
+            RedirectAttributes redirectAttributes) throws Exception {
 
         try {
             // Construir cuerpo de la solicitud
