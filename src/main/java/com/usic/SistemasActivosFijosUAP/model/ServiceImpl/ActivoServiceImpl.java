@@ -120,4 +120,9 @@ public class ActivoServiceImpl implements IActivoService{
        return dao.findByCodigo(codigo);
     }
 
+    @Override
+    public Activo buscarPorCodigo(String codigo) {
+        return dao.buscarPorCodigo(codigo);
+    }
+
 }

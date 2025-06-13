@@ -57,7 +57,7 @@ public class BajaActivoController {
 
     private final PdfBajaActivoService pdfBajaActivoService;
     
-    @PostMapping("registro")
+    @PostMapping("/registro")
     public ResponseEntity<byte[]> registroBajasActivo(
         @RequestParam String fechaBaja,
         @RequestParam String numeroDocumento,
@@ -70,7 +70,7 @@ public class BajaActivoController {
         try{
 
             Responsable responsbaleBaja = obtenerORegistrarResponsable(codigoFuncionarioBaja, ciFuncionarioBaja);
-            Optional<Activo> activoBaja = activoService.findByCodigo(codigoActivoBaja);
+            Activo activoBaja = activoService.buscarPorCodigo(codigoActivoBaja);
             byte[] pdfBytes = pdfBajaActivoService.generarPDfBajaActivo(
                 fechaBaja,
                 numeroDocumento,

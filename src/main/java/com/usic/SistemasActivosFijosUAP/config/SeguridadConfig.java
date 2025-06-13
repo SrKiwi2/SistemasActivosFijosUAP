@@ -30,6 +30,7 @@ public class SeguridadConfig {
                 "/trasnferencia/**",
                 "/ingreso/**",
                 "/reporte/**",
+                "/baja/**",
                 "/pdfs/**",
                 "/adm/**",
                 "/api/**",

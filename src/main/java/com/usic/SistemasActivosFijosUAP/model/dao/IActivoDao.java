@@ -17,6 +17,9 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
     @Query("SELECT a FROM Activo a WHERE a.nombre = ?1 AND a.estado = 'ACTIVO'")
     Activo buscarPorNombre(String nombre);
 
+    @Query("SELECT a FROM Activo a WHERE a.codigo = ?1 AND a.estado = 'ACTIVO'")
+    Activo buscarPorCodigo(String codigo);
+
     @Query("SELECT a FROM Activo a WHERE a.estado = 'ACTIVO'")
     List<Activo> listarActivos();
 

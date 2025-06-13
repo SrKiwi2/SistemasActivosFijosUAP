@@ -76,7 +76,8 @@ public class IngresoActivosAjenosController {
 
             List<ActivoIngresoAjenoDTO> activosParaPdf = new ArrayList<>();
 
-            for (int i = 0; i < descripcionActivo.size(); i++) {
+            int minSize = Math.min(descripcionActivo.size(), estadoActivoAjeno.size());
+            for (int i = 0; i < minSize; i++) {
                 String descripcionActivoAjeno = descripcionActivo.get(i);
                 String estadoActivoA = estadoActivoAjeno.get(i);
                 

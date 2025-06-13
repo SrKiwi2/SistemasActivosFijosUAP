@@ -14,6 +14,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 @Service
 public interface IActivoService extends IServiceGenerico<Activo, Long>{
     Activo buscarPorNombre(String nombre);
+    Activo buscarPorCodigo(String codigo);
     List<Activo> listarActivos();
     Page<Activo> buscarPorNombreOCodigo(@Param("filtro") String filtro, Pageable pageable);
     Page<Activo> buscarConFiltros(String searchValue, String codigo, String responsableId,
