@@ -30,7 +30,7 @@ public class LoginController {
     private final IUsuarioService usuarioService;
     private final PasswordEncoder passwordEncoder;
 
-    @GetMapping(value = "/")
+    @GetMapping(value = "/login")
     public String formLogin() {
 
         return "login/login";
@@ -74,7 +74,6 @@ public class LoginController {
             sessionAdministrador.invalidate();
             flash.addAttribute("validado", "Se cerro sesion con exito");
             logger.info("Usuario cerro sesión: {}", usuarioLogueado.getPersona().getNombre());
-            
         }
         return "redirect:/";
     }

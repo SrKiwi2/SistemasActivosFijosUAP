@@ -61,8 +61,8 @@
                                     </div>
                                 </div>
                                 <div class="flex-grow-1">
-                                    <span class="fw-medium d-block" th:text="${session.persona.nombre+' '+session.persona.paterno+' '+session.persona.materno}"></span>
-                                    <small class="text-muted" th:text="${session.persona.usuario.rol.nombre}"></small>
+                                    <span class="fw-medium d-block" th:text="${session.persona != null ? session.persona.nombre+' '+session.persona.paterno+' '+session.persona.materno : 'Invitado'}"></span>
+                                    <small class="text-muted" th:text="${session.persona != null and session.persona.usuario != null and session.persona.usuario.rol != null ? session.persona.usuario.rol.nombre : 'Sin rol'}"></small>
                                 </div>
                             </div>
                         </a>
@@ -80,7 +80,7 @@
                         <div class="dropdown-divider"></div>
                     </li>
                     <li>
-                        <a class="dropdown-item" href="javascript:void(0);" data-bs-toggle="modal" data-bs-target="#modalConfirmLogout">
+                        <a class="dropdown-item" href="/cerrar_sesion" data-bs-toggle="modal" data-bs-target="#modalConfirmLogout">
                             <i class="ti ti-logout me-2 ti-sm"></i>
                             <span class="align-middle">Cerrar sesión</span>
                         </a>

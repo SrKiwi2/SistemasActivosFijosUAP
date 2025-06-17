@@ -20,7 +20,7 @@ public class SeguridadConfig {
         http
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/",
-                "/login_admin",
+                "/login",
                 "/cerrar_sesion",
                 "/error**",
                 "/assets/**",
@@ -47,10 +47,10 @@ public class SeguridadConfig {
                 .loginPage("/")  // Aquí rediriges correctamente
                 .permitAll()
             )
-            .logout(logout -> logout
-                .logoutUrl("/logout")
-                .logoutSuccessUrl("/login_admin")
-            )
+            // .logout(logout -> logout
+            //     .logoutUrl("/logout")
+            //     .logoutSuccessUrl("/login_admin")
+            // )
             .headers(headers -> headers
                 .frameOptions(frame -> frame.sameOrigin())
             )

@@ -5,6 +5,7 @@
             opacity: 0;
             transform: translateY(-20px);
         }
+
         100% {
             opacity: 1;
             transform: translateY(0);
@@ -19,7 +20,8 @@
         transform: scale(1.08);
     }
 
-    table th, table td {
+    table th,
+    table td {
         padding: 0.5rem !important;
     }
 
@@ -32,7 +34,8 @@
         color: #1e3a8a;
     }
 
-    .table td, .table th {
+    .table td,
+    .table th {
         border-color: #dee2e6 !important;
     }
 
@@ -117,80 +120,85 @@
         transform: scale(1.03);
     }
 
-        /* Animaciones y efectos */
-        .transition-rotate {
+    /* Animaciones y efectos */
+    .transition-rotate {
         transition: transform 0.3s ease;
     }
-    
+
     .btn[aria-expanded="true"] .transition-rotate {
         transform: rotate(180deg);
     }
-    
+
     .legal-card {
         transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
-    
+
     .legal-card:hover {
         transform: translateY(-5px);
         box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
     }
-    
+
     /* Responsividad */
     @media (max-width: 768px) {
         .btn-section .btn {
             width: 100%;
             margin-bottom: 10px;
         }
-        
+
         .card-header h2 {
             font-size: 1.2rem;
         }
     }
-
-
 </style>
 
-<div class="card animated-card position-relative p-0 mb-4 overflow-hidden"
-     style="min-height: 180px; background: linear-gradient(90deg, rgba(30,58,138,0.05), rgba(185,28,28,0.05)); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1); border: 1px solid rgba(0,0,0,0.05); border-radius: 12px;">
+<div class="card animated-card position-relative p-0 mb-4 overflow-hidden shadow-sm border-0"
+    style="min-height: 180px; border-radius: 12px; background: linear-gradient(90deg, rgba(30,58,138,0.05), rgba(185,28,28,0.05));">
 
-    <!-- Logos animados en las esquinas -->
-    <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="90"
-         class="logo-hover"
-         style="position: absolute; top: 20px; left: 20px; transition: transform 0.4s ease;" />
+    <!-- Logos (izquierda y derecha) -->
+    <div class="position-absolute top-0 start-0 p-3 d-none d-sm-block">
+        <img src="../../assets/img/logo/activofijos.png" alt="UAP" height="90" class="logo-hover"
+            style="transition: transform 0.4s ease;" />
+    </div>
+    <div class="position-absolute top-0 end-0 p-3 d-none d-sm-block">
+        <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="100" class="logo-hover"
+            style="transition: transform 0.4s ease;" />
+    </div>
 
-    <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="90"
-         class="logo-hover"
-         style="position: absolute; top: 20px; right: 20px; transition: transform 0.4s ease;" />
-
-    <!-- Contenido central con animación -->
-    <div class="card-body d-flex flex-column justify-content-center align-items-center text-center"
-         style="padding: 70px 20px 40px;">
-        <h3 class="card-title mb-2 lh-sm px-md-5 lh-lg fw-bold text-uppercase"
-            style="font-size: 1.9rem; color: #1e3a8a;">
+    <!-- Contenido central -->
+    <div class="card-body d-flex flex-column justify-content-center align-items-center text-center py-5 px-3">
+        <h3 class="card-title mb-2 lh-sm lh-lg fw-bold text-uppercase text-primary px-lg-5" style="font-size: 1.7rem;">
             SISTEMA SAYOVE - ACTIVOS FIJOS
-            <span class="fw-semibold" style="color: #b91c1c;">2.0</span>
+            <span class="fw-semibold text-danger">2.0</span>
         </h3>
-        <p class="mb-0"
-           style="font-style: italic; font-family: 'Georgia', 'Times New Roman', serif; font-size: 1.1rem; color: #333;">
+        <p class="mb-0 fst-italic" style="font-family: 'Georgia', serif; font-size: 1rem;">
             Escribiendo una nueva historia con vos...
         </p>
+    </div>
+
+    <!-- Logos visibles solo en móvil (centrados abajo) -->
+    <div class="d-block d-sm-none text-center pb-3">
+        <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="60" class="logo-hover mx-2" />
+        <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="60" class="logo-hover mx-2" />
     </div>
 </div>
 
 <!-- Sección de botones -->
 <div class="btn-section">
     <!-- Botón 1 -->
-    <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal" data-bs-target="#formularioModalAsignacionActivo">
+    <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal"
+        data-bs-target="#formularioModalAsignacionActivo">
         <i class="bi bi-plus-circle-fill"></i> Registrar Asignación
     </button>
 
     <!-- Botón 2 -->
-    <button class="btn btn-lg-custom btn-reporte" data-bs-toggle="modal" data-bs-target="#formularioModalTranferenciaActivo">
+    <button class="btn btn-lg-custom btn-reporte" data-bs-toggle="modal"
+        data-bs-target="#formularioModalTranferenciaActivo">
         <i class="bi bi-file-earmark-bar-graph-fill"></i> Transferencia de Activos
     </button>
 
     <!-- Botón 3 -->
-    <button class="btn btn-lg-custom btn-importar" data-bs-toggle="modal" data-bs-target="#formularioModalIngresoActivoAjeno">
+    <button class="btn btn-lg-custom btn-importar" data-bs-toggle="modal"
+        data-bs-target="#formularioModalIngresoActivoAjeno">
         <i class="bi bi-file-earmark-arrow-up-fill"></i> Ingreso de Bienes Ajenos
     </button>
 
@@ -204,17 +212,17 @@
     <!-- Tarjeta de presentación con efecto acordeón -->
     <div class="card border-0 rounded-4 overflow-hidden mb-4 shadow-sm">
         <div class="card-header p-0 border-0" id="informacionHeading">
-            <button class="btn btn-link text-decoration-none w-100 text-start p-4 d-flex justify-content-between align-items-center" 
-                    type="button" data-bs-toggle="collapse" data-bs-target="#informacionCollapse" 
-                    aria-expanded="true" aria-controls="informacionCollapse"
-                    style="background: linear-gradient(135deg, #1e3a8a, #b91c1c);">
+            <button
+                class="btn btn-link text-decoration-none w-100 text-start p-4 d-flex justify-content-between align-items-center"
+                type="button" data-bs-toggle="collapse" data-bs-target="#informacionCollapse" aria-expanded="true"
+                aria-controls="informacionCollapse" style="background: linear-gradient(135deg, #1e3a8a, #b91c1c);">
                 <h2 class="mb-0 text-white fw-bold">
                     <i class="bi bi-info-circle-fill me-3"></i>INFORMACIÓN INSTITUCIONAL - SECCIÓN DE ACTIVOS FIJOS
                 </h2>
                 <i class="bi bi-chevron-down text-white fs-4 transition-rotate"></i>
             </button>
         </div>
-        
+
         <div id="informacionCollapse" class="collapse show" aria-labelledby="informacionHeading">
             <div class="card-body p-0">
                 <!-- Sección de Funciones -->
@@ -223,10 +231,10 @@
                         <i class="bi bi-list-task me-2"></i>FUNCIONES DE LA SECCIÓN DE ACTIVOS FIJOS
                     </h3>
                     <p class="lead mb-4" style="color: #333;">
-                        Somos una sección operativa dependiente de la Dirección Administrativa Financiera de la 
+                        Somos una sección operativa dependiente de la Dirección Administrativa Financiera de la
                         <span class="fw-bold" style="color: #1e3a8a;">Universidad Amazónica de Pando</span>.
                     </p>
-                    
+
                     <div class="row g-4">
                         <div class="col-md-6">
                             <div class="d-flex mb-3">
@@ -238,7 +246,7 @@
                                     <p class="mb-0 text-muted">Para su incorporación al activo fijo de la entidad.</p>
                                 </div>
                             </div>
-                            
+
                             <div class="d-flex mb-3">
                                 <div class="me-3 mt-1" style="color: #b91c1c;">
                                     <i class="bi bi-check-circle-fill fs-5"></i>
@@ -248,7 +256,7 @@
                                     <p class="mb-0 text-muted">Mediante códigos, claves o símbolos.</p>
                                 </div>
                             </div>
-                            
+
                             <div class="d-flex mb-3">
                                 <div class="me-3 mt-1" style="color: #b91c1c;">
                                     <i class="bi bi-check-circle-fill fs-5"></i>
@@ -259,7 +267,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="col-md-6">
                             <div class="d-flex mb-3">
                                 <div class="me-3 mt-1" style="color: #b91c1c;">
@@ -270,7 +278,7 @@
                                     <p class="mb-0 text-muted">De Activos Fijos Muebles.</p>
                                 </div>
                             </div>
-                            
+
                             <div class="d-flex mb-3">
                                 <div class="me-3 mt-1" style="color: #b91c1c;">
                                     <i class="bi bi-check-circle-fill fs-5"></i>
@@ -280,7 +288,7 @@
                                     <p class="mb-0 text-muted">Fijos Muebles a responsables.</p>
                                 </div>
                             </div>
-                            
+
                             <div class="d-flex mb-3">
                                 <div class="me-3 mt-1" style="color: #b91c1c;">
                                     <i class="bi bi-check-circle-fill fs-5"></i>
@@ -293,61 +301,76 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Sección de Marco Legal -->
-                <div class="p-4" style="background-color: rgba(185, 28, 28, 0.03); border-top: 1px solid rgba(0,0,0,0.05);">
+                <div class="p-4"
+                    style="background-color: rgba(185, 28, 28, 0.03); border-top: 1px solid rgba(0,0,0,0.05);">
                     <h3 class="fw-bold mb-4" style="color: #b91c1c;">
                         <i class="bi bi-journal-bookmark-fill me-2"></i>MARCO LEGAL
                     </h3>
-                    
+
                     <div class="mb-4">
                         <p class="mb-3" style="text-align: justify;">
-                            La <span class="fw-bold">Ley 1178 Ley de Administración y Control Gubernamental (SAFCO)</span> en su artículo 10º, define que el Sistema de Administración de Bienes y Servicios establecerá la forma de contratación, manejo y disposición de bienes y servicios, asimismo que las entidades emplearán los bienes y los servicios que contraten, en los fines previstos en la Programación de Operaciones y realizarán el mantenimiento preventivo y la salvaguardia de los activos, identificando a los responsables de su manejo.
+                            La <span class="fw-bold">Ley 1178 Ley de Administración y Control Gubernamental
+                                (SAFCO)</span> en su artículo 10º, define que el Sistema de Administración de Bienes y
+                            Servicios establecerá la forma de contratación, manejo y disposición de bienes y servicios,
+                            asimismo que las entidades emplearán los bienes y los servicios que contraten, en los fines
+                            previstos en la Programación de Operaciones y realizarán el mantenimiento preventivo y la
+                            salvaguardia de los activos, identificando a los responsables de su manejo.
                         </p>
                     </div>
-                    
+
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <div class="legal-card p-3 rounded-3 h-100" 
-                                 style="border-left: 4px solid #1e3a8a; background-color: white;">
+                            <div class="legal-card p-3 rounded-3 h-100"
+                                style="border-left: 4px solid #1e3a8a; background-color: white;">
                                 <h5 class="fw-bold mb-2" style="color: #1e3a8a;">Leyes Nacionales</h5>
                                 <ul class="list-unstyled mb-0">
                                     <li class="mb-2 d-flex align-items-start">
-                                        <i class="bi bi-file-text-fill me-2" style="color: #b91c1c; font-size: 0.8rem; margin-top: 0.2rem;"></i>
+                                        <i class="bi bi-file-text-fill me-2"
+                                            style="color: #b91c1c; font-size: 0.8rem; margin-top: 0.2rem;"></i>
                                         <span>Ley Nº 1178 de Administración y Control Gubernamental (20/07/1990)</span>
                                     </li>
                                     <li class="mb-2 d-flex align-items-start">
-                                        <i class="bi bi-file-text-fill me-2" style="color: #b91c1c; font-size: 0.8rem; margin-top: 0.2rem;"></i>
+                                        <i class="bi bi-file-text-fill me-2"
+                                            style="color: #b91c1c; font-size: 0.8rem; margin-top: 0.2rem;"></i>
                                         <span>Ley N° 004 Lucha contra la corrupción "Marcelo Quiroga Santa Cruz"</span>
                                     </li>
                                     <li class="mb-2 d-flex align-items-start">
-                                        <i class="bi bi-file-text-fill me-2" style="color: #b91c1c; font-size: 0.8rem; margin-top: 0.2rem;"></i>
+                                        <i class="bi bi-file-text-fill me-2"
+                                            style="color: #b91c1c; font-size: 0.8rem; margin-top: 0.2rem;"></i>
                                         <span>Ley N°2027 Estatuto del Funcionario Público</span>
                                     </li>
                                     <li class="d-flex align-items-start">
-                                        <i class="bi bi-file-text-fill me-2" style="color: #b91c1c; font-size: 0.8rem; margin-top: 0.2rem;"></i>
+                                        <i class="bi bi-file-text-fill me-2"
+                                            style="color: #b91c1c; font-size: 0.8rem; margin-top: 0.2rem;"></i>
                                         <span>Ley N°2341 Procedimiento Administrativo</span>
                                     </li>
                                 </ul>
                             </div>
                         </div>
-                        
+
                         <div class="col-md-6">
-                            <div class="legal-card p-3 rounded-3 h-100" 
-                                 style="border-left: 4px solid #b91c1c; background-color: white;">
+                            <div class="legal-card p-3 rounded-3 h-100"
+                                style="border-left: 4px solid #b91c1c; background-color: white;">
                                 <h5 class="fw-bold mb-2" style="color: #b91c1c;">Decretos Supremos</h5>
                                 <ul class="list-unstyled mb-0">
                                     <li class="mb-2 d-flex align-items-start">
-                                        <i class="bi bi-file-earmark-text-fill me-2" style="color: #1e3a8a; font-size: 0.8rem; margin-top: 0.2rem;"></i>
-                                        <span>Decreto Supremo 0181 del 28 Junio 2009 Normas Básicas del Sistema de Administración de Bienes y Servicios</span>
+                                        <i class="bi bi-file-earmark-text-fill me-2"
+                                            style="color: #1e3a8a; font-size: 0.8rem; margin-top: 0.2rem;"></i>
+                                        <span>Decreto Supremo 0181 del 28 Junio 2009 Normas Básicas del Sistema de
+                                            Administración de Bienes y Servicios</span>
                                     </li>
                                     <li class="mb-2 d-flex align-items-start">
-                                        <i class="bi bi-file-earmark-text-fill me-2" style="color: #1e3a8a; font-size: 0.8rem; margin-top: 0.2rem;"></i>
+                                        <i class="bi bi-file-earmark-text-fill me-2"
+                                            style="color: #1e3a8a; font-size: 0.8rem; margin-top: 0.2rem;"></i>
                                         <span>D. S. Nro. 23318‐A de Responsabilidad por la Función Pública</span>
                                     </li>
                                     <li class="d-flex align-items-start">
-                                        <i class="bi bi-file-earmark-text-fill me-2" style="color: #1e3a8a; font-size: 0.8rem; margin-top: 0.2rem;"></i>
-                                        <span>D. S. Nro. 26237 Modificatorio al D.S. 23318‐A de Responsabilidad por la Función Pública</span>
+                                        <i class="bi bi-file-earmark-text-fill me-2"
+                                            style="color: #1e3a8a; font-size: 0.8rem; margin-top: 0.2rem;"></i>
+                                        <span>D. S. Nro. 26237 Modificatorio al D.S. 23318‐A de Responsabilidad por la
+                                            Función Pública</span>
                                     </li>
                                 </ul>
                             </div>
@@ -355,11 +378,13 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Pie de tarjeta institucional -->
-            <div class="card-footer text-center py-3" style="background-color: #f8f9fa; border-top: 1px solid rgba(0,0,0,0.05);">
+            <div class="card-footer text-center py-3"
+                style="background-color: #f8f9fa; border-top: 1px solid rgba(0,0,0,0.05);">
                 <p class="mb-0 fst-italic" style="color: #6c757d;">
-                    <i class="bi bi-building me-1"></i> Dirección Administrativa Financiera - Universidad Amazónica de Pando
+                    <i class="bi bi-building me-1"></i> Dirección Administrativa Financiera - Universidad Amazónica de
+                    Pando
                 </p>
             </div>
         </div>
@@ -369,14 +394,16 @@
 <div class="card shadow-sm p-4" th:if="${session.nombre_rol == 'RESPONSABLE'}">
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h5 class="text-primary fw-bold mb-0">Activos asignados</h5>
-        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#tablaActivosResponsable" aria-expanded="false">
+        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse"
+            data-bs-target="#tablaActivosResponsable" aria-expanded="false">
             Mostrar / Ocultar
         </button>
     </div>
 
     <div id="tablaActivosResponsable" class="collapse show">
         <div class="table-responsive">
-            <table id="tablaActivos" class="table table-sm align-middle table-bordered table-hover" style="font-size: 0.875rem;">
+            <table id="tablaActivos" class="table table-sm align-middle table-bordered table-hover"
+                style="font-size: 0.875rem;">
                 <thead class="table-primary text-center" style="font-size: 0.85rem;">
                     <tr>
                         <th>Código</th>
@@ -391,12 +418,21 @@
                 <tbody>
                     <tr th:each="activo : ${activos}">
                         <td th:text="${activo.codigo}" class="text-truncate" style="max-width: 140px;"></td>
-                        <td th:text="${activo.nombre}" th:attr="data-bs-toggle='tooltip', title=${activo.nombre}" class="text-truncate" style="max-width: 140px;"></td>
-                        <td th:text="${activo.descripcion}" th:attr="data-bs-toggle='tooltip', title=${activo.descripcion}" class="text-truncate" style="max-width: 200px;"></td>
-                        <td th:text="${activo.oficina.nombre}" th:attr="data-bs-toggle='tooltip', title=${activo.oficina.nombre}" class="text-truncate" style="max-width: 120px;"></td>
-                        <td th:text="${activo.grupoContable.nombre}" th:attr="data-bs-toggle='tooltip', title=${activo.grupoContable.nombre}" class="text-truncate" style="max-width: 140px;"></td>
-                        <td th:text="${activo.estadoActivo.nombre}" class="text-center text-truncate" style="max-width: 100px;"></td>
-                        <td th:text="${#temporals.format(activo.fecha_adquisición, 'dd/MM/yyyy')}" class="text-center"></td>
+                        <td th:text="${activo.nombre}" th:attr="data-bs-toggle='tooltip', title=${activo.nombre}"
+                            class="text-truncate" style="max-width: 140px;"></td>
+                        <td th:text="${activo.descripcion}"
+                            th:attr="data-bs-toggle='tooltip', title=${activo.descripcion}" class="text-truncate"
+                            style="max-width: 200px;"></td>
+                        <td th:text="${activo.oficina.nombre}"
+                            th:attr="data-bs-toggle='tooltip', title=${activo.oficina.nombre}" class="text-truncate"
+                            style="max-width: 120px;"></td>
+                        <td th:text="${activo.grupoContable.nombre}"
+                            th:attr="data-bs-toggle='tooltip', title=${activo.grupoContable.nombre}"
+                            class="text-truncate" style="max-width: 140px;"></td>
+                        <td th:text="${activo.estadoActivo.nombre}" class="text-center text-truncate"
+                            style="max-width: 100px;"></td>
+                        <td th:text="${#temporals.format(activo.fecha_adquisición, 'dd/MM/yyyy')}" class="text-center">
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -426,26 +462,26 @@
         });
     });
 
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // Efecto hover para los elementos legales
         const legalCards = document.querySelectorAll('.legal-card');
         legalCards.forEach(card => {
-            card.addEventListener('mouseenter', function() {
+            card.addEventListener('mouseenter', function () {
                 this.style.boxShadow = '0 6px 12px rgba(0, 0, 0, 0.1)';
             });
-            
-            card.addEventListener('mouseleave', function() {
+
+            card.addEventListener('mouseleave', function () {
                 this.style.boxShadow = 'none';
             });
         });
-        
+
         // Control del acordeón
         const infoCollapse = document.getElementById('informacionCollapse');
-        infoCollapse.addEventListener('show.bs.collapse', function() {
+        infoCollapse.addEventListener('show.bs.collapse', function () {
             document.querySelector('[aria-controls="informacionCollapse"] i').classList.add('rotate-180');
         });
-        
-        infoCollapse.addEventListener('hide.bs.collapse', function() {
+
+        infoCollapse.addEventListener('hide.bs.collapse', function () {
             document.querySelector('[aria-controls="informacionCollapse"] i').classList.remove('rotate-180');
         });
     });
