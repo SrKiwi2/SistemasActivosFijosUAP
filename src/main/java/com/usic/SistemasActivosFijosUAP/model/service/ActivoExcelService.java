@@ -103,17 +103,30 @@ public class ActivoExcelService {
                 String materno = datosPersona[2];
                 String cargoNombre = getText(fila.getCell(12));
 
-                List<Persona> personas = personaService.buscarPersonaPorNombrePaternoMaterno(nombreResponsable, paterno, materno);
-                Persona persona = personas.isEmpty() ? null : personas.get(0);
+                // List<Persona> personas = personaService.buscarPersonaPorNombrePaternoMaterno(nombreResponsable, paterno, materno);
+                // Persona persona = personas.isEmpty() ? null : personas.get(0);
+
+
+                Persona persona = null;
+
+                if (!nombreResponsable.isBlank() && !paterno.isBlank() && !materno.isBlank()) {
+                    persona = personaService.buscarPersonaPorNombreCompletoUno(nombreResponsable, paterno, materno);
+                }else if (!nombreResponsable.isBlank() && !paterno.isBlank()) {
+                    persona = personaService.buscarPersonaPorNombrePaterno(nombreResponsable, paterno);
+                }else if (!nombreResponsable.isBlank()) {
+                    persona = personaService.buscarPersonaNombre(nombreResponsable);
+                }
+
                 if (persona == null) {
                     persona = new Persona();
-                    persona.setNombre(nombreResponsable);
-                    persona.setPaterno(paterno);
-                    persona.setMaterno(materno);
+                    persona.setNombre(nombreResponsable.isBlank() ? null : nombreResponsable);
+                    persona.setPaterno(paterno.isBlank() ? null : paterno);
+                    persona.setMaterno(materno.isBlank() ? null : materno);
                     persona.setEstado("ACTIVO");
                     persona.setRegistro(new Date());
                     persona.setRegistroIdUsuario(1L);
                     personaService.save(persona);
+                    System.out.println("PERSONA CREADA: "+ persona.getNombre());
                 }
 
                 Cargo cargo = cargoService.buscarPorNombre(cargoNombre);
@@ -153,7 +166,7 @@ public class ActivoExcelService {
                 }
 
                 Activo activo = new Activo();
-                activo.setCodigo(codigo);
+                activo.setCodigo("148-"+codigo);
                 activo.setNombre(nombre);
                 activo.setDescripcion(descripcion);
                 activo.setCosto(costo);

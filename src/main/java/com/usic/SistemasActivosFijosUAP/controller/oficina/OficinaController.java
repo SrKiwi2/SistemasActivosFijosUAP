@@ -21,6 +21,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.OficinaExcelService;
@@ -35,6 +36,7 @@ public class OficinaController {
     
     private final IOficinaService oficinaService;
     private final OficinaExcelService oficinaExcelService;
+    private final IPredioServicio predioServicio;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -59,6 +61,7 @@ public class OficinaController {
     @ValidarUsuarioAutenticado
     @PostMapping("/formulario")
     public String formulario_oficina(Model model, Oficina oficina) {
+        model.addAttribute("predios", predioServicio.findAll());
         return "oficina/formulario";
     }
 
