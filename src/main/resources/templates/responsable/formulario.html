@@ -1,0 +1,39 @@
+<div class="modal-header">
+    <h4 class="modal-title">Registrar Responsable'</h4>
+    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+</div>
+<form id="formularioResponsable" method="post"
+      th:action="@{/administracion/responsable/registrar-responsable}" novalidate>
+    <input type="hidden" th:if="${edit != null}" th:field="${responsable.idResponsable}">
+    
+    <div class="modal-body">
+        <div class="row">
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label">Código Funcionario</label>
+                <input type="text" name="codigoFuncionario" class="form-control" required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Por favor introduzca un dato válido.</div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label">C.I.</label>
+                <input type="text" name="ci" class="form-control" required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Por favor introduzca un dato válido.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-footer">
+        <div class="row">
+            <div class="col-12">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <input type="submit" class="btn btn-success"
+                       th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    manejarEnvioFormulario('#formularioResponsable');
+</script>

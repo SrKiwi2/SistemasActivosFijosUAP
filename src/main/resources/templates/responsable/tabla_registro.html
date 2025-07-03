@@ -1,0 +1,71 @@
+<div class="card">
+    <div class="card-header d-flex justify-content-lg-between">
+        <h5>Registro Responsable</h5>
+        <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
+            data-bs-target="#modalFormularioResponsable">
+            <i class="fa-solid fa-user-plus"></i> Agregar Responsable
+        </button>
+    </div>
+    <div class="card-datatable table-responsive pt-0">
+        <table class="datatables-basic table table-hover" id="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>CODIGO FUNCIONARIO</th>
+                    <th>NOMBRE</th>
+                    <th>APELLIDO PATERNO</th>
+                    <th>APELLIDO MATERNO</th>
+                    <th>C.I.</th>
+                    <th>OFICINA</th>
+                    <th>CARGO</th>
+                    <th>OPCIONES</th>
+                </tr>
+            </thead>
+            <tbody class="animate__animated animate__bounceInDown">
+                <tr th:each="responsables, index: ${listaResponsables}">
+                    <th th:text="${index.index+1}"></th>
+                    <th th:text="${responsables.codigo_funcionario}"></th>
+                    <th th:text="${responsables.persona.nombre}"></th>
+                    <th th:text="${responsables.persona.paterno}"></th>
+                    <th th:text="${responsables.persona.materno}"></th>
+                    <th th:text="${responsables.persona.ci}"></th>
+                    <th th:text="${responsables.oficina.nombre}"></th>
+                    <th th:text="${responsables.cargo.nombre}"></th>
+                    <th>
+                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${responsables.persona.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
+                            <i class="fa-solid fa-trash"></i> Eliminar
+                        </button>
+                    </th>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    $('#data-table').DataTable({
+        language: {
+            "sProcessing": "Procesando...",
+            "sLengthMenu": "Mostrar _MENU_ registros",
+            "sZeroRecords": "No se encontraron resultados",
+            "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
+            "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
+            "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
+            "sInfoPostFix": "",
+            "sSearch": "Buscar:",
+            "sUrl": "",
+            "sInfoThousands": ",",
+            "sLoadingRecords": "Cargando...",
+            "oPaginate": {
+                "sFirst": "Primero",
+                "sLast": "Último",
+                "sNext": "Siguiente",
+                "sPrevious": "Anterior"
+            },
+            "oAria": {
+                "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
+                "sSortDescending": ": Activar para ordenar la columna de manera descendente"
+            }
+        }
+    });
+</script>

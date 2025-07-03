@@ -237,6 +237,48 @@
 
             });
 
+            $("#opcion_contable").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/administracion/grupoc/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_contable");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+            $("#opcion_estadoA").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/administracion/estadoa/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_estadoA");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+            $("#opcion_responsable").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/administracion/responsable/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_responsable");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
             function cargarContenido(url) {
 
                 $.ajax({
