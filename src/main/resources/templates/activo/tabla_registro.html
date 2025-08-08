@@ -64,11 +64,11 @@
         </div>
     </div>
 
-    <div class="card-datatable table-responsive pt-0 px-3">
+    <div class="card-datatable table-responsive pt-0 px-3" style="width: 100%;">
         <table class="datatables-basic table table-hover" id="data-table">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th style="min-width: 50px;">#</th>
                     <th>Código</th>
                     <th>Nombre</th>
                     <th>Responsable</th>
@@ -77,7 +77,6 @@
                     <th>Vida Util</th>
                     <th>Fecha Adqusiición</th>
                     <th>Estado Activo</th>
-                    <th>Grupo contable</th>
                     <th>Descripción</th>
                     <th>OPCIONES</th>
                 </tr>
@@ -112,7 +111,6 @@
             { data: 'vidaUtil' },
             { data: 'fechaAdquisicion' },
             { data: 'estado' },
-            { data: 'grupoContable' },
             { data: 'descripcion' },
             { data: 'acciones', orderable: false, searchable: false }
         ],

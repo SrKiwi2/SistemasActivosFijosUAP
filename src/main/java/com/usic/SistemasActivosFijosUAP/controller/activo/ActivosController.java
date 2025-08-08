@@ -156,7 +156,6 @@ public class ActivosController {
             dto.setVidaUtil(activo.getVida_util());
             dto.setFechaAdquisicion(activo.getFecha_adquisición().toString());
             dto.setEstado(activo.getEstadoActivo().getNombre());
-            dto.setGrupoContable(activo.getGrupoContable().getNombre());
         
             try {
                 String idEncriptado = Encriptar.encrypt(activo.getIdActivo().toString());
@@ -170,7 +169,6 @@ public class ActivosController {
             return dto;
         }).toList();
         
-
         return new DataTablesResponse<>(pagina.getTotalElements(), pagina.getTotalElements(), activosDTO);
     }
 }
