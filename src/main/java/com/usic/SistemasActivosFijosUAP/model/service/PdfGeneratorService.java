@@ -1,6 +1,8 @@
 package com.usic.SistemasActivosFijosUAP.model.service;
 
 import java.io.ByteArrayOutputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import org.springframework.stereotype.Service;
 
@@ -31,8 +33,8 @@ public class PdfGeneratorService {
 		document.open();
 
 		try {
-			String imagePath = "/home/usic03/Documentos/SISTEMAS USIC/SistemasActivosFijosUAP/src/main/resources/static/assets/img/fondo/0.jpg"; // Ruta relativa o
-																					// absoluta
+			Path projectPath = Paths.get("").toAbsolutePath();
+            String imagePath = projectPath + "/src/main/resources/static/assets/img/fondo/0.jpg";
 			Image background = Image.getInstance(imagePath);
 			background.setAbsolutePosition(0, 0);
 			background.scaleToFit(PageSize.LETTER.getWidth(), PageSize.LETTER.getHeight());

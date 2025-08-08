@@ -1,6 +1,8 @@
 package com.usic.SistemasActivosFijosUAP.model.service;
 
 import java.io.ByteArrayOutputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -39,7 +41,8 @@ public class PdfTransferenciaService {
 
         // Fondo
         try {
-            String imagePath = "/home/usic03/Documentos/SISTEMAS USIC/SistemasActivosFijosUAP/src/main/resources/static/assets/img/fondo/1.png";
+            Path projectPath = Paths.get("").toAbsolutePath();
+            String imagePath = projectPath + "/src/main/resources/static/assets/img/fondo/1.png";
             Image background = Image.getInstance(imagePath);
             background.scaleAbsolute(pageSize.getWidth(), pageSize.getHeight()); // rotado
             background.setAbsolutePosition(0, 0);

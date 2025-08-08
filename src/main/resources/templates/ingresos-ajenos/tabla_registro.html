@@ -3,7 +3,8 @@
         <table class="datatables-basic table table-hover" id="data-table">
             <thead>
                 <tr>
-                    <th>Fecha</th>
+                    <th>Fecha Incorporación</th>
+                    <th>Fecha de retiro</th>
                     <th>Funcionario</th>
                     <th>Unidad</th>
                     <th>Activos Registrados</th>
@@ -13,6 +14,7 @@
             <tbody class="animate__animated animate__bounceInDown">
                 <tr th:each="ingreso : ${ingresos}">
                     <th th:text="${ingreso.fechaIngreso}"></th>
+                    <th th:text="${ingreso.fechaFin}"></th>
                     <th th:text="${ingreso.codigoFuncionarioPropietario} + ' / ' + ${ingreso.ciPropietario}"></th>
                     <th th:text="${ingreso.unidadPropietario}"></th>
                     <th th:text="${ingreso.descripcion}"></th>

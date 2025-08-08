@@ -25,5 +25,6 @@ public class IngresoActivoAjeno extends AuditoriaConfig{
     private String unidadPropietario;
     private String descripcion;
     private String fechaIngreso;
+    private String fechaFin;
     private String rutaPdf;
 }

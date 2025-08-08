@@ -43,8 +43,8 @@ public class CatalogoRestController {
                 .stream()
                 .map(r -> new ResponsableDTO(r.getIdResponsable(), r.getPersona().getNombre() + " " +  
                                              r.getPersona().getPaterno() + " " + 
-                                             r.getPersona().getMaterno() + " " + 
-                                             r.getOficina().getCodigo()))
+                                             r.getPersona().getMaterno() + " - " + 
+                                             r.getOficina().getNombre()))
                 .toList();
     }
 

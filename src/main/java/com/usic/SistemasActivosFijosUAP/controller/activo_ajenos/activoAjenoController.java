@@ -34,5 +34,4 @@ public class activoAjenoController {
         model.addAttribute("ingresos", ingresos);
         return "ingresos-ajenos/tabla_registro";
     }
-
 }

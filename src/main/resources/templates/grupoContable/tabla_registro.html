@@ -6,20 +6,35 @@
             <i class="fa-solid fa-user-plus"></i> Agregar Grupo Contable
         </button>
     </div>
+    <div class="card-header d-flex justify-content-lg-between">
+        <form method="post" enctype="multipart/form-data" action="/administracion/grupoc/importar-dbf">
+        <label>Subir archivo DBF:</label>
+        <input type="file" name="archivo" accept=".dbf" required>
+        <button type="submit" class="btn btn-primary mt-2">Importar</button>
+    </form>
+    </div>
     <div class="card-datatable table-responsive pt-0">
         <table class="datatables-basic table table-hover" id="data-table">
             <thead>
                 <tr>
                     <th>#</th>
+                    <th>CODIGO CONTABLE</th>
                     <th>NOMBRE</th>
-                    <th>CODIGO</th>
+                    <th>VIDA UTIL</th>
+                    <th>DEPRECIAR</th>
+                    <th>ACTUALIZAR</th>
+                    <th>CODIGO APOYO</th>
                     <th>OPCIONES</th>
                 </tr>
             </thead>
             <tbody class="animate__animated animate__bounceInDown">
                 <tr th:each="grupoc, index: ${listasGrupoContable}">
                     <th th:text="${index.index+1}"></th>
+                    <th th:text="${grupoc.codContable}"></th>
                     <th th:text="${grupoc.nombre}"></th>
+                    <th th:text="${grupoc.vidaUtil}"></th>
+                    <th th:text="${grupoc.depreciar}"></th>
+                    <th th:text="${grupoc.actualizar}"></th>
                     <th th:text="${grupoc.codigo}"></th>
                     <th>
                         <button type="button" class="btn btn-sm btn-primary"

@@ -1,8 +1,10 @@
 package com.usic.SistemasActivosFijosUAP.controller.grupo_contable;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -11,6 +13,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
@@ -94,5 +98,26 @@ public class GrupoContableController {
         grupoContable.setEstado("ELIMINADO");
         grupoContableService.save(grupoContable);
         return ResponseEntity.ok("Registro Eliminado");
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/importar-dbf")
+    public ResponseEntity<String> importarDesdeDBF(@RequestParam("archivo") MultipartFile archivo) {
+        if (archivo.isEmpty()) {
+            return ResponseEntity.badRequest().body("Archivo no proporcionado.");
+        }
+
+        try {
+            // Convertir MultipartFile a File temporal
+            File tempFile = File.createTempFile("grupo_contable_", ".dbf");
+            archivo.transferTo(tempFile);
+
+            grupoContableService.importarDesdeDBF(tempFile);
+            return ResponseEntity.ok("Importación completada con éxito.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error durante la importación: " + e.getMessage());
+        }
     }
 }

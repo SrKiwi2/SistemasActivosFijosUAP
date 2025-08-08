@@ -1,6 +1,8 @@
 package com.usic.SistemasActivosFijosUAP.model.service;
 
 import java.io.ByteArrayOutputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -44,8 +46,8 @@ public class PdfBajaActivoService {
     
             document.open();
 
-            String imagePath = "/home/usic03/Documentos/SISTEMAS USIC/SistemasActivosFijosUAP/src/main/resources/static/assets/img/fondo/0.jpg"; // Ruta relativa o
-            // absoluta
+            Path projectPath = Paths.get("").toAbsolutePath();
+            String imagePath = projectPath + "/src/main/resources/static/assets/img/fondo/0.jpg";            // absoluta
             agregarFondo(writer, imagePath);
 
         document.add(new Paragraph("\n\n"));

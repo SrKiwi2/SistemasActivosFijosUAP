@@ -1,5 +1,6 @@
 package com.usic.SistemasActivosFijosUAP.model.IService;
 
+import java.io.File;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -11,4 +12,5 @@ public interface IGrupoContableService extends IServiceGenerico<GrupoContable, L
     GrupoContable buscarPorNombre(String nombre);
     List<GrupoContable> listarGruposContables();
     GrupoContable buscarPorCodigo(String codigo);
+    void importarDesdeDBF(File archivoDBF);
 }

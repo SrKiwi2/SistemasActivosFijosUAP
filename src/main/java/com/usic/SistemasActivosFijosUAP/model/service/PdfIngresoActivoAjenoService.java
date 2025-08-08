@@ -1,6 +1,8 @@
 package com.usic.SistemasActivosFijosUAP.model.service;
 
 import java.io.ByteArrayOutputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -26,7 +28,8 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 public class PdfIngresoActivoAjenoService {
 
     public byte[] generarPdfActivosAjenos(
-        String fechaIngreso,
+        String fechaIncorporacion,
+        String fechaRetiro,
         Responsable responsablePropietario,
         String autorizador,
         String cargoAutorizador,
@@ -41,9 +44,9 @@ public class PdfIngresoActivoAjenoService {
             PdfWriter writer = PdfWriter.getInstance(document, baos);
     
             document.open();
-
-            String imagePath = "/home/usic03/Documentos/SISTEMAS USIC/SistemasActivosFijosUAP/src/main/resources/static/assets/img/fondo/0.jpg"; // Ruta relativa o
-            // absoluta
+            
+            Path projectPath = Paths.get("").toAbsolutePath();
+            String imagePath = projectPath + "/src/main/resources/static/assets/img/fondo/0.jpg";
             agregarFondo(writer, imagePath);
 
         document.add(new Paragraph("\n\n"));
@@ -87,7 +90,7 @@ public class PdfIngresoActivoAjenoService {
         tablaInfo.setWidthPercentage(100);
 
         // Primera celda: FECHA a la izquierda
-        PdfPCell celdaFecha = new PdfPCell(new Phrase("FECHA: " + fechaIngreso, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
+        PdfPCell celdaFecha = new PdfPCell(new Phrase("FECHA: " + fechaIncorporacion, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
         celdaFecha.setBorder(Rectangle.NO_BORDER);
         celdaFecha.setHorizontalAlignment(Element.ALIGN_LEFT);
 
@@ -165,7 +168,7 @@ public class PdfIngresoActivoAjenoService {
         document.add(tablaActivos);
 
         Paragraph nota = new Paragraph(
-            "NOTA: SE LE OTORGARA EL PERMISO PARA EL INGRESO DEL ACTIVO POR EL LAPSO DE 3 MESES A PARTIR DE LA FECHA, " +
+            "NOTA: SE LE OTORGARA EL PERMISO PARA EL INGRESO DEL ACTIVO POR EL LAPSO DE 3 MESES A PARTIR DE LA FECHA HASTA "+ fechaRetiro +", " +
             "EL PROPIETARIO DEBERA RENOVAR SU PERMISO DE INGRESO DEL ACTIVO, DE NO SER ASI SE LO TOMARA COMO PARTE DE LOS ACTIVOS DE LA UNIVERSIDAD AMAZONICA DE PANDO.",
             new Font(Font.FontFamily.TIMES_ROMAN, 10, Font.NORMAL)
         );

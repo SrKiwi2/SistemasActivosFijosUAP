@@ -6,7 +6,7 @@
             <i class="fa-solid fa-user-plus"></i> Agregar Oficina
         </button>
         <!-- Botón para abrir el modal de improtacion excel-->
-        <button type="button" onclick="abrirModal()">Importar Oficinas</button>
+        <!-- <button type="button" onclick="abrirModal()">Importar Oficinas</button> -->
 
     </div>
     <div class="card-datatable table-responsive pt-0">
@@ -20,14 +20,23 @@
                     <th>Predio</th>
                     <th>OPCIONES</th>
                 </tr>
+                <tr>
+                    <th></th>
+                    <th><input type="text" placeholder="Buscar oficina" class="form-control form-control-sm" /></th>
+                    <th><input type="text" placeholder="Buscar código" class="form-control form-control-sm" /></th>
+                    <th><input type="text" placeholder="Buscar prefijo" class="form-control form-control-sm" /></th>
+                    <th><input type="text" placeholder="Buscar predio" class="form-control form-control-sm" /></th>
+                    <th></th>
+                </tr>
+                
             </thead>
             <tbody class="animate__animated animate__bounceInDown">
                 <tr th:each="oficina, index: ${listasOficinas}">
                     <th th:text="${index.index+1}"></th>
                     <th th:text="${oficina.nombre}"></th>
                     <th th:text="${oficina.codigo}"></th>
-                    <th th:text="${oficina.predio.prefijo}"></th>
-                    <th th:text="${oficina.predio.nombre}"></th>
+                    <th th:text="${oficina.predio?.prefijo ?: 'Sin prefijo'}"></th>
+                    <th th:text="${oficina.predio?.nombre ?: 'Sin prefijo'}"></th>
                     <th>
                         <button type="button" class="btn btn-sm btn-primary"
                             th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
@@ -45,29 +54,34 @@
 </div>
 
 <script>
-    $('#data-table').DataTable({
-        language: {
-            "sProcessing": "Procesando...",
-            "sLengthMenu": "Mostrar _MENU_ registros",
-            "sZeroRecords": "No se encontraron resultados",
-            "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
-            "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
-            "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
-            "sInfoPostFix": "",
-            "sSearch": "Buscar:",
-            "sUrl": "",
-            "sInfoThousands": ",",
-            "sLoadingRecords": "Cargando...",
-            "oPaginate": {
-                "sFirst": "Primero",
-                "sLast": "Último",
-                "sNext": "Siguiente",
-                "sPrevious": "Anterior"
+    $(document).ready(function () {
+        const table = $('#data-table').DataTable({
+            language: {
+                "sProcessing": "Procesando...",
+                "sLengthMenu": "Mostrar _MENU_ registros",
+                "sZeroRecords": "No se encontraron resultados",
+                "sInfo": "Mostrando del _START_ al _END_ de _TOTAL_ registros",
+                "sInfoEmpty": "Mostrando 0 de 0 registros",
+                "sInfoFiltered": "(filtrado de _MAX_ registros)",
+                "sSearch": "Buscar general:",
+                "sLoadingRecords": "Cargando...",
+                "oPaginate": {
+                    "sFirst": "Primero",
+                    "sLast": "Último",
+                    "sNext": "Siguiente",
+                    "sPrevious": "Anterior"
+                }
             },
-            "oAria": {
-                "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
-                "sSortDescending": ": Activar para ordenar la columna de manera descendente"
+            initComplete: function () {
+                this.api().columns([1, 2, 3, 4]).every(function () {
+                    var column = this;
+                    $('input', this.header()).on('keyup change clear', function () {
+                        if (column.search() !== this.value) {
+                            column.search(this.value).draw();
+                        }
+                    });
+                });
             }
-        }
+        });
     });
 </script>

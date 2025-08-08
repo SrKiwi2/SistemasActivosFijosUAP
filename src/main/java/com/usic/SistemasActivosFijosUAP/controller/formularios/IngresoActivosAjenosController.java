@@ -1,8 +1,5 @@
 package com.usic.SistemasActivosFijosUAP.controller.formularios;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -18,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
@@ -35,11 +33,11 @@ import com.usic.SistemasActivosFijosUAP.model.entity.IngresoActivoAjeno;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.service.DriveUploader;
 import com.usic.SistemasActivosFijosUAP.model.service.PdfIngresoActivoAjenoService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
-
 
 @Controller
 @RequestMapping("/ingreso")
@@ -56,8 +54,10 @@ public class IngresoActivosAjenosController {
     private final IngresoActivoAjenoService ingresoActivoAjenoService;
 
     @PostMapping("/registrar")
+    @Transactional(rollbackFor = Exception.class)
     public ResponseEntity<byte[]> ingresoActivosAjenos(
-        @RequestParam String fechaIngreso,
+        @RequestParam String fechaIncorporacion,
+        @RequestParam String fechaRetiro,
         @RequestParam List<String> descripcionActivo,
         @RequestParam List<String> estadoActivoAjeno,
         @RequestParam String codigoFuncionarioPropietario,
@@ -73,23 +73,21 @@ public class IngresoActivosAjenosController {
         try{
 
             Responsable responsablePropietario = obtenerORegistrarResponsable(codigoFuncionarioPropietario, ciPropietario);
-
             List<ActivoIngresoAjenoDTO> activosParaPdf = new ArrayList<>();
-
             int minSize = Math.min(descripcionActivo.size(), estadoActivoAjeno.size());
+
             for (int i = 0; i < minSize; i++) {
                 String descripcionActivoAjeno = descripcionActivo.get(i);
                 String estadoActivoA = estadoActivoAjeno.get(i);
-                
                 ActivoIngresoAjenoDTO dto = new ActivoIngresoAjenoDTO();
                 dto.setDescripcionA(descripcionActivoAjeno);
                 dto.setEstadoA(estadoActivoA);
-
                 activosParaPdf.add(dto);
             }
 
             byte[] pdfBytes = pdfIngresoActivoAjenoService.generarPdfActivosAjenos(
-                fechaIngreso,
+                fechaIncorporacion,
+                fechaRetiro,
                 responsablePropietario,
                 autorizador,
                 cargoAutorizador,
@@ -100,11 +98,9 @@ public class IngresoActivosAjenosController {
                 activosParaPdf
             );
 
-
             HttpHeaders headers1 = new HttpHeaders();
             headers1.setContentType(MediaType.APPLICATION_PDF);
             headers1.setContentDisposition(ContentDisposition.inline().filename("ingreso_activo_ajeno.pdf").build());
-
             headers1.setContentLength(pdfBytes.length);
 
             IngresoActivoAjeno ingresoActivoAjeno = new IngresoActivoAjeno();
@@ -112,19 +108,37 @@ public class IngresoActivosAjenosController {
             ingresoActivoAjeno.setCiPropietario(ciPropietario);
             ingresoActivoAjeno.setUnidadPropietario(unidadPropietario);
             ingresoActivoAjeno.setDescripcion(unidadIdentificacion);
-            ingresoActivoAjeno.setFechaIngreso(fechaIngreso);
+            ingresoActivoAjeno.setFechaIngreso(fechaIncorporacion);
+            ingresoActivoAjeno.setFechaFin(fechaRetiro);
+            ingresoActivoAjeno.setEstado("ACTIVO");
             ingresoActivoAjenoService.save(ingresoActivoAjeno);
 
             String archivoIngresoActivoAjeno = "activo_ajeno_" + ingresoActivoAjeno.getIdIngresoActivoAjeno() + ".pdf";
-            Path path = Paths.get("pdfs/activos-ajenos", archivoIngresoActivoAjeno);
-            Files.createDirectories(path.getParent());
-            Files.write(path, pdfBytes);
-            ingresoActivoAjeno.setRutaPdf(path.toString());
-            ingresoActivoAjenoService.save(ingresoActivoAjeno);
+            // Path basePath = Paths.get("").toAbsolutePath();
+            // Path path = basePath.resolve("pdfs/activos-ajenos").resolve(archivoIngresoActivoAjeno);
+            // Files.createDirectories(path.getParent());
+            // Files.write(path, pdfBytes);
 
-            return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + archivoIngresoActivoAjeno)
+            // ingresoActivoAjeno.setRutaPdf(path.toString().replace("\\", "/"));
+            // ingresoActivoAjenoService.save(ingresoActivoAjeno);
+
+            // return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + archivoIngresoActivoAjeno)
+            // .contentType(MediaType.APPLICATION_PDF)
+            // .body(pdfBytes);
+        
+            String linkDrive = DriveUploader.uploadPdf(
+                pdfBytes,
+                archivoIngresoActivoAjeno,
+                "1gn42xN3GzMRl8myCzl_6GkX3emGRW_sj" // ID de carpeta de Drive
+            );
+
+            ingresoActivoAjeno.setRutaPdf(linkDrive);
+
+            return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + archivoIngresoActivoAjeno)
             .contentType(MediaType.APPLICATION_PDF)
             .body(pdfBytes);
+
         } catch (Exception ex) {
             ex.printStackTrace(); // Esto mostrará el error real en consola
             String errorMsg = "Error procesando: " + ex.getMessage();
@@ -232,5 +246,4 @@ public class IngresoActivosAjenosController {
     
         return responsable;
     }
-    
 }

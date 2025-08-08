@@ -144,35 +144,7 @@
         <li class="menu-header small text-uppercase" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO' or session.nombre_rol == 'RESPONSABLE'}">
             <span class="menu-header-text">Gestion Responsable</span>
         </li>
-        <!-- OPCIONES RESPONSABLES -->
-        <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO' or session.nombre_rol == 'RESPONSABLE'}">
-            <a href="#" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons ti ti-users"></i>
-                <div>Gestion de activos</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item" id="opcion_activo">
-                    <a class="menu-link">
-                        <div>Solicitud</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_activo">
-                    <a class="menu-link">
-                        <div>Baja</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_activo">
-                    <a class="menu-link">
-                        <div>Mantenimiento</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_activo">
-                    <a class="menu-link">   
-                        <div>Devolucion</div>
-                    </a>
-                </li>
-            </ul>
-        </li>
+        
     </ul>
 </aside>
 <!-- / Menu -->
