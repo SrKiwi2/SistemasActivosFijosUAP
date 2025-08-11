@@ -3,7 +3,6 @@ package com.usic.SistemasActivosFijosUAP.controller.rest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
@@ -19,7 +18,6 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoConsultaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.OficinaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResponsableDTO;
-import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
@@ -79,9 +77,27 @@ public class CatalogoRestController {
 
     @GetMapping("/buscar-activo")
     public ResponseEntity<ActivoConsultaDTO> obtenerPorCodigo(@RequestParam String codigo) {
-        Optional<Activo> activo = activoService.findByCodigo(codigo);
-        return activo
-            .map(a -> ResponseEntity.ok(new ActivoConsultaDTO(a.getCodigo(), a.getDescripcion())))
+        return activoService.findByCodigo(codigo)
+            .map(a -> {
+                String oficinaTexto = null;
+                Long oficinaId = null;
+                String oficinaNombre = null;
+
+                if (a.getOficina() != null) {
+                    oficinaId = a.getOficina().getIdOficina();
+                    oficinaNombre = a.getOficina().getNombre();
+                }
+
+                return ResponseEntity.ok(
+                    new ActivoConsultaDTO(
+                        a.getCodigo(),
+                        a.getDescripcion(),
+                        oficinaId,
+                        oficinaNombre,
+                        (oficinaTexto == null || oficinaTexto.isBlank()) ? oficinaNombre : oficinaTexto
+                    )
+                );
+            })
             .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

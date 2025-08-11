@@ -31,9 +31,7 @@ public class PdfIngresoActivoAjenoService {
         String fechaIncorporacion,
         String fechaRetiro,
         Responsable responsablePropietario,
-        String autorizador,
-        String cargoAutorizador,
-        String unidadAutoriza,
+        Responsable responsableAutorizador,
         String nombreIdentificacion,
         String cargoIdentificacion,
         String unidadIdentificacion,
@@ -236,7 +234,7 @@ public class PdfIngresoActivoAjenoService {
 
         // Fila 1 - AUTORIZADO POR
         tablaUnidad.addCell(new Phrase("AUTORIZADO POR", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
-        PdfPCell autorizadoPorCell = new PdfPCell(new Phrase(autorizador, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
+        PdfPCell autorizadoPorCell = new PdfPCell(new Phrase(responsableAutorizador.getPersona().getNombreCompleto(), new Font(Font.FontFamily.TIMES_ROMAN, 11)));
         autorizadoPorCell.setHorizontalAlignment(Element.ALIGN_LEFT);
         autorizadoPorCell.setPadding(4f);
         tablaUnidad.addCell(autorizadoPorCell);
@@ -251,14 +249,14 @@ public class PdfIngresoActivoAjenoService {
 
         // Fila 2 - CARGO
         tablaUnidad.addCell(new Phrase("CARGO", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
-        PdfPCell cargoUnidadCell = new PdfPCell(new Phrase(cargoAutorizador, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
+        PdfPCell cargoUnidadCell = new PdfPCell(new Phrase(responsableAutorizador.getCargo().getNombre(), new Font(Font.FontFamily.TIMES_ROMAN, 11)));
         cargoUnidadCell.setHorizontalAlignment(Element.ALIGN_LEFT);
         cargoUnidadCell.setPadding(4f);
         tablaUnidad.addCell(cargoUnidadCell);
 
         // Fila 3 - DIRECCIÓN/UNIDAD/SECCIÓN
         tablaUnidad.addCell(new Phrase("DIRECCIÓN, UNIDAD Y/O SECCIÓN:", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
-        PdfPCell unidadAutorizadoraCell = new PdfPCell(new Phrase(unidadAutoriza, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
+        PdfPCell unidadAutorizadoraCell = new PdfPCell(new Phrase(responsableAutorizador.getOficina().getNombre(), new Font(Font.FontFamily.TIMES_ROMAN, 11)));
         unidadAutorizadoraCell.setHorizontalAlignment(Element.ALIGN_LEFT);
         unidadAutorizadoraCell.setPadding(4f);
         tablaUnidad.addCell(unidadAutorizadoraCell);
@@ -326,7 +324,7 @@ public class PdfIngresoActivoAjenoService {
 
         // Párrafo con contenido legal
         Paragraph parrafoObservaciones = new Paragraph(
-            "EL EQUIPO MENCIONADO QUEDA A RESPONSABILIDAD DEL PROPIETARIO EN CUMPLIMIENTO AL: D.S. 0181 Art. 157 inciso g) INGRESAR BIENES PARTICULARES SIN AUTORIZACIÓN DE LA UNIDAD O RESPONSABLE DE ACTIVOS FIJOS TENIENDO QUE LLENAR EL FORMULARIO RESPECTIVO CASO CONTRARIO SE TOMARÁ COMO ACTIVO FIJO DE LA UNIVERSIDAD AMAZÓNICA DE PANDO",
+            "EL EQUIPO MENCIONADO QUEDA A RESPONSABILIDAD DEL PROPIETARIO EN CUMPLIMIENTO AL: D.S. 0181 Art. 157 inciso g) INGRESAR BIENES PARTICULARES SIN AUTORIZACIÓN DE LA UNIDAD O RESPONSABLE DE ACTIVOS FIJOS TENIENDO QUE LLENAR EL FORMULARIO RESPECTIVO CASO CONTRARIO SE TOMARÁ COMO ACTIVO FIJO DE LA UNIVERSIDAD AMAZÓNICA DE PANDO.",
             new Font(Font.FontFamily.HELVETICA, 10)
         );
         parrafoObservaciones.setAlignment(Element.ALIGN_JUSTIFIED);

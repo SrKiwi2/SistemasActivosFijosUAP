@@ -5,7 +5,7 @@
 
 <head th:replace="~{layout/head :: head}"></head>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-
+<!-- VISTA PARA FUNCIONARIOS CON USUARIO -->
 <body>
     <style>
         .swal2-container {
@@ -155,70 +155,111 @@
     <!-- ASIGNAR ACTIVO NUEVO -->
     <div class="modal fade" id="formularioModalAsignacionActivo" tabindex="-1" aria-labelledby="formularioModalLabel">
         <div class="modal-dialog modal-lg modal-dialog-centered">
-            <form id="formResponsable">
-                <div class="modal-content border-0 shadow-lg">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title" style="color: #fff;"><i class="bi bi-box-arrow-in-down me-2"></i>Asignar
-                            Activo</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <form id="formResponsable" autocomplete="off">
+                <div class="modal-content border-0 shadow-lg rounded-3">
+                    <!-- HEADER -->
+                    <div class="modal-header bg-gradient-primary text-white">
+                        <h5 class="modal-title fw-bold">
+                            <i class="bi bi-box-arrow-in-down me-2"></i> Asignar Activo
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
                     </div>
+    
+                    <!-- BODY -->
                     <div class="modal-body">
                         <div class="row g-3">
+                            <!-- Unidad -->
                             <div class="col-md-6">
-                                <label class="form-label">Dirección, Unidad y/o Sección</label>
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-building me-1 text-primary"></i> Dirección, Unidad y/o Sección
+                                </label>
                                 <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-building"></i></span>
-                                    <input type="text" class="form-control" name="unidad" autocomplete="off" required>
+                                    <span class="input-group-text bg-light"><i class="bi bi-building"></i></span>
+                                    <input type="text" class="form-control" name="unidad"
+                                        placeholder="Ej: Dirección Administrativa" required>
                                 </div>
+                                <small class="text-muted">Indique el nombre de la unidad o sección responsable.</small>
                             </div>
+    
+                            <!-- Código Funcionario -->
                             <div class="col-md-6">
-                                <label class="form-label">Código Funcionario</label>
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-person-badge me-1 text-primary"></i> Código Funcionario
+                                </label>
                                 <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                                    <input type="text" class="form-control" name="codigoFuncionario" autocomplete="off"
-                                        required>
+                                    <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
+                                    <input type="text" class="form-control" name="codigoFuncionario"
+                                        placeholder="Ej: FUNC-045" required>
                                 </div>
+                                <small class="text-muted">Ingrese el código único asignado al funcionario.</small>
                             </div>
+    
+                            <!-- CI -->
                             <div class="col-md-6">
-                                <label class="form-label">C.I.</label>
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-card-text me-1 text-primary"></i> Cédula de Identidad
+                                </label>
                                 <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-card-text"></i></span>
-                                    <input type="text" class="form-control" name="ci" autocomplete="off" required>
+                                    <span class="input-group-text bg-light"><i class="bi bi-credit-card-2-front"></i></span>
+                                    <input type="text" class="form-control" name="ci"
+                                        placeholder="Ej: 7896543 LP" required>
                                 </div>
+                                <small class="text-muted">Ingrese el número de cédula con extensión.</small>
                             </div>
+    
+                            <!-- Nº HR -->
                             <div class="col-md-6">
-                                <label class="form-label">Nº H.R.</label>
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-file-earmark-text me-1 text-primary"></i> Nº H.R.
+                                </label>
                                 <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-card-text"></i></span>
-                                    <input type="text" class="form-control" name="hr" autocomplete="off" required>
+                                    <span class="input-group-text bg-light"><i class="bi bi-file-earmark-text"></i></span>
+                                    <input type="text" class="form-control" name="hr" placeholder="Ej: HR-2025-001" required>
                                 </div>
+                                <small class="text-muted">Número del Hoja de Ruta correspondiente.</small>
                             </div>
+    
+                            <!-- Ubicación del Activo -->
                             <div class="col-md-6">
-                                <label class="form-label">Ubicación del Activo</label>
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-geo-alt me-1 text-primary"></i> Ubicación del Activo
+                                </label>
                                 <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
-                                    <input type="text" class="form-control" name="ubicacionActivo" autocomplete="off"
-                                        required>
+                                    <span class="input-group-text bg-light"><i class="bi bi-geo-alt"></i></span>
+                                    <input type="text" class="form-control" name="ubicacionActivo"
+                                        placeholder="Ej: Edificio Central, Piso 2" required>
                                 </div>
+                                <small class="text-muted">Indique la ubicación física exacta del activo.</small>
                             </div>
+    
+                            <!-- Descripción -->
                             <div class="col-12">
-                                <label class="form-label">Descripción del Activo</label>
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-info-circle me-1 text-primary"></i> Descripción del Activo
+                                </label>
                                 <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-info-circle"></i></span>
-                                    <input type="text" class="form-control" name="descripcionActivo" required>
+                                    <span class="input-group-text bg-light"><i class="bi bi-info-circle"></i></span>
+                                    <input type="text" class="form-control" name="descripcionActivo"
+                                        placeholder="Ej: Computadora portátil Dell Latitude 3420" required>
                                 </div>
+                                <small class="text-muted">Proporcione una breve descripción del activo.</small>
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer bg-light">
-                        <button type="button" id="btnPreGuardar" class="btn btn-success">
-                            <i class="bi bi-check-circle me-1"></i>Guardar
+    
+                    <!-- FOOTER -->
+                    <div class="modal-footer bg-light border-0">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i> Cancelar
+                        </button>
+                        <button type="submit" id="btnPreGuardar" class="btn btn-success">
+                            <i class="bi bi-check-circle me-1"></i> Guardar Asignación
                         </button>
                     </div>
                 </div>
             </form>
         </div>
-    </div>
+    </div>    
 
     <div class="modal fade" id="modalConfirmacionDatos" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-centered">

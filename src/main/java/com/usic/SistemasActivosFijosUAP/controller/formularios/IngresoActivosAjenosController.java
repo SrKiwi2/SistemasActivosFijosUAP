@@ -33,7 +33,6 @@ import com.usic.SistemasActivosFijosUAP.model.entity.IngresoActivoAjeno;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
-import com.usic.SistemasActivosFijosUAP.model.service.DriveUploader;
 import com.usic.SistemasActivosFijosUAP.model.service.PdfIngresoActivoAjenoService;
 
 import lombok.RequiredArgsConstructor;
@@ -62,10 +61,8 @@ public class IngresoActivosAjenosController {
         @RequestParam List<String> estadoActivoAjeno,
         @RequestParam String codigoFuncionarioPropietario,
         @RequestParam String ciPropietario,
-        @RequestParam String unidadPropietario,
-        @RequestParam String autorizador,
-        @RequestParam String cargoAutorizador,
-        @RequestParam String unidadAutoriza,
+        @RequestParam String codigoFuncionarioAutorizador,
+        @RequestParam String ciAutorizador,
         @RequestParam String nombreIdentificacion,
         @RequestParam String cargoIdentificacion,
         @RequestParam String unidadIdentificacion) throws Exception{
@@ -73,6 +70,7 @@ public class IngresoActivosAjenosController {
         try{
 
             Responsable responsablePropietario = obtenerORegistrarResponsable(codigoFuncionarioPropietario, ciPropietario);
+            Responsable responsableAutorizador = obtenerORegistrarResponsable(codigoFuncionarioAutorizador, ciAutorizador);
             List<ActivoIngresoAjenoDTO> activosParaPdf = new ArrayList<>();
             int minSize = Math.min(descripcionActivo.size(), estadoActivoAjeno.size());
 
@@ -89,9 +87,7 @@ public class IngresoActivosAjenosController {
                 fechaIncorporacion,
                 fechaRetiro,
                 responsablePropietario,
-                autorizador,
-                cargoAutorizador,
-                unidadAutoriza,
+                responsableAutorizador,
                 nombreIdentificacion,
                 cargoIdentificacion,
                 unidadIdentificacion,
@@ -106,7 +102,7 @@ public class IngresoActivosAjenosController {
             IngresoActivoAjeno ingresoActivoAjeno = new IngresoActivoAjeno();
             ingresoActivoAjeno.setCodigoFuncionarioPropietario(codigoFuncionarioPropietario);
             ingresoActivoAjeno.setCiPropietario(ciPropietario);
-            ingresoActivoAjeno.setUnidadPropietario(unidadPropietario);
+            ingresoActivoAjeno.setUnidadPropietario(responsablePropietario.getOficina().getNombre());
             ingresoActivoAjeno.setDescripcion(unidadIdentificacion);
             ingresoActivoAjeno.setFechaIngreso(fechaIncorporacion);
             ingresoActivoAjeno.setFechaFin(fechaRetiro);
@@ -114,25 +110,6 @@ public class IngresoActivosAjenosController {
             ingresoActivoAjenoService.save(ingresoActivoAjeno);
 
             String archivoIngresoActivoAjeno = "activo_ajeno_" + ingresoActivoAjeno.getIdIngresoActivoAjeno() + ".pdf";
-            // Path basePath = Paths.get("").toAbsolutePath();
-            // Path path = basePath.resolve("pdfs/activos-ajenos").resolve(archivoIngresoActivoAjeno);
-            // Files.createDirectories(path.getParent());
-            // Files.write(path, pdfBytes);
-
-            // ingresoActivoAjeno.setRutaPdf(path.toString().replace("\\", "/"));
-            // ingresoActivoAjenoService.save(ingresoActivoAjeno);
-
-            // return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + archivoIngresoActivoAjeno)
-            // .contentType(MediaType.APPLICATION_PDF)
-            // .body(pdfBytes);
-        
-            String linkDrive = DriveUploader.uploadPdf(
-                pdfBytes,
-                archivoIngresoActivoAjeno,
-                "1gn42xN3GzMRl8myCzl_6GkX3emGRW_sj" // ID de carpeta de Drive
-            );
-
-            ingresoActivoAjeno.setRutaPdf(linkDrive);
 
             return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + archivoIngresoActivoAjeno)
@@ -140,7 +117,7 @@ public class IngresoActivosAjenosController {
             .body(pdfBytes);
 
         } catch (Exception ex) {
-            ex.printStackTrace(); // Esto mostrará el error real en consola
+            ex.printStackTrace();
             String errorMsg = "Error procesando: " + ex.getMessage();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
         }
