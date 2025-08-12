@@ -1,0 +1,125 @@
+/* ANIMACION DEL ENCABEZADO*/
+@keyframes fadeSlideIn {
+    0% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animated-card {
+    animation: fadeSlideIn 1s ease-out;
+}
+
+.logo-hover:hover {
+    transform: scale(1.08);
+}
+
+/* PARA LOS BOTONES DE R, T, I Y B*/
+.btn-section {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.btn-lg-custom {
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    color: #fff;
+    border: none;
+    transition: all 0.3s ease;
+    min-width: 260px;
+    text-align: center;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.btn-lg-custom i {
+    margin-right: 10px;
+    font-size: 1.3rem;
+}
+
+.btn-asignar {
+    background-color: #1e3a8a;
+}
+
+.btn-asignar:hover {
+    background-color: #162f6a;
+    transform: scale(1.03);
+}
+
+.btn-reporte {
+    background-color: #b91c1c;
+}
+
+.btn-reporte:hover {
+    background-color: #991b1b;
+    transform: scale(1.03);
+}
+
+.btn-importar {
+    background-color: #15803d;
+}
+
+.btn-importar:hover {
+    background-color: #166534;
+    transform: scale(1.03);
+}
+
+.btn-visualizar {
+    background-color: #0e7490;
+}
+
+.btn-visualizar:hover {
+    background-color: #155e75;
+    transform: scale(1.03);
+}
+
+/* ESTILO PARA SECCION DE INFORMACIÓN*/
+.transition-rotate {
+    transition: transform 0.3s ease;
+}
+
+.btn[aria-expanded="true"] .transition-rotate {
+    transform: rotate(180deg);
+}
+
+.legal-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.legal-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsividad */
+@media (max-width: 768px) {
+    .btn-section .btn {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    .card-header h2 {
+        font-size: 1.2rem;
+    }
+}
+
+
+/*PARA VALIDAR LOS INPUTS*/
+.is-invalid {
+    border-color: #93000f !important;
+}
+
+.invalid-feedback {
+    display: none;
+    font-size: 0.875em;
+    color: #dc3545;
+}

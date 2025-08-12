@@ -1,0 +1,78 @@
+/* Paleta y detalles comunes a todos los modales */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #4f46e5 0%, #2563eb 60%, #0ea5e9 100%);
+}
+
+.modal-content {
+    border-radius: 1rem;
+    /* rounded-4 look */
+}
+
+.modal-header {
+    border: 0;
+}
+
+.modal-footer {
+    border: 0;
+}
+
+.input-group-text i {
+    font-size: 1rem;
+    opacity: .85;
+}
+
+.form-label .text-danger {
+    font-weight: 600;
+}
+
+/* Focus elegante y consistente */
+.form-control:focus,
+.form-select:focus {
+    box-shadow: 0 0 0 .25rem rgba(37, 99, 235, .15);
+    border-color: #2563eb;
+}
+
+/* Helper text y validación homogénea */
+.form-text,
+.text-muted {
+    font-size: .825rem;
+}
+
+/* Botones */
+.btn-success {
+    background: linear-gradient(135deg, #10b981 0%, #0ea5e9 120%);
+    border: 0;
+}
+
+.btn-secondary {
+    border: 0;
+}
+
+
+
+/*estilo para el modal de login*/
+.btn-gradient {
+    background: linear-gradient(90deg, #0077b6, #00b4d8);
+    border: none;
+    color: #fff;
+    transition: all 0.3s ease;
+}
+
+.btn-gradient:hover {
+    background: linear-gradient(90deg, #0096c7, #48cae4);
+    transform: scale(1.02);
+}
+
+.input-group-text {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+input.form-control:focus {
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    border-color: #86b7fe;
+}
+
+.modal-content {
+    animation-duration: 0.5s;
+}

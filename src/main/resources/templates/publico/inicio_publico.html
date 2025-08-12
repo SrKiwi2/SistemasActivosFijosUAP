@@ -4,244 +4,17 @@
     data-theme="theme-default" data-assets-path="../../assets/" data-template="vertical-menu-template">
 
 <head th:replace="~{layout/head :: head}"></head>
+<link rel="stylesheet" href="../../assets/css/config_general_publico.css">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
-<!-- VISTA PUBLICA Y USUARIOS PRINCIPALES -->
 
-<body>
-    <style>
-        .swal2-container {
-            z-index: 9999 !important;
-        }
-
-        .ui-autocomplete {
-            z-index: 1055 !important;
-            background-color: #fff;
-            border: 1px solid #ccc;
-            border-radius: 0.375rem;
-            max-height: 200px;
-            overflow-y: auto;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .ui-menu-item-wrapper {
-            padding: 0.5rem;
-            cursor: pointer;
-        }
-
-        .ui-menu-item-wrapper:hover {
-            background-color: #f0f0f0;
-        }
-
-        .modal.fade .modal-dialog {
-            transform: translateY(-20px);
-            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
-        }
-
-        .modal.show .modal-dialog {
-            transform: translateY(0);
-        }
-
-        .is-invalid {
-            border-color: #dc3545 !important;
-        }
-
-        .invalid-feedback {
-            display: none;
-            font-size: 0.875em;
-            color: #dc3545;
-        }
-
-        .is-invalid+.invalid-feedback {
-            display: block;
-        }
-
-        /* estilo del vista-admin */
-
-        @keyframes fadeSlideIn {
-            0% {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-
-            100% {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .animated-card {
-            animation: fadeSlideIn 1s ease-out;
-        }
-
-        .logo-hover:hover {
-            transform: scale(1.08);
-        }
-
-        table th,
-        table td {
-            padding: 0.5rem !important;
-        }
-
-        table thead {
-            background: linear-gradient(to right, #1e3a8a11, #b91c1c11);
-        }
-
-        table th {
-            font-weight: 600;
-            color: #1e3a8a;
-        }
-
-        .table td,
-        .table th {
-            border-color: #dee2e6 !important;
-        }
-
-        .text-truncate {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        /* Tooltip personalizado */
-        .table td[data-bs-toggle="tooltip"] {
-            cursor: help;
-            position: relative;
-        }
-
-        .tooltip-inner {
-            max-width: 300px;
-            text-align: left;
-            white-space: pre-wrap;
-            font-size: 0.85rem;
-        }
-
-        .btn-section {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .btn-lg-custom {
-            font-size: 1.1rem;
-            font-weight: 600;
-            padding: 1rem 2rem;
-            border-radius: 12px;
-            color: #fff;
-            border: none;
-            transition: all 0.3s ease;
-            min-width: 260px;
-            text-align: center;
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-        }
-
-        .btn-lg-custom i {
-            margin-right: 10px;
-            font-size: 1.3rem;
-        }
-
-        .btn-asignar {
-            background-color: #1e3a8a;
-        }
-
-        .btn-asignar:hover {
-            background-color: #162f6a;
-            transform: scale(1.03);
-        }
-
-        .btn-reporte {
-            background-color: #b91c1c;
-        }
-
-        .btn-reporte:hover {
-            background-color: #991b1b;
-            transform: scale(1.03);
-        }
-
-        .btn-importar {
-            background-color: #15803d;
-        }
-
-        .btn-importar:hover {
-            background-color: #166534;
-            transform: scale(1.03);
-        }
-
-        .btn-visualizar {
-            background-color: #0e7490;
-        }
-
-        .btn-visualizar:hover {
-            background-color: #155e75;
-            transform: scale(1.03);
-        }
-
-        /* Animaciones y efectos */
-        .transition-rotate {
-            transition: transform 0.3s ease;
-        }
-
-        .btn[aria-expanded="true"] .transition-rotate {
-            transform: rotate(180deg);
-        }
-
-        .legal-card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .legal-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Responsividad */
-        @media (max-width: 768px) {
-            .btn-section .btn {
-                width: 100%;
-                margin-bottom: 10px;
-            }
-
-            .card-header h2 {
-                font-size: 1.2rem;
-            }
-        }
-
-        /*estilo para el modal de login*/
-
-        .btn-gradient {
-            background: linear-gradient(90deg, #0077b6, #00b4d8);
-            border: none;
-            color: #fff;
-            transition: all 0.3s ease;
-        }
-
-        .btn-gradient:hover {
-            background: linear-gradient(90deg, #0096c7, #48cae4);
-            transform: scale(1.02);
-        }
-
-        .input-group-text {
-            background-color: #f8f9fa;
-            border-color: #dee2e6;
-        }
-
-        input.form-control:focus {
-            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-            border-color: #86b7fe;
-        }
-
-        .modal-content {
-            animation-duration: 0.5s;
-        }
-    </style>
-
+<!-- VISTA PUBLICA -->
+<body data-ctx="admin">
+    <!-- NAVBAR -->
     <div class="container" style="padding-top: 70px">
         <nav th:fragment="topbar"
             class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
             id="layout-navbar">
             <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                <!-- Search -->
                 <div class="navbar-nav align-items-center">
                     <a class="nav-item nav-link search-toggler d-flex align-items-center px-0"
                         href="javascript:void(0);">
@@ -262,18 +35,16 @@
         <br />
     </div>
 
+    <!-- MODAL DE LOGIN -->
     <div class="modal fade" id="modalLogin" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content glass-card animate__animated animate__fadeInDown">
-                <!-- Header -->
                 <div class="modal-header border-0 pb-0">
                     <h4 class="modal-title mx-auto d-flex align-items-center gap-3 text-primary-emphasis">
                         <img src="../../assets/img/logo/logoUap.png" alt="Logo UAP" style="height: 50px" />
                         <span>Inicia Sesión - SAYOVE 2.0</span>
                     </h4>
                 </div>
-
-                <!-- Body -->
                 <div class="modal-body p-5 pt-3">
                     <form id="formularioLogin" action="/iniciar-sesion" method="post" class="row g-4">
                         <div class="col-12">
@@ -284,7 +55,6 @@
                                     placeholder="Tu usuario" required />
                             </div>
                         </div>
-
                         <div class="col-12">
                             <label class="form-label fw-bold text-secondary">Contraseña</label>
                             <div class="input-group input-group-lg">
@@ -297,353 +67,12 @@
                                 </button>
                             </div>
                         </div>
-
                         <div class="col-12 mt-3">
                             <button type="submit" class="btn btn-gradient w-100 btn-lg">
                                 <i class="ti ti-login me-2"></i>Ingresar al sistema
                             </button>
                         </div>
                     </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="layout-wrapper layout-content-navbar">
-        <div class="layout-container">
-            <div class="container">
-                <div class="content-wrapper">
-                    <div class="card animated-card position-relative p-0 mb-4 overflow-hidden shadow-sm border-0" style="
-                min-height: 180px;
-                border-radius: 12px;
-                background: linear-gradient(
-                  90deg,
-                  rgba(30, 58, 138, 0.05),
-                  rgba(185, 28, 28, 0.05)
-                );
-              ">
-                        <!-- Logos (izquierda y derecha) -->
-                        <div class="position-absolute top-0 start-0 p-3 d-none d-sm-block">
-                            <img src="../../assets/img/logo/activofijos.png" alt="UAP" height="90" class="logo-hover"
-                                style="transition: transform 0.4s ease" />
-                        </div>
-                        <div class="position-absolute top-0 end-0 p-3 d-none d-sm-block">
-                            <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="100" class="logo-hover"
-                                style="transition: transform 0.4s ease" />
-                        </div>
-
-                        <!-- Contenido central -->
-                        <div
-                            class="card-body d-flex flex-column justify-content-center align-items-center text-center py-5 px-3">
-                            <h3 class="card-title mb-2 lh-sm lh-lg fw-bold text-uppercase text-primary px-lg-5"
-                                style="font-size: 1.7rem">
-                                SISTEMA SAYOVE - ACTIVOS FIJOS
-                                <span class="fw-semibold text-danger">2.0</span>
-                            </h3>
-                            <p class="mb-0 fst-italic" style="font-family: 'Georgia', serif; font-size: 1rem">
-                                Escribiendo una nueva historia con vos...
-                            </p>
-                        </div>
-
-                        <!-- Logos visibles solo en móvil (centrados abajo) -->
-                        <div class="d-block d-sm-none text-center pb-3">
-                            <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="60"
-                                class="logo-hover mx-2" />
-                            <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="60"
-                                class="logo-hover mx-2" />
-                        </div>
-                    </div>
-
-                    <!-- Sección de botones -->
-                    <div class="btn-section">
-                        <!-- Botón 1 -->
-                        <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal"
-                            data-bs-target="#formularioModalAsignacionActivo">
-                            <i class="bi bi-plus-circle-fill"></i> Registrar Asignación
-                        </button>
-
-                        <!-- Botón 2 -->
-                        <button class="btn btn-lg-custom btn-reporte" data-bs-toggle="modal"
-                            data-bs-target="#formularioModalTranferenciaActivo">
-                            <i class="bi bi-file-earmark-bar-graph-fill"></i> Transferencia
-                            de Activos
-                        </button>
-
-                        <!-- Botón 3 -->
-                        <button class="btn btn-lg-custom btn-importar" data-bs-toggle="modal"
-                            data-bs-target="#formularioModalIngresoActivoAjeno">
-                            <i class="bi bi-file-earmark-arrow-up-fill"></i> Ingreso de
-                            Bienes Ajenos
-                        </button>
-
-                        <!-- Botón 4 -->
-                        <button class="btn btn-lg-custom btn-visualizar" data-bs-toggle="modal"
-                            data-bs-target="#formularioModalBajaActivo">
-                            <i class="bi bi-eye-fill"></i> Baja de Activos
-                        </button>
-                    </div>
-
-                    <div class="container-fluid mt-5 px-0">
-                        <!-- Tarjeta de presentación con efecto acordeón -->
-                        <div class="card border-0 rounded-4 overflow-hidden mb-4 shadow-sm">
-                            <div class="card-header p-0 border-0" id="informacionHeading">
-                                <button
-                                    class="btn btn-link text-decoration-none w-100 text-start p-4 d-flex justify-content-between align-items-center"
-                                    type="button" data-bs-toggle="collapse" data-bs-target="#informacionCollapse"
-                                    aria-expanded="true" aria-controls="informacionCollapse" style="
-                      background: linear-gradient(135deg, #1e3a8a, #b91c1c);
-                    ">
-                                    <h2 class="mb-0 text-white fw-bold">
-                                        <i class="bi bi-info-circle-fill me-3"></i>INFORMACIÓN
-                                        INSTITUCIONAL - SECCIÓN DE ACTIVOS FIJOS
-                                    </h2>
-                                    <i class="bi bi-chevron-down text-white fs-4 transition-rotate"></i>
-                                </button>
-                            </div>
-
-                            <div id="informacionCollapse" class="collapse show" aria-labelledby="informacionHeading">
-                                <div class="card-body p-0">
-                                    <!-- Sección de Funciones -->
-                                    <div class="p-4 pb-0" style="background-color: rgba(30, 58, 138, 0.03)">
-                                        <h3 class="fw-bold mb-4" style="color: #1e3a8a">
-                                            <i class="bi bi-list-task me-2"></i>FUNCIONES DE LA
-                                            SECCIÓN DE ACTIVOS FIJOS
-                                        </h3>
-                                        <p class="lead mb-4" style="color: #333">
-                                            Somos una sección operativa dependiente de la Dirección
-                                            Administrativa Financiera de la
-                                            <span class="fw-bold" style="color: #1e3a8a">Universidad Amazónica de
-                                                Pando</span>.
-                                        </p>
-
-                                        <div class="row g-4">
-                                            <div class="col-md-6">
-                                                <div class="d-flex mb-3">
-                                                    <div class="me-3 mt-1" style="color: #b91c1c">
-                                                        <i class="bi bi-check-circle-fill fs-5"></i>
-                                                    </div>
-                                                    <div>
-                                                        <h5 class="fw-semibold mb-1">
-                                                            Recepción de bienes
-                                                        </h5>
-                                                        <p class="mb-0 text-muted">
-                                                            Para su incorporación al activo fijo de la
-                                                            entidad.
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div class="d-flex mb-3">
-                                                    <div class="me-3 mt-1" style="color: #b91c1c">
-                                                        <i class="bi bi-check-circle-fill fs-5"></i>
-                                                    </div>
-                                                    <div>
-                                                        <h5 class="fw-semibold mb-1">
-                                                            Sistemas de identificación
-                                                        </h5>
-                                                        <p class="mb-0 text-muted">
-                                                            Mediante códigos, claves o símbolos.
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div class="d-flex mb-3">
-                                                    <div class="me-3 mt-1" style="color: #b91c1c">
-                                                        <i class="bi bi-check-circle-fill fs-5"></i>
-                                                    </div>
-                                                    <div>
-                                                        <h5 class="fw-semibold mb-1">
-                                                            Registro de Activos
-                                                        </h5>
-                                                        <p class="mb-0 text-muted">
-                                                            Fijos Muebles e Inmuebles.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="col-md-6">
-                                                <div class="d-flex mb-3">
-                                                    <div class="me-3 mt-1" style="color: #b91c1c">
-                                                        <i class="bi bi-check-circle-fill fs-5"></i>
-                                                    </div>
-                                                    <div>
-                                                        <h5 class="fw-semibold mb-1">
-                                                            Mantenimiento y Salvaguarda
-                                                        </h5>
-                                                        <p class="mb-0 text-muted">
-                                                            De Activos Fijos Muebles.
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div class="d-flex mb-3">
-                                                    <div class="me-3 mt-1" style="color: #b91c1c">
-                                                        <i class="bi bi-check-circle-fill fs-5"></i>
-                                                    </div>
-                                                    <div>
-                                                        <h5 class="fw-semibold mb-1">
-                                                            Asignación de Activos
-                                                        </h5>
-                                                        <p class="mb-0 text-muted">
-                                                            Fijos Muebles a responsables.
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div class="d-flex mb-3">
-                                                    <div class="me-3 mt-1" style="color: #b91c1c">
-                                                        <i class="bi bi-check-circle-fill fs-5"></i>
-                                                    </div>
-                                                    <div>
-                                                        <h5 class="fw-semibold mb-1">
-                                                            Inspección y control físico
-                                                        </h5>
-                                                        <p class="mb-0 text-muted">
-                                                            De activos fijos muebles e inmuebles.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Sección de Marco Legal -->
-                                    <div class="p-4" style="
-                        background-color: rgba(185, 28, 28, 0.03);
-                        border-top: 1px solid rgba(0, 0, 0, 0.05);
-                      ">
-                                        <h3 class="fw-bold mb-4" style="color: #b91c1c">
-                                            <i class="bi bi-journal-bookmark-fill me-2"></i>MARCO
-                                            LEGAL
-                                        </h3>
-
-                                        <div class="mb-4">
-                                            <p class="mb-3" style="text-align: justify">
-                                                La
-                                                <span class="fw-bold">Ley 1178 Ley de Administración y Control
-                                                    Gubernamental (SAFCO)</span>
-                                                en su artículo 10º, define que el Sistema de
-                                                Administración de Bienes y Servicios establecerá la
-                                                forma de contratación, manejo y disposición de bienes
-                                                y servicios, asimismo que las entidades emplearán los
-                                                bienes y los servicios que contraten, en los fines
-                                                previstos en la Programación de Operaciones y
-                                                realizarán el mantenimiento preventivo y la
-                                                salvaguardia de los activos, identificando a los
-                                                responsables de su manejo.
-                                            </p>
-                                        </div>
-
-                                        <div class="row g-3">
-                                            <div class="col-md-6">
-                                                <div class="legal-card p-3 rounded-3 h-100" style="
-                              border-left: 4px solid #1e3a8a;
-                              background-color: white;
-                            ">
-                                                    <h5 class="fw-bold mb-2" style="color: #1e3a8a">
-                                                        Leyes Nacionales
-                                                    </h5>
-                                                    <ul class="list-unstyled mb-0">
-                                                        <li class="mb-2 d-flex align-items-start">
-                                                            <i class="bi bi-file-text-fill me-2" style="
-                                    color: #b91c1c;
-                                    font-size: 0.8rem;
-                                    margin-top: 0.2rem;
-                                  "></i>
-                                                            <span>Ley Nº 1178 de Administración y Control
-                                                                Gubernamental (20/07/1990)</span>
-                                                        </li>
-                                                        <li class="mb-2 d-flex align-items-start">
-                                                            <i class="bi bi-file-text-fill me-2" style="
-                                    color: #b91c1c;
-                                    font-size: 0.8rem;
-                                    margin-top: 0.2rem;
-                                  "></i>
-                                                            <span>Ley N° 004 Lucha contra la corrupción
-                                                                "Marcelo Quiroga Santa Cruz"</span>
-                                                        </li>
-                                                        <li class="mb-2 d-flex align-items-start">
-                                                            <i class="bi bi-file-text-fill me-2" style="
-                                    color: #b91c1c;
-                                    font-size: 0.8rem;
-                                    margin-top: 0.2rem;
-                                  "></i>
-                                                            <span>Ley N°2027 Estatuto del Funcionario
-                                                                Público</span>
-                                                        </li>
-                                                        <li class="d-flex align-items-start">
-                                                            <i class="bi bi-file-text-fill me-2" style="
-                                    color: #b91c1c;
-                                    font-size: 0.8rem;
-                                    margin-top: 0.2rem;
-                                  "></i>
-                                                            <span>Ley N°2341 Procedimiento Administrativo</span>
-                                                        </li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-
-                                            <div class="col-md-6">
-                                                <div class="legal-card p-3 rounded-3 h-100" style="
-                              border-left: 4px solid #b91c1c;
-                              background-color: white;
-                            ">
-                                                    <h5 class="fw-bold mb-2" style="color: #b91c1c">
-                                                        Decretos Supremos
-                                                    </h5>
-                                                    <ul class="list-unstyled mb-0">
-                                                        <li class="mb-2 d-flex align-items-start">
-                                                            <i class="bi bi-file-earmark-text-fill me-2" style="
-                                    color: #1e3a8a;
-                                    font-size: 0.8rem;
-                                    margin-top: 0.2rem;
-                                  "></i>
-                                                            <span>Decreto Supremo 0181 del 28 Junio 2009 Normas
-                                                                Básicas del Sistema de Administración de
-                                                                Bienes y Servicios</span>
-                                                        </li>
-                                                        <li class="mb-2 d-flex align-items-start">
-                                                            <i class="bi bi-file-earmark-text-fill me-2" style="
-                                    color: #1e3a8a;
-                                    font-size: 0.8rem;
-                                    margin-top: 0.2rem;
-                                  "></i>
-                                                            <span>D. S. Nro. 23318‐A de Responsabilidad por la
-                                                                Función Pública</span>
-                                                        </li>
-                                                        <li class="d-flex align-items-start">
-                                                            <i class="bi bi-file-earmark-text-fill me-2" style="
-                                    color: #1e3a8a;
-                                    font-size: 0.8rem;
-                                    margin-top: 0.2rem;
-                                  "></i>
-                                                            <span>D. S. Nro. 26237 Modificatorio al D.S.
-                                                                23318‐A de Responsabilidad por la Función
-                                                                Pública</span>
-                                                        </li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Pie de tarjeta institucional -->
-                                <div class="card-footer text-center py-3" style="
-                      background-color: #f8f9fa;
-                      border-top: 1px solid rgba(0, 0, 0, 0.05);
-                    ">
-                                    <p class="mb-0 fst-italic" style="color: #6c757d">
-                                        <i class="bi bi-building me-1"></i> Dirección
-                                        Administrativa Financiera - Universidad Amazónica de Pando
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- <div id="contenido-mis-activos" th:if="${session.nombre_rol == 'RESPONSABLE'}"></div> -->
-                    <footer th:replace="~{layout/footer :: footer}"></footer>
                 </div>
             </div>
         </div>
@@ -678,7 +107,79 @@
             </div>
         </div>
     </div>
-    <!-- FIN CERRAR SESIÓN -->
+
+    <div class="layout-wrapper layout-content-navbar">
+        <div class="layout-container">
+            <div class="container">
+                <div class="content-wrapper">
+                    <div class="card animated-card position-relative p-0 mb-4 overflow-hidden shadow-sm border-0" style="
+                                min-height: 180px;
+                                border-radius: 12px;
+                                background: linear-gradient(
+                                90deg,
+                                rgba(30, 58, 138, 0.05),
+                                rgba(185, 28, 28, 0.05)
+                                );
+                            ">
+                        <!-- Logos (izquierda y derecha) -->
+                        <div class="position-absolute top-0 start-0 p-3 d-none d-sm-block">
+                            <img src="../../assets/img/logo/activofijos.png" alt="UAP" height="90" class="logo-hover"
+                                style="transition: transform 0.4s ease" />
+                        </div>
+                        <div class="position-absolute top-0 end-0 p-3 d-none d-sm-block">
+                            <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="100" class="logo-hover"
+                                style="transition: transform 0.4s ease" />
+                        </div>
+                        <!-- Contenido central -->
+                        <div
+                            class="card-body d-flex flex-column justify-content-center align-items-center text-center py-5 px-3">
+                            <h3 class="card-title mb-2 lh-sm lh-lg fw-bold text-uppercase text-primary px-lg-5"
+                                style="font-size: 1.7rem">
+                                SISTEMA SAYOVE - ACTIVOS FIJOS
+                                <span class="fw-semibold text-danger">2.0</span>
+                            </h3>
+                            <p class="mb-0 fst-italic" style="font-family: 'Georgia', serif; font-size: 1rem">
+                                Escribiendo una nueva historia con vos...
+                            </p>
+                        </div>
+                        <!-- Logos visibles solo en móvil (centrados abajo) -->
+                        <div class="d-block d-sm-none text-center pb-3">
+                            <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="60"
+                                class="logo-hover mx-2" />
+                            <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="60"
+                                class="logo-hover mx-2" />
+                        </div>
+                    </div>
+
+                    <!-- Sección de botones -->
+                    <div class="btn-section">
+                        <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal"
+                            data-bs-target="#formularioModalAsignacionActivo">
+                            <i class="bi bi-plus-circle-fill"></i> Registrar Asignación
+                        </button>
+                        <button class="btn btn-lg-custom btn-reporte" data-bs-toggle="modal"
+                            data-bs-target="#formularioModalTranferenciaActivo">
+                            <i class="bi bi-file-earmark-bar-graph-fill"></i> Transferencia de Activos
+                        </button>
+                        <button class="btn btn-lg-custom btn-importar" data-bs-toggle="modal"
+                            data-bs-target="#formularioModalIngresoActivoAjeno">
+                            <i class="bi bi-file-earmark-arrow-up-fill"></i> Ingreso de Bienes Ajenos
+                        </button>
+                        <button class="btn btn-lg-custom btn-visualizar" data-bs-toggle="modal"
+                            data-bs-target="#formularioModalBajaActivo">
+                            <i class="bi bi-eye-fill"></i> Baja de Activos
+                        </button>
+                    </div>
+
+                    <div class="container-fluid mt-5 px-0">
+                        <div id="informacionActivosFijos"></div>
+                    </div>
+
+                    <footer th:replace="~{layout/footer :: footer}"></footer>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- ASIGNAR ACTIVO NUEVO -->
     <div class="modal fade" id="formularioModalAsignacionActivo" tabindex="-1" aria-labelledby="formularioModalLabel">
@@ -1443,7 +944,7 @@
 
                     <div class="modal-body">
                         <!-- Sección de fecha y número con validación -->
-                        <fieldset class="border p-3 mb-4 rounded-3 shadow-sm animate__animated animate__fadeIn">
+                        <fieldset class="border p-3 mb-4 rounded-3 shadow-sm ">
                             <legend class="w-auto px-3 text-primary fw-semibold">
                                 <i class="bi bi-calendar-date me-1"></i> DATOS ADMINISTRATIVOS
                             </legend>
@@ -1474,10 +975,9 @@
                         </fieldset>
 
                         <!-- Sección de propietario con búsqueda dinámica -->
-                        <fieldset
-                            class="border p-3 mb-4 rounded-3 shadow-sm animate__animated animate__fadeIn animate__delay-1s">
+                        <fieldset class="border p-3 mb-4 rounded-3 shadow-sm  animate__delay-1s">
                             <legend class="w-auto px-3 text-success fw-semibold">
-                                <i class="bi bi-person-fill-down me-1"></i> PROPIETARIO DEL
+                                <i class="bi bi-person-fill-down me-1"></i> RESPONSABLE DEL
                                 ACTIVO
                             </legend>
                             <div class="row g-3">
@@ -1511,8 +1011,7 @@
                         </fieldset>
 
                         <!-- Sección del activo con búsqueda dinámica -->
-                        <fieldset
-                            class="border p-3 rounded-3 shadow-sm animate__animated animate__fadeIn animate__delay-2s">
+                        <fieldset class="border p-3 rounded-3 shadow-sm  animate__delay-2s">
                             <legend class="w-auto px-3 text-info fw-semibold">
                                 <i class="bi bi-pc-display me-1"></i> DATOS DEL ACTIVO
                             </legend>
@@ -1543,7 +1042,7 @@
                                                 Deterioro o obsolescencia
                                             </option>
                                             <option value="PERDIDA">Pérdida</option>
-                                            <option value="PERDIDA">Robo</option>
+                                            <option value="ROBO">Robo</option>
                                         </select>
                                         <div class="invalid-feedback">
                                             Por favor seleccione la causa de baja.
@@ -1578,6 +1077,90 @@
             </form>
         </div>
     </div>
+
+    <!-- MODAL: Confirmación de Baja de Activos -->
+    <div class="modal fade" id="modalConfirmacionBaja" tabindex="-1" aria-labelledby="modalConfirmacionBajaLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold" id="modalConfirmacionBajaLabel">
+                        <i class="bi bi-clipboard-check me-2"></i> Confirmar datos de la baja
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <!-- Estado de carga -->
+                    <div id="confirmacionLoadingBaja" class="text-center py-4 d-none">
+                        <div class="spinner-border" role="status" aria-hidden="true"></div>
+                        <p class="mt-2 mb-0">Preparando resumen…</p>
+                    </div>
+
+                    <!-- Contenido -->
+                    <div id="contenidoConfirmacionBaja" class="d-none">
+                        <div class="row g-3">
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-calendar-date me-1"></i> Datos administrativos
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaAdminBaja"></ul>
+                                    </div>
+                                </div>
+
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-person-badge me-1"></i> Funcionario (propietario)
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaFuncionarioBaja"></ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-pc-display me-1"></i> Datos del activo
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaActivoBaja"></ul>
+                                    </div>
+                                </div>
+
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-exclamation-triangle me-1"></i> Causa y descripción
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaCausaBaja"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="confirmacionAlertaBaja" class="alert alert-warning mt-3 d-none" role="alert">
+                            <i class="bi bi-exclamation-triangle me-1"></i> Faltan datos obligatorios o hay formato
+                            inválido.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnConfirmarGuardarBaja">
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarBaja"
+                            role="status" aria-hidden="true"></span>
+                        <i class="bi bi-check-circle me-1"></i> Confirmar y generar PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- FIN BAJA ACTIVOS -->
 
     <!-- MODAL PARA VISUALIZAR EL PDF -->
@@ -1603,6 +1186,22 @@
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" />
 
     <script>
+        
+        $(document).ready(function () {
+            cargarTabla();
+
+        });
+
+        function cargarTabla() {
+            $.ajax({
+                type: 'GET',
+                url: "/informacion",
+                success: function (response) {
+                    $("#informacionActivosFijos").html(response);
+                }
+            });
+        }
+
         // ver contraseña modal
         const togglePassword = document.getElementById("togglePassword");
         const passwordInput = document.getElementById("contrasena");
@@ -2030,10 +1629,12 @@
 
         //INICIO ASIGNACION DE ACTIVO
         document.addEventListener("DOMContentLoaded", () => {
+            // para alertar que lso cmapos son olbigatorios
             const campos = [
                 { name: "unidad", mensaje: "La unidad es obligatoria" },
                 { name: "codigoFuncionario", mensaje: "El código de funcionario es obligatorio" },
                 { name: "ci", mensaje: "El C.I. es obligatorio" },
+                { name: "hr", mensaje: "El H.R. es obligatorio" },
                 { name: "ubicacionActivo", mensaje: "La ubicación es obligatoria" },
                 { name: "descripcionActivo", mensaje: "La descripción del activo es obligatoria" },
             ];
@@ -2386,7 +1987,6 @@
                 });
             });
 
-
             // Confirmar => POST al backend y mostrar PDF
             btnConfirmar.addEventListener("click", () => {
                 const formData = new FormData(form);
@@ -2425,12 +2025,202 @@
         });
         // ===== FIN VERIFICACIÓN INGRESO BIENES AJENOS =====
 
-        // BAJA ACTIVO
-        document
-            .getElementById("btnConfirmarBaja")
-            .addEventListener("click", function () {
-                const form = document.getElementById("formBajaActivos");
+        // ================ BAJA ACTIVO =====================
+        document.addEventListener("DOMContentLoaded", () => {
+            // Refs formulario y modales
+            const form = document.getElementById("formBajaActivos");
+            const modalIngresoEl = document.getElementById("formularioModalBajaActivo");
+            const modalConfirmacionEl = document.getElementById("modalConfirmacionBaja");
+
+            // Botones
+            const btnPreConfirmar = document.getElementById("btnConfirmarBaja"); // ahora abre el modal de confirmación
+            const btnConfirmar = document.getElementById("btnConfirmarGuardarBaja"); // este sí envía al backend
+            const spinnerConfirmar = document.getElementById("spinnerConfirmarBaja");
+
+            // Áreas del modal de confirmación
+            const loading = document.getElementById("confirmacionLoadingBaja");
+            const contenido = document.getElementById("contenidoConfirmacionBaja");
+            const listaAdmin = document.getElementById("listaAdminBaja");
+            const listaFuncionario = document.getElementById("listaFuncionarioBaja");
+            const listaActivo = document.getElementById("listaActivoBaja");
+            const listaCausa = document.getElementById("listaCausaBaja");
+
+            // Helpers
+            const nv = (v) => (v === null || v === undefined || (typeof v === 'string' && v.trim() === "")) ? "N/A" : String(v).trim();
+            const esc = (html) => nv(html).replace(/[&<>"'`=\/]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' }[s]));
+            const setLoading = (v) => { loading.classList.toggle("d-none", !v); contenido.classList.toggle("d-none", v); };
+
+            // Ocultar modal de baja y, cuando termine, abrir confirmación
+            function abrirConfirmacionDespuesDeOcultar(cb) {
+                const ingresoInstance = bootstrap.Modal.getInstance(modalIngresoEl) || new bootstrap.Modal(modalIngresoEl);
+                if (modalIngresoEl.classList.contains('show')) {
+                    const onHidden = () => {
+                        modalIngresoEl.removeEventListener('hidden.bs.modal', onHidden);
+                        new bootstrap.Modal(modalConfirmacionEl, { backdrop: 'static', keyboard: false }).show();
+                        if (typeof cb === 'function') cb();
+                    };
+                    modalIngresoEl.addEventListener('hidden.bs.modal', onHidden);
+                    ingresoInstance.hide();
+                } else {
+                    new bootstrap.Modal(modalConfirmacionEl, { backdrop: 'static', keyboard: false }).show();
+                    if (typeof cb === 'function') cb();
+                }
+            }
+
+            function validarMinimo() {
+                const req = [
+                    form.querySelector('[name="fechaBaja"]'),
+                    form.querySelector('[name="numeroDocumento"]'),
+                    form.querySelector('[name="codigoFuncionarioBaja"]'),
+                    form.querySelector('[name="ciFuncionarioBaja"]'),
+                    form.querySelector('[name="codigoActivoBaja"]'),
+                    form.querySelector('[name="causa"]')
+                ];
+                return req.every(el => el && el.value && String(el.value).trim());
+            }
+
+            function renderResumen(dataFunc, dataActivo, vals) {
+                // Admin
+                listaAdmin.innerHTML = `
+                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-calendar3"></i> Fecha de baja</span><span class="fw-semibold">${esc(vals.fechaBaja) || 'N/A'}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-123"></i> N° de documento</span><span class="fw-semibold">${esc(vals.numeroDocumento) || 'N/A'}</span></li>
+                    `;
+
+                // Funcionario (API + ingresado)
+                listaFuncionario.innerHTML = `
+                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person"></i> Nombre</span><span class="fw-semibold">${nv(dataFunc.per_nombres)} ${nv(dataFunc.per_ap_paterno)} ${nv(dataFunc.per_ap_materno)}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-credit-card-2-front"></i> CI</span><span class="fw-semibold">${nv(dataFunc.per_num_doc)}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-envelope"></i> Email</span><span class="fw-semibold">${nv(dataFunc.perd_email_personal)}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-building"></i> Oficina</span><span class="fw-semibold">${nv(dataFunc.eo_descripcion)}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-briefcase"></i> Cargo</span><span class="fw-semibold">${nv(dataFunc.p_descripcion)}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person-vcard"></i> Código func. (ingresado)</span><span class="fw-semibold">${esc(vals.codigoFuncionarioBaja) || 'N/A'}</span></li>
+                    `;
+
+                // Activo (API + ingresado)
+                listaActivo.innerHTML = `
+                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-upc-scan"></i> Código</span><span class="fw-semibold">${esc(vals.codigoActivoBaja) || 'N/A'}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-info-circle"></i> Descripción</span><span class="fw-semibold">${nv(dataActivo.descripcion)}</span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-geo-alt"></i> Ubicación actual</span><span class="fw-semibold">${nv(dataActivo.oficinaTexto || dataActivo.oficinaNombre)}</span></li>
+                    `;
+
+                // Causa / Descripción
+                listaCausa.innerHTML = `
+                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-exclamation-triangle"></i> Causa</span><span class="fw-semibold">${esc(vals.causa) || 'N/A'}</span></li>
+                    <li class="list-group-item"><i class="bi bi-journal-text me-1"></i> ${esc(vals.descripcionBaja) || '-'}</li>
+                    `;
+            }
+
+            // -- helpers nuevos: muestra errores dentro del modal de confirmación
+            function showApiWarningBaja(msg) {
+                const alertEl = document.getElementById("confirmacionAlertaBaja");
+                if (!alertEl) return;
+                alertEl.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i> ${msg}`;
+                alertEl.classList.remove("d-none");
+            }
+            function clearApiWarningBaja() {
+                const alertEl = document.getElementById("confirmacionAlertaBaja");
+                if (!alertEl) return;
+                alertEl.classList.add("d-none");
+            }
+
+            // PRE-Confirmar: abre modal de confirmación, consulta APIs y arma resumen
+            btnPreConfirmar.addEventListener("click", () => {
+                // Abre confirmación (ocultando el modal anterior)
+                abrirConfirmacionDespuesDeOcultar(async () => {
+                    setLoading(true);
+                    clearApiWarningBaja();
+
+                    // ⬇️ LEE LOS VALORES *AQUÍ*, ya con el modal de baja oculto
+                    const vals = {
+                        fechaBaja: form.fechaBaja?.value || "",
+                        numeroDocumento: form.numeroDocumento?.value || "",
+                        codigoFuncionarioBaja: (form.codigoFuncionarioBaja?.value || "").trim(),
+                        ciFuncionarioBaja: (form.ciFuncionarioBaja?.value || "").trim(),
+                        codigoActivoBaja: (form.codigoActivoBaja?.value || "").trim(),
+                        causa: form.causa?.value || "",
+                        descripcionBaja: form.descripcionBaja?.value || ""
+                    };
+
+                    // Validación mínima
+                    if (!validarMinimo()) {
+                        renderResumen({}, {}, vals);
+                        showApiWarningBaja("Faltan datos obligatorios o hay formato inválido.");
+                        setLoading(false);
+                        return;
+                    }
+
+                    // Detecta mixed content (https -> http)
+                    const apiUrl = "http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos";
+                    if (location.protocol === "https:" && apiUrl.startsWith("http:")) {
+                        renderResumen({}, {}, vals);
+                        showApiWarningBaja("El navegador bloqueó la consulta (mixed content: tu sitio es HTTPS y la API es HTTP). Usa la API por HTTPS o un proxy en tu backend.");
+                        setLoading(false);
+                        return;
+                    }
+
+                    const headers = {
+                        "Content-Type": "application/json",
+                        key: "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10",
+                    };
+
+                    // Llamadas a API con manejo de errores visible
+                    const fetchFuncionario = fetch(apiUrl, {
+                        method: "POST",
+                        headers,
+                        body: JSON.stringify({
+                            usuario: vals.codigoFuncionarioBaja,
+                            contrasena: vals.ciFuncionarioBaja
+                        }),
+                    })
+                        .then(async (r) => {
+                            if (!r.ok) {
+                                const t = await r.text().catch(() => "");
+                                throw new Error(`Funcionario ${r.status}: ${t || "sin detalle"}`);
+                            }
+                            return r.json();
+                        });
+
+                    const fetchActivo = fetch("/api/buscar-activo?codigo=" + encodeURIComponent(vals.codigoActivoBaja))
+                        .then(async (r) => {
+                            if (!r.ok) {
+                                const t = await r.text().catch(() => "");
+                                throw new Error(`Activo ${r.status}: ${t || "no encontrado"}`);
+                            }
+                            return r.json();
+                        });
+
+                    try {
+                        const [dataFunc, dataAct] = await Promise.all([fetchFuncionario, fetchActivo]);
+
+                        // logs útiles para depurar (puedes dejar comentado en prod)
+                        console.log("API Funcionario ->", dataFunc);
+                        console.log("API Activo ->", dataAct);
+
+                        // Si vinieron vacíos, avisa
+                        if (!dataFunc || Object.keys(dataFunc).length === 0) {
+                            showApiWarningBaja("No se encontró información del funcionario con el código/CI ingresados.");
+                        }
+                        if (!dataAct || Object.keys(dataAct).length === 0) {
+                            showApiWarningBaja("No se encontró el activo con el código ingresado.");
+                        }
+
+                        renderResumen(dataFunc || {}, dataAct || {}, vals);
+                    } catch (err) {
+                        console.error("Error consultando APIs:", err);
+                        renderResumen({}, {}, vals);
+                        showApiWarningBaja("No fue posible consultar los datos (ver consola).");
+                    } finally {
+                        setLoading(false);
+                    }
+                });
+            });
+
+            // Confirmar y enviar al backend
+            btnConfirmar.addEventListener("click", () => {
                 const formData = new FormData(form);
+                btnConfirmar.disabled = true;
+                spinnerConfirmar.classList.remove("d-none");
+
                 fetch("/baja/registro", {
                     method: "POST",
                     body: formData,
@@ -2442,19 +2232,22 @@
                     .then((blob) => {
                         const url = URL.createObjectURL(blob);
                         document.getElementById("iframePDF").src = url;
-                        const pdfModal = new bootstrap.Modal(
-                            document.getElementById("modalVisualizarPdf")
-                        );
+
+                        const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
                         pdfModal.show();
-                        const confirmModal = bootstrap.Modal.getInstance(
-                            document.getElementById("formBajaActivos")
-                        );
-                        confirmModal.hide();
+
+                        const inst = bootstrap.Modal.getInstance(modalConfirmacionEl);
+                        inst?.hide();
                     })
                     .catch((error) => {
                         alert("Ocurrió un error: " + error.message);
+                    })
+                    .finally(() => {
+                        btnConfirmar.disabled = false;
+                        spinnerConfirmar.classList.add("d-none");
                     });
             });
+        });
     </script>
 </body>
 

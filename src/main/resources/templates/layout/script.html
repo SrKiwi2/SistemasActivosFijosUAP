@@ -71,11 +71,17 @@
 
     <!-- CONFIGURACIÓN SIDEBAR -->
     <script>
+        $.ajaxSetup({
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        
         var botonPulsado;
         $(document).ready(function () {
 
             // ventana por defecto al iniciar sesión
-            cargarContenido("/adm/vista-administrador");
+            if (document.body.dataset.ctx === "admin" && $("#contenido").length) {
+                cargarContenido("/adm/vista-administrador");
+            }
             botonPulsado = document.getElementById("opcion_admin");
             botonPulsado.classList.add("active");
 
