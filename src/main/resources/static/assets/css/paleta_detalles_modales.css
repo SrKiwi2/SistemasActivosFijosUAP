@@ -76,3 +76,65 @@ input.form-control:focus {
 .modal-content {
     animation-duration: 0.5s;
 }
+
+/* Evita desbordes y solapes en el modal de confirmación de transferencia */
+#modalConfirmacionTransferencia .list-group-item span,
+#modalConfirmacionTransferencia .card-body,
+#modalConfirmacionTransferencia .table,
+#modalConfirmacionTransferencia .table td,
+#modalConfirmacionTransferencia .table th{
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+#modalConfirmacionTransferencia .list-group-item.d-flex > span:first-child{
+  flex: 0 0 auto;
+  max-width: 45%;
+  padding-right: .5rem;
+}
+#modalConfirmacionTransferencia .list-group-item.d-flex > span:last-child{
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+}
+@media (max-width: 576px){
+  #modalConfirmacionTransferencia .list-group-item.d-flex{ display:block !important; }
+  #modalConfirmacionTransferencia .list-group-item.d-flex > span:last-child{
+    display:block; text-align:left; margin-top:.25rem;
+  }
+}
+#modalConfirmacionTransferencia .card-header{
+  white-space: nowrap; text-overflow: ellipsis; overflow: hidden;
+}
+
+  /* Evitar desbordes en el modal de confirmación de ingreso */
+  #modalConfirmacionIngreso .list-group-item span,
+  #modalConfirmacionIngreso .card-body,
+  #modalConfirmacionIngreso .table,
+  #modalConfirmacionIngreso .table td,
+  #modalConfirmacionIngreso .table th{
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+  #modalConfirmacionIngreso .list-group-item.d-flex > span:first-child{
+    flex: 0 0 auto; max-width: 45%; padding-right: .5rem;
+  }
+  #modalConfirmacionIngreso .list-group-item.d-flex > span:last-child{
+    flex: 1 1 auto; min-width: 0; text-align: right;
+  }
+  @media (max-width: 576px){
+    #modalConfirmacionIngreso .list-group-item.d-flex{ display:block !important; }
+    #modalConfirmacionIngreso .list-group-item.d-flex > span:last-child{
+      display:block; text-align:left; margin-top:.25rem;
+    }
+  }
+  #modalConfirmacionIngreso .card-header{
+    white-space: nowrap; text-overflow: ellipsis; overflow: hidden;
+  }
+  #modalConfirmacionIngreso .table td,
+  #modalConfirmacionIngreso .table th {
+    white-space: normal;
+    word-break: break-word;
+    vertical-align: top;
+  }

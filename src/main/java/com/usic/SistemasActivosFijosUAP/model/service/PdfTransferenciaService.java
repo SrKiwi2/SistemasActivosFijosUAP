@@ -8,7 +8,6 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.itextpdf.text.BaseColor;
-import com.itextpdf.text.Chunk;
 import com.itextpdf.text.Document;
 import com.itextpdf.text.Element;
 import com.itextpdf.text.Font;
@@ -17,7 +16,9 @@ import com.itextpdf.text.PageSize;
 import com.itextpdf.text.Paragraph;
 import com.itextpdf.text.Phrase;
 import com.itextpdf.text.Rectangle;
+import com.itextpdf.text.pdf.PdfBoolean;
 import com.itextpdf.text.pdf.PdfContentByte;
+import com.itextpdf.text.pdf.PdfName;
 import com.itextpdf.text.pdf.PdfPCell;
 import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
@@ -34,15 +35,31 @@ public class PdfTransferenciaService {
 
         // Usamos hoja carta horizontal con márgenes de 36 puntos (~0.5 inch)
         Rectangle pageSize = PageSize.LETTER.rotate();
-        Document document = new Document(pageSize, 36, 36, 36, 36);
+        Document document = new Document(pageSize, 36, 36, 50, 36);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfWriter writer = PdfWriter.getInstance(document, baos);
+
+        // Opcional: metadata + viewer prefs “print‑friendly”
+        writer.setViewerPreferences(
+                PdfWriter.PageLayoutOneColumn
+            | PdfWriter.FitWindow
+            | PdfWriter.CenterWindow
+        );
+        writer.addViewerPreference(PdfName.DISPLAYDOCTITLE, PdfBoolean.PDFTRUE);
+        // Evita que el visor reescale al imprimir
+        writer.addViewerPreference(PdfName.PRINTSCALING, PdfName.NONE);
+        // Para impresoras que eligen bandeja por tamaño
+        writer.addViewerPreference(PdfName.PICKTRAYBYPDFSIZE, PdfBoolean.PDFTRUE);
+
+        document.addTitle("Transferencia de Bienes - UAP");
+        document.addAuthor("Activos Fijos - UAP");
+        document.addSubject("Acta de transferencia de bienes");
         document.open();
 
         // Fondo
         try {
             Path projectPath = Paths.get("").toAbsolutePath();
-            String imagePath = projectPath + "/src/main/resources/static/assets/img/fondo/1.png";
+            String imagePath = projectPath + "/src/main/resources/static/assets/img/fondo/horizontal.jpg";
             Image background = Image.getInstance(imagePath);
             background.scaleAbsolute(pageSize.getWidth(), pageSize.getHeight()); // rotado
             background.setAbsolutePosition(0, 0);
@@ -239,32 +256,33 @@ public class PdfTransferenciaService {
         ubiActCell.setBackgroundColor(cyanCustom);
         tablaActivo.addCell(ubiActCell);
 
-        // Combinamos las 4 siguientes columnas
-        // PdfPCell indispCell = new PdfPCell(new Phrase("INDISPENSABLE SEGÚN CORRESPONDA", encabezado));
-        // indispCell.setColspan(4);
-        // indispCell.setHorizontalAlignment(Element.ALIGN_CENTER);
-        // indispCell.setBackgroundColor(cyanCustom);
-        // tablaActivo.addCell(indispCell);
-
-        // --- Fila 2: subencabezados
-        // tablaActivo.addCell(new PdfPCell(new Phrase("MARCA", encabezado)));
-        // tablaActivo.addCell(new PdfPCell(new Phrase("MODELO", encabezado)));
-        // tablaActivo.addCell(new PdfPCell(new Phrase("Nº DE SERIE", encabezado)));
-        // tablaActivo.addCell(new PdfPCell(new Phrase("DIMENSIONES", encabezado)));
-
-        // --- Fila 3: datos del activo (puedes modificar según necesites)
         for (int i = 0; i < activos.size(); i++) {
             ActivoTransferenciaDTO dto = activos.get(i);
         
-            tablaActivo.addCell(new PdfPCell(new Phrase(String.valueOf(i + 1), normal_tabla))); // Nº ITEM
-            tablaActivo.addCell(new PdfPCell(new Phrase(dto.getCodigo(), normal_tabla)));
-            tablaActivo.addCell(new PdfPCell(new Phrase(dto.getDescripcion(), normal_tabla)));
-            tablaActivo.addCell(new PdfPCell(new Phrase(dto.getUbicacionOrigen(), normal_tabla)));
-            tablaActivo.addCell(new PdfPCell(new Phrase(dto.getUbicacionActual(), normal_tabla)));
-            // tablaActivo.addCell(new PdfPCell(new Phrase(dto.getMarca(), normal_tabla)));
-            // tablaActivo.addCell(new PdfPCell(new Phrase(dto.getModelo(), normal_tabla)));
-            // tablaActivo.addCell(new PdfPCell(new Phrase(dto.getNumeroSerie(), normal_tabla)));
-            // tablaActivo.addCell(new PdfPCell(new Phrase(dto.getDimensiones(), normal_tabla)));
+            PdfPCell itemDataCell = new PdfPCell(new Phrase(String.valueOf(i + 1), normal_tabla));
+            itemDataCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            itemDataCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            tablaActivo.addCell(itemDataCell);
+        
+            PdfPCell codigoDataCell = new PdfPCell(new Phrase(dto.getCodigo(), normal_tabla));
+            codigoDataCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            codigoDataCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            tablaActivo.addCell(codigoDataCell);
+        
+            PdfPCell descDataCell = new PdfPCell(new Phrase(dto.getDescripcion(), normal_tabla));
+            descDataCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            descDataCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            tablaActivo.addCell(descDataCell);
+        
+            PdfPCell ubiOriDataCell = new PdfPCell(new Phrase(dto.getUbicacionOrigen(), normal_tabla));
+            ubiOriDataCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            ubiOriDataCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            tablaActivo.addCell(ubiOriDataCell);
+        
+            PdfPCell ubiActDataCell = new PdfPCell(new Phrase(dto.getUbicacionActual(), normal_tabla));
+            ubiActDataCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            ubiActDataCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            tablaActivo.addCell(ubiActDataCell);
         }
 
         document.add(tablaActivo);

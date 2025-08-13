@@ -8,6 +8,7 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
 
 <!-- VISTA PUBLICA -->
+
 <body data-ctx="admin">
     <!-- NAVBAR -->
     <div class="container" style="padding-top: 70px">
@@ -150,31 +151,24 @@
                                 class="logo-hover mx-2" />
                         </div>
                     </div>
-
                     <!-- Sección de botones -->
                     <div class="btn-section">
-                        <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal"
-                            data-bs-target="#formularioModalAsignacionActivo">
+                        <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal" data-bs-target="#formularioModalAsignacionActivo">
                             <i class="bi bi-plus-circle-fill"></i> Registrar Asignación
                         </button>
-                        <button class="btn btn-lg-custom btn-reporte" data-bs-toggle="modal"
-                            data-bs-target="#formularioModalTranferenciaActivo">
+                        <button class="btn btn-lg-custom btn-reporte" data-bs-toggle="modal" data-bs-target="#formularioModalTranferenciaActivo">
                             <i class="bi bi-file-earmark-bar-graph-fill"></i> Transferencia de Activos
                         </button>
-                        <button class="btn btn-lg-custom btn-importar" data-bs-toggle="modal"
-                            data-bs-target="#formularioModalIngresoActivoAjeno">
+                        <button class="btn btn-lg-custom btn-importar" data-bs-toggle="modal" data-bs-target="#formularioModalIngresoActivoAjeno">
                             <i class="bi bi-file-earmark-arrow-up-fill"></i> Ingreso de Bienes Ajenos
                         </button>
-                        <button class="btn btn-lg-custom btn-visualizar" data-bs-toggle="modal"
-                            data-bs-target="#formularioModalBajaActivo">
+                        <button class="btn btn-lg-custom btn-visualizar" data-bs-toggle="modal" data-bs-target="#formularioModalBajaActivo">
                             <i class="bi bi-eye-fill"></i> Baja de Activos
                         </button>
                     </div>
-
                     <div class="container-fluid mt-5 px-0">
                         <div id="informacionActivosFijos"></div>
                     </div>
-
                     <footer th:replace="~{layout/footer :: footer}"></footer>
                 </div>
             </div>
@@ -183,104 +177,79 @@
 
     <!-- ASIGNAR ACTIVO NUEVO -->
     <div class="modal fade" id="formularioModalAsignacionActivo" tabindex="-1" aria-labelledby="formularioModalLabel">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <form id="formResponsable" autocomplete="off">
                 <div class="modal-content border-0 shadow-lg rounded-3">
-                    <!-- HEADER -->
                     <div class="modal-header bg-gradient-primary text-white">
                         <h5 class="modal-title fw-bold">
                             <i class="bi bi-box-arrow-in-down me-2"></i> Asignar Activo
                         </h5>
-                        <button type="button" class="btn-close btn-close-white shadow-none"
-                            data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
                     </div>
-
-                    <!-- BODY -->
                     <div class="modal-body">
                         <div class="row g-3">
-                            <!-- Unidad -->
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-building me-1 text-primary"></i> Dirección, Unidad y/o Sección
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-building"></i></span>
-                                    <input type="text" class="form-control" name="unidad"
-                                        placeholder="Ej: Dirección Administrativa" required>
+                                    <input type="text" class="form-control" name="unidad" placeholder="Ej: Unidad de Sistemas..." required>
                                 </div>
                                 <small class="text-muted">Indique el nombre de la unidad o sección responsable.</small>
                             </div>
-
-                            <!-- Código Funcionario -->
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-person-badge me-1 text-primary"></i> Código Funcionario
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
-                                    <input type="text" class="form-control" name="codigoFuncionario"
-                                        placeholder="Ej: FUNC-045" required>
+                                    <input type="text" class="form-control" name="codigoFuncionario" placeholder="Ej: 1234" required>
                                 </div>
                                 <small class="text-muted">Ingrese el código único asignado al funcionario.</small>
                             </div>
-
-                            <!-- CI -->
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-card-text me-1 text-primary"></i> Cédula de Identidad
                                 </label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light"><i
-                                            class="bi bi-credit-card-2-front"></i></span>
-                                    <input type="text" class="form-control" name="ci" placeholder="Ej: 7896543 LP"
-                                        required>
+                                    <span class="input-group-text bg-light"><i class="bi bi-credit-card-2-front"></i></span>
+                                    <input type="text" class="form-control" name="ci" placeholder="Ej: 12345678" required>
                                 </div>
                                 <small class="text-muted">Ingrese el número de cédula con extensión.</small>
                             </div>
-
-                            <!-- Nº HR -->
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-file-earmark-text me-1 text-primary"></i> Nº H.R.
                                 </label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light"><i
-                                            class="bi bi-file-earmark-text"></i></span>
-                                    <input type="text" class="form-control" name="hr" placeholder="Ej: HR-2025-001"
-                                        required>
+                                    <span class="input-group-text bg-light"><i class="bi bi-file-earmark-text"></i></span>
+                                    <input type="text" class="form-control" name="hr" placeholder="Ej: 1234" required>
                                 </div>
                                 <small class="text-muted">Número del Hoja de Ruta correspondiente.</small>
                             </div>
-
-                            <!-- Ubicación del Activo -->
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-geo-alt me-1 text-primary"></i> Ubicación del Activo
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-geo-alt"></i></span>
-                                    <input type="text" class="form-control" name="ubicacionActivo"
-                                        placeholder="Ej: Edificio Central, Piso 2" required>
+                                    <input type="text" class="form-control" name="ubicacionActivo" placeholder="Ej: SISU - ADMINISTRACIÓN" required>
                                 </div>
                                 <small class="text-muted">Indique la ubicación física exacta del activo.</small>
                             </div>
-
-                            <!-- Descripción -->
                             <div class="col-12">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-info-circle me-1 text-primary"></i> Descripción del Activo
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-info-circle"></i></span>
-                                    <input type="text" class="form-control" name="descripcionActivo"
-                                        placeholder="Ej: Computadora portátil Dell Latitude 3420" required>
+                                    <input type="text" class="form-control" name="descripcionActivo" placeholder="Ej: Computadora portátil Dell Latitude 3420" required>
                                 </div>
                                 <small class="text-muted">Proporcione una breve descripción del activo.</small>
                             </div>
                         </div>
                     </div>
-
-                    <!-- FOOTER -->
                     <div class="modal-footer bg-light border-0">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                             <i class="bi bi-x-circle me-1"></i> Cancelar
@@ -294,8 +263,8 @@
         </div>
     </div>
 
-    <div class="modal fade" id="modalConfirmacionDatos" tabindex="-1" aria-labelledby="modalConfirmacionDatosLabel">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal fade" id="modalConfirmacionDatos" tabindex="-1" aria-labelledby="modalConfirmacionDatosLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-warning text-dark">
                     <h5 class="modal-title fw-bold" id="modalConfirmacionDatosLabel">
@@ -303,15 +272,11 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-
                 <div class="modal-body">
-                    <!-- Estado de carga -->
                     <div id="confirmacionLoading" class="d-none text-center py-4">
                         <div class="spinner-border" role="status" aria-hidden="true"></div>
                         <p class="mt-2 mb-0">Consultando datos…</p>
                     </div>
-
-                    <!-- Contenido dinámico -->
                     <div id="contenidoConfirmacion" class="fs-6 d-none">
                         <div class="row g-3">
                             <div class="col-12 col-lg-6">
@@ -324,7 +289,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="col-12 col-lg-6">
                                 <div class="card h-100 border-0 shadow-sm">
                                     <div class="card-header bg-light fw-semibold">
@@ -336,8 +300,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Alerta opcional (ej. campos faltantes) -->
                         <div id="confirmacionAlerta" class="alert alert-warning mt-3 d-none" role="alert">
                             <i class="bi bi-exclamation-triangle me-1"></i>
                             Verifica la información antes de continuar.
@@ -350,8 +312,7 @@
                         <i class="bi bi-x-circle me-1"></i> Cancelar
                     </button>
                     <button id="btnConfirmarGuardar" class="btn btn-success">
-                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmar" role="status"
-                            aria-hidden="true"></span>
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmar" role="status" aria-hidden="true"></span>
                         <i class="bi bi-check-circle-fill me-1"></i> Confirmar y guardar
                     </button>
                 </div>
@@ -361,60 +322,44 @@
     <!-- FIN ASIGNAR ACTIVO NUEVO -->
 
     <!-- TRANSFERENCIA ACTIVO -->
-    <div class="modal fade" id="formularioModalTranferenciaActivo" tabindex="-1"
-        aria-labelledby="formularioModalTransferenciaLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal fade" id="formularioModalTranferenciaActivo" tabindex="-1" aria-labelledby="formularioModalTransferenciaLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <form id="formTransferencia" autocomplete="off" class="w-100">
                 <div class="modal-content border-0 shadow-lg rounded-3">
-                    <!-- HEADER -->
                     <div class="modal-header bg-primary text-white">
                         <h5 class="modal-title fw-bold" id="formularioModalTransferenciaLabel">
                             <i class="bi bi-arrow-left-right me-2"></i> Transferencia de Activos
                         </h5>
-                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"
-                            aria-label="Cerrar"></button>
+                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
-
-                    <!-- BODY -->
                     <div class="modal-body">
-                        <!-- SECCIÓN TRANSFIERE -->
                         <div class="card border-0 shadow-sm mb-4">
                             <div class="card-header bg-light fw-semibold">
                                 <i class="bi bi-person-fill-up me-1 text-primary"></i> Transfiere
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
-                                    <!-- Unidad Origen -->
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
-                                            <i class="bi bi-building me-1 text-primary"></i> Dirección, Unidad y/o
-                                            Sección
+                                            <i class="bi bi-building me-1 text-primary"></i> Dirección, Unidad y/o Sección
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-building"></i></span>
-                                            <input type="text" class="form-control" name="unidadOrigen"
-                                                placeholder="Ej: Dirección Administrativa" required>
+                                            <input type="text" class="form-control" name="unidadOrigen" placeholder="Ej: Dirección Administrativa" required>
                                         </div>
-                                        <small class="text-muted">Unidad responsable que transfiere el/los
-                                            activo(s).</small>
+                                        <small class="text-muted">Unidad responsable que transfiere el/los activo(s).</small>
                                     </div>
-
-                                    <!-- Código Funcionario Origen -->
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
                                             <i class="bi bi-person-badge me-1 text-primary"></i> Código Funcionario
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-person-badge"></i></span>
-                                            <input type="text" class="form-control" name="codigoFuncionarioOrigen"
-                                                placeholder="Ej: 1234" required>
+                                            <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
+                                            <input type="number" class="form-control" name="codigoFuncionarioOrigen" placeholder="Ej: 1234" required>
                                         </div>
                                         <small class="text-muted">Código del funcionario que entrega.</small>
                                     </div>
-
-                                    <!-- CI Origen -->
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
                                             <i class="bi bi-card-text me-1 text-primary"></i> Cédula de Identidad
@@ -422,20 +367,17 @@
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-credit-card-2-front"></i></span>
-                                            <input type="text" class="form-control" name="ciOrigen"
+                                            <input type="number" class="form-control" name="ciOrigen"
                                                 placeholder="Ej: 12345678" required>
                                         </div>
                                         <small class="text-muted">Número de CI del responsable que entrega.</small>
                                     </div>
-
-                                    <!-- Fecha Transferencia -->
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
                                             <i class="bi bi-calendar me-1 text-primary"></i> Fecha de la transferencia
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-calendar"></i></span>
+                                            <span class="input-group-text bg-light"><i class="bi bi-calendar"></i></span>
                                             <input type="date" class="form-control" name="fechaTransferencia" required>
                                         </div>
                                         <small class="text-muted">Fecha en la que se efectúa la entrega.</small>
@@ -443,65 +385,48 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- SECCIÓN RECIBE -->
                         <div class="card border-0 shadow-sm mb-4">
                             <div class="card-header bg-light fw-semibold">
                                 <i class="bi bi-person-fill-down me-1 text-success"></i> Recibe y Resguarda
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
-                                    <!-- Unidad Destino -->
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
-                                            <i class="bi bi-building me-1 text-success"></i> Dirección, Unidad y/o
-                                            Sección
+                                            <i class="bi bi-building me-1 text-success"></i> Dirección, Unidad y/o Sección
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-building"></i></span>
-                                            <input type="text" class="form-control" name="unidadDestino"
-                                                placeholder="Ej: Unidad de Sistemas" required>
+                                            <span class="input-group-text bg-light"><i class="bi bi-building"></i></span>
+                                            <input type="text" class="form-control" name="unidadDestino" placeholder="Ej: Unidad de Sistemas" required>
                                         </div>
                                         <small class="text-muted">Unidad recepcionista y responsable actual.</small>
                                     </div>
-
-                                    <!-- Código Funcionario Destino -->
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
                                             <i class="bi bi-person-badge me-1 text-success"></i> Código Funcionario
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-person-badge"></i></span>
-                                            <input type="text" class="form-control" name="codigoFuncionarioDestino"
-                                                placeholder="Ej: 12345" required>
+                                            <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
+                                            <input type="number" class="form-control" name="codigoFuncionarioDestino" placeholder="Ej: 12345" required>
                                         </div>
                                         <small class="text-muted">Código del funcionario que recibe.</small>
                                     </div>
-
-                                    <!-- CI Destino -->
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
                                             <i class="bi bi-card-text me-1 text-success"></i> Cédula de Identidad
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-credit-card-2-front"></i></span>
-                                            <input type="text" class="form-control" name="ciDestino"
-                                                placeholder="Ej: 12345678" required>
+                                            <span class="input-group-text bg-light"><i class="bi bi-credit-card-2-front"></i></span>
+                                            <input type="number" class="form-control" name="ciDestino" placeholder="Ej: 12345678" required>
                                         </div>
                                         <small class="text-muted">Número de CI del responsable que recibe.</small>
                                     </div>
-
-                                    <!-- Fecha Recepción -->
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
                                             <i class="bi bi-calendar-check me-1 text-success"></i> Fecha de la recepción
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-calendar-check"></i></span>
+                                            <span class="input-group-text bg-light"><i class="bi bi-calendar-check"></i></span>
                                             <input type="date" class="form-control" name="fechaRecepcion" required>
                                         </div>
                                         <small class="text-muted">Fecha en la que se confirma la recepción.</small>
@@ -509,19 +434,13 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- SECCIÓN DETALLE DEL ACTIVO -->
                         <div class="card border-0 shadow-sm">
-                            <div
-                                class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                            <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
                                 <span><i class="bi bi-box-seam me-1"></i> Activos a transferir</span>
                                 <span class="badge text-bg-primary" id="badgeTotalActivos">0 seleccionados</span>
                             </div>
                             <div class="card-body">
-                                <div id="codigoActivoContainer" class="row g-2">
-                                    <!-- Aquí se insertan dinámicamente los códigos -->
-                                </div>
-
+                                <div id="codigoActivoContainer" class="row g-2"></div>
                                 <div class="d-flex gap-2 mt-3">
                                     <button type="button" class="btn btn-outline-primary btn-sm" id="agregarCodigoBtn">
                                         <i class="bi bi-plus-circle me-1"></i> Agregar código
@@ -531,22 +450,17 @@
                                         <i class="bi bi-eraser me-1"></i> Limpiar lista
                                     </button>
                                 </div>
-
-                                <!-- Template para fila de código de activo -->
                                 <template id="tplCodigoActivo">
                                     <div class="col-12">
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-upc-scan"></i></span>
-                                            <input type="text" class="form-control" name="codigosActivos[]"
-                                                placeholder="Ingrese código del activo (ej: ACT-000123)" required>
+                                            <span class="input-group-text bg-light"><i class="bi bi-upc-scan"></i></span>
+                                            <input type="text" class="form-control" name="codigosActivos[]" placeholder="Ingrese código del activo (ej: xx-xx-xx-xxxxx)" required>
                                             <button type="button" class="btn btn-outline-danger removeCodigoBtn">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </div>
                                     </div>
                                 </template>
-
                                 <small class="text-muted d-block mt-2">
                                     Puedes agregar múltiples códigos. Verifica que correspondan a los activos a
                                     transferir.
@@ -554,8 +468,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- FOOTER -->
                     <div class="modal-footer bg-light border-0">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                             <i class="bi bi-x-circle me-1"></i> Cancelar
@@ -568,26 +480,111 @@
             </form>
         </div>
     </div>
+
+    <!-- MODAL: Confirmación de Transferencia -->
+    <div class="modal fade" id="modalConfirmacionTransferencia" tabindex="-1"
+        aria-labelledby="modalConfirmacionTransferenciaLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold" id="modalConfirmacionTransferenciaLabel">
+                        <i class="bi bi-clipboard-check me-2"></i> Confirmar datos de la transferencia
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="confirmacionLoadingTransfer" class="text-center py-4 d-none">
+                        <div class="spinner-border" role="status" aria-hidden="true"></div>
+                        <p class="mt-2 mb-0">Preparando resumen…</p>
+                    </div>
+                    <div id="contenidoConfirmacionTransfer" class="d-none">
+                        <div class="row g-3">
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-person-fill-up me-1"></i> Transfiere (Origen)
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaOrigenTransfer"></ul>
+                                    </div>
+                                </div>
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-calendar-date me-1"></i> Fechas
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaFechasTransfer"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-person-fill-down me-1"></i> Recibe y Resguarda (Destino)
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaDestinoTransfer"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                                        <span><i class="bi bi-box-seam me-1"></i> Activos a transferir</span>
+                                        <span class="badge text-bg-primary" id="badgeTotalActivosResumen">0 seleccionados</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-hover mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>#</th>
+                                                        <th>Código</th>
+                                                        <th>Ubicación Origen</th>
+                                                        <th>Ubicación Actual (autocompletada)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="tbodyActivosTransfer"></tbody>
+                                            </table>
+                                        </div>
+                                        <small class="text-muted d-block mt-2">Revisa cuidadosamente antes de confirmar.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="alertaTransfer" class="alert alert-warning mt-3 d-none" role="alert">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Faltan datos obligatorios o hubo un problema consultando la información. Aún puedes revisar
+                            lo ingresado.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnConfirmarTransferencia">
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarTransfer" role="status" aria-hidden="true"></span>
+                        <i class="bi bi-check-circle me-1"></i> Confirmar y generar PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- FIN TRANSFERENCIA ACTIVO NUEVO -->
 
     <!-- INGRESOS ACTIVOS AJENOS -->
-    <div class="modal fade" id="formularioModalIngresoActivoAjeno" tabindex="-1"
-        aria-labelledby="formularioModalIngresoActivoAjenoLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal fade" id="formularioModalIngresoActivoAjeno" tabindex="-1" aria-labelledby="formularioModalIngresoActivoAjenoLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <form id="formIngresoActivos" autocomplete="off" class="w-100">
                 <div class="modal-content border-0 shadow-lg rounded-4">
-                    <!-- HEADER -->
                     <div class="modal-header bg-primary text-white rounded-top-4">
                         <h5 class="modal-title mb-0 fw-bold" id="formularioModalIngresoActivoAjenoLabel">
                             <i class="bi bi-box-arrow-in-down me-2"></i> Ingreso de bienes ajenos
                         </h5>
-                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"
-                            aria-label="Cerrar"></button>
+                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
-
-                    <!-- BODY -->
                     <div class="modal-body">
-                        <!-- Fecha de ingreso -->
                         <div class="card border-0 shadow-sm mb-4">
                             <div class="card-header bg-light fw-semibold">
                                 <i class="bi bi-calendar-date me-1 text-primary"></i> Fecha de incorporación y retiro
@@ -597,136 +594,41 @@
                                     <div class="col-md-4">
                                         <label class="form-label fw-semibold">Fecha de incorporación</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-calendar3"></i></span>
-                                            <input type="date" class="form-control" id="fechaIncorporacion"
-                                                name="fechaIncorporacion" required>
+                                            <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
+                                            <input type="date" class="form-control" id="fechaIncorporacion" name="fechaIncorporacion" required>
                                         </div>
                                         <small class="text-muted">Día en que el bien ingresa a la unidad.</small>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label fw-semibold">Fecha de retiro</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-calendar3"></i></span>
-                                            <input type="date" class="form-control" id="fechaRetiro" name="fechaRetiro"
-                                                required readonly>
+                                            <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
+                                            <input type="date" class="form-control" id="fechaRetiro" name="fechaRetiro" required readonly>
                                         </div>
                                         <small class="text-muted">Se definirá al devolver el bien.</small>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Activos ajenos -->
                         <div class="card border-0 shadow-sm mb-4">
-                            <div
-                                class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-                                <span><i class="bi bi-box-arrow-in-down me-1 text-danger"></i> Activos ajenos a
-                                    registrar</span>
+                            <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-box-arrow-in-down me-1 text-danger"></i> Activos ajenos a registrar</span>
                                 <span class="badge text-bg-primary" id="badgeTotalAjenos">0 items</span>
                             </div>
                             <div class="card-body">
-                                <div id="agregarActivoAjenoContainer" class="row g-3">
-                                    <!-- Ítems dinámicos se insertan aquí -->
-                                </div>
-
+                                <div id="agregarActivoAjenoContainer" class="row g-3"></div>
                                 <div class="d-flex gap-2 mt-2">
-                                    <button type="button" class="btn btn-outline-primary btn-sm"
-                                        id="agregarActivoAjenoBtn">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="agregarActivoAjenoBtn">
                                         <i class="bi bi-plus-circle me-1"></i> Añadir más
                                     </button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm"
-                                        id="limpiarAjenosBtn">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="limpiarAjenosBtn">
                                         <i class="bi bi-eraser me-1"></i> Limpiar lista
                                     </button>
                                 </div>
-
-                                <!-- Template de un ítem de activo ajeno -->
-                                <template id="tplActivoAjeno">
-                                    <div class="col-12 activo-ajeno-item">
-                                        <div class="border rounded-3 p-3 position-relative">
-                                            <button type="button"
-                                                class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-2 btn-remove-ajeno"
-                                                title="Eliminar">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-
-                                            <div class="row g-3">
-                                                <div class="col-md-6">
-                                                    <label class="form-label fw-semibold">Descripción del bien</label>
-                                                    <div class="input-group">
-                                                        <span class="input-group-text bg-light"><i
-                                                                class="bi bi-info-circle"></i></span>
-                                                        <input type="text" class="form-control"
-                                                            name="descripcionAjeno[]"
-                                                            placeholder="Ej: Laptop Lenovo ThinkPad T14" required>
-                                                    </div>
-                                                    <small class="text-muted">Nombre o descripción breve del
-                                                        bien.</small>
-                                                </div>
-
-                                                <div class="col-md-3">
-                                                    <label class="form-label fw-semibold">Marca / Modelo</label>
-                                                    <div class="input-group">
-                                                        <span class="input-group-text bg-light"><i
-                                                                class="bi bi-cpu"></i></span>
-                                                        <input type="text" class="form-control"
-                                                            name="marcaModeloAjeno[]" placeholder="Ej: Lenovo T14 Gen2"
-                                                            required>
-                                                    </div>
-                                                    <small class="text-muted">Identificación del fabricante.</small>
-                                                </div>
-
-                                                <div class="col-md-3">
-                                                    <label class="form-label fw-semibold">N° de serie</label>
-                                                    <div class="input-group">
-                                                        <span class="input-group-text bg-light"><i
-                                                                class="bi bi-upc-scan"></i></span>
-                                                        <input type="text" class="form-control" name="serieAjeno[]"
-                                                            placeholder="Ej: PF-12345-XYZ" required>
-                                                    </div>
-                                                    <small class="text-muted">Número único del equipo.</small>
-                                                </div>
-
-                                                <div class="col-md-4">
-                                                    <label class="form-label fw-semibold">Estado</label>
-                                                    <div class="input-group">
-                                                        <span class="input-group-text bg-light"><i
-                                                                class="bi bi-activity"></i></span>
-                                                        <select class="form-select" name="estadoAjeno[]" required>
-                                                            <option value="">Seleccionar…</option>
-                                                            <option>Nuevo</option>
-                                                            <option>Bueno</option>
-                                                            <option>Regular</option>
-                                                            <option>Malo</option>
-                                                        </select>
-                                                    </div>
-                                                    <small class="text-muted">Condición al momento de ingreso.</small>
-                                                </div>
-
-                                                <div class="col-md-8">
-                                                    <label class="form-label fw-semibold">Observaciones</label>
-                                                    <div class="input-group">
-                                                        <span class="input-group-text bg-light"><i
-                                                                class="bi bi-journal-text"></i></span>
-                                                        <input type="text" class="form-control"
-                                                            name="observacionesAjeno[]"
-                                                            placeholder="Accesorios, faltantes, condiciones particulares…">
-                                                    </div>
-                                                    <small class="text-muted">Información adicional relevante.</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </template>
-
                                 <small class="text-muted d-block mt-2">Agrega tantos bienes como sea necesario. Verifica
                                     la información antes de continuar.</small>
                             </div>
                         </div>
-
-                        <!-- Propietario del activo -->
                         <div class="card border-0 shadow-sm mb-4">
                             <div class="card-header bg-light fw-semibold">
                                 <i class="bi bi-person-fill-down me-1 text-success"></i> Propietario del activo
@@ -736,25 +638,20 @@
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Código funcionario</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-person-vcard"></i></span>
-                                            <input type="text" class="form-control" name="codigoFuncionarioPropietario"
-                                                placeholder="Ej: 12345" required>
+                                            <span class="input-group-text bg-light"><i class="bi bi-person-vcard"></i></span>
+                                            <input type="text" class="form-control" name="codigoFuncionarioPropietario" placeholder="Ej: 12345" required>
                                         </div>
                                         <small class="text-muted">Código único del propietario.</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Cédula de identidad</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-person-badge"></i></span>
-                                            <input type="text" class="form-control" name="ciPropietario"
-                                                placeholder="Ej: 12345678" required>
+                                            <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
+                                            <input type="text" class="form-control" name="ciPropietario" placeholder="Ej: 12345678" required>
                                         </div>
                                         <small class="text-muted">Número de CI con extensión.</small>
                                     </div>
                                 </div>
-
                                 <div class="row g-3 mt-1">
                                     <div class="col-12">
                                         <div class="alert alert-info py-2 mb-0" role="alert">
@@ -766,39 +663,31 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Unidad de ingreso -->
                         <div class="card border-0 shadow-sm mb-4">
                             <div class="card-header bg-light fw-semibold">
-                                <i class="bi bi-building me-1 text-info"></i> Unidad de ingreso
+                                <i class="bi bi-building me-1 text-info"></i> Responsbale de la unidad
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Código funcionario</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-person-vcard"></i></span>
-                                            <input type="text" class="form-control" name="codigoFuncionarioAutorizador"
-                                                placeholder="Ej: 12345" required>
+                                            <span class="input-group-text bg-light"><i class="bi bi-person-vcard"></i></span>
+                                            <input type="text" class="form-control" name="codigoFuncionarioAutorizador" placeholder="Ej: 12345" required>
                                         </div>
                                         <small class="text-muted">Código único del propietario.</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Cédula de identidad</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-person-badge"></i></span>
-                                            <input type="text" class="form-control" name="ciAutorizador"
-                                                placeholder="Ej: 12345678" required>
+                                            <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
+                                            <input type="text" class="form-control" name="ciAutorizador" placeholder="Ej: 12345678" required>
                                         </div>
                                         <small class="text-muted">Número de CI con extensión.</small>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Identificación en Activos Fijos -->
                         <div class="card border-0 shadow-sm">
                             <div class="card-header bg-light fw-semibold">
                                 <i class="bi bi-tag me-1 text-warning"></i> Identificación en Activos Fijos
@@ -809,36 +698,28 @@
                                         <label class="form-label fw-semibold">Nombre completo</label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
-                                            <input type="text" class="form-control" name="nombreIdentificacion"
-                                                value="LIC. VERONICA LAYME CORI" readonly>
+                                            <input type="text" class="form-control" name="nombreIdentificacion" value="LIC. VERONICA LAYME CORI" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Cargo</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-briefcase"></i></span>
-                                            <input type="text" class="form-control" name="cargoIdentificacion"
-                                                value="RESPONSABLE DE ACTIVOS FIJOS" readonly>
+                                            <span class="input-group-text bg-light"><i class="bi bi-briefcase"></i></span>
+                                            <input type="text" class="form-control" name="cargoIdentificacion" value="RESPONSABLE DE ACTIVOS FIJOS" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Dirección / Unidad / Sección</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-diagram-3"></i></span>
-                                            <input type="text" class="form-control" name="unidadIdentificacion"
-                                                value="SECCIÓN DE ACTIVOS FIJOS" readonly>
+                                            <span class="input-group-text bg-light"><i class="bi bi-diagram-3"></i></span>
+                                            <input type="text" class="form-control" name="unidadIdentificacion" value="SECCIÓN DE ACTIVOS FIJOS" readonly>
                                         </div>
                                     </div>
                                 </div>
-                                <small class="text-muted d-block mt-2">Estos datos identifican al área responsable del
-                                    control.</small>
+                                <small class="text-muted d-block mt-2">Estos datos identifican al área responsable del control.</small>
                             </div>
                         </div>
                     </div>
-
-                    <!-- FOOTER -->
                     <div class="modal-footer bg-light rounded-bottom-4">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                             <i class="bi bi-x-circle me-2"></i>Cancelar
@@ -853,9 +734,8 @@
     </div>
 
     <!-- MODAL: Confirmación de Ingreso de Bienes Ajenos -->
-    <div class="modal fade" id="modalConfirmacionIngreso" tabindex="-1" aria-labelledby="modalConfirmacionIngresoLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal fade" id="modalConfirmacionIngreso" tabindex="-1" aria-labelledby="modalConfirmacionIngresoLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-warning text-dark">
                     <h5 class="modal-title fw-bold" id="modalConfirmacionIngresoLabel">
@@ -863,15 +743,11 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-
                 <div class="modal-body">
-                    <!-- Estado de carga -->
                     <div id="confirmacionLoadingIngreso" class="d-none text-center py-4">
                         <div class="spinner-border" role="status" aria-hidden="true"></div>
                         <p class="mt-2 mb-0">Preparando resumen…</p>
                     </div>
-
-                    <!-- Contenido dinámico -->
                     <div id="contenidoConfirmacionIngreso" class="d-none">
                         <div class="row g-3">
                             <div class="col-12 col-lg-6">
@@ -894,32 +770,52 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="col-12 col-lg-6">
-                            <div class="card border-0 shadow-sm mb-3">
-                                <div class="card-header bg-light fw-semibold">
-                                    <i class="bi bi-calendar-date me-1"></i> Fechas
+                            <div class="col-12">
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-calendar-date me-1"></i> Fechas
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaFechasIngreso"></ul>
+                                    </div>
                                 </div>
-                                <div class="card-body">
-                                    <ul class="list-group list-group-flush small" id="listaFechasIngreso"></ul>
+                            </div>
+                            <div class="col-12">
+                                <div class="card border-0 shadow-sm">
+                                    <div
+                                        class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                                        <span><i class="bi bi-box-arrow-in-down me-1"></i> Bienes listados</span>
+                                        <span class="badge text-bg-primary" id="badgeTotalAjenosResumen">0 items</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-hover mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>#</th>
+                                                        <th>Descripción</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="tbodyAjenosResumen"></tbody>
+                                            </table>
+                                        </div>
+                                        <small class="text-muted d-block mt-2">Revisa cuidadosamente antes de confirmar.</small>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-
                         <div id="confirmacionAlertaIngreso" class="alert alert-warning mt-3 d-none" role="alert">
                             <i class="bi bi-exclamation-triangle me-1"></i>
                             Hay campos vacíos o con formato incorrecto. Corrige antes de continuar.
                         </div>
                     </div>
                 </div>
-
                 <div class="modal-footer bg-light border-0">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         <i class="bi bi-x-circle me-1"></i> Cancelar
                     </button>
                     <button type="button" class="btn btn-success" id="btnConfirmarGuardarIngreso">
-                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarIngreso"
-                            role="status" aria-hidden="true"></span>
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarIngreso" role="status" aria-hidden="true"></span>
                         <i class="bi bi-check-circle me-1"></i> Confirmar y generar PDF
                     </button>
                 </div>
@@ -929,35 +825,28 @@
     <!-- FIN INGRESO ACTIVOS AJENOS -->
 
     <!-- INICIO BAJA ACTIVOS -->
-    <div class="modal fade" id="formularioModalBajaActivo" tabindex="-1" aria-labelledby="formularioModalLabel">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <form id="formBajaActivos" class="needs-validation" novalidate>
+    <div class="modal fade" id="formularioModalBajaActivo" tabindex="-1" aria-labelledby="formularioModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <form id="formBajaActivos" autocomplete="off" class="needs-validation w-100">
                 <div class="modal-content border-0 shadow-lg rounded-4">
-                    <!-- HEADER con animación -->
                     <div class="modal-header bg-primary text-white rounded-top-4">
                         <h5 class="modal-title mb-0 fw-bold" style="color: #fff">
                             <i class="bi bi-box-arrow-in-down me-2"></i>BAJA DE ACTIVOS
                         </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                            aria-label="Close"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-
                     <div class="modal-body">
-                        <!-- Sección de fecha y número con validación -->
                         <fieldset class="border p-3 mb-4 rounded-3 shadow-sm ">
                             <legend class="w-auto px-3 text-primary fw-semibold">
                                 <i class="bi bi-calendar-date me-1"></i> DATOS ADMINISTRATIVOS
                             </legend>
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Fecha de baja <span
-                                            class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">Fecha de baja <span class="text-danger">*</span></label>
                                     <div class="input-group has-validation">
                                         <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
                                         <input type="date" class="form-control" name="fechaBaja" required />
-                                        <div class="invalid-feedback">
-                                            Por favor ingrese la fecha de baja.
-                                        </div>
+                                        <div class="invalid-feedback"> Por favor ingrese la fecha de baja.</div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -966,19 +855,14 @@
                                     <div class="input-group has-validation">
                                         <span class="input-group-text bg-light"><i class="bi bi-123"></i></span>
                                         <input type="text" class="form-control" name="numeroDocumento" required />
-                                        <div class="invalid-feedback">
-                                            Por favor ingrese el número de documento.
-                                        </div>
+                                        <div class="invalid-feedback">Por favor ingrese el número de documento.</div>
                                     </div>
                                 </div>
                             </div>
                         </fieldset>
-
-                        <!-- Sección de propietario con búsqueda dinámica -->
                         <fieldset class="border p-3 mb-4 rounded-3 shadow-sm  animate__delay-1s">
                             <legend class="w-auto px-3 text-success fw-semibold">
-                                <i class="bi bi-person-fill-down me-1"></i> RESPONSABLE DEL
-                                ACTIVO
+                                <i class="bi bi-person-fill-down me-1"></i> RESPONSABLE DEL ACTIVO
                             </legend>
                             <div class="row g-3">
                                 <div class="col-md-6">
@@ -996,12 +880,10 @@
                                     <div id="sugerenciasFuncionario" class="list-group mt-2 d-none"></div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold">C.I. <span
-                                            class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">C.I. <span class="text-danger">*</span></label>
                                     <div class="input-group has-validation">
                                         <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                                        <input type="text" class="form-control" name="ciFuncionarioBaja"
-                                            placeholder="Ingresa tu C.I." required />
+                                        <input type="text" class="form-control" name="ciFuncionarioBaja" placeholder="Ingresa tu C.I." required />
                                         <div class="invalid-feedback">
                                             Por favor ingrese la cédula de identidad.
                                         </div>
@@ -1009,8 +891,6 @@
                                 </div>
                             </div>
                         </fieldset>
-
-                        <!-- Sección del activo con búsqueda dinámica -->
                         <fieldset class="border p-3 rounded-3 shadow-sm  animate__delay-2s">
                             <legend class="w-auto px-3 text-info fw-semibold">
                                 <i class="bi bi-pc-display me-1"></i> DATOS DEL ACTIVO
@@ -1024,23 +904,16 @@
                                         <input type="text" class="form-control" name="codigoActivoBaja" required
                                             placeholder="Ejemplo: xxx-xx-xx-xx-xxxx" data-bs-toggle="tooltip"
                                             data-bs-placement="top" title="Ingrese código del activo" />
-                                        <div class="invalid-feedback">
-                                            Por favor ingrese el código del activo.
-                                        </div>
+                                        <div class="invalid-feedback"> Por favor ingrese el código del activo.</div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Causa de baja <span
-                                            class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">Causa de baja <span class="text-danger">*</span></label>
                                     <div class="input-group has-validation">
                                         <span class="input-group-text"><i class="bi bi-exclamation-triangle"></i></span>
                                         <select class="form-select" name="causa" required>
-                                            <option value="" selected disabled>
-                                                Seleccione una causa...
-                                            </option>
-                                            <option value="DETERIORO">
-                                                Deterioro o obsolescencia
-                                            </option>
+                                            <option value="" selected disabled> Seleccione una causa...</option>
+                                            <option value="DETERIORO">Deterioro o obsolescencia</option>
                                             <option value="PERDIDA">Pérdida</option>
                                             <option value="ROBO">Robo</option>
                                         </select>
@@ -1050,21 +923,16 @@
                                     </div>
                                 </div>
                             </div>
-                            <!-- Campo para observaciones -->
                             <div class="row mt-3">
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">Descripción de la baja</label>
-                                    <textarea class="form-control" name="descripcionBaja" rows="3"
-                                        placeholder="Justifica la baja del activo..."></textarea>
+                                    <textarea class="form-control" name="descripcionBaja" rows="3" placeholder="Justifica la baja del activo..."></textarea>
                                 </div>
                             </div>
                         </fieldset>
                     </div>
-
-                    <!-- FOOTER con botones mejorados -->
                     <div class="modal-footer bg-light rounded-bottom-4 d-flex justify-content-between">
-                        <button type="button" class="btn btn-outline-secondary px-4 fw-semibold"
-                            data-bs-dismiss="modal">
+                        <button type="button" class="btn btn-outline-secondary px-4 fw-semibold" data-bs-dismiss="modal">
                             <i class="bi bi-x-circle me-2"></i> Cancelar
                         </button>
                         <div>
@@ -1079,9 +947,8 @@
     </div>
 
     <!-- MODAL: Confirmación de Baja de Activos -->
-    <div class="modal fade" id="modalConfirmacionBaja" tabindex="-1" aria-labelledby="modalConfirmacionBajaLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal fade" id="modalConfirmacionBaja" tabindex="-1" aria-labelledby="modalConfirmacionBajaLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-warning text-dark">
                     <h5 class="modal-title fw-bold" id="modalConfirmacionBajaLabel">
@@ -1089,15 +956,11 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-
                 <div class="modal-body">
-                    <!-- Estado de carga -->
                     <div id="confirmacionLoadingBaja" class="text-center py-4 d-none">
                         <div class="spinner-border" role="status" aria-hidden="true"></div>
                         <p class="mt-2 mb-0">Preparando resumen…</p>
                     </div>
-
-                    <!-- Contenido -->
                     <div id="contenidoConfirmacionBaja" class="d-none">
                         <div class="row g-3">
                             <div class="col-12 col-lg-6">
@@ -1109,7 +972,6 @@
                                         <ul class="list-group list-group-flush small" id="listaAdminBaja"></ul>
                                     </div>
                                 </div>
-
                                 <div class="card border-0 shadow-sm mb-3">
                                     <div class="card-header bg-light fw-semibold">
                                         <i class="bi bi-person-badge me-1"></i> Funcionario (propietario)
@@ -1119,7 +981,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="col-12 col-lg-6">
                                 <div class="card border-0 shadow-sm mb-3">
                                     <div class="card-header bg-light fw-semibold">
@@ -1129,7 +990,6 @@
                                         <ul class="list-group list-group-flush small" id="listaActivoBaja"></ul>
                                     </div>
                                 </div>
-
                                 <div class="card border-0 shadow-sm">
                                     <div class="card-header bg-light fw-semibold">
                                         <i class="bi bi-exclamation-triangle me-1"></i> Causa y descripción
@@ -1140,21 +1000,17 @@
                                 </div>
                             </div>
                         </div>
-
                         <div id="confirmacionAlertaBaja" class="alert alert-warning mt-3 d-none" role="alert">
-                            <i class="bi bi-exclamation-triangle me-1"></i> Faltan datos obligatorios o hay formato
-                            inválido.
+                            <i class="bi bi-exclamation-triangle me-1"></i> Faltan datos obligatorios o hay formato inválido.
                         </div>
                     </div>
                 </div>
-
                 <div class="modal-footer bg-light border-0">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         <i class="bi bi-x-circle me-1"></i> Cancelar
                     </button>
                     <button type="button" class="btn btn-success" id="btnConfirmarGuardarBaja">
-                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarBaja"
-                            role="status" aria-hidden="true"></span>
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarBaja" role="status" aria-hidden="true"></span>
                         <i class="bi bi-check-circle me-1"></i> Confirmar y generar PDF
                     </button>
                 </div>
@@ -1174,7 +1030,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0">
-                    <iframe id="iframePDF" src="" style="width: 100%; height: 600px; border: none"></iframe>
+                    <iframe id="iframePDF" style="width: 100%; height: 600px; border: none"></iframe>
                 </div>
             </div>
         </div>
@@ -1186,1067 +1042,10 @@
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" />
 
     <script>
-        
+
         $(document).ready(function () {
             cargarTabla();
 
-        });
-
-        function cargarTabla() {
-            $.ajax({
-                type: 'GET',
-                url: "/informacion",
-                success: function (response) {
-                    $("#informacionActivosFijos").html(response);
-                }
-            });
-        }
-
-        // ver contraseña modal
-        const togglePassword = document.getElementById("togglePassword");
-        const passwordInput = document.getElementById("contrasena");
-        const iconToggle = document.getElementById("iconToggle");
-
-        togglePassword.addEventListener("click", () => {
-            const isPassword = passwordInput.getAttribute("type") === "password";
-            passwordInput.setAttribute("type", isPassword ? "text" : "password");
-            iconToggle.className = isPassword ? "ti ti-eye" : "ti ti-eye-off";
-        });
-
-        let debounceTimers = {};
-        let campoIndex = 0;
-        let campoIndexA = 0;
-
-        //INICIO DE SESION
-        $(document).ready(function () {
-            $("#formularioLogin").submit(function (event) {
-                event.preventDefault();
-                if (this.checkValidity() === false) {
-                    $(this).addClass("was-validated");
-                    return;
-                }
-                var form = $(this)[0];
-                var formData = new FormData(form);
-
-                $.ajax({
-                    type: "POST",
-                    url: $(this).attr("action"),
-                    data: formData,
-                    contentType: false,
-                    processData: false,
-                    success: function (response) {
-                        if (response === "Iniciando Session") {
-                            Swal.fire({
-                                title: "Iniciando Session",
-                                timerProgressBar: true,
-                                didOpen: () => {
-                                    Swal.showLoading();
-                                    const timer = Swal.getPopup().querySelector("b");
-                                    timerInterval = setInterval(() => {
-                                        timer.textContent = `${Swal.getTimerLeft()}`;
-                                    }, 100);
-                                    window.location.href = "/adm/inicio";
-                                },
-                                willClose: () => {
-                                    clearInterval(timerInterval);
-                                },
-                            });
-                        } else {
-                            Swal.fire("Imposible Continuar!", response + ".", "error");
-                        }
-                    },
-                    error: function (xhr, status, error) {
-                        Swal.fire(
-                            "Imposible Continuar!",
-                            "Ha ocurrido un error. Por favor, intenta nuevamente." + xhr,
-                            status,
-                            error,
-                            "error"
-                        );
-                        console.error(error);
-                    },
-                });
-            });
-        });
-        //FIN INICIO DE SESION
-
-        //PARA VALIDAR LOS INPUTS
-        function validarCampo(input, mensaje) {
-            if (!input.value.trim()) {
-                input.classList.add("is-invalid");
-                if (
-                    !input.nextElementSibling ||
-                    !input.nextElementSibling.classList.contains("invalid-feedback")
-                ) {
-                    const div = document.createElement("div");
-                    div.className = "invalid-feedback";
-                    div.innerText = mensaje;
-                    input.parentNode.appendChild(div);
-                }
-            } else {
-                input.classList.remove("is-invalid");
-                if (
-                    input.nextElementSibling &&
-                    input.nextElementSibling.classList.contains("invalid-feedback")
-                ) {
-                    input.nextElementSibling.remove();
-                }
-            }
-        }
-        //FIN PARA VALIDAR LOS INPUTS
-
-        //FUNCTION PRINCIPAL 1
-        $(function () {
-            //FILTRO DE BUSQUEDA
-            $('input[name="unidad"], input[name="ubicacionActivo"]').autocomplete({
-                source: function (request, response) {
-                    $.ajax({
-                        url: "/api/oficinas/sugerencias",
-                        data: { termino: request.term },
-                        success: function (data) {
-                            response(data);
-                        },
-                    });
-                },
-                minLength: 2,
-                appendTo: "#formularioModalAsignacionActivo",
-                delay: 300,
-            });
-
-            $('input[name="codigoFuncionario"]').on("input", function () {
-                const codigo = $(this).val();
-                if (codigo.length >= 1) {
-                    $.get(
-                        "/api/responsables/datos",
-                        { codigo: codigo },
-                        function (data) {
-                            if (data && data.ci) {
-                                $('input[name="ci"]').val(data.ci);
-                            } else {
-                                $('input[name="ci"]').val("");
-                            }
-                        }
-                    );
-                }
-            });
-
-            $(
-                'input[name="unidadDestino"], input[name="unidadOrigen"], input[name="ubicacionOrigen"], input[name="ubicacionActual"]'
-            ).autocomplete({
-                source: function (request, response) {
-                    $.ajax({
-                        url: "/api/oficinas/sugerencias",
-                        data: { termino: request.term },
-                        success: function (data) {
-                            response(data);
-                        },
-                    });
-                },
-                minLength: 2,
-                appendTo: "#formularioModalTranferenciaActivo",
-                delay: 300,
-            });
-
-            $('input[name="unidadPropietario"], input[name="unidadAutorizador"]').autocomplete({
-                source: function (request, response) {
-                    $.ajax({
-                        url: "/api/oficinas/sugerencias",
-                        data: { termino: request.term },
-                        success: function (data) {
-                            response(data);
-                        },
-                    });
-                },
-                minLength: 2,
-                appendTo: "#formIngresoActivos",
-                delay: 300,
-            });
-
-            $('input[name^="codigoFuncionario"]').on("input", function () {
-                const $this = $(this);
-                const codigo = $this.val();
-
-                if (codigo.length >= 1) {
-                    const tipo = $this.attr("name").replace("codigoFuncionario", "");
-                    $.get(
-                        "/api/responsables/datos",
-                        { codigo: codigo },
-                        function (data) {
-                            if (data && data.ci) {
-                                $(`input[name="ci${tipo}"]`).val(data.ci);
-                            } else {
-                                $(`input[name="ci${tipo}"]`).val("");
-                            }
-                        }
-                    );
-                }
-            });
-            //FIN FILTRO DE BUSQUEDA
-
-            //CONFIGURACION PARA TRANSAFERENCIA DE ACTIVOS
-            let campoIndex = 0;
-            const debounceTimers = {};
-            const codigosSet = new Set(); // para evitar duplicados
-
-            // Helpers
-            const $container = $("#codigoActivoContainer");
-            const $badge = $("#badgeTotalActivos");
-
-            const nv = (v) => (v == null ? "" : String(v).trim());
-            const normalizaCodigo = (s) => nv(s).toUpperCase().replace(/\s+/g, "");
-
-            function actualizarBadge() {
-                const total = $container.find('.codigo-input').length;
-                $badge.text(`${total} seleccionados`);
-            }
-
-            function agregarCampoCodigo() {
-                campoIndex++;
-                const idx = campoIndex;
-
-                const rowHtml = `
-                    <div class="row g-3 mb-2 align-items-start" data-index="${idx}">
-                        <!-- Código del Activo -->
-                        <div class="col-md-4">
-                        <label class="form-label fw-semibold">Código del Activo</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light"><i class="bi bi-upc-scan"></i></span>
-                            <input type="text" class="form-control codigo-input" name="codigoActivo[]" data-index="${idx}" placeholder="Ej: ACT-000123" autocomplete="off" required>
-                            <span class="input-group-text estado-icono" id="estado-${idx}" title="Estado">
-                            <i class="bi"></i>
-                            </span>
-                            <button type="button" class="btn btn-outline-danger removeCodigoBtn" title="Eliminar fila">
-                            <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                        <small class="text-muted">Escribe el código y espera el indicador verde.</small>
-                        </div>
-
-                        <!-- Ubicación de Origen y N° de Oficina -->
-                        <div class="col-md-4">
-                        <label class="form-label fw-semibold">Ubicación de Origen y N° de Oficina</label>
-                        <input type="text" class="form-control ubicacion-origen-input" name="ubicacionOrigen[]" placeholder="Ej: Edif. Central - Oficina 201" autocomplete="off" required>
-                        </div>
-
-                        <!-- Ubicación Actual y N° de Oficina -->
-                        <div class="col-md-4">
-                        <label class="form-label fw-semibold">Ubicación Actual y N° de Oficina</label>
-                        <input type="text" class="form-control ubicacion-actual-input" name="ubicacionActual[]" placeholder="Se autocompleta al validar el código" autocomplete="off" required>
-                        <small class="text-muted">Se autocompleta con la oficina actual del activo. Puedes ajustar si corresponde.</small>
-                        </div>
-                    </div>
-                    `;
-
-                $container.append(rowHtml);
-                enlazarAutocompleteUltimos(); // aplica autocomplete a los últimos inputs
-                actualizarBadge();
-            }
-
-            function enlazarAutocompleteUltimos() {
-                // Autocomplete para Origen
-                $container.find('input[name="ubicacionOrigen[]"]').last().autocomplete({
-                    source: function (request, response) {
-                        $.ajax({
-                            url: "/api/oficinas/sugerencias",
-                            data: { termino: request.term },
-                            success: response
-                        });
-                    },
-                    minLength: 2,
-                    appendTo: "#formularioModalTranferenciaActivo",
-                    delay: 300
-                });
-
-                // Autocomplete para Actual
-                $container.find('input[name="ubicacionActual[]"]').last().autocomplete({
-                    source: function (request, response) {
-                        $.ajax({
-                            url: "/api/oficinas/sugerencias",
-                            data: { termino: request.term },
-                            success: response
-                        });
-                    },
-                    minLength: 2,
-                    appendTo: "#formularioModalTranferenciaActivo",
-                    delay: 300
-                });
-            }
-
-            function mostrarEstado(index, estado) {
-                // estado: true=ok, false=error, null=neutro
-                const $icono = $(`#estado-${index} i`);
-                if (estado === true) {
-                    $icono.attr("class", "bi bi-check-circle-fill text-success");
-                } else if (estado === false) {
-                    $icono.attr("class", "bi bi-x-circle-fill text-danger");
-                } else {
-                    $icono.attr("class", "bi");
-                }
-            }
-
-            function setUbicacionActual(index, texto) {
-                const $row = $container.find(`.row[data-index="${index}"]`);
-                const $input = $row.find('input[name="ubicacionActual[]"]');
-                $input.val(nv(texto));
-            }
-
-            // Inicializa
-            $(document).ready(function () {
-                // Primer campo
-                agregarCampoCodigo();
-
-                // Agregar fila
-                $("#agregarCodigoBtn").on("click", function () {
-                    agregarCampoCodigo();
-                });
-
-                // Limpiar todos
-                $("#limpiarCodigosBtn").on("click", function () {
-                    codigosSet.clear();
-                    $container.empty();
-                    actualizarBadge();
-                    agregarCampoCodigo();
-                });
-
-                // Eliminar fila
-                $container.on("click", ".removeCodigoBtn", function () {
-                    const $row = $(this).closest(".row[data-index]");
-                    const idx = $row.data("index");
-                    const codigoVal = normalizaCodigo($row.find(".codigo-input").val());
-                    if (codigoVal) codigosSet.delete(codigoVal);
-                    $row.remove();
-                    actualizarBadge();
-                });
-
-                // Input código (con debounce, validación, autocompletar ubicación actual)
-                $container.on("input", ".codigo-input", function () {
-                    const $input = $(this);
-                    const index = $input.data("index");
-                    let codigo = normalizaCodigo($input.val());
-
-                    // Si cambia el valor, retira del set anterior (por si corrigió)
-                    // Tomamos el valor previo desde data:
-                    const prev = $input.data("prev") || null;
-                    if (prev && prev !== codigo) codigosSet.delete(prev);
-
-                    clearTimeout(debounceTimers[index]);
-                    mostrarEstado(index, null);
-
-                    // si es corto, no buscamos
-                    if (codigo.length < 4) { // cambia a lo que necesites (antes 14)
-                        setUbicacionActual(index, "");
-                        $input.data("prev", "");
-                        return;
-                    }
-
-                    debounceTimers[index] = setTimeout(function () {
-                        // Duplicado
-                        if (codigosSet.has(codigo)) {
-                            mostrarEstado(index, false);
-                            setUbicacionActual(index, "");
-                            return;
-                        }
-
-                        $.get("/api/buscar-activo", { codigo: codigo }, function (data) {
-                            // Éxito
-                            mostrarEstado(index, true);
-                            codigosSet.add(codigo);
-                            $input.data("prev", codigo);
-
-                            // Autocompleta ubicación actual con lo que devuelve el backend
-                            // Prioriza 'oficinaTexto' y si no, 'oficinaNombre'
-                            const ubic = data?.oficinaTexto || data?.oficinaNombre || "";
-                            setUbicacionActual(index, ubic);
-                        })
-                            .fail(() => {
-                                // No existe
-                                mostrarEstado(index, false);
-                                setUbicacionActual(index, "");
-                                $input.data("prev", "");
-                            });
-                    }, 400);
-                });
-            });
-
-            //FIN CONFIGURACION PARA TRANSAFERENCIA DE ACTIVOS
-
-            //AGREGAR INPUTS EN ACTIVO AJENO
-            function agregarCampoActivoAjeno() {
-                campoIndexA++;
-                const nuevoCampoA = `
-                    <div class="row g-3 mb-2" data-index="${campoIndexA}">
-                        <!-- Código del Activo -->
-                        <div class="col-md-8">
-                            <label class="form-label">Descripción del activo (Tipo, Marca, Modelo, Color, etx)</label>
-                            <input type="text" class="form-control codigo-input" name="descripcionActivo[]" data-index="${campoIndexA}" autocomplete="off" required oninput="this.value = this.value.toUpperCase()">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Estado</label>
-                            <select class="form-control" name="estadoActivoAjeno[]" required>
-                                <option value="" selected disabled>Seleccione...</option>
-                                <option value="BUENO">BUENO</option>
-                                <option value="REGULAR">REGULAR</option>
-                            </select>
-                        </div>
-                        <!-- Botón Quitar -->
-                        <div class="col-md-2">
-                            <button type="button" class="btn btn-sm btn-outline-danger quitar-activo-btn w-100" data-index="${campoIndexA}">
-                                <i class="bi bi-trash"></i> Quitar
-                            </button>
-                        </div>
-                    </div>`;
-                // Agregar al DOM
-                $("#agregarActivoAjenoContainer").append(nuevoCampoA);
-            }
-            //FIN AGREGAR INPUTS EN ACTIVO AJENO
-
-            $(document).ready(function () {
-                agregarCampoActivoAjeno();
-
-                $("#agregarActivoAjenoBtn").on("click", function () {
-                    agregarCampoActivoAjeno();
-                });
-                // Evento para quitar campos
-                $(document).on("click", ".quitar-activo-btn", function () {
-                    const index = $(this).data("index");
-                    const $fieldGroup = $(`[data-index="${index}"]`);
-
-                    // Solo permitir eliminar si no es el último grupo
-                    if ($("#agregarActivoAjenoContainer").children().length > 1) {
-                        $fieldGroup.remove();
-                    } else {
-                        // Si es el último, solo limpiar los campos
-                        $fieldGroup.find("input").val("");
-                        $fieldGroup.find("select").val("");
-                        alert(
-                            "Debe haber al menos un activo registrado. Los campos han sido limpiados."
-                        );
-                    }
-                });
-            });
-        });
-        //FIN FUNCTION PRINCIPAL 1
-
-        //INICIO ASIGNACION DE ACTIVO
-        document.addEventListener("DOMContentLoaded", () => {
-            // para alertar que lso cmapos son olbigatorios
-            const campos = [
-                { name: "unidad", mensaje: "La unidad es obligatoria" },
-                { name: "codigoFuncionario", mensaje: "El código de funcionario es obligatorio" },
-                { name: "ci", mensaje: "El C.I. es obligatorio" },
-                { name: "hr", mensaje: "El H.R. es obligatorio" },
-                { name: "ubicacionActivo", mensaje: "La ubicación es obligatoria" },
-                { name: "descripcionActivo", mensaje: "La descripción del activo es obligatoria" },
-            ];
-
-            // Helper: Null/undefined/'' => 'N/A'
-            const nv = (v) => (v === null || v === undefined || (typeof v === 'string' && v.trim() === '')) ? 'N/A' : v;
-
-            // Enlazar validación live
-            campos.forEach(({ name, mensaje }) => {
-                const input = document.querySelector(`input[name="${name}"]`);
-                if (input) input.addEventListener("input", () => validarCampo(input, mensaje));
-            });
-
-            const btnPreGuardar = document.getElementById("btnPreGuardar");
-            const btnConfirmarGuardar = document.getElementById("btnConfirmarGuardar");
-            const spinnerConfirmar = document.getElementById("spinnerConfirmar");
-
-            const contenidoConfirmacion = document.getElementById("contenidoConfirmacion");
-            const confirmacionLoading = document.getElementById("confirmacionLoading");
-            const listaResponsable = document.getElementById("listaResponsable");
-            const listaAsignacion = document.getElementById("listaAsignacion");
-
-            // Mostrar/ocultar estados del modal
-            function setLoadingModal(isLoading) {
-                confirmacionLoading.classList.toggle("d-none", !isLoading);
-                contenidoConfirmacion.classList.toggle("d-none", isLoading);
-            }
-
-            // Construye HTML de las listas
-            function renderConfirmacion(apiData, formVals) {
-                // Responsable
-                listaResponsable.innerHTML = `
-                <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person"></i> Nombre</span><span class="fw-semibold">${nv(apiData.per_nombres)} ${nv(apiData.per_ap_paterno)} ${nv(apiData.per_ap_materno)}</span></li>
-                <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-credit-card-2-front"></i> CI</span><span class="fw-semibold">${nv(apiData.per_num_doc)}</span></li>
-                <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-envelope"></i> Email</span><span class="fw-semibold">${nv(apiData.perd_email_personal)}</span></li>
-                <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-gender-ambiguous"></i> Género</span><span class="fw-semibold">${nv(apiData.per_sexo)}</span></li>
-                <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-building"></i> Oficina</span><span class="fw-semibold">${nv(apiData.eo_descripcion)}</span></li>
-                <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-briefcase"></i> Cargo</span><span class="fw-semibold">${nv(apiData.p_descripcion)}</span></li>
-                `;
-
-                // Asignación (corrige etiqueta HR)
-                listaAsignacion.innerHTML = `
-                <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-hash"></i> Nº H.R.</span><span class="fw-semibold">${nv(formVals.hr)}</span></li>
-                <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-diagram-3"></i> Unidad</span><span class="fw-semibold">${nv(formVals.unidad)}</span></li>
-                <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-geo-alt"></i> Ubicación del activo</span><span class="fw-semibold">${nv(formVals.ubicacionActivo)}</span></li>
-                <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-info-circle"></i> Descripción del activo</span><span class="fw-semibold">${nv(formVals.descripcionActivo)}</span></li>
-                <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person-badge"></i> Código funcionario</span><span class="fw-semibold">${nv(formVals.codigoFuncionario)}</span></li>
-                <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-card-text"></i> CI (ingresado)</span><span class="fw-semibold">${nv(formVals.ci)}</span></li>
-                `;
-            }
-
-            // Pre-guardar: valida, consulta API y muestra modal
-            btnPreGuardar?.addEventListener("click", () => {
-                let esValido = true;
-                campos.forEach(({ name, mensaje }) => {
-                    const input = document.querySelector(`input[name="${name}"]`);
-                    validarCampo(input, mensaje);
-                    if (!input.value.trim()) esValido = false;
-                });
-                if (!esValido) return;
-
-                const form = document.getElementById("formResponsable");
-                const formVals = {
-                    codigoFuncionario: form.codigoFuncionario.value.trim(),
-                    ci: form.ci.value.trim(),
-                    unidad: form.unidad.value.trim(),
-                    hr: form.hr.value.trim(),
-                    ubicacionActivo: form.ubicacionActivo.value.trim(),
-                    descripcionActivo: form.descripcionActivo.value.trim()
-                };
-
-                // Mostrar modal con estado de carga
-                setLoadingModal(true);
-                const modal = new bootstrap.Modal(document.getElementById("modalConfirmacionDatos"));
-                modal.show();
-
-                // Evita clicks repetidos
-                btnPreGuardar.disabled = true;
-
-                // Llamada API
-                fetch("http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        key: "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10",
-                    },
-                    body: JSON.stringify({ usuario: formVals.codigoFuncionario, contrasena: formVals.ci }),
-                })
-                    .then(async (response) => {
-                        if (!response.ok) {
-                            const text = await response.text().catch(() => "");
-                            throw new Error(text || `Error API (${response.status})`);
-                        }
-                        return response.json();
-                    })
-                    .then((data) => {
-                        renderConfirmacion(data || {}, formVals);
-                        setLoadingModal(false);
-                    })
-                    .catch((error) => {
-                        setLoadingModal(false);
-                        contenidoConfirmacion.innerHTML = `
-                            <div class="alert alert-danger d-flex align-items-center" role="alert">
-                            <i class="bi bi-x-octagon me-2"></i>
-                            <div>Ocurrió un error consultando los datos del funcionario. ${error?.message ? `<br><small class="text-muted">${error.message}</small>` : ""}</div>
-                            </div>`;
-                        contenidoConfirmacion.classList.remove("d-none");
-                        console.error(error);
-                    })
-                    .finally(() => {
-                        btnPreGuardar.disabled = false;
-                    });
-            });
-
-            // Confirmar y guardar: genera PDF
-            btnConfirmarGuardar?.addEventListener("click", () => {
-                const form = document.getElementById("formResponsable");
-                const formData = new FormData(form);
-
-                btnConfirmarGuardar.disabled = true;
-                spinnerConfirmar.classList.remove("d-none");
-
-                fetch("/asignacion/asignar-activo-nuevo", {
-                    method: "POST",
-                    body: formData,
-                })
-                    .then((response) => {
-                        if (!response.ok) throw new Error("Error generando PDF");
-                        return response.blob();
-                    })
-                    .then((blob) => {
-                        const url = URL.createObjectURL(blob);
-                        document.getElementById("iframePDF").src = url;
-
-                        const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
-                        pdfModal.show();
-
-                        const confirmModal = bootstrap.Modal.getInstance(document.getElementById("modalConfirmacionDatos"));
-                        confirmModal?.hide();
-                    })
-                    .catch((error) => {
-                        alert("Ocurrió un error: " + error.message);
-                    })
-                    .finally(() => {
-                        btnConfirmarGuardar.disabled = false;
-                        spinnerConfirmar.classList.add("d-none");
-                    });
-            });
-        });
-        //FIN DE ASIGNACION DE ACTIVO NUEVO
-
-        document
-            .getElementById("btnVerificarDatos")
-            .addEventListener("click", function () {
-                const form = document.getElementById("formTransferencia");
-                const formData = new FormData(form);
-                fetch("/trasnferencia/buscar-registrar", {
-                    method: "POST",
-                    body: formData,
-                })
-                    .then((response) => {
-                        if (!response.ok) throw new Error("Error generando PDF");
-                        return response.blob();
-                    })
-                    .then((blob) => {
-                        const url = URL.createObjectURL(blob);
-                        document.getElementById("iframePDF").src = url;
-                        const pdfModal = new bootstrap.Modal(
-                            document.getElementById("modalVisualizarPdf")
-                        );
-                        pdfModal.show();
-                        const confirmModal = bootstrap.Modal.getInstance(
-                            document.getElementById("formularioModalTranferenciaActivo")
-                        );
-                        confirmModal.hide();
-                    })
-                    .catch((error) => {
-                        alert("Ocurrió un error: " + error.message);
-                    });
-            });
-
-        // INGRESO ACTIVO AJENO
-        document.getElementById('fechaIncorporacion').addEventListener('change', function () {
-            const fechaIngreso = new Date(this.value);
-
-            if (!isNaN(fechaIngreso.getTime())) {
-                // Sumar 3 meses
-                const fechaRetiro = new Date(fechaIngreso);
-                fechaRetiro.setMonth(fechaRetiro.getMonth() + 3);
-
-                // Manejo del caso de días al sumar meses (ej: sumar a 31 enero)
-                if (fechaIngreso.getDate() !== fechaRetiro.getDate()) {
-                    fechaRetiro.setDate(0); // Retrocede al último día del mes anterior
-                }
-
-                // Formatear en YYYY-MM-DD
-                const year = fechaRetiro.getFullYear();
-                const month = ('0' + (fechaRetiro.getMonth() + 1)).slice(-2);
-                const day = ('0' + fechaRetiro.getDate()).slice(-2);
-                const formattedDate = `${year}-${month}-${day}`;
-
-                // Asignar valor al campo de fechaRetiro
-                document.getElementById('fechaRetiro').value = formattedDate;
-            } else {
-                document.getElementById('fechaRetiro').value = '';
-            }
-        });
-
-        // ===== INICIO VERIFICACIÓN INGRESO BIENES AJENOS =====
-        document.addEventListener("DOMContentLoaded", () => {
-            // Helpers
-            const nv = (v) => (v === null || v === undefined || (typeof v === 'string' && v.trim() === "")) ? "N/A" : String(v).trim();
-            const esc = (html) => nv(html).replace(/[&<>"'`=\/]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' }[s]));
-
-            // Refs
-            const form = document.getElementById("formIngresoActivos");
-            const btnVerificar = document.getElementById("btnVerificarDatosIngreso");
-            const modalIngresoEl = document.getElementById("formularioModalIngresoActivoAjeno");
-            const modalConfirmacionEl = document.getElementById("modalConfirmacionIngreso");
-            const listaFechas = document.getElementById("listaFechasIngreso");
-            const listaProp = document.getElementById("listaPropietarioIngreso");
-            const listaAuto = document.getElementById("listaAutorizadorIngreso");
-            const loading = document.getElementById("confirmacionLoadingIngreso");
-            const contenido = document.getElementById("contenidoConfirmacionIngreso");
-
-            const btnConfirmar = document.getElementById("btnConfirmarGuardarIngreso");
-            const spinnerConfirmar = document.getElementById("spinnerConfirmarIngreso");
-
-            function setLoadingModal(v) {
-                loading.classList.toggle("d-none", !v);
-                contenido.classList.toggle("d-none", v);
-            }
-
-            function validarMinimo() {
-                const req = [
-                    form.querySelector('[name="fechaIncorporacion"]'),
-                    form.querySelector('[name="codigoFuncionarioPropietario"]'),
-                    form.querySelector('[name="ciPropietario"]'),
-                    form.querySelector('[name="codigoFuncionarioAutorizador"]'),
-                    form.querySelector('[name="ciAutorizador"]')
-                ];
-                return req.every(el => el && el.value && String(el.value).trim());
-            }
-
-            function renderListas(dataProp, dataAuto, vals) {
-                // Fechas
-                listaFechas.innerHTML = `
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-calendar-week"></i> Incorporación</span><span class="fw-semibold">${esc(vals.fechaIncorporacion) || 'N/A'}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-calendar2-x"></i> Retiro</span><span class="fw-semibold">${esc(vals.fechaRetiro) || 'Pendiente'}</span></li>
-                    `;
-
-                // Propietario (API + lo ingresado)
-                listaProp.innerHTML = `
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person"></i> Nombre</span><span class="fw-semibold">${nv(dataProp.per_nombres)} ${nv(dataProp.per_ap_paterno)} ${nv(dataProp.per_ap_materno)}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-credit-card-2-front"></i> CI</span><span class="fw-semibold">${nv(dataProp.per_num_doc)}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-envelope"></i> Email</span><span class="fw-semibold">${nv(dataProp.perd_email_personal)}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-building"></i> Oficina</span><span class="fw-semibold">${nv(dataProp.eo_descripcion)}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-briefcase"></i> Cargo</span><span class="fw-semibold">${nv(dataProp.p_descripcion)}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person-badge"></i> Código func. (ingresado)</span><span class="fw-semibold">${esc(vals.codigoFuncionarioPropietario) || 'N/A'}</span></li>
-                    `;
-
-                // Autorizador (API + lo ingresado)
-                if (listaAuto) {
-                    listaAuto.innerHTML = `
-                        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person-check"></i> Nombre</span><span class="fw-semibold">${nv(dataAuto.per_nombres)} ${nv(dataAuto.per_ap_paterno)} ${nv(dataAuto.per_ap_materno)}</span></li>
-                        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-credit-card-2-front"></i> CI</span><span class="fw-semibold">${nv(dataAuto.per_num_doc)}</span></li>
-                        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-envelope"></i> Email</span><span class="fw-semibold">${nv(dataAuto.perd_email_personal)}</span></li>
-                        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-building"></i> Oficina</span><span class="fw-semibold">${nv(dataAuto.eo_descripcion)}</span></li>
-                        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-briefcase"></i> Cargo</span><span class="fw-semibold">${nv(dataAuto.p_descripcion)}</span></li>
-                        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person-badge"></i> Código func. (ingresado)</span><span class="fw-semibold">${esc(vals.codigoFuncionarioAutorizador) || 'N/A'}</span></li>
-                    `;
-                }
-            }
-
-            function abrirModalConfirmacion() {
-                const m = new bootstrap.Modal(modalConfirmacionEl, { backdrop: 'static', keyboard: false });
-                m.show();
-            }
-
-            function ocultarIngresoYAbrirConfirmacion(despuesDeAbrir) {
-                const ingresoInstance = bootstrap.Modal.getInstance(modalIngresoEl) || new bootstrap.Modal(modalIngresoEl);
-
-                // Si está visible, espera a que se oculte para abrir el de confirmación
-                if (modalIngresoEl.classList.contains('show')) {
-                    const onHidden = () => {
-                        modalIngresoEl.removeEventListener('hidden.bs.modal', onHidden);
-                        abrirModalConfirmacion();
-                        if (typeof despuesDeAbrir === 'function') despuesDeAbrir();
-                    };
-                    modalIngresoEl.addEventListener('hidden.bs.modal', onHidden);
-                    ingresoInstance.hide();
-                } else {
-                    // Si ya está oculto, abre directamente
-                    abrirModalConfirmacion();
-                    if (typeof despuesDeAbrir === 'function') despuesDeAbrir();
-                }
-            }
-
-            btnVerificar.addEventListener("click", () => {
-                const vals = {
-                    fechaIncorporacion: form.fechaIncorporacion?.value || "",
-                    fechaRetiro: form.fechaRetiro?.value || "",
-                    codigoFuncionarioPropietario: form.codigoFuncionarioPropietario?.value?.trim() || "",
-                    ciPropietario: form.ciPropietario?.value?.trim() || "",
-                    codigoFuncionarioAutorizador: form.codigoFuncionarioAutorizador?.value?.trim() || "",
-                    ciAutorizador: form.ciAutorizador?.value?.trim() || ""
-                };
-
-                // 👇 en vez de abrir directamente el modal de confirmación, oculta el primero y luego abre
-                ocultarIngresoYAbrirConfirmacion(() => {
-                    setLoadingModal(true);
-
-                    // Si faltan mínimos, renderiza con lo ingresado
-                    if (!validarMinimo()) {
-                        renderListas({}, {}, vals);
-                        setTimeout(() => setLoadingModal(false), 200);
-                        return;
-                    }
-
-                    // Llamadas a API (propietario y autorizador)
-                    const urlApi = "http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos";
-                    const headers = {
-                        "Content-Type": "application/json",
-                        key: "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10",
-                    };
-
-                    const reqProp = fetch(urlApi, {
-                        method: "POST",
-                        headers,
-                        body: JSON.stringify({ usuario: vals.codigoFuncionarioPropietario, contrasena: vals.ciPropietario }),
-                    }).then(r => r.ok ? r.json() : Promise.reject(new Error("Propietario: " + r.status)));
-
-                    const reqAuto = fetch(urlApi, {
-                        method: "POST",
-                        headers,
-                        body: JSON.stringify({ usuario: vals.codigoFuncionarioAutorizador, contrasena: vals.ciAutorizador }),
-                    }).then(r => r.ok ? r.json() : Promise.reject(new Error("Autorizador: " + r.status)));
-
-                    Promise.allSettled([reqProp, reqAuto])
-                        .then(([p1, p2]) => {
-                            const dataProp = p1.status === "fulfilled" ? p1.value : {};
-                            const dataAuto = p2.status === "fulfilled" ? p2.value : {};
-                            renderListas(dataProp, dataAuto, vals);
-                        })
-                        .catch(err => {
-                            console.error("Error consultando API:", err);
-                            renderListas({}, {}, vals);
-                        })
-                        .finally(() => setLoadingModal(false));
-                });
-            });
-
-            // Confirmar => POST al backend y mostrar PDF
-            btnConfirmar.addEventListener("click", () => {
-                const formData = new FormData(form);
-                btnConfirmar.disabled = true;
-                spinnerConfirmar.classList.remove("d-none");
-
-                fetch("/ingreso/registrar", {
-                    method: "POST",
-                    body: formData,
-                })
-                    .then((response) => {
-                        if (!response.ok) throw new Error("Error generando PDF");
-                        return response.blob();
-                    })
-                    .then((blob) => {
-                        const url = URL.createObjectURL(blob);
-                        document.getElementById("iframePDF").src = url;
-
-                        const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
-                        pdfModal.show();
-
-                        const inst = bootstrap.Modal.getInstance(modalConfirmacionEl);
-                        inst?.hide();
-
-                        const modalIngreso = bootstrap.Modal.getInstance(document.getElementById("formularioModalIngresoActivoAjeno"));
-                        modalIngreso?.hide();
-                    })
-                    .catch((error) => {
-                        alert("Ocurrió un error: " + error.message);
-                    })
-                    .finally(() => {
-                        btnConfirmar.disabled = false;
-                        spinnerConfirmar.classList.add("d-none");
-                    });
-            });
-        });
-        // ===== FIN VERIFICACIÓN INGRESO BIENES AJENOS =====
-
-        // ================ BAJA ACTIVO =====================
-        document.addEventListener("DOMContentLoaded", () => {
-            // Refs formulario y modales
-            const form = document.getElementById("formBajaActivos");
-            const modalIngresoEl = document.getElementById("formularioModalBajaActivo");
-            const modalConfirmacionEl = document.getElementById("modalConfirmacionBaja");
-
-            // Botones
-            const btnPreConfirmar = document.getElementById("btnConfirmarBaja"); // ahora abre el modal de confirmación
-            const btnConfirmar = document.getElementById("btnConfirmarGuardarBaja"); // este sí envía al backend
-            const spinnerConfirmar = document.getElementById("spinnerConfirmarBaja");
-
-            // Áreas del modal de confirmación
-            const loading = document.getElementById("confirmacionLoadingBaja");
-            const contenido = document.getElementById("contenidoConfirmacionBaja");
-            const listaAdmin = document.getElementById("listaAdminBaja");
-            const listaFuncionario = document.getElementById("listaFuncionarioBaja");
-            const listaActivo = document.getElementById("listaActivoBaja");
-            const listaCausa = document.getElementById("listaCausaBaja");
-
-            // Helpers
-            const nv = (v) => (v === null || v === undefined || (typeof v === 'string' && v.trim() === "")) ? "N/A" : String(v).trim();
-            const esc = (html) => nv(html).replace(/[&<>"'`=\/]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' }[s]));
-            const setLoading = (v) => { loading.classList.toggle("d-none", !v); contenido.classList.toggle("d-none", v); };
-
-            // Ocultar modal de baja y, cuando termine, abrir confirmación
-            function abrirConfirmacionDespuesDeOcultar(cb) {
-                const ingresoInstance = bootstrap.Modal.getInstance(modalIngresoEl) || new bootstrap.Modal(modalIngresoEl);
-                if (modalIngresoEl.classList.contains('show')) {
-                    const onHidden = () => {
-                        modalIngresoEl.removeEventListener('hidden.bs.modal', onHidden);
-                        new bootstrap.Modal(modalConfirmacionEl, { backdrop: 'static', keyboard: false }).show();
-                        if (typeof cb === 'function') cb();
-                    };
-                    modalIngresoEl.addEventListener('hidden.bs.modal', onHidden);
-                    ingresoInstance.hide();
-                } else {
-                    new bootstrap.Modal(modalConfirmacionEl, { backdrop: 'static', keyboard: false }).show();
-                    if (typeof cb === 'function') cb();
-                }
-            }
-
-            function validarMinimo() {
-                const req = [
-                    form.querySelector('[name="fechaBaja"]'),
-                    form.querySelector('[name="numeroDocumento"]'),
-                    form.querySelector('[name="codigoFuncionarioBaja"]'),
-                    form.querySelector('[name="ciFuncionarioBaja"]'),
-                    form.querySelector('[name="codigoActivoBaja"]'),
-                    form.querySelector('[name="causa"]')
-                ];
-                return req.every(el => el && el.value && String(el.value).trim());
-            }
-
-            function renderResumen(dataFunc, dataActivo, vals) {
-                // Admin
-                listaAdmin.innerHTML = `
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-calendar3"></i> Fecha de baja</span><span class="fw-semibold">${esc(vals.fechaBaja) || 'N/A'}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-123"></i> N° de documento</span><span class="fw-semibold">${esc(vals.numeroDocumento) || 'N/A'}</span></li>
-                    `;
-
-                // Funcionario (API + ingresado)
-                listaFuncionario.innerHTML = `
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person"></i> Nombre</span><span class="fw-semibold">${nv(dataFunc.per_nombres)} ${nv(dataFunc.per_ap_paterno)} ${nv(dataFunc.per_ap_materno)}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-credit-card-2-front"></i> CI</span><span class="fw-semibold">${nv(dataFunc.per_num_doc)}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-envelope"></i> Email</span><span class="fw-semibold">${nv(dataFunc.perd_email_personal)}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-building"></i> Oficina</span><span class="fw-semibold">${nv(dataFunc.eo_descripcion)}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-briefcase"></i> Cargo</span><span class="fw-semibold">${nv(dataFunc.p_descripcion)}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person-vcard"></i> Código func. (ingresado)</span><span class="fw-semibold">${esc(vals.codigoFuncionarioBaja) || 'N/A'}</span></li>
-                    `;
-
-                // Activo (API + ingresado)
-                listaActivo.innerHTML = `
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-upc-scan"></i> Código</span><span class="fw-semibold">${esc(vals.codigoActivoBaja) || 'N/A'}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-info-circle"></i> Descripción</span><span class="fw-semibold">${nv(dataActivo.descripcion)}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-geo-alt"></i> Ubicación actual</span><span class="fw-semibold">${nv(dataActivo.oficinaTexto || dataActivo.oficinaNombre)}</span></li>
-                    `;
-
-                // Causa / Descripción
-                listaCausa.innerHTML = `
-                    <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-exclamation-triangle"></i> Causa</span><span class="fw-semibold">${esc(vals.causa) || 'N/A'}</span></li>
-                    <li class="list-group-item"><i class="bi bi-journal-text me-1"></i> ${esc(vals.descripcionBaja) || '-'}</li>
-                    `;
-            }
-
-            // -- helpers nuevos: muestra errores dentro del modal de confirmación
-            function showApiWarningBaja(msg) {
-                const alertEl = document.getElementById("confirmacionAlertaBaja");
-                if (!alertEl) return;
-                alertEl.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i> ${msg}`;
-                alertEl.classList.remove("d-none");
-            }
-            function clearApiWarningBaja() {
-                const alertEl = document.getElementById("confirmacionAlertaBaja");
-                if (!alertEl) return;
-                alertEl.classList.add("d-none");
-            }
-
-            // PRE-Confirmar: abre modal de confirmación, consulta APIs y arma resumen
-            btnPreConfirmar.addEventListener("click", () => {
-                // Abre confirmación (ocultando el modal anterior)
-                abrirConfirmacionDespuesDeOcultar(async () => {
-                    setLoading(true);
-                    clearApiWarningBaja();
-
-                    // ⬇️ LEE LOS VALORES *AQUÍ*, ya con el modal de baja oculto
-                    const vals = {
-                        fechaBaja: form.fechaBaja?.value || "",
-                        numeroDocumento: form.numeroDocumento?.value || "",
-                        codigoFuncionarioBaja: (form.codigoFuncionarioBaja?.value || "").trim(),
-                        ciFuncionarioBaja: (form.ciFuncionarioBaja?.value || "").trim(),
-                        codigoActivoBaja: (form.codigoActivoBaja?.value || "").trim(),
-                        causa: form.causa?.value || "",
-                        descripcionBaja: form.descripcionBaja?.value || ""
-                    };
-
-                    // Validación mínima
-                    if (!validarMinimo()) {
-                        renderResumen({}, {}, vals);
-                        showApiWarningBaja("Faltan datos obligatorios o hay formato inválido.");
-                        setLoading(false);
-                        return;
-                    }
-
-                    // Detecta mixed content (https -> http)
-                    const apiUrl = "http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos";
-                    if (location.protocol === "https:" && apiUrl.startsWith("http:")) {
-                        renderResumen({}, {}, vals);
-                        showApiWarningBaja("El navegador bloqueó la consulta (mixed content: tu sitio es HTTPS y la API es HTTP). Usa la API por HTTPS o un proxy en tu backend.");
-                        setLoading(false);
-                        return;
-                    }
-
-                    const headers = {
-                        "Content-Type": "application/json",
-                        key: "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10",
-                    };
-
-                    // Llamadas a API con manejo de errores visible
-                    const fetchFuncionario = fetch(apiUrl, {
-                        method: "POST",
-                        headers,
-                        body: JSON.stringify({
-                            usuario: vals.codigoFuncionarioBaja,
-                            contrasena: vals.ciFuncionarioBaja
-                        }),
-                    })
-                        .then(async (r) => {
-                            if (!r.ok) {
-                                const t = await r.text().catch(() => "");
-                                throw new Error(`Funcionario ${r.status}: ${t || "sin detalle"}`);
-                            }
-                            return r.json();
-                        });
-
-                    const fetchActivo = fetch("/api/buscar-activo?codigo=" + encodeURIComponent(vals.codigoActivoBaja))
-                        .then(async (r) => {
-                            if (!r.ok) {
-                                const t = await r.text().catch(() => "");
-                                throw new Error(`Activo ${r.status}: ${t || "no encontrado"}`);
-                            }
-                            return r.json();
-                        });
-
-                    try {
-                        const [dataFunc, dataAct] = await Promise.all([fetchFuncionario, fetchActivo]);
-
-                        // logs útiles para depurar (puedes dejar comentado en prod)
-                        console.log("API Funcionario ->", dataFunc);
-                        console.log("API Activo ->", dataAct);
-
-                        // Si vinieron vacíos, avisa
-                        if (!dataFunc || Object.keys(dataFunc).length === 0) {
-                            showApiWarningBaja("No se encontró información del funcionario con el código/CI ingresados.");
-                        }
-                        if (!dataAct || Object.keys(dataAct).length === 0) {
-                            showApiWarningBaja("No se encontró el activo con el código ingresado.");
-                        }
-
-                        renderResumen(dataFunc || {}, dataAct || {}, vals);
-                    } catch (err) {
-                        console.error("Error consultando APIs:", err);
-                        renderResumen({}, {}, vals);
-                        showApiWarningBaja("No fue posible consultar los datos (ver consola).");
-                    } finally {
-                        setLoading(false);
-                    }
-                });
-            });
-
-            // Confirmar y enviar al backend
-            btnConfirmar.addEventListener("click", () => {
-                const formData = new FormData(form);
-                btnConfirmar.disabled = true;
-                spinnerConfirmar.classList.remove("d-none");
-
-                fetch("/baja/registro", {
-                    method: "POST",
-                    body: formData,
-                })
-                    .then((response) => {
-                        if (!response.ok) throw new Error("Error generando PDF");
-                        return response.blob();
-                    })
-                    .then((blob) => {
-                        const url = URL.createObjectURL(blob);
-                        document.getElementById("iframePDF").src = url;
-
-                        const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
-                        pdfModal.show();
-
-                        const inst = bootstrap.Modal.getInstance(modalConfirmacionEl);
-                        inst?.hide();
-                    })
-                    .catch((error) => {
-                        alert("Ocurrió un error: " + error.message);
-                    })
-                    .finally(() => {
-                        btnConfirmar.disabled = false;
-                        spinnerConfirmar.classList.add("d-none");
-                    });
-            });
         });
     </script>
 </body>

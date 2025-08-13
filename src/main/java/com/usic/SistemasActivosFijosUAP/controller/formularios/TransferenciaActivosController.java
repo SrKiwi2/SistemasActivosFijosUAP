@@ -53,7 +53,6 @@ public class TransferenciaActivosController {
     private final IGeneroService generoService;
     private final PdfTransferenciaService pdfTransferenciaService;
     private final IActivoService activoService;
-    private final AiDescripcionService aiDescripcionService;
 
     @PostMapping("/buscar-registrar")
     public ResponseEntity<byte[]> registrarTransferencia(
@@ -73,10 +72,6 @@ public class TransferenciaActivosController {
             Responsable responsableOrigen = obtenerORegistrarResponsable(codigoFuncionarioOrigen, ciOrigen);
             Responsable responsableDestino = obtenerORegistrarResponsable(codigoFuncionarioDestino, ciDestino);
 
-            // Aquí deberías guardar la transferencia (simulado):
-            System.out.println("Responsable origen: " + responsableOrigen.getPersona().getNombreCompleto());
-            System.out.println("Responsable destino: " + responsableDestino.getPersona().getNombreCompleto());
-
             List<ActivoTransferenciaDTO> activosParaPdf = new ArrayList<>();
 
             for (int i = 0; i < codigoActivo.size(); i++) {
@@ -87,17 +82,11 @@ public class TransferenciaActivosController {
                 Activo activo = activoService.findByCodigo(codigo)
                         .orElseThrow(() -> new RuntimeException("Activo no encontrado: " + codigo));
 
-                /*Map<String, String> detallesIA = aiDescripcionService.analizarDescripcion(activo.getDescripcion());*/
-
                 ActivoTransferenciaDTO dto = new ActivoTransferenciaDTO();
                 dto.setCodigo(codigo);
                 dto.setDescripcion(activo.getDescripcion());
                 dto.setUbicacionOrigen(ubicacionOrig);
                 dto.setUbicacionActual(ubicacionAct);
-                // dto.setMarca(detallesIA.get("marca"));
-                // dto.setModelo(detallesIA.get("modelo"));
-                // dto.setNumeroSerie(detallesIA.get("numeroSerie"));
-                // dto.setDimensiones(detallesIA.get("dimensiones"));
 
                 activosParaPdf.add(dto);
             }
@@ -112,17 +101,15 @@ public class TransferenciaActivosController {
                 activosParaPdf
             );
 
-
             HttpHeaders headers1 = new HttpHeaders();
             headers1.setContentType(MediaType.APPLICATION_PDF);
-            headers1.setContentDisposition(ContentDisposition.inline().filename("asignacion_activo_nuevo.pdf").build());
-
+            headers1.setContentDisposition(ContentDisposition.inline().filename("transferencia_activos.pdf").build());
             headers1.setContentLength(pdfBytes.length);
 
             return new ResponseEntity<>(pdfBytes, headers1, HttpStatus.OK);
 
         } catch (Exception ex) {
-            ex.printStackTrace(); // Esto mostrará el error real en consola
+            ex.printStackTrace();
             String errorMsg = "Error procesando: " + ex.getMessage();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
         }
