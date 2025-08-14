@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
         v === null || v === undefined || (typeof v === "string" && v.trim() === "")
             ? "N/A"
             : String(v).trim();
+
     const esc = (html) =>
         nv(html).replace(/[&<>"'`=\/]/g, (s) =>
         ({
@@ -18,12 +19,14 @@ document.addEventListener("DOMContentLoaded", () => {
             "=": "&#x3D;",
         }[s])
         );
+
     const takePersonaShape = (payload) => {
         if (!payload) return {};
         if (payload.data && typeof payload.data === "object") return payload.data;
         if (payload.persona && typeof payload.persona === "object") return payload.persona;
         return payload;
     };
+
     const takeActivoShape = (payload) => {
         if (!payload) return {};
         if (payload.data && typeof payload.data === "object") return payload.data;
@@ -36,8 +39,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const modalConfirmacionEl = document.getElementById("modalConfirmacionBaja");
 
     // Botones
-    const btnPreConfirmar = document.getElementById("btnConfirmarBaja");          // abre confirmación
-    const btnConfirmar = document.getElementById("btnConfirmarGuardarBaja");      // envía al backend
+    const btnPreConfirmar = document.getElementById("btnConfirmarBaja");           // abre confirmación
+    const btnConfirmar = document.getElementById("btnConfirmarGuardarBaja");       // envía al backend
     const spinnerConfirmar = document.getElementById("spinnerConfirmarBaja");
 
     // Áreas del modal de confirmación
@@ -47,24 +50,62 @@ document.addEventListener("DOMContentLoaded", () => {
     const listaFuncionario = document.getElementById("listaFuncionarioBaja");
     const listaActivo = document.getElementById("listaActivoBaja");
     const listaCausa = document.getElementById("listaCausaBaja");
-    const alerta = document.getElementById("confirmacionAlertaBaja");
+    const alertaConfirm = document.getElementById("confirmacionAlertaBaja");
 
     // ----- UI utils -----
     const setLoading = (v) => {
         loading.classList.toggle("d-none", !v);
         contenido.classList.toggle("d-none", v);
     };
-    function showApiWarningBaja(msg) {
-        if (!alerta) return;
-        alerta.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i> ${esc(msg || "Error")}`;
-        alerta.classList.remove("d-none");
+
+    // Alert dinámico en el FORM (antes de abrir confirmación)
+    function ensureFormAlert() {
+        let el = document.getElementById("alertaBajaForm");
+        if (!el) {
+            el = document.createElement("div");
+            el.id = "alertaBajaForm";
+            el.className = "alert d-none";
+            const body = modalBajaEl.querySelector(".modal-body");
+            body && body.prepend(el);
+        }
+        return el;
     }
-    function clearApiWarningBaja() {
-        alerta?.classList.add("d-none");
+
+    function showFormAlert(msg, type = "warning") {
+        const el = ensureFormAlert();
+        el.className = `alert alert-${type} d-flex align-items-center`;
+        el.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i><div>${esc(msg)}</div>`;
+        el.classList.remove("d-none");
     }
+
+    function hideFormAlert() {
+        const el = ensureFormAlert();
+        el.classList.add("d-none");
+    }
+
+    function markInvalid(names = []) {
+        // Limpia estados previos
+        form.querySelectorAll(".is-invalid").forEach((n) => n.classList.remove("is-invalid"));
+        // Marca inválidos
+        names.forEach((name) => {
+            const input = form.querySelector(`[name="${name}"]`);
+            if (input) input.classList.add("is-invalid");
+        });
+        // Enfoca primero
+        if (names[0]) {
+            const first = form.querySelector(`[name="${names[0]}"]`);
+            first?.focus();
+        }
+    }
+
+    function clearInvalid() {
+        form.querySelectorAll(".is-invalid").forEach((n) => n.classList.remove("is-invalid"));
+    }
+
     function abrirConfirmacion() {
         new bootstrap.Modal(modalConfirmacionEl, { backdrop: "static", keyboard: false }).show();
     }
+
     function ocultarBajaYAbrirConfirmacion(cb) {
         const inst = bootstrap.Modal.getInstance(modalBajaEl) || new bootstrap.Modal(modalBajaEl);
         if (modalBajaEl.classList.contains("show")) {
@@ -159,85 +200,115 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
     }
 
-    // ----- PRE-Confirmar: abre modal de confirmación, consulta APIs y arma resumen -----
-    btnPreConfirmar?.addEventListener("click", () => {
-        ocultarBajaYAbrirConfirmacion(async () => {
-            setLoading(true);
-            clearApiWarningBaja();
+    // Alert dentro del modal de confirmación
+    function showApiWarningBaja(msg) {
+        if (!alertaConfirm) return;
+        alertaConfirm.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i> ${esc(msg)}`;
+        alertaConfirm.classList.remove("d-none");
+    }
+    function clearApiWarningBaja() {
+        alertaConfirm?.classList.add("d-none");
+    }
 
-            const vals = leerValores();
+    // ----- PRE-Confirmar: valida con API ANTES de abrir confirmación -----
+    btnPreConfirmar?.addEventListener("click", async () => {
+        hideFormAlert();
+        clearInvalid();
 
-            // Validación mínima
-            if (!validarMinimo(vals)) {
-                renderResumen({}, {}, vals);
-                showApiWarningBaja("Faltan datos obligatorios o hay formato inválido.");
-                setLoading(false);
-                return;
+        const vals = leerValores();
+
+        // Validación mínima (HTML5 + visual)
+        if (!validarMinimo(vals)) {
+            form.classList.add("was-validated");
+            showFormAlert("Completa todos los campos obligatorios marcados con *.");
+            // Marca campos faltantes
+            const faltantes = [];
+            if (!vals.fechaBaja) faltantes.push("fechaBaja");
+            if (!vals.numeroDocumento) faltantes.push("numeroDocumento");
+            if (!vals.codigoFuncionarioBaja) faltantes.push("codigoFuncionarioBaja");
+            if (!vals.ciFuncionarioBaja) faltantes.push("ciFuncionarioBaja");
+            if (!vals.codigoActivoBaja) faltantes.push("codigoActivoBaja");
+            if (!vals.causa) faltantes.push("causa");
+            markInvalid(faltantes);
+            return;
+        }
+
+        // Mixed content (si tu sitio es HTTPS y la API es HTTP)
+        const apiUrl = "http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos";
+        if (location.protocol === "https:" && apiUrl.startsWith("http:")) {
+            showFormAlert("No se pudo consultar la API (mixed content). Expón la API en HTTPS o usa un proxy.", "danger");
+            return;
+        }
+
+        // Estado de "cargando" en el botón
+        const prevHtml = btnPreConfirmar.innerHTML;
+        btnPreConfirmar.disabled = true;
+        btnPreConfirmar.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Verificando…`;
+
+        const headers = {
+            "Content-Type": "application/json",
+            key: "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10",
+        };
+
+        // Llamadas a API (Funcionario + Activo)
+        const reqFuncionario = fetch(apiUrl, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+                usuario: vals.codigoFuncionarioBaja,
+                contrasena: vals.ciFuncionarioBaja,
+            }),
+        }).then(async (r) => {
+            if (!r.ok) {
+                const t = await r.text().catch(() => "");
+                throw new Error(`Funcionario ${r.status}: ${t || "sin detalle"}`);
             }
-
-            // Mixed content (si tu sitio es HTTPS y la API es HTTP)
-            const apiUrl = "http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos";
-            if (location.protocol === "https:" && apiUrl.startsWith("http:")) {
-                renderResumen({}, {}, vals);
-                showApiWarningBaja(
-                    "El navegador bloqueó la consulta (mixed content). Usa la API por HTTPS o un proxy en tu backend."
-                );
-                setLoading(false);
-                return;
-            }
-
-            const headers = {
-                "Content-Type": "application/json",
-                key: "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10",
-            };
-
-            // Consultas (Funcionario + Activo)
-            const fetchFuncionario = fetch(apiUrl, {
-                method: "POST",
-                headers,
-                body: JSON.stringify({
-                    usuario: vals.codigoFuncionarioBaja,
-                    contrasena: vals.ciFuncionarioBaja,
-                }),
-            }).then(async (r) => {
-                if (!r.ok) {
-                    const t = await r.text().catch(() => "");
-                    throw new Error(`Funcionario ${r.status}: ${t || "sin detalle"}`);
-                }
-                const j = await r.json().catch(() => ({}));
-                return takePersonaShape(j);
-            });
-
-            const fetchActivo = fetch(
-                "/api/buscar-activo?codigo=" + encodeURIComponent(vals.codigoActivoBaja)
-            ).then(async (r) => {
-                if (!r.ok) {
-                    const t = await r.text().catch(() => "");
-                    throw new Error(`Activo ${r.status}: ${t || "no encontrado"}`);
-                }
-                const j = await r.json().catch(() => ({}));
-                return takeActivoShape(j);
-            });
-
-            try {
-                const [dataFunc, dataAct] = await Promise.all([fetchFuncionario, fetchActivo]);
-
-                if (!dataFunc || Object.keys(dataFunc).length === 0) {
-                    showApiWarningBaja("No se encontró información del funcionario con el código/CI ingresados.");
-                }
-                if (!dataAct || Object.keys(dataAct).length === 0) {
-                    showApiWarningBaja("No se encontró el activo con el código ingresado.");
-                }
-
-                renderResumen(dataFunc || {}, dataAct || {}, vals);
-            } catch (err) {
-                console.error("Error consultando APIs:", err);
-                renderResumen({}, {}, vals);
-                showApiWarningBaja("No fue posible consultar los datos (ver consola).");
-            } finally {
-                setLoading(false);
-            }
+            const j = await r.json().catch(() => ({}));
+            return takePersonaShape(j);
         });
+
+        const reqActivo = fetch(
+            "/api/buscar-activo?codigo=" + encodeURIComponent(vals.codigoActivoBaja)
+        ).then(async (r) => {
+            if (!r.ok) {
+                const t = await r.text().catch(() => "");
+                throw new Error(`Activo ${r.status}: ${t || "no encontrado"}`);
+            }
+            const j = await r.json().catch(() => ({}));
+            return takeActivoShape(j);
+        });
+
+        try {
+            const [dataFunc, dataAct] = await Promise.allSettled([reqFuncionario, reqActivo]);
+
+            // Verificaciones y bloqueos ANTES de abrir el modal:
+            if (dataFunc.status !== "fulfilled" || !dataFunc.value || Object.keys(dataFunc.value).length === 0) {
+                showFormAlert("No se encontró al funcionario con el Código y C.I. ingresados.", "danger");
+                markInvalid(["codigoFuncionarioBaja", "ciFuncionarioBaja"]);
+                return;
+            }
+
+            if (dataAct.status !== "fulfilled" || !dataAct.value || Object.keys(dataAct.value).length === 0) {
+                showFormAlert("No se encontró el activo con el código ingresado.", "danger");
+                markInvalid(["codigoActivoBaja"]);
+                return;
+            }
+
+            // Si todo OK: abrimos confirmación ya con datos
+            ocultarBajaYAbrirConfirmacion(() => {
+                setLoading(true);
+                clearApiWarningBaja();
+                renderResumen(dataFunc.value, dataAct.value, vals);
+                setLoading(false);
+            });
+        } catch (err) {
+            console.error("Error en verificación previa:", err);
+            showFormAlert("Ocurrió un error verificando los datos. Intenta nuevamente.", "danger");
+        } finally {
+            // restaurar botón
+            btnPreConfirmar.disabled = false;
+            btnPreConfirmar.innerHTML = prevHtml;
+        }
     });
 
     // ----- Confirmar => POST + PDF -----
