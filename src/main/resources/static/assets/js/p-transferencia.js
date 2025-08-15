@@ -1,47 +1,55 @@
 /*
-         * 
-         * TRANSAFERENCIA DE ACTIVOS
-         * 
-         */
+* 
+* TRANSAFERENCIA DE ACTIVOS
+* 
+*/
 
 let debounceTimers = {};
 let campoIndex = 0;
+
+document.addEventListener("DOMContentLoaded", () => {
+    const fechaHoy = new Date();
+    const yyyy = fechaHoy.getFullYear();
+    const mm = String(fechaHoy.getMonth() + 1).padStart(2, '0');
+    const dd = String(fechaHoy.getDate()).padStart(2, '0');
+    const hoyFormateado = `${yyyy}-${mm}-${dd}`;
+
+    // Asignar fecha actual a ambos campos si existen
+    const transferencia = document.getElementById("fechaTransferencia");
+    const recepcion = document.getElementById("fechaRecepcion");
+
+    if (transferencia) transferencia.value = hoyFormateado;
+    if (recepcion) recepcion.value = hoyFormateado;
+});
 
 (function (window, document, $) {
     "use strict";
 
     const TransferenciaActivos = (function () {
-        // =========================
-        // Config & Selectores
-        // =========================
+
         const CFG = {
-            MODAL_ID: "#formularioModalTranferenciaActivo", // ¡ojo! coincide con tu HTML (Tranferencia)
+            MODAL_ID: "#formularioModalTranferenciaActivo",
             CONTAINER_ID: "#codigoActivoContainer",
             BADGE_ID: "#badgeTotalActivos",
             BTN_ADD_ID: "#agregarCodigoBtn",
             BTN_CLEAR_ID: "#limpiarCodigosBtn",
 
-            // Endpoints
             API_OFICINAS_SUG: "/api/oficinas/sugerencias",
             API_BUSCAR_ACTIVO: "/api/buscar-activo",
 
-            // UX
             DEBOUNCE_MS: 400,
-            MIN_CODE_LEN: 4, // ajusta si tu código tiene otro largo mínimo
+            MIN_CODE_LEN: 4,
             AUTOCOMPLETE_MINLEN: 2,
         };
 
-        // Estado interno del módulo
         let campoIndex = 0;
         const debounceTimers = {};
-        const codigosSet = new Set(); // evita duplicados
+        const codigosSet = new Set();
 
-        // jQuery refs
         let $container, $badge, $modal;
 
-        // =========================
         // Helpers
-        // =========================
+
         const nv = (v) => (v == null ? "" : String(v).trim());
         const normalizaCodigo = (s) => nv(s).toUpperCase().replace(/\s+/g, "");
 
@@ -51,7 +59,6 @@ let campoIndex = 0;
         }
 
         function mostrarEstado(index, estado) {
-            // estado: true=ok, false=error, null=neutro
             const $icono = $(`#estado-${index} i`);
             if (estado === true) {
                 $icono.attr("class", "bi bi-check-circle-fill text-success");
@@ -68,10 +75,9 @@ let campoIndex = 0;
             $input.val(nv(texto));
         }
 
-        // =========================
         // Autocomplete
-        // =========================
         function enlazarAutocompleteUltimos() {
+
             // Autocomplete para Origen
             $container
                 .find('input[name="ubicacionOrigen[]"]')
@@ -107,9 +113,7 @@ let campoIndex = 0;
                 });
         }
 
-        // =========================
         // DOM builders
-        // =========================
         function agregarCampoCodigo() {
             campoIndex++;
             const idx = campoIndex;
@@ -135,26 +139,23 @@ let campoIndex = 0;
            <!-- Ubicación de Origen y N° de Oficina -->
            <div class="col-md-4">
                <label class="form-label fw-semibold">Ubicación de Origen y N° de Oficina</label>
-               <input type="text" class="form-control ubicacion-origen-input" name="ubicacionOrigen[]" placeholder="Ej: Unidad de Sistemas..." autocomplete="off" required>
+               <input type="text" class="form-control ubicacion-origen-input" style="text-transform: uppercase;" name="ubicacionOrigen[]" placeholder="Ej: Unidad de Sistemas..." autocomplete="off" required>
            </div>
 
            <!-- Ubicación Actual y N° de Oficina -->
            <div class="col-md-4">
                <label class="form-label fw-semibold">Ubicación Actual y N° de Oficina</label>
-               <input type="text" class="form-control ubicacion-actual-input" name="ubicacionActual[]" placeholder="Se autocompleta al validar el código" autocomplete="off" required>
+               <input type="text" class="form-control ubicacion-actual-input" style="text-transform: uppercase;" name="ubicacionActual[]" placeholder="Se autocompleta al validar el código" autocomplete="off" required>
                <small class="text-muted">Se autocompleta con la oficina actual del activo. Puedes ajustar si corresponde.</small>
            </div>
-           </div>
-       `;
+           </div>`;
 
             $container.append(rowHtml);
             enlazarAutocompleteUltimos();
             actualizarBadge();
         }
 
-        // =========================
         // Eventos
-        // =========================
         function bindEvents() {
             // Agregar fila
             $(CFG.BTN_ADD_ID).on("click", () => agregarCampoCodigo());
@@ -229,9 +230,7 @@ let campoIndex = 0;
             });
         }
 
-        // =========================
         // Init
-        // =========================
         function init() {
             $container = $(CFG.CONTAINER_ID);
             $badge = $(CFG.BADGE_ID);

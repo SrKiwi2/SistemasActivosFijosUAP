@@ -1,6 +1,7 @@
 /*
- * ASIGNACIÓN DE ACTIVO
- */
+* ASIGNACIÓN DE ACTIVO
+*/
+
 document.addEventListener("DOMContentLoaded", () => {
     // ---------- Helpers ----------
     const nv = (v) =>
@@ -64,8 +65,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const el = ensureFormAlert();
         el.className = `alert alert-${type} d-flex align-items-center`;
         el.innerHTML = `
-        <i class="bi bi-exclamation-triangle me-2"></i>
-        <div>${esc(msg)}</div>`;
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <div>${esc(msg)}</div>`;
         el.classList.remove("d-none");
     }
 
@@ -153,21 +154,21 @@ document.addEventListener("DOMContentLoaded", () => {
         const d = takePersonaShape(apiData || {});
 
         listaResponsable.innerHTML = `
-        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person"></i> Nombre</span><span class="fw-semibold">${nv(d.per_nombres)} ${nv(d.per_ap_paterno)} ${nv(d.per_ap_materno)}</span></li>
-        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-credit-card-2-front"></i> CI</span><span class="fw-semibold">${nv(d.per_num_doc)}</span></li>
-        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-envelope"></i> Email</span><span class="fw-semibold">${nv(d.perd_email_personal)}</span></li>
-        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-building"></i> Oficina</span><span class="fw-semibold">${nv(d.eo_descripcion)}</span></li>
-        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-briefcase"></i> Cargo</span><span class="fw-semibold">${nv(d.p_descripcion)}</span></li>
-        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person-badge"></i> Código funcionario (ingresado)</span><span class="fw-semibold">${nv(formVals.codigoFuncionario)}</span></li>
-      `;
+            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person"></i> Nombre</span><span class="fw-semibold">${nv(d.per_nombres)} ${nv(d.per_ap_paterno)} ${nv(d.per_ap_materno)}</span></li>
+            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-credit-card-2-front"></i> CI</span><span class="fw-semibold">${nv(d.per_num_doc)}</span></li>
+            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-envelope"></i> Email</span><span class="fw-semibold">${nv(d.perd_email_personal)}</span></li>
+            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-building"></i> Oficina</span><span class="fw-semibold">${nv(d.eo_descripcion)}</span></li>
+            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-briefcase"></i> Cargo</span><span class="fw-semibold">${nv(d.p_descripcion)}</span></li>
+            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person-badge"></i> Código funcionario (ingresado)</span><span class="fw-semibold">${nv(formVals.codigoFuncionario)}</span></li>
+        `;
 
         listaAsignacion.innerHTML = `
-        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-hash"></i> Nº H.R.</span><span class="fw-semibold">${nv(formVals.hr)}</span></li>
-        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-diagram-3"></i> Unidad</span><span class="fw-semibold">${nv(formVals.unidad)}</span></li>
-        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-geo-alt"></i> Ubicación del activo</span><span class="fw-semibold">${nv(formVals.ubicacionActivo)}</span></li>
-        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-info-circle"></i> Descripción del activo</span><span class="fw-semibold">${nv(formVals.descripcionActivo)}</span></li>
-        <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-card-text"></i> CI (ingresado)</span><span class="fw-semibold">${nv(formVals.ci)}</span></li>
-      `;
+            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-hash"></i> Nº H.R.</span><span class="fw-semibold">${nv(formVals.hr)}</span></li>
+            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-diagram-3"></i> Unidad</span><span class="fw-semibold">${nv(formVals.unidad)}</span></li>
+            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-geo-alt"></i> Ubicación del activo</span><span class="fw-semibold">${nv(formVals.ubicacionActivo)}</span></li>
+            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-info-circle"></i> Descripción del activo</span><span class="fw-semibold">${nv(formVals.descripcionActivo)}</span></li>
+            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-card-text"></i> CI (ingresado)</span><span class="fw-semibold">${nv(formVals.ci)}</span></li>
+        `;
     }
 
     // ---------- Pre-guardar (validación + API ANTES de abrir confirmación) ----------
@@ -290,5 +291,39 @@ document.addEventListener("DOMContentLoaded", () => {
                 btnConfirmarGuardar.disabled = false;
                 spinnerConfirmar.classList.add("d-none");
             });
+    });
+});
+
+// === Forzar MAYÚSCULAS en el form de Asignación ===
+document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById("formResponsable");
+
+    // Campos a forzar (ajusta la lista si quieres excluir alguno)
+    const upperFields = [
+        "unidad",
+        "codigoFuncionario",
+        "ci",
+        "hr",
+        "ubicacionActivo",
+        "descripcionActivo"
+    ];
+
+    upperFields.forEach((name) => {
+        const input = form.querySelector(`[name="${name}"]`);
+        if (!input) return;
+
+        // Mientras escribe
+        input.addEventListener("input", () => {
+            const start = input.selectionStart; // mantener cursor
+            const end = input.selectionEnd;
+            input.value = input.value.toUpperCase();
+            // restituye posición del cursor
+            try { input.setSelectionRange(start, end); } catch (_) { }
+        });
+
+        // Al perder foco (trim adicional por si acaso)
+        input.addEventListener("blur", () => {
+            input.value = input.value.trim().toUpperCase();
+        });
     });
 });

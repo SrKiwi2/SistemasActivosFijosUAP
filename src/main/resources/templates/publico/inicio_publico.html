@@ -194,7 +194,7 @@
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-building"></i></span>
-                                    <input type="text" class="form-control" name="unidad" placeholder="Ej: Unidad de Sistemas..." required>
+                                    <input type="text" class="form-control" style="text-transform: uppercase;" name="unidad" placeholder="Ej: Unidad de Sistemas..." required>
                                 </div>
                                 <small class="text-muted">Indique el nombre de la unidad o sección responsable.</small>
                             </div>
@@ -234,7 +234,7 @@
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-geo-alt"></i></span>
-                                    <input type="text" class="form-control" name="ubicacionActivo" placeholder="Ej: SISU - ADMINISTRACIÓN" required>
+                                    <input type="text" class="form-control" style="text-transform: uppercase;" name="ubicacionActivo" placeholder="Ej: SISU - ADMINISTRACIÓN" required>
                                 </div>
                                 <small class="text-muted">Indique la ubicación física exacta del activo.</small>
                             </div>
@@ -244,7 +244,7 @@
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-info-circle"></i></span>
-                                    <input type="text" class="form-control" name="descripcionActivo" placeholder="Ej: Computadora portátil Dell Latitude 3420" required>
+                                    <input type="text" class="form-control" style="text-transform: uppercase;" name="descripcionActivo" placeholder="Ej: Computadora portátil Dell Latitude 3420" required>
                                 </div>
                                 <small class="text-muted">Proporcione una breve descripción del activo.</small>
                             </div>
@@ -313,7 +313,7 @@
                     </button>
                     <button id="btnConfirmarGuardar" class="btn btn-success">
                         <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmar" role="status" aria-hidden="true"></span>
-                        <i class="bi bi-check-circle-fill me-1"></i> Confirmar y guardar
+                        <i class="bi bi-check-circle-fill me-1"></i> Confirmar y generar PDF
                     </button>
                 </div>
             </div>
@@ -344,9 +344,8 @@
                                             <i class="bi bi-building me-1 text-primary"></i> Dirección, Unidad y/o Sección
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i
-                                                    class="bi bi-building"></i></span>
-                                            <input type="text" class="form-control" name="unidadOrigen" placeholder="Ej: Dirección Administrativa" required>
+                                            <span class="input-group-text bg-light"><i class="bi bi-building"></i></span>
+                                            <input type="text" class="form-control" style="text-transform: uppercase;" name="unidadOrigen" placeholder="Ej: Dirección Administrativa" required>
                                         </div>
                                         <small class="text-muted">Unidad responsable que transfiere el/los activo(s).</small>
                                     </div>
@@ -378,7 +377,7 @@
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i class="bi bi-calendar"></i></span>
-                                            <input type="date" class="form-control" name="fechaTransferencia" required>
+                                            <input type="date" class="form-control" name="fechaTransferencia" id="fechaTransferencia" readonly>
                                         </div>
                                         <small class="text-muted">Fecha en la que se efectúa la entrega.</small>
                                     </div>
@@ -397,7 +396,7 @@
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i class="bi bi-building"></i></span>
-                                            <input type="text" class="form-control" name="unidadDestino" placeholder="Ej: Unidad de Sistemas" required>
+                                            <input type="text" class="form-control" style="text-transform: uppercase;" name="unidadDestino" placeholder="Ej: Unidad de Sistemas" required>
                                         </div>
                                         <small class="text-muted">Unidad recepcionista y responsable actual.</small>
                                     </div>
@@ -427,7 +426,7 @@
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i class="bi bi-calendar-check"></i></span>
-                                            <input type="date" class="form-control" name="fechaRecepcion" required>
+                                            <input type="date" class="form-control" name="fechaRecepcion" id="fechaRecepcion" readonly>
                                         </div>
                                         <small class="text-muted">Fecha en la que se confirma la recepción.</small>
                                     </div>
