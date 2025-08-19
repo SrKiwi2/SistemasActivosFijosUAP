@@ -138,3 +138,62 @@ input.form-control:focus {
     word-break: break-word;
     vertical-align: top;
   }
+
+  @media (max-width: 576px) {
+  /* Título y encabezados más compactos */
+  .modal .modal-title { font-size: 1rem; }
+  .modal .card-header { font-size: .95rem; padding: .5rem .75rem; }
+
+  /* Texto y labels más pequeños */
+  .modal .form-label,
+  .modal small.text-muted,
+  .modal .list-group,
+  .modal .list-group .list-group-item,
+  .modal .fs-6 { font-size: .875rem; }
+
+  /* Inputs y addons más compactos */
+  .modal .form-control { 
+    font-size: .9rem; 
+    padding: .45rem .6rem; 
+    height: auto; 
+  }
+  .modal .input-group-text {
+    font-size: .85rem;
+    padding: .35rem .5rem;
+  }
+
+  /* Botones */
+  .modal .btn { 
+    padding: .45rem .8rem; 
+    font-size: .9rem; 
+    border-radius: .5rem;
+  }
+
+  /* Reducir gutters del grid dentro del modal */
+  .modal .row.g-3 { 
+    --bs-gutter-x: .75rem; 
+    --bs-gutter-y: .75rem; 
+  }
+
+  /* Modales fullscreen: reduce un poco padding interno */
+  .modal .modal-body { padding: .75rem; }
+  .modal .modal-header, 
+  .modal .modal-footer { padding: .5rem .75rem; }
+}
+
+@media (max-width: 576px) {
+  /* Evita centrado vertical en móviles para que el modal inicie “desde arriba” */
+  .modal-dialog-centered { align-items: stretch; }
+
+  /* Asegura fullscreen real y sin márgenes */
+  .modal-fullscreen-sm-down .modal-dialog { margin: 0; }
+  .modal-fullscreen-sm-down .modal-content { height: 100%; }
+
+  /* Header y footer siempre visibles mientras el body hace scroll */
+  .modal .modal-header { position: sticky; top: 0; z-index: 2; }
+  .modal .modal-footer { position: sticky; bottom: 0; z-index: 2; }
+
+  /* Un pelín menos de padding para ganar espacio útil */
+  .modal .modal-header, .modal .modal-footer { padding: .5rem .75rem; }
+  .modal .modal-body { padding: .75rem; }
+}

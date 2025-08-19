@@ -320,6 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 activos.push({
                     idx: i + 1,
                     codigo: row.querySelector('.codigo-input')?.value || '',
+                    descripcion: row.querySelector('.codigo-input')?.value || '',
                     origen: row.querySelector('input[name="ubicacionOrigen[]"]')?.value || '',
                     actual: row.querySelector('input[name="ubicacionActual[]"]')?.value || ''
                 });
@@ -376,6 +377,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 $tbodyAct.append(`
                <tr>
                    <td>${i + 1}</td>
+                   <td>${esc(a.codigo)}</td>
                    <td>${esc(a.codigo)}</td>
                    <td>${esc(a.origen)}</td>
                    <td>${esc(a.actual)}</td>

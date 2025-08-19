@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return payload;
     };
 
-    // ---------- Refs ----------
+    // Refs
     const form = document.getElementById("formResponsable");
     const btnPreGuardar = document.getElementById("btnPreGuardar");
 

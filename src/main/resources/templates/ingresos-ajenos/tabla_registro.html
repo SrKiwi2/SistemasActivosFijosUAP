@@ -13,15 +13,23 @@
             </thead>
             <tbody class="animate__animated animate__bounceInDown">
                 <tr th:each="ingreso : ${ingresos}">
-                    <th th:text="${ingreso.fechaIngreso}"></th>
-                    <th th:text="${ingreso.fechaFin}"></th>
-                    <th th:text="${ingreso.codigoFuncionarioPropietario} + ' / ' + ${ingreso.ciPropietario}"></th>
-                    <th th:text="${ingreso.unidadPropietario}"></th>
-                    <th th:text="${ingreso.descripcion}"></th>
+                    <th th:text="${ingreso.fechaIngreso ?: '-'}"></th>
+                    <th th:text="${ingreso.fechaFin ?: '-'}"></th>
+                    <th th:text="${ingreso.codigoFuncionarioPropietario ?: '-'} + ' / ' + ${ingreso.ciPropietario ?: '-'}"></th>
+                    <th th:text="${ingreso.unidadPropietario ?: '-'}"></th>
+                    <th th:text="${ingreso.descripcion ?: '-'}"></th>
                     <th>
-                        <a th:href="@{'/pdfs/activos-ajenos/' + ${#strings.substring(ingreso.rutaPdf, ingreso.rutaPdf.lastIndexOf('/') + 1)}}" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <a th:if="${ingreso.rutaPdf != null and !#strings.isEmpty(ingreso.rutaPdf)}"
+                            th:with="fileName=${#strings.substring(ingreso.rutaPdf, ingreso.rutaPdf.lastIndexOf('/') + 1)}"
+                            th:href="@{/pdfs/activos-ajenos/{f}(f=${fileName})}"
+                            target="_blank"
+                            class="btn btn-sm btn-outline-primary">
                             Ver PDF
                         </a>
+                        <span th:unless="${ingreso.rutaPdf != null and !#strings.isEmpty(ingreso.rutaPdf)}"
+                                class="text-muted">
+                            Sin PDF
+                        </span>
                     </th>
                 </tr>
             </tbody>

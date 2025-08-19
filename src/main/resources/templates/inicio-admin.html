@@ -4,184 +4,121 @@
     data-theme="theme-default" data-assets-path="../../assets/" data-template="vertical-menu-template">
 
 <head th:replace="~{layout/head :: head}"></head>
+<link rel="stylesheet" href="../../assets/css/config_general_publico.css">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 <!-- VISTA PARA FUNCIONARIOS CON USUARIO -->
+
 <body>
-    <style>
-        .swal2-container {
-            z-index: 9999 !important;
-        }
 
-        .ui-autocomplete {
-            z-index: 1055 !important;
-            background-color: #fff;
-            border: 1px solid #ccc;
-            border-radius: 0.375rem;
-            max-height: 200px;
-            overflow-y: auto;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .ui-menu-item-wrapper {
-            padding: 0.5rem;
-            cursor: pointer;
-        }
-
-        .ui-menu-item-wrapper:hover {
-            background-color: #f0f0f0;
-        }
-
-        .modal.fade .modal-dialog {
-            transform: translateY(-20px);
-            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
-        }
-
-        .modal.show .modal-dialog {
-            transform: translateY(0);
-        }
-
-        .is-invalid {
-            border-color: #dc3545 !important;
-        }
-
-        .invalid-feedback {
-            display: none;
-            font-size: 0.875em;
-            color: #dc3545;
-        }
-
-        .is-invalid+.invalid-feedback {
-            display: block;
-        }
-    </style>
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
             <aside th:replace="~{layout/sidebar :: sidebar}"></aside>
             <div class="layout-page">
                 <nav th:replace="~{layout/topbar :: topbar}"></nav>
                 <div class="content-wrapper">
-                    <div class="container-xxl flex-grow-1 container-p-y" id="contenido"></div>
-                    <!-- <div id="contenido-mis-activos" th:if="${session.nombre_rol == 'RESPONSABLE'}"></div> -->
+                    <div class="container-xxl flex-grow-1 container-p-y" id="contenido">
+                        <div class="layout-wrapper layout-content-navbar">
+                            <div class="layout-container">
+                                <div class="container">
+                                    <div class="content-wrapper">
+                                        <div class="card animated-card position-relative p-0 mb-4 overflow-hidden shadow-sm border-0"
+                                            style="min-height: 200px; border-radius: 14px; background: linear-gradient(135deg, rgba(30,58,138,0.06), rgba(185,28,28,0.06));">
+
+                                            <!-- Logos (desktop) -->
+                                            <div class="position-absolute top-0 start-0 p-4 d-none d-sm-block">
+                                                <img src="../../assets/img/logo/activofijos.png" alt="UAP" height="90"
+                                                    class="logo-hover" />
+                                            </div>
+                                            <div class="position-absolute top-0 end-0 p-4 d-none d-sm-block">
+                                                <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="100"
+                                                    class="logo-hover" />
+                                            </div>
+
+                                            <!-- Contenido central -->
+                                            <div
+                                                class="card-body d-flex flex-column justify-content-center align-items-center text-center py-5 px-3">
+                                                <!-- Logos en móvil -->
+                                                <div class="d-block d-sm-none text-center pb-3">
+                                                    <img src="../../assets/img/logo/activofijos.png" alt="UAP"
+                                                        height="60" class="logo-hover mx-1" />
+                                                    <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="65"
+                                                        class="logo-hover mx-1" />
+                                                </div>
+                                                <!-- Nombre del sistema dinámico -->
+                                                <h1 class="titulo-sistema mb-2 text-uppercase">
+                                                    SAYOVE <span class="version">2.0</span>
+                                                </h1>
+
+                                                <p class="slogan mb-0 fst-italic d-sm-block">
+                                                    Escribiendo una nueva historia con vos...
+                                                </p>
+
+                                            </div>
+
+                                        </div>
+
+                                        <!-- Sección de botones -->
+                                        <div class="btn-section">
+                                            <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal"
+                                                data-bs-target="#formularioModalAsignacionActivo">
+                                                <i class="bi bi-plus-circle-fill"></i> Registrar Asignación
+                                            </button>
+                                            <button class="btn btn-lg-custom btn-reporte" data-bs-toggle="modal"
+                                                data-bs-target="#formularioModalTranferenciaActivo">
+                                                <i class="bi bi-file-earmark-bar-graph-fill"></i> Transferencia de
+                                                Activos
+                                            </button>
+                                            <button class="btn btn-lg-custom btn-importar" data-bs-toggle="modal"
+                                                data-bs-target="#formularioModalIngresoActivoAjeno">
+                                                <i class="bi bi-file-earmark-arrow-up-fill"></i> Ingreso de Bienes
+                                                Ajenos
+                                            </button>
+                                            <button class="btn btn-lg-custom btn-visualizar" data-bs-toggle="modal"
+                                                data-bs-target="#formularioModalBajaActivo">
+                                                <i class="bi bi-eye-fill"></i> Baja de Activos
+                                            </button>
+                                        </div>
+                                        <div class="container-fluid mt-5 px-0">
+                                            <div id="informacionActivosFijos"></div>
+                                        </div>
+                                        <footer th:replace="~{layout/footer :: footer}"></footer>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <footer th:replace="~{layout/footer :: footer}"></footer>
                 </div>
             </div>
         </div>
     </div>
     <!-- Modal -->
-    <div class="modal fade" id="modalPerfil" tabindex="-1" aria-labelledby="modalPerfilLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="modalPerfilLabel" style="color: aliceblue;">
-                        <i class="ti ti-user-circle me-2" style="color: aliceblue;"></i>Perfil del Responsable
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Cerrar"></button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="row align-items-center mb-4">
-                        <div class="col-auto">
-                            <img src="../../assets/img/avatars/1.png" alt="Avatar" class="rounded-circle" width="80"
-                                height="80">
-                        </div>
-                        <div class="col">
-                            <h5 class="mb-0" th:text="${session.persona.getNombreCompleto()}">Nombre Apellido</h5>
-                            <p class="text-muted mb-1" th:text="${session.persona.correo}">correo@ejemplo.com</p>
-                            <span class="badge bg-info text-dark"
-                                th:text="${session.persona.usuario.rol.nombre}">Rol</span>
-                        </div>
-                    </div>
-
-                    <div class="border-top pt-3">
-                        <h6 class="text-secondary"><i class="ti ti-building me-1"></i>Responsabilidades</h6>
-                        <div th:if="${session.responsable != null}">
-                            <div class="list-group">
-                                <div class="list-group-item list-group-item-action mb-2 border rounded"
-                                    th:each="resp : ${session.responsable}">
-                                    <p class="mb-1"><strong>Oficina:</strong> <span
-                                            th:text="${resp.oficina.nombre}"></span></p>
-                                    <p class="mb-1"><strong>Cargo:</strong> <span th:text="${resp.cargo.nombre}"></span>
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div th:if="${session.responsable == null}">
-                            <div class="alert alert-warning mt-3" role="alert">
-                                No tiene ninguna oficina asignada como responsable.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                        <i class="ti ti-x me-1"></i> Cerrar
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="modalConfirmLogout" tabindex="-1" aria-labelledby="modalConfirmLogoutLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title" id="modalConfirmLogoutLabel" style="color: aliceblue;">
-                        <i class="ti ti-alert-triangle me-2" style="color: aliceblue;"></i>Confirmar cierre de sesión
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Cerrar"></button>
-                </div>
-
-                <div class="modal-body text-center">
-                    <p class="mb-3">¿Estás seguro de que deseas cerrar sesión?</p>
-                    <i class="ti ti-logout" style="font-size: 3rem; color: #dc3545;"></i>
-                </div>
-
-                <div class="modal-footer justify-content-center">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="ti ti-x me-1"></i> Cancelar
-                    </button>
-                    <a href="/cerrar_sesion" class="btn btn-danger">
-                        <i class="ti ti-logout me-1"></i> Sí, cerrar sesión
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ASIGNAR ACTIVO NUEVO -->
-    <div class="modal fade" id="formularioModalAsignacionActivo" tabindex="-1" aria-labelledby="formularioModalLabel">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal fade" id="formularioModalAsignacionActivo" tabindex="-1" aria-labelledby="formularioModalLabel"
+        data-bs-focus="false">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <form id="formResponsable" autocomplete="off">
                 <div class="modal-content border-0 shadow-lg rounded-3">
-                    <!-- HEADER -->
                     <div class="modal-header bg-gradient-primary text-white">
-                        <h5 class="modal-title fw-bold">
-                            <i class="bi bi-box-arrow-in-down me-2"></i> Asignar Activo
+                        <h5 class="modal-title fw-bold" style="color: #fff;">
+                            <i class="bi bi-box-arrow-in-down me-2" style="color: #fff;"></i> Asignar Activo
                         </h5>
-                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close btn-close-white shadow-none"
+                            data-bs-dismiss="modal"></button>
                     </div>
-    
-                    <!-- BODY -->
                     <div class="modal-body">
                         <div class="row g-3">
-                            <!-- Unidad -->
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-building me-1 text-primary"></i> Dirección, Unidad y/o Sección
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-building"></i></span>
-                                    <input type="text" class="form-control" name="unidad"
-                                        placeholder="Ej: Dirección Administrativa" required>
+                                    <input type="text" class="form-control" style="text-transform: uppercase;"
+                                        name="unidad" placeholder="Ej: Unidad de Sistemas..." required>
                                 </div>
                                 <small class="text-muted">Indique el nombre de la unidad o sección responsable.</small>
                             </div>
-    
-                            <!-- Código Funcionario -->
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-person-badge me-1 text-primary"></i> Código Funcionario
@@ -189,97 +126,124 @@
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
                                     <input type="text" class="form-control" name="codigoFuncionario"
-                                        placeholder="Ej: FUNC-045" required>
+                                        placeholder="Ej: 1234" required>
                                 </div>
                                 <small class="text-muted">Ingrese el código único asignado al funcionario.</small>
                             </div>
-    
-                            <!-- CI -->
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-card-text me-1 text-primary"></i> Cédula de Identidad
                                 </label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light"><i class="bi bi-credit-card-2-front"></i></span>
-                                    <input type="text" class="form-control" name="ci"
-                                        placeholder="Ej: 7896543 LP" required>
+                                    <span class="input-group-text bg-light"><i
+                                            class="bi bi-credit-card-2-front"></i></span>
+                                    <input type="text" class="form-control" name="ci" placeholder="Ej: 12345678"
+                                        required>
                                 </div>
                                 <small class="text-muted">Ingrese el número de cédula con extensión.</small>
                             </div>
-    
-                            <!-- Nº HR -->
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-file-earmark-text me-1 text-primary"></i> Nº H.R.
                                 </label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light"><i class="bi bi-file-earmark-text"></i></span>
-                                    <input type="text" class="form-control" name="hr" placeholder="Ej: HR-2025-001" required>
+                                    <span class="input-group-text bg-light"><i
+                                            class="bi bi-file-earmark-text"></i></span>
+                                    <input type="text" class="form-control" name="hr" placeholder="Ej: 1234" required>
                                 </div>
                                 <small class="text-muted">Número del Hoja de Ruta correspondiente.</small>
                             </div>
-    
-                            <!-- Ubicación del Activo -->
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-geo-alt me-1 text-primary"></i> Ubicación del Activo
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-geo-alt"></i></span>
-                                    <input type="text" class="form-control" name="ubicacionActivo"
-                                        placeholder="Ej: Edificio Central, Piso 2" required>
+                                    <input type="text" class="form-control" style="text-transform: uppercase;"
+                                        name="ubicacionActivo" placeholder="Ej: SISU - ADMINISTRACIÓN" required>
                                 </div>
                                 <small class="text-muted">Indique la ubicación física exacta del activo.</small>
                             </div>
-    
-                            <!-- Descripción -->
                             <div class="col-12">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-info-circle me-1 text-primary"></i> Descripción del Activo
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-info-circle"></i></span>
-                                    <input type="text" class="form-control" name="descripcionActivo"
+                                    <input type="text" class="form-control" style="text-transform: uppercase;"
+                                        name="descripcionActivo"
                                         placeholder="Ej: Computadora portátil Dell Latitude 3420" required>
                                 </div>
                                 <small class="text-muted">Proporcione una breve descripción del activo.</small>
                             </div>
                         </div>
                     </div>
-    
-                    <!-- FOOTER -->
                     <div class="modal-footer bg-light border-0">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                             <i class="bi bi-x-circle me-1"></i> Cancelar
                         </button>
-                        <button type="submit" id="btnPreGuardar" class="btn btn-success">
+                        <button type="button" id="btnPreGuardar" class="btn btn-success">
                             <i class="bi bi-check-circle me-1"></i> Guardar Asignación
                         </button>
                     </div>
                 </div>
             </form>
         </div>
-    </div>    
+    </div>
 
-    <div class="modal fade" id="modalConfirmacionDatos" tabindex="-1">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg">
+    <div class="modal fade" id="modalConfirmacionDatos" tabindex="-1" aria-labelledby="modalConfirmacionDatosLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title"><i class="bi bi-person-lines-fill me-2"></i>Confirmar Datos del Responsable
+                    <h5 class="modal-title fw-bold" id="modalConfirmacionDatosLabel">
+                        <i class="bi bi-person-lines-fill me-2"></i> Confirmar datos del responsable
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="contenidoConfirmacion" class="fs-6">
-
+                    <div id="confirmacionLoading" class="d-none text-center py-4">
+                        <div class="spinner-border" role="status" aria-hidden="true"></div>
+                        <p class="mt-2 mb-0">Consultando datos…</p>
+                    </div>
+                    <div id="contenidoConfirmacion" class="fs-6 d-none">
+                        <div class="row g-3">
+                            <div class="col-12 col-lg-6">
+                                <div class="card h-100 border-0 shadow-sm">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-person-badge me-1"></i> Datos del responsable
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaResponsable"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <div class="card h-100 border-0 shadow-sm">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-box-seam me-1"></i> Datos de asignación
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaAsignacion"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="confirmacionAlerta" class="alert alert-warning mt-3 d-none" role="alert">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Verifica la información antes de continuar.
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-light">
-                    <button id="btnConfirmarGuardar" class="btn btn-success">
-                        <i class="bi bi-check-circle-fill me-1"></i>Confirmar y Guardar
-                    </button>
+
+                <div class="modal-footer bg-light border-0">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle me-1"></i>Cancelar
+                        <i class="bi bi-x-circle me-1"></i> Cancelar
+                    </button>
+                    <button id="btnConfirmarGuardar" class="btn btn-success">
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmar" role="status"
+                            aria-hidden="true"></span>
+                        <i class="bi bi-check-circle-fill me-1"></i> Confirmar y generar PDF
                     </button>
                 </div>
             </div>
@@ -287,320 +251,614 @@
     </div>
     <!-- FIN ASIGNAR ACTIVO NUEVO -->
 
-    <!-- TRANSFERENCIA ACTIVO NUEVO -->
-    <div class="modal fade" id="formularioModalTranferenciaActivo" tabindex="-1" aria-labelledby="formularioModalLabel">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <form id="formTransferencia">
-                <div class="modal-content border-0 shadow-lg">
+    <!-- TRANSFERENCIA ACTIVO -->
+    <div class="modal fade" id="formularioModalTranferenciaActivo" tabindex="-1"
+        aria-labelledby="formularioModalTransferenciaLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <form id="formTransferencia" autocomplete="off" class="w-100">
+                <div class="modal-content border-0 shadow-lg rounded-3">
                     <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title" style="color: #fff;"><i
-                                class="bi bi-box-arrow-in-down me-2"></i>Transferencia de Activos</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        <h5 class="modal-title fw-bold" id="formularioModalTransferenciaLabel">
+                            <i class="bi bi-arrow-left-right me-2"></i> Transferencia de Activos
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
                     </div>
                     <div class="modal-body">
-                        <!-- SECCIÓN TRANSFIERE -->
-                        <fieldset class="border p-3 mb-4">
-                            <legend class="w-auto px-3 text-primary fw-bold"><i
-                                    class="bi bi-person-fill-up me-1"></i>TRANSFIERE</legend>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Dirección, Unidad y/o Sección</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-building"></i></span>
-                                        <input type="text" class="form-control" name="unidadOrigen" autocomplete="off"
-                                            required>
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-light fw-semibold">
+                                <i class="bi bi-person-fill-up me-1 text-primary"></i> Transfiere
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-building me-1 text-primary"></i> Dirección, Unidad y/o
+                                            Sección
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-building"></i></span>
+                                            <input type="text" class="form-control" style="text-transform: uppercase;"
+                                                name="unidadOrigen" placeholder="Ej: Dirección Administrativa" required>
+                                        </div>
+                                        <small class="text-muted">Unidad responsable que transfiere el/los
+                                            activo(s).</small>
                                     </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Código Funcionario</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                                        <input type="text" class="form-control" name="codigoFuncionarioOrigen"
-                                            autocomplete="off" required>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-person-badge me-1 text-primary"></i> Código Funcionario
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-badge"></i></span>
+                                            <input type="number" class="form-control" name="codigoFuncionarioOrigen"
+                                                placeholder="Ej: 1234" required>
+                                        </div>
+                                        <small class="text-muted">Código del funcionario que entrega.</small>
                                     </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">C.I.</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-card-text"></i></span>
-                                        <input type="text" class="form-control" name="ciOrigen" autocomplete="off"
-                                            required>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-card-text me-1 text-primary"></i> Cédula de Identidad
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-credit-card-2-front"></i></span>
+                                            <input type="number" class="form-control" name="ciOrigen"
+                                                placeholder="Ej: 12345678" required>
+                                        </div>
+                                        <small class="text-muted">Número de CI del responsable que entrega.</small>
                                     </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Fecha de la transferencia</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-calendar"></i></span>
-                                        <input type="date" class="form-control" name="fechaTransferencia" required>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-calendar me-1 text-primary"></i> Fecha de la transferencia
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-calendar"></i></span>
+                                            <input type="date" class="form-control" name="fechaTransferencia"
+                                                id="fechaTransferencia" readonly>
+                                        </div>
+                                        <small class="text-muted">Fecha en la que se efectúa la entrega.</small>
                                     </div>
                                 </div>
                             </div>
-                        </fieldset>
-
-                        <!-- SECCIÓN RECIBE -->
-                        <fieldset class="border p-3 mb-4">
-                            <legend class="w-auto px-3 text-success fw-bold"><i
-                                    class="bi bi-person-fill-down me-1"></i>Recibe y Resguarda</legend>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Dirección, Unidad y/o Sección</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-building"></i></span>
-                                        <input type="text" class="form-control" name="unidadDestino" autocomplete="off"
-                                            required>
+                        </div>
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-light fw-semibold">
+                                <i class="bi bi-person-fill-down me-1 text-success"></i> Recibe y Resguarda
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-building me-1 text-success"></i> Dirección, Unidad y/o
+                                            Sección
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-building"></i></span>
+                                            <input type="text" class="form-control" style="text-transform: uppercase;"
+                                                name="unidadDestino" placeholder="Ej: Unidad de Sistemas" required>
+                                        </div>
+                                        <small class="text-muted">Unidad recepcionista y responsable actual.</small>
                                     </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Código Funcionario</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                                        <input type="text" class="form-control" name="codigoFuncionarioDestino"
-                                            autocomplete="off" required>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-person-badge me-1 text-success"></i> Código Funcionario
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-badge"></i></span>
+                                            <input type="number" class="form-control" name="codigoFuncionarioDestino"
+                                                placeholder="Ej: 12345" required>
+                                        </div>
+                                        <small class="text-muted">Código del funcionario que recibe.</small>
                                     </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">C.I.</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-card-text"></i></span>
-                                        <input type="text" class="form-control" name="ciDestino" autocomplete="off"
-                                            required>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-card-text me-1 text-success"></i> Cédula de Identidad
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-credit-card-2-front"></i></span>
+                                            <input type="number" class="form-control" name="ciDestino"
+                                                placeholder="Ej: 12345678" required>
+                                        </div>
+                                        <small class="text-muted">Número de CI del responsable que recibe.</small>
                                     </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Fecha de la recepción</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-calendar-check"></i></span>
-                                        <input type="date" class="form-control" name="fechaRecepcion" required>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-calendar-check me-1 text-success"></i> Fecha de la recepción
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-calendar-check"></i></span>
+                                            <input type="date" class="form-control" name="fechaRecepcion"
+                                                id="fechaRecepcion" readonly>
+                                        </div>
+                                        <small class="text-muted">Fecha en la que se confirma la recepción.</small>
                                     </div>
                                 </div>
                             </div>
-                        </fieldset>
-
-                        <!-- SECCIÓN DETALLE DEL ACTIVO -->
-                        <fieldset class="border p-3 mb-4">
-                            <legend class="w-auto px-3 text-dark fw-bold"><i class="bi bi-box-seam me-1"></i>Activos a
-                                transferir</legend>
-                            <div id="codigoActivoContainer">
-                                <!-- Campo de código activo dinámico se insertará aquí -->
+                        </div>
+                        <div class="card border-0 shadow-sm">
+                            <div
+                                class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-box-seam me-1"></i> Activos a transferir</span>
+                                <span class="badge text-bg-primary" id="badgeTotalActivos">0 seleccionados</span>
                             </div>
-
-                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="agregarCodigoBtn">
-                                <i class="bi bi-plus-circle"></i> Agregar código
-                            </button>
-                        </fieldset>
+                            <div class="card-body">
+                                <div id="codigoActivoContainer" class="row g-2"></div>
+                                <div class="d-flex gap-2 mt-3">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="agregarCodigoBtn">
+                                        <i class="bi bi-plus-circle me-1"></i> Agregar código
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        id="limpiarCodigosBtn">
+                                        <i class="bi bi-eraser me-1"></i> Limpiar lista
+                                    </button>
+                                </div>
+                                <template id="tplCodigoActivo">
+                                    <div class="col-12">
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-upc-scan"></i></span>
+                                            <input type="text" class="form-control" name="codigosActivos[]"
+                                                placeholder="Ingrese código del activo (ej: xx-xx-xx-xxxxx)" required>
+                                            <button type="button" class="btn btn-outline-danger removeCodigoBtn">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <small class="text-muted d-block mt-2">
+                                    Puedes agregar múltiples códigos. Verifica que correspondan a los activos a
+                                    transferir.
+                                </small>
+                            </div>
+                        </div>
                     </div>
-                    <div class="modal-footer bg-light">
+                    <div class="modal-footer bg-light border-0">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i> Cancelar
+                        </button>
                         <button type="button" class="btn btn-success" id="btnVerificarDatos">
-                            <i class="bi bi-eye-fill me-1"></i>Verificar Datos
+                            <i class="bi bi-eye-fill me-1"></i> Verificar Datos
                         </button>
                     </div>
                 </div>
             </form>
         </div>
     </div>
-    <!-- TRANSFERENCIA ACTIVO NUEVO -->
+
+    <!-- MODAL: Confirmación de Transferencia -->
+    <div class="modal fade" id="modalConfirmacionTransferencia" tabindex="-1"
+        aria-labelledby="modalConfirmacionTransferenciaLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold" id="modalConfirmacionTransferenciaLabel">
+                        <i class="bi bi-clipboard-check me-2"></i> Confirmar datos de la transferencia
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="confirmacionLoadingTransfer" class="text-center py-4 d-none">
+                        <div class="spinner-border" role="status" aria-hidden="true"></div>
+                        <p class="mt-2 mb-0">Preparando resumen…</p>
+                    </div>
+                    <div id="contenidoConfirmacionTransfer" class="d-none">
+                        <div class="row g-3">
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-person-fill-up me-1"></i> Transfiere (Origen)
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaOrigenTransfer"></ul>
+                                    </div>
+                                </div>
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-calendar-date me-1"></i> Fechas
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaFechasTransfer"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-person-fill-down me-1"></i> Recibe y Resguarda (Destino)
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaDestinoTransfer"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card border-0 shadow-sm">
+                                    <div
+                                        class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                                        <span><i class="bi bi-box-seam me-1"></i> Activos a transferir</span>
+                                        <span class="badge text-bg-primary" id="badgeTotalActivosResumen">0
+                                            seleccionados</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-hover mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>#</th>
+                                                        <th>Código</th>
+                                                        <th>Ubicación Origen</th>
+                                                        <th>Ubicación Actual (autocompletada)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="tbodyActivosTransfer"></tbody>
+                                            </table>
+                                        </div>
+                                        <small class="text-muted d-block mt-2">Revisa cuidadosamente antes de
+                                            confirmar.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="alertaTransfer" class="alert alert-warning mt-3 d-none" role="alert">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Faltan datos obligatorios o hubo un problema consultando la información. Aún puedes revisar
+                            lo ingresado.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnConfirmarTransferencia">
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarTransfer"
+                            role="status" aria-hidden="true"></span>
+                        <i class="bi bi-check-circle me-1"></i> Confirmar y generar PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- FIN TRANSFERENCIA ACTIVO NUEVO -->
 
     <!-- INGRESOS ACTIVOS AJENOS -->
-    <div class="modal fade" id="formularioModalIngresoActivoAjeno" tabindex="-1" aria-labelledby="formularioModalLabel">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <form id="formIngresoActivos">
+    <div class="modal fade" id="formularioModalIngresoActivoAjeno" tabindex="-1"
+        aria-labelledby="formularioModalIngresoActivoAjenoLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <form id="formIngresoActivos" autocomplete="off" class="w-100">
                 <div class="modal-content border-0 shadow-lg rounded-4">
-                    <!-- HEADER -->
                     <div class="modal-header bg-primary text-white rounded-top-4">
-                        <h5 class="modal-title mb-0 fw-bold" style="color: #fff;">
-                            <i class="bi bi-box-arrow-in-down me-2"></i>INGRESO DE BIENES AJENOS
+                        <h5 class="modal-title mb-0 fw-bold" id="formularioModalIngresoActivoAjenoLabel">
+                            <i class="bi bi-box-arrow-in-down me-2"></i> Ingreso de bienes ajenos
                         </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
                     </div>
-
                     <div class="modal-body">
-                        <!-- Fecha de ingreso -->
-                        <fieldset class="border p-3 mb-4 rounded-3">
-                            <legend class="w-auto px-3 text-primary fw-semibold">
-                                <i class="bi bi-calendar-date me-1"></i> Fecha de ingreso
-                            </legend>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Fecha</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
-                                        <input type="date" class="form-control" name="fechaIngreso" required>
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-light fw-semibold">
+                                <i class="bi bi-calendar-date me-1 text-primary"></i> Fecha de incorporación y retiro
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Fecha de incorporación</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-calendar3"></i></span>
+                                            <input type="date" class="form-control" id="fechaIncorporacion"
+                                                name="fechaIncorporacion" required>
+                                        </div>
+                                        <small class="text-muted">Día en que el bien ingresa a la unidad.</small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Fecha de retiro</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-calendar3"></i></span>
+                                            <input type="date" class="form-control" id="fechaRetiro" name="fechaRetiro"
+                                                required readonly>
+                                        </div>
+                                        <small class="text-muted">Se definirá al devolver el bien.</small>
                                     </div>
                                 </div>
                             </div>
-                        </fieldset>
-
-                        <!-- Activos ajenos -->
-                        <fieldset class="border p-3 mb-4 rounded-3">
-                            <legend class="w-auto px-3 text-danger fw-semibold">
-                                <i class="bi bi-box-arrow-in-down me-1"></i> Activos ajenos a registrar
-                            </legend>
-                            <div id="agregarActivoAjenoContainer"></div>
-                            <button type="button" class="btn btn-sm btn-outline-primary mt-2"
-                                id="agregarActivoAjenoBtn">
-                                <i class="bi bi-plus-circle"></i> Añadir más
-                            </button>
-                        </fieldset>
-
-                        <!-- Propietario del activo -->
-                        <fieldset class="border p-3 mb-4 rounded-3">
-                            <legend class="w-auto px-3 text-success fw-semibold">
-                                <i class="bi bi-person-fill-down me-1"></i> Propietario del activo
-                            </legend>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Código Funcionario</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-person-vcard"></i></span>
-                                        <input type="text" class="form-control" name="codigoFuncionarioPropietario"
-                                            required>
+                        </div>
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div
+                                class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-box-arrow-in-down me-1 text-danger"></i> Activos ajenos a
+                                    registrar</span>
+                                <span class="badge text-bg-primary" id="badgeTotalAjenos">0 items</span>
+                            </div>
+                            <div class="card-body">
+                                <div id="agregarActivoAjenoContainer" class="row g-3"></div>
+                                <div class="d-flex gap-2 mt-2">
+                                    <button type="button" class="btn btn-outline-primary btn-sm"
+                                        id="agregarActivoAjenoBtn">
+                                        <i class="bi bi-plus-circle me-1"></i> Añadir más
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        id="limpiarAjenosBtn">
+                                        <i class="bi bi-eraser me-1"></i> Limpiar lista
+                                    </button>
+                                </div>
+                                <small class="text-muted d-block mt-2">Agrega tantos bienes como sea necesario. Verifica
+                                    la información antes de continuar.</small>
+                            </div>
+                        </div>
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-light fw-semibold">
+                                <i class="bi bi-person-fill-down me-1 text-success"></i> Propietario del activo
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Código funcionario</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-vcard"></i></span>
+                                            <input type="text" class="form-control" name="codigoFuncionarioPropietario"
+                                                placeholder="Ej: 12345" required>
+                                        </div>
+                                        <small class="text-muted">Código único del propietario.</small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Cédula de identidad</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-badge"></i></span>
+                                            <input type="text" class="form-control" name="ciPropietario"
+                                                placeholder="Ej: 12345678" required>
+                                        </div>
+                                        <small class="text-muted">Número de CI con extensión.</small>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold">C.I.</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                                        <input type="text" class="form-control" name="ciPropietario" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Dirección / Unidad / Sección</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-diagram-3"></i></span>
-                                        <input type="text" class="form-control" name="unidadPropietario" autocomplete="off" required>
+                                <div class="row g-3 mt-1">
+                                    <div class="col-12">
+                                        <div class="alert alert-info py-2 mb-0" role="alert">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            Puedes validar estos datos contra tu directorio institucional antes de
+                                            guardar.
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Unidad de ingreso -->
-                            <legend class="w-auto px-3 text-info fw-semibold mt-4">
-                                <i class="bi bi-building me-1"></i> Unidad de ingreso
-                            </legend>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Autorizado por</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-person-check"></i></span>
-                                        <input type="text" class="form-control" name="autorizador" required>
+                        </div>
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-light fw-semibold">
+                                <i class="bi bi-building me-1 text-info"></i> Responsbale de la unidad
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Código funcionario</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-vcard"></i></span>
+                                            <input type="text" class="form-control" name="codigoFuncionarioAutorizador"
+                                                placeholder="Ej: 12345" required>
+                                        </div>
+                                        <small class="text-muted">Código único del propietario.</small>
                                     </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Cargo</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-briefcase"></i></span>
-                                        <input type="text" class="form-control" name="cargoAutorizador" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Dirección / Unidad / Sección</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-diagram-3"></i></span>
-                                        <input type="text" class="form-control" name="unidadAutoriza" required>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Cédula de identidad</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-badge"></i></span>
+                                            <input type="text" class="form-control" name="ciAutorizador"
+                                                placeholder="Ej: 12345678" required>
+                                        </div>
+                                        <small class="text-muted">Número de CI con extensión.</small>
                                     </div>
                                 </div>
                             </div>
-                        </fieldset>
-
-                        <!-- Identificación en activos fijos -->
-                        <fieldset class="border p-3 mb-4 rounded-3">
-                            <legend class="w-auto px-3 text-warning fw-semibold">
-                                <i class="bi bi-tag me-1"></i> Identificación en Activos Fijos
-                            </legend>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Nombre Completo</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-person"></i></span>
-                                        <input type="text" class="form-control" name="nombreIdentificacion" value="LIC. VERONICA LAYME CORI" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Cargo</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-briefcase"></i></span>
-                                        <input type="text" class="form-control" name="cargoIdentificacion" value="RESPONSABLE DE ACTIVOS FIJOS" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Dirección / Unidad / Sección</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-diagram-3"></i></span>
-                                        <input type="text" class="form-control" name="unidadIdentificacion" value="SECCIÓN DE ACTIVOS FIJOS" readonly>
-                                    </div>
-                                </div>
+                        </div>
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-light fw-semibold">
+                                <i class="bi bi-tag me-1 text-warning"></i> Identificación en Activos Fijos
                             </div>
-                        </fieldset>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Nombre completo</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
+                                            <input type="text" class="form-control" name="nombreIdentificacion"
+                                                value="LIC. VERONICA LAYME CORI" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Cargo</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-briefcase"></i></span>
+                                            <input type="text" class="form-control" name="cargoIdentificacion"
+                                                value="RESPONSABLE DE ACTIVOS FIJOS" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Dirección / Unidad / Sección</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-diagram-3"></i></span>
+                                            <input type="text" class="form-control" name="unidadIdentificacion"
+                                                value="SECCIÓN DE ACTIVOS FIJOS" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                                <small class="text-muted d-block mt-2">Estos datos identifican al área responsable del
+                                    control.</small>
+                            </div>
+                        </div>
                     </div>
-
-                    <!-- FOOTER -->
                     <div class="modal-footer bg-light rounded-bottom-4">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-2"></i>Cancelar
+                        </button>
                         <button type="button" class="btn btn-success px-4 fw-semibold" id="btnVerificarDatosIngreso">
-                            <i class="bi bi-eye-fill me-2"></i> Verificar Datos
+                            <i class="bi bi-eye-fill me-2"></i>Verificar datos
                         </button>
                     </div>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Confirmación de Ingreso de Bienes Ajenos -->
+    <div class="modal fade" id="modalConfirmacionIngreso" tabindex="-1" aria-labelledby="modalConfirmacionIngresoLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold" id="modalConfirmacionIngresoLabel">
+                        <i class="bi bi-clipboard-check me-2"></i> Confirmar datos del ingreso
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="confirmacionLoadingIngreso" class="d-none text-center py-4">
+                        <div class="spinner-border" role="status" aria-hidden="true"></div>
+                        <p class="mt-2 mb-0">Preparando resumen…</p>
+                    </div>
+                    <div id="contenidoConfirmacionIngreso" class="d-none">
+                        <div class="row g-3">
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-person-badge me-1"></i> Propietario del bien
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaPropietarioIngreso"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-person-check me-1"></i> Autorizador (unidad de ingreso)
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaAutorizadorIngreso"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-calendar-date me-1"></i> Fechas
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaFechasIngreso"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card border-0 shadow-sm">
+                                    <div
+                                        class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                                        <span><i class="bi bi-box-arrow-in-down me-1"></i> Bienes listados</span>
+                                        <span class="badge text-bg-primary" id="badgeTotalAjenosResumen">0 items</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-hover mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>#</th>
+                                                        <th>Descripción</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="tbodyAjenosResumen"></tbody>
+                                            </table>
+                                        </div>
+                                        <small class="text-muted d-block mt-2">Revisa cuidadosamente antes de
+                                            confirmar.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="confirmacionAlertaIngreso" class="alert alert-warning mt-3 d-none" role="alert">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Hay campos vacíos o con formato incorrecto. Corrige antes de continuar.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnConfirmarGuardarIngreso">
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarIngreso"
+                            role="status" aria-hidden="true"></span>
+                        <i class="bi bi-check-circle me-1"></i> Confirmar y generar PDF
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
     <!-- FIN INGRESO ACTIVOS AJENOS -->
 
     <!-- INICIO BAJA ACTIVOS -->
-    <div class="modal fade" id="formularioModalBajaActivo" tabindex="-1" aria-labelledby="formularioModalLabel">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-            <form id="formBajaActivos" class="needs-validation" novalidate>
+    <div class="modal fade" id="formularioModalBajaActivo" tabindex="-1" aria-labelledby="formularioModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <form id="formBajaActivos" autocomplete="off" class="needs-validation w-100">
                 <div class="modal-content border-0 shadow-lg rounded-4">
-                    <!-- HEADER con animación -->
-                    <div class="modal-header bg-gradient-primary text-white rounded-top-4">
-                        <h5 class="modal-title mb-0 fw-bold">
-                            <i class="bi bi-box-arrow-in-down me-2 animate__animated animate__pulse animate__infinite"></i>BAJA DE ACTIVOS
+                    <div class="modal-header bg-primary text-white rounded-top-4">
+                        <h5 class="modal-title mb-0 fw-bold" style="color: #fff">
+                            <i class="bi bi-box-arrow-in-down me-2"></i>BAJA DE ACTIVOS
                         </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
                     </div>
-
                     <div class="modal-body">
-                        <!-- Sección de fecha y número con validación -->
-                        <fieldset class="border p-3 mb-4 rounded-3 shadow-sm animate__animated animate__fadeIn">
-                            <legend class="w-auto px-3 text-primary fw-semibold bg-white rounded-pill shadow-sm">
+                        <fieldset class="border p-3 mb-4 rounded-3 shadow-sm ">
+                            <legend class="w-auto px-3 text-primary fw-semibold">
                                 <i class="bi bi-calendar-date me-1"></i> DATOS ADMINISTRATIVOS
                             </legend>
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Fecha de baja <span class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">Fecha de baja <span
+                                            class="text-danger">*</span></label>
                                     <div class="input-group has-validation">
                                         <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
-                                        <input type="date" class="form-control" name="fechaBaja" required>
-                                        <div class="invalid-feedback">
-                                            Por favor ingrese la fecha de baja.
-                                        </div>
+                                        <input type="date" class="form-control" name="fechaBaja" required />
+                                        <div class="invalid-feedback"> Por favor ingrese la fecha de baja.</div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Número de documento <span class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">Número de documento
+                                        <span class="text-danger">*</span></label>
                                     <div class="input-group has-validation">
                                         <span class="input-group-text bg-light"><i class="bi bi-123"></i></span>
-                                        <input type="text" class="form-control" name="numeroDocumento" required>
-                                        <div class="invalid-feedback">
-                                            Por favor ingrese el número de documento.
-                                        </div>
+                                        <input type="text" class="form-control" name="numeroDocumento" required />
+                                        <div class="invalid-feedback">Por favor ingrese el número de documento.</div>
                                     </div>
                                 </div>
                             </div>
                         </fieldset>
-
-                        <!-- Sección de propietario con búsqueda dinámica -->
-                        <fieldset class="border p-3 mb-4 rounded-3 shadow-sm animate__animated animate__fadeIn animate__delay-1s">
-                            <legend class="w-auto px-3 text-success fw-semibold bg-white rounded-pill shadow-sm">
-                                <i class="bi bi-person-fill-down me-1"></i> PROPIETARIO DEL ACTIVO
+                        <fieldset class="border p-3 mb-4 rounded-3 shadow-sm  animate__delay-1s">
+                            <legend class="w-auto px-3 text-success fw-semibold">
+                                <i class="bi bi-person-fill-down me-1"></i> RESPONSABLE DEL ACTIVO
                             </legend>
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Código Funcionario <span class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">Código Funcionario
+                                        <span class="text-danger">*</span></label>
                                     <div class="input-group has-validation">
                                         <span class="input-group-text"><i class="bi bi-person-vcard"></i></span>
                                         <input type="text" class="form-control" name="codigoFuncionarioBaja" required
-                                            placeholder="Ingresa codigo funcionario"
-                                            data-bs-toggle="tooltip" data-bs-placement="top" 
-                                            title="Ingrese código funcionario">
+                                            placeholder="Ingresa codigo funcionario" data-bs-toggle="tooltip"
+                                            data-bs-placement="top" title="Ingrese código funcionario" />
                                         <div class="invalid-feedback">
                                             Por favor ingrese el código del funcionario.
                                         </div>
@@ -608,10 +866,12 @@
                                     <div id="sugerenciasFuncionario" class="list-group mt-2 d-none"></div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold">C.I. <span class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">C.I. <span
+                                            class="text-danger">*</span></label>
                                     <div class="input-group has-validation">
                                         <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                                        <input type="text" class="form-control" name="ciFuncionarioBaja" placeholder="Ingresa tu C.I." required>
+                                        <input type="text" class="form-control" name="ciFuncionarioBaja"
+                                            placeholder="Ingresa tu C.I." required />
                                         <div class="invalid-feedback">
                                             Por favor ingrese la cédula de identidad.
                                         </div>
@@ -619,35 +879,32 @@
                                 </div>
                             </div>
                         </fieldset>
-
-                        <!-- Sección del activo con búsqueda dinámica -->
-                        <fieldset class="border p-3 rounded-3 shadow-sm animate__animated animate__fadeIn animate__delay-2s">
-                            <legend class="w-auto px-3 text-info fw-semibold bg-white rounded-pill shadow-sm">
+                        <fieldset class="border p-3 rounded-3 shadow-sm  animate__delay-2s">
+                            <legend class="w-auto px-3 text-info fw-semibold">
                                 <i class="bi bi-pc-display me-1"></i> DATOS DEL ACTIVO
                             </legend>
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Código del activo <span class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">Código del activo
+                                        <span class="text-danger">*</span></label>
                                     <div class="input-group has-validation">
                                         <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
                                         <input type="text" class="form-control" name="codigoActivoBaja" required
-                                            placeholder="Ejemplo: xxx-xx-xx-xx-xxxx"
-                                            data-bs-toggle="tooltip" data-bs-placement="top" 
-                                            title="Ingrese código del activo">
-                                        <div class="invalid-feedback">
-                                            Por favor ingrese el código del activo.
-                                        </div>
+                                            placeholder="Ejemplo: xxx-xx-xx-xx-xxxx" data-bs-toggle="tooltip"
+                                            data-bs-placement="top" title="Ingrese código del activo" />
+                                        <div class="invalid-feedback"> Por favor ingrese el código del activo.</div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Causa de baja <span class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">Causa de baja <span
+                                            class="text-danger">*</span></label>
                                     <div class="input-group has-validation">
                                         <span class="input-group-text"><i class="bi bi-exclamation-triangle"></i></span>
                                         <select class="form-select" name="causa" required>
-                                            <option value="" selected disabled>Seleccione una causa...</option>
+                                            <option value="" selected disabled> Seleccione una causa...</option>
                                             <option value="DETERIORO">Deterioro o obsolescencia</option>
                                             <option value="PERDIDA">Pérdida</option>
-                                            <option value="PERDIDA">Robo</option>
+                                            <option value="ROBO">Robo</option>
                                         </select>
                                         <div class="invalid-feedback">
                                             Por favor seleccione la causa de baja.
@@ -655,19 +912,18 @@
                                     </div>
                                 </div>
                             </div>
-                            <!-- Campo para observaciones -->
                             <div class="row mt-3">
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">Descripción de la baja</label>
-                                    <textarea class="form-control" name="descripcionBaja" rows="3" placeholder="Justifica la baja del activo..."></textarea>
+                                    <textarea class="form-control" name="descripcionBaja" rows="3"
+                                        placeholder="Justifica la baja del activo..."></textarea>
                                 </div>
                             </div>
                         </fieldset>
                     </div>
-
-                    <!-- FOOTER con botones mejorados -->
                     <div class="modal-footer bg-light rounded-bottom-4 d-flex justify-content-between">
-                        <button type="button" class="btn btn-outline-secondary px-4 fw-semibold" data-bs-dismiss="modal">
+                        <button type="button" class="btn btn-outline-secondary px-4 fw-semibold"
+                            data-bs-dismiss="modal">
                             <i class="bi bi-x-circle me-2"></i> Cancelar
                         </button>
                         <div>
@@ -680,456 +936,102 @@
             </form>
         </div>
     </div>
-    <!-- FIN BAJA ACTIVOS -->
+
+    <!-- MODAL: Confirmación de Baja de Activos -->
+    <div class="modal fade" id="modalConfirmacionBaja" tabindex="-1" aria-labelledby="modalConfirmacionBajaLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold" id="modalConfirmacionBajaLabel">
+                        <i class="bi bi-clipboard-check me-2"></i> Confirmar datos de la baja
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="confirmacionLoadingBaja" class="text-center py-4 d-none">
+                        <div class="spinner-border" role="status" aria-hidden="true"></div>
+                        <p class="mt-2 mb-0">Preparando resumen…</p>
+                    </div>
+                    <div id="contenidoConfirmacionBaja" class="d-none">
+                        <div class="row g-3">
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-calendar-date me-1"></i> Datos administrativos
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaAdminBaja"></ul>
+                                    </div>
+                                </div>
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-person-badge me-1"></i> Funcionario (propietario)
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaFuncionarioBaja"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-pc-display me-1"></i> Datos del activo
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaActivoBaja"></ul>
+                                    </div>
+                                </div>
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-header bg-light fw-semibold">
+                                        <i class="bi bi-exclamation-triangle me-1"></i> Causa y descripción
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush small" id="listaCausaBaja"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="confirmacionAlertaBaja" class="alert alert-warning mt-3 d-none" role="alert">
+                            <i class="bi bi-exclamation-triangle me-1"></i> Faltan datos obligatorios o hay formato
+                            inválido.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnConfirmarGuardarBaja">
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarBaja"
+                            role="status" aria-hidden="true"></span>
+                        <i class="bi bi-check-circle me-1"></i> Confirmar y generar PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- MODAL PARA VISUALIZAR EL PDF -->
     <div class="modal fade" id="modalVisualizarPdf" tabindex="-1">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-info text-white">
-                    <h5 class="modal-title"><i class="bi bi-file-earmark-pdf me-2"></i>Vista previa del PDF</h5>
+                    <h5 class="modal-title">
+                        <i class="bi bi-file-earmark-pdf me-2"></i>Vista previa del PDF
+                    </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0">
-                    <iframe id="iframePDF" src="" style="width: 100%; height: 600px; border: none;"></iframe>
+                    <iframe id="iframePDF" style="width: 100%; height: 600px; border: none"></iframe>
                 </div>
             </div>
         </div>
     </div>
 
-
     <div th:replace="~{layout/script :: script}"></div>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
-    <script>
-        let debounceTimers = {};
-        let campoIndex = 0;
-        let campoIndexA = 0;
-
-        function validarCampo(input, mensaje) {
-            if (!input.value.trim()) {
-                input.classList.add("is-invalid");
-                if (!input.nextElementSibling || !input.nextElementSibling.classList.contains("invalid-feedback")) {
-                    const div = document.createElement("div");
-                    div.className = "invalid-feedback";
-                    div.innerText = mensaje;
-                    input.parentNode.appendChild(div);
-                }
-            } else {
-                input.classList.remove("is-invalid");
-                if (input.nextElementSibling && input.nextElementSibling.classList.contains("invalid-feedback")) {
-                    input.nextElementSibling.remove();
-                }
-            }
-        }
-
-        $(function () {
-
-            $('input[name="unidad"], input[name="ubicacionActivo"]').autocomplete({
-                source: function (request, response) {
-                    $.ajax({
-                        url: '/api/oficinas/sugerencias',
-                        data: { termino: request.term },
-                        success: function (data) {
-                            response(data);
-                        }
-                    });
-                },
-                minLength: 2,
-                appendTo: '#formularioModalAsignacionActivo',
-                delay: 300
-            });
-
-            $('input[name="codigoFuncionario"]').on("input", function () {
-                const codigo = $(this).val();
-                if (codigo.length >= 1) {
-                    $.get("/api/responsables/datos", { codigo: codigo }, function (data) {
-                        if (data && data.ci) {
-                            $('input[name="ci"]').val(data.ci);
-                        } else {
-                            $('input[name="ci"]').val("");
-                        }
-                    });
-                }
-            });
-
-            $('input[name="unidadDestino"], input[name="unidadOrigen"], input[name="ubicacionOrigen"], input[name="ubicacionActual"]').autocomplete({
-                source: function (request, response) {
-                    $.ajax({
-                        url: '/api/oficinas/sugerencias',
-                        data: { termino: request.term },
-                        success: function (data) {
-                            response(data);
-                        }
-                    });
-                },
-                minLength: 2,
-                appendTo: '#formularioModalTranferenciaActivo',
-                delay: 300
-            });
-
-            $('input[name="unidadPropietario"]').autocomplete({
-                source: function (request, response) {
-                    $.ajax({
-                        url: '/api/oficinas/sugerencias',
-                        data: { termino: request.term },
-                        success: function (data) {
-                            response(data);
-                        }
-                    });
-                },
-                minLength: 2,
-                appendTo: '#formIngresoActivos',
-                delay: 300
-            });
-
-            $('input[name^="codigoFuncionario"]').on("input", function () {
-                const $this = $(this);
-                const codigo = $this.val();
-
-                if (codigo.length >= 1) {
-                    const tipo = $this.attr("name").replace("codigoFuncionario", "");
-                    $.get("/api/responsables/datos", { codigo: codigo }, function (data) {
-                        if (data && data.ci) {
-                            $(`input[name="ci${tipo}"]`).val(data.ci);
-                        } else {
-                            $(`input[name="ci${tipo}"]`).val("");
-                        }
-                    });
-                }
-            });
-
-            function agregarCampoCodigo() {
-                campoIndex++;
-                const nuevoCampo = `
-                    <div class="row g-3 mb-2" data-index="${campoIndex}">
-                        <!-- Código del Activo -->
-                        <div class="col-md-4">
-                            <label class="form-label">Código del Activo</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
-                                <input type="text" class="form-control codigo-input" 
-                                    name="codigoActivo[]" data-index="${campoIndex}" autocomplete="off" required>
-                                <span class="input-group-text estado-icono" id="estado-${campoIndex}">
-                                    <i class="bi"></i>
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Ubicación de Origen y N° de Oficina -->
-                        <div class="col-md-4">
-                            <label class="form-label">Ubicación de Origen y N° de Oficina</label>
-                            <input type="text" class="form-control" name="ubicacionOrigen[]" autocomplete="off" required>
-                        </div>
-
-                        <!-- Ubicación Actual y N° de Oficina -->
-                        <div class="col-md-4">
-                            <label class="form-label">Ubicación Actual y N° de Oficina</label>
-                            <input type="text" class="form-control" name="ubicacionActual[]" autocomplete="off" required>
-                        </div>
-                    </div>`;
-                // Agregar al DOM
-                $('#codigoActivoContainer').append(nuevoCampo);
-
-                // Aplicar autocomplete a los nuevos inputs
-                $('#codigoActivoContainer input[name="ubicacionOrigen[]"]').last().autocomplete({
-                    source: function (request, response) {
-                        $.ajax({
-                            url: '/api/oficinas/sugerencias',
-                            data: { termino: request.term },
-                            success: function (data) {
-                                response(data);
-                            }
-                        });
-                    },
-                    minLength: 2,
-                    appendTo: '#formularioModalTranferenciaActivo',
-                    delay: 300
-                });
-
-                $('#codigoActivoContainer input[name="ubicacionActual[]"]').last().autocomplete({
-                    source: function (request, response) {
-                        $.ajax({
-                            url: '/api/oficinas/sugerencias',
-                            data: { termino: request.term },
-                            success: function (data) {
-                                response(data);
-                            }
-                        });
-                    },
-                    minLength: 2,
-                    appendTo: '#formularioModalTranferenciaActivo',
-                    delay: 300
-                });
-            }
-
-            $(document).ready(function () {
-                agregarCampoCodigo();
-
-                $('#agregarCodigoBtn').on('click', function () {
-                    agregarCampoCodigo();
-                });
-
-                $('#codigoActivoContainer').on('input', '.codigo-input', function () {
-                    const $input = $(this);
-                    const index = $input.data('index');
-                    const codigo = $input.val().trim();
-
-                    clearTimeout(debounceTimers[index]);
-                    debounceTimers[index] = setTimeout(function () {
-                        if (codigo.length >= 14) {
-                            $.get("/api/buscar-activo", { codigo: codigo }, function (data) {
-                                mostrarEstado(index, true);
-                            }).fail(() => {
-                                mostrarEstado(index, false);
-                            });
-                        } else {
-                            mostrarEstado(index, null);
-                        }
-                    }, 500);
-                });
-
-                function mostrarEstado(index, encontrado) {
-                    const $icono = $(`#estado-${index} i`);
-                    if (encontrado === true) {
-                        $icono.removeClass().addClass('bi bi-check-circle-fill text-success');
-                    } else if (encontrado === false) {
-                        $icono.removeClass().addClass('bi bi-x-circle-fill text-danger');
-                    } else {
-                        $icono.removeClass();
-                    }
-                }
-            });
-
-            /* agregar activo ajeno*/
-
-            function agregarCampoActivoAjeno() {
-                campoIndexA++;
-                const nuevoCampoA = `
-                    <div class="row g-3 mb-2" data-index="${campoIndexA}">
-                        <!-- Código del Activo -->
-                        <div class="col-md-8">
-                            <label class="form-label">Descripción del activo (Tipo, Marca, Modelo, Color, etx)</label>
-                            <input type="text" class="form-control codigo-input" name="descripcionActivo[]" data-index="${campoIndexA}" autocomplete="off" required oninput="this.value = this.value.toUpperCase()">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Estado</label>
-                            <select class="form-control" name="estadoActivoAjeno[]" required>
-                                <option value="" selected disabled>Seleccione...</option>
-                                <option value="BUENO">BUENO</option>
-                                <option value="REGULAR">REGULAR</option>
-                            </select>
-                        </div>
-                        <!-- Botón Quitar -->
-                        <div class="col-md-2">
-                            <button type="button" class="btn btn-sm btn-outline-danger quitar-activo-btn w-100" data-index="${campoIndexA}">
-                                <i class="bi bi-trash"></i> Quitar
-                            </button>
-                        </div>
-                    </div>`;
-                // Agregar al DOM
-                $('#agregarActivoAjenoContainer').append(nuevoCampoA);
-            }
-
-            $(document).ready(function () {
-                agregarCampoActivoAjeno();
-
-                $('#agregarActivoAjenoBtn').on('click', function () {
-                    agregarCampoActivoAjeno();
-                });
-                // Evento para quitar campos
-                $(document).on('click', '.quitar-activo-btn', function() {
-                    const index = $(this).data('index');
-                    const $fieldGroup = $(`[data-index="${index}"]`);
-                    
-                    // Solo permitir eliminar si no es el último grupo
-                    if ($('#agregarActivoAjenoContainer').children().length > 1) {
-                        $fieldGroup.remove();
-                    } else {
-                        // Si es el último, solo limpiar los campos
-                        $fieldGroup.find('input').val('');
-                        $fieldGroup.find('select').val('');
-                        alert("Debe haber al menos un activo registrado. Los campos han sido limpiados.");
-                    }
-                });
-            });
-        });
-
-        document.addEventListener("DOMContentLoaded", () => {
-            const campos = [
-                { name: "unidad", mensaje: "La unidad es obligatoria" },
-                { name: "codigoFuncionario", mensaje: "El código de funcionario es obligatorio" },
-                { name: "ci", mensaje: "El C.I. es obligatorio" },
-                { name: "ubicacionActivo", mensaje: "La ubicación es obligatoria" },
-                { name: "descripcionActivo", mensaje: "La descripción del activo es obligatoria" }
-            ];
-
-            campos.forEach(({ name, mensaje }) => {
-                const input = document.querySelector(`input[name="${name}"]`);
-                input.addEventListener("input", () => validarCampo(input, mensaje));
-            });
-
-            document.getElementById('btnPreGuardar').addEventListener('click', function () {
-                let esValido = true;
-                campos.forEach(({ name, mensaje }) => {
-                    const input = document.querySelector(`input[name="${name}"]`);
-                    validarCampo(input, mensaje);
-                    if (!input.value.trim()) {
-                        esValido = false;
-                    }
-                });
-
-                if (!esValido) {
-                    return;
-                }
-
-                const form = document.getElementById('formResponsable');
-                const codigoFuncionario = form.codigoFuncionario.value;
-                const ci = form.ci.value;
-                const unidad = form.unidad.value;
-                const hr = form.hr.value;
-                const ubicacionActivo = form.ubicacionActivo.value;
-                const descripcionActivo = form.descripcionActivo.value;
-                const requestBody = {
-                    usuario: codigoFuncionario,
-                    contrasena: ci
-                };
-                fetch("http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "key": "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10"
-                    },
-                    body: JSON.stringify(requestBody)
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        let html = `
-                        <p><strong>Nombre:</strong> ${data.per_nombres} ${data.per_ap_paterno} ${data.per_ap_materno}</p>
-                        <p><strong>CI:</strong> ${data.per_num_doc}</p>
-                        <p><strong>Email:</strong> ${data.perd_email_personal}</p>
-                        <p><strong>Género:</strong> ${data.per_sexo}</p>
-                        <p><strong>Oficina:</strong> ${data.eo_descripcion}</p>
-                        <p><strong>Cargo:</strong> ${data.p_descripcion}</p>
-                        <hr/>
-                        <p><strong>Unidad:</strong> ${hr}</p>
-                        <p><strong>Unidad:</strong> ${unidad}</p>
-                        <p><strong>Ubicación del Activo:</strong> ${ubicacionActivo}</p>
-                        <p><strong>Descripción del Activo:</strong> ${descripcionActivo}</p>
-                    `;
-                        document.getElementById('contenidoConfirmacion').innerHTML = html;
-                        new bootstrap.Modal(document.getElementById('modalConfirmacionDatos')).show();
-                    })
-                    .catch(error => {
-                        alert("Error consultando los datos del funcionario.");
-                        console.error(error);
-                    });
-            });
-
-            document.getElementById("btnConfirmarGuardar").addEventListener("click", function () {
-                const form = document.getElementById("formResponsable");
-                const formData = new FormData(form);
-                fetch("/asignacion/asignar-activo-nuevo", {
-                    method: "POST",
-                    body: formData
-                })
-                    .then(response => {
-                        if (!response.ok) throw new Error("Error generando PDF");
-                        return response.blob();
-                    })
-                    .then(blob => {
-                        const url = URL.createObjectURL(blob);
-                        document.getElementById("iframePDF").src = url;
-                        const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
-                        pdfModal.show();
-                        const confirmModal = bootstrap.Modal.getInstance(document.getElementById("modalConfirmacionDatos"));
-                        confirmModal.hide();
-                    })
-                    .catch(error => {
-                        alert("Ocurrió un error: " + error.message);
-                    });
-            });
-        });
-
-        document.getElementById("btnVerificarDatos").addEventListener("click", function () {
-            const form = document.getElementById("formTransferencia");
-            const formData = new FormData(form);
-            fetch("/trasnferencia/buscar-registrar", {
-                method: "POST",
-                body: formData
-            })
-                .then(response => {
-                    if (!response.ok) throw new Error("Error generando PDF");
-                    return response.blob();
-                })
-                .then(blob => {
-                    const url = URL.createObjectURL(blob);
-                    document.getElementById("iframePDF").src = url;
-                    const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
-                    pdfModal.show();
-                    const confirmModal = bootstrap.Modal.getInstance(document.getElementById("formularioModalTranferenciaActivo"));
-                    confirmModal.hide();
-                })
-                .catch(error => {
-                    alert("Ocurrió un error: " + error.message);
-                });
-        });
-
-        // INGRRESO ACTIVO AJENO
-
-        document.getElementById("btnVerificarDatosIngreso").addEventListener("click", function () {
-            const form = document.getElementById("formIngresoActivos");
-            const formData = new FormData(form);
-            fetch("/ingreso/registrar", {
-                method: "POST",
-                body: formData
-            })
-                .then(response => {
-                    if (!response.ok) throw new Error("Error generando PDF");
-                    return response.blob();
-                })
-                .then(blob => {
-                    const url = URL.createObjectURL(blob);
-                    document.getElementById("iframePDF").src = url;
-                    const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
-                    pdfModal.show();
-                    const confirmModal = bootstrap.Modal.getInstance(document.getElementById("formularioModalIngresoActivoAjeno"));
-                    confirmModal.hide();
-                })
-                .catch(error => {
-                    alert("Ocurrió un error: " + error.message);
-                });
-        });
-
-        // BAJA ACTIVO
-
-        document.getElementById("btnConfirmarBaja").addEventListener("click", function () {
-            const form = document.getElementById("formBajaActivos");
-            const formData = new FormData(form);
-            fetch("/baja/registro", {
-                method: "POST",
-                body: formData
-            })
-                .then(response => {
-                    if (!response.ok) throw new Error("Error generando PDF");
-                    return response.blob();
-                })
-                .then(blob => {
-                    const url = URL.createObjectURL(blob);
-                    document.getElementById("iframePDF").src = url;
-                    const pdfModal = new bootstrap.Modal(document.getElementById("modalVisualizarPdf"));
-                    pdfModal.show();
-                    const confirmModal = bootstrap.Modal.getInstance(document.getElementById("formBajaActivos"));
-                    confirmModal.hide();
-                })
-                .catch(error => {
-                    alert("Ocurrió un error: " + error.message);
-                });
-        });
-
-
-        
-    </script>
 
 </body>
 
