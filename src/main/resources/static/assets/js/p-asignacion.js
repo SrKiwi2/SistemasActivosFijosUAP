@@ -30,13 +30,13 @@ document.addEventListener("DOMContentLoaded", () => {
         return payload;
     };
 
-    // Refs
+    // ---------- Refs ----------
     const form = document.getElementById("formResponsable");
     const btnPreGuardar = document.getElementById("btnPreGuardar");
 
     // Modales
     const modalAsignacionEl = document.getElementById("formularioModalAsignacionActivo"); // modal origen
-    const modalConfirmacionEl = document.getElementById("modalConfirmacionDatos");        // modal confirmación
+    const modalConfirmacionEl = document.getElementById("modalConfirmacionDatos");          // modal confirmación
 
     // Contenido modal confirmación
     const confirmacionLoading = document.getElementById("confirmacionLoading");
@@ -65,8 +65,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const el = ensureFormAlert();
         el.className = `alert alert-${type} d-flex align-items-center`;
         el.innerHTML = `
-            <i class="bi bi-exclamation-triangle me-2"></i>
-            <div>${esc(msg)}</div>`;
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        <div>${esc(msg)}</div>`;
         el.classList.remove("d-none");
     }
 
@@ -85,8 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function ocultarAsignacionYAbrirConfirmacion(cb) {
-        const inst =
-            bootstrap.Modal.getInstance(modalAsignacionEl) || new bootstrap.Modal(modalAsignacionEl);
+        const inst = bootstrap.Modal.getInstance(modalAsignacionEl) || new bootstrap.Modal(modalAsignacionEl);
         if (modalAsignacionEl && modalAsignacionEl.classList.contains("show")) {
             const onHidden = () => {
                 modalAsignacionEl.removeEventListener("hidden.bs.modal", onHidden);
@@ -112,6 +111,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function clearInvalid() {
         form.querySelectorAll(".is-invalid").forEach((n) => n.classList.remove("is-invalid"));
+    }
+
+    // ---------- Limpieza post-confirmación (NUEVO) ----------
+    function resetValidaciones() {
+        form.querySelectorAll(".is-valid, .is-invalid").forEach(el => {
+            el.classList.remove("is-valid", "is-invalid");
+        });
+        const al = document.getElementById("alertaAsignacionForm");
+        if (al) al.classList.add("d-none");
+    }
+
+    function resetResumenConfirmacion() {
+        if (listaResponsable) listaResponsable.innerHTML = "";
+        if (listaAsignacion) listaAsignacion.innerHTML = "";
+        // Deja el estado listo para próxima vez
+        if (confirmacionLoading && contenidoConfirmacion) {
+            confirmacionLoading.classList.add("d-none");
+            contenidoConfirmacion.classList.remove("d-none");
+        }
+    }
+
+    function resetFormularioAsignacion() {
+        form?.reset();
+        resetValidaciones();
+    }
+
+    function cerrarModalesOrigen() {
+        const instConfirm = bootstrap.Modal.getInstance(modalConfirmacionEl);
+        instConfirm?.hide();
+        const instAsign = bootstrap.Modal.getInstance(modalAsignacionEl);
+        instAsign?.hide();
+    }
+
+    function limpiarTodoPostConfirmacion() {
+        resetResumenConfirmacion();
+        resetFormularioAsignacion();
+        cerrarModalesOrigen();
     }
 
     // ---------- Validación live ----------
@@ -156,18 +192,15 @@ document.addEventListener("DOMContentLoaded", () => {
         listaResponsable.innerHTML = `
             <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person"></i> Nombre</span><span class="fw-semibold">${nv(d.per_nombres)} ${nv(d.per_ap_paterno)} ${nv(d.per_ap_materno)}</span></li>
             <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-credit-card-2-front"></i> CI</span><span class="fw-semibold">${nv(d.per_num_doc)}</span></li>
-            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-envelope"></i> Email</span><span class="fw-semibold">${nv(d.perd_email_personal)}</span></li>
-            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-building"></i> Oficina</span><span class="fw-semibold">${nv(d.eo_descripcion)}</span></li>
-            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-briefcase"></i> Cargo</span><span class="fw-semibold">${nv(d.p_descripcion)}</span></li>
             <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-person-badge"></i> Código funcionario (ingresado)</span><span class="fw-semibold">${nv(formVals.codigoFuncionario)}</span></li>
+            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-building"></i> Dependencia</span><span class="fw-semibold">${nv(d.eo_descripcion)}</span></li>
+            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-briefcase"></i> Cargo</span><span class="fw-semibold">${nv(d.p_descripcion)}</span></li>
         `;
 
         listaAsignacion.innerHTML = `
             <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-hash"></i> Nº H.R.</span><span class="fw-semibold">${nv(formVals.hr)}</span></li>
-            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-diagram-3"></i> Unidad</span><span class="fw-semibold">${nv(formVals.unidad)}</span></li>
             <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-geo-alt"></i> Ubicación del activo</span><span class="fw-semibold">${nv(formVals.ubicacionActivo)}</span></li>
             <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-info-circle"></i> Descripción del activo</span><span class="fw-semibold">${nv(formVals.descripcionActivo)}</span></li>
-            <li class="list-group-item d-flex justify-content-between"><span><i class="bi bi-card-text"></i> CI (ingresado)</span><span class="fw-semibold">${nv(formVals.ci)}</span></li>
         `;
     }
 
@@ -219,10 +252,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (!res.ok) {
                 const t = await res.text().catch(() => "");
-                // Error de API
-                showFormAlert(
-                    `No se pudo consultar la API del funcionario. (${res.status}) ${t || ""}`
-                );
+                showFormAlert(`No se pudo consultar la API del funcionario. (${res.status}) ${t || ""}`);
                 markInvalid(["codigoFuncionario", "ci"]);
                 return;
             }
@@ -230,11 +260,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await res.json().catch(() => ({}));
             const persona = takePersonaShape(data);
 
-            // ¿Hay datos de persona?
             if (!persona || Object.keys(persona).length === 0) {
-                showFormAlert(
-                    "No se encontró al funcionario con el Código y C.I. ingresados. Verifica los datos e inténtalo nuevamente."
-                );
+                showFormAlert("No se encontró al funcionario con el Código y C.I. ingresados. Verifica los datos e inténtalo nuevamente.");
                 markInvalid(["codigoFuncionario", "ci"]);
                 return;
             }
@@ -246,10 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 setLoadingModal(false);
             });
         } catch (err) {
-            // Error de red / fetch
-            showFormAlert(
-                "No fue posible consultar los datos del funcionario. Revisa tu conexión e inténtalo nuevamente."
-            );
+            showFormAlert("No fue posible consultar los datos del funcionario. Revisa tu conexión e inténtalo nuevamente.");
             markInvalid(["codigoFuncionario", "ci"]);
             console.error(err);
         } finally {
@@ -273,19 +297,25 @@ document.addEventListener("DOMContentLoaded", () => {
                 return response.blob();
             })
             .then((blob) => {
+                // Mostrar PDF
                 const url = URL.createObjectURL(blob);
                 document.getElementById("iframePDF").src = url;
 
-                const pdfModal = new bootstrap.Modal(
-                    document.getElementById("modalVisualizarPdf")
-                );
+                const pdfModalEl = document.getElementById("modalVisualizarPdf");
+                const pdfModal = new bootstrap.Modal(pdfModalEl);
                 pdfModal.show();
 
-                const confirmModal = bootstrap.Modal.getInstance(modalConfirmacionEl);
-                confirmModal?.hide();
+                // 🔹 Limpieza completa (form + validaciones + listas + cerrar modales origen)
+                limpiarTodoPostConfirmacion();
+
+                // (opcional) devolver foco cuando cierren el PDF
+                pdfModalEl.addEventListener("hidden.bs.modal", () => {
+                    (document.querySelector('[data-bs-target="#formularioModalAsignacionActivo"]') || document.body).focus();
+                }, { once: true });
             })
             .catch((err) => {
                 alert("Ocurrió un error: " + err.message);
+                // en error NO limpiamos, para permitir corregir y reintentar
             })
             .finally(() => {
                 btnConfirmarGuardar.disabled = false;

@@ -28,6 +28,7 @@ public class Persona extends AuditoriaConfig{
     private String paterno;
     private String materno;
     private String ci;
+    private String extension;
     private String correo;
 
     @ManyToOne(fetch = FetchType.LAZY)

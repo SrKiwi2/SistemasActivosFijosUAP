@@ -109,17 +109,22 @@
             </ul>
         </li>
         <li class="menu-header small text-uppercase" th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
-            <span class="menu-header-text">REPORTES</span>
+            <span class="menu-header-text">GESTION</span>
         </li>
         <li class="menu-item" id="opcion_admin" th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
             <a href="#" class="menu-link menu-toggle">
                 <i class="menu-icon tf-icons ti ti-users"></i>
-                <div>Reportes</div>
+                <div>Seguimientos</div>
             </a>
             <ul class="menu-sub">
+                <li class="menu-item" id="opcion_aan">
+                    <a class="menu-link">
+                        <div>asignacion activos nuevos</div>
+                    </a>
+                </li>
                 <li class="menu-item" id="opcion_iaa">
                     <a class="menu-link">
-                        <div>ingreso Activos Ajenos</div>
+                        <div>Ingreso activos ajenos</div>
                     </a>
                 </li>
             </ul>

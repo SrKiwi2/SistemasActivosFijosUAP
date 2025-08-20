@@ -1,4 +1,4 @@
-package com.usic.SistemasActivosFijosUAP.controller.activo_ajenos;
+package com.usic.SistemasActivosFijosUAP.controller.gestion;
 
 import java.util.List;
 
@@ -15,12 +15,16 @@ import com.usic.SistemasActivosFijosUAP.model.entity.IngresoActivoAjeno;
 import lombok.RequiredArgsConstructor;
 
 @Controller
-@RequestMapping("/reporte")
+@RequestMapping("/seguimiento-activo")
 @RequiredArgsConstructor
-public class activoAjenoController {
+public class SeguimientoController {
 
     private final IngresoActivoAjenoService ingresoActivoAjenoService;
 
+    //ASIGNACION ACTIVOS NUEVOS
+
+
+    //INGRESO ACTIVO AJENOS
     @ValidarUsuarioAutenticado
     @GetMapping("/vista_ingreso_ajeno")
     public String inicio_ingresos_ajenos() {

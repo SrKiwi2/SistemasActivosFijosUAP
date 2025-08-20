@@ -16,6 +16,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoConsultaDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.ActivoResponsableDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.OficinaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResponsableDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
@@ -97,6 +98,27 @@ public class CatalogoRestController {
                         (oficinaTexto == null || oficinaTexto.isBlank()) ? oficinaNombre : oficinaTexto
                     )
                 );
+            })
+            .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/buscar-activo-responsable")
+    public ResponseEntity<ActivoResponsableDTO> obtenerConResponsable(@RequestParam String codigo) {
+        return activoService.findByCodigo(codigo)
+            .map(a -> {
+                String oficinaNombre = a.getOficina() != null ? a.getOficina().getNombre() : null;
+                String responsableNombre = a.getResponsable() != null
+                        ? a.getResponsable().getPersona().getNombreCompleto()
+                        : "Sin responsable asignado";
+
+                return ResponseEntity.ok(new ActivoResponsableDTO(
+                        a.getCodigo(),
+                        a.getDescripcion(),
+                        a.getOficina() != null ? a.getOficina().getIdOficina() : null,
+                        oficinaNombre,
+                        responsableNombre,
+                        a.getResponsable() != null ? a.getResponsable().getIdResponsable() : null
+                ));
             })
             .orElseGet(() -> ResponseEntity.notFound().build());
     }

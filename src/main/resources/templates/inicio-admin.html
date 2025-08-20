@@ -77,6 +77,10 @@
                                                 data-bs-target="#formularioModalBajaActivo">
                                                 <i class="bi bi-eye-fill"></i> Baja de Activos
                                             </button>
+                                            <button id="btnScanPhoto" class="btn btn-lg-custom btn-secondary">
+                                                <i class="bi bi-camera"></i> Escanear QR (foto)
+                                            </button>
+                                            <input id="qrFile" type="file" accept="image/*" capture="environment" class="d-none">
                                         </div>
                                         <div class="container-fluid mt-5 px-0">
                                             <div id="informacionActivosFijos"></div>
@@ -86,13 +90,112 @@
                                 </div>
                             </div>
                         </div>
+                        <div th:if="${session.responsable == null}">
+                            <div class="alert alert-warning mt-3" role="alert">
+                                No tiene ninguna oficina asignada como responsable.
+                            </div>
+                        </div>
                     </div>
-
-                    <footer th:replace="~{layout/footer :: footer}"></footer>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="ti ti-x me-1"></i> Cerrar
+                    </button>
                 </div>
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="modalQrResultado" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+                <div class="modal-header bg-dark text-white">
+                    
+                    <h5 class="modal-title" style="color: #fff;"><i class="bi bi-qr-code me-2" style="color: #fff;"></i> Resultado del QR</h5>
+
+                    <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <label class="fw-semibold small text-muted">Contenido crudo</label>
+                    <pre id="qrRawModal" class="p-2 bg-light rounded border"
+                        style="white-space: pre-wrap; word-break: break-word; font-size:.95rem;"></pre>
+
+                    <label class="fw-semibold small text-muted mt-3 d-block">Responsable</label>
+                    <div id="qrParsedModal" class="small"></div>
+                </div>
+
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-sm btn-light" id="btnCopiarQr">
+                        <i class="bi bi-clipboard-check"></i> Copiar
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalQrError" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-warning text-white">
+                    <h5 class="modal-title" style="color: #fff;">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> No se pudo leer el QR
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="qrErrorMsg" class="mb-2">El QR está borroso o no es válido.</p>
+                    <ul class="small text-muted mb-0">
+                        <li>Mejora la luz y evita reflejos.</li>
+                        <li>Acerca/aleja un poco la cámara.</li>
+                        <li>Mantén el QR dentro del encuadre.</li>
+                    </ul>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" id="btnQrRetry" class="btn btn-primary" data-autofocus>
+                        <i class="bi bi-camera"></i>Reintentar
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalConfirmLogout" tabindex="-1" aria-labelledby="modalConfirmLogoutLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="modalConfirmLogoutLabel" style="color: aliceblue;">
+                        <i class="ti ti-alert-triangle me-2" style="color: aliceblue;"></i>Confirmar cierre de sesión
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body text-center">
+                    <p class="mb-3">¿Estás seguro de que deseas cerrar sesión?</p>
+                    <i class="ti ti-logout" style="font-size: 3rem; color: #dc3545;"></i>
+                </div>
+
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="ti ti-x me-1"></i> Cancelar
+                    </button>
+                    <a href="/cerrar_sesion" class="btn btn-danger">
+                        <i class="ti ti-logout me-1"></i> Sí, cerrar sesión
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal -->
     <div class="modal fade" id="formularioModalAsignacionActivo" tabindex="-1" aria-labelledby="formularioModalLabel"
         data-bs-focus="false">
@@ -196,8 +299,8 @@
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title fw-bold" id="modalConfirmacionDatosLabel">
-                        <i class="bi bi-person-lines-fill me-2"></i> Confirmar datos del responsable
+                    <h5 class="modal-title fw-bold" id="modalConfirmacionDatosLabel" style="color: #fff;">
+                        <i class="bi bi-person-lines-fill me-2" style="color: #fff;"></i> CONFIRMAR DATOS
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
@@ -206,6 +309,12 @@
                         <div class="spinner-border" role="status" aria-hidden="true"></div>
                         <p class="mt-2 mb-0">Consultando datos…</p>
                     </div>
+                    <h6 class="fw-bold text-danger bg-light p-3 rounded-2 text-center border border-danger">
+                        <i class="bi bi-exclamation-octagon-fill me-2"></i>
+                        Verifique cuidadosamente los datos ingresados antes de confirmar.  
+                        Una vez aprobados, la asignación será enviada a la Seccion de Activos Fijos para su registro y seguimiento, 
+                        contando con la conformidad del responsable asignado y la aprobación de su inmediato superior.
+                    </h6>                    
                     <div id="contenidoConfirmacion" class="fs-6 d-none">
                         <div class="row g-3">
                             <div class="col-12 col-lg-6">

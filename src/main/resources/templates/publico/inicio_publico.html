@@ -114,50 +114,61 @@
             <div class="container">
                 <div class="content-wrapper">
                     <div class="card animated-card position-relative p-0 mb-4 overflow-hidden shadow-sm border-0"
-                    style="min-height: 200px; border-radius: 14px; background: linear-gradient(135deg, rgba(30,58,138,0.06), rgba(185,28,28,0.06));">
-                    
-                    <!-- Logos (desktop) -->
-                    <div class="position-absolute top-0 start-0 p-4 d-none d-sm-block">
-                        <img src="../../assets/img/logo/activofijos.png" alt="UAP" height="90" class="logo-hover" />
-                    </div>
-                    <div class="position-absolute top-0 end-0 p-4 d-none d-sm-block">
-                        <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="100" class="logo-hover" />
-                    </div>
+                        style="min-height: 200px; border-radius: 14px; background: linear-gradient(135deg, rgba(30,58,138,0.06), rgba(185,28,28,0.06));">
 
-                    <!-- Contenido central -->
-                    <div class="card-body d-flex flex-column justify-content-center align-items-center text-center py-5 px-3">
-                        <!-- Logos en móvil -->
-                        <div class="d-block d-sm-none text-center pb-3">
-                            <img src="../../assets/img/logo/activofijos.png" alt="UAP" height="60" class="logo-hover mx-1" />
-                            <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="65" class="logo-hover mx-1" />
+                        <!-- Logos (desktop) -->
+                        <div class="position-absolute top-0 start-0 p-4 d-none d-sm-block">
+                            <img src="../../assets/img/logo/activofijos.png" alt="UAP" height="90" class="logo-hover" />
                         </div>
-                        <!-- Nombre del sistema dinámico -->
-                        <h1 class="titulo-sistema mb-2 text-uppercase">
-                            SAYOVE <span class="version">2.0</span>
-                        </h1>
+                        <div class="position-absolute top-0 end-0 p-4 d-none d-sm-block">
+                            <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="100" class="logo-hover" />
+                        </div>
 
-                        <p class="slogan mb-0 fst-italic d-sm-block">
-                            Escribiendo una nueva historia con vos...
-                        </p>
-                        
+                        <!-- Contenido central -->
+                        <div
+                            class="card-body d-flex flex-column justify-content-center align-items-center text-center py-5 px-3">
+                            <!-- Logos en móvil -->
+                            <div class="d-block d-sm-none text-center pb-3">
+                                <img src="../../assets/img/logo/activofijos.png" alt="UAP" height="60"
+                                    class="logo-hover mx-1" />
+                                <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="65"
+                                    class="logo-hover mx-1" />
+                            </div>
+                            <!-- Nombre del sistema dinámico -->
+                            <h1 class="titulo-sistema mb-2 text-uppercase">
+                                SAYOVE <span class="version">2.0</span>
+                            </h1>
+
+                            <p class="slogan mb-0 fst-italic d-sm-block">
+                                Escribiendo una nueva historia con vos...
+                            </p>
+
+                        </div>
+
                     </div>
-
-                </div>
 
                     <!-- Sección de botones -->
                     <div class="btn-section">
-                        <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal" data-bs-target="#formularioModalAsignacionActivo">
+                        <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal"
+                            data-bs-target="#formularioModalAsignacionActivo">
                             <i class="bi bi-plus-circle-fill"></i> Registrar Asignación
                         </button>
-                        <button class="btn btn-lg-custom btn-reporte" data-bs-toggle="modal" data-bs-target="#formularioModalTranferenciaActivo">
+                        <button class="btn btn-lg-custom btn-reporte" data-bs-toggle="modal"
+                            data-bs-target="#formularioModalTranferenciaActivo">
                             <i class="bi bi-file-earmark-bar-graph-fill"></i> Transferencia de Activos
                         </button>
-                        <button class="btn btn-lg-custom btn-importar" data-bs-toggle="modal" data-bs-target="#formularioModalIngresoActivoAjeno">
+                        <button class="btn btn-lg-custom btn-importar" data-bs-toggle="modal"
+                            data-bs-target="#formularioModalIngresoActivoAjeno">
                             <i class="bi bi-file-earmark-arrow-up-fill"></i> Ingreso de Bienes Ajenos
                         </button>
-                        <button class="btn btn-lg-custom btn-visualizar" data-bs-toggle="modal" data-bs-target="#formularioModalBajaActivo">
+                        <button class="btn btn-lg-custom btn-visualizar" data-bs-toggle="modal"
+                            data-bs-target="#formularioModalBajaActivo">
                             <i class="bi bi-eye-fill"></i> Baja de Activos
                         </button>
+                        <button id="btnScanPhoto" class="btn btn-lg-custom btn-secondary">
+                            <i class="bi bi-camera"></i> Escanear QR (foto)
+                        </button>
+                        <input id="qrFile" type="file" accept="image/*" capture="environment" class="d-none">
                     </div>
                     <div class="container-fluid mt-5 px-0">
                         <div id="informacionActivosFijos"></div>
@@ -168,8 +179,72 @@
         </div>
     </div>
 
+    <div class="modal fade" id="modalQrResultado" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+                <div class="modal-header bg-dark text-white">
+                    
+                    <h5 class="modal-title" style="color: #fff;"><i class="bi bi-qr-code me-2" style="color: #fff;"></i> Resultado del QR</h5>
+
+                    <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <label class="fw-semibold small text-muted">Contenido crudo</label>
+                    <pre id="qrRawModal" class="p-2 bg-light rounded border"
+                        style="white-space: pre-wrap; word-break: break-word; font-size:.95rem;"></pre>
+
+                    <label class="fw-semibold small text-muted mt-3 d-block">Responsable</label>
+                    <div id="qrParsedModal" class="small"></div>
+                </div>
+
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-sm btn-light" id="btnCopiarQr">
+                        <i class="bi bi-clipboard-check"></i> Copiar
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalQrError" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-warning text-white">
+                    <h5 class="modal-title" style="color: #fff;">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> No se pudo leer el QR
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="qrErrorMsg" class="mb-2">El QR está borroso o no es válido.</p>
+                    <ul class="small text-muted mb-0">
+                        <li>Mejora la luz y evita reflejos.</li>
+                        <li>Acerca/aleja un poco la cámara.</li>
+                        <li>Mantén el QR dentro del encuadre.</li>
+                    </ul>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" id="btnQrRetry" class="btn btn-primary" data-autofocus>
+                        <i class="bi bi-camera"></i>Reintentar
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
     <!-- ASIGNAR ACTIVO NUEVO -->
-    <div class="modal fade" id="formularioModalAsignacionActivo" tabindex="-1" aria-labelledby="formularioModalLabel" data-bs-focus="false">
+    <div class="modal fade" id="formularioModalAsignacionActivo" tabindex="-1" aria-labelledby="formularioModalLabel"
+        data-bs-focus="false">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <form id="formResponsable" autocomplete="off">
                 <div class="modal-content border-0 shadow-lg rounded-3">
@@ -177,7 +252,8 @@
                         <h5 class="modal-title fw-bold" style="color: #fff;">
                             <i class="bi bi-box-arrow-in-down me-2" style="color: #fff;"></i> Asignar Activo
                         </h5>
-                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close btn-close-white shadow-none"
+                            data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <div class="row g-3">
@@ -187,7 +263,8 @@
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-building"></i></span>
-                                    <input type="text" class="form-control" style="text-transform: uppercase;" name="unidad" placeholder="Ej: Unidad de Sistemas..." required>
+                                    <input type="text" class="form-control" style="text-transform: uppercase;"
+                                        name="unidad" placeholder="Ej: Unidad de Sistemas..." required>
                                 </div>
                                 <small class="text-muted">Indique el nombre de la unidad o sección responsable.</small>
                             </div>
@@ -197,7 +274,8 @@
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
-                                    <input type="text" class="form-control" name="codigoFuncionario" placeholder="Ej: 1234" required>
+                                    <input type="text" class="form-control" name="codigoFuncionario"
+                                        placeholder="Ej: 1234" required>
                                 </div>
                                 <small class="text-muted">Ingrese el código único asignado al funcionario.</small>
                             </div>
@@ -206,8 +284,10 @@
                                     <i class="bi bi-card-text me-1 text-primary"></i> Cédula de Identidad
                                 </label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light"><i class="bi bi-credit-card-2-front"></i></span>
-                                    <input type="text" class="form-control" name="ci" placeholder="Ej: 12345678" required>
+                                    <span class="input-group-text bg-light"><i
+                                            class="bi bi-credit-card-2-front"></i></span>
+                                    <input type="text" class="form-control" name="ci" placeholder="Ej: 12345678"
+                                        required>
                                 </div>
                                 <small class="text-muted">Ingrese el número de cédula con extensión.</small>
                             </div>
@@ -216,7 +296,8 @@
                                     <i class="bi bi-file-earmark-text me-1 text-primary"></i> Nº H.R.
                                 </label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light"><i class="bi bi-file-earmark-text"></i></span>
+                                    <span class="input-group-text bg-light"><i
+                                            class="bi bi-file-earmark-text"></i></span>
                                     <input type="text" class="form-control" name="hr" placeholder="Ej: 1234" required>
                                 </div>
                                 <small class="text-muted">Número del Hoja de Ruta correspondiente.</small>
@@ -227,7 +308,8 @@
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-geo-alt"></i></span>
-                                    <input type="text" class="form-control" style="text-transform: uppercase;" name="ubicacionActivo" placeholder="Ej: SISU - ADMINISTRACIÓN" required>
+                                    <input type="text" class="form-control" style="text-transform: uppercase;"
+                                        name="ubicacionActivo" placeholder="Ej: SISU - ADMINISTRACIÓN" required>
                                 </div>
                                 <small class="text-muted">Indique la ubicación física exacta del activo.</small>
                             </div>
@@ -237,7 +319,9 @@
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-info-circle"></i></span>
-                                    <input type="text" class="form-control" style="text-transform: uppercase;" name="descripcionActivo" placeholder="Ej: Computadora portátil Dell Latitude 3420" required>
+                                    <input type="text" class="form-control" style="text-transform: uppercase;"
+                                        name="descripcionActivo"
+                                        placeholder="Ej: Computadora portátil Dell Latitude 3420" required>
                                 </div>
                                 <small class="text-muted">Proporcione una breve descripción del activo.</small>
                             </div>
@@ -256,7 +340,8 @@
         </div>
     </div>
 
-    <div class="modal fade" id="modalConfirmacionDatos" tabindex="-1" aria-labelledby="modalConfirmacionDatosLabel" aria-hidden="true">
+    <div class="modal fade" id="modalConfirmacionDatos" tabindex="-1" aria-labelledby="modalConfirmacionDatosLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-warning text-dark">
@@ -305,7 +390,8 @@
                         <i class="bi bi-x-circle me-1"></i> Cancelar
                     </button>
                     <button id="btnConfirmarGuardar" class="btn btn-success">
-                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmar" role="status" aria-hidden="true"></span>
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmar" role="status"
+                            aria-hidden="true"></span>
                         <i class="bi bi-check-circle-fill me-1"></i> Confirmar y generar PDF
                     </button>
                 </div>
@@ -315,7 +401,8 @@
     <!-- FIN ASIGNAR ACTIVO NUEVO -->
 
     <!-- TRANSFERENCIA ACTIVO -->
-    <div class="modal fade" id="formularioModalTranferenciaActivo" tabindex="-1" aria-labelledby="formularioModalTransferenciaLabel" aria-hidden="true">
+    <div class="modal fade" id="formularioModalTranferenciaActivo" tabindex="-1"
+        aria-labelledby="formularioModalTransferenciaLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <form id="formTransferencia" autocomplete="off" class="w-100">
                 <div class="modal-content border-0 shadow-lg rounded-3">
@@ -323,7 +410,8 @@
                         <h5 class="modal-title fw-bold" id="formularioModalTransferenciaLabel">
                             <i class="bi bi-arrow-left-right me-2"></i> Transferencia de Activos
                         </h5>
-                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
                     </div>
                     <div class="modal-body">
                         <div class="card border-0 shadow-sm mb-4">
@@ -334,21 +422,27 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
-                                            <i class="bi bi-building me-1 text-primary"></i> Dirección, Unidad y/o Sección
+                                            <i class="bi bi-building me-1 text-primary"></i> Dirección, Unidad y/o
+                                            Sección
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-building"></i></span>
-                                            <input type="text" class="form-control" style="text-transform: uppercase;" name="unidadOrigen" placeholder="Ej: Dirección Administrativa" required>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-building"></i></span>
+                                            <input type="text" class="form-control" style="text-transform: uppercase;"
+                                                name="unidadOrigen" placeholder="Ej: Dirección Administrativa" required>
                                         </div>
-                                        <small class="text-muted">Unidad responsable que transfiere el/los activo(s).</small>
+                                        <small class="text-muted">Unidad responsable que transfiere el/los
+                                            activo(s).</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
                                             <i class="bi bi-person-badge me-1 text-primary"></i> Código Funcionario
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
-                                            <input type="number" class="form-control" name="codigoFuncionarioOrigen" placeholder="Ej: 1234" required>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-badge"></i></span>
+                                            <input type="number" class="form-control" name="codigoFuncionarioOrigen"
+                                                placeholder="Ej: 1234" required>
                                         </div>
                                         <small class="text-muted">Código del funcionario que entrega.</small>
                                     </div>
@@ -369,8 +463,10 @@
                                             <i class="bi bi-calendar me-1 text-primary"></i> Fecha de la transferencia
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-calendar"></i></span>
-                                            <input type="date" class="form-control" name="fechaTransferencia" id="fechaTransferencia" readonly>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-calendar"></i></span>
+                                            <input type="date" class="form-control" name="fechaTransferencia"
+                                                id="fechaTransferencia" readonly>
                                         </div>
                                         <small class="text-muted">Fecha en la que se efectúa la entrega.</small>
                                     </div>
@@ -385,11 +481,14 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
-                                            <i class="bi bi-building me-1 text-success"></i> Dirección, Unidad y/o Sección
+                                            <i class="bi bi-building me-1 text-success"></i> Dirección, Unidad y/o
+                                            Sección
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-building"></i></span>
-                                            <input type="text" class="form-control" style="text-transform: uppercase;" name="unidadDestino" placeholder="Ej: Unidad de Sistemas" required>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-building"></i></span>
+                                            <input type="text" class="form-control" style="text-transform: uppercase;"
+                                                name="unidadDestino" placeholder="Ej: Unidad de Sistemas" required>
                                         </div>
                                         <small class="text-muted">Unidad recepcionista y responsable actual.</small>
                                     </div>
@@ -398,8 +497,10 @@
                                             <i class="bi bi-person-badge me-1 text-success"></i> Código Funcionario
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
-                                            <input type="number" class="form-control" name="codigoFuncionarioDestino" placeholder="Ej: 12345" required>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-badge"></i></span>
+                                            <input type="number" class="form-control" name="codigoFuncionarioDestino"
+                                                placeholder="Ej: 12345" required>
                                         </div>
                                         <small class="text-muted">Código del funcionario que recibe.</small>
                                     </div>
@@ -408,8 +509,10 @@
                                             <i class="bi bi-card-text me-1 text-success"></i> Cédula de Identidad
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-credit-card-2-front"></i></span>
-                                            <input type="number" class="form-control" name="ciDestino" placeholder="Ej: 12345678" required>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-credit-card-2-front"></i></span>
+                                            <input type="number" class="form-control" name="ciDestino"
+                                                placeholder="Ej: 12345678" required>
                                         </div>
                                         <small class="text-muted">Número de CI del responsable que recibe.</small>
                                     </div>
@@ -418,8 +521,10 @@
                                             <i class="bi bi-calendar-check me-1 text-success"></i> Fecha de la recepción
                                         </label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-calendar-check"></i></span>
-                                            <input type="date" class="form-control" name="fechaRecepcion" id="fechaRecepcion" readonly>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-calendar-check"></i></span>
+                                            <input type="date" class="form-control" name="fechaRecepcion"
+                                                id="fechaRecepcion" readonly>
                                         </div>
                                         <small class="text-muted">Fecha en la que se confirma la recepción.</small>
                                     </div>
@@ -427,7 +532,8 @@
                             </div>
                         </div>
                         <div class="card border-0 shadow-sm">
-                            <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                            <div
+                                class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
                                 <span><i class="bi bi-box-seam me-1"></i> Activos a transferir</span>
                                 <span class="badge text-bg-primary" id="badgeTotalActivos">0 seleccionados</span>
                             </div>
@@ -445,8 +551,10 @@
                                 <template id="tplCodigoActivo">
                                     <div class="col-12">
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-upc-scan"></i></span>
-                                            <input type="text" class="form-control" name="codigosActivos[]" placeholder="Ingrese código del activo (ej: xx-xx-xx-xxxxx)" required>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-upc-scan"></i></span>
+                                            <input type="text" class="form-control" name="codigosActivos[]"
+                                                placeholder="Ingrese código del activo (ej: xx-xx-xx-xxxxx)" required>
                                             <button type="button" class="btn btn-outline-danger removeCodigoBtn">
                                                 <i class="bi bi-trash"></i>
                                             </button>
@@ -521,9 +629,11 @@
                             </div>
                             <div class="col-12">
                                 <div class="card border-0 shadow-sm">
-                                    <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                                    <div
+                                        class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
                                         <span><i class="bi bi-box-seam me-1"></i> Activos a transferir</span>
-                                        <span class="badge text-bg-primary" id="badgeTotalActivosResumen">0 seleccionados</span>
+                                        <span class="badge text-bg-primary" id="badgeTotalActivosResumen">0
+                                            seleccionados</span>
                                     </div>
                                     <div class="card-body">
                                         <div class="table-responsive">
@@ -539,12 +649,13 @@
                                                 <tbody id="tbodyActivosTransfer"></tbody>
                                             </table>
                                         </div>
-                                        <small class="text-muted d-block mt-2">Revisa cuidadosamente antes de confirmar.</small>
+                                        <small class="text-muted d-block mt-2">Revisa cuidadosamente antes de
+                                            confirmar.</small>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div id="alertaTransfer" class="alert alert-warning mt-3 d-none" role="alert">
                             <i class="bi bi-exclamation-triangle me-1"></i>
                             Faltan datos obligatorios o hubo un problema consultando la información. Aún puedes revisar
@@ -557,7 +668,8 @@
                         <i class="bi bi-x-circle me-1"></i> Cancelar
                     </button>
                     <button type="button" class="btn btn-success" id="btnConfirmarTransferencia">
-                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarTransfer" role="status" aria-hidden="true"></span>
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarTransfer"
+                            role="status" aria-hidden="true"></span>
                         <i class="bi bi-check-circle me-1"></i> Confirmar y generar PDF
                     </button>
                 </div>
@@ -567,7 +679,8 @@
     <!-- FIN TRANSFERENCIA ACTIVO NUEVO -->
 
     <!-- INGRESOS ACTIVOS AJENOS -->
-    <div class="modal fade" id="formularioModalIngresoActivoAjeno" tabindex="-1" aria-labelledby="formularioModalIngresoActivoAjenoLabel" aria-hidden="true">
+    <div class="modal fade" id="formularioModalIngresoActivoAjeno" tabindex="-1"
+        aria-labelledby="formularioModalIngresoActivoAjenoLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <form id="formIngresoActivos" autocomplete="off" class="w-100">
                 <div class="modal-content border-0 shadow-lg rounded-4">
@@ -575,7 +688,8 @@
                         <h5 class="modal-title mb-0 fw-bold" id="formularioModalIngresoActivoAjenoLabel">
                             <i class="bi bi-box-arrow-in-down me-2"></i> Ingreso de bienes ajenos
                         </h5>
-                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
                     </div>
                     <div class="modal-body">
                         <div class="card border-0 shadow-sm mb-4">
@@ -587,16 +701,20 @@
                                     <div class="col-md-4">
                                         <label class="form-label fw-semibold">Fecha de incorporación</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
-                                            <input type="date" class="form-control" id="fechaIncorporacion" name="fechaIncorporacion" required>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-calendar3"></i></span>
+                                            <input type="date" class="form-control" id="fechaIncorporacion"
+                                                name="fechaIncorporacion" required>
                                         </div>
                                         <small class="text-muted">Día en que el bien ingresa a la unidad.</small>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label fw-semibold">Fecha de retiro</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
-                                            <input type="date" class="form-control" id="fechaRetiro" name="fechaRetiro" required readonly>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-calendar3"></i></span>
+                                            <input type="date" class="form-control" id="fechaRetiro" name="fechaRetiro"
+                                                required readonly>
                                         </div>
                                         <small class="text-muted">Se definirá al devolver el bien.</small>
                                     </div>
@@ -604,17 +722,21 @@
                             </div>
                         </div>
                         <div class="card border-0 shadow-sm mb-4">
-                            <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-                                <span><i class="bi bi-box-arrow-in-down me-1 text-danger"></i> Activos ajenos a registrar</span>
+                            <div
+                                class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-box-arrow-in-down me-1 text-danger"></i> Activos ajenos a
+                                    registrar</span>
                                 <span class="badge text-bg-primary" id="badgeTotalAjenos">0 items</span>
                             </div>
                             <div class="card-body">
                                 <div id="agregarActivoAjenoContainer" class="row g-3"></div>
                                 <div class="d-flex gap-2 mt-2">
-                                    <button type="button" class="btn btn-outline-primary btn-sm" id="agregarActivoAjenoBtn">
+                                    <button type="button" class="btn btn-outline-primary btn-sm"
+                                        id="agregarActivoAjenoBtn">
                                         <i class="bi bi-plus-circle me-1"></i> Añadir más
                                     </button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="limpiarAjenosBtn">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        id="limpiarAjenosBtn">
                                         <i class="bi bi-eraser me-1"></i> Limpiar lista
                                     </button>
                                 </div>
@@ -631,16 +753,20 @@
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Código funcionario</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-person-vcard"></i></span>
-                                            <input type="text" class="form-control" name="codigoFuncionarioPropietario" placeholder="Ej: 12345" required>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-vcard"></i></span>
+                                            <input type="text" class="form-control" name="codigoFuncionarioPropietario"
+                                                placeholder="Ej: 12345" required>
                                         </div>
                                         <small class="text-muted">Código único del propietario.</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Cédula de identidad</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
-                                            <input type="text" class="form-control" name="ciPropietario" placeholder="Ej: 12345678" required>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-badge"></i></span>
+                                            <input type="text" class="form-control" name="ciPropietario"
+                                                placeholder="Ej: 12345678" required>
                                         </div>
                                         <small class="text-muted">Número de CI con extensión.</small>
                                     </div>
@@ -665,16 +791,20 @@
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Código funcionario</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-person-vcard"></i></span>
-                                            <input type="text" class="form-control" name="codigoFuncionarioAutorizador" placeholder="Ej: 12345" required>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-vcard"></i></span>
+                                            <input type="text" class="form-control" name="codigoFuncionarioAutorizador"
+                                                placeholder="Ej: 12345" required>
                                         </div>
                                         <small class="text-muted">Código único del propietario.</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Cédula de identidad</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
-                                            <input type="text" class="form-control" name="ciAutorizador" placeholder="Ej: 12345678" required>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-badge"></i></span>
+                                            <input type="text" class="form-control" name="ciAutorizador"
+                                                placeholder="Ej: 12345678" required>
                                         </div>
                                         <small class="text-muted">Número de CI con extensión.</small>
                                     </div>
@@ -691,25 +821,31 @@
                                         <label class="form-label fw-semibold">Nombre completo</label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
-                                            <input type="text" class="form-control" name="nombreIdentificacion" value="LIC. VERONICA LAYME CORI" readonly>
+                                            <input type="text" class="form-control" name="nombreIdentificacion"
+                                                value="LIC. VERONICA LAYME CORI" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Cargo</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-briefcase"></i></span>
-                                            <input type="text" class="form-control" name="cargoIdentificacion" value="RESPONSABLE DE ACTIVOS FIJOS" readonly>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-briefcase"></i></span>
+                                            <input type="text" class="form-control" name="cargoIdentificacion"
+                                                value="RESPONSABLE DE ACTIVOS FIJOS" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Dirección / Unidad / Sección</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light"><i class="bi bi-diagram-3"></i></span>
-                                            <input type="text" class="form-control" name="unidadIdentificacion" value="SECCIÓN DE ACTIVOS FIJOS" readonly>
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-diagram-3"></i></span>
+                                            <input type="text" class="form-control" name="unidadIdentificacion"
+                                                value="SECCIÓN DE ACTIVOS FIJOS" readonly>
                                         </div>
                                     </div>
                                 </div>
-                                <small class="text-muted d-block mt-2">Estos datos identifican al área responsable del control.</small>
+                                <small class="text-muted d-block mt-2">Estos datos identifican al área responsable del
+                                    control.</small>
                             </div>
                         </div>
                     </div>
@@ -727,7 +863,8 @@
     </div>
 
     <!-- MODAL: Confirmación de Ingreso de Bienes Ajenos -->
-    <div class="modal fade" id="modalConfirmacionIngreso" tabindex="-1" aria-labelledby="modalConfirmacionIngresoLabel" aria-hidden="true">
+    <div class="modal fade" id="modalConfirmacionIngreso" tabindex="-1" aria-labelledby="modalConfirmacionIngresoLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-warning text-dark">
@@ -792,7 +929,8 @@
                                                 <tbody id="tbodyAjenosResumen"></tbody>
                                             </table>
                                         </div>
-                                        <small class="text-muted d-block mt-2">Revisa cuidadosamente antes de confirmar.</small>
+                                        <small class="text-muted d-block mt-2">Revisa cuidadosamente antes de
+                                            confirmar.</small>
                                     </div>
                                 </div>
                             </div>
@@ -808,7 +946,8 @@
                         <i class="bi bi-x-circle me-1"></i> Cancelar
                     </button>
                     <button type="button" class="btn btn-success" id="btnConfirmarGuardarIngreso">
-                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarIngreso" role="status" aria-hidden="true"></span>
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarIngreso"
+                            role="status" aria-hidden="true"></span>
                         <i class="bi bi-check-circle me-1"></i> Confirmar y generar PDF
                     </button>
                 </div>
@@ -818,7 +957,8 @@
     <!-- FIN INGRESO ACTIVOS AJENOS -->
 
     <!-- INICIO BAJA ACTIVOS -->
-    <div class="modal fade" id="formularioModalBajaActivo" tabindex="-1" aria-labelledby="formularioModalLabel" aria-hidden="true">
+    <div class="modal fade" id="formularioModalBajaActivo" tabindex="-1" aria-labelledby="formularioModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <form id="formBajaActivos" autocomplete="off" class="needs-validation w-100">
                 <div class="modal-content border-0 shadow-lg rounded-4">
@@ -826,7 +966,8 @@
                         <h5 class="modal-title mb-0 fw-bold" style="color: #fff">
                             <i class="bi bi-box-arrow-in-down me-2"></i>BAJA DE ACTIVOS
                         </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         <fieldset class="border p-3 mb-4 rounded-3 shadow-sm ">
@@ -835,7 +976,8 @@
                             </legend>
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Fecha de baja <span class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">Fecha de baja <span
+                                            class="text-danger">*</span></label>
                                     <div class="input-group has-validation">
                                         <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
                                         <input type="date" class="form-control" name="fechaBaja" required />
@@ -873,10 +1015,12 @@
                                     <div id="sugerenciasFuncionario" class="list-group mt-2 d-none"></div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold">C.I. <span class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">C.I. <span
+                                            class="text-danger">*</span></label>
                                     <div class="input-group has-validation">
                                         <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                                        <input type="text" class="form-control" name="ciFuncionarioBaja" placeholder="Ingresa tu C.I." required />
+                                        <input type="text" class="form-control" name="ciFuncionarioBaja"
+                                            placeholder="Ingresa tu C.I." required />
                                         <div class="invalid-feedback">
                                             Por favor ingrese la cédula de identidad.
                                         </div>
@@ -901,7 +1045,8 @@
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Causa de baja <span class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">Causa de baja <span
+                                            class="text-danger">*</span></label>
                                     <div class="input-group has-validation">
                                         <span class="input-group-text"><i class="bi bi-exclamation-triangle"></i></span>
                                         <select class="form-select" name="causa" required>
@@ -919,13 +1064,15 @@
                             <div class="row mt-3">
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">Descripción de la baja</label>
-                                    <textarea class="form-control" name="descripcionBaja" rows="3" placeholder="Justifica la baja del activo..."></textarea>
+                                    <textarea class="form-control" name="descripcionBaja" rows="3"
+                                        placeholder="Justifica la baja del activo..."></textarea>
                                 </div>
                             </div>
                         </fieldset>
                     </div>
                     <div class="modal-footer bg-light rounded-bottom-4 d-flex justify-content-between">
-                        <button type="button" class="btn btn-outline-secondary px-4 fw-semibold" data-bs-dismiss="modal">
+                        <button type="button" class="btn btn-outline-secondary px-4 fw-semibold"
+                            data-bs-dismiss="modal">
                             <i class="bi bi-x-circle me-2"></i> Cancelar
                         </button>
                         <div>
@@ -940,7 +1087,8 @@
     </div>
 
     <!-- MODAL: Confirmación de Baja de Activos -->
-    <div class="modal fade" id="modalConfirmacionBaja" tabindex="-1" aria-labelledby="modalConfirmacionBajaLabel" aria-hidden="true">
+    <div class="modal fade" id="modalConfirmacionBaja" tabindex="-1" aria-labelledby="modalConfirmacionBajaLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-warning text-dark">
@@ -994,7 +1142,8 @@
                             </div>
                         </div>
                         <div id="confirmacionAlertaBaja" class="alert alert-warning mt-3 d-none" role="alert">
-                            <i class="bi bi-exclamation-triangle me-1"></i> Faltan datos obligatorios o hay formato inválido.
+                            <i class="bi bi-exclamation-triangle me-1"></i> Faltan datos obligatorios o hay formato
+                            inválido.
                         </div>
                     </div>
                 </div>
@@ -1003,7 +1152,8 @@
                         <i class="bi bi-x-circle me-1"></i> Cancelar
                     </button>
                     <button type="button" class="btn btn-success" id="btnConfirmarGuardarBaja">
-                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarBaja" role="status" aria-hidden="true"></span>
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmarBaja"
+                            role="status" aria-hidden="true"></span>
                         <i class="bi bi-check-circle me-1"></i> Confirmar y generar PDF
                     </button>
                 </div>
@@ -1031,7 +1181,6 @@
     <div th:replace="~{layout/script_publico :: script_publico}"></div>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" />
-
     <script>
         $(document).ready(function () {
             cargarTabla();

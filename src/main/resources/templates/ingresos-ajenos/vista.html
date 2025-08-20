@@ -6,12 +6,12 @@
     $(document).ready(function () {
         cargarTabla();
 
-    });
+    }); 
 
     function cargarTabla() {
         $.ajax({
             type: 'POST',
-            url: "/reporte/tabla-registros-ajeno",  // Ruta del metodo del controlador en Spring Boot
+            url: "/seguimiento-activo/tabla-registros-ajeno",  // Ruta del metodo del controlador en Spring Boot
             success: function (response) {
                 $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
             }

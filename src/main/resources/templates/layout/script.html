@@ -26,14 +26,6 @@
     <script src="../../assets/vendor/libs/jquery-repeater/jquery-repeater.js"></script>
     <script src="../../assets/js/forms-extras.js"></script>
 
-    <!-- flatpicker (datepicker) JS -->
-    <!-- <script src="../../assets/vendor/libs/flatpickr/flatpickr.js"></script>
-    <script src="../../assets/vendor/libs/bootstrap-datepicker/bootstrap-datepicker.js"></script>
-    <script src="../../assets/vendor/libs/bootstrap-daterangepicker/bootstrap-daterangepicker.js"></script>
-    <script src="../../assets/vendor/libs/jquery-timepicker/jquery-timepicker.js"></script>
-    <script src="../../assets/vendor/libs/pickr/pickr.js"></script>
-    <script src="../../assets/js/forms-pickers.js"></script> -->
-
     <!-- moment JS -->
     <script src="../../assets/vendor/libs/moment/moment.js"></script>
 
@@ -75,6 +67,8 @@
     <script src="../../assets/js/p-transferencia.js"></script>
     <script src="../../assets/js/p-ajeno.js"></script>
     <script src="../../assets/js/p-baja.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <script src="../../assets/js/p-scanner.js"></script>
 
 
 
@@ -238,20 +232,6 @@
 
             });
 
-            $("#opcion_iaa").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/reporte/vista_ingreso_ajeno");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_iaa");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
             $("#opcion_contable").click(function (e) {
                 e.preventDefault();
                 cargarContenido("/administracion/grupoc/vista");
@@ -289,6 +269,36 @@
                 }
 
                 botonPulsado = document.getElementById("opcion_responsable");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+            //seguimienos
+
+            $("#opcion_iaa").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/seguimiento-activo/vista_ingreso_ajeno");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_iaa");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+            $("#opcion_aan").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/seguimiento-activo/vista_asignacion_nuevo");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_aan");;
 
                 botonPulsado.classList.add("active");
 
