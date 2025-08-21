@@ -31,6 +31,7 @@ public class SeguridadConfig {
                 "/reporte/**",
                 "/baja/**",
                 "/informacion/**",
+                "/seguimiento-activo/**",
                 "/pdfs/**",
                 "/adm/**",
                 "/api/**",

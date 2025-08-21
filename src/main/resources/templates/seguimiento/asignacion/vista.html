@@ -1,0 +1,20 @@
+<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Asignacion activos nuevos</h4>
+
+<div id="tablaRegistro"></div>
+
+<script>
+    $(document).ready(function () {
+        cargarTabla();
+
+    }); 
+
+    function cargarTabla() {
+        $.ajax({
+            type: 'POST',
+            url: "/seguimiento-activo/tabla_activos_nuevos",  // Ruta del metodo del controlador en Spring Boot
+            success: function (response) {
+                $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
+            }
+        });
+    }
+</script>
