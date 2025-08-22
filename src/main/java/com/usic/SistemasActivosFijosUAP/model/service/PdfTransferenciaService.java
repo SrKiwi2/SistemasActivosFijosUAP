@@ -182,23 +182,6 @@ public class PdfTransferenciaService {
         tabla.addCell(firmaResp2);
         tabla.addCell(new PdfPCell());
 
-        //Fila 6
-        PdfPCell c9 = new PdfPCell(new Phrase(" DIRECCION, UNIDAD Y/O SECCION: ", negrita));
-        c9.setPaddingTop(4f); c9.setPaddingBottom(4f);
-        tabla.addCell(c9);
-
-        PdfPCell c10 = new PdfPCell(new Phrase(" "+unidadOrigen, normal_tabla));
-        c10.setPaddingTop(4f); c10.setPaddingBottom(4f);
-        tabla.addCell(c10);
-
-        PdfPCell c11 = new PdfPCell(new Phrase(" DIRECCION, UNIDAD Y/O SECCION: ", negrita));
-        c11.setPaddingTop(4f); c11.setPaddingBottom(4f);
-        tabla.addCell(c11);
-
-        PdfPCell c12 = new PdfPCell(new Phrase(" "+unidadDestino, normal_tabla));
-        c12.setPaddingTop(4f); c12.setPaddingBottom(4f);
-        tabla.addCell(c12);
-
         // Fila 6
         tabla.addCell(new Phrase(" FECHA DE LA TRANSFERENCIA: ", negrita));
         tabla.addCell(new Phrase(fechaTransferencia, normal_tabla));
@@ -242,14 +225,14 @@ public class PdfTransferenciaService {
         descCell.setBackgroundColor(cyanCustom);
         tablaActivo.addCell(descCell);
 
-        PdfPCell ubiOriCell = new PdfPCell(new Phrase("UBICACIÓN DE ORIGEN Y Nº DE OFICINA", encabezado));
+        PdfPCell ubiOriCell = new PdfPCell(new Phrase("UBICACIÓN ACTUAL Y Nº DE OFICINA", encabezado));
         ubiOriCell.setRowspan(2);
         ubiOriCell.setHorizontalAlignment(Element.ALIGN_CENTER);
         ubiOriCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
         ubiOriCell.setBackgroundColor(cyanCustom);
         tablaActivo.addCell(ubiOriCell);
 
-        PdfPCell ubiActCell = new PdfPCell(new Phrase("UBICACIÓN ACTUAL Y Nº DE OFICINA", encabezado));
+        PdfPCell ubiActCell = new PdfPCell(new Phrase("UBICACIÓN DE ORIGEN Y Nº DE OFICINA", encabezado));
         ubiActCell.setRowspan(2);
         ubiActCell.setHorizontalAlignment(Element.ALIGN_CENTER);
         ubiActCell.setVerticalAlignment(Element.ALIGN_MIDDLE);

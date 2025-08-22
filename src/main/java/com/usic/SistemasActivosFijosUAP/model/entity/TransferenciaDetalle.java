@@ -2,6 +2,7 @@ package com.usic.SistemasActivosFijosUAP.model.entity;
 
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -15,7 +16,7 @@ import lombok.Setter;
 
 @Setter @Getter
 @Entity
-@Table(name = "trasnferencia_detalle")
+@Table(name = "transferencia_detalle")
 public class TransferenciaDetalle extends AuditoriaConfig{
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idDetalle;
@@ -36,4 +37,11 @@ public class TransferenciaDetalle extends AuditoriaConfig{
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_responsable_anterior")
     private Responsable responsableAnterior;
+
+    // NUEVO: ubicaciones declaradas en el formulario
+    @Column(name = "ubicacion_origen", length = 200)
+    private String ubicacionOrigen; 
+
+    @Column(name = "ubicacion_actual", length = 200)
+    private String ubicacionActual;
 }

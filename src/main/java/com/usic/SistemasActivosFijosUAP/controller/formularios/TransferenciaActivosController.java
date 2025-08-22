@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.controller.formularios;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -34,9 +35,12 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Genero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
-import com.usic.SistemasActivosFijosUAP.model.service.AiDescripcionService;
+import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
+import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.PdfTransferenciaService;
+import com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.web.bind.annotation.PostMapping;
@@ -54,6 +58,12 @@ public class TransferenciaActivosController {
     private final PdfTransferenciaService pdfTransferenciaService;
     private final IActivoService activoService;
 
+    private final TransferenciaService transferenciaService;
+
+    private static LocalDate parseDateOrToday(String s) {
+        return (s == null || s.isBlank()) ? LocalDate.now() : LocalDate.parse(s);
+    }
+
     @PostMapping("/buscar-registrar")
     public ResponseEntity<byte[]> registrarTransferencia(
             @RequestParam String unidadOrigen,
@@ -67,10 +77,23 @@ public class TransferenciaActivosController {
 
             @RequestParam List<String>  codigoActivo,
             @RequestParam List<String>  ubicacionOrigen,
-            @RequestParam List<String>  ubicacionActual) throws Exception {
+            @RequestParam List<String>  ubicacionActual, HttpServletRequest request) throws Exception {
         try {
+
+            Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+
             Responsable responsableOrigen = obtenerORegistrarResponsable(codigoFuncionarioOrigen, ciOrigen);
             Responsable responsableDestino = obtenerORegistrarResponsable(codigoFuncionarioDestino, ciDestino);
+
+            Oficina oficinaOrigen = oficinaService.buscarPorNombre(unidadOrigen);
+            Oficina oficinaDestino = oficinaService.buscarPorNombre(unidadDestino);
+
+            LocalDate fTransf = parseDateOrToday(fechaTransferencia);
+            LocalDate fRecep = parseDateOrToday(fechaRecepcion);
+
+            if (codigoActivo.size() != ubicacionOrigen.size() || codigoActivo.size() != ubicacionActual.size()) {
+                throw new IllegalArgumentException("Las listas de activos/ubicaciones tienen tamaños diferentes.");
+            }
 
             List<ActivoTransferenciaDTO> activosParaPdf = new ArrayList<>();
 
@@ -90,6 +113,12 @@ public class TransferenciaActivosController {
 
                 activosParaPdf.add(dto);
             }
+            
+            Transferencia t = transferenciaService.crearYGuardar(
+                responsableOrigen, ubicacionOrigen, fTransf,
+                responsableDestino, ubicacionActual, fRecep,
+                codigoActivo, usuario
+            );
 
             byte[] pdfBytes = pdfTransferenciaService.generarPdfTransferencia(
                 unidadOrigen,
@@ -101,12 +130,16 @@ public class TransferenciaActivosController {
                 activosParaPdf
             );
 
-            HttpHeaders headers1 = new HttpHeaders();
-            headers1.setContentType(MediaType.APPLICATION_PDF);
-            headers1.setContentDisposition(ContentDisposition.inline().filename("transferencia_activos.pdf").build());
-            headers1.setContentLength(pdfBytes.length);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDisposition(
+                ContentDisposition.inline()
+                    .filename("transferencia_activos_" + t.getIdTransferencia() + ".pdf")
+                    .build()
+            );
+            headers.setContentLength(pdfBytes.length);
 
-            return new ResponseEntity<>(pdfBytes, headers1, HttpStatus.OK);
+            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
 
         } catch (Exception ex) {
             ex.printStackTrace();

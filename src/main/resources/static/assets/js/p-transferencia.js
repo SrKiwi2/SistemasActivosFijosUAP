@@ -139,14 +139,14 @@ document.addEventListener("DOMContentLoaded", () => {
            <!-- Ubicación de Origen y N° de Oficina -->
            <div class="col-md-4">
                <label class="form-label fw-semibold">Ubicación de Origen y N° de Oficina</label>
-               <input type="text" class="form-control ubicacion-origen-input" style="text-transform: uppercase;" name="ubicacionOrigen[]" placeholder="Ej: Unidad de Sistemas..." autocomplete="off" required>
-           </div>
+                <input type="text" class="form-control ubicacion-actual-input" style="text-transform: uppercase;" name="ubicacionActual[]" placeholder="Se autocompleta al validar el código" autocomplete="off" required>
+               <small class="text-muted">Se autocompleta con la oficina actual del activo. Puedes ajustar si corresponde.</small>
+            </div>
 
            <!-- Ubicación Actual y N° de Oficina -->
            <div class="col-md-4">
                <label class="form-label fw-semibold">Ubicación Actual y N° de Oficina</label>
-               <input type="text" class="form-control ubicacion-actual-input" style="text-transform: uppercase;" name="ubicacionActual[]" placeholder="Se autocompleta al validar el código" autocomplete="off" required>
-               <small class="text-muted">Se autocompleta con la oficina actual del activo. Puedes ajustar si corresponde.</small>
+               <input type="text" class="form-control ubicacion-origen-input" style="text-transform: uppercase;" name="ubicacionOrigen[]" placeholder="Ej: Unidad de Sistemas..." autocomplete="off" required>
            </div>
            </div>`;
 
@@ -378,9 +378,8 @@ document.addEventListener("DOMContentLoaded", () => {
                <tr>
                    <td>${i + 1}</td>
                    <td>${esc(a.codigo)}</td>
-                   <td>${esc(a.codigo)}</td>
-                   <td>${esc(a.origen)}</td>
                    <td>${esc(a.actual)}</td>
+                   <td>${esc(a.origen)}</td>
                </tr>
                `);
             });

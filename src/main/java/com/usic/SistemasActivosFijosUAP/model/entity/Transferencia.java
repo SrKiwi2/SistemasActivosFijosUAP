@@ -34,23 +34,13 @@ public class Transferencia extends AuditoriaConfig {
     @JoinColumn(name = "id_responsable_origen", nullable = false)
     private Responsable responsableOrigen;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_oficina_origen", nullable = false)
-    private Oficina oficinaOrigen;
-
-    @Column(name = "fecha_transferencia", nullable = false)
     private LocalDate fechaTransferencia;
 
-     // QUIÉN RECIBE
+    // QUIÉN RECIBE
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_responsable_destino", nullable = false)
     private Responsable responsableDestino;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_oficina_destino", nullable = false)
-    private Oficina oficinaDestino;
-
-    @Column(name = "fecha_recepcion", nullable = false)
     private LocalDate fechaRecepcion;
 
     // Relación con el detalle (1..N)
