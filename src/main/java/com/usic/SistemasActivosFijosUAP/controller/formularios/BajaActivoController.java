@@ -35,8 +35,10 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Genero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.PdfBajaActivoService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -65,10 +67,10 @@ public class BajaActivoController {
         @RequestParam String ciFuncionarioBaja,
         @RequestParam String codigoActivoBaja,
         @RequestParam String causa,
-        @RequestParam String descripcionBaja
+        @RequestParam String descripcionBaja, HttpServletRequest request
         ) throws Exception{
         try{
-
+            Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
             Responsable responsbaleBaja = obtenerORegistrarResponsable(codigoFuncionarioBaja, ciFuncionarioBaja);
             Activo activoBaja = activoService.buscarPorCodigo(codigoActivoBaja);
             byte[] pdfBytes = pdfBajaActivoService.generarPDfBajaActivo(
@@ -83,28 +85,18 @@ public class BajaActivoController {
             HttpHeaders headers1 = new HttpHeaders();
             headers1.setContentType(MediaType.APPLICATION_PDF);
             headers1.setContentDisposition(ContentDisposition.inline().filename("baja_activo_"+ fechaBaja +".pdf").build());
-
             headers1.setContentLength(pdfBytes.length);
 
-            // BajaActivo bajaActivo = new BajaActivo();
-            // bajaActivo.setFechaBaja(fechaBaja);
-            // bajaActivo.setResponsable(responsbaleBaja.getPersona().getNombreCompleto());
-            // bajaActivo.setCodigo(codigoActivoBaja);
-            // bajaActivo.setDescripcion(descripcionBaja);
-            // bajaActivo.setRegistro(new Date());
-            // bajaActivo.setEstado("ACTIVO");
-            // bajaActivoService.save(bajaActivo);
+            BajaActivo bajaActivo = new BajaActivo();
+            bajaActivo.setCodigo(codigoActivoBaja);
+            bajaActivo.setHr(numeroDocumento);
+            bajaActivo.setResponsable(descripcionBaja);
+            bajaActivo.setDescripcion(descripcionBaja);
+            bajaActivo.setFechaBaja(fechaBaja);
+            bajaActivo.setEstado("A");
+            bajaActivo.setRegistroIdUsuario(usuario.getIdUsuario());
+            bajaActivoService.save(bajaActivo);
 
-            // String archivoBajaActivo = "baja_activo_" + bajaActivo.getFechaBaja() + ".pdf";
-            // Path path = Paths.get("pdfs/baja_activos", archivoBajaActivo);
-            // Files.createDirectories(path.getParent());
-            // Files.write(path, pdfBytes);
-            // bajaActivo.setRutaPdf(path.toString());
-            // bajaActivoService.save(bajaActivo);
-
-            // return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + archivoBajaActivo)
-            // .contentType(MediaType.APPLICATION_PDF)
-            // .body(pdfBytes);
             return new ResponseEntity<>(pdfBytes, headers1, HttpStatus.OK);
         }catch (Exception ex) {
             ex.printStackTrace(); // Esto mostrará el error real en consola

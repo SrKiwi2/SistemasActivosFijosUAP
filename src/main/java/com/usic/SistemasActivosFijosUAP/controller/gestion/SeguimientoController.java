@@ -127,7 +127,6 @@ public class SeguimientoController {
         Asignacion a = asignacionService.findById(id);
         Usuario usuario_encontrado = usuarioService.findById(a.getRegistroIdUsuario());
 
-
         // Datos base
         final String unidad           = nvl(a.getUnidadResponsable());
         final String hr               = nvl(a.getHr());

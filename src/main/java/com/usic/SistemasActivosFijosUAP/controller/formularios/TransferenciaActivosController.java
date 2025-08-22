@@ -85,9 +85,6 @@ public class TransferenciaActivosController {
             Responsable responsableOrigen = obtenerORegistrarResponsable(codigoFuncionarioOrigen, ciOrigen);
             Responsable responsableDestino = obtenerORegistrarResponsable(codigoFuncionarioDestino, ciDestino);
 
-            Oficina oficinaOrigen = oficinaService.buscarPorNombre(unidadOrigen);
-            Oficina oficinaDestino = oficinaService.buscarPorNombre(unidadDestino);
-
             LocalDate fTransf = parseDateOrToday(fechaTransferencia);
             LocalDate fRecep = parseDateOrToday(fechaRecepcion);
 
@@ -100,7 +97,7 @@ public class TransferenciaActivosController {
             for (int i = 0; i < codigoActivo.size(); i++) {
                 String codigo = codigoActivo.get(i);
                 String ubicacionOrig = ubicacionOrigen.get(i);
-                String ubicacionAct = ubicacionActual.get(i);
+                String ubicacionAct = ubicacionActual.get(i).toUpperCase();;
 
                 Activo activo = activoService.findByCodigo(codigo)
                         .orElseThrow(() -> new RuntimeException("Activo no encontrado: " + codigo));
@@ -116,7 +113,7 @@ public class TransferenciaActivosController {
             
             Transferencia t = transferenciaService.crearYGuardar(
                 responsableOrigen, ubicacionOrigen, fTransf,
-                responsableDestino, ubicacionActual, fRecep,
+                responsableDestino, ubicacionActual.stream().map(String::toUpperCase).toList(), fRecep,
                 codigoActivo, usuario
             );
 

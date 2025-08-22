@@ -225,14 +225,14 @@ public class PdfTransferenciaService {
         descCell.setBackgroundColor(cyanCustom);
         tablaActivo.addCell(descCell);
 
-        PdfPCell ubiOriCell = new PdfPCell(new Phrase("UBICACIÓN ACTUAL Y Nº DE OFICINA", encabezado));
+        PdfPCell ubiOriCell = new PdfPCell(new Phrase("UBICACIÓN DE ORIGEN Y Nº DE OFICINA", encabezado));
         ubiOriCell.setRowspan(2);
         ubiOriCell.setHorizontalAlignment(Element.ALIGN_CENTER);
         ubiOriCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
         ubiOriCell.setBackgroundColor(cyanCustom);
         tablaActivo.addCell(ubiOriCell);
 
-        PdfPCell ubiActCell = new PdfPCell(new Phrase("UBICACIÓN DE ORIGEN Y Nº DE OFICINA", encabezado));
+        PdfPCell ubiActCell = new PdfPCell(new Phrase("UBICACIÓN ACTUAL Y Nº DE OFICINA", encabezado));
         ubiActCell.setRowspan(2);
         ubiActCell.setHorizontalAlignment(Element.ALIGN_CENTER);
         ubiActCell.setVerticalAlignment(Element.ALIGN_MIDDLE);

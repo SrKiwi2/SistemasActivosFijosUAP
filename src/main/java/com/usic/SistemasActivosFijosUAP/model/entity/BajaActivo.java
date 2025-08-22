@@ -22,7 +22,7 @@ public class BajaActivo extends AuditoriaConfig{
     private Long idBajaActivo;
     private String Codigo;
     private String fechaBaja;
+    private String hr;
     private String responsable;
     private String descripcion;
-    private String rutaPdf;
 }

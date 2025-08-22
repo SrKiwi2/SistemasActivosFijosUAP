@@ -69,9 +69,9 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        function setUbicacionActual(index, texto) {
+        function setUbicacionOrigen(index, texto) {
             const $row = $container.find(`.row[data-index="${index}"]`);
-            const $input = $row.find('input[name="ubicacionActual[]"]');
+            const $input = $row.find('input[name="ubicacionOrigen[]"]');
             $input.val(nv(texto));
         }
 
@@ -139,14 +139,14 @@ document.addEventListener("DOMContentLoaded", () => {
            <!-- Ubicación de Origen y N° de Oficina -->
            <div class="col-md-4">
                <label class="form-label fw-semibold">Ubicación de Origen y N° de Oficina</label>
-                <input type="text" class="form-control ubicacion-actual-input" style="text-transform: uppercase;" name="ubicacionActual[]" placeholder="Se autocompleta al validar el código" autocomplete="off" required>
+                <input type="text" class="form-control ubicacion-actual-input" style="text-transform: uppercase;" name="ubicacionOrigen[]" placeholder="Se autocompleta al validar el código" autocomplete="off" required>
                <small class="text-muted">Se autocompleta con la oficina actual del activo. Puedes ajustar si corresponde.</small>
             </div>
 
            <!-- Ubicación Actual y N° de Oficina -->
            <div class="col-md-4">
                <label class="form-label fw-semibold">Ubicación Actual y N° de Oficina</label>
-               <input type="text" class="form-control ubicacion-origen-input" style="text-transform: uppercase;" name="ubicacionOrigen[]" placeholder="Ej: Unidad de Sistemas..." autocomplete="off" required>
+               <input type="text" class="form-control ubicacion-origen-input" style="text-transform: uppercase;" name="ubicacionActual[]" placeholder="Ej: Unidad de Sistemas..." autocomplete="off" required>
            </div>
            </div>`;
 
@@ -193,7 +193,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 // si es corto, no buscamos
                 if (codigo.length < CFG.MIN_CODE_LEN) {
-                    setUbicacionActual(index, "");
+                    setUbicacionOrigen(index, "");
                     $input.data("prev", "");
                     return;
                 }
@@ -202,7 +202,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     // Duplicado
                     if (codigosSet.has(codigo)) {
                         mostrarEstado(index, false);
-                        setUbicacionActual(index, "");
+                        setUbicacionOrigen(index, "");
                         return;
                     }
 
@@ -214,11 +214,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         // Autocompleta ubicación actual con lo que devuelve el backend
                         const ubic = data?.oficinaTexto || data?.oficinaNombre || "";
-                        setUbicacionActual(index, ubic);
+                        setUbicacionOrigen(index, ubic);
                     }).fail(() => {
                         // No existe
                         mostrarEstado(index, false);
-                        setUbicacionActual(index, "");
+                        setUbicacionOrigen(index, "");
                         $input.data("prev", "");
                     });
                 }, CFG.DEBOUNCE_MS);
