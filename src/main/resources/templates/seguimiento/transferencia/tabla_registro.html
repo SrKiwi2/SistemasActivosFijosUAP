@@ -1,0 +1,61 @@
+<div class="card">
+    <div class="card-datatable table-responsive pt-0">
+        <table class="datatables-basic table table-hover" id="data-table">
+            <thead>
+                <tr>
+                    <th>Transfiere</th>
+                    <th>Recibe</th>
+                    <th>fecha transferencia</th>
+                    <th>Activos tranferidos</th>
+                    <th>Ubicacion anterior</th>
+                    <th>Ubicacion actual</th>
+                </tr>
+            </thead>
+            <tbody class="animate__animated animate__bounceInDown">
+                <tr th:each="transferencia : ${transferencias}">
+                    <th th:text="${transferencia.responsable.persona.nombre ?: '-'} + ${transferencia.responsable.persona.paterno ?: '-'}"></th>
+                    <th th:text="${transferencia.responsable.persona.nombre ?: '-'} + ${transferencia.responsable.persona.paterno ?: '-'}"></th>
+                    <th th:text="${transferencia.fechaTransferencia ?: '-'}"></th>
+                    <th th:text="${transferencia.activos.nombre ?: '-'}"></th>
+                    <th th:text="${transferencia.unidad.nombre ?: '-'}"></th>
+                    <th th:text="${transferencia.unidad.nombre ?: '-'}"></th>
+                    <th>
+                        <a th:href="@{/seguimiento-activo/transferencia/{id}/pdf(id=${transferencia.idtransferencia})}"
+                            target="_blank"
+                            class="btn btn-sm btn-outline-primary">
+                        Ver PDF
+                        </a>
+                    </th>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    $('#data-table').DataTable({
+        language: {
+            "sProcessing": "Procesando...",
+            "sLengthMenu": "Mostrar _MENU_ registros",
+            "sZeroRecords": "No se encontraron resultados",
+            "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
+            "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
+            "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
+            "sInfoPostFix": "",
+            "sSearch": "Buscar:",
+            "sUrl": "",
+            "sInfoThousands": ",",
+            "sLoadingRecords": "Cargando...",
+            "oPaginate": {
+                "sFirst": "Primero",
+                "sLast": "Último",
+                "sNext": "Siguiente",
+                "sPrevious": "Anterior"
+            },
+            "oAria": {
+                "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
+                "sSortDescending": ": Activar para ordenar la columna de manera descendente"
+            }
+        }
+    });
+</script>

@@ -104,6 +104,71 @@ public class SeguimientoController {
         }
     }
 
+    //TRANSFERENCIA ACTIVOS
+    @ValidarUsuarioAutenticado
+    @GetMapping("/vista_transferencia_activos")
+    public String vista_transferencia_activos() {
+        return "/seguimiento/transferencia/vista";
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/tabla_transferencia_activos")
+    public String tabla_transferencia_activos(Model model) {
+        List<Asignacion> asignaciones = asignacionService.findAll();
+        model.addAttribute("asignaciones", asignaciones);
+        return "/seguimiento/transferencia/tabla_registro";
+    }
+
+    @ValidarUsuarioAutenticado
+    @GetMapping("/transferencia/{id}/pdf")
+    public ResponseEntity<byte[]> pdfInternoTA(
+            @PathVariable Long id, HttpServletRequest request) {
+        
+        Asignacion a = asignacionService.findById(id);
+        Usuario usuario_encontrado = usuarioService.findById(a.getRegistroIdUsuario());
+
+
+        // Datos base
+        final String unidad           = nvl(a.getUnidadResponsable());
+        final String hr               = nvl(a.getHr());
+        final String ubicacion        = nvl(a.getUbicacionActivo());
+        final String descripcion      = nvl(a.getDescripcionActivo());
+ 
+        // Responsable / Persona (con null-safety)       =
+        final Responsable resp        = a.getResponsable();
+        final Persona persona         = (resp != null) ? resp.getPersona() : null;
+        final String nombreCompleto   = (persona != null) ? nvl(persona.getNombreCompleto()) : "N/D";
+        final String ci               = (persona != null) ? nvl(persona.getCi()) : "N/D";
+        final String ext              = (persona != null) ? nvl(persona.getExtension()) : "N/D";
+        final String cargoNombre      = (resp != null && resp.getCargo() != null) ? nvl(resp.getCargo().getNombre()) : "N/D";
+
+        try {
+
+            byte[] pdfBytes = pdfInternoService.pdfActivoNuevo(
+                usuario_encontrado,
+                unidad,
+                nombreCompleto,
+                cargoNombre,
+                ci,
+                ext,
+                ubicacion,
+                descripcion,
+                hr
+            );
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDisposition(ContentDisposition.inline().filename("asignacion_activo_nuevo_"+id+"-"+hr+".pdf").build());
+            headers.setContentLength(pdfBytes.length);
+
+            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+
+        } catch (Exception ex) {
+            String errorMsg = "Error procesando: " + ex.getMessage();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
+        }
+    }
+
     private static String nvl(String s) {
         return (s == null) ? "" : s;
     }
