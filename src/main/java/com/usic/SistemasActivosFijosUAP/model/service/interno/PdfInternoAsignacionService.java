@@ -27,7 +27,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-public class PdfInternoService {
+public class PdfInternoAsignacionService {
     
     public byte[] pdfActivoNuevo(Usuario usuario, String unidad, String nombreCompleto, String cargo, String ci,
 			String extension,

@@ -15,15 +15,19 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
+import com.usic.SistemasActivosFijosUAP.controller.formularios.TransferenciaActivosController;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionService;
+import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IngresoActivoAjenoService;
 import com.usic.SistemasActivosFijosUAP.model.entity.Asignacion;
 import com.usic.SistemasActivosFijosUAP.model.entity.IngresoActivoAjeno;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
-import com.usic.SistemasActivosFijosUAP.model.service.interno.PdfInternoService;
+import com.usic.SistemasActivosFijosUAP.model.service.PdfTransferenciaService;
+import com.usic.SistemasActivosFijosUAP.model.service.interno.PdfInternoAsignacionService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -35,9 +39,11 @@ public class SeguimientoController {
 
     private final IngresoActivoAjenoService ingresoActivoAjenoService;
     private final IAsignacionService asignacionService;
+    private final ITransferenciaService transferenciaService;
     private final IUsuarioService usuarioService;
     
-    private final PdfInternoService pdfInternoService; 
+    private final PdfInternoAsignacionService pdfInternoAsignacionService;
+    private final PdfTransferenciaService pdfTransferenciaService;
 
     //ASIGNACION ACTIVOS NUEVOS
     @ValidarUsuarioAutenticado
@@ -62,7 +68,6 @@ public class SeguimientoController {
         Asignacion a = asignacionService.findById(id);
         Usuario usuario_encontrado = usuarioService.findById(a.getRegistroIdUsuario());
 
-
         // Datos base
         final String unidad           = nvl(a.getUnidadResponsable());
         final String hr               = nvl(a.getHr());
@@ -79,7 +84,7 @@ public class SeguimientoController {
 
         try {
 
-            byte[] pdfBytes = pdfInternoService.pdfActivoNuevo(
+            byte[] pdfBytes = pdfInternoAsignacionService.pdfActivoNuevo(
                 usuario_encontrado,
                 unidad,
                 nombreCompleto,
@@ -114,8 +119,8 @@ public class SeguimientoController {
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla_transferencia_activos")
     public String tabla_transferencia_activos(Model model) {
-        List<Asignacion> asignaciones = asignacionService.findAll();
-        model.addAttribute("asignaciones", asignaciones);
+        List<Transferencia> transferencias = transferenciaService.findAll();
+        model.addAttribute("transferencias", transferencias);
         return "/seguimiento/transferencia/tabla_registro";
     }
 
@@ -143,7 +148,7 @@ public class SeguimientoController {
 
         try {
 
-            byte[] pdfBytes = pdfInternoService.pdfActivoNuevo(
+            byte[] pdfBytes = pdfInternoAsignacionService.pdfActivoNuevo(
                 usuario_encontrado,
                 unidad,
                 nombreCompleto,
