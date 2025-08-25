@@ -304,6 +304,20 @@
 
             });
 
+            $("#opcion_ta").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/seguimiento-activo/vista_transferencia_activos");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_ta");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
             function cargarContenido(url) {
 
                 $.ajax({

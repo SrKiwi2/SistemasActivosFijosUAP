@@ -33,5 +33,10 @@ public class TransferenciaServiceImpl implements ITransferenciaService{
     public void deleteById(Long idEntidad) {
         dao.deleteById(idEntidad);
     }
+
+    @Override
+    public List<Transferencia> findAllConTodo() {
+        return dao.findAllConTodo();
+    }
     
 }

@@ -119,7 +119,7 @@ public class SeguimientoController {
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla_transferencia_activos")
     public String tabla_transferencia_activos(Model model) {
-        List<Transferencia> transferencias = transferenciaService.findAll();
+        List<Transferencia> transferencias = transferenciaService.findAllConTodo();
         model.addAttribute("transferencias", transferencias);
         return "/seguimiento/transferencia/tabla_registro";
     }
