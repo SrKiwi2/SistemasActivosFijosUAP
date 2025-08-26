@@ -59,7 +59,7 @@ public class PdfTransferenciaService {
         // Fondo
         try {
             Path projectPath = Paths.get("").toAbsolutePath();
-            String imagePath = projectPath + "/src/main/resources/static/assets/img/fondo/horizontal.jpg";
+            String imagePath = projectPath + "/src/main/resources/static/assets/img/fondo/membreta-horizontal-uap.jpg";
             Image background = Image.getInstance(imagePath);
             background.scaleAbsolute(pageSize.getWidth(), pageSize.getHeight()); // rotado
             background.setAbsolutePosition(0, 0);
@@ -73,8 +73,8 @@ public class PdfTransferenciaService {
         document.add(new Paragraph("\n\n"));
 
         // Fuentes
-        Font normal = new Font(Font.FontFamily.TIMES_ROMAN, 12);
-        Font titulo = new Font(Font.FontFamily.TIMES_ROMAN, 14, Font.BOLD);
+        Font normal = new Font(Font.FontFamily.TIMES_ROMAN, 11);
+        Font titulo = new Font(Font.FontFamily.TIMES_ROMAN, 12, Font.BOLD);
 
         //Fuente para la tabla
         Font normal_tabla = new Font(Font.FontFamily.HELVETICA, 7);

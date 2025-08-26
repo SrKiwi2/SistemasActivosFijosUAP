@@ -1,5 +1,8 @@
 package com.usic.SistemasActivosFijosUAP.controller.gestion;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.http.ContentDisposition;
@@ -15,19 +18,22 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
-import com.usic.SistemasActivosFijosUAP.controller.formularios.TransferenciaActivosController;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionService;
 import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IngresoActivoAjenoService;
+import com.usic.SistemasActivosFijosUAP.model.dto.ActivoTransferenciaDTO;
+import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Asignacion;
 import com.usic.SistemasActivosFijosUAP.model.entity.IngresoActivoAjeno;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
+import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaDetalle;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
-import com.usic.SistemasActivosFijosUAP.model.service.PdfTransferenciaService;
 import com.usic.SistemasActivosFijosUAP.model.service.interno.PdfInternoAsignacionService;
+import com.usic.SistemasActivosFijosUAP.model.service.interno.PdfInternoIngresoActivoAjenoService;
+import com.usic.SistemasActivosFijosUAP.model.service.interno.PdfInternoTransferenciaService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +49,8 @@ public class SeguimientoController {
     private final IUsuarioService usuarioService;
     
     private final PdfInternoAsignacionService pdfInternoAsignacionService;
-    private final PdfTransferenciaService pdfTransferenciaService;
+    private final PdfInternoTransferenciaService pdfInternoTransferenciaService;
+    private final PdfInternoIngresoActivoAjenoService pdfInternoIngresoActivoAjenoService;
 
     //ASIGNACION ACTIVOS NUEVOS
     @ValidarUsuarioAutenticado
@@ -129,40 +136,68 @@ public class SeguimientoController {
     public ResponseEntity<byte[]> pdfInternoTA(
             @PathVariable Long id, HttpServletRequest request) {
         
-        Asignacion a = asignacionService.findById(id);
-        Usuario usuario_encontrado = usuarioService.findById(a.getRegistroIdUsuario());
+        Transferencia t = transferenciaService.findById(id);
+        Usuario usuario_encontrado = usuarioService.findById(t.getRegistroIdUsuario());
+        
+        // 2) Unidades (desde los responsables y sus oficinas; fallback a "—")
+        String unidadOrigen  = (t.getResponsableOrigen()  != null && t.getResponsableOrigen().getOficina()  != null)
+                ? nvl(t.getResponsableOrigen().getOficina().getNombre())
+                : "—";
 
-        // Datos base
-        final String unidad           = nvl(a.getUnidadResponsable());
-        final String hr               = nvl(a.getHr());
-        final String ubicacion        = nvl(a.getUbicacionActivo());
-        final String descripcion      = nvl(a.getDescripcionActivo());
- 
-        // Responsable / Persona (con null-safety)       =
-        final Responsable resp        = a.getResponsable();
-        final Persona persona         = (resp != null) ? resp.getPersona() : null;
-        final String nombreCompleto   = (persona != null) ? nvl(persona.getNombreCompleto()) : "N/D";
-        final String ci               = (persona != null) ? nvl(persona.getCi()) : "N/D";
-        final String ext              = (persona != null) ? nvl(persona.getExtension()) : "N/D";
-        final String cargoNombre      = (resp != null && resp.getCargo() != null) ? nvl(resp.getCargo().getNombre()) : "N/D";
+        String unidadDestino = (t.getResponsableDestino() != null && t.getResponsableDestino().getOficina() != null)
+                ? nvl(t.getResponsableDestino().getOficina().getNombre())
+                : "—";
+        
+        // 3) Fechas formateadas
+        String fechaTransferencia = fmt(t.getFechaTransferencia());
+        String fechaRecepcion     = fmt(t.getFechaRecepcion());
+
+        // 4) Armar detalle de activos para el PDF
+        List<ActivoTransferenciaDTO> activos = new ArrayList<>();
+        if (t.getDetalles() != null) {
+            for (TransferenciaDetalle d : t.getDetalles()) {
+                ActivoTransferenciaDTO dto = new ActivoTransferenciaDTO();
+
+                // código y descripción
+                Activo a = d.getActivo();
+                dto.setCodigo(      a != null ? nvl(a.getCodigo())      : "—");
+                dto.setDescripcion( a != null ? nvl(a.getDescripcion())  : "—");
+
+                // ubicación origen: prioriza campo libre; si no, oficinaAnterior; si no, "—"
+                String uo = d.getUbicacionOrigen();
+                if (uo == null || uo.isBlank()) {
+                    uo = (d.getOficinaAnterior() != null ? d.getOficinaAnterior().getNombre() : null);
+                }
+                dto.setUbicacionOrigen(nvl(uo));
+
+                // ubicación actual: prioriza campo libre; si no, oficina del responsable destino; si no, "—"
+                String ua = d.getUbicacionActual();
+                if (ua == null || ua.isBlank()) {
+                    ua = (t.getResponsableDestino() != null && t.getResponsableDestino().getOficina() != null)
+                            ? t.getResponsableDestino().getOficina().getNombre()
+                            : null;
+                }
+                dto.setUbicacionActual(nvl(ua));
+
+                activos.add(dto);
+            }
+        }
 
         try {
 
-            byte[] pdfBytes = pdfInternoAsignacionService.pdfActivoNuevo(
-                usuario_encontrado,
-                unidad,
-                nombreCompleto,
-                cargoNombre,
-                ci,
-                ext,
-                ubicacion,
-                descripcion,
-                hr
+            byte[] pdfBytes = pdfInternoTransferenciaService.pdfTransferenciaActivo( usuario_encontrado,
+                unidadOrigen,  t.getResponsableOrigen(),  fechaTransferencia,
+                unidadDestino, t.getResponsableDestino(), fechaRecepcion,
+                activos
             );
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDisposition(ContentDisposition.inline().filename("asignacion_activo_nuevo_"+id+"-"+hr+".pdf").build());
+            headers.setContentDisposition(
+                    ContentDisposition.inline()
+                            .filename("transferencia_activos_" + id + ".pdf")
+                            .build()
+            );
             headers.setContentLength(pdfBytes.length);
 
             return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
@@ -171,10 +206,6 @@ public class SeguimientoController {
             String errorMsg = "Error procesando: " + ex.getMessage();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
         }
-    }
-
-    private static String nvl(String s) {
-        return (s == null) ? "" : s;
     }
 
     //INGRESO ACTIVO AJENOS
@@ -190,5 +221,62 @@ public class SeguimientoController {
         List<IngresoActivoAjeno> ingresos = ingresoActivoAjenoService.findAll();
         model.addAttribute("ingresos", ingresos);
         return "/seguimiento/ingresos-ajenos/tabla_registro";
+    }
+
+    // @ValidarUsuarioAutenticado
+    // @GetMapping("/ingresos/{id}/pdf")
+    // public ResponseEntity<byte[]> pdfInternoIAA(
+    //         @PathVariable Long id, HttpServletRequest request) {
+        
+    //     IngresoActivoAjeno i = ingresoActivoAjenoService.findById(id);
+    //     Usuario usuario_encontrado = usuarioService.findById(i.getRegistroIdUsuario());
+
+    //     // Datos base
+    //     final String unidad           = nvl(a.getUnidadResponsable());
+    //     final String hr               = nvl(a.getHr());
+    //     final String ubicacion        = nvl(a.getUbicacionActivo());
+    //     final String descripcion      = nvl(a.getDescripcionActivo());
+ 
+    //     // Responsable / Persona (con null-safety)       =
+    //     final Responsable resp        = a.getResponsable();
+    //     final Persona persona         = (resp != null) ? resp.getPersona() : null;
+    //     final String nombreCompleto   = (persona != null) ? nvl(persona.getNombreCompleto()) : "N/D";
+    //     final String ci               = (persona != null) ? nvl(persona.getCi()) : "N/D";
+    //     final String ext              = (persona != null) ? nvl(persona.getExtension()) : "N/D";
+    //     final String cargoNombre      = (resp != null && resp.getCargo() != null) ? nvl(resp.getCargo().getNombre()) : "N/D";
+
+    //     try {
+
+    //         byte[] pdfBytes = pdfInternoAsignacionService.pdfActivoNuevo(
+    //             usuario_encontrado,
+    //             unidad,
+    //             nombreCompleto,
+    //             cargoNombre,
+    //             ci,
+    //             ext,
+    //             ubicacion,
+    //             descripcion,
+    //             hr
+    //         );
+
+    //         HttpHeaders headers = new HttpHeaders();
+    //         headers.setContentType(MediaType.APPLICATION_PDF);
+    //         headers.setContentDisposition(ContentDisposition.inline().filename("asignacion_activo_nuevo_"+id+"-"+hr+".pdf").build());
+    //         headers.setContentLength(pdfBytes.length);
+
+    //         return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+
+    //     } catch (Exception ex) {
+    //         String errorMsg = "Error procesando: " + ex.getMessage();
+    //         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
+    //     }
+    // }
+
+    private static String nvl(String s) {
+        return (s == null) ? "" : s;
+    }
+
+    private static String fmt(LocalDate d) {
+        return d != null ? d.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "—";
     }
 }

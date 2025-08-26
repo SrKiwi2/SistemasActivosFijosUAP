@@ -16,6 +16,7 @@ import com.itextpdf.text.PageSize;
 import com.itextpdf.text.Paragraph;
 import com.itextpdf.text.Phrase;
 import com.itextpdf.text.Rectangle;
+import com.itextpdf.text.pdf.BarcodeQRCode;
 import com.itextpdf.text.pdf.PdfBoolean;
 import com.itextpdf.text.pdf.PdfContentByte;
 import com.itextpdf.text.pdf.PdfName;
@@ -23,7 +24,9 @@ import com.itextpdf.text.pdf.PdfPCell;
 import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoTransferenciaDTO;
+import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,13 +35,13 @@ import lombok.RequiredArgsConstructor;
 public class PdfInternoTransferenciaService {
     
     public byte[] pdfTransferenciaActivo(
-        String unidadOrigen, Responsable responsableOrigen, String fechaTransferencia,
+        Usuario usuario, String unidadOrigen, Responsable responsableOrigen, String fechaTransferencia,
         String unidadDestino, Responsable responsableDestino, String fechaRecepcion,
         List<ActivoTransferenciaDTO> activos) throws Exception {
 
         // Usamos hoja carta horizontal con márgenes de 36 puntos (~0.5 inch)
         Rectangle pageSize = PageSize.LETTER.rotate();
-        Document document = new Document(pageSize, 36, 36, 50, 36);
+        Document document = new Document(pageSize, 36, 36, 50, 15);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfWriter writer = PdfWriter.getInstance(document, baos);
 
@@ -62,7 +65,7 @@ public class PdfInternoTransferenciaService {
         // Fondo
         try {
             Path projectPath = Paths.get("").toAbsolutePath();
-            String imagePath = projectPath + "/src/main/resources/static/assets/img/fondo/horizontal.jpg";
+            String imagePath = projectPath + "/src/main/resources/static/assets/img/fondo/membreta-horizontal-uap.jpg";
             Image background = Image.getInstance(imagePath);
             background.scaleAbsolute(pageSize.getWidth(), pageSize.getHeight()); // rotado
             background.setAbsolutePosition(0, 0);
@@ -76,8 +79,8 @@ public class PdfInternoTransferenciaService {
         document.add(new Paragraph("\n\n"));
 
         // Fuentes
-        Font normal = new Font(Font.FontFamily.TIMES_ROMAN, 12);
-        Font titulo = new Font(Font.FontFamily.TIMES_ROMAN, 14, Font.BOLD);
+        Font normal = new Font(Font.FontFamily.TIMES_ROMAN, 11);
+        Font titulo = new Font(Font.FontFamily.TIMES_ROMAN, 12, Font.BOLD);
 
         //Fuente para la tabla
         Font normal_tabla = new Font(Font.FontFamily.HELVETICA, 7);
@@ -113,16 +116,16 @@ public class PdfInternoTransferenciaService {
         celda1.setColspan(2);
         celda1.setHorizontalAlignment(Element.ALIGN_CENTER);
         celda1.setBackgroundColor(cyanCustom);
-        celda1.setPaddingTop(8f);
-        celda1.setPaddingBottom(8f);
+        celda1.setPaddingTop(5f);
+        celda1.setPaddingBottom(5f);
         tabla.addCell(celda1);
 
         PdfPCell celda2 = new PdfPCell(new Phrase("RECIBE Y RESGUARDA", normal));
         celda2.setColspan(2);
         celda2.setHorizontalAlignment(Element.ALIGN_CENTER);
         celda2.setBackgroundColor(cyanCustom);
-        celda2.setPaddingTop(8f);
-        celda2.setPaddingBottom(8f);
+        celda2.setPaddingTop(5f);
+        celda2.setPaddingBottom(5f);
         tabla.addCell(celda2);
 
         // Fila 2
@@ -294,7 +297,7 @@ public class PdfInternoTransferenciaService {
                 "La contravención dará lugar a posible responsabilidad administrativa, civil y penal. De acuerdo al DS 0181 Art. 146 (Asignación de activos fijos Muebles) I. " +
                 "La asignación de activos fijos muebles es el acto administrativo mediante el cual se entrega a un servidor público un activo o conjunto de éstos, generando la consiguiente responsabilidad sobre su debido uso y custodia.",
                 fontNota);
-        nota.setSpacingBefore(20f);
+        nota.setSpacingBefore(8f);
         nota.setAlignment(Element.ALIGN_JUSTIFIED);
         document.add(nota);
 

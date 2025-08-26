@@ -130,7 +130,7 @@ public class PdfInternoAsignacionService {
 
 		document.add(leyendaTable);
 
-       // --------- BLOQUE DE FIRMAS Y QRs ---------
+        // --------- BLOQUE DE FIRMAS Y QRs ---------
         Font fText = new Font(Font.FontFamily.TIMES_ROMAN, 7); // un poco más legible que 6
 
         // Datos del USUARIO (inmediato superior)
