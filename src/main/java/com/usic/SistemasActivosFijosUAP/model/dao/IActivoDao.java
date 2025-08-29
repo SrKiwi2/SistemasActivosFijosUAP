@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 
 public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificationExecutor<Activo>{
@@ -29,4 +30,24 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
     List<Activo> findByResponsableIdResponsable(Long idResponsable);
 
     Optional<Activo> findByCodigo(String codigo);
+
+    @Query("""
+        select a.oficina as oficina, count(a) as total
+        from Activo a
+        join a.responsable r
+        join r.persona p
+        where p.idPersona = :personaId
+        group by a.oficina
+        order by count(a) desc
+    """)
+    List<OficinaConteo> conteoPorOficinaDePersona(@Param("personaId") Long personaId);
+
+    @Query("""
+        select coalesce(sum(a.costo),0)
+        from Activo a
+        join a.responsable r
+        join r.persona p
+        where p.idPersona = :personaId
+    """)
+    Double sumaCostoPorPersona(@Param("personaId") Long personaId);
 }

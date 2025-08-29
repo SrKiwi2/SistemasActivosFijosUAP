@@ -4,7 +4,10 @@ import java.io.ByteArrayOutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -17,6 +20,7 @@ import com.itextpdf.text.PageSize;
 import com.itextpdf.text.Paragraph;
 import com.itextpdf.text.Phrase;
 import com.itextpdf.text.Rectangle;
+import com.itextpdf.text.pdf.BarcodeQRCode;
 import com.itextpdf.text.pdf.PdfContentByte;
 import com.itextpdf.text.pdf.PdfPCell;
 import com.itextpdf.text.pdf.PdfPTable;
@@ -34,10 +38,7 @@ public class PdfInternoIngresoActivoAjenoService {
         String fechaRetiro,
         Responsable responsablePropietario,
         Responsable responsableAutorizador,
-        String nombreIdentificacion,
-        String cargoIdentificacion,
-        String unidadIdentificacion,
-        List<ActivoIngresoAjenoDTO> activos)throws Exception{
+        List<ActivoIngresoAjenoDTO> activos, Date fechaRegistro)throws Exception{
 
             Document document = new Document(PageSize.LETTER, 50, 50, 50, 50);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -198,12 +199,19 @@ public class PdfInternoIngresoActivoAjenoService {
         nombreCell.setPadding(4f);
         tablaPropietario.addCell(nombreCell);
 
-        // Tercera columna - combinada (colspan 1, rowspan 3) con texto Firma/Sello alineado al final
-        PdfPCell firmaCell = new PdfPCell(new Phrase("Firma/Sello", new Font(Font.FontFamily.TIMES_ROMAN, 11)));
-        firmaCell.setVerticalAlignment(Element.ALIGN_BOTTOM);
-        firmaCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        firmaCell.setRowspan(3);
-        tablaPropietario.addCell(firmaCell);
+        Font captionFont = new Font(Font.FontFamily.TIMES_ROMAN, 9, Font.ITALIC);
+
+        // ...
+        // Tercera columna: QR del PROPIETARIO
+        PdfPCell firmaCellProp = buildQrFirmaCell(
+                "Autorizado por propietario del activo",  // etiqueta solicitada
+                responsablePropietario,
+                fechaRegistro,                             // Date que pasas a tu servicio
+                captionFont
+        );
+        firmaCellProp.setRowspan(3); // mantiene el diseño de 3 filas
+        tablaPropietario.addCell(firmaCellProp);
+
 
         // Fila 2 - CARGO
         tablaPropietario.addCell(new Phrase("CARGO", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
@@ -242,12 +250,17 @@ public class PdfInternoIngresoActivoAjenoService {
         tablaUnidad.addCell(autorizadoPorCell);
 
         // Tercera columna combinada - Firma/Sello
-        PdfPCell firmaUnidadCell = new PdfPCell(new Phrase("Firma/Sello", new Font(Font.FontFamily.TIMES_ROMAN, 11)));
-        firmaUnidadCell.setVerticalAlignment(Element.ALIGN_BOTTOM);
-        firmaUnidadCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        // ...
+        PdfPCell firmaUnidadCell = buildQrFirmaCell(
+            "Autorizado por el inmediato superior",   // etiqueta solicitada
+            responsableAutorizador,
+            fechaRegistro,
+            captionFont
+        );
         firmaUnidadCell.setRowspan(3);
-        firmaUnidadCell.setFixedHeight(60f); // Espacio para firma
+        // firmaUnidadCell.setFixedHeight(60f); // si usas QR, mejor quita esta línea o súbela a 100f
         tablaUnidad.addCell(firmaUnidadCell);
+
 
         // Fila 2 - CARGO
         tablaUnidad.addCell(new Phrase("CARGO", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
@@ -283,7 +296,7 @@ public class PdfInternoIngresoActivoAjenoService {
 
         // Fila 1 - NOMBRE COMPLETO
         tablaActivosFijos.addCell(new Phrase("NOMBRE COMPLETO:", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
-        PdfPCell nombreAFCell = new PdfPCell(new Phrase(nombreIdentificacion, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
+        PdfPCell nombreAFCell = new PdfPCell(new Phrase("LIC. VERONICA LAYME CORI", new Font(Font.FontFamily.TIMES_ROMAN, 11)));
         nombreAFCell.setHorizontalAlignment(Element.ALIGN_LEFT);
         nombreAFCell.setPadding(4f);
         tablaActivosFijos.addCell(nombreAFCell);
@@ -299,7 +312,7 @@ public class PdfInternoIngresoActivoAjenoService {
 
         // Fila 2 - CARGO
         tablaActivosFijos.addCell(new Phrase("CARGO:", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
-        PdfPCell cargoAFCell = new PdfPCell(new Phrase(cargoIdentificacion, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
+        PdfPCell cargoAFCell = new PdfPCell(new Phrase("RESPONSABLE DE ACTIVOS FIJOS", new Font(Font.FontFamily.TIMES_ROMAN, 11)));
         cargoAFCell.setHorizontalAlignment(Element.ALIGN_LEFT);
         cargoAFCell.setPadding(4f);
         tablaActivosFijos.addCell(cargoAFCell);
@@ -307,11 +320,14 @@ public class PdfInternoIngresoActivoAjenoService {
         // Fila 3 - HORA Y FECHA
         tablaActivosFijos.addCell(new Phrase("HORA Y FECHA:", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
 
-        // Obtener hora y fecha actual
+        ZoneId zone = ZoneId.of("America/La_Paz");
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
-        String fechaHoraActual = LocalDateTime.now().format(formatter);
 
-        PdfPCell horaFechaCell = new PdfPCell(new Phrase(fechaHoraActual, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
+        String fechaHoraMostrar = (fechaRegistro != null)
+                ? fechaRegistro.toInstant().atZone(zone).format(formatter)
+                : ZonedDateTime.now(zone).format(formatter); // fallback por si viene null
+
+        PdfPCell horaFechaCell = new PdfPCell(new Phrase(fechaHoraMostrar, new Font(Font.FontFamily.TIMES_ROMAN, 11)));
         horaFechaCell.setHorizontalAlignment(Element.ALIGN_LEFT);
         tablaActivosFijos.addCell(horaFechaCell);
 
@@ -372,5 +388,69 @@ public class PdfInternoIngresoActivoAjenoService {
         } catch (Exception e) {
             System.err.println("No se pudo cargar el membrete: " + e.getMessage());
         }
+    }
+
+    private static String nvl(String s) { return (s == null || s.trim().isEmpty()) ? "-" : s.trim(); }
+
+    private PdfPCell buildQrFirmaCell(
+            String etiqueta,              // p.ej. "Autorizado por el inmediato superior"
+            Responsable r,                // propietario o autorizador
+            Date fechaRegistro,           // la fecha/hora que quieres mostrar
+            Font captionFont              // fuente para "Firma/Sello/QR"
+    ) throws Exception {
+
+        // Datos seguros (null-safety)
+        String nombre = "-";
+        String ci     = "-";
+        String cargo  = "-";
+        String unidad = "-";
+
+        if (r != null) {
+            if (r.getPersona() != null) {
+                nombre = nvl(r.getPersona().getNombreCompleto());
+                ci     = nvl(r.getPersona().getCi());
+            }
+            if (r.getCargo() != null) {
+                cargo = nvl(r.getCargo().getNombre());
+            }
+            if (r.getOficina() != null) {
+                unidad = nvl(r.getOficina().getNombre());
+            }
+        }
+
+        // Fecha/hora La Paz
+        ZoneId zone = ZoneId.of("America/La_Paz");
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+        String fechaHora = (fechaRegistro != null)
+                ? fechaRegistro.toInstant().atZone(zone).format(fmt)
+                : fmt.format(java.time.ZonedDateTime.now(zone));
+
+        // Payload del QR (lo que el QR contendrá)
+        String payload = etiqueta + ": " + nombre +
+                "\nCI: " + ci +
+                "\nCargo: " + cargo +
+                "\nUnidad: " + unidad +
+                "\nFecha: " + fechaHora;
+        
+        String hash = org.apache.commons.codec.digest.DigestUtils.sha256Hex(payload);
+        payload += "\nHash: " + hash.substring(0, 10);
+
+        // Generar QR (tamaño “lógico”: luego lo ajustamos visualmente)
+        BarcodeQRCode qr = new BarcodeQRCode(payload, 160, 160, null);
+        Image qrImg = qr.getImage();
+        qrImg.scaleToFit(70f, 70f); // ajusta al espacio que dejes en la celda
+
+        // Armar celda: caption + QR centrados
+        PdfPCell cell = new PdfPCell();
+        cell.setPadding(4f);
+        cell.setPaddingLeft(30f);
+        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+        cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        cell.addElement(qrImg);
+
+        // Nota: puedes fijar altura si quieres un alto mínimo visual consistente
+        // cell.setFixedHeight(100f);
+
+        return cell;
     }
 }

@@ -1,13 +1,10 @@
 package com.usic.SistemasActivosFijosUAP.controller.login;
 
-import java.net.PasswordAuthentication;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,31 +35,34 @@ public class LoginController {
 
     @PostMapping("/iniciar-sesion")
     public ResponseEntity<String> iniciarSesion(
-        @RequestParam(value = "usuario") String user,
-        @RequestParam(value = "contrasena") String contrasena, 
+        @RequestParam String usuario,
+        @RequestParam String contrasena, 
         HttpServletRequest request, RedirectAttributes flash) {
 
         // los dos parametros de usuario, contraseña vienen del formulario html
-        Usuario usuario = usuarioService.buscarUsuarioPorNombre(user);
-
-        if (usuario != null && passwordEncoder.matches(contrasena, usuario.getPassword())) {
-
-            if ("INACTIVO".equals(usuario.getEstado())) {
-                return ResponseEntity.ok("Este usuario esta en estado inactivo!");
-            }
-
-            HttpSession sessionAdministrador = request.getSession(true);
-            sessionAdministrador.setAttribute("usuario", usuario);
-            sessionAdministrador.setAttribute("persona", usuario.getPersona());
-            sessionAdministrador.setAttribute("nombre_rol", usuario.getRol().getNombre());
-            flash.addAttribute("success", usuario.getPersona().getNombre());
-            return ResponseEntity.ok("Iniciando Session");
-
-        } else {
-            
+        Usuario usuario_ = usuarioService.buscarUsuarioPorNombre(usuario);
+        if (usuario_ == null || !passwordEncoder.matches(contrasena, usuario_.getPassword())) {
             return ResponseEntity.ok("Usuario o contraseña incorrectos!");
         }
 
+        if ("INACTIVO".equals(usuario_.getEstado())) {
+            return ResponseEntity.ok("Este usuario esta en estado inactivo!");
+        }
+
+            HttpSession session = request.getSession(true);
+            session.setAttribute("usuario", usuario_);
+            session.setAttribute("persona", usuario_.getPersona());
+
+            String rol = (usuario_.getRol() != null && usuario_.getRol().getNombre() != null)
+                    ? usuario_.getRol().getNombre().toUpperCase()
+                    : "";
+
+            session.setAttribute("nombre_rol", usuario_.getRol().getNombre());
+            flash.addAttribute("success", usuario_.getPersona().getNombre());
+
+            // 4) Respuesta según rol
+            String respuesta = "RESPONSABLE".equals(rol) ? "Inicio Responsable" : "Iniciando Session";
+            return ResponseEntity.ok(respuesta);
     }
 
     @ValidarUsuarioAutenticado

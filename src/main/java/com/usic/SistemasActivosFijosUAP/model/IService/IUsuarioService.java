@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.IService;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
@@ -16,4 +17,6 @@ public interface IUsuarioService extends IServiceGenerico <Usuario, Long>{
     List<Usuario> listarUsuarios();
 
     boolean existsByUsuario(String usuario);
+
+    Optional<Usuario> buscarConPersonaRol(String usuario);
 }

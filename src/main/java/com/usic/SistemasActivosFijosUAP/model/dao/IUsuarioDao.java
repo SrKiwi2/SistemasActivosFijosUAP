@@ -1,9 +1,11 @@
 package com.usic.SistemasActivosFijosUAP.model.dao;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
@@ -18,4 +20,13 @@ public interface IUsuarioDao extends JpaRepository <Usuario, Long>{
     List<Usuario> listarUsuarios();
 
     boolean existsByUsuario(String usuario);
+
+    @Query("""
+        select u
+        from Usuario u
+        left join fetch u.persona p
+        left join fetch u.rol r
+        where u.usuario = :usuario
+    """)
+    Optional<Usuario> findByUsuarioWithPersonaAndRol(@Param("usuario") String usuario);
 }

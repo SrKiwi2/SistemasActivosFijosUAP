@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActivoDao;
+import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
@@ -123,6 +124,16 @@ public class ActivoServiceImpl implements IActivoService{
     @Override
     public Activo buscarPorCodigo(String codigo) {
         return dao.buscarPorCodigo(codigo);
+    }
+
+    @Override
+    public List<OficinaConteo> conteoPorOficinaDePersona(Long personaId) {
+        return dao.conteoPorOficinaDePersona(personaId);
+    }
+
+    @Override
+    public Double sumaCostoPorPersona(Long personaId) {
+        return dao.sumaCostoPorPersona(personaId);
     }
 
 }

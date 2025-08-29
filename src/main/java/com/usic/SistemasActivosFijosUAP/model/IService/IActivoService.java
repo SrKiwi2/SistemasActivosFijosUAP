@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 
+import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 
@@ -21,4 +22,7 @@ public interface IActivoService extends IServiceGenerico<Activo, Long>{
                               String oficinaId, String fecha, Pageable pageable);
     List<Activo> obtenerActivosDelResponsable(Persona persona);
     Optional<Activo> findByCodigo(String codigo);
+
+    List<OficinaConteo> conteoPorOficinaDePersona(@Param("personaId") Long personaId);
+    Double sumaCostoPorPersona(@Param("personaId") Long personaId);
 }

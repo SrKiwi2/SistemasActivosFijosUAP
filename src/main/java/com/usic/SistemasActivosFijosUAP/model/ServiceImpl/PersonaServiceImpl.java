@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -63,6 +64,11 @@ public class PersonaServiceImpl implements IPersonaService {
     @Override
     public Persona buscarPersonaNombre(String nombre) {
         return personaDao.buscarPersonaNombre(nombre);
+    }
+
+    @Override
+    public Optional<Persona> findByIdWithNacionalidadGenero(Long id) {
+        return personaDao.findByIdWithNacionalidadGenero(id);
     }
 
 }

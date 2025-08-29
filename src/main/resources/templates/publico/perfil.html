@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/head :: head}"></head>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+  .glass {
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 16px;
+  }
+  .hero {
+    background: radial-gradient(1200px 400px at 10% 0%, #e0f2fe 0%, rgba(255,255,255,0) 60%),
+                radial-gradient(800px 300px at 90% 0%, #ede9fe 0%, rgba(255,255,255,0) 60%),
+                linear-gradient(180deg, #fff, #f8fafc);
+  }
+  .avatar-xl {
+    width: 96px; height: 96px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#4f46e5,#06b6d4);
+    color:#fff; display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:36px;
+    box-shadow: 0 10px 25px rgba(79,70,229,0.25);
+  }
+  .stat {
+    display:flex; align-items:center; gap:.75rem;
+  }
+  .chip {
+    padding:.35rem .6rem; border-radius:999px; font-weight:600; font-size:.8rem;
+    background:#eef2ff; color:#4338ca;
+  }
+</style>
+<body class="hero">
+<div class="container py-4">
+
+  <!-- Encabezado -->
+  <div class="glass p-4 mb-4 shadow-sm">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <div class="d-flex align-items-center gap-3">
+        <div class="avatar-xl">
+          <span th:text="${(#strings.substring((persona?.nombre?:'A'),0,1) + (#strings.substring((persona?.paterno?:'Z'),0,1))).toUpperCase()}">AZ</span>
+        </div>
+        <div>
+          <h3 class="mb-1" th:text="${persona?.nombreCompleto}">Nombre Apellido</h3>
+          <div class="text-muted">
+            <i class="ti ti-id-badge me-1"></i>
+            <span th:text="${persona?.ci + (persona?.extension != null ? ' ' + persona?.extension : '')}">CI</span>
+            <span class="mx-2">•</span>
+            <i class="ti ti-shield me-1"></i>
+            <span class="chip" th:text="${rolNombre}">RESPONSABLE</span>
+          </div>
+        </div>
+      </div>
+      <div class="text-end">
+        <div class="stat">
+          <i class="ti ti-briefcase fs-4 text-primary"></i>
+          <div>
+            <div class="small text-muted">Activos a cargo</div>
+            <div class="fs-5 fw-bold" th:text="${activosTotal}">0</div>
+          </div>
+        </div>
+        <div class="stat mt-2">
+          <i class="ti ti-currency-dollar fs-4 text-success"></i>
+          <div>
+            <div class="small text-muted">Costo total</div>
+            <div class="fs-5 fw-bold" th:text="${#numbers.formatDecimal(costoTotal,1,'COMMA',2,'POINT')}">0,00</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grid contenido -->
+  <div class="row g-4">
+    <!-- Col izquierda: datos personales -->
+    <div class="col-lg-4">
+      <div class="glass p-4 h-100">
+        <h5 class="mb-3"><i class="ti ti-user-circle me-2"></i>Datos personales</h5>
+        <dl class="row mb-0">
+          <dt class="col-5 text-muted">Usuario</dt>
+          <dd class="col-7 fw-semibold" th:text="${usuario?.usuario}">user</dd>
+
+          <dt class="col-5 text-muted">Correo</dt>
+          <dd class="col-7" th:text="${persona?.correo ?: '-'}">-</dd>
+
+          <dt class="col-5 text-muted">Nacionalidad</dt>
+          <dd class="col-7" th:text="${persona?.nacionalidad != null ? persona.nacionalidad.nombre : '-'}">-</dd>
+
+          <dt class="col-5 text-muted">Género</dt>
+          <dd class="col-7" th:text="${persona?.genero != null ? persona.genero.nombre : '-'}">-</dd>
+        </dl>
+        <hr>
+        <h6 class="mb-2 text-muted">Responsabilidades</h6>
+        <div class="d-grid gap-2">
+          <div class="p-2 rounded border" th:each="r : ${responsables}">
+            <div class="fw-semibold" th:text="${r.cargo != null ? r.cargo.nombre : '—'}">Cargo</div>
+            <div class="small text-muted">
+              <i class="ti ti-building-skyscraper me-1"></i>
+              <span th:text="${r.oficina != null ? r.oficina.nombre : '—'}">Oficina</span>
+            </div>
+            <div class="small">
+              <span class="badge bg-light text-dark border">
+                <i class="ti ti-hash me-1"></i>
+                <span th:text="${r.codigo_funcionario ?: 's/c'}">s/c</span>
+              </span>
+            </div>
+          </div>
+          <div th:if="${#lists.isEmpty(responsables)}" class="text-muted small">Sin responsabilidades asignadas.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Col derecha: oficinas y activos -->
+    <div class="col-lg-8">
+      <div class="glass p-4 mb-4">
+        <h5 class="mb-3"><i class="ti ti-building me-2"></i>Activos por oficina</h5>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Oficina</th>
+                <th>Código</th>
+                <th class="text-end">Activos</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="oc : ${oficinasConteo}">
+                <td th:text="${oc.oficina != null ? oc.oficina.nombre : '-'}">-</td>
+                <td class="text-muted" th:text="${oc.oficina != null ? oc.oficina.codigo : '-'}">-</td>
+                <td class="text-end fw-semibold" th:text="${oc.total}">0</td>
+              </tr>
+              <tr th:if="${#lists.isEmpty(oficinasConteo)}">
+                <td colspan="3" class="text-center text-muted">Sin activos registrados.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- (Opcional) Últimos activos -->
+      <!--
+      <div class="glass p-4">
+        <h5 class="mb-3"><i class="ti ti-packages me-2"></i>Últimos activos asignados</h5>
+        <div class="list-group list-group-flush">
+          <a class="list-group-item d-flex justify-content-between align-items-center" th:each="a : ${activosRecientes}">
+            <span>
+              <span class="fw-semibold" th:text="${a.nombre}">Nombre</span>
+              <small class="d-block text-muted" th:text="${a.codigo}">COD-0000</small>
+            </span>
+            <span class="badge bg-light text-dark border" th:text="${#numbers.formatDecimal(a.costo,1,'COMMA',2,'POINT')}">0,00</span>
+          </a>
+          <div th:if="${activosRecientes == null or #lists.isEmpty(activosRecientes)}" class="text-muted small">No hay recientes.</div>
+        </div>
+      </div>
+      -->
+    </div>
+  </div>
+</div>
+</body>
+</html>

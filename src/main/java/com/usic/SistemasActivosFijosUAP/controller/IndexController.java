@@ -2,6 +2,7 @@ package com.usic.SistemasActivosFijosUAP.controller;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,14 +16,19 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
+import com.usic.SistemasActivosFijosUAP.model.dto.PerfilDTO;
+import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.PerfilService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -31,43 +37,89 @@ import lombok.RequiredArgsConstructor;
 public class IndexController {
     private final IActivoService activoService;
     private final IResponsableService responsableService;
+    private final PerfilService perfilService;
+    private final IPersonaService personaService;
     private static final Logger logger = LoggerFactory.getLogger(IndexController.class);
 
     @ValidarUsuarioAutenticado
     @GetMapping(value = "/inicio")
-    public String VistaAdministrador(HttpServletRequest request) {
+    public String VistaAdministrador(HttpServletRequest request, Model model) {
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         logger.info("Usuario en sesión: {}", usuario.getPersona().getNombre());
 
         Persona persona = usuario.getPersona();
-        List<Responsable> responsables = responsableService.findAllByPersona(persona); // <- asegúrate de tener este método
-
-        request.getSession().setAttribute("persona", persona);
-        request.getSession().setAttribute("responsable", responsables); // <- guardar en sesión
-        return "inicio-admin";
-    }
-
-    @ValidarUsuarioAutenticado
-    @GetMapping("/vista-administrador")
-    public String inicio(HttpServletRequest request, Model model) {
-        
-        String rol = (String) request.getSession().getAttribute("nombre_rol");
-
-        if (!rol.equals("RESPONSABLE")) {
-            model.addAttribute("activos", Collections.emptyList()); // Omitir carga
-            return "vista-admin"; // o la vista correspondiente
-        }
-        
-        Persona persona = (Persona) request.getSession().getAttribute("persona");
+        List<Responsable> responsables = responsableService.findAllByPersona(persona);
         List<Activo> activos = activoService.obtenerActivosDelResponsable(persona);
         if (activos != null) {
             model.addAttribute("activos", activos);
             
         }
-
-        return "vista-admin";
-        
+        request.getSession().setAttribute("persona", persona);
+        request.getSession().setAttribute("responsable", responsables);
+        return "inicio-admin";
     }
+
+    @ValidarUsuarioAutenticado
+    @GetMapping(value = "/responsable")
+    public String VistaResponsable(HttpServletRequest request, Model model) {
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        logger.info("Usuario en sesión: {}", usuario.getPersona().getNombre());
+
+        Persona persona = usuario.getPersona();
+        List<Responsable> responsables = responsableService.findAllByPersona(persona); // <- asegúrate de tener este método
+        List<Activo> activos = activoService.obtenerActivosDelResponsable(persona);
+        if (activos != null) {
+            model.addAttribute("activos", activos);
+            
+        }
+        request.getSession().setAttribute("persona", persona);
+        request.getSession().setAttribute("responsable", responsables); // <- guardar en sesión
+        return "/publico/inicio_publico";
+    }
+
+    @GetMapping("/perfil/data")
+    @ResponseBody
+    @Transactional
+    public ResponseEntity<?> perfilData(HttpServletRequest request) {
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        Persona personaSess = (Persona) request.getSession().getAttribute("persona");
+        String rol = (String) request.getSession().getAttribute("nombre_rol");
+
+        if (usuario == null || personaSess == null) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(Map.of("message", "Sesión expirada"));
+        }
+
+        // 🔁 Recargar persona MANEJADA por JPA (evita LazyInitialization)
+        Persona persona = personaService
+            .findByIdWithNacionalidadGenero(personaSess.getIdPersona())
+            .orElseThrow();
+
+        PerfilDTO dto = perfilService.buildPerfilDTO(persona, rol, usuario.getUsuario());
+        return ResponseEntity.ok(dto);
+    }
+
+    // @ValidarUsuarioAutenticado
+    // @GetMapping("/vista-administrador")
+    // public String inicio(HttpServletRequest request, Model model) {
+        
+    //     String rol = (String) request.getSession().getAttribute("nombre_rol");
+
+    //     if (!rol.equals("RESPONSABLE")) {
+    //         model.addAttribute("activos", Collections.emptyList()); // Omitir carga
+    //         return "vista-admin"; // o la vista correspondiente
+    //     }
+        
+    //     Persona persona = (Persona) request.getSession().getAttribute("persona");
+    //     List<Activo> activos = activoService.obtenerActivosDelResponsable(persona);
+    //     if (activos != null) {
+    //         model.addAttribute("activos", activos);
+            
+    //     }
+
+    //     return "vista-admin";
+        
+    // }
 
     @GetMapping("/cargar-datos")
     @ResponseBody

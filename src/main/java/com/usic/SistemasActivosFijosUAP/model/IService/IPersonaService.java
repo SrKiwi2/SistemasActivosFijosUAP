@@ -1,7 +1,9 @@
 package com.usic.SistemasActivosFijosUAP.model.IService;
 
 import java.util.List;
+import java.util.Optional;
 
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
@@ -15,4 +17,5 @@ public interface IPersonaService extends IServiceGenerico<Persona, Long>{
     Persona buscarPersonaPorNombreCompletoUno(String nombre, String paterno, String materno);
     Persona buscarPersonaPorNombrePaterno(String nombre, String paterno);
     Persona buscarPersonaNombre(String nombre);
+    Optional<Persona> findByIdWithNacionalidadGenero(@Param("id") Long id);
 }

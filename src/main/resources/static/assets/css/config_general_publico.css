@@ -11,6 +11,12 @@
     }
 }
 
+/* Asegura que SweetAlert2 quede encima del modal de Bootstrap */
+.swal2-container {
+    z-index: 20000 !important;
+}
+
+
 .animated-card {
     animation: fadeSlideIn 1s ease-out;
 }
@@ -133,35 +139,93 @@
     background-clip: text;
     -webkit-text-fill-color: transparent;
     animation: brillo 4s linear infinite;
-    text-shadow: 0 3px 10px rgba(0,0,0,0.15);
-  }
-  
-  .titulo-sistema .version {
+    text-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+}
+
+.titulo-sistema .version {
     font-weight: 700;
-    color: #dc2626; /* rojo fijo para destacar */
-    text-shadow: 0 2px 8px rgba(220,38,38,0.4);
-  }
-  
-  .slogan {
+    color: #dc2626;
+    /* rojo fijo para destacar */
+    text-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
+}
+
+.slogan {
     font-family: "Georgia", serif;
     font-size: 1.1rem;
     color: #374151;
     opacity: 0;
     animation: fadeInUp 1.8s ease forwards 1s;
+}
+
+/* Animaciones */
+@keyframes brillo {
+    0% {
+        background-position: 0% center;
+    }
+
+    100% {
+        background-position: 200% center;
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Hover sutil */
+.logo-hover {
+    transition: transform .4s ease;
+}
+
+.logo-hover:hover {
+    transform: scale(1.08) rotate(-2deg);
+}
+
+
+/* config tabla responsable */
+.table .badge {
+    font-weight: 600;
+}
+
+.table thead.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.dt-button {
+    border-radius: .5rem !important;
+}
+
+.table thead.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.details-row {
+    background: #f8fafc;
+}
+
+#exportMenu .dropdown-item i {
+    width: 18px;
+    text-align: center;
+}
+
+#colvisMenu .form-check {
+    margin-bottom: .35rem;
+}
+
+.toolbar-actions {
+    border-top: 1px dashed var(--bs-border-color);
+    padding-top: .5rem;
+    margin-top: .25rem;
   }
-  
-  /* Animaciones */
-  @keyframes brillo {
-    0% { background-position: 0% center; }
-    100% { background-position: 200% center; }
-  }
-  
-  @keyframes fadeInUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-  
-  /* Hover sutil */
-  .logo-hover { transition: transform .4s ease; }
-  .logo-hover:hover { transform: scale(1.08) rotate(-2deg); }
-  

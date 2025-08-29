@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -8,6 +9,8 @@ import org.springframework.stereotype.Service;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IUsuarioDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+
+import groovyjarjarantlr4.v4.parse.ANTLRParser.delegateGrammar_return;
 
 @Service
 public class UsuarioServiceImpl implements IUsuarioService{
@@ -53,6 +56,11 @@ public class UsuarioServiceImpl implements IUsuarioService{
     @Override
     public boolean existsByUsuario(String usuario) {
         return usuarioDao.existsByUsuario(usuario);
+    }
+
+    @Override
+    public Optional<Usuario> buscarConPersonaRol(String usuario) {
+        return usuarioDao.findByUsuarioWithPersonaAndRol(usuario);
     }
     
 }

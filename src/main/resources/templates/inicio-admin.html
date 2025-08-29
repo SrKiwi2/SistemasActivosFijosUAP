@@ -82,6 +82,54 @@
                                             </button>
                                             <input id="qrFile" type="file" accept="image/*" capture="environment" class="d-none">
                                         </div>
+                                        <div class="card shadow-sm p-4" th:if="${session.nombre_rol == 'RESPONSABLE'}">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <h5 class="text-primary fw-bold mb-0">Activos asignados a su nombre</h5>
+                                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse"
+                                                    data-bs-target="#tablaActivosResponsable" aria-expanded="false">
+                                                    Mostrar / Ocultar
+                                                </button>
+                                            </div>
+                                        
+                                            <div id="tablaActivosResponsable" class="collapse show">
+                                                <div class="table-responsive">
+                                                    <table id="tablaActivos" class="table table-sm align-middle table-bordered table-hover"
+                                                        style="font-size: 0.875rem;">
+                                                        <thead class="table-primary text-center" style="font-size: 0.85rem;">
+                                                            <tr>
+                                                                <th>Código</th>
+                                                                <th>Nombre</th>
+                                                                <th>Descripción</th>
+                                                                <th>Oficina</th>
+                                                                <th>Grupo Contable</th>
+                                                                <th>Estado</th>
+                                                                <th>Adquisición</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr th:each="activo : ${activos}">
+                                                                <td th:text="${activo.codigo}" class="text-truncate" style="max-width: 140px;"></td>
+                                                                <td th:text="${activo.nombre}" th:attr="data-bs-toggle='tooltip', title=${activo.nombre}"
+                                                                    class="text-truncate" style="max-width: 140px;"></td>
+                                                                <td th:text="${activo.descripcion}"
+                                                                    th:attr="data-bs-toggle='tooltip', title=${activo.descripcion}" class="text-truncate"
+                                                                    style="max-width: 200px;"></td>
+                                                                <td th:text="${activo.oficina.nombre}"
+                                                                    th:attr="data-bs-toggle='tooltip', title=${activo.oficina.nombre}" class="text-truncate"
+                                                                    style="max-width: 120px;"></td>
+                                                                <td th:text="${activo.grupoContable.nombre}"
+                                                                    th:attr="data-bs-toggle='tooltip', title=${activo.grupoContable.nombre}"
+                                                                    class="text-truncate" style="max-width: 140px;"></td>
+                                                                <td th:text="${activo.estadoActivo.nombre}" class="text-center text-truncate"
+                                                                    style="max-width: 100px;"></td>
+                                                                <td th:text="${#temporals.format(activo.fecha_adquisición, 'dd/MM/yyyy')}" class="text-center">
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <div class="container-fluid mt-5 px-0">
                                             <div id="informacionActivosFijos"></div>
                                         </div>
@@ -735,6 +783,16 @@
                                                 placeholder="Ej: 12345678" required>
                                         </div>
                                         <small class="text-muted">Número de CI con extensión.</small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Unidad destino funcionario/activo</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-badge"></i></span>
+                                            <input type="text" class="form-control" name="unidadIncorpora"
+                                                placeholder="Ej: Unidad de Sistemas..." required>
+                                        </div>
+                                        <small class="text-muted">Oficina del propietario y destino del activo</small>
                                     </div>
                                 </div>
                                 <div class="row g-3 mt-1">

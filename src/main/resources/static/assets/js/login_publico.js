@@ -1,54 +1,56 @@
-//INICIO DE SESION
-$(document).ready(function () {
-    $("#formularioLogin").submit(function (event) {
-        event.preventDefault();
-        if (this.checkValidity() === false) {
+$(function () {
+    $("#formularioLogin").on("submit", function (e) {
+        e.preventDefault();
+        if (!this.checkValidity()) {
             $(this).addClass("was-validated");
             return;
         }
-        var form = $(this)[0];
-        var formData = new FormData(form);
+
+        const formData = new FormData(this);
 
         $.ajax({
             type: "POST",
-            url: $(this).attr("action"),
+            url: this.action,
             data: formData,
             contentType: false,
             processData: false,
             success: function (response) {
-                if (response === "Iniciando Session") {
+                if (response === "Iniciando Session" || response === "Inicio Responsable") {
+                    // 1) Cerrar el modal de login
+                    $("#modalLogin").modal("hide");
+
+                    // 2) Mostrar loader por encima y redirigir inmediatamente
+                    const destino = (response === "Inicio Responsable")
+                        ? "/adm/responsable"    // o /adm/responsable si esa es tu ruta real
+                        : "/adm/inicio"; // o /adm/inicio
+
                     Swal.fire({
-                        title: "Iniciando Session",
-                        timerProgressBar: true,
+                        title: "Iniciando sesión…",
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: false,
                         didOpen: () => {
                             Swal.showLoading();
-                            const timer = Swal.getPopup().querySelector("b");
-                            timerInterval = setInterval(() => {
-                                timer.textContent = `${Swal.getTimerLeft()}`;
-                            }, 100);
-                            window.location.href = "/adm/inicio";
-                        },
-                        willClose: () => {
-                            clearInterval(timerInterval);
-                        },
+                            // Redirige YA; no esperes cierre del Swal
+                            window.location.href = destino;
+                        }
                     });
                 } else {
-                    Swal.fire("Imposible Continuar!", response + ".", "error");
+                    Swal.fire("Imposible continuar", response + ".", "error");
                 }
             },
-            error: function (xhr, status, error) {
-                Swal.fire(
-                    "Imposible Continuar!",
-                    "Ha ocurrido un error. Por favor, intenta nuevamente." + xhr,
-                    status,
-                    error,
-                    "error"
-                );
-                console.error(error);
-            },
+            error: function (xhr) {
+                let msg = "Ha ocurrido un error. Por favor, intenta nuevamente.";
+                try {
+                    const json = xhr.responseJSON || JSON.parse(xhr.responseText);
+                    if (json && json.message) msg = json.message;
+                } catch (e) { }
+                Swal.fire("Imposible continuar", msg, "error");
+            }
         });
     });
 });
+
 //FIN INICIO DE SESION
 
 // VER CONTRASEÑA MODAL LOGIN

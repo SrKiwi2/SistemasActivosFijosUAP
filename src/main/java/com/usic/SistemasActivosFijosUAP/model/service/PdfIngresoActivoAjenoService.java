@@ -31,6 +31,7 @@ public class PdfIngresoActivoAjenoService {
         String fechaIncorporacion,
         String fechaRetiro,
         Responsable responsablePropietario,
+        String unidadIncorporar,
         Responsable responsableAutorizador,
         String nombreIdentificacion,
         String cargoIdentificacion,
@@ -212,7 +213,7 @@ public class PdfIngresoActivoAjenoService {
 
         // Fila 3 - DIRECCIÓN/UNIDAD/SECCIÓN
         tablaPropietario.addCell(new Phrase("DIRECCIÓN, UNIDAD Y/O SECCIÓN", new Font(Font.FontFamily.TIMES_ROMAN, 11, Font.BOLD)));
-        PdfPCell unidadCell = new PdfPCell(new Phrase(responsablePropietario.getOficina().getNombre(), new Font(Font.FontFamily.TIMES_ROMAN, 12)));
+        PdfPCell unidadCell = new PdfPCell(new Phrase(unidadIncorporar, new Font(Font.FontFamily.TIMES_ROMAN, 12)));
         unidadCell.setHorizontalAlignment(Element.ALIGN_LEFT);
         unidadCell.setPadding(4f);
         tablaPropietario.addCell(unidadCell);

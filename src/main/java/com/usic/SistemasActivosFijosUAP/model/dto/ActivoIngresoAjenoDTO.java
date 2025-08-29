@@ -8,4 +8,5 @@ import lombok.Setter;
 public class ActivoIngresoAjenoDTO {
     private String descripcionA;
     private String estadoA;
+    private String unidadIncorpora;
 }

@@ -25,15 +25,149 @@
                 </div>
 
                 <ul class="navbar-nav flex-row align-items-center ms-auto">
+                    <!-- Login -->
                     <li class="nav-item" th:if="${session.persona == null}">
                         <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modalLogin">
-                            <i class="ti ti-login me-2"></i>Iniciar sesión
+                            <i class="ti ti-login me-2"></i> Iniciar sesión
                         </a>
+                    </li>
+
+                    <!-- Usuario logueado -->
+                    <li class="nav-item dropdown" th:if="${session.persona != null}">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#"
+                            data-bs-toggle="dropdown">
+                            <span class="rounded-circle d-inline-flex justify-content-center align-items-center me-2"
+                                style="width:32px;height:32px;background:linear-gradient(135deg,#4f46e5,#06b6d4);color:#fff;font-weight:600;">
+                                <span
+                                    th:text="${(#strings.substring((session.persona?.nombre?:'A'),0,1) + (#strings.substring((session.persona?.paterno?:'Z'),0,1))).toUpperCase()}">AZ</span>
+                            </span>
+                            <span th:text="${session.persona?.nombreCompleto}">Usuario</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow">
+                            <li class="px-3 py-2 small text-muted">
+                                <i class="ti ti-shield me-1"></i><span th:text="${session.nombre_rol}">ROL</span>
+                            </li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalPerfil">
+                                    <i class="ti ti-user-circle me-2"></i> Mi perfil
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" data-bs-toggle="modal"
+                                    data-bs-target="#modalConfirmLogout">
+                                    <i class="ti ti-logout me-2"></i> Cerrar sesión
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                 </ul>
             </div>
         </nav>
         <br />
+    </div>
+
+    <!-- MODAL PERFIL -->
+    <div class="modal fade" id="modalPerfil" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content border-0">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title"><i class="ti ti-user-circle me-2"></i> Mi perfil</h5>
+                    <button class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <!-- Encabezado -->
+                    <div class="p-4 mb-4 rounded-4 shadow-sm"
+                        style="background:linear-gradient(120deg,#eef2ff,#ecfeff)">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                            <div class="d-flex align-items-center gap-3">
+                                <div id="perfilAvatar"
+                                    class="rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:96px;height:96px;background:linear-gradient(135deg,#4f46e5,#06b6d4);color:#fff;font-weight:700;font-size:36px;">
+                                    AZ
+                                </div>
+                                <div>
+                                    <h3 class="mb-1" id="perfilNombre">—</h3>
+                                    <div class="text-muted">
+                                        <i class="ti ti-id-badge me-1"></i><span id="perfilCi">—</span>
+                                        <span class="mx-2">•</span>
+                                        <i class="ti ti-shield me-1"></i>
+                                        <span class="badge rounded-pill bg-primary-subtle text-primary fw-semibold"
+                                            id="perfilRol">—</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div>
+                                    <div class="small text-muted">Activos a cargo</div>
+                                    <div class="fs-4 fw-bold" id="perfilActivosTotal">0</div>
+                                </div>
+                                <div class="mt-2">
+                                    <div class="small text-muted">Costo total</div>
+                                    <div class="fs-5 fw-bold" id="perfilCostoTotal">0,00</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contenido -->
+                    <div class="row g-4">
+                        <div class="col-lg-4">
+                            <div class="p-3 rounded-4 border h-100">
+                                <h6 class="mb-3"><i class="ti ti-address-book me-2"></i>Datos personales</h6>
+                                <dl class="row mb-0">
+                                    <dt class="col-5 text-muted">Usuario</dt>
+                                    <dd class="col-7 fw-semibold" id="perfilUsuario">—</dd>
+                                    <dt class="col-5 text-muted">Correo</dt>
+                                    <dd class="col-7" id="perfilCorreo">—</dd>
+                                    <dt class="col-5 text-muted">Nacionalidad</dt>
+                                    <dd class="col-7" id="perfilNacionalidad">—</dd>
+                                    <dt class="col-5 text-muted">Género</dt>
+                                    <dd class="col-7" id="perfilGenero">—</dd>
+                                </dl>
+                                <hr>
+                                <h6 class="mb-2 text-muted">Responsabilidades</h6>
+                                <div id="perfilResponsables" class="d-grid gap-2">
+                                    <!-- items por JS -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-8">
+                            <div class="p-3 rounded-4 border">
+                                <h6 class="mb-3"><i class="ti ti-building me-2"></i>Activos por oficina</h6>
+                                <div class="table-responsive">
+                                    <table class="table align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th>Oficina</th>
+                                                <th>Código</th>
+                                                <th class="text-end">Activos</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="perfilOficinasBody">
+                                            <!-- filas por JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loader -->
+                    <div class="d-flex justify-content-center py-4 d-none" id="perfilLoader" style="display:none;">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- MODAL DE LOGIN -->
@@ -148,7 +282,8 @@
                     </div>
 
                     <!-- Sección de botones -->
-                    <div class="btn-section">
+                    <div class="btn-section"
+                        th:if="${session.nombre_rol == 'RESPONSABLE' or session.nombre_rol == 'ADMINISTRADOR'}">
                         <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal"
                             data-bs-target="#formularioModalAsignacionActivo">
                             <i class="bi bi-plus-circle-fill"></i> Registrar Asignación
@@ -170,6 +305,138 @@
                         </button>
                         <input id="qrFile" type="file" accept="image/*" capture="environment" class="d-none">
                     </div>
+                    <div class="card shadow-sm p-4" th:if="${session.nombre_rol == 'RESPONSABLE'}">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h4 class="mb-0 fw-bold text-primary">Activos a su cargo</h4>
+                                <small class="text-muted">Listado detallado de activos asignados al responsable</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#tablaActivosResponsable" aria-expanded="true">
+                                Mostrar / Ocultar
+                            </button>
+                        </div>
+
+                        <!-- Resumen -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-6 col-md-3">
+                                <div class="border rounded-3 p-3 h-100">
+                                    <div class="text-muted small">Total de activos</div>
+                                    <div class="fs-4 fw-bold" id="sumTotalActivos">0</div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <div class="border rounded-3 p-3 h-100">
+                                    <div class="text-muted small mb-2">Estados</div>
+                                    <div id="chipsEstados" class="d-flex flex-wrap gap-2"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Toolbar -->
+                        <div class="row g-2 mb-2 align-items-center">
+                            <!-- FILA 1: buscador + filtros -->
+                            <div class="col-12 col-lg-5">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="ti ti-search"></i></span>
+                                    <input id="buscadorActivos" type="search" class="form-control"
+                                        placeholder="Buscar por código, nombre, descripción..." />
+                                    <button id="btnReset" class="btn btn-outline-secondary" type="button"
+                                        title="Limpiar filtros">
+                                        <i class="ti ti-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="col-6 col-lg-3">
+                                <select id="filtroOficina" class="form-select">
+                                    <option value="">Todas las oficinas</option>
+                                </select>
+                            </div>
+
+                            <div class="col-6 col-lg-2">
+                                <select id="filtroEstado" class="form-select">
+                                    <option value="">Todos los estados</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- FILA 2: acciones (exportar / columnas) -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="toolbar-actions d-flex flex-wrap justify-content-md-end gap-2">
+                                    <!-- Export -->
+                                    <div class="btn-group">
+                                        <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown"
+                                            type="button">
+                                            <i class="ti ti-download me-1"></i> Exportar
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end" id="exportMenu"></ul>
+                                    </div>
+
+                                    <!-- Columnas -->
+                                    <div class="btn-group">
+                                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                                            data-bs-toggle="dropdown" type="button">
+                                            <i class="ti ti-layout-grid me-1"></i> Columnas
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-end p-2" style="min-width: 240px;"
+                                            id="colvisMenu"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contenedor oculto para los botones nativos de DataTables (no se muestran) -->
+                        <div id="dtHiddenButtons" class="d-none"></div>
+
+                        <div id="tablaActivosResponsable" class="collapse show">
+                            <div class="table-responsive">
+                                <table id="tablaActivos" class="table table-hover align-middle"
+                                    style="font-size: 0.92rem; width:100%;">
+                                    <thead class="table-primary sticky-top">
+                                        <tr class="text-center">
+                                            <th style="width:36px;"></th> <!-- details-control -->
+                                            <th>Código</th>
+                                            <th>Nombre</th>
+                                            <th>Descripción</th>
+                                            <th>Oficina</th>
+                                            <th>Estado</th>
+                                            <th>Vida útil</th>
+                                            <th>Adquisición</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="a : ${activos}">
+                                            <!-- details-control -->
+                                            <td class="details-control text-center" style="cursor:pointer;">
+                                                <i class="ti ti-chevron-down"></i>
+                                            </td>
+
+                                            <td th:text="${a.codigo}" class="text-truncate" style="max-width:140px;">
+                                            </td>
+                                            <td th:text="${a.nombre}"
+                                                th:attr="data-bs-toggle='tooltip', title=${a.nombre}"
+                                                class="text-truncate" style="max-width:160px;"></td>
+                                            <td th:text="${a.descripcion}"
+                                                th:attr="data-bs-toggle='tooltip', title=${a.descripcion}"
+                                                class="text-truncate" style="max-width:260px;"></td>
+                                            <td th:text="${a.oficina?.nombre}" class="text-truncate"
+                                                style="max-width:160px;"></td>
+
+                                            <!-- Estado como texto (JS lo transformará a badge) -->
+                                            <td th:text="${a.estadoActivo?.nombre}" class="text-center"></td>
+
+                                            <td th:text="${a.vida_util}" class="text-center"></td>
+                                            <td th:text="${#temporals.format(a.fecha_adquisición, 'dd/MM/yyyy')}"
+                                                class="text-center"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="container-fluid mt-5 px-0">
                         <div id="informacionActivosFijos"></div>
                     </div>
@@ -183,8 +450,9 @@
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-dark text-white">
-                    
-                    <h5 class="modal-title" style="color: #fff;"><i class="bi bi-qr-code me-2" style="color: #fff;"></i> Resultado del QR</h5>
+
+                    <h5 class="modal-title" style="color: #fff;"><i class="bi bi-qr-code me-2" style="color: #fff;"></i>
+                        Resultado del QR</h5>
 
                     <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal"
                         aria-label="Cerrar"></button>
@@ -240,9 +508,7 @@
         </div>
     </div>
 
-
-
-    <!-- ASIGNAR ACTIVO NUEVO -->
+    <!-- Modal -->
     <div class="modal fade" id="formularioModalAsignacionActivo" tabindex="-1" aria-labelledby="formularioModalLabel"
         data-bs-focus="false">
         <div class="modal-dialog modal-xl modal-dialog-centered">
@@ -345,8 +611,8 @@
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title fw-bold" id="modalConfirmacionDatosLabel">
-                        <i class="bi bi-person-lines-fill me-2"></i> Confirmar datos del responsable
+                    <h5 class="modal-title fw-bold" id="modalConfirmacionDatosLabel" style="color: #fff;">
+                        <i class="bi bi-person-lines-fill me-2" style="color: #fff;"></i> CONFIRMAR DATOS
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
@@ -355,6 +621,13 @@
                         <div class="spinner-border" role="status" aria-hidden="true"></div>
                         <p class="mt-2 mb-0">Consultando datos…</p>
                     </div>
+                    <h6 class="fw-bold text-danger bg-light p-3 rounded-2 text-center border border-danger">
+                        <i class="bi bi-exclamation-octagon-fill me-2"></i>
+                        Verifique cuidadosamente los datos ingresados antes de confirmar.
+                        Una vez aprobados, la asignación será enviada a la Seccion de Activos Fijos para su registro y
+                        seguimiento,
+                        contando con la conformidad del responsable asignado y la aprobación de su inmediato superior.
+                    </h6>
                     <div id="contenidoConfirmacion" class="fs-6 d-none">
                         <div class="row g-3">
                             <div class="col-12 col-lg-6">
@@ -597,6 +870,12 @@
                         <div class="spinner-border" role="status" aria-hidden="true"></div>
                         <p class="mt-2 mb-0">Preparando resumen…</p>
                     </div>
+                    <h6 class="fw-bold text-danger bg-light p-3 rounded-2 text-center border border-danger">
+                        <i class="bi bi-exclamation-octagon-fill me-2"></i>
+                        Verifique cuidadosamente los datos ingresados antes de confirmar.
+                        Una vez aprobados, la informacion será enviada al personal del sistema para su seguimiento,
+                        contando con la conformidad del inmediato superior y responsable.
+                    </h6>
                     <div id="contenidoConfirmacionTransfer" class="d-none">
                         <div class="row g-3">
                             <div class="col-12 col-lg-6">
@@ -770,6 +1049,16 @@
                                         </div>
                                         <small class="text-muted">Número de CI con extensión.</small>
                                     </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Unidad destino funcionario/activo</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light"><i
+                                                    class="bi bi-person-badge"></i></span>
+                                            <input type="text" class="form-control" name="unidadIncorpora"
+                                                placeholder="Ej: Unidad de Sistemas..." required>
+                                        </div>
+                                        <small class="text-muted">Oficina del propietario y destino del activo</small>
+                                    </div>
                                 </div>
                                 <div class="row g-3 mt-1">
                                     <div class="col-12">
@@ -878,6 +1167,12 @@
                         <div class="spinner-border" role="status" aria-hidden="true"></div>
                         <p class="mt-2 mb-0">Preparando resumen…</p>
                     </div>
+                    <h6 class="fw-bold text-danger bg-light p-3 rounded-2 text-center border border-danger">
+                        <i class="bi bi-exclamation-octagon-fill me-2"></i>
+                        Verifique cuidadosamente los datos ingresados antes de confirmar.
+                        Una vez aprobados, la información será enviada al personal del sistema para su seguimiento,
+                        contando con la conformidad y la aprobación del inmediato superior y responsable.
+                    </h6>
                     <div id="contenidoConfirmacionIngreso" class="d-none">
                         <div class="row g-3">
                             <div class="col-12 col-lg-6">
@@ -1181,12 +1476,7 @@
     <div th:replace="~{layout/script_publico :: script_publico}"></div>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" />
-    <script>
-        $(document).ready(function () {
-            cargarTabla();
 
-        });
-    </script>
 </body>
 
 </html>
