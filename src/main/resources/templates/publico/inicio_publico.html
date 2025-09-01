@@ -278,12 +278,11 @@
                             </p>
 
                         </div>
-
+                        
                     </div>
-
+                    
                     <!-- Sección de botones -->
-                    <div class="btn-section"
-                        th:if="${session.nombre_rol == 'RESPONSABLE' or session.nombre_rol == 'ADMINISTRADOR'}">
+                    <div class="btn-section" th:if="${session.nombre_rol == 'RESPONSABLE' or session.nombre_rol == 'ADMINISTRADOR'}">
                         <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal"
                             data-bs-target="#formularioModalAsignacionActivo">
                             <i class="bi bi-plus-circle-fill"></i> Registrar Asignación
@@ -305,6 +304,8 @@
                         </button>
                         <input id="qrFile" type="file" accept="image/*" capture="environment" class="d-none">
                     </div>
+                    
+                    <!-- Detalles de activos con rol responsable logueado -->
                     <div class="card shadow-sm p-4" th:if="${session.nombre_rol == 'RESPONSABLE'}">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div>
@@ -436,12 +437,13 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="container-fluid mt-5 px-0">
                         <div id="informacionActivosFijos"></div>
                     </div>
+                    
                     <footer th:replace="~{layout/footer :: footer}"></footer>
                 </div>
+                
             </div>
         </div>
     </div>

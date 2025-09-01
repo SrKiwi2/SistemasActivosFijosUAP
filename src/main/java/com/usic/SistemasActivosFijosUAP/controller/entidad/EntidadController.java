@@ -37,7 +37,7 @@ public class EntidadController {
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla-registros")
     public String tablaRegistrosEntidad(Model model) throws Exception {
-        List<Entidad> listasEntidades = entidadService.listarEntidad();
+        List<Entidad> listasEntidades = entidadService.findAll();
         List<String> encryptedIds = new ArrayList<>();
         for (Entidad entidades : listasEntidades) {
             String id_encryptado = Encriptar.encrypt(Long.toString(entidades.getIdEntidad()));
@@ -63,17 +63,17 @@ public class EntidadController {
         return "entidad/formulario";
     }
 
-    @ValidarUsuarioAutenticado
-    @PostMapping("/registrar-entidad")
-    public ResponseEntity<String> RegistrarEntidad(HttpServletRequest request, @Validated Entidad entidad) {
-        if (entidadService.buscarPorNombre(entidad.getNombre()) == null) {
-            entidad.setEstado("ACTIVO");
-            entidadService.save(entidad);
-            return ResponseEntity.ok("Se realizó el registro correctamente");
-        } else {
-            return ResponseEntity.ok("Ya existe un rol con este nombre");
-        }
-    }
+    // @ValidarUsuarioAutenticado
+    // @PostMapping("/registrar-entidad")
+    // public ResponseEntity<String> RegistrarEntidad(HttpServletRequest request, @Validated Entidad entidad) {
+    //     if (entidadService.buscarPorNombre(entidad.getNombre()) == null) {
+    //         entidad.setEstado("ACTIVO");
+    //         entidadService.save(entidad);
+    //         return ResponseEntity.ok("Se realizó el registro correctamente");
+    //     } else {
+    //         return ResponseEntity.ok("Ya existe un rol con este nombre");
+    //     }
+    // }
 
     @PostMapping(value = "/modificar-entidad")
     public ResponseEntity<String> modificarEntidad(HttpServletRequest request, Entidad entidad,

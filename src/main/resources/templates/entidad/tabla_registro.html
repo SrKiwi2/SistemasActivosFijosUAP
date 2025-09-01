@@ -1,33 +1,40 @@
 <div class="card">
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Entidad - Institución</h5>
-        <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-            data-bs-target="#modalFormularioEntidad">
-            <i class="fa-solid fa-user-plus"></i> Agregar Entidad
-        </button>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
+              <i class="fa-solid fa-file-import me-1"></i> Importar DBF
+            </button>
+            <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
+                    data-bs-target="#modalFormularioEntidad">
+              <i class="fa-solid fa-user-plus me-1"></i> Agregar Entidad
+            </button>
+        </div>
     </div>
     <div class="card-datatable table-responsive pt-0">
         <table class="datatables-basic table table-hover" id="data-table">
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Institución</th>
                     <th>Código</th>
+                    <th>Nombre Entidad</th>
+                    <th>Sigla</th>
                     <th>OPCIONES</th>
                 </tr>
             </thead>
             <tbody class="animate__animated animate__bounceInDown">
                 <tr th:each="entidad, index: ${listasEntidades}">
                     <th th:text="${index.index+1}"></th>
-                    <th th:text="${entidad.nombre}"></th>
-                    <th th:text="${entidad.codigo}"></th>
+                    <th th:text="${entidad.entidadCodigo}"></th>
+                    <th th:text="${entidad.descripcion}"></th>
+                    <th th:text="${entidad.sigla}"></th>
                     <th>
                         <button type="button" class="btn btn-sm btn-primary"
                             th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
                             data-bs-toggle="modal" data-bs-target="#modalFormularioEntidad">
                             <i class="fa-solid fa-pen-to-square"></i> Editar
                         </button>
-                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${entidad.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
+                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${entidad.descripcion}]],[[${id_encryptado[__${index.index}__]}]])">
                             <i class="fa-solid fa-trash"></i> Eliminar
                         </button>
                     </th>

@@ -41,6 +41,8 @@ public class SeguridadConfig {
                 "/topic/**",
                 "/app/**",
                 "/ws/**"
+                /* importaciones dbf */,
+                "/importe/**"
                 )
                 .permitAll()
                 .anyRequest().authenticated()

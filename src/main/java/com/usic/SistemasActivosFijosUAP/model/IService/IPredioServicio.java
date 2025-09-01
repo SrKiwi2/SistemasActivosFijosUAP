@@ -1,14 +1,18 @@
 package com.usic.SistemasActivosFijosUAP.model.IService;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
 @Service
 public interface IPredioServicio extends IServiceGenerico<Predio, Long>{
-    Predio buscarPorNombre(String nombre);
+    // Predio buscarPorNombre(String nombre);
     List<Predio> listarPredios();
-    Predio buscarPorPrefijo(String prefijo);
+    // Predio buscarPorPrefijo(String prefijo);
+    Optional<Predio> findByEntidadAndUnidad(Entidad entidad, String unidad);
+    List<Predio> saveAll(Iterable<Predio> predios);
 }

@@ -37,7 +37,7 @@ public class PredioController {
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla-registros")
     public String tablaRegistros_municipio(Model model) throws Exception {
-        List<Predio> listasPredios = predioServicio.listarPredios();
+        List<Predio> listasPredios = predioServicio.findAll();
         List<String> encryptedIds = new ArrayList<>();
         for (Predio predios : listasPredios) {
             String id_encryptado = Encriptar.encrypt(Long.toString(predios.getIdPredio()));
@@ -63,17 +63,17 @@ public class PredioController {
         return "predio/formulario";
     }
 
-    @ValidarUsuarioAutenticado
-    @PostMapping("/registrar-predio")
-    public ResponseEntity<String> Registrar_predio(HttpServletRequest request, @Validated Predio predio) {
-        if (predioServicio.buscarPorNombre(predio.getNombre()) == null) {
-            predio.setEstado("ACTIVO");
-            predioServicio.save(predio);
-            return ResponseEntity.ok("Se realizó el registro correctamente");
-        } else {
-            return ResponseEntity.ok("Ya existe un rol con este nombre");
-        }
-    }
+    // @ValidarUsuarioAutenticado
+    // @PostMapping("/registrar-predio")
+    // public ResponseEntity<String> Registrar_predio(HttpServletRequest request, @Validated Predio predio) {
+    //     if (predioServicio.buscarPorNombre(predio.getNombre()) == null) {
+    //         predio.setEstado("ACTIVO");
+    //         predioServicio.save(predio);
+    //         return ResponseEntity.ok("Se realizó el registro correctamente");
+    //     } else {
+    //         return ResponseEntity.ok("Ya existe un rol con este nombre");
+    //     }
+    // }
 
     @PostMapping(value = "/modificar-predio")
     public ResponseEntity<String> modificar_predio(HttpServletRequest request, Predio predio,

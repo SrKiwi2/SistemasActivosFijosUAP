@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -35,13 +36,17 @@ public class EntidadServiceImpl implements IEntidadService{
     }
 
     @Override
-    public Entidad buscarPorNombre(String nombre) {
-        return dao.buscarPorNombre(nombre);
+    public Optional<Entidad> findByGestionAndEntidadCodigo(Short gestion, String entidadCodigo) {
+        return dao.findByGestionAndEntidadCodigo(gestion, entidadCodigo);
     }
 
     @Override
-    public List<Entidad> listarEntidad() {
-        return dao.listarEntidad();
+    public List<Entidad> saveAll(Iterable<Entidad> entidades) {
+        return dao.saveAll(entidades);
     }
-    
+
+    @Override
+    public Optional<Entidad> findTopByEntidadCodigoOrderByGestionDesc(String entidadCodigo) {
+        return dao.findTopByEntidadCodigoOrderByGestionDesc(entidadCodigo);
+    }    
 }

@@ -54,7 +54,7 @@ public class OficinaExcelService {
                     continue;
                 }
 
-                Predio predio = predioServicio.buscarPorPrefijo(prefijo);
+                Predio predio = predioServicio.findById(null);
                 if (predio == null) {
                     System.out.println("No se encontró predio con prefijo: " + prefijo + " - Omitiendo...");
                     continue;
