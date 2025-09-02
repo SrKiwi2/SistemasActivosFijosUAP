@@ -210,15 +210,14 @@ public class TransferenciaActivosController {
             personaService.save(persona);
         }
     
-        Oficina oficina = oficinaService.buscarPorNombre(nombreOficina);
-        if (oficina == null) {
-            oficina = new Oficina();
-            oficina.setNombre(nombreOficina);
-            oficina.setEstado("ACTIVO");
-            oficina.setRegistro(new Date());
-            oficina.setRegistroIdUsuario(1L);
-            oficinaService.save(oficina);
-        }
+        Oficina oficina = oficinaService.buscarPorNombre(nombreOficina).orElseGet(() -> {
+            Oficina o = new Oficina();
+            o.setNombre(nombreOficina);
+            o.setEstado("ACTIVO");
+            o.setRegistro(new Date());
+            o.setRegistroIdUsuario(1L);
+            return oficinaService.save(o);
+        });
     
         Cargo cargo = cargoService.buscarPorNombre(nombreCargo);
         if (cargo == null) {

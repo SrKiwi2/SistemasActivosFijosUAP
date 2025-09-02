@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGeneroService;
@@ -75,7 +76,14 @@ public class IngresoActivosAjenosController {
             final Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
             final Responsable responsablePropietario = obtenerORegistrarResponsable(codigoFuncionarioPropietario, ciPropietario);
             final Responsable responsableAutorizador = obtenerORegistrarResponsable(codigoFuncionarioAutorizador, ciAutorizador);
-            final Oficina oficinaIncorpora = oficinaService.buscarPorNombre(unidadIncorpora);
+            
+            final Oficina oficinaIncorpora = oficinaService.buscarPorNombre(unidadIncorpora)
+                .orElseThrow(() ->
+                    new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "No se encontró la oficina/unidad: " + unidadIncorpora
+                    )
+                );
             
             Ingreso ingresoActivoAjeno = new Ingreso();
             ingresoActivoAjeno.setResponsablePropietario(responsablePropietario);
@@ -202,15 +210,15 @@ public class IngresoActivosAjenosController {
             personaService.save(persona);
         }
     
-        Oficina oficina = oficinaService.buscarPorNombre(nombreOficina);
-        if (oficina == null) {
-            oficina = new Oficina();
-            oficina.setNombre(nombreOficina);
-            oficina.setEstado("ACTIVO");
-            oficina.setRegistro(new Date());
-            oficina.setRegistroIdUsuario(1L);
-            oficinaService.save(oficina);
-        }
+        Oficina oficina = oficinaService.buscarPorNombre(nombreOficina).orElseGet(() -> {
+            Oficina o = new Oficina();
+            o.setNombre(nombreOficina);
+            o.setEstado("ACTIVO");
+            o.setRegistro(new Date());
+            o.setRegistroIdUsuario(1L);
+            return oficinaService.save(o);
+
+        });
     
         Cargo cargo = cargoService.buscarPorNombre(nombreCargo);
         if (cargo == null) {

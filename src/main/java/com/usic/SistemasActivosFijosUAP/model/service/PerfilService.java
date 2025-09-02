@@ -77,7 +77,8 @@ public class PerfilService {
             if (oc.getOficina() != null) {
                 od.setId(oc.getOficina().getIdOficina());
                 od.setNombre(oc.getOficina().getNombre());
-                od.setCodigo(oc.getOficina().getCodigo());
+                Short cod = oc.getOficina().getCodOfi();
+                od.setCodigo(cod != null ? cod.toString() : "-"); // <- conversión a String
             } else {
                 od.setNombre("-");
                 od.setCodigo("-");

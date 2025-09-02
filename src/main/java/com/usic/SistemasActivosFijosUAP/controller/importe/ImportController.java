@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.EntidadImportService;
+import com.usic.SistemasActivosFijosUAP.model.service.importacion.OficinaImportService;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.PredioImportService;
 
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class ImportController {
 
     private final EntidadImportService entidadImportService;
     private final PredioImportService predioImportService;
+    private final OficinaImportService oficinaImportService;
 
     @PostMapping("/import-entidad")
     @ResponseBody
@@ -59,6 +61,29 @@ public class ImportController {
         }
         try {
             var res = predioImportService.importarUnidadAdmin(file, Charset.forName(charset), gestionPreferida);
+            return ResponseEntity.ok(Map.of(
+                    "leidas", res.getLeidas(),
+                    "insertados", res.getInsertados(),
+                    "actualizados", res.getActualizados(),
+                    "errores", res.getErrores()));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Error importando: " + ex.getMessage()));
+        }
+    }
+
+    @PostMapping("/import-oficina")
+    @ResponseBody
+    public ResponseEntity<?> importOficina(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "charset", defaultValue = "windows-1252") String charset,
+            @RequestParam(value = "gestion", required = false) Short gestionPreferida) {
+
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Archivo vacío o no enviado"));
+        }
+        try {
+            var res = oficinaImportService.importarOficina(file, Charset.forName(charset), gestionPreferida);
             return ResponseEntity.ok(Map.of(
                     "leidas", res.getLeidas(),
                     "insertados", res.getInsertados(),

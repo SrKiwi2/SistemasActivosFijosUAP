@@ -1,23 +1,25 @@
 <div class="card">
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Oficina</h5>
-        <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-            data-bs-target="#modalFormularioOficina">
-            <i class="fa-solid fa-user-plus"></i> Agregar Oficina
-        </button>
-        <!-- Botón para abrir el modal de improtacion excel-->
-        <!-- <button type="button" onclick="abrirModal()">Importar Oficinas</button> -->
-
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
+              <i class="fa-solid fa-file-import me-1"></i> Importar DBF
+            </button>
+            <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
+                data-bs-target="#modalFormularioOficina">
+                <i class="fa-solid fa-user-plus"></i> Agregar Oficina
+            </button>
+        </div>
     </div>
     <div class="card-datatable table-responsive pt-0">
         <table class="datatables-basic table table-hover" id="data-table">
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Oficina</th>
-                    <th>Código</th>
-                    <th>Prefijo</th>
-                    <th>Predio</th>
+                    <th>Entidad</th>
+                    <th>Unidad</th>
+                    <th>Codigo Oficina</th>
+                    <th>Nombre Oficina</th>
                     <th>OPCIONES</th>
                 </tr>
                 <tr>
@@ -33,10 +35,10 @@
             <tbody class="animate__animated animate__bounceInDown">
                 <tr th:each="oficina, index: ${listasOficinas}">
                     <th th:text="${index.index+1}"></th>
+                    <th th:text="${oficina.predio.entidad.entidadCodigo}"></th>
+                    <th th:text="${oficina.predio.unidad}"></th>
+                    <th th:text="${oficina.codOfi}"></th>
                     <th th:text="${oficina.nombre}"></th>
-                    <th th:text="${oficina.codigo}"></th>
-                    <th th:text="${oficina.predio?.prefijo ?: 'Sin prefijo'}"></th>
-                    <th th:text="${oficina.predio?.nombre ?: 'Sin prefijo'}"></th>
                     <th>
                         <button type="button" class="btn btn-sm btn-primary"
                             th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"

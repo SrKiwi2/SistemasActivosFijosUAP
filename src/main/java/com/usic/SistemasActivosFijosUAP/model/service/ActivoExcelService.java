@@ -39,6 +39,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ActivoExcelService {
 
+    /* ESTO YA NO SE UTILIZA, YA NO ES POR EXCEL */
+
     @Data
     @AllArgsConstructor
     private static class ErrorImportacion {
@@ -139,23 +141,23 @@ public class ActivoExcelService {
                     cargoService.save(cargo);
                 }
 
-                Oficina oficina = oficinaService.buscarPorNombre(oficinaNombre);
-                if (oficina == null) {
-                    System.out.println("no se encontro la oficina: " + oficina);
-                    continue;
-                }
+                // Oficina oficina = oficinaService.buscarPorNombre(oficinaNombre);
+                // if (oficina == null) {
+                //     System.out.println("no se encontro la oficina: " + oficina);
+                //     continue;
+                // }
 
-                Responsable responsable = responsableService.responsablePersonaOficinaCargo(persona, oficina, cargo);
-                if (responsable == null) {
-                    responsable = new Responsable();
-                    responsable.setPersona(persona);
-                    responsable.setCargo(cargo);
-                    responsable.setOficina(oficina);
-                    responsable.setRegistro(new Date());
-                    responsable.setEstado("ACTIVO");
-                    responsable.setRegistroIdUsuario(1L);
-                    responsableService.save(responsable);
-                }
+                // Responsable responsable = responsableService.responsablePersonaOficinaCargo(persona, oficina, cargo);
+                // if (responsable == null) {
+                //     responsable = new Responsable();
+                //     responsable.setPersona(persona);
+                //     responsable.setCargo(cargo);
+                //     responsable.setOficina(oficina);
+                //     responsable.setRegistro(new Date());
+                //     responsable.setEstado("ACTIVO");
+                //     responsable.setRegistroIdUsuario(1L);
+                //     responsableService.save(responsable);
+                // }
 
                 EstadoActivo estado = estadoActivoService.buscarPorCodigo(estadoActivoCodigo);
                 GrupoContable grupo = grupoContableService.buscarPorCodigo(grupoContableCodigo);
@@ -174,8 +176,8 @@ public class ActivoExcelService {
                 activo.setFecha_adquisición(fechaAdq);
                 activo.setEstadoActivo(estado);
                 activo.setGrupoContable(grupo);
-                activo.setOficina(oficina);
-                activo.setResponsable(responsable);
+                // activo.setOficina(oficina);
+                // activo.setResponsable(responsable);
                 activo.setEstado("ACTIVO");
                 activo.setRegistro(new Date());
                 activo.setRegistroIdUsuario(1L);

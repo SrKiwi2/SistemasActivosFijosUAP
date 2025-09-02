@@ -1,16 +1,11 @@
 package com.usic.SistemasActivosFijosUAP.model.service;
 
 import java.io.IOException;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.DateUtil;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.slf4j.Logger;
+
+import org.apache.poi.ss.usermodel.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class OficinaExcelService {
+    /* ESTO YA NO SE UTILIZARA */
 
     private final IPredioServicio predioServicio;
     private final IOficinaService oficinaService;
@@ -39,7 +35,7 @@ public class OficinaExcelService {
                 if (fila == null) continue;
 
                 String prefijo = obtenerValorCeldaComoTexto(fila.getCell(0));
-                String codigo = obtenerValorCeldaComoTexto(fila.getCell(1));
+                String codOfi = obtenerValorCeldaComoTexto(fila.getCell(1));
                 String nombre = obtenerValorCeldaComoTexto(fila.getCell(2));
 
                 if (nombresProcesados.contains(nombre)) {
@@ -48,11 +44,9 @@ public class OficinaExcelService {
                 }
                 nombresProcesados.add(nombre);
 
-                Oficina yaExiste = oficinaService.buscarPorNombre(nombre);
-                if (yaExiste != null) {
-                    System.out.println("Oficina ya existe en BD: " + nombre + " - Omitiendo...");
-                    continue;
-                }
+                final String nombreNorm = nombre == null ? "" : nombre.trim();
+
+                Optional<Oficina> yaExiste = oficinaService.buscarPorNombre(nombreNorm);
 
                 Predio predio = predioServicio.findById(null);
                 if (predio == null) {
@@ -62,7 +56,7 @@ public class OficinaExcelService {
 
                 Oficina oficina = new Oficina();
                 oficina.setNombre(nombre);
-                oficina.setCodigo(codigo);
+                // oficina.setCodOfi(codOfi);
                 oficina.setPredio(predio);
                 oficina.setEstado("ACTIVO");
                 oficina.setRegistro(new Date());

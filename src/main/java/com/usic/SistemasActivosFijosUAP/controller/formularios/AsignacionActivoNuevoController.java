@@ -165,15 +165,14 @@ public class AsignacionActivoNuevoController {
             personaService.save(persona);
         }
     
-        Oficina oficina = oficinaService.buscarPorNombre(nombreOficina);
-        if (oficina == null) {
-            oficina = new Oficina();
-            oficina.setNombre(nombreOficina);
-            oficina.setEstado("ACTIVO");
-            oficina.setRegistro(new Date());
-            oficina.setRegistroIdUsuario(1L);
-            oficinaService.save(oficina);
-        }
+        Oficina oficina = oficinaService.buscarPorNombre(nombreOficina).orElseGet(() -> {
+            Oficina o = new Oficina();
+            o.setNombre(nombreOficina.trim());
+            o.setEstado("ACTIVO");              // si viene de AuditoriaConfig
+            o.setRegistro(new Date());          // si usas java.util.Date en AuditoriaConfig
+            o.setRegistroIdUsuario(1L);         // pon aquí el id del usuario real
+            return oficinaService.save(o);
+        });
     
         Cargo cargo = cargoService.buscarPorNombre(nombreCargo);
         if (cargo == null) {
