@@ -160,12 +160,12 @@ public class ActivoExcelService {
                 // }
 
                 EstadoActivo estado = estadoActivoService.buscarPorCodigo(estadoActivoCodigo);
-                GrupoContable grupo = grupoContableService.buscarPorCodigo(grupoContableCodigo);
+                // GrupoContable grupo = grupoContableService.buscarPorCodigo(grupoContableCodigo);
 
-                if (estado == null || grupo == null) {
-                    System.out.println("no se encontro el estado: " + estado + " o no se encontro el grupo contable: " + grupo);
-                    continue;
-                }
+                // if (estado == null || grupo == null) {
+                //     System.out.println("no se encontro el estado: " + estado + " o no se encontro el grupo contable: " + grupo);
+                //     continue;
+                // }
 
                 Activo activo = new Activo();
                 activo.setCodigo("148-"+codigo);
@@ -175,7 +175,7 @@ public class ActivoExcelService {
                 activo.setVida_util(vidaUtil);
                 activo.setFecha_adquisición(fechaAdq);
                 activo.setEstadoActivo(estado);
-                activo.setGrupoContable(grupo);
+                // activo.setGrupoContable(grupo);
                 // activo.setOficina(oficina);
                 // activo.setResponsable(responsable);
                 activo.setEstado("ACTIVO");

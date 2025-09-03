@@ -71,4 +71,8 @@ public class PersonaServiceImpl implements IPersonaService {
         return personaDao.findByIdWithNacionalidadGenero(id);
     }
 
+    @Override
+    public Optional<Persona> findFirstByCi(String ci) {
+        return personaDao.findFirstByCi(ci);
+    }
 }

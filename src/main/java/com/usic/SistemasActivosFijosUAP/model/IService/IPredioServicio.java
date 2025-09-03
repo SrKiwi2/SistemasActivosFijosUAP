@@ -15,4 +15,5 @@ public interface IPredioServicio extends IServiceGenerico<Predio, Long>{
     // Predio buscarPorPrefijo(String prefijo);
     Optional<Predio> findByEntidadAndUnidad(Entidad entidad, String unidad);
     List<Predio> saveAll(Iterable<Predio> predios);
+    Optional<Predio> findByEntidadAndUnidadIgnoreCase(Entidad entidad, String unidad);
 }

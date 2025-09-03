@@ -1,18 +1,18 @@
 <div class="card">
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Grupo Contable</h5>
-        <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-            data-bs-target="#modalFormularioGrupoContable">
-            <i class="fa-solid fa-user-plus"></i> Agregar Grupo Contable
-        </button>
+        
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
+              <i class="fa-solid fa-file-import me-1"></i> Importar DBF
+            </button>
+            <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
+                data-bs-target="#modalFormularioGrupoContable">
+                <i class="fa-solid fa-user-plus"></i> Agregar Grupo Contable
+            </button>
+        </div>
     </div>
-    <div class="card-header d-flex justify-content-lg-between">
-        <form method="post" enctype="multipart/form-data" action="/administracion/grupoc/importar-dbf">
-        <label>Subir archivo DBF:</label>
-        <input type="file" name="archivo" accept=".dbf" required>
-        <button type="submit" class="btn btn-primary mt-2">Importar</button>
-    </form>
-    </div>
+
     <div class="card-datatable table-responsive pt-0">
         <table class="datatables-basic table table-hover" id="data-table">
             <thead>
@@ -23,7 +23,6 @@
                     <th>VIDA UTIL</th>
                     <th>DEPRECIAR</th>
                     <th>ACTUALIZAR</th>
-                    <th>CODIGO APOYO</th>
                     <th>OPCIONES</th>
                 </tr>
             </thead>
@@ -35,7 +34,6 @@
                     <th th:text="${grupoc.vidaUtil}"></th>
                     <th th:text="${grupoc.depreciar}"></th>
                     <th th:text="${grupoc.actualizar}"></th>
-                    <th th:text="${grupoc.codigo}"></th>
                     <th>
                         <button type="button" class="btn btn-sm btn-primary"
                             th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"

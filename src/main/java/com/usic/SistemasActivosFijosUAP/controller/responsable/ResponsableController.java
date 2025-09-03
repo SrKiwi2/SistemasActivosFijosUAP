@@ -157,7 +157,7 @@ public class ResponsableController {
         responsableExistente.setPersona(persona);
         responsableExistente.setCargo(cargo);
         responsableExistente.setOficina(oficina);
-        responsableExistente.setCodigo_funcionario(codigoFuncionario);
+        responsableExistente.setCodigoFuncionario(codigoFuncionario);
         responsableExistente.setEstado("ACTIVO");
         responsableExistente.setRegistroIdUsuario(1L);
         responsableExistente.setRegistro(new Date());

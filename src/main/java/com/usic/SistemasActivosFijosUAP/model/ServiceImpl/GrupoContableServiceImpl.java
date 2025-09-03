@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -51,7 +52,7 @@ public class GrupoContableServiceImpl implements IGrupoContableService{
     }
 
     @Override
-    public GrupoContable buscarPorCodigo(String codigo) {
+    public GrupoContable buscarPorCodigo(Integer codigo) {
         return dao.buscarPorCodigo(codigo);
     }
 
@@ -70,7 +71,6 @@ public class GrupoContableServiceImpl implements IGrupoContableService{
                 grupo.setVidaUtil(rowObjects[2] != null ? ((BigDecimal) rowObjects[2]).intValue() : null);
                 grupo.setDepreciar(rowObjects[4] != null && (Boolean) rowObjects[4]);
                 grupo.setActualizar(rowObjects[5] != null && (Boolean) rowObjects[5]);
-                grupo.setCodigo("SIN-CODIGO");
                 grupo.setEstado("ACTIVO");
 
                 if (grupo.getNombre() != null && buscarPorNombre(grupo.getNombre()) == null) {
@@ -82,5 +82,20 @@ public class GrupoContableServiceImpl implements IGrupoContableService{
         } catch (IOException e) {
             throw new RuntimeException("Error al leer el archivo DBF", e);
         }
+    }
+
+    @Override
+    public List<GrupoContable> saveAll(Iterable<GrupoContable> grupoContables) {
+        return dao.saveAll(grupoContables);
+    }
+
+    @Override
+    public Optional<GrupoContable> findByCodContable(Integer codContable) {
+        return dao.findByCodContable(codContable);
+    }
+
+    @Override
+    public Optional<GrupoContable> findFirstByNombreIgnoreCase(String nombre) {
+        return dao.findFirstByNombreIgnoreCase(nombre);
     }
 }

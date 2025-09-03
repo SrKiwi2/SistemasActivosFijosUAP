@@ -2,16 +2,20 @@ package com.usic.SistemasActivosFijosUAP.model.entity;
 
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "grupo_contable")
+@Table(
+  name = "grupo_contable",
+  uniqueConstraints = {
+    @UniqueConstraint(name = "uk_grp_codcont", columnNames = {"cod_contable"})
+  },
+  indexes = {
+    @Index(name = "idx_grp_nombre", columnList = "nombre")
+  }
+)
 @Setter
 @Getter
 public class GrupoContable extends AuditoriaConfig{
@@ -24,5 +28,4 @@ public class GrupoContable extends AuditoriaConfig{
     private Integer vidaUtil;
     private Boolean depreciar;
     private Boolean actualizar;
-    private String codigo;
 }

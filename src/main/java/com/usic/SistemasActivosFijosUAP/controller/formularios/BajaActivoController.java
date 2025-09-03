@@ -196,7 +196,7 @@ public class BajaActivoController {
         responsable.setPersona(persona);
         responsable.setCargo(cargo);
         responsable.setOficina(oficina);
-        responsable.setCodigo_funcionario(codigoFuncionario);
+        responsable.setCodigoFuncionario(codigoFuncionario);
         responsable.setEstado("ACTIVO");
         responsable.setRegistroIdUsuario(1L);
         responsable.setRegistro(new Date());

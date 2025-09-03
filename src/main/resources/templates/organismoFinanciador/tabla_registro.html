@@ -1,13 +1,14 @@
 <div class="card">
     <div class="card-header d-flex justify-content-lg-between">
-        <h5>Registro Responsable</h5>
+        <h5>Registro Auxiliar</h5>
+        
         <div class="d-flex gap-2">
             <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
               <i class="fa-solid fa-file-import me-1"></i> Importar DBF
             </button>
             <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-                data-bs-target="#modalFormularioResponsable">
-                <i class="fa-solid fa-user-plus"></i> Agregar Responsable
+                data-bs-target="#modalFormularioAuxiliar">
+                <i class="fa-solid fa-user-plus"></i> Agregar Auxiliar
             </button>
         </div>
     </div>
@@ -16,28 +17,27 @@
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>CODIGO FUNCIONARIO</th>
-                    <th>NOMBRE</th>
-                    <th>APELLIDO PATERNO</th>
-                    <th>APELLIDO MATERNO</th>
-                    <th>C.I.</th>
-                    <th>OFICINA</th>
-                    <th>CARGO</th>
+                    <th>Gestion</th>
+                    <th>OF</th>
+                    <th>DES</th>
+                    <th>SIGLAr</th>
                     <th>OPCIONES</th>
                 </tr>
             </thead>
             <tbody class="animate__animated animate__bounceInDown">
-                <tr th:each="responsables, index: ${listaResponsables}">
+                <tr th:each="of, index: ${listasOrganismoFinanciero}">
                     <th th:text="${index.index+1}"></th>
-                    <th th:text="${responsables.codigoFuncionario}"></th>
-                    <th th:text="${responsables?.persona?.nombre ?: 'Vacío'}"></th>
-                    <th th:text="${responsables?.persona?.paterno ?: 'Vacío'}"></th>
-                    <th th:text="${responsables?.persona?.materno ?: 'Vacío'}"></th>
-                    <th th:text="${responsables?.persona?.ci ?: 'Vacío'}"></th>                    
-                    <th th:text="${responsables.oficina.codOfi}"></th>
-                    <th th:text="${responsables?.cargo?.nombre ?: 'Vacío'}"></th>
+                    <th th:text="${of.gestion}"></th>
+                    <th th:text="${of.codOf}"></th>
+                    <th th:text="${of.descripcion}"></th>
+                    <th th:text="${of.sigla}"></th>
                     <th>
-                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${responsables.persona.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
+                        <button type="button" class="btn btn-sm btn-primary"
+                            th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
+                            data-bs-toggle="modal" data-bs-target="#modalFormularioAuxiliar">
+                            <i class="fa-solid fa-pen-to-square"></i> Editar
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${of.descripcion}]],[[${id_encryptado[__${index.index}__]}]])">
                             <i class="fa-solid fa-trash"></i> Eliminar
                         </button>
                     </th>

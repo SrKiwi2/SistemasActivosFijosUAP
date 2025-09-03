@@ -1,10 +1,10 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Grupo Responsable</h4>
+<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Auxiliar</h4>
 
 <div id="tablaRegistro"></div>
 
-<div class="modal fade" id="modalFormularioResponsable" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalFormularioAuxiliar" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content" id="contenidoModalResponsbale"></div>
+        <div class="modal-content" id="prediocontenidoModalOF"></div>
     </div>
 </div>
 
@@ -12,7 +12,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <form id="formImportDbf" class="modal-content" enctype="multipart/form-data" autocomplete="off">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fa-solid fa-file-import me-2"></i>Importar Responsable desde DBF</h5>
+                <h5 class="modal-title"><i class="fa-solid fa-file-import me-2"></i>Importar Organismo Financiero desde DBF</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
 
@@ -20,7 +20,7 @@
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Archivo .dbf</label>
                     <input type="file" class="form-control" name="file" accept=".dbf" required />
-                    <div class="form-text">Selecciona el archivo <b>RESP.dbf</b> u otro con la misma estructura.
+                    <div class="form-text">Selecciona el archivo <b>organismo_fin.dbf</b> u otro con la misma estructura.
                     </div>
                 </div>
 
@@ -62,7 +62,7 @@
     function cargarTabla() {
         $.ajax({
             type: 'POST',
-            url: "/administracion/responsable/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
+            url: "/administracion/organismo/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
             success: function (response) {
                 $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
             }
@@ -70,11 +70,15 @@
     }
 
     function cargarFormulario() {
-        cargarFormularioAlert("/administracion/responsable/formulario", "#contenidoModalResponsbale", "#formularioResponsable", cargarTabla);
+        cargarFormularioAlert("/administracion/organismo/formulario", "#prediocontenidoModalOF", "#formularioOF");
+    }
+
+    function cargarFormularioEdit(id) {
+        cargarFormularioEditAlert(id, "/administracion/organismo/formulario-edit", "#prediocontenidoModalOF", "#formularioOF");
     }
 
     function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/responsable/eliminar",cargarTabla);
+        eliminarRegistroAlert(nombre, id, "/administracion/organismo/eliminar", cargarTabla);
     }
 
     (function () {
@@ -107,7 +111,7 @@
             const c = csrf();
             if (c) opts.headers = { [c.header]: c.token };
 
-            fetch('/importe/import-responsable', opts)
+            fetch('/importe/import-organismo-fin', opts)
                 .then(async (r) => {
                     if (!r.ok) {
                         const txt = await r.text().catch(() => '');
@@ -135,10 +139,6 @@
                             <span class="badge text-bg-secondary me-2">Leídas: ${json.leidas ?? 0}</span>
                             <span class="badge text-bg-success me-2">Insertados: ${json.insertados ?? 0}</span>
                             <span class="badge text-bg-info">Actualizados: ${json.actualizados ?? 0}</span>
-                            <span class="badge text-bg-info">omitidos Campos: ${json.omitidosCampos ?? 0}</span>
-                            <span class="badge text-bg-info">omitidos Sin Entidad: ${json.omitidosSinEntidad ?? 0}</span>
-                            <span class="badge text-bg-info">omitidos Sin Predio: ${json.omitidosSinPredio ?? 0}</span>
-                            <span class="badge text-bg-info">errores Excepcion: ${json.erroresExcepcion ?? 0}</span>
                             </div>
                         </div>
                         ${erroresHtml}

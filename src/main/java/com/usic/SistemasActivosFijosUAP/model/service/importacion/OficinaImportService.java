@@ -37,6 +37,14 @@ public class OficinaImportService {
         private int leidas;
         private int insertados;
         private int actualizados;
+
+
+        // Desglose de omitidos
+        private int omitidosCampos;     // ENTIDAD/UNIDAD/CODOFI incompletos
+        private int omitidosSinEntidad; // ENTIDAD no encontrada
+        private int omitidosSinPredio;  // PREDIO no encontrado
+        private int erroresExcepcion;   // errores inesperados
+
         private List<String> errores = new ArrayList<>();
     }
 
@@ -63,8 +71,8 @@ public class OficinaImportService {
             while ((row = reader.nextRecord()) != null) {
                 res.leidas++;
                 try {
-                    String entidadCod = asString(row[0], cs); // ENTIDAD (Text)
-                    String unidad = asString(row[1], cs); // UNIDAD (Text)
+                    String entidadCodRaw = asString(row[0], cs); // ENTIDAD (Text)
+                    String unidadRaw = asString(row[1], cs); // UNIDAD (Text)
                     Short codOfi = asShort(row[2]); // CODOFI (SmallInt)
                     String nomOfic = asString(row[3], cs); // NOMOFIC (Text)
                     String observ = asString(row[4], cs); // OBSERV (Memo -> String)
@@ -72,27 +80,32 @@ public class OficinaImportService {
                     String usuario = asString(row[6], cs); // USUAR (Text)
                     Short apiEstado = asShort(row[7]); // API_ESTADO (SmallInt)
 
+                    String entidadCod = normEntidadCodigo(entidadCodRaw);
+                    String unidad     = normUnidad(unidadRaw); // 👈 IMPORTANTE
+
                     if (isBlank(entidadCod) || isBlank(unidad) || codOfi == null) {
-                        res.errores.add("Fila " + res.leidas + ": ENTIDAD/UNIDAD/CODOFI incompletos.");
+                        res.setOmitidosCampos(res.getOmitidosCampos() + 1);
+                        res.getErrores().add("Fila " + res.leidas + ": ENTIDAD/UNIDAD/CODOFI incompletos. ENTIDAD='"
+                                + entidadCodRaw + "', UNIDAD='" + unidadRaw + "', CODOFI=" + codOfi);
                         continue;
                     }
 
-
-
                     // Resolver Entidad
                     Entidad entidad = (gestionPreferida != null)
-                            ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, entidadCod).orElse(null)
-                            : entidadService.findTopByEntidadCodigoOrderByGestionDesc(entidadCod).orElse(null);
+                        ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, entidadCod).orElse(null)
+                        : entidadService.findTopByEntidadCodigoOrderByGestionDesc(entidadCod).orElse(null);
                     if (entidad == null) {
-                        res.errores.add("Fila " + res.leidas + ": ENTIDAD código " + entidadCod + " no encontrada.");
+                        res.setOmitidosSinEntidad(res.getOmitidosSinEntidad() + 1);
+                        res.getErrores().add("Fila " + res.leidas + ": ENTIDAD código " + entidadCod + " no encontrada.");
                         continue;
                     }
 
                     // Resolver Predio (Entidad + UNIDAD)
-                    Predio predio = predioServicio.findByEntidadAndUnidad(entidad, unidad).orElse(null);
+                    Predio predio = predioServicio.findByEntidadAndUnidadIgnoreCase(entidad, unidad).orElse(null);
                     if (predio == null) {
-                        res.errores.add("Fila " + res.leidas + ": Predio no encontrado para ENTIDAD=" + entidadCod
-                                + " UNIDAD=" + unidad);
+                        res.setOmitidosSinPredio(res.getOmitidosSinPredio() + 1);
+                        res.getErrores().add("Fila " + res.leidas + ": Predio no encontrado para ENTIDAD="
+                                + entidadCod + " UNIDAD=" + unidad);
                         continue;
                     }
 
@@ -200,5 +213,14 @@ public class OficinaImportService {
             }
         }
         return null;
+    }
+
+    private String normUnidad(String s) {
+        if (s == null) return null;
+        return s.trim().toUpperCase(); // igual que guardaste en Predio
+    }
+
+    private String normEntidadCodigo(String s) {
+        return s == null ? null : s.trim(); // suele venir “148”, no hace falta upper
     }
 }

@@ -50,4 +50,9 @@ public class PredioServiceImpl implements IPredioServicio{
     public List<Predio> saveAll(Iterable<Predio> predios) {
         return dao.saveAll(predios);
     }
+
+    @Override
+    public Optional<Predio> findByEntidadAndUnidadIgnoreCase(Entidad entidad, String unidad) {
+        return dao.findByEntidadAndUnidadIgnoreCase(entidad, unidad);
+    }
 }

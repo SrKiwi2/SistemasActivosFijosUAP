@@ -18,4 +18,5 @@ public interface IPersonaService extends IServiceGenerico<Persona, Long>{
     Persona buscarPersonaPorNombrePaterno(String nombre, String paterno);
     Persona buscarPersonaNombre(String nombre);
     Optional<Persona> findByIdWithNacionalidadGenero(@Param("id") Long id);
+    Optional<Persona> findFirstByCi(String ci);
 }

@@ -63,7 +63,7 @@ public class PerfilService {
             ResponsableDTO rd = new ResponsableDTO();
             rd.setId(r.getIdResponsable());
             rd.setNombre(r.getPersona() != null ? r.getPersona().getNombreCompleto() : "-");
-            rd.setCodigoFuncionario(r.getCodigo_funcionario());
+            rd.setCodigoFuncionario(r.getCodigoFuncionario());
             rd.setCargo(r.getCargo() != null ? r.getCargo().getNombre() : "—");
             rd.setOficina(r.getOficina() != null ? r.getOficina().getNombre() : "—");
             rlist.add(rd);

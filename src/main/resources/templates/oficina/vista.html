@@ -139,6 +139,10 @@
                             <span class="badge text-bg-secondary me-2">Leídas: ${json.leidas ?? 0}</span>
                             <span class="badge text-bg-success me-2">Insertados: ${json.insertados ?? 0}</span>
                             <span class="badge text-bg-info">Actualizados: ${json.actualizados ?? 0}</span>
+                            <span class="badge text-bg-info">omitidos Campos: ${json.omitidosCampos ?? 0}</span>
+                            <span class="badge text-bg-info">omitidos Sin Entidad: ${json.omitidosSinEntidad ?? 0}</span>
+                            <span class="badge text-bg-info">omitidos Sin Predio: ${json.omitidosSinPredio ?? 0}</span>
+                            <span class="badge text-bg-info">errores Excepcion: ${json.erroresExcepcion ?? 0}</span>
                             </div>
                         </div>
                         ${erroresHtml}

@@ -248,6 +248,34 @@
 
             });
 
+            $("#opcion_auxiliar").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/administracion/auxiliar/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_auxiliar");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+            $("#opcion_of").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/administracion/organismo/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_of");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
             $("#opcion_estadoA").click(function (e) {
                 e.preventDefault();
                 cargarContenido("/administracion/estadoa/vista");

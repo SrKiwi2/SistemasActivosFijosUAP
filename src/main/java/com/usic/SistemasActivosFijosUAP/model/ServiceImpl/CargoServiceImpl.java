@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -43,5 +44,9 @@ public class CargoServiceImpl implements ICargoService{
     public List<Cargo> listarCargos() {
         return dao.listarCargos();
     }
-    
+
+    @Override
+    public Optional<Cargo> findFirstByNombreIgnoreCase(String nombre) {
+        return dao.findFirstByNombreIgnoreCase(nombre);
+    }
 }

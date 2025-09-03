@@ -36,4 +36,6 @@ public interface IPersonasDao extends JpaRepository <Persona, Long>{
         where p.idPersona = :id
     """)
     Optional<Persona> findByIdWithNacionalidadGenero(@Param("id") Long id);
+
+    Optional<Persona> findFirstByCi(String ci);
 }

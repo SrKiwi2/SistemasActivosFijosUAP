@@ -14,7 +14,7 @@ public class ResponsableRegistroDTO {
     private String cargo;
 
     public ResponsableRegistroDTO(Responsable r) {
-        this.codigoFuncionario = r.getCodigo_funcionario();
+        this.codigoFuncionario = r.getCodigoFuncionario();
         this.nombreCompleto = r.getPersona().getNombreCompleto();
         this.oficina = r.getOficina().getNombre();
         this.cargo = r.getCargo().getNombre();

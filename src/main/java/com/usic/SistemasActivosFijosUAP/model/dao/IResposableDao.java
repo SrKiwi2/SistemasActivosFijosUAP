@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.dao;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -13,8 +14,8 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
 public interface IResposableDao extends JpaRepository<Responsable, Long>{
     
-    @Query("SELECT r FROM Responsable r WHERE r.codigo_funcionario = ?1 AND r.estado = 'ACTIVO'")
-    Responsable buscarPorCodigo(String codigo_funcionario);
+    @Query("SELECT r FROM Responsable r WHERE r.codigoFuncionario = ?1 AND r.estado = 'ACTIVO'")
+    Responsable buscarPorCodigo(String codigoFuncionario);
 
     @Query("SELECT r FROM Responsable r WHERE r.estado = 'ACTIVO'")
     List<Responsable> listarResponsables();
@@ -30,4 +31,6 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
     @Query("SELECT r FROM Responsable r WHERE r.persona = ?1 AND r.estado = 'ACTIVO'")
     Responsable buscarResponsablePorPersona(Persona persona);
 
+    Optional<Responsable> findByOficinaAndCodigoFuncionario(Oficina oficina, String codigo_funcionario);
+    Optional<Responsable> findByOficinaAndPersona(Oficina oficina, Persona persona);
 }

@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -67,4 +68,18 @@ public class ResponsableServiceImpl implements IResponsableService{
         return dao.buscarResponsablePorPersona(persona);
     }
 
+    @Override
+    public Optional<Responsable> findByOficinaAndCodigoFuncionario(Oficina oficina, String codigo_funcionario) {
+        return dao.findByOficinaAndCodigoFuncionario(oficina, codigo_funcionario);
+    }
+
+    @Override
+    public Optional<Responsable> findByOficinaAndPersona(Oficina oficina, Persona persona) {
+        return dao.findByOficinaAndPersona(oficina, persona);
+    }
+
+    @Override
+    public List<Responsable> saveAll(Iterable<Responsable> responsables) {
+        return dao.saveAll(responsables);
+    }
 }

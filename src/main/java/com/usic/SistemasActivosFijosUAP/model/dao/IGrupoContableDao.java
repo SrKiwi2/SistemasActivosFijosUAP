@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.dao;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -14,6 +15,9 @@ public interface IGrupoContableDao extends JpaRepository<GrupoContable, Long> {
     @Query("SELECT gc FROM GrupoContable gc WHERE gc.estado = 'ACTIVO'")
     List<GrupoContable> listarGruposContables();
 
-    @Query("SELECT gc FROM GrupoContable gc WHERE gc.codigo = ?1 AND gc.estado = 'ACTIVO'")
-    GrupoContable buscarPorCodigo(String codigo);
+    @Query("SELECT gc FROM GrupoContable gc WHERE gc.codContable = ?1 AND gc.estado = 'ACTIVO'")
+    GrupoContable buscarPorCodigo(Integer codContable);
+
+    Optional<GrupoContable> findByCodContable(Integer codContable);
+    Optional<GrupoContable> findFirstByNombreIgnoreCase(String nombre);
 }

@@ -157,7 +157,7 @@ public class PdfBajaActivoService {
         String anioAdquisicion = String.valueOf(fecha.getYear());
 
         String nombreResponsable = responsbaleBaja.getPersona().getNombreCompleto();
-        String numeroFuncionario = responsbaleBaja.getCodigo_funcionario();
+        String numeroFuncionario = responsbaleBaja.getCodigoFuncionario();
 
         Paragraph parrafoRegistro = new Paragraph();
         parrafoRegistro.setAlignment(Element.ALIGN_JUSTIFIED);

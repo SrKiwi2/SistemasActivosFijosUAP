@@ -21,4 +21,5 @@ public interface IPredioDao extends JpaRepository<Predio, Long>{
     List<Predio> listarPredios();
 
     Optional<Predio> findByEntidadAndUnidad(Entidad entidad, String unidad);
+    Optional<Predio> findByEntidadAndUnidadIgnoreCase(Entidad entidad, String unidad);
 }
