@@ -153,8 +153,8 @@ public class ActivosController {
                                 + activo.getResponsable().getPersona().getMaterno());
             dto.setOficina(activo.getOficina().getNombre());
             dto.setCosto(activo.getCosto());
-            dto.setVidaUtil(activo.getVida_util());
-            dto.setFechaAdquisicion(activo.getFecha_adquisición().toString());
+            dto.setVidaUtil(activo.getVidaUtil());
+            dto.setFechaAdquisicion(activo.getFechaAdquisicion().toString());
             dto.setEstado(activo.getEstadoActivo().getNombre());
         
             try {

@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 
 import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 
 public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificationExecutor<Activo>{
     
@@ -28,8 +29,6 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
     Page<Activo> buscarPorNombreOCodigo(@Param("filtro") String filtro, Pageable pageable);
 
     List<Activo> findByResponsableIdResponsable(Long idResponsable);
-
-    Optional<Activo> findByCodigo(String codigo);
 
     @Query("""
         select a.oficina as oficina, count(a) as total
@@ -50,4 +49,7 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
         where p.idPersona = :personaId
     """)
     Double sumaCostoPorPersona(@Param("personaId") Long personaId);
+
+    Optional<Activo> findByCodigo(String codigo);
+    Optional<Activo> findByOficinaAndCodigo(Oficina oficina, String codigo);
 }

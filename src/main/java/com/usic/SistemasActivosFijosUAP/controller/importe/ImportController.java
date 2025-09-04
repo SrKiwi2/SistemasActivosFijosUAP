@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.usic.SistemasActivosFijosUAP.model.service.importacion.ActualImportService;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.AuxiliarImportService;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.EntidadImportService;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.GrupoContableImportService;
@@ -35,6 +36,7 @@ public class ImportController {
     private final GrupoContableImportService grupoContableImportService;
     private final AuxiliarImportService auxiliarImportService;
     private final OrganismoFinImportService organismoFinImportService;
+    private final ActualImportService actualImportService;
 
     @PostMapping("/import-entidad")
     @ResponseBody
@@ -199,4 +201,24 @@ public class ImportController {
                     .body(Map.of("message", "Error importando ORGANISMO_FIN: " + ex.getMessage()));
         }
     }
+
+    @PostMapping("/import-actual")
+    @ResponseBody
+    public ResponseEntity<?> importarActual(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "charset", defaultValue = "windows-1252") String charset,
+            @RequestParam(value = "gestion", required = false) Short gestionPreferida) {
+
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Archivo vacío o no enviado"));
+        }
+        try {
+            var res = actualImportService.importarActual(file, Charset.forName(charset), gestionPreferida);
+            return ResponseEntity.ok(res);
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Error importando ACTUAL: " + ex.getMessage()));
+        }
+    }
+
 }

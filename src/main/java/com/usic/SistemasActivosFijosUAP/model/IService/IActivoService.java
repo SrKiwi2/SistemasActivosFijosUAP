@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 
 @Service
@@ -25,4 +26,6 @@ public interface IActivoService extends IServiceGenerico<Activo, Long>{
 
     List<OficinaConteo> conteoPorOficinaDePersona(@Param("personaId") Long personaId);
     Double sumaCostoPorPersona(@Param("personaId") Long personaId);
+    Optional<Activo> findByOficinaAndCodigo(Oficina oficina, String codigo);
+    void saveAll(List<Activo> batch);
 }

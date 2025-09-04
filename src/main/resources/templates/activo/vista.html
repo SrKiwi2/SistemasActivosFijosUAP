@@ -20,46 +20,48 @@
     </div>
 </div>
 
-<div id="mensaje" style="display:none; padding: 10px; margin-top: 10px; background-color: #f8d7da; color: #721c24;">
-    <strong>¡Error!</strong> <span id="mensajeTexto"></span>
-</div>
+<div class="modal fade" id="modalImportDbf" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="formImportDbf" class="modal-content" enctype="multipart/form-data" autocomplete="off">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-file-import me-2"></i>Importar Activos desde DBF</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
 
-<div id="modalImportar" style="display: none;">
-    <div class="modal-overlay" style="
-        position: fixed;
-        top: 0; left: 0;
-        width: 100%; height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 1050;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    ">
-        <div class="bg-white p-4 rounded shadow" style="width: 100%; max-width: 400px; position: relative;">
-            <h5 class="mb-3 text-center">📁 Importar archivo Excel</h5>
-            <form id="formImportarActivos" enctype="multipart/form-data">
+            <div class="modal-body">
                 <div class="mb-3">
-                    <label for="archivoExcel" class="form-label">Seleccionar archivo</label>
-                    <input type="file" id="archivoExcel" name="archivo" class="form-control" accept=".xlsx,.xls" required>
+                    <label class="form-label fw-semibold">Archivo .dbf</label>
+                    <input type="file" class="form-control" name="file" accept=".dbf" required />
+                    <div class="form-text">Selecciona el archivo <b>ACTUAL.dbf</b> u otro con la misma estructura.
+                    </div>
                 </div>
 
-                <div class="d-flex justify-content-between">
-                    <button type="button" class="btn btn-primary" onclick="importarOficinas()">
-                        <i class="fa-solid fa-file-import"></i> Importar
-                    </button>
-                    <button type="button" class="btn btn-secondary" onclick="cerrarModal()">
-                        <i class="fa-solid fa-times"></i> Cancelar
-                    </button>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Codificación (charset)</label>
+                    <select class="form-select" name="charset">
+                        <option value="windows-1252" selected>Windows-1252 (recomendado)</option>
+                        <option value="ISO-8859-1">ISO-8859-1</option>
+                        <option value="UTF-8">UTF-8</option>
+                    </select>
+                    <div class="form-text">Si ves caracteres raros, prueba ISO-8859-1 o UTF-8.</div>
                 </div>
-            </form>
-        </div>
-    </div>
-</div>
 
-<div id="preloader" class="d-none">
-    <div>
-        <div class="spinner-border text-primary" role="status"></div>
-        <p class="mt-2 text-center">Importando registros, por favor espere...</p>
+                <div id="importProgress" class="d-none">
+                    <div class="alert alert-info py-2">
+                        <i class="fa-solid fa-spinner fa-spin me-2"></i> Importando… por favor espera.
+                    </div>
+                </div>
+
+                <div id="importResult" class="d-none"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-play me-1"></i> Iniciar importación
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -92,71 +94,96 @@
         eliminarRegistroAlert(nombre, id, "/administracion/activo/eliminar",cargarTabla);
     }
 
-    function abrirModal() {
-        document.getElementById('modalImportar').style.display = 'block';
-    }
+    (function () {
+        const form = document.getElementById('formImportDbf');
+        const progressBox = document.getElementById('importProgress');
+        const resultBox = document.getElementById('importResult');
 
-    function cerrarModal() {
-        document.getElementById('modalImportar').style.display = 'none';
-    }
-
-
-    function mostrarMensaje(mensaje) {
-        var div = document.getElementById('mensaje');
-        var texto = document.getElementById('mensajeTexto');
-        texto.innerText = mensaje;
-        div.style.display = 'block';
-    }
-
-    function importarOficinas() {
-        const inputArchivo = document.getElementById('archivoExcel');
-        const archivo = inputArchivo.files[0];
-
-        if (!archivo) {
-            mostrarMensaje("⚠️ Por favor, seleccione un archivo antes de importar.");
-            return;
+        // (opcional) CSRF si usas Spring Security
+        function csrf() {
+            const token = document.querySelector('meta[name="_csrf"]')?.content;
+            const header = document.querySelector('meta[name="_csrf_header"]')?.content;
+            return token && header ? { header, token } : null;
         }
 
-        var form = document.getElementById('formImportarActivos');
-        var data = new FormData(form);
+        form?.addEventListener('submit', function (e) {
+            e.preventDefault();
 
-        document.getElementById('preloader').classList.remove('d-none');
-        document.getElementById('preloader').classList.add('d-flex');
-        // ⏳ Mostrar preloader
-        
-        fetch('/administracion/activo/importar', {
-            method: 'POST',
-            body: data
-        }).then(response => response.json())
-        .then(data => {
-            document.getElementById('preloader').classList.remove('d-flex');
-            document.getElementById('preloader').classList.add('d-none'); // ✅ Ocultar preloader
-            cerrarModal();
-            cargarTabla();
-
-            if (data.errores && data.errores.length > 0) {
-                let mensaje = `✔️ ${data.exitosos} registros importados correctamente.<br>❌ Errores encontrados:<ul>`;
-                data.errores.forEach(e => {
-                    mensaje += `<li>Fila ${e.fila}: ${e.motivo}</li>`;
-                });
-                mensaje += "</ul>";
-                mostrarMensajeHTML(mensaje);
-            } else {
-                mostrarMensaje("✅ " + data.mensaje);
+            const fd = new FormData(form);
+            const file = fd.get('file');
+            if (!file || !file.name.toLowerCase().endsWith('.dbf')) {
+                alert('Selecciona un archivo .dbf válido');
+                return;
             }
-        }).catch(error => {
-            document.getElementById('preloader').classList.remove('d-flex');
-            document.getElementById('preloader').classList.add('d-none');
 
-            mostrarMensaje('❌ Error al importar el archivo: ' + error.message);
+            progressBox.classList.remove('d-none');
+            resultBox.classList.add('d-none');
+            resultBox.innerHTML = '';
+
+            const opts = { method: 'POST', body: fd };
+            const c = csrf();
+            if (c) opts.headers = { [c.header]: c.token };
+
+            fetch('/importe/import-actual', opts)
+                .then(async (r) => {
+                    if (!r.ok) {
+                        const txt = await r.text().catch(() => '');
+                        throw new Error(txt || ('Error HTTP ' + r.status));
+                    }
+                    return r.json();
+                })
+                .then((json) => {
+                    // json: { leidas, insertados, actualizados, errores:[] }
+                    progressBox.classList.add('d-none');
+                    const erroresHtml = (json.errores && json.errores.length)
+                        ? `<div class="alert alert-warning mt-2">
+                        <div class="fw-semibold mb-1">Errores:</div>
+                        <ul class="mb-0 small" style="max-height:160px;overflow:auto;">
+                            ${json.errores.slice(0, 20).map(e => `<li>${e}</li>`).join('')}
+                        </ul>
+                        ${json.errores.length > 20 ? '<div class="small text-muted mt-1">… y más</div>' : ''}
+                        </div>`
+                        : '';
+
+                    resultBox.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fa-solid fa-circle-check me-2"></i> Importación completada.
+                            <div class="mt-2">
+                            <span class="badge text-bg-secondary me-2">Leídas: ${json.leidas ?? 0}</span>
+                            <span class="badge text-bg-success me-2">Insertados: ${json.insertados ?? 0}</span>
+                            <span class="badge text-bg-info">Actualizados: ${json.actualizados ?? 0}</span>
+                            <span class="badge text-bg-info">omitidos Campos: ${json.omitidosCampos ?? 0}</span>
+                            <span class="badge text-bg-info">omitidos Sin Entidad: ${json.omitidosSinEntidad ?? 0}</span>
+                            <span class="badge text-bg-info">omitidos Sin Predio: ${json.omitidosSinPredio ?? 0}</span>
+                            <span class="badge text-bg-info">errores Excepcion: ${json.erroresExcepcion ?? 0}</span>
+                            </div>
+                        </div>
+                        ${erroresHtml}
+                        <div class="text-end">
+                            <button id="btnRecargarEntidades" class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-rotate me-1"></i> Recargar lista
+                            </button>
+                        </div>
+                        `;
+                    resultBox.classList.remove('d-none');
+
+                    // recargar tabla/página bajo demanda
+                    document.getElementById('btnRecargarEntidades')?.addEventListener('click', () => {
+                        // si usas DataTables con ajax, podrías hacer: $('#data-table').DataTable().ajax.reload();
+                        // como es server-side render, recargamos la página:
+                        location.reload();
+                    });
+                })
+                .catch((err) => {
+                    progressBox.classList.add('d-none');
+                    resultBox.classList.remove('d-none');
+                    resultBox.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                        Error durante la importación: <b>${(err && err.message) || err}</b>
+                    </div>`;
+                            });
         });
-    }
-
-    function mostrarMensajeHTML(mensajeHTML) {
-        const div = document.getElementById('mensaje');
-        const texto = document.getElementById('mensajeTexto');
-        texto.innerHTML = mensajeHTML;
-        div.style.display = 'block';
-    }
+    })();
 
 </script>

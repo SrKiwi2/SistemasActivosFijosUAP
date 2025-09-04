@@ -32,10 +32,15 @@
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Registro Activo</h5>
         <div class="d-flex gap-2">
-            <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal" data-bs-target="#modalFormularioActivo">
-                <i class="fa-solid fa-user-plus"></i> Agregar Activo
-            </button>
-            <button type="button" class="btn btn-outline-primary" onclick="abrirModal()">Importar Activos</button>
+            
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
+                    <i class="fa-solid fa-file-import me-1"></i> Importar DBF
+                </button>
+                <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal" data-bs-target="#modalFormularioActivo">
+                    <i class="fa-solid fa-user-plus"></i> Agregar Activo
+                </button>
+            </div>
         </div>
     </div>
 

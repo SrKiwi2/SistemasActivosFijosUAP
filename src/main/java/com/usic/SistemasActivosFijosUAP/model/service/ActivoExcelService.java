@@ -172,8 +172,8 @@ public class ActivoExcelService {
                 activo.setNombre(nombre);
                 activo.setDescripcion(descripcion);
                 activo.setCosto(costo);
-                activo.setVida_util(vidaUtil);
-                activo.setFecha_adquisición(fechaAdq);
+                activo.setVidaUtil(vidaUtil);
+                activo.setFechaAdquisicion(fechaAdq);
                 activo.setEstadoActivo(estado);
                 // activo.setGrupoContable(grupo);
                 // activo.setOficina(oficina);

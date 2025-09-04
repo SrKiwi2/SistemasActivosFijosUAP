@@ -17,6 +17,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
@@ -134,6 +135,16 @@ public class ActivoServiceImpl implements IActivoService{
     @Override
     public Double sumaCostoPorPersona(Long personaId) {
         return dao.sumaCostoPorPersona(personaId);
+    }
+
+    @Override
+    public Optional<Activo> findByOficinaAndCodigo(Oficina oficina, String codigo) {
+        return dao.findByOficinaAndCodigo(oficina, codigo);
+    }
+
+    @Override
+    public void saveAll(List<Activo> batch) {
+        dao.saveAll(batch);
     }
 
 }
