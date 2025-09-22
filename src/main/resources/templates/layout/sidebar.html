@@ -1,22 +1,13 @@
 <!-- Menu -->
 <aside th:fragment="sidebar" id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
     <div class="app-brand demo">
-        <a href="index.html" class="app-brand-link">
+        <a href="/adm/inicio" class="app-brand-link">
             <span class="app-brand-logo demo">
-                <svg width="32" height="22" viewBox="0 0 32 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd" clip-rule="evenodd"
-                        d="M0.00172773 0V6.85398C0.00172773 6.85398 -0.133178 9.01207 1.98092 10.8388L13.6912 21.9964L19.7809 21.9181L18.8042 9.88248L16.4951 7.17289L9.23799 0H0.00172773Z"
-                        fill="#186dde" />
-                    <path opacity="0.06" fill-rule="evenodd" clip-rule="evenodd"
-                        d="M7.69824 16.4364L12.5199 3.23696L16.5541 7.25596L7.69824 16.4364Z" fill="#161616" />
-                    <path opacity="0.06" fill-rule="evenodd" clip-rule="evenodd"
-                        d="M8.07751 15.9175L13.9419 4.63989L16.5849 7.28475L8.07751 15.9175Z" fill="#161616" />
-                    <path fill-rule="evenodd" clip-rule="evenodd"
-                        d="M7.77295 16.3566L23.6563 0H32V6.88383C32 6.88383 31.8262 9.17836 30.6591 10.4057L19.7824 22H13.6938L7.77295 16.3566Z"
-                        fill="#186dde" />
-                </svg>
+                <img th:src="@{/assets/img/logo/activofijos.png}"
+                    alt="SAYOVE"
+                    style="height:25px; width:60px; display:block;" />
             </span>
-            <span class="app-brand-text demo menu-text fw-bold">UAP</span>
+            <span class="app-brand-text demo menu-text fw-bold">SAYOVE</span>
         </a>
 
         <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto">
@@ -33,26 +24,30 @@
         <li class="menu-item" id="opcion_admin" th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
             <a href="#" class="menu-link menu-toggle">
                 <i class="menu-icon tf-icons ti ti-users"></i>
-                <div>Administrar Usuarios</div>
+                <div>Administrar usuarios</div>
             </a>
             <ul class="menu-sub">
                 <li class="menu-item" id="opcion_rol">
                     <a class="menu-link">
+                        <i class="ti ti-shield-lock me-2"></i>
                         <div>Rol</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_persona">
                     <a class="menu-link">
+                        <i class="ti ti-id me-2"></i>
                         <div>Persona</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_usuario">
                     <a class="menu-link">
+                        <i class="ti ti-user-cog me-2"></i>
                         <div>Usuario</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_responsable">
                     <a class="menu-link">
+                        <i class="ti ti-user-check me-2"></i>
                         <div>Responsables</div>
                     </a>
                 </li>
@@ -64,55 +59,63 @@
         </li>
         <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
             <a href="#" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons ti ti-users"></i>
-                <div>Administrar Complementos</div>
+                <i class="menu-icon tf-icons ti ti-adjustments"></i>
+                <div>Administrar complementos</div>
             </a>
             <ul class="menu-sub">
                 <li class="menu-item" id="opcion_contable">
                     <a class="menu-link">
-                        <div>Grupo Contable</div>
+                        <i class="ti ti-category-2 me-2"></i>
+                        <div>Grupo contable</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_auxiliar">
                     <a class="menu-link">
+                        <i class="ti ti-folders me-2"></i>
                         <div>Auxiliar</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_of">
                     <a class="menu-link">
-                        <div>Organismo Financiador</div>
+                        <i class="ti ti-building-bank me-2"></i>
+                        <div>Organismo financiador</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_estadoA">
                     <a class="menu-link">
-                        <div>Estado del Activo</div>
+                        <i class="ti ti-badge me-2"></i>
+                        <div>Estado del activo</div>
                     </a>
                 </li>
             </ul>
         </li>
         <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
             <a href="#" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons ti ti-users"></i>
-                <div>Ambito Geografico</div>
+                <i class="menu-icon tf-icons ti ti-map"></i>
+                <div>Ambito geografico</div>
             </a>
             <ul class="menu-sub">
                 <li class="menu-item" id="opcion_entidad">
                     <a class="menu-link">
+                        <i class="ti ti-building me-2"></i>
                         <div>Entidad</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_municipio">
                     <a class="menu-link">
+                        <i class="ti ti-map-pin me-2"></i>
                         <div>Municipio</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_predio">
                     <a class="menu-link">
+                        <i class="ti ti-home-2 me-2"></i>
                         <div>Predio</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_oficina">
                     <a class="menu-link">
+                        <i class="ti ti-door me-2"></i>
                         <div>Oficinas </div>
                     </a>
                 </li>
@@ -123,27 +126,31 @@
         </li>
         <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
             <a href="#" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons ti ti-users"></i>
+                <i class="menu-icon tf-icons ti ti-report-analytics"></i>
                 <div>Seguimientos</div>
             </a>
             <ul class="menu-sub">
                 <li class="menu-item" id="opcion_aan">
                     <a class="menu-link">
+                        <i class="ti ti-clipboard-check me-2"></i>
                         <div>Asignaciones</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_ta">
                     <a class="menu-link">
+                        <i class="ti ti-arrows-exchange-2 me-2"></i>
                         <div>Transferencias</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_iaa">
                     <a class="menu-link">
+                        <i class="ti ti-arrow-down-circle me-2"></i>
                         <div>Ingresos</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_iaa">
                     <a class="menu-link">
+                        <i class="ti ti-arrow-up-circle me-2"></i>
                         <div>Bajas</div>
                     </a>
                 </li>
@@ -154,12 +161,13 @@
         </li>
         <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
             <a href="#" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons ti ti-users"></i>
+                <i class="menu-icon tf-icons ti ti-packages"></i>
                 <div>Administración activos</div>
             </a>
             <ul class="menu-sub">
                 <li class="menu-item" id="opcion_activo">
                     <a class="menu-link">
+                        <i class="ti ti-clipboard-text me-2"></i>
                         <div>Registro activos</div>
                     </a>
                 </li>

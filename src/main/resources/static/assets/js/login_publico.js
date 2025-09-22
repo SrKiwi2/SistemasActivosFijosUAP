@@ -54,12 +54,17 @@ $(function () {
 //FIN INICIO DE SESION
 
 // VER CONTRASEÑA MODAL LOGIN
-const togglePassword = document.getElementById("togglePassword");
-const passwordInput = document.getElementById("contrasena");
-const iconToggle = document.getElementById("iconToggle");
+// /assets/js/login_publico.js
+document.addEventListener('DOMContentLoaded', () => {
+  const togglePassword = document.getElementById('togglePassword');
+  const passwordInput  = document.getElementById('contrasena');
+  const iconToggle     = document.getElementById('iconToggle');
 
-togglePassword.addEventListener("click", () => {
-    const isPassword = passwordInput.getAttribute("type") === "password";
-    passwordInput.setAttribute("type", isPassword ? "text" : "password");
-    iconToggle.className = isPassword ? "ti ti-eye" : "ti ti-eye-off";
+  if (!togglePassword || !passwordInput || !iconToggle) return;
+
+  togglePassword.addEventListener('click', () => {
+    const isPassword = passwordInput.type === 'password';
+    passwordInput.type = isPassword ? 'text' : 'password';
+    iconToggle.className = isPassword ? 'ti ti-eye' : 'ti ti-eye-off';
+  });
 });
