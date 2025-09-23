@@ -55,4 +55,9 @@ public class PredioServiceImpl implements IPredioServicio{
     public Optional<Predio> findByEntidadAndUnidadIgnoreCase(Entidad entidad, String unidad) {
         return dao.findByEntidadAndUnidadIgnoreCase(entidad, unidad);
     }
+
+    @Override
+    public Predio buscarPorNombre(String unidad) {
+        return dao.buscarPorNombre(unidad);
+    }
 }

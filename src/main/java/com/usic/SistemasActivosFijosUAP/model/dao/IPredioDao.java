@@ -11,8 +11,8 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
 public interface IPredioDao extends JpaRepository<Predio, Long>{
     
-    // @Query("SELECT p FROM Predio p WHERE p.nombre = ?1 AND p.estado = 'ACTIVO'")
-    // Predio buscarPorNombre(String nombre);
+    @Query("SELECT p FROM Predio p WHERE p.unidad = ?1 AND p.estado = 'ACTIVO'")
+    Predio buscarPorNombre(String unidad);
 
     // @Query("SELECT p FROM Predio p WHERE p.prefijo = ?1 AND p.estado = 'ACTIVO'")
     // Predio buscarPorPrefijo(String prefijo);

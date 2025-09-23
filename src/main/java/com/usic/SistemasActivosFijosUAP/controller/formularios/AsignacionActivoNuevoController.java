@@ -134,6 +134,7 @@ public class AsignacionActivoNuevoController {
         String correo = (String) datos.get("perd_email_personal");
         String sexo = (String) datos.get("per_sexo");
         String nombreOficina = (String) datos.get("eo_descripcion");
+        String nombrePredio= (String) datos.get("cp_descripcion");
         String nombreCargo = (String) datos.get("p_descripcion");
     
         Persona persona = personaService.buscarPersonaPorCI(ciPersona);
@@ -168,9 +169,11 @@ public class AsignacionActivoNuevoController {
         Oficina oficina = oficinaService.buscarPorNombre(nombreOficina).orElseGet(() -> {
             Oficina o = new Oficina();
             o.setNombre(nombreOficina.trim());
-            o.setEstado("ACTIVO");              // si viene de AuditoriaConfig
-            o.setRegistro(new Date());          // si usas java.util.Date en AuditoriaConfig
-            o.setRegistroIdUsuario(1L);         // pon aquí el id del usuario real
+            o.setEstado("ACTIVO");
+            o.setRegistro(new Date());
+            o.setRegistroIdUsuario(1L);
+            o.setCodOfi(o.getCodOfi());
+            o.setPredio(o.getPredio());
             return oficinaService.save(o);
         });
     

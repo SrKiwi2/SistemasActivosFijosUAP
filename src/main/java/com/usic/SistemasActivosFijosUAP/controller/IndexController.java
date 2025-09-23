@@ -1,6 +1,5 @@
 package com.usic.SistemasActivosFijosUAP.controller;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -16,11 +15,12 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.PerfilDTO;
-import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
@@ -36,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class IndexController {
     private final IActivoService activoService;
+    private final IOficinaService oficinaService;
     private final IResponsableService responsableService;
     private final PerfilService perfilService;
     private final IPersonaService personaService;
@@ -48,12 +49,14 @@ public class IndexController {
         logger.info("Usuario en sesión: {}", usuario.getPersona().getNombre());
 
         Persona persona = usuario.getPersona();
+        List<Oficina> oficina = oficinaService.findAll();
         List<Responsable> responsables = responsableService.findAllByPersona(persona);
         List<Activo> activos = activoService.obtenerActivosDelResponsable(persona);
         if (activos != null) {
             model.addAttribute("activos", activos);
             
         }
+        model.addAttribute("oficinas", oficina);
         request.getSession().setAttribute("persona", persona);
         request.getSession().setAttribute("responsable", responsables);
         return "inicio-admin";

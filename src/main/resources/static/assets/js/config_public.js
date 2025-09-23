@@ -50,22 +50,22 @@ $(function () {
         delay: 300,
     });
 
-    $('input[name="codigoFuncionario"]').on("input", function () {
-        const codigo = $(this).val();
-        if (codigo.length >= 1) {
-            $.get(
-                "/api/responsables/datos",
-                { codigo: codigo },
-                function (data) {
-                    if (data && data.ci) {
-                        $('input[name="ci"]').val(data.ci);
-                    } else {
-                        $('input[name="ci"]').val("");
-                    }
-                }
-            );
-        }
-    });
+    // $('input[name="codigoFuncionario"]').on("input", function () {
+    //     const codigo = $(this).val();
+    //     if (codigo.length >= 1) {
+    //         $.get(
+    //             "/api/responsables/datos",
+    //             { codigo: codigo },
+    //             function (data) {
+    //                 if (data && data.ci) {
+    //                     $('input[name="ci"]').val(data.ci);
+    //                 } else {
+    //                     $('input[name="ci"]').val("");
+    //                 }
+    //             }
+    //         );
+    //     }
+    // });
 
     $('input[name="unidadDestino"], input[name="unidadOrigen"], input[name="ubicacionOrigen"], input[name="ubicacionActual"]').autocomplete({
         source: function (request, response) {
