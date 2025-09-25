@@ -24,12 +24,14 @@ import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGeneroService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.entity.Asignacion;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Genero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
+import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.PdfGeneratorService;
@@ -45,6 +47,7 @@ public class AsignacionActivoNuevoController {
     private final IPersonaService personaService;
     private final IGeneroService generoService;
     private final IOficinaService oficinaService;
+    private final IPredioServicio predioServicio;
     private final ICargoService cargoService;
     private final IResponsableService responsableService;
     private final PdfGeneratorService pdfGeneratorService;
@@ -62,7 +65,9 @@ public class AsignacionActivoNuevoController {
 
         try {
             Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+            System.out.println("llegó aqui");
             Responsable responsablePropietario = obtenerORegistrarResponsable(codigoFuncionario, ci);
+            System.out.println("Prbando");
             Persona persona = responsablePropietario.getPersona();
 
             byte[] pdfBytes = pdfGeneratorService.generarPdfAsignacion(
@@ -90,6 +95,7 @@ public class AsignacionActivoNuevoController {
             asignacion.setRegistroIdUsuario(usuario.getIdUsuario());
             asignacion.setEstado("A");
             asginacionService.save(asignacion);
+            System.out.println("HOLAA");
             return new ResponseEntity<>(pdfBytes, headers1, HttpStatus.OK);
 
         } catch (Exception ex) {
@@ -165,15 +171,19 @@ public class AsignacionActivoNuevoController {
     
             personaService.save(persona);
         }
-    
+
+        Predio predio = predioServicio.buscarPorNombre(nombrePredio)
+                .orElseThrow(() -> new IllegalArgumentException("No existe Predio: " + nombrePredio));
+
         Oficina oficina = oficinaService.buscarPorNombre(nombreOficina).orElseGet(() -> {
+            short next = oficinaService.nextCodOfiForPredio(predio.getIdPredio());
             Oficina o = new Oficina();
             o.setNombre(nombreOficina.trim());
             o.setEstado("ACTIVO");
             o.setRegistro(new Date());
             o.setRegistroIdUsuario(1L);
-            o.setCodOfi(o.getCodOfi());
-            o.setPredio(o.getPredio());
+            o.setCodOfi(next);
+            o.setPredio(predio);
             return oficinaService.save(o);
         });
     

@@ -1,13 +1,11 @@
 package com.usic.SistemasActivosFijosUAP.controller.activo;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -18,7 +16,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
@@ -28,7 +25,6 @@ import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
-import com.usic.SistemasActivosFijosUAP.model.service.ActivoExcelService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +34,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ActivosController {
     private final IActivoService activoService;
-    private final ActivoExcelService activoExcelService; 
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -105,22 +100,6 @@ public class ActivosController {
         activo.setEstado("ELIMINADO");
         activoService.save(activo);
         return ResponseEntity.ok("Registro Eliminado");
-    }
-
-    @PostMapping("/importar")
-    public ResponseEntity<Map<String, String>> importarActivos(@RequestParam("archivo") MultipartFile archivo) {
-        Map<String, String> respuesta = new HashMap<>();
-        try {
-            System.out.println("Archivo recibido: " + archivo.getOriginalFilename());
-
-            activoExcelService.cargarActivosDesdeExcel(archivo);
-            respuesta.put("message", "Archivo importado exitosamente");
-            return ResponseEntity.ok(respuesta);
-        } catch (Exception e) {
-            e.printStackTrace();
-            respuesta.put("message", "Error al importar: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(respuesta);
-        }
     }
 
     @PostMapping("/datatables")

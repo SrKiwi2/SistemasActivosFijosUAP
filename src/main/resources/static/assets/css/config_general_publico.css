@@ -16,6 +16,10 @@
     z-index: 20000 !important;
 }
 
+#contenido.container-xxl {
+  max-width: 1800px; /* o el valor que quieras */
+}
+
 
 .animated-card {
     animation: fadeSlideIn 1s ease-out;

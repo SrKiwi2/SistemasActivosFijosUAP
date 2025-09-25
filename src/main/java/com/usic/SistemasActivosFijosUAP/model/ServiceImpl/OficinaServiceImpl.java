@@ -1,5 +1,6 @@
 package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -11,10 +12,15 @@ import com.usic.SistemasActivosFijosUAP.model.dao.IOficinaDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.transaction.Transactional;
+
 @Service
 public class OficinaServiceImpl implements IOficinaService{
 
     @Autowired private IOficinaDao dao;
+    @Autowired private EntityManager em;
 
     @Override
     public List<Oficina> findAll() {
@@ -64,5 +70,38 @@ public class OficinaServiceImpl implements IOficinaService{
     @Override
     public List<Oficina> buscarPorCodigo(Short codOfi) {
         return dao.buscarPorCodigo(codOfi);
+    }
+
+    @Override
+    @Transactional
+    public short nextCodOfiForPredio(Long idPredio) {
+        // Bloquea el predio para que solo un hilo a la vez asigne correlativo
+        Predio locked = em.find(Predio.class, idPredio, LockModeType.PESSIMISTIC_WRITE);
+        if (locked == null) {
+            throw new IllegalArgumentException("Predio no existe: " + idPredio);
+        }
+        Short max = dao.maxCodOfiPorPredio(idPredio); // puede ser null (coalesce ya lo evita)
+        short next = (short) ((max == null ? 0 : max) + 1);
+        if (next <= 0) { // protección de overflow de short (32767)
+            throw new IllegalStateException("Se alcanzó el máximo correlativo para este predio");
+        }
+        return next;
+    }
+
+    @Override
+    @Transactional
+    public Oficina findOrCreateConCorrelativo(String nombreOficina, Predio predio, Long idUsuario) {
+        return dao.findByNombre(nombreOficina)
+            .orElseGet(() -> {
+                short cod = nextCodOfiForPredio(predio.getIdPredio());
+                Oficina o = new Oficina();
+                o.setNombre(nombreOficina.trim());
+                o.setEstado("OFI_ADMIN");
+                o.setRegistro(new Date());
+                o.setRegistroIdUsuario(idUsuario);
+                o.setCodOfi(cod);
+                o.setPredio(predio);
+                return dao.save(o);
+            });
     }
 }

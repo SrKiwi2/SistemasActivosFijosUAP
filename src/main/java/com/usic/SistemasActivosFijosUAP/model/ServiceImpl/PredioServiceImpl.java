@@ -57,7 +57,7 @@ public class PredioServiceImpl implements IPredioServicio{
     }
 
     @Override
-    public Predio buscarPorNombre(String unidad) {
-        return dao.buscarPorNombre(unidad);
+    public Optional<Predio> buscarPorNombre(String descrip) {
+        return dao.buscarPorNombre(descrip);
     }
 }

@@ -83,6 +83,16 @@
         var botonPulsado;
         $(document).ready(function () {
 
+            function showSpinner(target) {
+                $(target).html(`
+                    <div class="d-flex justify-content-center">
+                    <div class="spinner-border m-5 text-secondary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    </div>
+                `);
+            }
+
             // ventana por defecto al iniciar sesión
             if (document.body.dataset.ctx === "admin" && $("#contenido").length) {
                 cargarContenido("/adm/vista-administrador");
@@ -348,8 +358,22 @@
 
             });
 
-            function cargarContenido(url) {
+            $("#opcion_ba").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/seguimiento-activo/vista_bajas");
 
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_ba");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+            function cargarContenido(url) {
+                showSpinner("#contenido");
                 $.ajax({
                     url: "/adm/cargar-datos",
                     method: "GET",
@@ -389,6 +413,10 @@
                     }
                 });
             }
+
+            
+
+
         });
     </script>
 </div>

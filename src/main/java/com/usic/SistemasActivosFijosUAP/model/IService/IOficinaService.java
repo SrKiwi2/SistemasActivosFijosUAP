@@ -17,4 +17,7 @@ public interface IOficinaService extends IServiceGenerico<Oficina, Long>{
     List<Oficina> buscarPorNombreParcial(@Param("termino") String termino);
     Optional<Oficina> findByPredioAndCodOfi(Predio predio, Short codOfi);
     List<Oficina> saveAll(Iterable<Oficina> oficinas);
+
+    short nextCodOfiForPredio(Long idPredio);
+    Oficina findOrCreateConCorrelativo(String nombreOficina, Predio predio, Long idUsuario);
 }

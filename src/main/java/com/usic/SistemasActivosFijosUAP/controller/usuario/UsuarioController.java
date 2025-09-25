@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.annotation.Validated;
@@ -31,6 +32,8 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/administracion/usuario")
 @RequiredArgsConstructor
 public class UsuarioController {
+
+    private final PasswordEncoder passwordEncoder;
     
     private final IUsuarioService usuarioService;
     private final IPersonaService personaService;
@@ -89,6 +92,7 @@ public class UsuarioController {
         if (usuarioService.UsuarioyContraseña(usuario.getUsuario(), usuario.getPassword()) == null) {
             Usuario usuarioLogueado = (Usuario) request.getSession().getAttribute("usuario");
             usuario.setRegistroIdUsuario(usuarioLogueado.getIdUsuario());
+            usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
             usuario.setEstado("ACTIVO");
             usuarioService.save(usuario);
 

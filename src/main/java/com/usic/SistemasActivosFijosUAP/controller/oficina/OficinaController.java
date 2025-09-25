@@ -1,11 +1,8 @@
 package com.usic.SistemasActivosFijosUAP.controller.oficina;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -14,8 +11,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
@@ -24,7 +19,6 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
-import com.usic.SistemasActivosFijosUAP.model.service.OficinaExcelService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +29,6 @@ import lombok.RequiredArgsConstructor;
 public class OficinaController {
     
     private final IOficinaService oficinaService;
-    private final OficinaExcelService oficinaExcelService;
     private final IPredioServicio predioServicio;
 
     @ValidarUsuarioAutenticado
@@ -104,20 +97,5 @@ public class OficinaController {
         oficina.setEstado("ELIMINADO");
         oficinaService.save(oficina);
         return ResponseEntity.ok("Registro Eliminado");
-    }
-
-    @PostMapping("/importar")
-    public ResponseEntity<Map<String, String>> importarOficinas(@RequestParam("archivo") MultipartFile archivo) {
-        Map<String, String> respuesta = new HashMap<>();
-        try {
-            System.out.println("Archivo recibido: " + archivo.getOriginalFilename());
-
-            oficinaExcelService.cargarDesdeExcel(archivo);
-            respuesta.put("message", "Archivo importado exitosamente");
-            return ResponseEntity.ok(respuesta);
-        } catch (Exception e) {
-            respuesta.put("message", "Error al importar: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(respuesta);
-        }
     }
 }

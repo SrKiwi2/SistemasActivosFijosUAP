@@ -29,4 +29,9 @@ public interface IOficinaDao extends JpaRepository<Oficina, Long>{
 
     @Query("select coalesce(max(o.codOfi), 0) + 1 from Oficina o where o.predio.idPredio = :idPredio")
     Short siguienteCodigo(@Param("idPredio") Long idPredio);
+
+    @Query("select coalesce(max(o.codOfi), 0) from Oficina o where o.predio.id = :idPredio")
+    Short maxCodOfiPorPredio(@Param("idPredio") Long idPredio);
+
+    Optional<Oficina> findByNombre(String nombre);
 }

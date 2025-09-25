@@ -1,13 +1,11 @@
 package com.usic.SistemasActivosFijosUAP.controller.formularios;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ContentDisposition;
@@ -18,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
@@ -27,6 +26,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGeneroService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoTransferenciaDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
@@ -34,6 +34,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Genero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
+import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
@@ -42,8 +43,6 @@ import com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-
-import org.springframework.web.bind.annotation.PostMapping;
 
 @Controller
 @RequestMapping("/trasnferencia")
@@ -54,6 +53,7 @@ public class TransferenciaActivosController {
     private final IPersonaService personaService;
     private final ICargoService cargoService;
     private final IOficinaService oficinaService;
+    private final IPredioServicio predioServicio;
     private final IGeneroService generoService;
     private final PdfTransferenciaService pdfTransferenciaService;
     private final IActivoService activoService;
@@ -180,6 +180,7 @@ public class TransferenciaActivosController {
         String correo = (String) datos.get("perd_email_personal");
         String sexo = (String) datos.get("per_sexo");
         String nombreOficina = (String) datos.get("eo_descripcion");
+        String nombrePredio= (String) datos.get("cp_descripcion");
         String nombreCargo = (String) datos.get("p_descripcion");
     
         Persona persona = personaService.buscarPersonaPorCI(ciPersona);
@@ -210,12 +211,18 @@ public class TransferenciaActivosController {
             personaService.save(persona);
         }
     
+        Predio predio = predioServicio.buscarPorNombre(nombrePredio)
+                .orElseThrow(() -> new IllegalArgumentException("No existe Predio: " + nombrePredio));
+
         Oficina oficina = oficinaService.buscarPorNombre(nombreOficina).orElseGet(() -> {
+            short next = oficinaService.nextCodOfiForPredio(predio.getIdPredio());
             Oficina o = new Oficina();
-            o.setNombre(nombreOficina);
+            o.setNombre(nombreOficina.trim());
             o.setEstado("ACTIVO");
             o.setRegistro(new Date());
             o.setRegistroIdUsuario(1L);
+            o.setCodOfi(next);
+            o.setPredio(predio);
             return oficinaService.save(o);
         });
     

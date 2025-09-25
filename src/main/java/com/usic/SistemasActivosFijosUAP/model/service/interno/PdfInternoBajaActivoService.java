@@ -1,4 +1,4 @@
-package com.usic.SistemasActivosFijosUAP.model.service;
+package com.usic.SistemasActivosFijosUAP.model.service.interno;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Path;
@@ -25,9 +25,11 @@ import com.itextpdf.text.pdf.PdfWriter;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
-public class PdfBajaActivoService {
-    
+@RequiredArgsConstructor
+public class PdfInternoBajaActivoService {
     public byte[] generarPDfBajaActivo(
         String fechaBaja,
         String numeroDocumento,

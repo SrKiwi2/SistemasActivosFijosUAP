@@ -1,9 +1,9 @@
 package com.usic.SistemasActivosFijosUAP.controller.gestion;
 
-import java.util.Date;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.springframework.http.ContentDisposition;
@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IBajaActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IngresoService;
@@ -27,6 +28,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.ActivoIngresoAjenoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoTransferenciaDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Asignacion;
+import com.usic.SistemasActivosFijosUAP.model.entity.BajaActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Ingreso;
 import com.usic.SistemasActivosFijosUAP.model.entity.IngresoDetalle;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
@@ -35,6 +37,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
 import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaDetalle;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.interno.PdfInternoAsignacionService;
+import com.usic.SistemasActivosFijosUAP.model.service.interno.PdfInternoBajaActivoService;
 import com.usic.SistemasActivosFijosUAP.model.service.interno.PdfInternoIngresoActivoAjenoService;
 import com.usic.SistemasActivosFijosUAP.model.service.interno.PdfInternoTransferenciaService;
 
@@ -49,11 +52,13 @@ public class SeguimientoController {
     private final IngresoService ingresoActivoAjenoService;
     private final IAsignacionService asignacionService;
     private final ITransferenciaService transferenciaService;
+    private final IBajaActivoService bajaActivoService;
     private final IUsuarioService usuarioService;
     
     private final PdfInternoAsignacionService pdfInternoAsignacionService;
     private final PdfInternoTransferenciaService pdfInternoTransferenciaService;
     private final PdfInternoIngresoActivoAjenoService pdfInternoIngresoActivoAjenoService;
+    private final PdfInternoBajaActivoService pdfInternoBajaActivoService;
 
     //ASIGNACION ACTIVOS NUEVOS
     @ValidarUsuarioAutenticado
@@ -108,7 +113,7 @@ public class SeguimientoController {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDisposition(ContentDisposition.inline().filename("asignacion_activo_nuevo_"+id+"-"+hr+".pdf").build());
+            headers.setContentDisposition(ContentDisposition.inline().filename("Asignacion_activo_nuevo_"+hr+"_"+ubicacion+".pdf").build());
             headers.setContentLength(pdfBytes.length);
 
             return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
@@ -198,7 +203,7 @@ public class SeguimientoController {
             headers.setContentType(MediaType.APPLICATION_PDF);
             headers.setContentDisposition(
                     ContentDisposition.inline()
-                            .filename("transferencia_activos_" + id + ".pdf")
+                            .filename("Transferencia_activos_" +fechaTransferencia+"_"+t.getResponsableDestino().getPersona().getNombreCompleto()+ ".pdf")
                             .build()
             );
             headers.setContentLength(pdfBytes.length);
@@ -265,7 +270,64 @@ public class SeguimientoController {
             headers.setContentType(MediaType.APPLICATION_PDF);
             headers.setContentDisposition(
                     ContentDisposition.inline()
-                            .filename("ingreso_activos_" + id + ".pdf")
+                            .filename("Ingreso_activos_"+fechaincorporacion+"_"+respP.getPersona().getNombreCompleto()+ ".pdf")
+                            .build()
+            );
+            headers.setContentLength(pdfBytes.length);
+
+            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+
+        } catch (Exception ex) {
+            String errorMsg = "Error procesando: " + ex.getMessage();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
+        }
+    }
+
+    @ValidarUsuarioAutenticado
+    @GetMapping("/vista_bajas")
+    public String vista_bajas() {
+        return "/seguimiento/baja/vista";
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/tabla_bajas")
+    public String tabla_bajas(Model model) {
+        List<BajaActivo> bajas = bajaActivoService.findAll();
+        model.addAttribute("bajas", bajas);
+        return "/seguimiento/baja/tabla_registro";
+    }
+
+    @ValidarUsuarioAutenticado
+    @GetMapping("/bajas/{id}/pdf")
+    public ResponseEntity<byte[]> pdfInternoBA(
+            @PathVariable Long id, HttpServletRequest request) {
+        
+        BajaActivo ba = bajaActivoService.findById(id);
+
+        // Responsable / Persona (con null-safety)       =
+        String fechaBaja            = ba.getFechaBaja();
+        String hr                   = ba.getHr();
+        Responsable respo           = ba.getResponsable();
+        Activo activo               = ba.getActivo();
+        String causa                = ba.getCausa();
+        String descripcion          = ba.getDescripcion();
+
+        try {
+
+            byte[] pdfBytes = pdfInternoBajaActivoService.generarPDfBajaActivo(
+                fechaBaja,
+                hr,
+                respo,
+                activo,
+                causa,
+                descripcion
+            );
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDisposition(
+                    ContentDisposition.inline()
+                            .filename("Baja_activo_"+activo.getCodigo()+"_"+respo.getPersona().getNombreCompleto()+".pdf")
                             .build()
             );
             headers.setContentLength(pdfBytes.length);
