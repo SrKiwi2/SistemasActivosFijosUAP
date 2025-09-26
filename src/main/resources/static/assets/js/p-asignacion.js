@@ -223,11 +223,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Mixed content guard
-        const apiUrl = "http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos";
+        const apiUrl = "/api/uap/obtenerDatos";
         if (location.protocol === "https:" && apiUrl.startsWith("http:")) {
             showFormAlert("No se pudo consultar la API (mixed content). Expón la API en HTTPS o usa un proxy.");
             return;
         }
+        const headers = {
+            "Content-Type": "application/json"
+        };
 
         // Estado "verificando…"
         const prevHtml = btnPreGuardar.innerHTML;
@@ -235,10 +238,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btnPreGuardar.innerHTML =
             `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Verificando…`;
 
-        const headers = {
-            "Content-Type": "application/json",
-            key: "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10",
-        };
+        
 
         try {
             const res = await fetch(apiUrl, {
