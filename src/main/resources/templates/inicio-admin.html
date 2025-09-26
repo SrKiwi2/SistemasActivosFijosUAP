@@ -1210,11 +1210,11 @@
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
     <script>
         // Tu spinner 3D, reutilizable
-        function spinnerHTML({ imgUrl='/assets/img/logo/activofijos.png', texto='Cargando...', axis='y', speed=1.2 } = {}) {
-        const axisClass = axis === 'x' ? 'spin-x' : 'spin-y';
-        return `
+        function spinnerHTML({ svg='/assets/img/logo/activofijos.png', texto='Cargando...', axis='y', speed=1.2 } = {}) {
+            const axisClass = axis === 'x' ? 'spin-x' : 'spin-y';
+            return `
             <div class="loader-3d d-flex flex-column align-items-center my-4" role="status">
-            <img src="${imgUrl}" alt="Cargando" width="64" height="64"
+            <img src="${svg}" alt="Cargando" width="64" height="64"
                 class="${axisClass} origin-center gpu backface-visible opacity-75"
                 style="animation-duration:${speed}s"
                 onerror="this.outerHTML='<div class=&quot;spinner-border text-secondary&quot; role=&quot;status&quot;></div>'" />

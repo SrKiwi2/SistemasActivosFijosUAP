@@ -1,15 +1,4 @@
 
-<style>
-    #preloader {
-        position: fixed;
-        z-index: 9999;
-        top: 0; left: 0;
-        width: 100%; height: 100%;
-        background: rgba(255,255,255,0.8);
-        align-items: center;
-        justify-content: center;
-    }
-    </style>
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Oficina</h4>
 
 <div id="tablaRegistro"></div>
@@ -73,11 +62,23 @@
     });
 
     function cargarTabla() {
+        showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
         $.ajax({
             type: 'POST',
             url: "/administracion/activo/tabla-registros",
             success: function (response) {
                 $("#tablaRegistro").html(response);
+            },
+            error:function(){
+            $("#tablaRegistro").html(`
+                <div class="alert alert-danger m-3">
+                Ocurrió un error al cargar la tabla.
+                <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
+                </div>
+            `);
+            },
+            complete:function(){
+            hideGlobalLoader();
             }
         });
     }
