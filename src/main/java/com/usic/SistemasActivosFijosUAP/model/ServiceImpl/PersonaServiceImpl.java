@@ -4,10 +4,14 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IPersonasDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IPersonasDao.PersonaRow;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 
 @Service
@@ -75,4 +79,13 @@ public class PersonaServiceImpl implements IPersonaService {
     public Optional<Persona> findFirstByCi(String ci) {
         return personaDao.findFirstByCi(ci);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PersonaRow> datatable(String q, Pageable pageable) {
+        return personaDao.datatable((q != null && !q.isBlank()) ? q.trim() : null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+  public long countActivos() { return personaDao.countActivos(); }
 }

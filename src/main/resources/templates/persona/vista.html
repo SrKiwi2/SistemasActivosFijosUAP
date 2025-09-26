@@ -1,6 +1,29 @@
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Persona</h4>
 
-<div id="tablaRegistro"></div>
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">Registro Persona</h5>
+    <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal" data-bs-target="#modalFormularioPersona">
+      <i class="fa-solid fa-user-plus"></i> Agregar Persona
+    </button>
+  </div>
+
+  <div class="card-datatable table-responsive pt-0">
+    <div id="tablaLoader"></div>
+    <table class="table table-hover" id="data-table" style="width:100%">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>NOMBRE</th>
+          <th>PATERNO</th>
+          <th>MATERNO</th>
+          <th>C.I.</th>
+          <th>OPCIONES</th>
+        </tr>
+      </thead>
+    </table>
+  </div>
+</div>
 
 <div class="modal fade" id="modalFormularioPersona" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -9,20 +32,63 @@
 </div>
 
 <script>
-    $(document).ready(function () {
-        cargarTabla();
+    $(function () {
 
-    });
-
-    function cargarTabla() {
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/persona/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
-            success: function (response) {
-                $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
+        const tbl = $('#data-table').DataTable({
+            processing: false,              // spinner integrado
+            serverSide: true,              // clave
+            deferRender: true,
+            pageLength: 10,
+            lengthMenu: [10,25,50,100],
+            ordering: true,
+            searching: true,
+            ajax: { url: '/administracion/persona/api/datatables', type: 'POST' },
+            columns: [
+            { data: null, orderable:false, searchable:false,
+                render:(d,t,r,m)=> m.row + m.settings._iDisplayStart + 1 },
+            { data: 'nombre'  },
+            { data: 'paterno' },
+            { data: 'materno' },
+            { data: 'ci'      },
+            { data: 'idEnc', orderable:false, searchable:false,
+                render:(idEnc)=> `
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-primary" onclick="cargarFormularioEdit('${idEnc}')" data-bs-toggle="modal" data-bs-target="#modalFormularioPersona">
+                    <i class="fa-solid fa-pen-to-square"></i> Editar
+                    </button>
+                    <button class="btn btn-danger" onclick="eliminar('PERSONA', '${idEnc}')">
+                    <i class="fa-solid fa-trash"></i> Eliminar
+                    </button>
+                </div>` }
+            ],
+            language: {
+            sProcessing:"Procesando...", sLengthMenu:"Mostrar _MENU_",
+            sZeroRecords:"No se encontraron resultados",
+            sInfo:"Mostrando _START_ a _END_ de _TOTAL_",
+            sInfoEmpty:"Mostrando 0 a 0 de 0", sInfoFiltered:"(filtrado de _MAX_)",
+            sSearch:"Buscar:", oPaginate:{ sFirst:"Primero", sLast:"Último", sNext:"Siguiente", sPrevious:"Anterior" }
             }
         });
-    }
+
+        // Antes de cada request de DataTables → overlay centrado
+        $('#data-table').on('preXhr.dt', function () {
+            showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
+        });
+
+        // Cuando llega la data → ocultar overlay
+        $('#data-table').on('xhr.dt', function () {
+            hideGlobalLoader();
+        });
+
+        // Debounce del buscador
+        let t;
+        $('#data-table_filter input').off().on('input', function(){
+            clearTimeout(t);
+            const v = this.value;
+            t = setTimeout(()=> tbl.search(v).draw(), 250);
+        });
+    });
+
 
     function cargarFormulario() {
         cargarFormularioAlert("/administracion/persona/formulario", "#contenidoModalPersona", "#formularioPersona");
@@ -33,7 +99,7 @@
     }
 
     function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/persona/eliminar",cargarTabla);
+        eliminarRegistroAlert(nombre, id, "/administracion/persona/eliminar", cargarTabla);
     }
 
 </script>

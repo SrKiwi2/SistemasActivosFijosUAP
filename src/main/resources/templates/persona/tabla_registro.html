@@ -18,53 +18,72 @@
                     <th>OPCIONES</th>
                 </tr>
             </thead>
-            <tbody class="animate__animated animate__bounceInDown">
-                <tr th:each="per, index: ${listaPersonas}">
-                    <th th:text="${index.index+1}"></th>
-                    <th th:text="${per.nombre}"></th>
-                    <th th:text="${per.paterno}"></th>
-                    <th th:text="${per.materno}"></th>
-                    <th th:text="${per.ci}"></th>
-                    <th>
-                        <button type="button" class="btn btn-sm btn-primary"
-                            th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
-                            data-bs-toggle="modal" data-bs-target="#modalFormularioPersona">
-                            <i class="fa-solid fa-pen-to-square"></i> Editar
-                        </button>
-                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${per.nombreCompleto}]],[[${id_encryptado[__${index.index}__]}]])">
-                            <i class="fa-solid fa-trash"></i> Eliminar
-                        </button>
-                    </th>
-                </tr>
-            </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    $('#data-table').DataTable({
-        language: {
-            "sProcessing": "Procesando...",
-            "sLengthMenu": "Mostrar _MENU_ registros",
-            "sZeroRecords": "No se encontraron resultados",
-            "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
-            "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
-            "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
-            "sInfoPostFix": "",
-            "sSearch": "Buscar:",
-            "sUrl": "",
-            "sInfoThousands": ",",
-            "sLoadingRecords": "Cargando...",
-            "oPaginate": {
-                "sFirst": "Primero",
-                "sLast": "Último",
-                "sNext": "Siguiente",
-                "sPrevious": "Anterior"
-            },
-            "oAria": {
-                "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
-                "sSortDescending": ": Activar para ordenar la columna de manera descendente"
-            }
-        }
-    });
+    $(function() {
+  const tbl = $('#data-table').DataTable({
+    processing: true,
+    serverSide: true,
+    deferRender: true,
+    pageLength: 25,
+    lengthMenu: [10,25,50,100],
+    ordering: true,
+    searching: true,
+    ajax: {
+      url: '/administracion/persona/api/datatables',
+      type: 'POST'
+    },
+    columns: [
+      { // índice
+        data: null,
+        orderable: false,
+        searchable: false,
+        render: (data, type, row, meta) => meta.row + meta.settings._iDisplayStart + 1
+      },
+      { data: 'nombre'  },
+      { data: 'paterno' },
+      { data: 'materno' },
+      { data: 'ci'      },
+      { // acciones
+        data: 'idEnc',
+        orderable: false,
+        searchable: false,
+        render: (idEnc) => `
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-primary"
+                    onclick="cargarFormularioEdit('${idEnc}')"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalFormularioPersona">
+              <i class="fa-solid fa-pen-to-square"></i> Editar
+            </button>
+            <button class="btn btn-danger"
+                    onclick="eliminar('PERSONA', '${idEnc}')">
+              <i class="fa-solid fa-trash"></i> Eliminar
+            </button>
+          </div>`
+      }
+    ],
+    language: {
+      sProcessing:    "Procesando...",
+      sLengthMenu:    "Mostrar _MENU_ registros",
+      sZeroRecords:   "No se encontraron resultados",
+      sInfo:          "Mostrando _START_ a _END_ de _TOTAL_",
+      sInfoEmpty:     "Mostrando 0 a 0 de 0",
+      sInfoFiltered:  "(filtrado de _MAX_ en total)",
+      sSearch:        "Buscar:",
+      oPaginate: { sFirst:"Primero", sLast:"Último", sNext:"Siguiente", sPrevious:"Anterior" }
+    }
+  });
+
+  // (Opcional) Debounce en la caja de búsqueda para reducir llamadas
+  let searchTimer;
+  $('#data-table_filter input').off().on('input', function() {
+    clearTimeout(searchTimer);
+    const val = this.value;
+    searchTimer = setTimeout(() => tbl.search(val).draw(), 250);
+  });
+});
 </script>

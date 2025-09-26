@@ -1203,10 +1203,49 @@
             </div>
         </div>
     </div>
+    <div id="globalLoader" aria-live="polite" aria-busy="true"></div>
 
     <div th:replace="~{layout/script :: script}"></div>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+    <script>
+        // Tu spinner 3D, reutilizable
+        function spinnerHTML({ imgUrl='/assets/img/logo/activofijos.png', texto='Cargando...', axis='y', speed=1.2 } = {}) {
+        const axisClass = axis === 'x' ? 'spin-x' : 'spin-y';
+        return `
+            <div class="loader-3d d-flex flex-column align-items-center my-4" role="status">
+            <img src="${imgUrl}" alt="Cargando" width="64" height="64"
+                class="${axisClass} origin-center gpu backface-visible opacity-75"
+                style="animation-duration:${speed}s"
+                onerror="this.outerHTML='<div class=&quot;spinner-border text-secondary&quot; role=&quot;status&quot;></div>'" />
+            <div class="mt-2 small text-muted">${texto}</div>
+            </div>`;
+        }
+
+        // Asegura que exista el overlay; si no, lo crea
+        function ensureGlobalLoader() {
+            if (!document.getElementById('globalLoader')) {
+                document.body.insertAdjacentHTML('beforeend', '<div id="globalLoader" aria-live="polite" aria-busy="true"></div>');
+            }
+        }
+
+        // Mostrar / ocultar overlay centrado
+        function showGlobalLoader(opts) {
+            ensureGlobalLoader();
+            const el = document.getElementById('globalLoader');
+            el.innerHTML = spinnerHTML(opts);
+            el.classList.add('show');
+            document.documentElement.style.overflow = 'hidden';
+        }
+
+        function hideGlobalLoader() {
+            const el = document.getElementById('globalLoader');
+            if (!el) return;
+            el.classList.remove('show');
+            el.innerHTML = '';
+            document.documentElement.style.overflow = '';
+        }
+    </script>
 
 </body>
 

@@ -1,12 +1,29 @@
 package com.usic.SistemasActivosFijosUAP.controller.responsable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.RestTemplate;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
@@ -16,6 +33,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IGeneroService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
+import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResponsableRegistroDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Genero;
@@ -43,18 +61,50 @@ public class ResponsableController {
     }
 
     @ValidarUsuarioAutenticado
-    @PostMapping("/tabla-registros")
-    public String tablaRegistros(Model model) throws Exception {
-        List<Responsable> listaResponsables = responsableService.listarResponsables();
-        List<String> encryptedIds = new ArrayList<>();
-        for (Responsable responsable : listaResponsables) {
-            String id_encryptado = Encriptar.encrypt(Long.toString(responsable.getIdResponsable()));
-            encryptedIds.add(id_encryptado);
+    @PostMapping(value="/api/datatables", produces=MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    @Transactional(readOnly = true)
+    public Map<String,Object> apiDataTables(
+        @RequestParam(name="draw",   defaultValue="1") int draw,
+        @RequestParam(name="start",  defaultValue="0") int start,
+        @RequestParam(name="length", defaultValue="25") int length,
+        @RequestParam(name="search[value]", required=false) String search
+    ) {
+        int size = (length < 0) ? 1000 : length;
+        int page = Math.max(start, 0) / Math.max(size, 1);
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<IResposableDao.ResponsableRow> p = responsableService.datatable(search, pageable);
+
+        List<Map<String,Object>> data = new ArrayList<>(p.getNumberOfElements());
+        for (var row : p.getContent()) {
+        String idEnc;
+        try { idEnc = Encriptar.encrypt(String.valueOf(row.getIdResponsable())); }
+        catch (Exception e) { idEnc = ""; }
+
+        Map<String,Object> m = new HashMap<>();
+        m.put("idEnc",   idEnc);
+        m.put("codFun",  nvl(row.getCodFun()));
+        m.put("nombre",  nvl(row.getNombre()));
+        m.put("paterno", nvl(row.getPaterno()));
+        m.put("materno", nvl(row.getMaterno()));
+        m.put("ci",      nvl(row.getCi()));
+        m.put("oficina", nvl(row.getOficina()));
+        m.put("cargo",   nvl(row.getCargo()));
+        data.add(m);
         }
-        model.addAttribute("listaResponsables", listaResponsables);
-        model.addAttribute("id_encryptado", encryptedIds);
-        return "responsable/tabla_registro";
+
+        long total = responsableService.countActivos(); // total sin filtro
+
+        Map<String,Object> res = new HashMap<>();
+        res.put("draw", draw);
+        res.put("recordsTotal", total);
+        res.put("recordsFiltered", p.getTotalElements());
+        res.put("data", data);
+        return res;
     }
+
+    private static String nvl(String s){ return s==null? "" : s; }
 
     @ValidarUsuarioAutenticado
     @PostMapping("/formulario")

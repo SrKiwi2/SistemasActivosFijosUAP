@@ -1,6 +1,36 @@
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Grupo Responsable</h4>
 
-<div id="tablaRegistro"></div>
+<div class="card">
+    <div class="card-header d-flex justify-content-lg-between">
+        <h5>Registro Responsable</h5>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
+              <i class="fa-solid fa-file-import me-1"></i> Importar DBF
+            </button>
+            <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
+                data-bs-target="#modalFormularioResponsable">
+                <i class="fa-solid fa-user-plus"></i> Agregar Responsable
+            </button>
+        </div>
+    </div>
+    <div class="card-datatable table-responsive pt-0">
+        <table class="datatables-basic table table-hover" id="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>CODIGO FUNCIONARIO</th>
+                    <th>NOMBRE</th>
+                    <th>APELLIDO PATERNO</th>
+                    <th>APELLIDO MATERNO</th>
+                    <th>C.I.</th>
+                    <th>OFICINA</th>
+                    <th>CARGO</th>
+                    <th>OPCIONES</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+</div>
 
 <div class="modal fade" id="modalFormularioResponsable" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -54,20 +84,50 @@
 </div>
 
 <script>
-    $(document).ready(function () {
-        cargarTabla();
-
+    $(function () {
+    const tbl = $('#data-table').DataTable({
+        processing: false,      // usamos overlay global
+        serverSide: true,
+        deferRender: true,
+        pageLength: 10,
+        lengthMenu: [10,25,50,100],
+        ajax: { url: '/administracion/responsable/api/datatables', type: 'POST' },
+        columns: [
+        { data: null, orderable:false, searchable:false,
+            render:(d,t,r,m)=> m.row + m.settings._iDisplayStart + 1 },
+        { data: 'codFun'  },
+        { data: 'nombre'  },
+        { data: 'paterno' },
+        { data: 'materno' },
+        { data: 'ci'      },
+        { data: 'oficina' },
+        { data: 'cargo'   },
+        { data: 'idEnc', orderable:false, searchable:false,
+            render:(idEnc)=> `
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-danger" onclick="eliminar('RESPONSABLE','${idEnc}')">
+                <i class="fa-solid fa-trash"></i> Eliminar
+                </button>
+            </div>` }
+        ],
+        language: {
+        sProcessing:"Procesando...", sLengthMenu:"Mostrar _MENU_",
+        sZeroRecords:"No se encontraron resultados",
+        sInfo:"Mostrando _START_ a _END_ de _TOTAL_",
+        sInfoEmpty:"Mostrando 0 a 0 de 0", sInfoFiltered:"(filtrado de _MAX_)",
+        sSearch:"Buscar:", oPaginate:{ sFirst:"Primero", sLast:"Último", sNext:"Siguiente", sPrevious:"Anterior" }
+        }
     });
 
-    function cargarTabla() {
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/responsable/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
-            success: function (response) {
-                $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
-            }
-        });
-    }
+    // Overlay global
+    $('#data-table').on('preXhr.dt', () => showGlobalLoader({texto:'Cargando...'}));
+    $('#data-table').on('xhr.dt',    () => hideGlobalLoader());
+
+    // Debounce buscador
+    let t; $('#data-table_filter input').off().on('input', function(){
+        clearTimeout(t); const v=this.value; t=setTimeout(()=> tbl.search(v).draw(), 250);
+    });
+    });
 
     function cargarFormulario() {
         cargarFormularioAlert("/administracion/responsable/formulario", "#contenidoModalResponsbale", "#formularioResponsable", cargarTabla);

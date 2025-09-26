@@ -3,6 +3,8 @@ package com.usic.SistemasActivosFijosUAP.model.dao;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -38,4 +40,55 @@ public interface IPersonasDao extends JpaRepository <Persona, Long>{
     Optional<Persona> findByIdWithNacionalidadGenero(@Param("id") Long id);
 
     Optional<Persona> findFirstByCi(String ci);
+
+    /* para cargar la tabla de persona mas rapido?*/
+    // Proyección para enviar solo lo necesario a la tabla
+    interface PersonaRow {
+        Long getIdPersona();
+        String getNombre();
+        String getPaterno();
+        String getMaterno();
+        String getCi();
+    }
+
+    @Query(
+    value = """
+        select
+        p.id_persona  as idPersona,
+        p.nombre      as nombre,
+        p.paterno     as paterno,
+        p.materno     as materno,
+        p.ci          as ci
+        from persona p
+        where p._estado = 'ACTIVO'
+        and (
+            :q is null
+            or p.nombre  ilike concat('%', :q, '%')
+            or p.paterno ilike concat('%', :q, '%')
+            or p.materno ilike concat('%', :q, '%')
+            or p.ci      ilike concat('%', :q, '%')
+        )
+        order by 2
+        limit :#{#pageable.pageSize}
+        offset :#{#pageable.offset}
+    """,
+    countQuery = """
+        select count(*)
+        from persona p
+        where p._estado = 'ACTIVO'
+        and (
+            :q is null
+            or p.nombre  ilike concat('%', :q, '%')
+            or p.paterno ilike concat('%', :q, '%')
+            or p.materno ilike concat('%', :q, '%')
+            or p.ci      ilike concat('%', :q, '%')
+        )
+    """,
+    nativeQuery = true
+    )
+    Page<PersonaRow> datatable(@Param("q") String q, Pageable pageable);
+
+    // Total sin filtro para DataTables
+    @Query(value = "select count(*) from persona p where p._estado = 'ACTIVO'", nativeQuery = true)
+    long countActivos();
 }

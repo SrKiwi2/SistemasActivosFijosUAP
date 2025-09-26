@@ -17,7 +17,8 @@
 }
 
 #contenido.container-xxl {
-  max-width: 1800px; /* o el valor que quieras */
+    max-width: 1800px;
+    /* o el valor que quieras */
 }
 
 
@@ -232,4 +233,79 @@
     border-top: 1px dashed var(--bs-border-color);
     padding-top: .5rem;
     margin-top: .25rem;
-  }
+}
+
+/*preload*/
+#globalLoader {
+    position: fixed;
+    inset: 0;
+    /* top/right/bottom/left: 0 */
+    display: none;
+    /* se muestra con .show */
+    align-items: center;
+    justify-content: center;
+    background: rgba(207, 207, 207, 0.35);
+    /* oscurece un poco */
+    backdrop-filter: blur(2px);
+    z-index: 2000;
+    /* por encima del contenido */
+}
+
+#globalLoader.show {
+    display: flex;
+}
+
+/* Tu animación 3D existente */
+.loader-3d {
+    perspective: 800px;
+}
+
+@keyframes spinY {
+    from {
+        transform: rotateY(0)
+    }
+
+    to {
+        transform: rotateY(360deg)
+    }
+}
+
+@keyframes spinX {
+    from {
+        transform: rotateX(0)
+    }
+
+    to {
+        transform: rotateX(360deg)
+    }
+}
+
+.spin-y {
+    animation: spinY 1.2s linear infinite;
+    transform-style: preserve-3d;
+}
+
+.spin-x {
+    animation: spinX 1.2s linear infinite;
+    transform-style: preserve-3d;
+}
+
+.origin-center {
+    transform-origin: center center;
+}
+
+.gpu {
+    will-change: transform;
+}
+
+.backface-visible {
+    backface-visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .spin-y,
+    .spin-x {
+        animation: none
+    }
+}
