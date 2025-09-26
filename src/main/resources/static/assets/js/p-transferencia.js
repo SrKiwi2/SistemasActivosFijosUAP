@@ -283,11 +283,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ALERT: "#alertaTransfer",
 
             // API externa (igual a otros flujos)
-            API_DATOS: "http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos",
-            API_HEADERS: {
-                "Content-Type": "application/json",
-                "key": "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10"
-            },
+            API_DATOS: "/api/uap/obtenerDatos",
 
             // Endpoint de confirmación (ajústalo a tu backend real)
             POST_URL: "/trasnferencia/buscar-registrar"
@@ -430,13 +426,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     // Consultas a API (origen/destino)
                     const reqOrigen = fetch(CFG.API_DATOS, {
                         method: "POST",
-                        headers: CFG.API_HEADERS,
+                        headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ usuario: vals.codigoFuncionarioOrigen, contrasena: vals.ciOrigen })
                     }).then(r => r.ok ? r.json() : Promise.reject(new Error(`Origen ${r.status}`)));
 
                     const reqDestino = fetch(CFG.API_DATOS, {
                         method: "POST",
-                        headers: CFG.API_HEADERS,
+                        headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ usuario: vals.codigoFuncionarioDestino, contrasena: vals.ciDestino })
                     }).then(r => r.ok ? r.json() : Promise.reject(new Error(`Destino ${r.status}`)));
 
