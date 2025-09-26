@@ -261,11 +261,10 @@ document.addEventListener("DOMContentLoaded", () => {
             // sincroniza badge del formulario (por si cambió justo antes)
             actualizarBadgeForm();
 
-            // Mixed content
-            const apiUrl = "http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos";
+            // Mixed content    
+            const apiUrl = "/api/uap/obtenerDatos";
             const headers = {
-                "Content-Type": "application/json",
-                "key": "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10"
+                "Content-Type": "application/json"
             };
             if (location.protocol === "https:" && apiUrl.startsWith("http:")) {
                 showAlert("El navegador bloqueó la consulta (mixed content). Usa HTTPS o un proxy en tu backend.");
