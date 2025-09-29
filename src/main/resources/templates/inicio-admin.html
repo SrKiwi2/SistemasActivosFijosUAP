@@ -5,6 +5,8 @@
 
 <head th:replace="~{layout/head :: head}"></head>
 <link rel="stylesheet" href="../../assets/css/config_general_publico.css">
+<link rel="preload" as="image" href="/assets/img/logo/activofijos.png" imagesrcset="/assets/img/logo/activofijos.png" fetchpriority="high">
+
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 <!-- VISTA PARA FUNCIONARIOS CON USUARIO -->
 
@@ -1214,13 +1216,15 @@
             const axisClass = axis === 'x' ? 'spin-x' : 'spin-y';
             return `
             <div class="loader-3d d-flex flex-column align-items-center my-4" role="status">
-            <img src="${svg}" alt="Cargando" width="64" height="64"
-                class="${axisClass} origin-center gpu backface-visible opacity-75"
-                style="animation-duration:${speed}s"
-                onerror="this.outerHTML='<div class=&quot;spinner-border text-secondary&quot; role=&quot;status&quot;></div>'" />
-            <div class="mt-2 small text-muted">${texto}</div>
+                <img src="${svg}" alt="Cargando" width="64" height="64"
+                    fetchpriority="high" decoding="async"
+                    class="${axisClass} origin-center gpu backface-visible opacity-75"
+                    style="animation-duration:${speed}s"
+                    onerror="this.outerHTML='<div class=&quot;spinner-border text-secondary&quot; role=&quot;status&quot;></div>'" />
+                <div class="mt-2 small text-muted">${texto}</div>
             </div>`;
         }
+
 
         // Asegura que exista el overlay; si no, lo crea
         function ensureGlobalLoader() {
