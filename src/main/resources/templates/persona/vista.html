@@ -33,9 +33,19 @@
 
 <script>
     $(function () {
+      const $tbl = $('#data-table');
+        // 1) Muestra el loader ANTES de inicializar DataTables (cubre el primer request)
+    showGlobalLoader({ texto: 'Cargando...' });
 
-        const tbl = $('#data-table').DataTable({
-            processing: false,              // spinner integrado
+    // 2) Engancha eventos ANTES de crear el DataTable (para no perder el primer preXhr/xhr)
+    $tbl.on('preXhr.dt', function () {
+      showGlobalLoader({ texto: 'Cargando...' });
+    });
+    $tbl.on('xhr.dt', function () {
+      hideGlobalLoader();
+    });
+
+        const tbl = $tbl.DataTable({            // spinner integrado
             serverSide: true,              // clave
             deferRender: true,
             pageLength: 10,
@@ -68,16 +78,6 @@
             sInfoEmpty:"Mostrando 0 a 0 de 0", sInfoFiltered:"(filtrado de _MAX_)",
             sSearch:"Buscar:", oPaginate:{ sFirst:"Primero", sLast:"Último", sNext:"Siguiente", sPrevious:"Anterior" }
             }
-        });
-
-        // Antes de cada request de DataTables → overlay centrado
-        $('#data-table').on('preXhr.dt', function () {
-            showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
-        });
-
-        // Cuando llega la data → ocultar overlay
-        $('#data-table').on('xhr.dt', function () {
-            hideGlobalLoader();
         });
 
         // Debounce del buscador

@@ -85,7 +85,19 @@
 
 <script>
     $(function () {
-    const tbl = $('#data-table').DataTable({
+        const $tbl = $('#data-table');
+        // 1) Muestra el loader ANTES de inicializar DataTables (cubre el primer request)
+    showGlobalLoader({ texto: 'Cargando...' });
+
+    // 2) Engancha eventos ANTES de crear el DataTable (para no perder el primer preXhr/xhr)
+    $tbl.on('preXhr.dt', function () {
+      showGlobalLoader({ texto: 'Cargando...' });
+    });
+    $tbl.on('xhr.dt', function () {
+      hideGlobalLoader();
+    });
+
+    const tbl = $tbl.DataTable({
         processing: false,      // usamos overlay global
         serverSide: true,
         deferRender: true,
@@ -119,10 +131,6 @@
         }
     });
 
-    // Overlay global
-    $('#data-table').on('preXhr.dt', () => showGlobalLoader({texto:'Cargando...'}));
-    $('#data-table').on('xhr.dt',    () => hideGlobalLoader());
-
     // Debounce buscador
     let t; $('#data-table_filter input').off().on('input', function(){
         clearTimeout(t); const v=this.value; t=setTimeout(()=> tbl.search(v).draw(), 250);
@@ -142,7 +150,6 @@
         const progressBox = document.getElementById('importProgress');
         const resultBox = document.getElementById('importResult');
 
-        // (opcional) CSRF si usas Spring Security
         function csrf() {
             const token = document.querySelector('meta[name="_csrf"]')?.content;
             const header = document.querySelector('meta[name="_csrf_header"]')?.content;
@@ -176,7 +183,7 @@
                     return r.json();
                 })
                 .then((json) => {
-                    // json: { leidas, insertados, actualizados, errores:[] }
+
                     progressBox.classList.add('d-none');
                     const erroresHtml = (json.errores && json.errores.length)
                         ? `<div class="alert alert-warning mt-2">
@@ -210,10 +217,7 @@
                         `;
                     resultBox.classList.remove('d-none');
 
-                    // recargar tabla/página bajo demanda
                     document.getElementById('btnRecargarEntidades')?.addEventListener('click', () => {
-                        // si usas DataTables con ajax, podrías hacer: $('#data-table').DataTable().ajax.reload();
-                        // como es server-side render, recargamos la página:
                         location.reload();
                     });
                 })
