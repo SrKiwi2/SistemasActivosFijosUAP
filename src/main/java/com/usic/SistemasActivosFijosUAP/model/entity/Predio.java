@@ -2,8 +2,20 @@ package com.usic.SistemasActivosFijosUAP.model.entity;
 
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -52,4 +64,7 @@ public class Predio extends AuditoriaConfig {
     // DBF: ESTADOUNI (SmallInt)
     @Column(name = "estado_uni", columnDefinition = "SMALLINT")
     private Short estadoUni;
+
+    /* Esto no se manda ene l dbf */
+    private String codigo;
 }

@@ -2,113 +2,385 @@
     <h4 class="modal-title" th:text="${edit}? 'Modificar Activo' : 'Registrar Activo'"></h4>
     <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
 </div>
-<form id="formularioActivo" method="post"
-    th:action="${edit}? @{/administracion/activo/modificar-activo} : @{/administracion/activo/registrar-activo}" novalidate>
-    <input type="hidden" th:if="${edit != null}" th:field="${activo.idPredio}">
+<form id="formularioActivo" class="modal-content needs-validation" novalidate autocomplete="off">
     <div class="modal-body">
-        <div class="row">
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Código activo</label>
-                <input type="text" th:field="${activo.codigo}" class="form-control" placeholder="..."
-                    required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+        <div class="row g-3">
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold">Municipio</label>
+                <select id="municipioCode" class="form-select" required>
+                    <option value="">Seleccione…</option>
+                    <option th:each="m : ${municipios}" th:value="${m.idMunicipio}"
+                        th:data-code="${m.codigo != null ? (m.codigo.length() < 2 ? '0' + m.codigo : m.codigo) : ''}"
+                        th:text="${m.nombre + ' (' + m.codigo + ')'}">
+                    </option>
+
+
+                </select>
             </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Nombre Activo</label>
-                <input type="text" th:field="${activo.nombre}" class="form-control" placeholder="..."
-                    required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold">Predio</label>
+                <select id="predioCode" class="form-select" required>
+                    <option value="">Seleccione…</option>
+                    <option th:each="p : ${predios}" th:value="${p.idPredio}"
+                        th:data-code="${p.codigo != null ? p.codigo : ''}"
+                        th:text="${p.descrip + ' (' + p.codigo + ')'}">
+                    </option>
+
+
+                </select>
             </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Descripción</label>
-                <input type="text" th:field="${activo.descripcion}" class="form-control" placeholder="..."
-                    required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
-            </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Costo</label>
-                <input type="text" th:field="${activo.costo}" class="form-control" placeholder="..."
-                    required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
-            </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Vida Útil</label>
-                <input type="text" th:field="${activo.vida_util}" class="form-control" placeholder="..."
-                    required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
-            </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Fecha Adquisición</label>
-                <input type="text" th:field="${activo.fecha_adquisición}" class="form-control" placeholder="..."
-                    required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold">Grupo contable</label>
+                <select id="grupoCode" class="form-select" required>
+                    <option value="">Seleccione…</option>
+                    <option th:each="g : ${grupos}" th:value="${g.idGrupoContable}"
+                        th:data-code="${g.codContable != null ? #numbers.formatInteger(g.codContable, 2) : ''}"
+                        th:text="${g.nombre + ' (' + g.codContable + ')'}">
+                    </option>
+
+                </select>
             </div>
 
-            <div class="col-12 col-md-4">
-                <label for="select2Basic" class="form-label">Estado Activo</label>
-                <select class="select2 form-select form-select-lg" data-allow-clear="true"
-                    th:field="${activo.estadoActivo}">
-                    <option th:each="e : ${estadoActivo}" th:value="${e.idEstadoActivo}"
-                        th:selected="${e == activo.estadoActivo}" th:text="${e.nombre}">
-                    </option>
-                </select>
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Debe seleccionar un predio para la activo.</div>
-            </div>
-            <div class="col-12 col-md-4">
-                <label for="select2Basic" class="form-label">Grupo contable</label>
-                <select class="select2 form-select form-select-lg" data-allow-clear="true"
-                    th:field="${activo.grupoContable}">
-                    <option th:each="gc : ${grupoContable}" th:value="${gc.idGrupoContable}"
-                        th:selected="${gc == activo.grupoContable}" th:text="${gc.nombre}">
-                    </option>
-                </select>
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Debe seleccionar un predio para la activo.</div>
-            </div>
-            <div class="col-12 col-md-4">
-                <label for="select2Basic" class="form-label">Oficina</label>
-                <select class="select2 form-select form-select-lg" data-allow-clear="true"
-                    th:field="${activo.oficina}">
-                    <option th:each="o : ${oficina}" th:value="${o.idOficina}"
-                        th:selected="${o == activo.oficina}" th:text="${o.nombre}">
-                    </option>
-                </select>
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Debe seleccionar un predio para la activo.</div>
-            </div>
-            <div class="col-12 col-md-4">
-                <label for="select2Basic" class="form-label">Responsabale</label>
-                <select class="select2 form-select form-select-lg" data-allow-clear="true"
-                    th:field="${activo.responsable}">
-                    <option th:each="r : ${responsable}" th:value="${r.idResponsable}"
-                        th:selected="${r == activo.responsable}" th:text="${r.persona.nombre}">
-                    </option>
-                </select>
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Debe seleccionar un predio para la activo.</div>
+            <!-- Código (auto) -->
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Código</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-hashtag"></i></span>
+                    <input type="text" id="codigo" name="codigo" class="form-control" readonly
+                        placeholder="Se generará automáticamente (MM-PP-GG-CCCCC)">
+                </div>
+                <div class="form-text">Se arma con Municipio–Predio–Grupo + correlativo.</div>
             </div>
 
+            <!-- 1. Código -->
+            <!-- <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Código</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-hashtag"></i></span>
+                    <input type="text" id="codigo" name="codigo" class="form-control" required
+                        placeholder="Ej: 01-08-04-02254" inputmode="numeric" autocomplete="off" maxlength="14"
+                        pattern="\d{2}-\d{2}-\d{2}-\d{5}" title="Formato: 99-99-99-99999" aria-describedby="helpCodigo">
+                </div>
+                <div id="helpCodigo" class="form-text">Identificador único (formato 99-99-99-99999).</div>
+                <div class="invalid-feedback">Ingresa un código con el formato 99-99-99-99999.</div>
+            </div> -->
+
+            <!-- 2. Fecha de adquisición -->
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Fecha de adquisición</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-regular fa-calendar"></i></span>
+                    <input type="date" name="fechaAdq" id="fechaAdq" class="form-control" placeholder="dd/mm/aaaa"
+                        required inputmode="numeric" aria-describedby="helpFecha">
+                </div>
+                <div id="helpFecha" class="form-text">Usa el selector o escribe la fecha.</div>
+                <div class="invalid-feedback">Selecciona una fecha válida.</div>
+            </div>
+
+            <!-- 3. Descripción -->
+            <div class="col-12">
+                <label class="form-label fw-semibold">Descripción</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-align-left"></i></span>
+                    <textarea name="descripcion" class="form-control" rows="3" required
+                        placeholder="Describe el activo (modelo, marca, características)" minlength="5"
+                        maxlength="500"></textarea>
+                </div>
+                <div class="invalid-feedback">La descripción es obligatoria (mín. 5 caracteres).</div>
+            </div>
+
+            <!-- 4. Unidad -->
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Unidad</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-building-user"></i></span>
+                    <select name="unidadId" id="unidadId" class="form-select" required>
+                        <option value="">Seleccione…</option>
+                        <option th:each="p : ${predios}" th:value="${p.idPredio}"
+                            th:data-code="${p.unidad != null ? p.unidad : ''}"
+                            th:text="${p.descrip + ' (' + p.unidad + ')'}">
+                        </option>
+                    </select>
+                </div>
+                <div class="invalid-feedback">Selecciona una unidad.</div>
+            </div>
+
+            <!-- 5. Oficina -->
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Oficina</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-map-location-dot"></i></span>
+                    <select name="oficinaId" id="oficinaId" class="form-select" required>
+                        <option value="">Seleccione…</option>
+                    </select>
+                </div>
+                <div class="invalid-feedback">Selecciona una oficina.</div>
+            </div>
+
+            <!-- 6. Responsable -->
+            <div class="col-12">
+                <label class="form-label fw-semibold">Responsable</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-user-shield"></i></span>
+                    <select name="responsableId" id="responsableId" class="form-select" required>
+                        <option value="">Buscar/seleccionar responsable…</option>
+                    </select>
+                </div>
+                <div class="form-text">Puedes escribir para buscar por nombre o C.I.</div>
+                <div class="invalid-feedback">Selecciona un responsable.</div>
+            </div>
+
+            <!-- 7. Órgano financiador -->
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Órgano financiador</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-sack-dollar"></i></span>
+                    <select name="orgFinId" id="orgFinId" class="form-select" required>
+                        <option value="">Seleccione…</option>
+                    </select>
+                </div>
+                <div class="invalid-feedback">Selecciona el órgano financiador.</div>
+            </div>
+
+            <!-- 8. Grupo -->
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Grupo</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-layer-group"></i></span>
+                    <select name="grupoId" id="grupoId" class="form-select" required>
+                        <option value="">Seleccione…</option>
+                    </select>
+                </div>
+                <div class="invalid-feedback">Selecciona un grupo.</div>
+            </div>
+
+            <!-- 9. Auxiliar (dependiente de Grupo) -->
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Auxiliar</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-diagram-project"></i></span>
+                    <select name="auxiliarId" id="auxiliarId" class="form-select" required disabled>
+                        <option value="">Seleccione…</option>
+                    </select>
+                </div>
+                <div class="invalid-feedback">Selecciona un auxiliar.</div>
+            </div>
+
+            <!-- 10. Costo -->
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Costo</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-money-check-dollar"></i></span>
+                    <input type="text" name="costoFmt" id="costoFmt" class="form-control text-end" required
+                        inputmode="numeric" placeholder="0,00" aria-describedby="helpCosto">
+                    <input type="hidden" name="costo" id="costo"> <!-- valor numérico limpio -->
+                </div>
+                <div id="helpCosto" class="form-text">Ingresa el costo en moneda local.</div>
+                <div class="invalid-feedback">Ingresa un costo válido.</div>
+            </div>
+
+            <!-- 11. Vida útil (años) -->
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Vida útil (años)</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-regular fa-hourglass-half"></i></span>
+                    <input type="number" name="vidaUtil" class="form-control" required min="1" max="50" step="1"
+                        placeholder="Ej: 5">
+                </div>
+                <div class="invalid-feedback">Ingresa un número entre 1 y 50.</div>
+            </div>
 
         </div>
     </div>
-    <div class="modal-footer">
-        <div class="row">
-            <div class="col-12">
-                <a type="submit" class="btn btn-secondary" style="color: white;" data-bs-dismiss="modal">Cancelar</a>
-                <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
 
-            </div>
-        </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+            <i class="fa-regular fa-circle-xmark me-1"></i> Cancelar
+        </button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-floppy-disk me-1"></i> Guardar
+        </button>
     </div>
 </form>
-
 <script>
     manejarEnvioFormulario('#formularioActivo');
+    $(function () {
+        // 1) Datepicker dd/mm/yy (jQuery UI)
+        $("#fechaAdq").datepicker({
+            dateFormat: "dd/mm/yy",
+            changeMonth: true,
+            changeYear: true,
+            yearRange: "1980:+10",
+            maxDate: 0
+        });
+
+        // 2) Formato de moneda en vivo + valor limpio oculto
+        const fmt = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 });
+        const nf = new Intl.NumberFormat('es-BO'); // para parse auxiliar
+
+        function parseMoney(str) {
+            if (!str) return 0;
+            // elimina todo menos dígitos y coma/punto
+            const clean = String(str).replace(/[^\d.,-]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(/\s/g, '');
+            // normaliza coma/punto: último separador se considera decimal
+            const lastSep = Math.max(clean.lastIndexOf(','), clean.lastIndexOf('.'));
+            let intPart = clean, decPart = '';
+            if (lastSep > -1) {
+                intPart = clean.slice(0, lastSep).replace(/[.,]/g, '');
+                decPart = clean.slice(lastSep + 1);
+            }
+            const num = Number(intPart || 0) + Number((decPart || '0').slice(0, 2)) / Math.pow(10, (decPart || '').slice(0, 2).length || 0);
+            return isNaN(num) ? 0 : num;
+        }
+
+        $('#costoFmt').on('input', function () {
+            // no formatees mientras escribe: solo guarda limpio
+            const val = parseMoney(this.value);
+            $('#costo').val(val.toFixed(2));
+        }).on('blur', function () {
+            const val = parseFloat($('#costo').val() || '0');
+            this.value = fmt.format(isNaN(val) ? 0 : val);
+        }).trigger('blur');
+
+        // 3) Carga inicial de selects (ajusta endpoints)
+        // Unidades
+        $.getJSON('/api/unidades', (arr) => fillSelect('#unidadId', arr));
+        // Oficinas
+        $.getJSON('/api/oficinas', (arr) => fillSelect('#oficinaId', arr));
+        // Órganos financiadores
+        $.getJSON('/api/organos-fin', (arr) => fillSelect('#orgFinId', arr));
+        // Grupos
+        $.getJSON('/api/grupos', (arr) => fillSelect('#grupoId', arr));
+
+        // Responsables (autocompletable simple).
+        $.getJSON('/api/responsables/datos', (arr) => fillSelect('#responsableId', arr));
+
+        function fillSelect(selector, items) {
+            const $sel = $(selector);
+            const opts = (items || []).map(it => `<option value="${it.id}">${it.nombre}</option>`).join('');
+            $sel.append(opts);
+        }
+
+        // 4) Dependencia Grupo → Auxiliar
+        $('#grupoId').on('change', function () {
+            const id = $(this).val();
+            const $aux = $('#auxiliarId').prop('disabled', true).empty().append('<option value="">Seleccione…</option>');
+            if (!id) return;
+            $.getJSON('/api/auxiliares?grupoId=' + encodeURIComponent(id), (arr) => {
+                fillSelect('#auxiliarId', arr);
+                $aux.prop('disabled', false);
+            });
+        });
+
+        // 5) Validación Bootstrap
+        const form = document.getElementById('formularioActivo');
+        form.addEventListener('submit', function (e) {
+            // Garantiza que el costo oculto esté actualizado al enviar
+            $('#costoFmt').trigger('blur');
+
+            if (!form.checkValidity()) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        }, false);
+
+        // 6) autoformato + validacon codigo activo
+        const input = document.getElementById('codigo');
+
+        function maskCodigo(value) {
+            // deja solo dígitos
+            const digits = value.replace(/\D/g, '');
+            // aplica patrón 2-2-2-5
+            const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 6), digits.slice(6, 11)]
+                .filter(Boolean);
+            return parts.join('-').slice(0, 14); // 14 = 2+1+2+1+2+1+5
+        }
+
+        input.addEventListener('input', (e) => {
+            const v = maskCodigo(e.target.value);
+            if (e.target.value !== v) e.target.value = v;
+            // feedback en vivo usando el mismo patrón del HTML
+            const ok = /^\d{2}-\d{2}-\d{2}-\d{5}$/.test(e.target.value);
+            e.target.setCustomValidity(ok ? '' : 'Formato: 99-99-99-99999');
+        });
+
+        input.addEventListener('blur', (e) => {
+            const ok = /^\d{2}-\d{2}-\d{2}-\d{5}$/.test(e.target.value);
+            e.target.setCustomValidity(ok ? '' : 'Formato: 99-99-99-99999');
+        });
+
+        // 7) llenar automaticamente el codigo correlativo segun municipio, predio y grupocontable
+        const $mun = $('#municipioCode');
+        const $pred = $('#predioCode');
+        const $grp = $('#grupoCode');
+        const $cod = $('#codigo');
+
+        function csrf() {
+            const token = document.querySelector('meta[name="_csrf"]')?.content;
+            const header = document.querySelector('meta[name="_csrf_header"]')?.content;
+            return token && header ? { header, token } : null;
+        }
+
+        function ready() {
+            return $mun.val() && $pred.val() && $grp.val();
+        }
+
+        function getCodeFrom(sel) {
+            const opt = sel.options[sel.selectedIndex];
+            return opt ? (opt.dataset.code || '') : '';
+        }
+
+        async function generar() {
+            if (!ready()) { $cod.val(''); return; }
+
+            const m = getCodeFrom(document.getElementById('municipioCode'));
+            const p = getCodeFrom(document.getElementById('predioCode'));
+            const g = getCodeFrom(document.getElementById('grupoCode'));
+            if (!(m && p && g)) { $cod.val(''); return; }
+
+            $cod.val('Generando…');
+
+            const params = new URLSearchParams({ mun: m, pred: p, grp: g });
+            const c = csrf();
+            const headers = { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' };
+            if (c) headers[c.header] = c.token;
+
+            try {
+                const r = await fetch('/administracion/activo/generar-correlativo', {
+                    method: 'POST',
+                    headers,
+                    body: params.toString()
+                });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const json = await r.json();
+                $cod.val(json.codigo || '');
+            } catch (e) {
+                console.error(e);
+                $cod.val('');
+            }
+        }
+
+        $mun.on('change', generar);
+        $pred.on('change', generar);
+        $grp.on('change', generar);
+
+        const $modal = $('#modalFormularioActivo'); // id del modal que contiene el form
+        const commonOpts = {
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Seleccione…',
+            allowClear: true,
+            language: {
+            noResults: () => 'Sin resultados',
+            searching: () => 'Buscando…'
+            },
+            // MUY IMPORTANTE cuando está en un modal
+            dropdownParent: $modal.length ? $modal : $(document.body)
+        };
+
+        $('#municipioCode').select2(commonOpts);
+        $('#predioCode').select2(commonOpts);
+        $('#grupoCode').select2(commonOpts);
+    });
 </script>

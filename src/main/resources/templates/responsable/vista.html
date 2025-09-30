@@ -1,4 +1,4 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Grupo Responsable</h4>
+<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Responsables</h4>
 
 <div class="card">
     <div class="card-header d-flex justify-content-lg-between">
@@ -87,54 +87,54 @@
     $(function () {
         const $tbl = $('#data-table');
         // 1) Muestra el loader ANTES de inicializar DataTables (cubre el primer request)
-    showGlobalLoader({ texto: 'Cargando...' });
+        showGlobalLoader({ texto: 'Cargando...' });
 
-    // 2) Engancha eventos ANTES de crear el DataTable (para no perder el primer preXhr/xhr)
-    $tbl.on('preXhr.dt', function () {
-      showGlobalLoader({ texto: 'Cargando...' });
-    });
-    $tbl.on('xhr.dt', function () {
-      hideGlobalLoader();
-    });
+        // 2) Engancha eventos ANTES de crear el DataTable (para no perder el primer preXhr/xhr)
+        $tbl.on('preXhr.dt', function () {
+        showGlobalLoader({ texto: 'Cargando...' });
+        });
+        $tbl.on('xhr.dt', function () {
+        hideGlobalLoader();
+        });
 
-    const tbl = $tbl.DataTable({
-        processing: false,      // usamos overlay global
-        serverSide: true,
-        deferRender: true,
-        pageLength: 10,
-        lengthMenu: [10,25,50,100],
-        ajax: { url: '/administracion/responsable/api/datatables', type: 'POST' },
-        columns: [
-        { data: null, orderable:false, searchable:false,
-            render:(d,t,r,m)=> m.row + m.settings._iDisplayStart + 1 },
-        { data: 'codFun'  },
-        { data: 'nombre'  },
-        { data: 'paterno' },
-        { data: 'materno' },
-        { data: 'ci'      },
-        { data: 'oficina' },
-        { data: 'cargo'   },
-        { data: 'idEnc', orderable:false, searchable:false,
-            render:(idEnc)=> `
-            <div class="btn-group btn-group-sm">
-                <button class="btn btn-danger" onclick="eliminar('RESPONSABLE','${idEnc}')">
-                <i class="fa-solid fa-trash"></i> Eliminar
-                </button>
-            </div>` }
-        ],
-        language: {
-        sProcessing:"Procesando...", sLengthMenu:"Mostrar _MENU_",
-        sZeroRecords:"No se encontraron resultados",
-        sInfo:"Mostrando _START_ a _END_ de _TOTAL_",
-        sInfoEmpty:"Mostrando 0 a 0 de 0", sInfoFiltered:"(filtrado de _MAX_)",
-        sSearch:"Buscar:", oPaginate:{ sFirst:"Primero", sLast:"Último", sNext:"Siguiente", sPrevious:"Anterior" }
-        }
-    });
+        const tbl = $tbl.DataTable({
+            processing: false,      // usamos overlay global
+            serverSide: true,
+            deferRender: true,
+            pageLength: 10,
+            lengthMenu: [10,25,50,100],
+            ajax: { url: '/administracion/responsable/api/datatables', type: 'POST' },
+            columns: [
+            { data: null, orderable:false, searchable:false,
+                render:(d,t,r,m)=> m.row + m.settings._iDisplayStart + 1 },
+            { data: 'codFun'  },
+            { data: 'nombre'  },
+            { data: 'paterno' },
+            { data: 'materno' },
+            { data: 'ci'      },
+            { data: 'oficina' },
+            { data: 'cargo'   },
+            { data: 'idEnc', orderable:false, searchable:false,
+                render:(idEnc)=> `
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-danger" onclick="eliminar('RESPONSABLE','${idEnc}')">
+                    <i class="fa-solid fa-trash"></i> Eliminar
+                    </button>
+                </div>` }
+            ],
+            language: {
+            sProcessing:"Procesando...", sLengthMenu:"Mostrar _MENU_",
+            sZeroRecords:"No se encontraron resultados",
+            sInfo:"Mostrando _START_ a _END_ de _TOTAL_",
+            sInfoEmpty:"Mostrando 0 a 0 de 0", sInfoFiltered:"(filtrado de _MAX_)",
+            sSearch:"Buscar:", oPaginate:{ sFirst:"Primero", sLast:"Último", sNext:"Siguiente", sPrevious:"Anterior" }
+            }
+        });
 
     // Debounce buscador
-    let t; $('#data-table_filter input').off().on('input', function(){
-        clearTimeout(t); const v=this.value; t=setTimeout(()=> tbl.search(v).draw(), 250);
-    });
+        let t; $('#data-table_filter input').off().on('input', function(){
+            clearTimeout(t); const v=this.value; t=setTimeout(()=> tbl.search(v).draw(), 250);
+        });
     });
 
     function cargarFormulario() {

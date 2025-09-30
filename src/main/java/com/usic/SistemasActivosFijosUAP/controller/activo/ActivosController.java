@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -21,10 +22,14 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IMunicipioService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +39,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ActivosController {
     private final IActivoService activoService;
+    private final FuncionesActivoRepo funciones;
+    private final IMunicipioService municipioService;
+    private final IPredioServicio predioServicio;
+    private final IGrupoContableService grupoContableService;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -58,6 +67,9 @@ public class ActivosController {
     @ValidarUsuarioAutenticado
     @PostMapping("/formulario")
     public String formulario_activo(Model model, Activo activo) {
+        model.addAttribute("municipios", municipioService.findAll());
+        model.addAttribute("predios", predioServicio.findAll());
+        model.addAttribute("grupos", grupoContableService.findAll());
         return "activo/formulario";
     }
 
@@ -150,4 +162,21 @@ public class ActivosController {
         
         return new DataTablesResponse<>(pagina.getTotalElements(), pagina.getTotalElements(), activosDTO);
     }
+
+    /* para consultar codigo codigo correlavtio segun municpio - predio - grupocontable */
+    @PostMapping(
+    value = "/generar-correlativo",
+    produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    @ResponseBody
+    public Map<String, String> generar(
+        @RequestParam String mun,
+        @RequestParam String pred,
+        @RequestParam String grp
+    ) {
+        String codigo = funciones.previewCodigoPorCodes(mun, pred, grp);
+        return Map.of("codigo", codigo);
+    }
+
+
 }
