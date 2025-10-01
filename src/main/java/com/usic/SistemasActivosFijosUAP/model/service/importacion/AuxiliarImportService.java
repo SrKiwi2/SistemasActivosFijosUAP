@@ -31,7 +31,6 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
-import jakarta.transaction.Transactional;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +44,7 @@ public class AuxiliarImportService {
     private final IPredioServicio predioServicio;
     private final IGrupoContableService grupoContableService;
     private final IAuxiliarService auxiliarService;
+    final boolean useUC3Cols = true;
 
     @Data
     public static class ImportResult {
@@ -87,7 +87,6 @@ public class AuxiliarImportService {
             res.setTotalFisicos(reader.getRecordCount());
 
             final boolean incluirBorrados = true;
-            final boolean useUC3Cols = false; // true => UC (predio, grupo, codAux)
 
             // 3) Lectura fila a fila
             DBFRow r;
@@ -148,9 +147,9 @@ public class AuxiliarImportService {
                     }
 
                     // Upsert Auxiliar
-                    Auxiliar aux = (useUC3Cols)
-                            ? auxiliarService.findByPredioAndGrupoContableAndCodAux(predio, gc, codAux).orElse(null)
-                            : auxiliarService.findByPredioAndCodAux(predio, codAux).orElse(null);
+                    Auxiliar aux = auxiliarService
+                        .findByPredioAndGrupoContableAndCodAux(predio, gc, codAux)
+                        .orElse(null);
 
                     boolean nuevo = false;
                     if (aux == null) {

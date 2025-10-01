@@ -4,7 +4,19 @@ import java.time.LocalDate;
 
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -13,14 +25,12 @@ import lombok.Setter;
 @Table(
     name = "auxiliar",
     uniqueConstraints = {
-        // Si en tu DBF CODAUX es único por UNIDAD (Predio), esta UC es suficiente:
-        @UniqueConstraint(name = "uk_aux_predio_codaux", columnNames = {"id_predio", "cod_aux"})
-        // Si necesitas que también cuente el grupo contable, usa esta en cambio:
-        // @UniqueConstraint(name = "uk_aux_predio_grupo_codaux", columnNames = {"id_predio", "id_grupo_contable", "cod_aux"})
+        @UniqueConstraint(name = "uk_aux_predio_grupo_codaux", columnNames = {"id_predio", "id_grupo_contable", "cod_aux"})
     },
     indexes = {
         @Index(name = "idx_aux_predio", columnList = "id_predio"),
         @Index(name = "idx_aux_grupo", columnList = "id_grupo_contable"),
+        @Index(name = "idx_aux_predio_grupo_codaux", columnList = "id_predio,id_grupo_contable,cod_aux"),
         @Index(name = "idx_aux_codaux", columnList = "cod_aux"),
         @Index(name = "idx_aux_nombre", columnList = "nombre")
     }

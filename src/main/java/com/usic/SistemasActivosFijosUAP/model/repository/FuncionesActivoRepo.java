@@ -1,13 +1,15 @@
 package com.usic.SistemasActivosFijosUAP.model.repository;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import lombok.RequiredArgsConstructor;
+
 @Repository
+@RequiredArgsConstructor
 public class FuncionesActivoRepo {
-    @Autowired
-    private JdbcTemplate jdbc;
+   
+    private final JdbcTemplate jdbc;
 
     public String generarCodigoPorCodes(String mun, String pred, String grp) {
         // SELECT simple a la función

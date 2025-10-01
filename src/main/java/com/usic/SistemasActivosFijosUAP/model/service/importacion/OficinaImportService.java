@@ -7,7 +7,11 @@ import java.nio.charset.Charset;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -38,12 +42,11 @@ public class OficinaImportService {
         private int insertados;
         private int actualizados;
 
-
         // Desglose de omitidos
-        private int omitidosCampos;     // ENTIDAD/UNIDAD/CODOFI incompletos
+        private int omitidosCampos; // ENTIDAD/UNIDAD/CODOFI incompletos
         private int omitidosSinEntidad; // ENTIDAD no encontrada
-        private int omitidosSinPredio;  // PREDIO no encontrado
-        private int erroresExcepcion;   // errores inesperados
+        private int omitidosSinPredio; // PREDIO no encontrado
+        private int erroresExcepcion; // errores inesperados
 
         private List<String> errores = new ArrayList<>();
     }
@@ -65,104 +68,111 @@ public class OficinaImportService {
         try (InputStream in = new BufferedInputStream(dbfFile.getInputStream());
                 DBFReader reader = new DBFReader(in, cs)) {
 
-            List<Oficina> batch = new ArrayList<>(1000);
+            Map<String, Oficina> cache = new HashMap<>(2000);
+            Set<String> added = new HashSet<>(2000); // para evitar meter la misma instancia múltiples veces al batch
             Object[] row;
 
             while ((row = reader.nextRecord()) != null) {
                 res.leidas++;
                 try {
-                    String entidadCodRaw = asString(row[0], cs); // ENTIDAD (Text)
-                    String unidadRaw = asString(row[1], cs); // UNIDAD (Text)
-                    Short codOfi = asShort(row[2]); // CODOFI (SmallInt)
-                    String nomOfic = asString(row[3], cs); // NOMOFIC (Text)
-                    String observ = asString(row[4], cs); // OBSERV (Memo -> String)
-                    LocalDate feult = asLocalDate(row[5]); // FEULT (Date)
-                    String usuario = asString(row[6], cs); // USUAR (Text)
-                    Short apiEstado = asShort(row[7]); // API_ESTADO (SmallInt)
+                    String entidadCodRaw = asString(row[0], cs);
+                    String unidadRaw = asString(row[1], cs);
+                    Short codOfi = asShort(row[2]);
+                    String nomOfic = asString(row[3], cs);
+                    String observ = asString(row[4], cs);
+                    LocalDate feult = asLocalDate(row[5]);
+                    String usuario = asString(row[6], cs);
+                    Short apiEstado = asShort(row[7]);
 
                     String entidadCod = normEntidadCodigo(entidadCodRaw);
-                    String unidad     = normUnidad(unidadRaw); // 👈 IMPORTANTE
+                    String unidad = normUnidad(unidadRaw);
 
                     if (isBlank(entidadCod) || isBlank(unidad) || codOfi == null) {
-                        res.setOmitidosCampos(res.getOmitidosCampos() + 1);
-                        res.getErrores().add("Fila " + res.leidas + ": ENTIDAD/UNIDAD/CODOFI incompletos. ENTIDAD='"
-                                + entidadCodRaw + "', UNIDAD='" + unidadRaw + "', CODOFI=" + codOfi);
+                        res.omitidosCampos++;
+                        res.errores.add("Fila " + res.leidas + ": ENTIDAD/UNIDAD/CODOFI incompletos. ENTIDAD='" +
+                                entidadCodRaw + "', UNIDAD='" + unidadRaw + "', CODOFI=" + codOfi);
                         continue;
                     }
 
-                    // Resolver Entidad
+                    // Entidad
                     Entidad entidad = (gestionPreferida != null)
-                        ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, entidadCod).orElse(null)
-                        : entidadService.findTopByEntidadCodigoOrderByGestionDesc(entidadCod).orElse(null);
+                            ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, entidadCod).orElse(null)
+                            : entidadService.findTopByEntidadCodigoOrderByGestionDesc(entidadCod).orElse(null);
                     if (entidad == null) {
-                        res.setOmitidosSinEntidad(res.getOmitidosSinEntidad() + 1);
-                        res.getErrores().add("Fila " + res.leidas + ": ENTIDAD código " + entidadCod + " no encontrada.");
+                        res.omitidosSinEntidad++;
+                        res.errores.add("Fila " + res.leidas + ": ENTIDAD código " + entidadCod + " no encontrada.");
                         continue;
                     }
 
-                    // Resolver Predio (Entidad + UNIDAD)
+                    // Predio
                     Predio predio = predioServicio.findByEntidadAndUnidadIgnoreCase(entidad, unidad).orElse(null);
                     if (predio == null) {
-                        res.setOmitidosSinPredio(res.getOmitidosSinPredio() + 1);
-                        res.getErrores().add("Fila " + res.leidas + ": Predio no encontrado para ENTIDAD="
-                                + entidadCod + " UNIDAD=" + unidad);
+                        res.omitidosSinPredio++;
+                        res.errores.add("Fila " + res.leidas + ": Predio no encontrado para ENTIDAD=" +
+                                entidadCod + " UNIDAD=" + unidad);
                         continue;
                     }
 
-                    // UPSERT por (Predio, CODOFI)
-                    Oficina o = oficinaService.findByPredioAndCodOfi(predio, codOfi)
-                            .orElseGet(() -> {
-                                Oficina no = new Oficina();
-                                no.setPredio(predio);
-                                no.setCodOfi(codOfi);
-                                return no;
-                            });
+                    String k = key(predio, codOfi);
+                    Oficina o = cache.get(k);
+                    if (o == null) {
+                        o = oficinaService.findByPredioAndCodOfi(predio, codOfi).orElse(null);
+                        if (o == null) {
+                            o = new Oficina();
+                            o.setPredio(predio);
+                            o.setCodOfi(codOfi);
+                        }
+                        cache.put(k, o);
+                    }
 
                     boolean nuevo = (o.getIdOficina() == null);
 
-                    String nombreFinal = !isBlank(nomOfic)
-                            ? nomOfic.trim()
-                            : ("OFICINA " + (codOfi != null ? codOfi : "")); // fallback legible
-
-                    if (nombreFinal.length() > 255) {
+                    String nombreFinal = !isBlank(nomOfic) ? nomOfic.trim() : ("OFICINA " + codOfi);
+                    if (nombreFinal.length() > 255)
                         nombreFinal = nombreFinal.substring(0, 255);
-                    }
-
                     o.setNombre(nombreFinal);
-                    if (isBlank(nomOfic)) {
-                        res.getErrores().add("Fila " + res.leidas +
-                            ": NOMOFIC vacío; se autocompletó con '" + nombreFinal + "'.");
-                    }
-                    
-                    o.setObserv(nvl(observ));
+
+                    // Observ: evita guardar el literal "(memo)"
+                    String observFinal = nvl(observ);
+                    if (observFinal != null && observFinal.equalsIgnoreCase("(memo)"))
+                        observFinal = null;
+                    o.setObserv(observFinal);
+
                     o.setFechaUlt(feult);
-                    o.setUsuario(nvl(usuario));
+                    o.setUsuario(truncate(nvl(usuario), 60));
                     o.setApiEstado(apiEstado);
                     o.setEstado("ACTIVO");
 
-                    batch.add(o);
-                    if (nuevo)
-                        res.insertados++;
-                    else
-                        res.actualizados++;
-
-                    if (batch.size() == 1000) {
-                        oficinaService.saveAll(batch);
-                        batch.clear();
+                    try {
+                        oficinaService.save(o); // guarda por fila: contador exacto y sin sorpresas
+                        if (nuevo)
+                            res.insertados++;
+                        else
+                            res.actualizados++;
+                    } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                        res.erroresExcepcion++;
+                        res.errores.add("Fila " + res.leidas + ": " + e.getMostSpecificCause().getMessage());
                     }
+
                 } catch (Exception exRow) {
+                    res.erroresExcepcion++;
                     res.errores.add("Fila " + res.leidas + ": " + exRow.getMessage());
                 }
             }
-
-            if (!batch.isEmpty())
-                oficinaService.saveAll(batch);
         }
 
         return res;
     }
 
     /* ===== Helpers ===== */
+
+    private String truncate(String s, int max) {
+        return (s == null || s.length() <= max) ? s : s.substring(0, max);
+    }
+
+    String key(Predio p, Short cod) {
+        return p.getIdPredio() + "::" + cod;
+    }
 
     private boolean isBlank(String s) {
         return s == null || s.trim().isEmpty();
@@ -216,7 +226,8 @@ public class OficinaImportService {
     }
 
     private String normUnidad(String s) {
-        if (s == null) return null;
+        if (s == null)
+            return null;
         return s.trim().toUpperCase(); // igual que guardaste en Predio
     }
 

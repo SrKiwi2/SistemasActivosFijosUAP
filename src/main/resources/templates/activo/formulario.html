@@ -1,3 +1,41 @@
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.full.min.js"></script>
+
+<style>
+  /* Que el contenedor Select2 se comporte como form-control dentro del input-group */
+  .input-group .select2-container {
+    flex: 1 1 auto;
+    width: 1% !important;   /* evita que se pase de ancho */
+    min-width: 0;           /* permite encogerse en layouts estrechos */
+  }
+
+  /* Altura y padding similares a .form-select (Bootstrap 5) */
+  .select2-container--bootstrap-5 .select2-selection {
+    min-height: calc(2.5rem + 2px);              /* altura estándar */
+    padding: .375rem .75rem;                     /* mismos paddings horizontales */
+    border-radius: .375rem;
+  }
+
+  /* Que el texto quede centrado verticalmente */
+  .select2-container--bootstrap-5 .select2-selection__rendered {
+    line-height: 1.5;
+  }
+
+  /* Flecha alineada a la derecha y ocupando la altura completa */
+  .select2-container--bootstrap-5 .select2-selection--single .select2-selection__arrow {
+    height: 100%;
+    right: .75rem;
+  }
+
+  /* Borde redondeado correcto cuando hay icono a la izquierda */
+  .input-group .select2-container--bootstrap-5 .select2-selection {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+</style>
+
 <div class="modal-header">
     <h4 class="modal-title" th:text="${edit}? 'Modificar Activo' : 'Registrar Activo'"></h4>
     <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
@@ -7,7 +45,7 @@
         <div class="row g-3">
             <div class="col-12 col-md-4">
                 <label class="form-label fw-semibold">Municipio</label>
-                <select id="municipioCode" class="form-select" required>
+                <select id="municipioCode" class="form-select select2it" required>
                     <option value="">Seleccione…</option>
                     <option th:each="m : ${municipios}" th:value="${m.idMunicipio}"
                         th:data-code="${m.codigo != null ? (m.codigo.length() < 2 ? '0' + m.codigo : m.codigo) : ''}"
@@ -19,19 +57,17 @@
             </div>
             <div class="col-12 col-md-4">
                 <label class="form-label fw-semibold">Predio</label>
-                <select id="predioCode" class="form-select" required>
+                <select id="predioCode" name="predio" class="form-select select2it" required>
                     <option value="">Seleccione…</option>
                     <option th:each="p : ${predios}" th:value="${p.idPredio}"
                         th:data-code="${p.codigo != null ? p.codigo : ''}"
                         th:text="${p.descrip + ' (' + p.codigo + ')'}">
                     </option>
-
-
                 </select>
             </div>
             <div class="col-12 col-md-4">
                 <label class="form-label fw-semibold">Grupo contable</label>
-                <select id="grupoCode" class="form-select" required>
+                <select id="grupoCode" name="grupoContable" class="form-select select2it" required>
                     <option value="">Seleccione…</option>
                     <option th:each="g : ${grupos}" th:value="${g.idGrupoContable}"
                         th:data-code="${g.codContable != null ? #numbers.formatInteger(g.codContable, 2) : ''}"
@@ -51,19 +87,6 @@
                 </div>
                 <div class="form-text">Se arma con Municipio–Predio–Grupo + correlativo.</div>
             </div>
-
-            <!-- 1. Código -->
-            <!-- <div class="col-12 col-md-6">
-                <label class="form-label fw-semibold">Código</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-hashtag"></i></span>
-                    <input type="text" id="codigo" name="codigo" class="form-control" required
-                        placeholder="Ej: 01-08-04-02254" inputmode="numeric" autocomplete="off" maxlength="14"
-                        pattern="\d{2}-\d{2}-\d{2}-\d{5}" title="Formato: 99-99-99-99999" aria-describedby="helpCodigo">
-                </div>
-                <div id="helpCodigo" class="form-text">Identificador único (formato 99-99-99-99999).</div>
-                <div class="invalid-feedback">Ingresa un código con el formato 99-99-99-99999.</div>
-            </div> -->
 
             <!-- 2. Fecha de adquisición -->
             <div class="col-12 col-md-6">
@@ -89,29 +112,17 @@
                 <div class="invalid-feedback">La descripción es obligatoria (mín. 5 caracteres).</div>
             </div>
 
-            <!-- 4. Unidad -->
-            <div class="col-12 col-md-6">
-                <label class="form-label fw-semibold">Unidad</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-building-user"></i></span>
-                    <select name="unidadId" id="unidadId" class="form-select" required>
-                        <option value="">Seleccione…</option>
-                        <option th:each="p : ${predios}" th:value="${p.idPredio}"
-                            th:data-code="${p.unidad != null ? p.unidad : ''}"
-                            th:text="${p.descrip + ' (' + p.unidad + ')'}">
-                        </option>
-                    </select>
-                </div>
-                <div class="invalid-feedback">Selecciona una unidad.</div>
-            </div>
-
             <!-- 5. Oficina -->
             <div class="col-12 col-md-6">
                 <label class="form-label fw-semibold">Oficina</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-solid fa-map-location-dot"></i></span>
-                    <select name="oficinaId" id="oficinaId" class="form-select" required>
+                    <select name="oficinaId" id="oficinaId" class="form-select select2it" required>
                         <option value="">Seleccione…</option>
+                        <option th:each="o : ${oficinas}" th:value="${o.idOficina}"
+                            th:text="${o.nombre + ' (' + o.codOfi + ')'}"
+                            th:data-text="${o.nombre}">
+                        </option>
                     </select>
                 </div>
                 <div class="invalid-feedback">Selecciona una oficina.</div>
@@ -137,21 +148,13 @@
                     <span class="input-group-text"><i class="fa-solid fa-sack-dollar"></i></span>
                     <select name="orgFinId" id="orgFinId" class="form-select" required>
                         <option value="">Seleccione…</option>
+                        <option th:each="f: ${financiadores}" th:value="${f.idOrganismoFinanciero}"
+                            th:text="${f.descripcion + ' (' + f.codOf + ')'}"
+                            th:data-text="${f.descripcion}">
+                        </option>
                     </select>
                 </div>
                 <div class="invalid-feedback">Selecciona el órgano financiador.</div>
-            </div>
-
-            <!-- 8. Grupo -->
-            <div class="col-12 col-md-6">
-                <label class="form-label fw-semibold">Grupo</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-layer-group"></i></span>
-                    <select name="grupoId" id="grupoId" class="form-select" required>
-                        <option value="">Seleccione…</option>
-                    </select>
-                </div>
-                <div class="invalid-feedback">Selecciona un grupo.</div>
             </div>
 
             <!-- 9. Auxiliar (dependiente de Grupo) -->
@@ -159,7 +162,7 @@
                 <label class="form-label fw-semibold">Auxiliar</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-solid fa-diagram-project"></i></span>
-                    <select name="auxiliarId" id="auxiliarId" class="form-select" required disabled>
+                    <select name="auxiliarId" id="auxiliarId" class="form-select" required>
                         <option value="">Seleccione…</option>
                     </select>
                 </div>
@@ -189,10 +192,8 @@
                 </div>
                 <div class="invalid-feedback">Ingresa un número entre 1 y 50.</div>
             </div>
-
         </div>
     </div>
-
     <div class="modal-footer">
         <button type="button" class="btn btn-light" data-bs-dismiss="modal">
             <i class="fa-regular fa-circle-xmark me-1"></i> Cancelar
@@ -205,14 +206,6 @@
 <script>
     manejarEnvioFormulario('#formularioActivo');
     $(function () {
-        // 1) Datepicker dd/mm/yy (jQuery UI)
-        $("#fechaAdq").datepicker({
-            dateFormat: "dd/mm/yy",
-            changeMonth: true,
-            changeYear: true,
-            yearRange: "1980:+10",
-            maxDate: 0
-        });
 
         // 2) Formato de moneda en vivo + valor limpio oculto
         const fmt = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 });
@@ -242,24 +235,6 @@
             this.value = fmt.format(isNaN(val) ? 0 : val);
         }).trigger('blur');
 
-        // 3) Carga inicial de selects (ajusta endpoints)
-        // Unidades
-        $.getJSON('/api/unidades', (arr) => fillSelect('#unidadId', arr));
-        // Oficinas
-        $.getJSON('/api/oficinas', (arr) => fillSelect('#oficinaId', arr));
-        // Órganos financiadores
-        $.getJSON('/api/organos-fin', (arr) => fillSelect('#orgFinId', arr));
-        // Grupos
-        $.getJSON('/api/grupos', (arr) => fillSelect('#grupoId', arr));
-
-        // Responsables (autocompletable simple).
-        $.getJSON('/api/responsables/datos', (arr) => fillSelect('#responsableId', arr));
-
-        function fillSelect(selector, items) {
-            const $sel = $(selector);
-            const opts = (items || []).map(it => `<option value="${it.id}">${it.nombre}</option>`).join('');
-            $sel.append(opts);
-        }
 
         // 4) Dependencia Grupo → Auxiliar
         $('#grupoId').on('change', function () {
@@ -271,19 +246,6 @@
                 $aux.prop('disabled', false);
             });
         });
-
-        // 5) Validación Bootstrap
-        const form = document.getElementById('formularioActivo');
-        form.addEventListener('submit', function (e) {
-            // Garantiza que el costo oculto esté actualizado al enviar
-            $('#costoFmt').trigger('blur');
-
-            if (!form.checkValidity()) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-            form.classList.add('was-validated');
-        }, false);
 
         // 6) autoformato + validacon codigo activo
         const input = document.getElementById('codigo');
@@ -316,12 +278,6 @@
         const $grp = $('#grupoCode');
         const $cod = $('#codigo');
 
-        function csrf() {
-            const token = document.querySelector('meta[name="_csrf"]')?.content;
-            const header = document.querySelector('meta[name="_csrf_header"]')?.content;
-            return token && header ? { header, token } : null;
-        }
-
         function ready() {
             return $mun.val() && $pred.val() && $grp.val();
         }
@@ -342,9 +298,7 @@
             $cod.val('Generando…');
 
             const params = new URLSearchParams({ mun: m, pred: p, grp: g });
-            const c = csrf();
             const headers = { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' };
-            if (c) headers[c.header] = c.token;
 
             try {
                 const r = await fetch('/administracion/activo/generar-correlativo', {
@@ -382,5 +336,73 @@
         $('#municipioCode').select2(commonOpts);
         $('#predioCode').select2(commonOpts);
         $('#grupoCode').select2(commonOpts);
+        $('#unidadId').select2(commonOpts);
+        $('#oficinaId').select2(commonOpts);
+        $('#orgFinId').select2(commonOpts);
+        $('#grupoId').select2(commonOpts);
+
+        $('#responsableId').select2({
+            ...commonOpts,
+            minimumInputLength: 2,
+            ajax: {
+                url: '/api/buscar_responsable',
+                delay: 250,
+                data: params => ({ q: params.term || '', page: params.page || 1 }),
+                processResults: (data, params) => ({
+                    results: data.results, pagination: { more: data.pagination?.more === true }
+                })
+            }
+        });
+        
+        const $aux = $('#auxiliarId').select2({
+            ...commonOpts,
+            minimumInputLength: 0,
+            ajax: {
+            // ⚠️ Ajusta esta ruta según tu controller:
+            url: '/api/buscar_auxiliar',
+            delay: 250,
+            dataType: 'json',
+            data: function(params) {
+                const gid = $grp.val() || '';
+                // Log útil para depurar
+                console.log('[AUX] params', { gid, q: params.term, page: params.page });
+                return {
+                grupoId: gid,
+                q: params.term || '',
+                page: params.page || 1
+                };
+            },
+            transport: function (params, success, failure) {
+                const gid = $grp.val();
+                if (!gid) {
+                console.warn('[AUX] sin grupoId: no llamar backend');
+                success({ results: [], pagination: { more: false } });
+                return;
+                }
+                $.ajax(params).then(success).catch(failure);
+            },
+            processResults: function (data) {
+                // Espera { results: [{id,text},...], pagination:{more:boolean} }
+                console.log('[AUX] data', data);
+                return {
+                results: data.results || [],
+                pagination: { more: data.pagination?.more === true }
+                };
+            },
+            error: (xhr) => console.error('AUXILIAR AJAX error', xhr.status, xhr.responseText)
+            }
+        });
+
+        // estado inicial (deshabilitado si no hay grupo)
+        $('#auxiliarId').prop('disabled', !$grp.val()).trigger('change.select2');
+
+        $grp.on('change', function(){
+            const gid = $(this).val();
+            console.log('[GRUPO] cambio →', gid);
+            $('#auxiliarId').val(null).trigger('change'); // limpia selección
+            $('#auxiliarId').prop('disabled', !gid).trigger('change.select2');
+            // Opcional: abrir inmediatamente para que el usuario vea opciones
+            if (gid) $('#auxiliarId').select2('open');
+        });
     });
 </script>

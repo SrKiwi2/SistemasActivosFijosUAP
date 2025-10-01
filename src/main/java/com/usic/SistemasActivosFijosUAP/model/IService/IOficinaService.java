@@ -20,4 +20,8 @@ public interface IOficinaService extends IServiceGenerico<Oficina, Long>{
 
     short nextCodOfiForPredio(Long idPredio);
     Oficina findOrCreateConCorrelativo(String nombreOficina, Predio predio, Long idUsuario);
+
+    Optional<Oficina> findByUnidadAndCodOfi(@Param("unidad") String unidad,
+                                            @Param("codOfi") Short codOfi);
+
 }

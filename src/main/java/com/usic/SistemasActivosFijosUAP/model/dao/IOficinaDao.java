@@ -34,4 +34,16 @@ public interface IOficinaDao extends JpaRepository<Oficina, Long>{
     Short maxCodOfiPorPredio(@Param("idPredio") Long idPredio);
 
     Optional<Oficina> findByNombre(String nombre);
+
+    /* PARA PILLAR OFICINA CON UNIDAD Y CODOFIC */
+
+    @Query("""
+    select o
+    from Oficina o
+    join o.predio p
+    where upper(trim(p.unidad)) = upper(trim(:unidad))
+        and o.codOfi = :codOfi
+    """)
+    Optional<Oficina> findByUnidadAndCodOfi(@Param("unidad") String unidad,
+                                            @Param("codOfi") Short codOfi);
 }

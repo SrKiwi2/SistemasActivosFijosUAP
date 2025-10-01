@@ -3,19 +3,25 @@ package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IAuxiliarDao;
+import com.usic.SistemasActivosFijosUAP.model.dto.AuxOption;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class AuxiliarServiceImpl implements IAuxiliarService{
 
-    @Autowired private IAuxiliarDao dao;
+    private final IAuxiliarDao dao;
 
     @Override
     public List<Auxiliar> findAll() {
@@ -57,4 +63,8 @@ public class AuxiliarServiceImpl implements IAuxiliarService{
         return dao.saveAll(list);
     }
     
+    @Override @Transactional(readOnly = true)
+    public Page<AuxOption> searchByGrupo(Long grupoId, String term, Pageable pageable) {
+        return dao.searchByGrupo(grupoId, term == null ? "" : term.trim(), pageable);
+    }
 }

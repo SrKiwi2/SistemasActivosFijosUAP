@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
+import com.usic.SistemasActivosFijosUAP.model.dto.RespOption;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
@@ -30,4 +31,6 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     /* pra ver mejor lista de un repsonsbale */
     Page<IResposableDao.ResponsableRow> datatable(String q, Pageable pageable);
     long countActivos();
+
+    Page<RespOption> search(@Param("term") String term, Pageable pageable);
 }

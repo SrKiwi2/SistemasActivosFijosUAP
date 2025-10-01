@@ -8,7 +8,13 @@ import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -124,6 +130,8 @@ public class ActualImportService {
             // ===== 3) Lectura =====
             List<Activo> batch = new ArrayList<>(500);
             DBFRow r;
+            int updatesDetectados = 0;
+            String primerUpdateResumen = null;
             while ((r = reader.nextRow()) != null) {
                 try {
                     if (r.isDeleted() && !incluirBorrados) {
@@ -248,15 +256,33 @@ public class ActualImportService {
 
                     Auxiliar aux = null;
                     if (codAux != null) {
-                        // buscá por Predio + CODAUX (tu UC en Auxiliar es (predio,codAux))
-                        aux = auxiliarService.findByPredioAndCodAux(predio, codAux).orElse(null);
-                        if (aux == null) {
+                        if (codCont == null) {
+                            // No tenemos cómo desambiguar: registra error o intenta heurística si así lo decides
                             res.omitidosSinAuxiliar++;
-                            res.errores.add(msgFila(res.leidas, "Auxiliar no encontrado (UNIDAD=" + unidad +
-                                    ", CODAUX=" + codAux + ")"));
-                            // no cortamos aquí; el activo puede existir sin auxiliar si lo permites
+                            res.errores.add(msgFila(res.leidas,
+                                "No se puede resolver Auxiliar: falta CODCONT para desambiguar (UNIDAD=" + unidad + ", CODAUX=" + codAux + ")"));
+                        } else {
+                            GrupoContable grupo2 = grupoContableService
+                                    .findByCodContable(Integer.valueOf(codCont))
+                                    .orElse(null);
+                            if (grupo2 == null) {
+                                res.omitidosSinGrupo++;
+                                res.errores.add(msgFila(res.leidas, "Grupo no encontrado CODCONT=" + codCont));
+                                continue;
+                            }
+                            aux = auxiliarService
+                                    .findByPredioAndGrupoContableAndCodAux(predio, grupo2, codAux)
+                                    .orElse(null);
+
+                            if (aux == null) {
+                                res.omitidosSinAuxiliar++;
+                                res.errores.add(msgFila(res.leidas, "Auxiliar no encontrado (UNIDAD=" + unidad +
+                                        ", CODCONT=" + codCont + ", CODAUX=" + codAux + ")"));
+                                // aquí decides: ¿continuar sin auxiliar o cortar? yo sugiero continuar
+                            }
                         }
                     }
+
 
                     EstadoActivo estado = null;
                     if (codEstado != null) {
@@ -289,7 +315,38 @@ public class ActualImportService {
                         act = new Activo();
                         act.setCodigo(codigo);
                         nuevo = true;
+                    } else {
+                        // contar update y capturar SOLO la primera vez
+                        updatesDetectados++;
+
+                        if (primerUpdateResumen == null) {
+                            String before = String.format(
+                                    "desc='%s', costo=%s, depAcum=%s, estado=%s, oficinaId=%s, unidad='%s', codOfi=%s, respId=%s",
+                                    act.getDescripcion(), act.getCosto(), act.getDepreciacionAcum(),
+                                    (act.getEstadoActivo() != null ? act.getEstadoActivo().getCodigo() : null),
+                                    (act.getOficina() != null ? act.getOficina().getIdOficina() : null),
+                                    oficina.getPredio().getUnidad(),
+                                    oficina.getCodOfi(),
+                                    (act.getResponsable() != null ? act.getResponsable().getIdResponsable() : null)
+                            );
+
+                            String after = String.format(
+                                    "desc='%s', costo=%s, depAcum=%s, estado=%s, oficinaId=%s, unidad='%s', codOfi=%s, respId=%s",
+                                    descripcion, costo, depAcum,
+                                    (estado != null ? estado.getCodigo() : null),
+                                    oficina.getIdOficina(),
+                                    oficina.getPredio().getUnidad(),
+                                    oficina.getCodOfi(),
+                                    (responsable != null ? responsable.getIdResponsable() : null)
+                            );
+
+                            primerUpdateResumen = String.format(
+                                    "fila=%d; codigo='%s' :: BEFORE [%s]  →  AFTER [%s]",
+                                    res.leidas, codigo, before, after
+                            );
+                        }
                     }
+
 
                     // mapear campos
                     act.setCodigoSec(codigoSec);
@@ -344,6 +401,13 @@ public class ActualImportService {
                     res.erroresExcepcion++;
                     res.errores.add(msgFila(res.leidas, root(exRow)));
                 }
+            }
+
+            // ===== resumen final de updates (una sola línea, y si hubo alguno)
+            if (updatesDetectados > 0) {
+                log.warn("IMPORT ACTUAL → actualizaciones detectadas: {}. Primera actualización: {}", updatesDetectados, primerUpdateResumen);
+            } else {
+                log.info("IMPORT ACTUAL → no se detectaron actualizaciones (solo inserts).");
             }
 
             // conteo sanity

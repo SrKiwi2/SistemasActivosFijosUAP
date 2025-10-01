@@ -3,23 +3,29 @@ package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao.ResponsableRow;
+import com.usic.SistemasActivosFijosUAP.model.dto.RespOption;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesResponsableRepo;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class ResponsableServiceImpl implements IResponsableService{
 
-    @Autowired private IResposableDao dao;
+    private final IResposableDao dao;
+    private final FuncionesResponsableRepo repo;
 
     @Override
     public List<Responsable> findAll() {
@@ -94,5 +100,11 @@ public class ResponsableServiceImpl implements IResponsableService{
     @Override
     public long countActivos() {
         return dao.countActivos();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<RespOption> search(String term, Pageable pageable) {
+        return repo.search(term, pageable);
     }
 }

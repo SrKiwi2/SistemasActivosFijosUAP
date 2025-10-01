@@ -15,24 +15,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
-import org.slf4j.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.linuxense.javadbf.DBFReader;
 import com.linuxense.javadbf.DBFRow;
 import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
-import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
-import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
-import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
-import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
 import jakarta.transaction.Transactional;
@@ -43,8 +42,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ResponsableImportService {
 
-    private final IEntidadService entidadService;
-    private final IPredioServicio predioServicio;
     private final IOficinaService oficinaService;
     private final IPersonaService personaService;
     private final ICargoService cargoService;
@@ -52,17 +49,17 @@ public class ResponsableImportService {
 
     @Data
     public static class ImportResult {
-        private int totalFisicos;        // registros físicos reportados por el DBF
-        private int leidas;              // procesadas (nextRecord != null)
+        private int totalFisicos;
+        private int leidas;
         private int insertados;
         private int actualizados;
-        private int marcadosBorrados;    // totalFisicos - leidas
+        private int marcadosBorrados;
         private int omitidosCampos;
         private int omitidosSinEntidad;
         private int omitidosSinPredio;
         private int omitidosSinOficina;
-        private int erroresExcepcion;    // errores internos de mapping/guardado
-        private int erroresLectura;      // excepciones al hacer nextRecord()
+        private int erroresExcepcion;
+        private int erroresLectura;
         private List<String> errores = new ArrayList<>();
     }
 
@@ -116,6 +113,9 @@ public class ResponsableImportService {
 
             // 4) Lectura segura con while (evita rows == null)
             List<Responsable> batch = new ArrayList<>(1000);
+            Map<String, Persona> cachePersonaPorCI = new HashMap<>(4000);      // ci -> Persona
+            Map<String, Persona> cachePersonaPorNombre = new HashMap<>(8000);  // canon -> Persona
+
             DBFRow r;
             res.setTotalFisicos(reader.getRecordCount()); 
             while ((r = reader.nextRow()) != null) {
@@ -161,61 +161,39 @@ public class ResponsableImportService {
                         continue;
                     }
 
-                    // Resolver Entidad
-                    Entidad entidad = (gestionPreferida != null)
-                            ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, entidadCod).orElse(null)
-                            : entidadService.findTopByEntidadCodigoOrderByGestionDesc(entidadCod).orElse(null);
-                    if (entidad == null) {
-                        res.omitidosSinEntidad++;
-                        res.errores.add(msgFila(res.leidas, "ENTIDAD código " + entidadCod + " no encontrada."));
-                        continue;
-                    }
-
-                    // Resolver Predio (Entidad + UNIDAD)
-                    Predio predio = predioServicio.findByEntidadAndUnidadIgnoreCase(entidad, unidad).orElse(null);
-                    if (predio == null) {
-                        if (!crearFaltantes) {
-                            res.omitidosSinPredio++;
-                            res.errores.add(msgFila(res.leidas,
-                                "Predio no encontrado para ENTIDAD=" + entidadCod + " UNIDAD=" + unidad));
-                            continue;
-                        }
-                        predio = new Predio();
-                        predio.setEntidad(entidad);
-                        predio.setUnidad(unidad);
-                        predio.setDescrip("CREADO POR IMPORT");
-                        predio.setEstado("ACTIVO");
-                        predio = predioServicio.save(predio);
-                    }
-
-                    // Resolver Oficina (Predio + CODOFI)
-                    Oficina oficina = oficinaService.findByPredioAndCodOfi(predio, codOfi).orElse(null);
-                    if (oficina == null) {
-                        if (!crearFaltantes) {
-                            res.omitidosSinOficina++;
-                            res.errores.add(msgFila(res.leidas,
-                                "Oficina no encontrada para UNIDAD=" + unidad + " CODOFI=" + codOfi));
-                            continue;
-                        }
-                        oficina = new Oficina();
-                        oficina.setPredio(predio);
-                        oficina.setCodOfi(codOfi);
-                        oficina.setNombre("OFICINA " + codOfi);
-                        oficina.setEstado("ACTIVO");
-                        oficina = oficinaService.save(oficina);
-                    }
+                    Optional<Oficina> oficinaEncontrada = oficinaService.findByUnidadAndCodOfi(unidad, codOfi);
 
                     // Persona (upsert por CI si hay; si no, creamos)
+                    String canon = canonNombre(nomResp);
                     Persona persona = null;
+
                     if (!isBlank(ci)) {
-                        persona = personaService.findFirstByCi(ci).orElse(null);
+                        persona = cachePersonaPorCI.get(ci);
+                        if (persona == null) {
+                            persona = personaService.findFirstByCi(ci).orElse(null);
+                            if (persona != null) cachePersonaPorCI.put(ci, persona);
+                        }
                     }
-                    String[] np = splitNombrePersona(nomResp); // [nombre, paterno, materno]
-                    String pNombre  = clip(np[0], 120);  // ajusta longitudes si quieres
-                    String pPaterno = clip(np[1], 60);
-                    String pMaterno = clip(np[2], 60);
 
                     if (persona == null) {
+                        if (canon != null) {
+                            // 1) intenta reutilizar en el MISMO archivo (evita crear varias iguales)
+                            persona = cachePersonaPorNombre.get(canon);
+                            // 2) opcional: intentar en BD (cuidado con homónimos)
+                            if (persona == null) {
+                                // List<Persona> hits = personaService.findAllByNombreCanonico(canon); // si implementas el repo
+                                // if (!hits.isEmpty()) persona = hits.get(0);
+                            }
+                        }
+                    }
+
+                    if (persona == null) {
+                        // crear
+                        String[] np = splitNombrePersona(nomResp);
+                        String pNombre  = clip(np[0], 120);
+                        String pPaterno = clip(np[1], 60);
+                        String pMaterno = clip(np[2], 60);
+
                         persona = new Persona();
                         persona.setNombre(pNombre);
                         persona.setPaterno(pPaterno);
@@ -223,15 +201,9 @@ public class ResponsableImportService {
                         persona.setCi(isBlank(ci) ? null : ci.trim());
                         persona.setEstado("ACTIVO");
                         personaService.save(persona);
-                    } else {
-                        // Si ya existe por CI, completa solo lo que esté vacío
-                        boolean changed = false;
-                        if (isBlankLike(persona.getNombre()) && !isBlankLike(pNombre))  { persona.setNombre(pNombre); changed = true; }
-                        if (isBlankLike(persona.getPaterno()) && !isBlankLike(pPaterno)){ persona.setPaterno(pPaterno); changed = true; }
-                        if (isBlankLike(persona.getMaterno()) && !isBlankLike(pMaterno)){ persona.setMaterno(pMaterno); changed = true; }
-                        // (Opcional) si quieres sobreescribir siempre, quita los 'isBlankLike(...)'
-                        if (changed) personaService.save(persona);
                     }
+
+                    if (canon != null) cachePersonaPorNombre.putIfAbsent(canon, persona);
 
                     // Cargo (upsert por nombre, si viene)
                     Cargo cargo = null;
@@ -246,16 +218,21 @@ public class ResponsableImportService {
                         });
                     }
 
+                    Oficina oficina = oficinaEncontrada.orElse(null);
+
                     // Upsert Responsable
                     Responsable resp = null;
                     if (!isBlank(codRespTxt)) {
+                        // Si hay CODORESP, la única llave de upsert es (oficina, codResp).
+                        // NO hacer fallback por persona en este caso.
                         resp = responsableService
                                 .findByOficinaAndCodigoFuncionario(oficina, codRespTxt.trim())
                                 .orElse(null);
-                    }
-                    if (resp == null) {
+                    } else {
+                        // Sin CODORESP, usa (oficina, persona)
                         resp = responsableService.findByOficinaAndPersona(oficina, persona).orElse(null);
                     }
+
                     if (resp == null) {
                         resp = new Responsable();
                         resp.setOficina(oficina);
@@ -273,12 +250,12 @@ public class ResponsableImportService {
                     resp.setApiEstado(apiEstado);
                     resp.setEstado("ACTIVO");
 
-                    if (nuevo) res.insertados++; else res.actualizados++;
-                    batch.add(resp);
-
-                    if (batch.size() == 1000) {
-                        responsableService.saveAll(batch);
-                        batch.clear();
+                    try {
+                        responsableService.save(resp);
+                        if (nuevo) res.insertados++; else res.actualizados++;
+                    } catch (DataIntegrityViolationException e) {
+                        res.erroresExcepcion++;
+                        res.errores.add(msgFila(res.leidas, "Integridad: " + e.getMostSpecificCause().getMessage()));
                     }
 
                 } catch (Exception exRow) {
@@ -298,13 +275,16 @@ public class ResponsableImportService {
                 log.debug("DBF conteo no cuadra: total={} leidas={} borrados={} errLectura={} resto={}",
                         res.totalFisicos, res.leidas, res.marcadosBorrados, res.erroresLectura, resto);
             }
-
         }
-
         return res;
     }
 
     /* ===== Helpers ===== */
+
+    private String canonNombre(String s) {
+        if (s == null) return null;
+        return s.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+    }
 
     private String msgFila(int n, String m) { return "Fila " + n + ": " + m; }
 
@@ -331,8 +311,8 @@ public class ResponsableImportService {
     private Short bdToShort(BigDecimal bd, String campo, int fila, ImportResult res) {
         if (bd == null) return null;
         try {
-            BigInteger bi = bd.toBigIntegerExact(); // falla si tuviera decimales
-            int val = bi.intValueExact();           // falla si no cabe en int
+            BigInteger bi = bd.toBigIntegerExact();
+            int val = bi.intValueExact();
             if (val < Short.MIN_VALUE || val > Short.MAX_VALUE) {
                 res.errores.add("Fila " + fila + ": " + campo + " fuera de rango (short): " + val + ", se deja nulo.");
                 return null;
@@ -355,7 +335,7 @@ public class ResponsableImportService {
     private String normalizeFieldName(String raw) {
         if (raw == null) return "";
         String key = raw.trim().toUpperCase(Locale.ROOT);
-        key = key.replaceAll("[^A-Z0-9_]", ""); // sin puntos, seguro
+        key = key.replaceAll("[^A-Z0-9_]", "");
         return key;
     }
 
@@ -391,9 +371,4 @@ public class ResponsableImportService {
         s = s.trim();
         return s.length() <= max ? s : s.substring(0, max);
     }
-
 }
-
-
-
- 

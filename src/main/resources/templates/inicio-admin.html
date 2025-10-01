@@ -1226,27 +1226,111 @@
         }
 
 
-        // Asegura que exista el overlay; si no, lo crea
+        // Utilidad
+        const shuffle = (arr) => arr.map(v => [Math.random(), v]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
+
+        // === NUEVO: ciclado simple + “conexión inestable” sólo si tarda demasiado ===
+        function startMessageCycler({ container, baseMessages = [], everyMs = 3200, slowAfterMs = 12000 }) {
+            stopMessageCycler(container); // evita duplicados
+
+            const label = container.querySelector('.loader-3d .mt-2');
+            if (!label) return;
+
+            // Mensajes del usuario (sin diagnósticos de red)
+            let pool = baseMessages.length ? baseMessages : [
+            'Cargando…',
+            'Procesando datos…',
+            'Kiwi estuvo aquí',
+            'SAYOVE 2.0',
+            'Preparando interfaz…',
+            'Optimizando recursos…'
+            ];
+            pool = shuffle(pool);
+
+            // Rotación
+            let i = 0;
+            label.textContent = pool[i];
+
+            const rotateId = setInterval(() => {
+            i = (i + 1) % pool.length;
+            label.textContent = pool[i];
+            }, everyMs);
+            container.dataset.msgInterval = String(rotateId);
+
+            // “Conexión inestable…” SÓLO si tarda demasiado
+            const slowId = setTimeout(() => {
+            // Fija el mensaje y detiene la rotación
+            clearInterval(rotateId);
+            delete container.dataset.msgInterval;
+            label.textContent = 'Conexión inestable…';
+            // opcional: efectos visuales leves
+            label.classList.add('text-danger');
+            container.dataset.slowTimeout = ''; // marca activado
+            }, slowAfterMs);
+            container.dataset.slowTimer = String(slowId);
+        }
+
+        function stopMessageCycler(container) {
+            const rotateId = container?.dataset?.msgInterval;
+            if (rotateId) {
+            clearInterval(Number(rotateId));
+            delete container.dataset.msgInterval;
+            }
+            const slowId = container?.dataset?.slowTimer;
+            if (slowId) {
+            clearTimeout(Number(slowId));
+            delete container.dataset.slowTimer;
+            }
+            // limpia estilos del mensaje si quedaron
+            const label = container?.querySelector?.('.loader-3d .mt-2');
+            if (label) label.classList.remove('text-danger');
+        }
+
+        // === Tus funciones con soporte de mensajes rotativos ===
         function ensureGlobalLoader() {
             if (!document.getElementById('globalLoader')) {
-                document.body.insertAdjacentHTML('beforeend', '<div id="globalLoader" aria-live="polite" aria-busy="true"></div>');
+            document.body.insertAdjacentHTML('beforeend', '<div id="globalLoader" aria-live="polite" aria-busy="true"></div>');
             }
         }
 
-        // Mostrar / ocultar overlay centrado
-        function showGlobalLoader(opts) {
+        // === Mostrar / ocultar con opciones ===
+        function showGlobalLoader(opts = {}) {
+            // asegúrate de tener ensureGlobalLoader() y spinnerHTML() como ya lo tienes
             ensureGlobalLoader();
             const el = document.getElementById('globalLoader');
-            el.innerHTML = spinnerHTML(opts);
+
+            el.innerHTML = spinnerHTML({
+            texto: opts.texto ?? 'Cargando…',
+            svg: opts.svg,
+            axis: opts.axis,     // 'x' o 'y'
+            speed: opts.speed    // segundos por vuelta
+            });
             el.classList.add('show');
             document.documentElement.style.overflow = 'hidden';
+            el.setAttribute('aria-busy', 'true');
+
+            startMessageCycler({
+            container: el,
+            baseMessages: opts.messages || [
+                'Cargando…',
+                'Kiwi estuvo aquí',
+                'SAYOVE 2.0',
+                'Procesando datos…',
+                'Preparando interfaz…',
+                'Optimizando recursos…'
+            ],
+            everyMs: opts.rotateEvery || 3400, // rotación un poco más lenta
+            slowAfterMs: opts.slowAfter || 12000 // “inestable” sólo si >12s
+            });
         }
 
         function hideGlobalLoader() {
             const el = document.getElementById('globalLoader');
             if (!el) return;
+            stopMessageCycler(el);
             el.classList.remove('show');
             el.innerHTML = '';
+            el.setAttribute('aria-busy', 'false');
             document.documentElement.style.overflow = '';
         }
     </script>

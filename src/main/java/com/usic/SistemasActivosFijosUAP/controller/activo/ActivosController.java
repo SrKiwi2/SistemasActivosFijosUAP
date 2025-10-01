@@ -22,9 +22,13 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IMunicipioService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IOrganismoFinancieroService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
+import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
@@ -43,6 +47,10 @@ public class ActivosController {
     private final IMunicipioService municipioService;
     private final IPredioServicio predioServicio;
     private final IGrupoContableService grupoContableService;
+    private final IOficinaService oficinaService;
+    private final IResponsableService responsableService;
+    private final IOrganismoFinancieroService organismoFinancieroService;
+    private final IAuxiliarService auxiliarService;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -69,7 +77,11 @@ public class ActivosController {
     public String formulario_activo(Model model, Activo activo) {
         model.addAttribute("municipios", municipioService.findAll());
         model.addAttribute("predios", predioServicio.findAll());
-        model.addAttribute("grupos", grupoContableService.findAll());
+        model.addAttribute("grupos", grupoContableService.listarGruposContables());
+        model.addAttribute("oficinas", oficinaService.listarOficinas());
+        model.addAttribute("responsables", responsableService.listarResponsables());
+        model.addAttribute("financiadores", organismoFinancieroService.findAll());
+        model.addAttribute("auxiliares", auxiliarService.findAll());
         return "activo/formulario";
     }
 

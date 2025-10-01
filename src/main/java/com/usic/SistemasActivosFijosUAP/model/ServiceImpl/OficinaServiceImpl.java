@@ -104,4 +104,9 @@ public class OficinaServiceImpl implements IOficinaService{
                 return dao.save(o);
             });
     }
+
+    @Override
+    public Optional<Oficina> findByUnidadAndCodOfi(String unidad, Short codOfi) {
+        return dao.findByUnidadAndCodOfi(unidad, codOfi);
+    }
 }
