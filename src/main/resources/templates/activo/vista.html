@@ -1,4 +1,3 @@
-
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Actvios UAP</h4>
 
 <div id="tablaRegistro"></div>
@@ -62,41 +61,41 @@
     });
 
     function cargarTabla() {
-        showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
+        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
         $.ajax({
             type: 'POST',
             url: "/administracion/activo/tabla-registros",
             success: function (response) {
                 $("#tablaRegistro").html(response);
             },
-            error:function(){
-            $("#tablaRegistro").html(`
+            error: function () {
+                $("#tablaRegistro").html(`
                 <div class="alert alert-danger m-3">
                 Ocurrió un error al cargar la tabla.
                 <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
                 </div>
             `);
             },
-            complete:function(){
-            hideGlobalLoader();
+            complete: function () {
+                hideGlobalLoader();
             }
         });
     }
 
     function cargarFormulario() {
-        showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
+        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
         cargarFormularioAlert("/administracion/activo/formulario", "#prediocontenidoModalActivo", "#formularioActivo");
         $.ajax({
-error:function(){
-            $("#tablaRegistro").html(`
+            error: function () {
+                $("#tablaRegistro").html(`
                 <div class="alert alert-danger m-3">
                 Ocurrió un error al cargar la tabla.
                 <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
                 </div>
             `);
             },
-            complete:function(){
-            hideGlobalLoader();
+            complete: function () {
+                hideGlobalLoader();
             }
         });
     }
@@ -106,7 +105,7 @@ error:function(){
     }
 
     function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/activo/eliminar",cargarTabla);
+        eliminarRegistroAlert(nombre, id, "/administracion/activo/eliminar", cargarTabla);
     }
 
     (function () {
@@ -197,7 +196,7 @@ error:function(){
                         <i class="fa-solid fa-triangle-exclamation me-2"></i>
                         Error durante la importación: <b>${(err && err.message) || err}</b>
                     </div>`;
-                            });
+                });
         });
     })();
 
