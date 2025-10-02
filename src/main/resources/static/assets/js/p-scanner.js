@@ -22,6 +22,7 @@
     const liveStatusEl = document.getElementById('qrLiveStatus');
     const btnLiveStop = document.getElementById('btnLiveStop');
     const cameraSelect = document.getElementById('cameraSelect');
+    const btnTorch = document.getElementById('btnTorch');
 
     // Estado live
     let liveQr = null;           // instancia Html5Qrcode
@@ -29,6 +30,7 @@
     let lastFocusedEl = null;
     let pendingRetry = false;
     let decodeErrorCooldown = 0;
+    let torchOn = false;
 
     // ====== Helpers (tus mismas funciones) ======
     function extraerCodigoDesdeQR(text) {
@@ -233,6 +235,12 @@
             try { await liveQr.clear(); } catch { }
             liveQr = null;
         }
+
+        if (isTorchSupported()) {
+            btnTorch?.classList.remove('d-none');
+        } else {
+            btnTorch?.classList.add('d-none');
+        }
     }
 
     async function stopLiveScan() {
@@ -244,6 +252,43 @@
         } catch { }
         liveQr = null;
         liveStatusEl.textContent = 'Cámara detenida';
+        torchOn = false;
+        btnTorch?.classList.add('d-none');
+    }
+
+    btnTorch?.addEventListener('click', async () => {
+        if (!isTorchSupported()) return;
+        await setTorch(!torchOn);
+    });
+
+
+    function isTorchSupported() {
+        try {
+            // html5-qrcode expone info del track en tiempo de ejecución
+            if (!liveQr?.isScanning) return false;
+            // Preferir capacidades si existen
+            const caps = liveQr.getRunningTrackCapabilities?.();
+            if (caps && 'torch' in caps) return !!caps.torch;
+
+            // Fallback: algunos dispositivos exponen 'torch' en settings
+            const settings = liveQr.getRunningTrackSettings?.();
+            return !!(settings && 'torch' in settings);
+        } catch { return false; }
+    }
+
+    async function setTorch(on) {
+        // Usa applyVideoConstraints de html5-qrcode
+        // Ver: applyVideoConstraints({ advanced: [{ torch: true|false }] })
+        try {
+            await liveQr.applyVideoConstraints({ advanced: [{ torch: !!on }] });
+            torchOn = !!on;
+            // Actualiza etiqueta
+            if (btnTorch) btnTorch.innerHTML = torchOn
+                ? '<i class="bi bi-lightning-charge-fill"></i> Linterna ON'
+                : '<i class="bi bi-lightning"></i> Linterna';
+        } catch (e) {
+            console.warn('No se pudo cambiar la linterna:', e);
+        }
     }
 
     // Abrir modal live
