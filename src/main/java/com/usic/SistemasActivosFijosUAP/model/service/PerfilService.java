@@ -78,10 +78,10 @@ public class PerfilService {
                 od.setId(oc.getOficina().getIdOficina());
                 od.setNombre(oc.getOficina().getNombre());
                 Short cod = oc.getOficina().getCodOfi();
-                od.setCodigo(cod != null ? cod.toString() : "-"); // <- conversión a String
+                od.setCodigo2(cod != null ? cod.toString() : "-"); // <- conversión a String
             } else {
                 od.setNombre("-");
-                od.setCodigo("-");
+                od.setCodigo2("-");
             }
             od.setTotal(oc.getTotal());
             olist.add(od);

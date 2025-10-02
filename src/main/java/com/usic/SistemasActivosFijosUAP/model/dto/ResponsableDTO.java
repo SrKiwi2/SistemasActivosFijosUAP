@@ -14,6 +14,7 @@ public class ResponsableDTO {
     private String cargo;
     private String oficina;
     private String oficinaCodigo;
+    private String oficinaPredioUnidad;
 
         // ⬇️ Constructor vacío (soluciona "constructor undefined")
         public ResponsableDTO() {}

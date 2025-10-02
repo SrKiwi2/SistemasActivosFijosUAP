@@ -9,7 +9,8 @@ public class OficinaDTO {
     private Long id;
     private String nombre;
     private Long total;
-    private String codigo;  // ⬅️ NUEVO (opcional para la tabla del perfil)
+    private Short codigo;  // ⬅️ NUEVO (opcional para la tabla del perfil)
+    private String codigo2; 
 
     public OficinaDTO() {} // <- constructor vacío
     

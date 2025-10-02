@@ -63,8 +63,14 @@ public class AuxiliarServiceImpl implements IAuxiliarService{
         return dao.saveAll(list);
     }
     
-    @Override @Transactional(readOnly = true)
-    public Page<AuxOption> searchByGrupo(Long grupoId, String term, Pageable pageable) {
-        return dao.searchByGrupo(grupoId, term == null ? "" : term.trim(), pageable);
+    @Override
+    @Transactional(readOnly = true)
+    public Page<AuxOption> searchByGrupo(Long grupoId, Long predioId, String term, Pageable pageable) {
+        return dao.searchByGrupo(
+            grupoId,
+            predioId,
+            term == null ? "" : term.trim(),
+            pageable
+        );
     }
 }
