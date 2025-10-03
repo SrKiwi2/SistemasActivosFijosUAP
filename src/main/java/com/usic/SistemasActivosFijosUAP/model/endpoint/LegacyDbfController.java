@@ -24,17 +24,19 @@ public class LegacyDbfController {
   @GetMapping("/listar")
   public List<Map<String,Object>> listar(@RequestParam String tabla,
                                          @RequestParam(defaultValue = "50") int limit) {
-    String sqlWithLimit = "SELECT * FROM " + tabla + " LIMIT " + limit;
+    String table = "\"" + tabla + "\""; // por si el driver requiere comillas
+    String sqlWithLimit = "SELECT * FROM " + table + " LIMIT " + limit;
     try {
       return dbfJdbc.queryForList(sqlWithLimit);
     } catch (Exception e) {
-      return dbfJdbc.queryForList("SELECT * FROM " + tabla);
+      return dbfJdbc.queryForList("SELECT * FROM " + table);
     }
   }
 
   @GetMapping("/columns")
   public List<String> columns(@RequestParam String tabla) {
-    return dbfJdbc.query("SELECT * FROM " + tabla + " WHERE 1=0", rs -> {
+    String table = "\"" + tabla + "\"";
+    return dbfJdbc.query("SELECT * FROM " + table + " WHERE 1=0", rs -> {
       var md = rs.getMetaData();
       var cols = new java.util.ArrayList<String>();
       for (int i = 1; i <= md.getColumnCount(); i++) cols.add(md.getColumnName(i));
@@ -42,15 +44,6 @@ public class LegacyDbfController {
     });
   }
 
-  @GetMapping("/buscar")
-  public List<Map<String,Object>> buscar(@RequestParam String tabla,
-                                         @RequestParam String columna,
-                                         @RequestParam String q) {
-    String sql = "SELECT * FROM " + tabla + " WHERE UPPER(" + columna + ") LIKE UPPER(?)";
-    return dbfJdbc.queryForList(sql, "%" + q + "%");
-  }
-
-  // Endpoint de diagnóstico (ver qué datasource está usando)
   @GetMapping("/debug")
   public Map<String,Object> debug() throws Exception {
     var ds = dbfJdbc.getDataSource();
