@@ -53,4 +53,12 @@ public class LegacyDbfController {
     String sql = "SELECT * FROM " + tabla + " WHERE UPPER(" + columna + ") LIKE UPPER(?)";
     return dbfJdbc.queryForList(sql, "%" + q + "%");
   }
+
+//  mvn install:install-file \
+//  -Dfile=/ruta/al/hxtt-dbf.jar \
+//  -DgroupId=com.hxtt \
+//  -DartifactId=hxtt-dbf \
+//  -Dversion=1.0 \
+//  -Dpackaging=jar
+//
 }
