@@ -131,7 +131,20 @@
 			<artifactId>spring-boot-starter-validation</artifactId>
 			<version>3.5.3</version>
 		</dependency>
+
+		<!-- PARA REALIZAR INTEROPERABILIDAD -->
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-jdbc</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>com.hxtt</groupId>
+			<artifactId>hxtt-dbf</artifactId>
+			<version>1.0</version>
+		</dependency>
 	</dependencies>
+	
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
