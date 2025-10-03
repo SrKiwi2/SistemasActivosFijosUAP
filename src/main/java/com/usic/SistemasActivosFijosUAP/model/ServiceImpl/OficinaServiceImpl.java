@@ -96,7 +96,7 @@ public class OficinaServiceImpl implements IOficinaService{
                 short cod = nextCodOfiForPredio(predio.getIdPredio());
                 Oficina o = new Oficina();
                 o.setNombre(nombreOficina.trim());
-                o.setEstado("OFI_ADMIN");
+                o.setEstado("API");
                 o.setRegistro(new Date());
                 o.setRegistroIdUsuario(idUsuario);
                 o.setCodOfi(cod);

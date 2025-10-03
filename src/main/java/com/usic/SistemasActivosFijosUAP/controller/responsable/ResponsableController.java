@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Page;
@@ -40,6 +41,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Genero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesResponsableRepo;
 
 import lombok.RequiredArgsConstructor;
 
@@ -53,10 +55,12 @@ public class ResponsableController {
     private final IOficinaService oficinaService;
     private final ICargoService cargoService;
     private final IGeneroService generoService;
+    private final FuncionesResponsableRepo funcionesResponsableRepo;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String inicioResponsable() {
+    public String inicioResponsable(Model model) {
+         model.addAttribute("oficinas", oficinaService.listarOficinas());
         return "responsable/vista";
     }
 
@@ -68,30 +72,31 @@ public class ResponsableController {
         @RequestParam(name="draw",   defaultValue="1") int draw,
         @RequestParam(name="start",  defaultValue="0") int start,
         @RequestParam(name="length", defaultValue="25") int length,
-        @RequestParam(name="search[value]", required=false) String search
+        @RequestParam(name="search[value]", required=false) String search,
+        @RequestParam(name="oficinaId", required=false) Long oficinaId
     ) {
         int size = (length < 0) ? 1000 : length;
         int page = Math.max(start, 0) / Math.max(size, 1);
         Pageable pageable = PageRequest.of(page, size);
 
-        Page<IResposableDao.ResponsableRow> p = responsableService.datatable(search, pageable);
+        Page<IResposableDao.ResponsableRow> p = responsableService.datatable(search, oficinaId, pageable);
 
         List<Map<String,Object>> data = new ArrayList<>(p.getNumberOfElements());
         for (var row : p.getContent()) {
-        String idEnc;
-        try { idEnc = Encriptar.encrypt(String.valueOf(row.getIdResponsable())); }
-        catch (Exception e) { idEnc = ""; }
+            String idEnc;
+            try { idEnc = Encriptar.encrypt(String.valueOf(row.getIdResponsable())); }
+            catch (Exception e) { idEnc = ""; }
 
-        Map<String,Object> m = new HashMap<>();
-        m.put("idEnc",   idEnc);
-        m.put("codFun",  nvl(row.getCodFun()));
-        m.put("nombre",  nvl(row.getNombre()));
-        m.put("paterno", nvl(row.getPaterno()));
-        m.put("materno", nvl(row.getMaterno()));
-        m.put("ci",      nvl(row.getCi()));
-        m.put("oficina", nvl(row.getOficina()));
-        m.put("cargo",   nvl(row.getCargo()));
-        data.add(m);
+            Map<String,Object> m = new HashMap<>();
+            m.put("idEnc",   idEnc);
+            m.put("codFun",  nvl(row.getCodFun()));
+            m.put("nombre",  nvl(row.getNombre()));
+            m.put("paterno", nvl(row.getPaterno()));
+            m.put("materno", nvl(row.getMaterno()));
+            m.put("ci",      nvl(row.getCi()));
+            m.put("oficina", nvl(row.getOficina()));
+            m.put("cargo",   nvl(row.getCargo()));
+            data.add(m);
         }
 
         long total = responsableService.countActivos(); // total sin filtro
@@ -199,21 +204,59 @@ public class ResponsableController {
             cargoService.save(cargo);
         }
     
-        Responsable responsableExistente = responsableService.buscarResponsablePorPersona(persona);
-        if (responsableExistente == null) {
-            responsableExistente = new Responsable();
+        List<Responsable> relacionados = responsableService.findByPersonaAndEstado(persona, "ACTIVO");
+        if (relacionados.isEmpty()) {
+            // Si NO existe ninguno y quieres crear uno "base", créalo aquí.
+            // Si NO quieres crear nada cuando no hay, simplemente retorna.
+            String codigo_responsable = funcionesResponsableRepo.siguienteCodigoPorOficinaStr(oficina.getIdOficina());
+            Responsable r = new Responsable();
+            r.setPersona(persona);
+            r.setCargo(cargo);
+            r.setOficina(oficina);
+            r.setEstado("ACTIVO");
+            r.setCodigoFuncionario(codigo_responsable);
+            r.setApiEstado((short) 1);
+            r.setRegistroIdUsuario(1L);
+            r.setRegistro(new Date());
+            return ResponseEntity.ok(new ResponsableRegistroDTO(responsableService.save(r)));
         }
+
+        // 2) Actualizas SOLO lo que corresponde (campo a campo)
+        for (Responsable r : relacionados) {
+            // Si tu intención es solo actualizar estos campos en los relacionados:
+            if (cargo != null) {
+                r.setCargo(cargo);
+            }
+            r.setModificacion(new Date());
+            r.setModificacionIdUsuario(1L);
+        }
+        responsableService.saveAll(relacionados);
+
+        Optional<Responsable> exactoMismaOficina = relacionados.stream()
+            .filter(r -> r.getOficina() != null && r.getOficina().getIdOficina().equals(oficina.getIdOficina()))
+            .findFirst();
+
+        if (exactoMismaOficina.isPresent()) {
+            Responsable rSel = exactoMismaOficina.get();
+            if (rSel.getCodigoFuncionario() == null || rSel.getCodigoFuncionario().isBlank()) {
+                rSel.setCodigoFuncionario(codigoFuncionario);
+            }
+            rSel.setModificacion(new Date());
+            rSel.setModificacionIdUsuario(1L);
+            return ResponseEntity.ok(new ResponsableRegistroDTO(responsableService.save(rSel)));
+        }
+
+        // 6.c) No hay responsable de ESA oficina: crear uno nuevo para esa oficina y devolverlo
+        Responsable nuevo = new Responsable();
+        nuevo.setPersona(persona);
+        nuevo.setCargo(cargo);
+        nuevo.setOficina(oficina);
+        nuevo.setEstado("ACTIVO");
+        nuevo.setCodigoFuncionario(codigoFuncionario);
+        nuevo.setApiEstado((short) 1);
+        nuevo.setRegistroIdUsuario(1L);
+        nuevo.setRegistro(new Date());
     
-        responsableExistente.setPersona(persona);
-        responsableExistente.setCargo(cargo);
-        responsableExistente.setOficina(oficina);
-        responsableExistente.setCodigoFuncionario(codigoFuncionario);
-        responsableExistente.setEstado("ACTIVO");
-        responsableExistente.setRegistroIdUsuario(1L);
-        responsableExistente.setRegistro(new Date());
-    
-        responsableService.save(responsableExistente);
-    
-        return ResponseEntity.ok(new ResponsableRegistroDTO(responsableExistente));
+        return ResponseEntity.ok(new ResponsableRegistroDTO(responsableService.save(nuevo)));
     }
 }

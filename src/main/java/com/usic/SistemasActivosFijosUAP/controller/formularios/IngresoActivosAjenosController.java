@@ -5,6 +5,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ContentDisposition;
@@ -23,7 +24,9 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGeneroService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IMunicipioService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
@@ -31,14 +34,17 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IngresoService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoIngresoAjenoDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Genero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Ingreso;
 import com.usic.SistemasActivosFijosUAP.model.entity.IngresoDetalle;
+import com.usic.SistemasActivosFijosUAP.model.entity.Municipio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesResponsableRepo;
 import com.usic.SistemasActivosFijosUAP.model.service.PdfIngresoActivoAjenoService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -57,6 +63,10 @@ public class IngresoActivosAjenosController {
     private final IOficinaService oficinaService;
     private final IPredioServicio predioServicio;
     private final IngresoService ingresoActivoAjenoService;
+        private final IEntidadService entidadService;
+    private final IMunicipioService municipioService;
+
+    private final FuncionesResponsableRepo funcionesResponsableRepo;
 
     @PostMapping("/registrar")
     @Transactional(rollbackFor = Exception.class)
@@ -213,14 +223,27 @@ public class IngresoActivosAjenosController {
             personaService.save(persona);
         }
     
-        Predio predio = predioServicio.buscarPorNombre(nombrePredio)
-                .orElseThrow(() -> new IllegalArgumentException("No existe Predio: " + nombrePredio));
+        Predio predio = predioServicio.findByDescrip(nombrePredio)
+            .orElseGet(() -> {
+                Entidad entidadP = entidadService.findById(53L);
+                Municipio municipio = municipioService.findById(1L);
+                Predio p = new Predio();
+                p.setDescrip(nombrePredio.trim());
+                p.setUnidad(nombrePredio);
+                p.setEntidad(entidadP);
+                p.setMunicipio(municipio);
+                p.setCiudad("N/D");
+                p.setEstado("API");
+                p.setRegistro(new Date());
+                p.setRegistroIdUsuario(1L);
+                return predioServicio.save(p);
+            }); 
 
         Oficina oficina = oficinaService.buscarPorNombre(nombreOficina).orElseGet(() -> {
             short next = oficinaService.nextCodOfiForPredio(predio.getIdPredio());
             Oficina o = new Oficina();
             o.setNombre(nombreOficina.trim());
-            o.setEstado("ACTIVO");
+            o.setEstado("API");
             o.setRegistro(new Date());
             o.setRegistroIdUsuario(1L);
             o.setCodOfi(next);
@@ -238,20 +261,58 @@ public class IngresoActivosAjenosController {
             cargoService.save(cargo);
         }
     
-        if (responsable == null) {
-            responsable = new Responsable();
+        List<Responsable> relacionados = responsableService.findByPersonaAndEstado(persona, "ACTIVO");
+        if (relacionados.isEmpty()) {
+            // Si NO existe ninguno y quieres crear uno "base", créalo aquí.
+            // Si NO quieres crear nada cuando no hay, simplemente retorna.
+            String codigo_responsable = funcionesResponsableRepo.siguienteCodigoPorOficinaStr(oficina.getIdOficina());
+            Responsable r = new Responsable();
+            r.setPersona(persona);
+            r.setCargo(cargo);
+            r.setOficina(oficina);
+            r.setEstado("INACTIVO");
+            r.setCodigoFuncionario(codigo_responsable);
+            r.setApiEstado((short) 1);
+            r.setRegistroIdUsuario(1L);
+            r.setRegistro(new Date());
+            return responsableService.save(r);
         }
-    
-        responsable.setPersona(persona);
-        responsable.setCargo(cargo);
-        responsable.setOficina(oficina);
-        responsable.setCodigoFuncionario(codigoFuncionario);
-        responsable.setEstado("ACTIVO");
-        responsable.setRegistroIdUsuario(1L);
-        responsable.setRegistro(new Date());
-    
-        responsableService.save(responsable);
-    
-        return responsable;
+
+        // 2) Actualizas SOLO lo que corresponde (campo a campo)
+        for (Responsable r : relacionados) {
+            // Si tu intención es solo actualizar estos campos en los relacionados:
+            if (cargo != null) {
+                r.setCargo(cargo);
+            }
+            r.setModificacion(new Date());
+            r.setModificacionIdUsuario(1L);
+        }
+        responsableService.saveAll(relacionados);
+
+        Optional<Responsable> exactoMismaOficina = relacionados.stream()
+            .filter(r -> r.getOficina() != null && r.getOficina().getIdOficina().equals(oficina.getIdOficina()))
+            .findFirst();
+
+        if (exactoMismaOficina.isPresent()) {
+            Responsable rSel = exactoMismaOficina.get();
+            if (rSel.getCodigoFuncionario() == null || rSel.getCodigoFuncionario().isBlank()) {
+                rSel.setCodigoFuncionario(codigoFuncionario);
+            }
+            rSel.setModificacion(new Date());
+            rSel.setModificacionIdUsuario(1L);
+            return responsableService.save(rSel);
+        }
+
+        // 6.c) No hay responsable de ESA oficina: crear uno nuevo para esa oficina y devolverlo
+        Responsable nuevo = new Responsable();
+        nuevo.setPersona(persona);
+        nuevo.setCargo(cargo);
+        nuevo.setOficina(oficina);
+        nuevo.setEstado("ACTIVO");
+        nuevo.setCodigoFuncionario(codigoFuncionario);
+        nuevo.setApiEstado((short) 1);
+        nuevo.setRegistroIdUsuario(1L);
+        nuevo.setRegistro(new Date());
+        return responsableService.save(nuevo);
     }
 }

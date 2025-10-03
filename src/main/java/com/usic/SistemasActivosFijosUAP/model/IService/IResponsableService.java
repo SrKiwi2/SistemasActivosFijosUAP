@@ -22,14 +22,14 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     Responsable responsablePersonaOficinaCargo(Persona persona, Oficina oficina, Cargo cargo);
     List<Responsable> findAllByPersonaIdPersona(@Param("idPersona") Long idPersona);
     List<Responsable> findAllByPersona(Persona persona);
-    Responsable buscarResponsablePorPersona(Persona persona);
+    List<Responsable> findByPersonaAndEstado(Persona persona, String estado);
 
     Optional<Responsable> findByOficinaAndCodigoFuncionario(Oficina oficina, String codigo_funcionario);
     Optional<Responsable> findByOficinaAndPersona(Oficina oficina, Persona persona);
     List<Responsable> saveAll(Iterable<Responsable> responsables);
 
     /* pra ver mejor lista de un repsonsbale */
-    Page<IResposableDao.ResponsableRow> datatable(String q, Pageable pageable);
+    Page<IResposableDao.ResponsableRow> datatable(String q, Long oficinaId, Pageable pageable);
     long countActivos();
 
     Page<RespOption> search(@Param("term") String term, Pageable pageable);

@@ -73,11 +73,6 @@ public class ResponsableServiceImpl implements IResponsableService{
     }
 
     @Override
-    public Responsable buscarResponsablePorPersona(Persona persona) {
-        return dao.buscarResponsablePorPersona(persona);
-    }
-
-    @Override
     public Optional<Responsable> findByOficinaAndCodigoFuncionario(Oficina oficina, String codigo_funcionario) {
         return dao.findByOficinaAndCodigoFuncionario(oficina, codigo_funcionario);
     }
@@ -93,8 +88,8 @@ public class ResponsableServiceImpl implements IResponsableService{
     }
 
     @Override
-    public Page<ResponsableRow> datatable(String q, Pageable pageable) {
-        return dao.datatable((q!=null && !q.isBlank()) ? q.trim() : null, pageable);
+    public Page<ResponsableRow> datatable(String q, Long oficinaId, Pageable pageable) {
+        return dao.datatable((q!=null && !q.isBlank()) ? q.trim() : null, oficinaId, pageable);
     }
 
     @Override
@@ -106,5 +101,10 @@ public class ResponsableServiceImpl implements IResponsableService{
     @Transactional(readOnly = true)
     public Page<RespOption> search(String term, Pageable pageable) {
         return repo.search(term, pageable);
+    }
+
+    @Override
+    public List<Responsable> findByPersonaAndEstado(Persona persona, String estado) {
+        return dao.findByPersonaAndEstado(persona, estado);
     }
 }

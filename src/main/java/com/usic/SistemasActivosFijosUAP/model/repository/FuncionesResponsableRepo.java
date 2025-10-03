@@ -47,4 +47,12 @@ public class FuncionesResponsableRepo {
 
         return new PageImpl<>(data, pageable, total == null ? 0L : total);
     }
+
+    public String siguienteCodigoPorOficinaStr(Long idOficina) {
+        return jdbc.queryForObject(
+                "select generar_codigo_funcionario_by_oficina(?)::text",
+                String.class,
+                idOficina
+        );
+    }
 }

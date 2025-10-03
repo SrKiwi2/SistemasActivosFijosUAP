@@ -4,6 +4,16 @@
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Responsable</h5>
         <div class="d-flex gap-2">
+            <label for="filtroOficina" class="mb-0 fw-semibold">Filtrar por oficina:</label>
+            <div class="d-flex align-items-center gap-2">
+                <select id="filtroOficina" class="form-select form-select" style="min-width:260px">
+                    <option value="">Todas</option>
+                    <option th:each="o : ${oficinas}"
+                            th:value="${o.idOficina}"
+                            th:text="${o.predio.unidad + ' - ' + o.codOfi + ' (' + o.predio.entidad.sigla + ')'}">
+                    </option>
+                </select>
+            </div>
             <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
               <i class="fa-solid fa-file-import me-1"></i> Importar DBF
             </button>
@@ -85,25 +95,39 @@
 
 <script>
     $(function () {
+        $('#filtroOficina').select2({
+            placeholder: 'Todas las oficinas',
+            allowClear: true,
+            width: 'resolve',    // usa el width del elemento
+            language: 'es'
+        });
+        
         const $tbl = $('#data-table');
-        // 1) Muestra el loader ANTES de inicializar DataTables (cubre el primer request)
-        showGlobalLoader({ texto: 'Cargando...' });
 
-        // 2) Engancha eventos ANTES de crear el DataTable (para no perder el primer preXhr/xhr)
-        $tbl.on('preXhr.dt', function () {
+        // Loader global
         showGlobalLoader({ texto: 'Cargando...' });
-        });
-        $tbl.on('xhr.dt', function () {
-        hideGlobalLoader();
-        });
+        $tbl.on('preXhr.dt', function () {showGlobalLoader({ texto: 'Cargando...' }); });
+        $tbl.on('xhr.dt', function () {hideGlobalLoader(); });
 
         const tbl = $tbl.DataTable({
-            processing: false,      // usamos overlay global
+            processing: false,
             serverSide: true,
             deferRender: true,
             pageLength: 10,
             lengthMenu: [10,25,50,100],
-            ajax: { url: '/administracion/responsable/api/datatables', type: 'POST' },
+            ajax: { 
+                url: '/administracion/responsable/api/datatables', 
+                type: 'POST',
+                data: function (d) { 
+                    const v = $('#filtroOficina').val();
+                    if (v && v !== '') {
+                    d.oficinaId = v;      // nombre que espera el controller
+                    } else {
+                    // Importante: no enviar el parámetro vacío
+                    if ('oficinaId' in d) delete d.oficinaId;
+                    }
+                } 
+            },
             columns: [
             { data: null, orderable:false, searchable:false,
                 render:(d,t,r,m)=> m.row + m.settings._iDisplayStart + 1 },
@@ -131,9 +155,14 @@
             }
         });
 
-    // Debounce buscador
+        // Debounce buscador
         let t; $('#data-table_filter input').off().on('input', function(){
             clearTimeout(t); const v=this.value; t=setTimeout(()=> tbl.search(v).draw(), 250);
+        });
+
+        $('#filtroOficina').on('change', function(){
+            tbl.ajax.reload(null, true); // respeta la página actual
+            // Si prefieres ir siempre a la página 1: tbl.ajax.reload(null, true);
         });
     });
 
