@@ -2,39 +2,53 @@ package com.usic.SistemasActivosFijosUAP.config;
 
 import javax.sql.DataSource;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 
-import com.google.api.client.util.Value;
+import com.hxtt.sql.dbf.DBFDriver;
 
-@Configuration
+@Configuration(proxyBeanMethods = false)
 public class DbfDataSourceConfig {
-    // Fallback a la clase de HXTT si no llega la property
-  @Value("${legacy.dbf.driverClassName:com.hxtt.sql.dbf.DBFDriver}")
-  private String driver;
 
-  // Si no llega la property, forzamos un valor inválido para que se note en el log
-  @Value("${legacy.dbf.url:#{null}}")
-  private String url;
+    @Autowired
+    private Environment env;
 
-  @Bean(name = "dbfDataSource")
-  public DataSource dbfDataSource() {
-    if (url == null || url.isBlank()) {
-      throw new IllegalArgumentException(
-        "legacy.dbf.url no está configurado. Ej: jdbc:dbf:/mnt/dbfwin?charSet=CP1252");
+    /**
+     * Crea el DataSource SOLO si legacy.dbf.url tiene texto (ni null, ni vacío).
+     * Usamos SimpleDriverDataSource con el driver inyectado explícitamente para
+     * evitar el "driverClassName must not be empty".
+     */
+    @Bean(name = "dbfDataSource")
+    @Lazy
+    @ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${legacy.dbf.url:}')")
+    public DataSource dbfDataSource() {
+        String url = env.getProperty("legacy.dbf.url");
+        String driverClass = env.getProperty("legacy.dbf.driverClassName", "com.hxtt.sql.dbf.DBFDriver");
+
+        System.out.println("[DBF] Preparando DataSource: url=" + url + " | driver=" + driverClass);
+
+        try {
+            // Aseguramos que el driver está en el classpath
+            Class.forName(driverClass);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException("No se encontró el driver HXTT: " + driverClass, e);
+        }
+
+        // Creamos el DS con el driver real (sin user/pass)
+        return new SimpleDriverDataSource(new DBFDriver(), url, null, null);
     }
-    DriverManagerDataSource ds = new DriverManagerDataSource();
-    ds.setDriverClassName(driver);
-    ds.setUrl(url);
-    System.out.println("[DBF] driver=" + driver + " | url=" + url);
-    return ds;
-  }
 
-  @Bean(name = "dbfJdbc")
-  public JdbcTemplate dbfJdbc(@Qualifier("dbfDataSource") DataSource ds) {
-    return new JdbcTemplate(ds);
-  }
+    @Bean(name = "dbfJdbc")
+    @Lazy
+    @ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${legacy.dbf.url:}')")
+    public JdbcTemplate dbfJdbc(@Qualifier("dbfDataSource") DataSource ds) {
+        return new JdbcTemplate(ds);
+    }
 }
