@@ -1,8 +1,6 @@
 package com.usic.SistemasActivosFijosUAP.controller.grupo_contable;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +17,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
+import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
@@ -32,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 public class GrupoContableController {
 
     private final IGrupoContableService grupoContableService;
+    private final JavaDbfService dbfService;
     
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -39,14 +39,45 @@ public class GrupoContableController {
         return "grupoContable/vista";
     }
 
+    // @ValidarUsuarioAutenticado
+    // @PostMapping("/tabla-registros")
+    // public String tablaRegistros(Model model) throws Exception {
+    //     List<GrupoContable> listasGrupoContable = grupoContableService.listarGruposContables();
+    //     List<String> encryptedIds = new ArrayList<>();
+    //     for (GrupoContable grupoContables : listasGrupoContable) {
+    //         String id_encryptado = Encriptar.encrypt(Long.toString(grupoContables.getIdGrupoContable()));
+    //         encryptedIds.add(id_encryptado);
+    //     }
+    //     model.addAttribute("listasGrupoContable", listasGrupoContable);
+    //     model.addAttribute("id_encryptado", encryptedIds);
+    //     return "grupoContable/tabla_registro";
+    // }
+
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla-registros")
-    public String tablaRegistros(Model model) throws Exception {
-        List<GrupoContable> listasGrupoContable = grupoContableService.listarGruposContables();
-        List<String> encryptedIds = new ArrayList<>();
-        for (GrupoContable grupoContables : listasGrupoContable) {
-            String id_encryptado = Encriptar.encrypt(Long.toString(grupoContables.getIdGrupoContable()));
-            encryptedIds.add(id_encryptado);
+    public String tablaRegistros(@RequestParam(name="source", required=false) String source,
+                                @RequestParam(name="q", required=false) String q,
+                                Model model) throws Exception {
+
+        if ("dbf".equalsIgnoreCase(source)) {
+        // Leer desde CODCONT.DBF
+        var listasGrupoContable = dbfService.listarCodcont(500, q); // limita 500 por UI
+        var encryptedIds = new java.util.ArrayList<String>();
+        for (var g : listasGrupoContable) {
+            String idEnc = Encriptar.encrypt(String.valueOf(g.getIdGrupoContable()));
+            encryptedIds.add(idEnc);
+        }
+        model.addAttribute("listasGrupoContable", listasGrupoContable);
+        model.addAttribute("id_encryptado", encryptedIds);
+        return "grupoContable/tabla_registro";
+        }
+
+        // Comportamiento original (Postgres)
+        var listasGrupoContable = grupoContableService.listarGruposContables();
+        var encryptedIds = new java.util.ArrayList<String>();
+        for (var g : listasGrupoContable) {
+        String idEnc = Encriptar.encrypt(Long.toString(g.getIdGrupoContable()));
+        encryptedIds.add(idEnc);
         }
         model.addAttribute("listasGrupoContable", listasGrupoContable);
         model.addAttribute("id_encryptado", encryptedIds);
