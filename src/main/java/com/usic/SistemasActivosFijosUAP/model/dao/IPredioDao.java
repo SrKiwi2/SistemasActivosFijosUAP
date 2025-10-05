@@ -5,18 +5,30 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
 public interface IPredioDao extends JpaRepository<Predio, Long> {
 
-  Optional<Predio> findByDescrip(String descrip);
+    Optional<Predio> findByDescrip(String descrip);
 
-  @Query("SELECT p FROM Predio p WHERE p.estado = 'ACTIVO'")
-  List<Predio> listarPredios();
+    @Query("SELECT p FROM Predio p WHERE p.estado = 'ACTIVO'")
+    List<Predio> listarPredios();
 
-  Optional<Predio> findByEntidadAndUnidad(Entidad entidad, String unidad);
+    Optional<Predio> findByEntidadAndUnidad(Entidad entidad, String unidad);
 
-  Optional<Predio> findByEntidadAndUnidadIgnoreCase(Entidad entidad, String unidad);
+    Optional<Predio> findByEntidadAndUnidadIgnoreCase(Entidad entidad, String unidad);
+
+    @Query("""
+              SELECT p FROM Predio p
+              WHERE (:q IS NULL OR
+                     LOWER(p.descrip) LIKE LOWER(CONCAT('%',:q,'%')) OR
+                     LOWER(p.unidad)  LIKE LOWER(CONCAT('%',:q,'%')) OR
+                     LOWER(p.ciudad)  LIKE LOWER(CONCAT('%',:q,'%')) OR
+                     LOWER(p.entidad.entidadCodigo) LIKE LOWER(CONCAT('%',:q,'%')))
+              ORDER BY p.descrip ASC
+            """)
+    List<Predio> buscarPorQ(@Param("q") String q);
 }

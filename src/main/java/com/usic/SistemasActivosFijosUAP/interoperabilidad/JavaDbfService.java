@@ -14,6 +14,7 @@ import com.linuxense.javadbf.DBFReader;
 import com.linuxense.javadbf.DBFWriter;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.EntidadDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.GrupoContableDbf;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.UnidadAdminDbf;
 
 public class JavaDbfService {
     private final Path baseDir;
@@ -135,6 +136,61 @@ public class JavaDbfService {
                         .areaEnt(asInt(row, idxAREA) == null ? null : asInt(row, idxAREA).shortValue())
                         .subareaEnt(asInt(row, idxSUBAREA) == null ? null : asInt(row, idxSUBAREA).shortValue())
                         .nivelInst(asInt(row, idxNIVEL) == null ? null : asInt(row, idxNIVEL).shortValue())
+                        .build());
+            }
+        }
+        return out;
+    }
+
+    /** Lee TODO unidadadmin.DBF, con filtro opcional por texto (en código, unidad, descrip, ciudad). */
+    public List<UnidadAdminDbf> listarUnidadAdminAll(String q) throws Exception {
+        Path file = baseDir.resolve("unidadadmin.DBF");
+        List<UnidadAdminDbf> out = new ArrayList<>();
+
+        try (InputStream in = Files.newInputStream(file);
+            DBFReader reader = new DBFReader(in)) {
+
+            if (charset != null && !charset.isBlank()) {
+                reader.setCharset(Charset.forName(charset));
+            }
+
+            int idxENTIDAD=-1, idxUNIDAD=-1, idxDESCRIP=-1, idxCIUDAD=-1, idxESTADO=-1;
+            int n = reader.getFieldCount();
+            for (int i=0;i<n;i++) {
+                String name = reader.getField(i).getName().toUpperCase(Locale.ROOT);
+                switch (name) {
+                    case "ENTIDAD"   -> idxENTIDAD=i;
+                    case "UNIDAD"    -> idxUNIDAD=i;
+                    case "DESCRIP"   -> idxDESCRIP=i;
+                    case "CIUDAD"    -> idxCIUDAD=i;
+                    case "ESTADOUNI" -> idxESTADO=i;
+                }
+            }
+
+            final String ql = (q==null? null : q.toLowerCase(Locale.ROOT));
+            Object[] row;
+            while ((row = reader.nextRecord()) != null) {
+                String entidad = asString(row, idxENTIDAD);
+                String unidad  = asString(row, idxUNIDAD);
+                String descrip = asString(row, idxDESCRIP);
+                String ciudad  = asString(row, idxCIUDAD);
+                Short  estado  = asInt(row, idxESTADO) == null ? null : asInt(row, idxESTADO).shortValue();
+
+                if (ql != null) {
+                    String hay = ((entidad==null?"":entidad)+" "+(unidad==null?"":unidad)+" "+(descrip==null?"":descrip)+" "+(ciudad==null?"":ciudad)).toLowerCase(Locale.ROOT);
+                    if (!hay.contains(ql)) continue;
+                }
+
+                if ((entidad==null || entidad.isBlank()) || (unidad==null || unidad.isBlank())) {
+                    continue; // claves vacías: descarta
+                }
+
+                out.add(UnidadAdminDbf.builder()
+                        .entidadCodigo(entidad)
+                        .unidad(unidad)
+                        .descrip(descrip)
+                        .ciudad(ciudad)
+                        .estadoUni(estado)
                         .build());
             }
         }

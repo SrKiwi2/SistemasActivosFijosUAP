@@ -1,14 +1,11 @@
 <div class="card">
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Predio</h5>
-        
+        <small class="text-muted" th:if="${sourceUsed=='dbf'}">(fuente: DBF)</small>
+        <small class="text-muted" th:if="${sourceUsed=='db'}">(fuente: BD)</small>
         <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
-              <i class="fa-solid fa-file-import me-1"></i> Importar DBF
-            </button>
-            <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-                data-bs-target="#modalFormularioPredio">
-                <i class="fa-solid fa-user-plus"></i> Agregar Predio
+            <button id="btnSyncPredio" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-file-import me-1"></i> Importar desde DBF montado
             </button>
         </div>
     </div>
@@ -35,7 +32,8 @@
                             data-bs-toggle="modal" data-bs-target="#modalFormularioPredio">
                             <i class="fa-solid fa-pen-to-square"></i> Editar
                         </button>
-                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${predio.unidad}]],[[${id_encryptado[__${index.index}__]}]])">
+                        <button type="button" class="btn btn-sm btn-danger"
+                            th:onclick="eliminar([[${predio.unidad}]],[[${id_encryptado[__${index.index}__]}]])">
                             <i class="fa-solid fa-trash"></i> Eliminar
                         </button>
                     </th>
@@ -70,5 +68,21 @@
                 "sSortDescending": ": Activar para ordenar la columna de manera descendente"
             }
         }
+    });
+
+    $(document).on('click', '#btnSyncPredio', function () {
+
+        $.ajax({
+            type: 'POST',
+            url: "/administracion/predio/sync-from-mounted",
+            success: function (res) {
+                Swal.fire('Importación completa', `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}`, 'success');
+                cargarTabla();
+            },
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
+                Swal.fire('Error', msg, 'error');
+            }
+        });
     });
 </script>

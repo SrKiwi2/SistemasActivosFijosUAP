@@ -60,4 +60,9 @@ public class PredioServiceImpl implements IPredioServicio{
     public Optional<Predio> findByDescrip(String descrip) {
         return dao.findByDescrip(descrip);
     }
+
+    @Override
+    public List<Predio> buscarPorQ(String q) {
+        return dao.buscarPorQ(q);
+    }
 }
