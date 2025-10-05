@@ -51,7 +51,8 @@ public class EntidadServiceImpl implements IEntidadService{
     }
 
     @Override
-    public List<Entidad> buscarPorNombreLike(String q) {
-        return dao.buscarPorNombreLike(q);
+    public List<Entidad> buscarPorQ(String q) {
+        return dao.buscarPorQ(q);
     }
+
 }

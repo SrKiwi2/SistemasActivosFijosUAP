@@ -9,8 +9,8 @@ import org.springframework.data.repository.query.Param;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 
-public interface IEntidadDao extends JpaRepository<Entidad, Long>{
-    
+public interface IEntidadDao extends JpaRepository<Entidad, Long> {
+
     // @Query("SELECT e FROM Entidad e WHERE e.nombre = ?1 AND e.estado = 'ACTIVO'")
     // Entidad buscarPorNombre(String nombre);
 
@@ -18,10 +18,14 @@ public interface IEntidadDao extends JpaRepository<Entidad, Long>{
     // List<Entidad> listarEntidad();
 
     Optional<Entidad> findByGestionAndEntidadCodigo(Short gestion, String entidadCodigo);
+
     Optional<Entidad> findTopByEntidadCodigoOrderByGestionDesc(String entidadCodigo);
 
-    @Query("SELECT e FROM Entidad e " +
-           "WHERE (:q IS NULL OR LOWER(e.descripcion) LIKE LOWER(CONCAT('%', :q, '%'))) " +
-           "ORDER BY e.descripcion ASC")
-    List<Entidad> buscarPorNombreLike(@Param("q") String q);
+    @Query(value = """
+              SELECT * FROM entidad
+              WHERE (:q IS NULL OR desc_ent ILIKE CONCAT('%', :q, '%'))
+              ORDER BY desc_ent ASC
+            """, nativeQuery = true)
+    List<Entidad> buscarPorQ(@Param("q") String q);
+
 }
