@@ -24,14 +24,8 @@ public class JavaDbfService {
         this.charset = charset;
     }
 
-    /* lector de codcont.bdf */
+    // === LECTOR COMPLETO SIN PAGINAR ===
     public List<GrupoContableDbf> listarCodcontAll(String filtroTexto) throws Exception {
-        // Reutiliza tu paginador con un límite grande o implementa la lectura completa:
-        return listarCodcontPage(0, Integer.MAX_VALUE, filtroTexto);
-    }
-
-    /* PARA OBTENER LOS DBF DEL WINDOWS PADRE */
-    public List<GrupoContableDbf> listarCodcontPage(int offset, int limit, String filtroTexto) throws Exception {
         Path file = baseDir.resolve("CODCONT.DBF");
         List<GrupoContableDbf> out = new ArrayList<>();
 
@@ -57,15 +51,9 @@ public class JavaDbfService {
 
             final String q = filtroTexto == null ? null : filtroTexto.toLowerCase(Locale.ROOT);
             Object[] row;
-            int seen = 0, added = 0;
-
             while ((row = reader.nextRecord()) != null) {
                 String nom = asString(row, idxNOMBRE);
-                if (q != null && (nom == null || !nom.toLowerCase(Locale.ROOT).contains(q))) {
-                    continue;
-                }
-                // skip hasta alcanzar offset
-                if (seen++ < offset)
+                if (q != null && (nom == null || !nom.toLowerCase(Locale.ROOT).contains(q)))
                     continue;
 
                 Long cod = asLong(row, idxCODCONT);
@@ -81,9 +69,6 @@ public class JavaDbfService {
                         .actualizar(act)
                         .idGrupoContable(cod)
                         .build());
-
-                if (limit > 0 && ++added >= limit)
-                    break;
             }
         }
         return out;

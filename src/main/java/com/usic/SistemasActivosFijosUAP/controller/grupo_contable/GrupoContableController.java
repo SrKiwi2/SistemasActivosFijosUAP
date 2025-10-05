@@ -23,6 +23,7 @@ import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.GrupoContableDbf;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
@@ -62,18 +63,26 @@ public class GrupoContableController {
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla-registros")
     public String tablaRegistros(
-            @RequestParam(name = "source", required = false) String source,
             @RequestParam(name = "q", required = false) String q,
-            @RequestParam(name = "page", defaultValue = "0") int page,
-            @RequestParam(name = "size", defaultValue = "25") int size,
             Model model) throws Exception {
 
-        if ("dbf".equalsIgnoreCase(source)) {
-            int offset = page * size;
-            var listasGrupoContable = dbfService.listarCodcontPage(offset, size, q);
-            // (Opcional) total para paginador: cómputo en otro método que cuenta
-            // coincidentes
-            int total = dbfService.countCodcont(q);
+        // 1) Intentar desde BD
+        List<GrupoContable> bd = (q == null || q.isBlank())
+                ? grupoContableService.listarGruposContables() // todos
+                : grupoContableService.buscarPorNombreLike("%" + q.trim() + "%"); // implementa este finder
+
+        boolean fromDb = (bd != null && !bd.isEmpty());
+
+        if (fromDb) {
+            // Mapea a la forma que espera tu fragmento
+            var listasGrupoContable = bd.stream().map(gc -> GrupoContableDbf.builder()
+                    .codContable(gc.getCodContable() == null ? null : gc.getCodContable().longValue())
+                    .nombre(gc.getNombre())
+                    .vidaUtil(gc.getVidaUtil())
+                    .depreciar(gc.getDepreciar())
+                    .actualizar(gc.getActualizar())
+                    .idGrupoContable(gc.getIdGrupoContable()) // usa id real de BD aquí
+                    .build()).toList();
 
             var encryptedIds = new ArrayList<String>();
             for (var g : listasGrupoContable) {
@@ -82,13 +91,21 @@ public class GrupoContableController {
 
             model.addAttribute("listasGrupoContable", listasGrupoContable);
             model.addAttribute("id_encryptado", encryptedIds);
-            model.addAttribute("page", page);
-            model.addAttribute("size", size);
-            model.addAttribute("total", total);
+            model.addAttribute("sourceUsed", "db"); // para debug/etiqueta opcional
             return "grupoContable/tabla_registro";
         }
+
+        // 2) Fallback: DBF montado
+        var listasGrupoContable = dbfService.listarCodcontAll(q);
+        var encryptedIds = new ArrayList<String>();
+        for (var g : listasGrupoContable) {
+            encryptedIds.add(Encriptar.encrypt(String.valueOf(g.getIdGrupoContable())));
+        }
+
+        model.addAttribute("listasGrupoContable", listasGrupoContable);
+        model.addAttribute("id_encryptado", encryptedIds);
+        model.addAttribute("sourceUsed", "dbf");
         return "grupoContable/tabla_registro";
-        // ... tu rama Postgres (también con paginación si quieres)
     }
 
     @ValidarUsuarioAutenticado

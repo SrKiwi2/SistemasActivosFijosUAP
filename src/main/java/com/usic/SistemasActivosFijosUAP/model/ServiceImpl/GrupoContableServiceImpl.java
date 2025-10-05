@@ -98,4 +98,9 @@ public class GrupoContableServiceImpl implements IGrupoContableService{
     public Optional<GrupoContable> findFirstByNombreIgnoreCase(String nombre) {
         return dao.findFirstByNombreIgnoreCase(nombre);
     }
+
+    @Override
+    public List<GrupoContable> buscarPorNombreLike(String q) {
+        return dao.buscarPorNombreLike(q);
+    }
 }

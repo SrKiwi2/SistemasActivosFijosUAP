@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 
@@ -20,4 +21,9 @@ public interface IGrupoContableDao extends JpaRepository<GrupoContable, Long> {
 
     Optional<GrupoContable> findByCodContable(Integer codContable);
     Optional<GrupoContable> findFirstByNombreIgnoreCase(String nombre);
+
+    @Query("SELECT g FROM GrupoContable g " +
+           "WHERE (:q IS NULL OR LOWER(g.nombre) LIKE LOWER(CONCAT('%', :q, '%'))) " +
+           "ORDER BY g.nombre ASC")
+    List<GrupoContable> buscarPorNombreLike(@Param("q") String q);
 }
