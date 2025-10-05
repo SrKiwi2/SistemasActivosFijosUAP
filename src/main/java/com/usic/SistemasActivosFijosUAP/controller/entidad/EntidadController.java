@@ -43,7 +43,7 @@ public class EntidadController {
             Model model) throws Exception {
 
         // 1) BD
-        List<Entidad> listasEntidades = entidadService.buscarPorQ(q);
+        List<Entidad> listasEntidades = entidadService.buscarPorNombreLike(q);
         boolean fromDb = listasEntidades != null && !listasEntidades.isEmpty();
 
         List<String> encryptedIds = new ArrayList<>();

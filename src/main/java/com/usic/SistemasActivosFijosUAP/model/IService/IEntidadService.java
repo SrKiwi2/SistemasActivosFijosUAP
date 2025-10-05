@@ -16,5 +16,5 @@ public interface IEntidadService extends IServiceGenerico<Entidad, Long>{
     Optional<Entidad> findTopByEntidadCodigoOrderByGestionDesc(String entidadCodigo);
     List<Entidad> saveAll(Iterable<Entidad> entidades);
 
-    List<Entidad> buscarPorQ(@Param("q") String q);
+List<Entidad> buscarPorNombreLike(@Param("q") String q);
 }

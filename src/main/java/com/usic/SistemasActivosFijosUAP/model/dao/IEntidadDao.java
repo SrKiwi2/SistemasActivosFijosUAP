@@ -20,14 +20,8 @@ public interface IEntidadDao extends JpaRepository<Entidad, Long>{
     Optional<Entidad> findByGestionAndEntidadCodigo(Short gestion, String entidadCodigo);
     Optional<Entidad> findTopByEntidadCodigoOrderByGestionDesc(String entidadCodigo);
 
-    
-    @Query("""
-      SELECT e FROM Entidad e
-      WHERE (:q IS NULL OR
-             LOWER(e.descripcion) LIKE LOWER(CONCAT('%',:q,'%')) OR
-             LOWER(e.sigla)       LIKE LOWER(CONCAT('%',:q,'%')) OR
-             LOWER(e.entidadCodigo) LIKE LOWER(CONCAT('%',:q,'%')))
-      ORDER BY e.descripcion ASC
-    """)
-    List<Entidad> buscarPorQ(@Param("q") String q);
+    @Query("SELECT e FROM Entidad e " +
+           "WHERE (:q IS NULL OR LOWER(e.descripcion) LIKE LOWER(CONCAT('%', :q, '%'))) " +
+           "ORDER BY e.descripcion ASC")
+    List<Entidad> buscarPorNombreLike(@Param("q") String q);
 }
