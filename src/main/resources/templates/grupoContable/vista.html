@@ -8,52 +8,6 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalImportDbf" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <form id="formImportDbf" class="modal-content" enctype="multipart/form-data" autocomplete="off">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fa-solid fa-file-import me-2"></i>Importar Codigo Contable desde DBF
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Archivo .dbf</label>
-                    <input type="file" class="form-control" name="file" accept=".dbf" required />
-                    <div class="form-text">Selecciona el archivo <b>unidadadmin.dbf</b> u otro con la misma estructura.
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Codificación (charset)</label>
-                    <select class="form-select" name="charset">
-                        <option value="windows-1252" selected>Windows-1252 (recomendado)</option>
-                        <option value="ISO-8859-1">ISO-8859-1</option>
-                        <option value="UTF-8">UTF-8</option>
-                    </select>
-                    <div class="form-text">Si ves caracteres raros, prueba ISO-8859-1 o UTF-8.</div>
-                </div>
-
-                <div id="importProgress" class="d-none">
-                    <div class="alert alert-info py-2">
-                        <i class="fa-solid fa-spinner fa-spin me-2"></i> Importando… por favor espera.
-                    </div>
-                </div>
-
-                <div id="importResult" class="d-none"></div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fa-solid fa-play me-1"></i> Iniciar importación
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <script>
     $(document).ready(function () {
         cargarTabla();
