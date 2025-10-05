@@ -3,6 +3,8 @@ package com.usic.SistemasActivosFijosUAP.controller.grupo_contable;
 import java.io.File;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -197,4 +200,59 @@ public class GrupoContableController {
                     .body("Error durante la importación: " + e.getMessage());
         }
     }
+
+    // En GrupoContableController
+    @ValidarUsuarioAutenticado
+    @PostMapping("/sync-from-mounted")
+    @ResponseBody
+    public ResponseEntity<?> syncFromMounted(@RequestParam(name = "q", required = false) String q) {
+        try {
+            // 1) Leer todo el CODCONT.DBF desde la carpeta montada
+            var registros = dbfService.listarCodcontAll(q);
+
+            // 2) Upsert en BD (lote)
+            int inserted = 0, updated = 0;
+            List<GrupoContable> batch = new ArrayList<>(500);
+
+            for (var d : registros) {
+                Integer cod = d.getCodContable() != null ? d.getCodContable().intValue() : null;
+
+                // Busca por clave natural (cod_contable). Crea si no existe.
+                var existente = grupoContableService.findByCodContable(cod).orElse(null);
+                boolean nuevo = (existente == null);
+
+                var g = nuevo ? new GrupoContable() : existente;
+                g.setCodContable(cod);
+                g.setNombre(d.getNombre());
+                g.setVidaUtil(d.getVidaUtil());
+                g.setDepreciar(Boolean.TRUE.equals(d.getDepreciar()));
+                g.setActualizar(Boolean.TRUE.equals(d.getActualizar()));
+                // g.setEstado("ACTIVO"); // si tu entidad lo tiene
+
+                batch.add(g);
+                if (nuevo)
+                    inserted++;
+                else
+                    updated++;
+
+                if (batch.size() == 500) {
+                    grupoContableService.saveAll(batch);
+                    batch.clear();
+                }
+            }
+            if (!batch.isEmpty())
+                grupoContableService.saveAll(batch);
+
+            return ResponseEntity.ok(Map.of(
+                    "ok", true,
+                    "totalLeidas", registros.size(),
+                    "insertados", inserted,
+                    "actualizados", updated));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "ok", false,
+                    "message", "Error sincronizando desde DBF montado: " + e.getMessage()));
+        }
+    }
+
 }

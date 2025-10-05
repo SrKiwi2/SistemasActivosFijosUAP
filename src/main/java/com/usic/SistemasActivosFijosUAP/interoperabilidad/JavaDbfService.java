@@ -24,6 +24,12 @@ public class JavaDbfService {
         this.charset = charset;
     }
 
+    /* lector de codcont.bdf */
+    public List<GrupoContableDbf> listarCodcontAll(String filtroTexto) throws Exception {
+        // Reutiliza tu paginador con un límite grande o implementa la lectura completa:
+        return listarCodcontPage(0, Integer.MAX_VALUE, filtroTexto);
+    }
+
     /* PARA OBTENER LOS DBF DEL WINDOWS PADRE */
     public List<GrupoContableDbf> listarCodcontPage(int offset, int limit, String filtroTexto) throws Exception {
         Path file = baseDir.resolve("CODCONT.DBF");
