@@ -12,6 +12,7 @@ import java.util.Locale;
 
 import com.linuxense.javadbf.DBFReader;
 import com.linuxense.javadbf.DBFWriter;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.EntidadDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.GrupoContableDbf;
 
 public class JavaDbfService {
@@ -68,6 +69,72 @@ public class JavaDbfService {
                         .depreciar(dep)
                         .actualizar(act)
                         .idGrupoContable(cod)
+                        .build());
+            }
+        }
+        return out;
+    }
+
+    // === LECTOR DE ENTIDADES ===
+    public List<EntidadDbf> listarEntidadesAll(Short gestionFiltro, String q) throws Exception {
+        // Ajusta el nombre EXACTO si en tu share está con otra capitalización:
+        Path file = baseDir.resolve("entidades.DBF");
+        List<EntidadDbf> out = new ArrayList<>();
+
+        try (InputStream in = Files.newInputStream(file);
+                DBFReader reader = new DBFReader(in)) {
+
+            if (charset != null && !charset.isBlank()) {
+                reader.setCharset(Charset.forName(charset));
+            }
+
+            int idxGESTION = -1, idxENTIDAD = -1, idxDESC = -1, idxSIGLA = -1,
+                    idxSECTOR = -1, idxSUBSEC = -1, idxAREA = -1, idxSUBAREA = -1, idxNIVEL = -1;
+
+            int n = reader.getFieldCount();
+            for (int i = 0; i < n; i++) {
+                String name = reader.getField(i).getName().toUpperCase(Locale.ROOT);
+                switch (name) {
+                    case "GESTION" -> idxGESTION = i;
+                    case "ENTIDAD" -> idxENTIDAD = i;
+                    case "DESC_ENT" -> idxDESC = i;
+                    case "SIGLA_ENT" -> idxSIGLA = i;
+                    case "SECTOR_ENT" -> idxSECTOR = i;
+                    case "SUBSEC_ENT" -> idxSUBSEC = i;
+                    case "AREA_ENT" -> idxAREA = i;
+                    case "SUBAREAENT" -> idxSUBAREA = i;
+                    case "NIVEL_INST" -> idxNIVEL = i;
+                }
+            }
+
+            final String ql = (q == null ? null : q.toLowerCase(Locale.ROOT));
+            Object[] row;
+            while ((row = reader.nextRecord()) != null) {
+                Short gestion = asInt(row, idxGESTION) == null ? null : asInt(row, idxGESTION).shortValue();
+                String codigo = asString(row, idxENTIDAD);
+                String desc = asString(row, idxDESC);
+                String sigla = asString(row, idxSIGLA);
+
+                if (gestionFiltro != null && !gestionFiltro.equals(gestion))
+                    continue;
+                if (ql != null) {
+                    String hay = (desc != null ? desc.toLowerCase(Locale.ROOT) : "") +
+                            " " + (sigla != null ? sigla.toLowerCase(Locale.ROOT) : "") +
+                            " " + (codigo != null ? codigo.toLowerCase(Locale.ROOT) : "");
+                    if (!hay.contains(ql))
+                        continue;
+                }
+
+                out.add(EntidadDbf.builder()
+                        .gestion(gestion)
+                        .entidadCodigo(codigo)
+                        .descripcion(desc)
+                        .sigla(sigla)
+                        .sectorEnt(asInt(row, idxSECTOR) == null ? null : asInt(row, idxSECTOR).shortValue())
+                        .subsecEnt(asInt(row, idxSUBSEC) == null ? null : asInt(row, idxSUBSEC).shortValue())
+                        .areaEnt(asInt(row, idxAREA) == null ? null : asInt(row, idxAREA).shortValue())
+                        .subareaEnt(asInt(row, idxSUBAREA) == null ? null : asInt(row, idxSUBAREA).shortValue())
+                        .nivelInst(asInt(row, idxNIVEL) == null ? null : asInt(row, idxNIVEL).shortValue())
                         .build());
             }
         }

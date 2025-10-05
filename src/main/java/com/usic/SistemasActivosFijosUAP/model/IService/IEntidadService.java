@@ -3,6 +3,7 @@ package com.usic.SistemasActivosFijosUAP.model.IService;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
@@ -14,4 +15,6 @@ public interface IEntidadService extends IServiceGenerico<Entidad, Long>{
     Optional<Entidad> findByGestionAndEntidadCodigo(Short gestion, String entidadCodigo);
     Optional<Entidad> findTopByEntidadCodigoOrderByGestionDesc(String entidadCodigo);
     List<Entidad> saveAll(Iterable<Entidad> entidades);
+
+    List<Entidad> buscarPorQ(@Param("q") String q);
 }

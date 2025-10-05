@@ -48,5 +48,10 @@ public class EntidadServiceImpl implements IEntidadService{
     @Override
     public Optional<Entidad> findTopByEntidadCodigoOrderByGestionDesc(String entidadCodigo) {
         return dao.findTopByEntidadCodigoOrderByGestionDesc(entidadCodigo);
+    }
+
+    @Override
+    public List<Entidad> buscarPorQ(String q) {
+        return dao.buscarPorQ(q);
     }    
 }

@@ -2,12 +2,9 @@
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Entidad - Institución</h5>
         <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
-              <i class="fa-solid fa-file-import me-1"></i> Importar DBF
-            </button>
-            <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-                    data-bs-target="#modalFormularioEntidad">
-              <i class="fa-solid fa-user-plus me-1"></i> Agregar Entidad
+            <button id="btnSyncEntidad" class="btn btn-outline-secondary" data-bs-toggle="modal"
+                data-bs-target="#modalImportDbf">
+                <i class="fa-solid fa-file-import me-1"></i> Importar desde DBF montado
             </button>
         </div>
     </div>
@@ -19,7 +16,6 @@
                     <th>Código</th>
                     <th>Nombre Entidad</th>
                     <th>Sigla</th>
-                    <th>OPCIONES</th>
                 </tr>
             </thead>
             <tbody class="animate__animated animate__bounceInDown">
@@ -28,16 +24,6 @@
                     <th th:text="${entidad.entidadCodigo}"></th>
                     <th th:text="${entidad.descripcion}"></th>
                     <th th:text="${entidad.sigla}"></th>
-                    <th>
-                        <button type="button" class="btn btn-sm btn-primary"
-                            th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
-                            data-bs-toggle="modal" data-bs-target="#modalFormularioEntidad">
-                            <i class="fa-solid fa-pen-to-square"></i> Editar
-                        </button>
-                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${entidad.descripcion}]],[[${id_encryptado[__${index.index}__]}]])">
-                            <i class="fa-solid fa-trash"></i> Eliminar
-                        </button>
-                    </th>
                 </tr>
             </tbody>
         </table>
@@ -69,5 +55,22 @@
                 "sSortDescending": ": Activar para ordenar la columna de manera descendente"
             }
         }
+    });
+
+    $(document).on('click', '#btnSyncEntidad', function () {
+
+        $.ajax({
+            type: 'POST',
+            url: "/administracion/entidad/sync-from-mounted",
+            beforeSend: (xhr) => { if (token && header) xhr.setRequestHeader(header, token); },
+            success: function (res) {
+                Swal.fire('Importación completa', `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}`, 'success');
+                cargarTabla();
+            },
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
+                Swal.fire('Error', msg, 'error');
+            }
+        });
     });
 </script>
