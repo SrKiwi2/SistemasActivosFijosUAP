@@ -29,7 +29,6 @@
         $.ajax({
             type: 'POST',
             url: '/administracion/grupoc/tabla-registros' + (q ? ('?q=' + encodeURIComponent(q)) : ''),
-            beforeSend: function (xhr) { if (token && header) xhr.setRequestHeader(header, token); },
             success: function (response) {
                 $("#tablaRegistro").html(response);
                 initDataTable();
