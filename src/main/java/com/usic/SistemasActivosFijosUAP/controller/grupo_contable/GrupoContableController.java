@@ -1,14 +1,12 @@
 package com.usic.SistemasActivosFijosUAP.controller.grupo_contable;
 
 import java.io.File;
-import java.security.Principal;
 import java.time.LocalDate;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -117,9 +115,9 @@ public class GrupoContableController {
     @ValidarUsuarioAutenticado
     @PostMapping("/registrar-grupoc")
     public ResponseEntity<String> registrarGrupoContableBDF(GrupoContable grupoContable,
-                                        RedirectAttributes ra,
-                                        Principal principal) {
+                                        RedirectAttributes ra, HttpServletRequest request) {
         try {
+            Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         // 1) Datos del formulario
         String nombre = grupoContable.getNombre();
         String codigoStr = String.valueOf(grupoContable.getCodContable()).trim();
@@ -133,11 +131,11 @@ public class GrupoContableController {
 
         // 2) Defaults (ajusta a tus reglas)
         short vidautil   = 5;              // <-- cámbialo si tienes otra regla
-        String observ    = null;           // o "", como prefieras
+        String observ    = "";           // o "", como prefieras
         boolean depreciar  = true;
         boolean actualizar = true;
         LocalDate feult  = LocalDate.now();
-        String usuar     = (principal != null ? principal.getName() : "WEB");
+        String usuar     = (usuario.getUsuario());
 
         // 3) Insertar en DBF
         dbfService.insertCodcont(codcont, nombre, vidautil, observ, depreciar, actualizar, feult, usuar);

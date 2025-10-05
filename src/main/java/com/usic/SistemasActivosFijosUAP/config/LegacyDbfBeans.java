@@ -9,7 +9,8 @@ import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 
 @Configuration
 public class LegacyDbfBeans {
-    @Bean
+  
+  @Bean
   public JavaDbfService javaDbfService() {
     return new JavaDbfService(Path.of("/mnt/dbfwin"), "CP1252");
   }

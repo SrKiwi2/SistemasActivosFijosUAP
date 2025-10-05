@@ -63,7 +63,7 @@
         showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
         $.ajax({
             type: 'POST',
-            url: "/administracion/grupoc/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
+            url: '/administracion/grupoc/tabla-registros?source=dbf' + (q ? '&q='+encodeURIComponent(q) : ''),  // Ruta del metodo del controlador en Spring Boot
             success: function (response) {
                 $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
             },
