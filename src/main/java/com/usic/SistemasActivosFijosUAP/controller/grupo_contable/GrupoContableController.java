@@ -57,6 +57,7 @@ public class GrupoContableController {
     // }
 
     @ValidarUsuarioAutenticado
+    @PostMapping("/tabla-registros")
     public String tablaRegistros(
             @RequestParam(name = "source", required = false) String source,
             @RequestParam(name = "q", required = false) String q,
