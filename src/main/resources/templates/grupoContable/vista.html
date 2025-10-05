@@ -59,7 +59,7 @@
 
     });
 
-    function cargarTabla() {
+    function cargarTabla(q) {
         showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
         $.ajax({
             type: 'POST',
