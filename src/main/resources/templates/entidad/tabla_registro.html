@@ -62,7 +62,6 @@
         $.ajax({
             type: 'POST',
             url: "/administracion/entidad/sync-from-mounted",
-            beforeSend: (xhr) => { if (token && header) xhr.setRequestHeader(header, token); },
             success: function (res) {
                 Swal.fire('Importación completa', `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}`, 'success');
                 cargarTabla();
