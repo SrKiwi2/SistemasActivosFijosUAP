@@ -4,22 +4,27 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Date;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 import com.linuxense.javadbf.DBFReader;
+import com.linuxense.javadbf.DBFWriter;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.GrupoContableDbf;
 
 public class JavaDbfService {
     private final Path baseDir;
     private final String charset; // "CP1252", "CP850", etc.
+    private final Object codcontLock = new Object();
 
     public JavaDbfService(Path baseDir, String charset) {
         this.baseDir = baseDir;
         this.charset = charset;
     }
 
+    /* PARA OBTENER LOS DBF DEL WINDOWS PADRE */
     public List<GrupoContableDbf> listarCodcont(int limit, String filtroTexto) throws Exception {
         Path file = baseDir.resolve("CODCONT.DBF");
         List<GrupoContableDbf> out = new ArrayList<>();
@@ -75,6 +80,40 @@ public class JavaDbfService {
             }
         }
         return out;
+    }
+
+    /** Inserta un registro en CODCONT.DBF haciendo append. */
+    public void insertCodcont(
+            short codcont, String nombre, short vidautil,
+            String observ, boolean depreciar, boolean actualizar,
+            LocalDate feult, String usuar) throws Exception {
+        var dbfFile = baseDir.resolve("CODCONT.DBF").toFile();
+
+        synchronized (codcontLock) {
+            // Abrimos el DBF existente y escribimos al final (append)
+            try (var writer = new DBFWriter(dbfFile)) {
+                // Charset correcto para tildes/ñ
+                if (charset != null && !charset.isBlank()) {
+                    writer.setCharset(Charset.forName(charset));
+                }
+
+                // Orden de columnas: CODCONT, NOMBRE, VIDAUTIL, OBSERV, DEPRECIAR, ACTUALIZAR,
+                // FEULT, USUAR
+                var record = new Object[] {
+                        Short.valueOf(codcont),
+                        nombre,
+                        Short.valueOf(vidautil),
+                        observ, // puede ir null
+                        Boolean.valueOf(depreciar),
+                        Boolean.valueOf(actualizar),
+                        feult != null ? Date.valueOf(feult) : null,
+                        usuar
+                };
+
+                writer.addRecord(record);
+                // writer.close() se llama automáticamente por try-with-resources
+            }
+        }
     }
 
     private Long asLong(Object[] r, int idx) {

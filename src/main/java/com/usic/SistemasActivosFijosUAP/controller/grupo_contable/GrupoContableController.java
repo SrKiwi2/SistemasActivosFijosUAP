@@ -1,6 +1,8 @@
 package com.usic.SistemasActivosFijosUAP.controller.grupo_contable;
 
 import java.io.File;
+import java.security.Principal;
+import java.time.LocalDate;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -109,6 +111,44 @@ public class GrupoContableController {
         } else {
             return ResponseEntity.ok("Ya existe un rol con este nombre");
         }
+    }
+
+    /* para ahcer registros al archivo dbf de windows */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/registrar-grupoc")
+    public ResponseEntity<String> registrarGrupoContable(GrupoContable grupoContable,
+                                        RedirectAttributes ra,
+                                        Principal principal) {
+        try {
+        // 1) Datos del formulario
+        String nombre = grupoContable.getNombre();
+        String codigoStr = String.valueOf(grupoContable.getCodContable()).trim();
+
+        if (nombre == null || nombre.isBlank() || codigoStr.isBlank()) {
+            ra.addFlashAttribute("error", "Nombre y Código son obligatorios.");
+            return ResponseEntity.ok("Ha ocurrido un error en el registro");
+        }
+
+        short codcont = Short.parseShort(codigoStr);
+
+        // 2) Defaults (ajusta a tus reglas)
+        short vidautil   = 5;              // <-- cámbialo si tienes otra regla
+        String observ    = null;           // o "", como prefieras
+        boolean depreciar  = true;
+        boolean actualizar = true;
+        LocalDate feult  = LocalDate.now();
+        String usuar     = (principal != null ? principal.getName() : "WEB");
+
+        // 3) Insertar en DBF
+        dbfService.insertCodcont(codcont, nombre, vidautil, observ, depreciar, actualizar, feult, usuar);
+
+        ra.addFlashAttribute("ok", "Registrado en CODCONT.DBF: " + codcont + " - " + nombre);
+        } catch (NumberFormatException nfe) {
+        ra.addFlashAttribute("error", "El código debe ser numérico (SmallInt).");
+        } catch (Exception e) {
+        ra.addFlashAttribute("error", "Error insertando en CODCONT.DBF: " + e.getMessage());
+        }
+        return ResponseEntity.ok("Se realizó el registro correctamente");
     }
 
     @PostMapping(value = "/modificar-grupoc")
