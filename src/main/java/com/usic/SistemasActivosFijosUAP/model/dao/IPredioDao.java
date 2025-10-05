@@ -21,14 +21,17 @@ public interface IPredioDao extends JpaRepository<Predio, Long> {
 
     Optional<Predio> findByEntidadAndUnidadIgnoreCase(Entidad entidad, String unidad);
 
-    @Query("""
-              SELECT p FROM Predio p
+    @Query(value = """
+              SELECT p.*
+              FROM predio p
+              JOIN entidad e ON e.id_entidad = p.entidad_id
               WHERE (:q IS NULL OR
-                     LOWER(p.descrip) LIKE LOWER(CONCAT('%',:q,'%')) OR
-                     LOWER(p.unidad)  LIKE LOWER(CONCAT('%',:q,'%')) OR
-                     LOWER(p.ciudad)  LIKE LOWER(CONCAT('%',:q,'%')) OR
-                     LOWER(p.entidad.entidadCodigo) LIKE LOWER(CONCAT('%',:q,'%')))
-              ORDER BY p.descrip ASC
-            """)
+                     LOWER(CAST(p.descrip AS TEXT)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+                     LOWER(CAST(p.unidad  AS TEXT)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+                     LOWER(CAST(p.ciudad  AS TEXT)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+                     LOWER(CAST(e.entidad_codigo AS TEXT)) LIKE LOWER(CONCAT('%', :q, '%')))
+              ORDER BY CAST(p.descrip AS TEXT) ASC
+            """, nativeQuery = true)
     List<Predio> buscarPorQ(@Param("q") String q);
+
 }
