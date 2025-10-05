@@ -25,7 +25,7 @@ public class JavaDbfService {
     }
 
     /* PARA OBTENER LOS DBF DEL WINDOWS PADRE */
-    public List<GrupoContableDbf> listarCodcont(int limit, String filtroTexto) throws Exception {
+    public List<GrupoContableDbf> listarCodcontPage(int offset, int limit, String filtroTexto) throws Exception {
         Path file = baseDir.resolve("CODCONT.DBF");
         List<GrupoContableDbf> out = new ArrayList<>();
 
@@ -33,12 +33,10 @@ public class JavaDbfService {
                 DBFReader reader = new DBFReader(in)) {
 
             if (charset != null && !charset.isBlank()) {
-                reader.setCharset(Charset.forName(charset)); // ✅ sin deprecated
+                reader.setCharset(Charset.forName(charset));
             }
 
             int idxCODCONT = -1, idxNOMBRE = -1, idxVIDAUTIL = -1, idxDEPRECIAR = -1, idxACTUALIZAR = -1;
-
-            // ubicar columnas por nombre
             int n = reader.getFieldCount();
             for (int i = 0; i < n; i++) {
                 String name = reader.getField(i).getName().toUpperCase(Locale.ROOT);
@@ -51,20 +49,23 @@ public class JavaDbfService {
                 }
             }
 
-            Object[] row;
-            int count = 0;
             final String q = filtroTexto == null ? null : filtroTexto.toLowerCase(Locale.ROOT);
+            Object[] row;
+            int seen = 0, added = 0;
 
             while ((row = reader.nextRecord()) != null) {
-                Long cod = asLong(row, idxCODCONT);
                 String nom = asString(row, idxNOMBRE);
+                if (q != null && (nom == null || !nom.toLowerCase(Locale.ROOT).contains(q))) {
+                    continue;
+                }
+                // skip hasta alcanzar offset
+                if (seen++ < offset)
+                    continue;
+
+                Long cod = asLong(row, idxCODCONT);
                 Integer vida = asInt(row, idxVIDAUTIL);
                 Boolean dep = asBool(row, idxDEPRECIAR);
                 Boolean act = asBool(row, idxACTUALIZAR);
-
-                if (q != null && nom != null && !nom.toLowerCase(Locale.ROOT).contains(q)) {
-                    continue;
-                }
 
                 out.add(GrupoContableDbf.builder()
                         .codContable(cod)
@@ -72,10 +73,10 @@ public class JavaDbfService {
                         .vidaUtil(vida)
                         .depreciar(dep)
                         .actualizar(act)
-                        .idGrupoContable(cod) // usamos CODCONT como id
+                        .idGrupoContable(cod)
                         .build());
 
-                if (limit > 0 && ++count >= limit)
+                if (limit > 0 && ++added >= limit)
                     break;
             }
         }
@@ -145,5 +146,42 @@ public class JavaDbfService {
             return b;
         String s = r[idx].toString().trim();
         return "T".equalsIgnoreCase(s) || "Y".equalsIgnoreCase(s) || "1".equals(s);
+    }
+
+    public int countCodcont(String filtroTexto) throws Exception {
+        Path file = baseDir.resolve("CODCONT.DBF");
+        int count = 0;
+
+        try (InputStream in = Files.newInputStream(file);
+                DBFReader reader = new DBFReader(in)) {
+
+            if (charset != null && !charset.isBlank()) {
+                reader.setCharset(Charset.forName(charset));
+            }
+
+            // localizar índices que usaremos (solo NOMBRE para el filtro)
+            int idxNOMBRE = -1;
+            int n = reader.getFieldCount();
+            for (int i = 0; i < n; i++) {
+                String name = reader.getField(i).getName().toUpperCase(Locale.ROOT);
+                if ("NOMBRE".equals(name)) {
+                    idxNOMBRE = i;
+                }
+            }
+
+            final String q = filtroTexto == null ? null : filtroTexto.toLowerCase(Locale.ROOT);
+            Object[] row;
+
+            while ((row = reader.nextRecord()) != null) {
+                if (q != null) {
+                    String nom = asString(row, idxNOMBRE);
+                    if (nom == null || !nom.toLowerCase(Locale.ROOT).contains(q)) {
+                        continue; // no coincide con el filtro
+                    }
+                }
+                count++;
+            }
+        }
+        return count;
     }
 }

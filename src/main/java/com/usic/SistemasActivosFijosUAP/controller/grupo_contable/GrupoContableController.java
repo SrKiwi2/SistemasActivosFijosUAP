@@ -2,6 +2,7 @@ package com.usic.SistemasActivosFijosUAP.controller.grupo_contable;
 
 import java.io.File;
 import java.time.LocalDate;
+import java.util.ArrayList;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,7 +33,7 @@ public class GrupoContableController {
 
     private final IGrupoContableService grupoContableService;
     private final JavaDbfService dbfService;
-    
+
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
     public String inicioGrupoContable() {
@@ -42,46 +43,48 @@ public class GrupoContableController {
     // @ValidarUsuarioAutenticado
     // @PostMapping("/tabla-registros")
     // public String tablaRegistros(Model model) throws Exception {
-    //     List<GrupoContable> listasGrupoContable = grupoContableService.listarGruposContables();
-    //     List<String> encryptedIds = new ArrayList<>();
-    //     for (GrupoContable grupoContables : listasGrupoContable) {
-    //         String id_encryptado = Encriptar.encrypt(Long.toString(grupoContables.getIdGrupoContable()));
-    //         encryptedIds.add(id_encryptado);
-    //     }
-    //     model.addAttribute("listasGrupoContable", listasGrupoContable);
-    //     model.addAttribute("id_encryptado", encryptedIds);
-    //     return "grupoContable/tabla_registro";
+    // List<GrupoContable> listasGrupoContable =
+    // grupoContableService.listarGruposContables();
+    // List<String> encryptedIds = new ArrayList<>();
+    // for (GrupoContable grupoContables : listasGrupoContable) {
+    // String id_encryptado =
+    // Encriptar.encrypt(Long.toString(grupoContables.getIdGrupoContable()));
+    // encryptedIds.add(id_encryptado);
+    // }
+    // model.addAttribute("listasGrupoContable", listasGrupoContable);
+    // model.addAttribute("id_encryptado", encryptedIds);
+    // return "grupoContable/tabla_registro";
     // }
 
     @ValidarUsuarioAutenticado
-    @PostMapping("/tabla-registros")
-    public String tablaRegistros(@RequestParam(name="source", required=false) String source,
-                                @RequestParam(name="q", required=false) String q,
-                                Model model) throws Exception {
+    public String tablaRegistros(
+            @RequestParam(name = "source", required = false) String source,
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "25") int size,
+            Model model) throws Exception {
 
         if ("dbf".equalsIgnoreCase(source)) {
-        // Leer desde CODCONT.DBF
-        var listasGrupoContable = dbfService.listarCodcont(500, q); // limita 500 por UI
-        var encryptedIds = new java.util.ArrayList<String>();
-        for (var g : listasGrupoContable) {
-            String idEnc = Encriptar.encrypt(String.valueOf(g.getIdGrupoContable()));
-            encryptedIds.add(idEnc);
-        }
-        model.addAttribute("listasGrupoContable", listasGrupoContable);
-        model.addAttribute("id_encryptado", encryptedIds);
-        return "grupoContable/tabla_registro";
-        }
+            int offset = page * size;
+            var listasGrupoContable = dbfService.listarCodcontPage(offset, size, q);
+            // (Opcional) total para paginador: cómputo en otro método que cuenta
+            // coincidentes
+            int total = dbfService.countCodcont(q);
 
-        // Comportamiento original (Postgres)
-        var listasGrupoContable = grupoContableService.listarGruposContables();
-        var encryptedIds = new java.util.ArrayList<String>();
-        for (var g : listasGrupoContable) {
-        String idEnc = Encriptar.encrypt(Long.toString(g.getIdGrupoContable()));
-        encryptedIds.add(idEnc);
+            var encryptedIds = new ArrayList<String>();
+            for (var g : listasGrupoContable) {
+                encryptedIds.add(Encriptar.encrypt(String.valueOf(g.getIdGrupoContable())));
+            }
+
+            model.addAttribute("listasGrupoContable", listasGrupoContable);
+            model.addAttribute("id_encryptado", encryptedIds);
+            model.addAttribute("page", page);
+            model.addAttribute("size", size);
+            model.addAttribute("total", total);
+            return "grupoContable/tabla_registro";
         }
-        model.addAttribute("listasGrupoContable", listasGrupoContable);
-        model.addAttribute("id_encryptado", encryptedIds);
         return "grupoContable/tabla_registro";
+        // ... tu rama Postgres (también con paginación si quieres)
     }
 
     @ValidarUsuarioAutenticado
@@ -92,7 +95,8 @@ public class GrupoContableController {
 
     @ValidarUsuarioAutenticado
     @PostMapping("/formulario-edit/{id_grupo_contable}")
-    public String formularioEditGrupoContable(Model model, @PathVariable("id_grupo_contable") String idGrupoContable) throws Exception{
+    public String formularioEditGrupoContable(Model model, @PathVariable("id_grupo_contable") String idGrupoContable)
+            throws Exception {
         Long id = Long.parseLong(Encriptar.decrypt(idGrupoContable));
         model.addAttribute("grupoContable", grupoContableService.findById(id));
         model.addAttribute("edit", "true");
@@ -101,50 +105,52 @@ public class GrupoContableController {
 
     // @ValidarUsuarioAutenticado
     // @PostMapping("/registrar-grupoc")
-    // public ResponseEntity<String> registrarGrupoContable(HttpServletRequest request, @Validated GrupoContable grupoContable) {
-    //     if (grupoContableService.buscarPorNombre(grupoContable.getNombre()) == null) {
-    //         grupoContable.setEstado("ACTIVO");
-    //         grupoContableService.save(grupoContable);
-    //         return ResponseEntity.ok("Se realizó el registro correctamente");
-    //     } else {
-    //         return ResponseEntity.ok("Ya existe un rol con este nombre");
-    //     }
+    // public ResponseEntity<String> registrarGrupoContable(HttpServletRequest
+    // request, @Validated GrupoContable grupoContable) {
+    // if (grupoContableService.buscarPorNombre(grupoContable.getNombre()) == null)
+    // {
+    // grupoContable.setEstado("ACTIVO");
+    // grupoContableService.save(grupoContable);
+    // return ResponseEntity.ok("Se realizó el registro correctamente");
+    // } else {
+    // return ResponseEntity.ok("Ya existe un rol con este nombre");
+    // }
     // }
 
     /* para ahcer registros al archivo dbf de windows */
     @ValidarUsuarioAutenticado
     @PostMapping("/registrar-grupoc")
     public ResponseEntity<String> registrarGrupoContableBDF(GrupoContable grupoContable,
-                                        RedirectAttributes ra, HttpServletRequest request) {
+            RedirectAttributes ra, HttpServletRequest request) {
         try {
             Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-        // 1) Datos del formulario
-        String nombre = grupoContable.getNombre();
-        String codigoStr = String.valueOf(grupoContable.getCodContable()).trim();
+            // 1) Datos del formulario
+            String nombre = grupoContable.getNombre();
+            String codigoStr = String.valueOf(grupoContable.getCodContable()).trim();
 
-        if (nombre == null || nombre.isBlank() || codigoStr.isBlank()) {
-            ra.addFlashAttribute("error", "Nombre y Código son obligatorios.");
-            return ResponseEntity.ok("Ha ocurrido un error en el registro");
-        }
+            if (nombre == null || nombre.isBlank() || codigoStr.isBlank()) {
+                ra.addFlashAttribute("error", "Nombre y Código son obligatorios.");
+                return ResponseEntity.ok("Ha ocurrido un error en el registro");
+            }
 
-        short codcont = Short.parseShort(codigoStr);
+            short codcont = Short.parseShort(codigoStr);
 
-        // 2) Defaults (ajusta a tus reglas)
-        short vidautil   = 5;              // <-- cámbialo si tienes otra regla
-        String observ    = "";           // o "", como prefieras
-        boolean depreciar  = true;
-        boolean actualizar = true;
-        LocalDate feult  = LocalDate.now();
-        String usuar     = (usuario.getUsuario());
+            // 2) Defaults (ajusta a tus reglas)
+            short vidautil = 5; // <-- cámbialo si tienes otra regla
+            String observ = ""; // o "", como prefieras
+            boolean depreciar = true;
+            boolean actualizar = true;
+            LocalDate feult = LocalDate.now();
+            String usuar = (usuario.getUsuario());
 
-        // 3) Insertar en DBF
-        dbfService.insertCodcont(codcont, nombre, vidautil, observ, depreciar, actualizar, feult, usuar);
+            // 3) Insertar en DBF
+            dbfService.insertCodcont(codcont, nombre, vidautil, observ, depreciar, actualizar, feult, usuar);
 
-        ra.addFlashAttribute("ok", "Registrado en CODCONT.DBF: " + codcont + " - " + nombre);
+            ra.addFlashAttribute("ok", "Registrado en CODCONT.DBF: " + codcont + " - " + nombre);
         } catch (NumberFormatException nfe) {
-        ra.addFlashAttribute("error", "El código debe ser numérico (SmallInt).");
+            ra.addFlashAttribute("error", "El código debe ser numérico (SmallInt).");
         } catch (Exception e) {
-        ra.addFlashAttribute("error", "Error insertando en CODCONT.DBF: " + e.getMessage());
+            ra.addFlashAttribute("error", "Error insertando en CODCONT.DBF: " + e.getMessage());
         }
         return ResponseEntity.ok("Se realizó el registro correctamente");
     }
@@ -161,7 +167,8 @@ public class GrupoContableController {
 
     @ValidarUsuarioAutenticado
     @PostMapping("/eliminar/{id_grupo_contable}")
-    public ResponseEntity<String> eliminar(Model model, @PathVariable("id_grupo_contable") String idGrupoContable) throws Exception {
+    public ResponseEntity<String> eliminar(Model model, @PathVariable("id_grupo_contable") String idGrupoContable)
+            throws Exception {
         Long id = Long.parseLong(Encriptar.decrypt(idGrupoContable));
         GrupoContable grupoContable = grupoContableService.findById(id);
         grupoContable.setEstado("ELIMINADO");
