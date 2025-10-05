@@ -70,7 +70,7 @@ public class PredioController {
                 p.setCiudad(f.getCiudad());
                 p.setEstadoUni(f.getEstadoUni());
                 // Si tu AuditoriaConfig tiene 'estado', descomenta:
-                // p.setEstado("ACTIVO");
+                p.setEstado("ACTIVO");
 
                 listasPredios.add(p);
             }
