@@ -116,7 +116,7 @@ public class GrupoContableController {
     /* para ahcer registros al archivo dbf de windows */
     @ValidarUsuarioAutenticado
     @PostMapping("/registrar-grupoc")
-    public ResponseEntity<String> registrarGrupoContable(GrupoContable grupoContable,
+    public ResponseEntity<String> registrarGrupoContableBDF(GrupoContable grupoContable,
                                         RedirectAttributes ra,
                                         Principal principal) {
         try {
