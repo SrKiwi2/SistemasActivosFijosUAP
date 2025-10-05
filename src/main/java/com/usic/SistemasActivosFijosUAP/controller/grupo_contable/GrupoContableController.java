@@ -101,17 +101,17 @@ public class GrupoContableController {
         return "grupoContable/formulario";
     }
 
-    @ValidarUsuarioAutenticado
-    @PostMapping("/registrar-grupoc")
-    public ResponseEntity<String> registrarGrupoContable(HttpServletRequest request, @Validated GrupoContable grupoContable) {
-        if (grupoContableService.buscarPorNombre(grupoContable.getNombre()) == null) {
-            grupoContable.setEstado("ACTIVO");
-            grupoContableService.save(grupoContable);
-            return ResponseEntity.ok("Se realizó el registro correctamente");
-        } else {
-            return ResponseEntity.ok("Ya existe un rol con este nombre");
-        }
-    }
+    // @ValidarUsuarioAutenticado
+    // @PostMapping("/registrar-grupoc")
+    // public ResponseEntity<String> registrarGrupoContable(HttpServletRequest request, @Validated GrupoContable grupoContable) {
+    //     if (grupoContableService.buscarPorNombre(grupoContable.getNombre()) == null) {
+    //         grupoContable.setEstado("ACTIVO");
+    //         grupoContableService.save(grupoContable);
+    //         return ResponseEntity.ok("Se realizó el registro correctamente");
+    //     } else {
+    //         return ResponseEntity.ok("Ya existe un rol con este nombre");
+    //     }
+    // }
 
     /* para ahcer registros al archivo dbf de windows */
     @ValidarUsuarioAutenticado

@@ -138,7 +138,7 @@
 			<artifactId>spring-jdbc</artifactId>
 		</dependency>
 
-				<dependency>
+		<dependency>
 			<groupId>com.hxtt</groupId>
 			<artifactId>hxtt-dbf</artifactId>
 			<version>1.0</version>
