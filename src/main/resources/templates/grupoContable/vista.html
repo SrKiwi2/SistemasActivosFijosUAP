@@ -47,21 +47,4 @@
     function eliminar(nombre, id) {
         eliminarRegistroAlert(nombre, id, "/administracion/grupoc/eliminar", cargarTabla);
     }
-
-    document.getElementById('btnSync').addEventListener('click', function () {
-
-        $.ajax({
-            type: 'POST',
-            url: '/administracion/grupoc/sync-from-mounted',
-            success: function (res) {
-                Swal.fire('Listo', `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}`, 'success');
-                cargarTabla(); // refresca tu tabla
-            },
-            error: function (xhr) {
-                const msg = xhr.responseJSON?.message || 'Error al sincronizar';
-                Swal.fire('Error', msg, 'error');
-            }
-        });
-    });
-
 </script>
