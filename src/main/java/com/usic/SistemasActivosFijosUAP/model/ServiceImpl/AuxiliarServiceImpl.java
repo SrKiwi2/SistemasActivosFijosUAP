@@ -18,7 +18,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-public class AuxiliarServiceImpl implements IAuxiliarService{
+public class AuxiliarServiceImpl implements IAuxiliarService {
 
     private final IAuxiliarDao dao;
 
@@ -56,21 +56,20 @@ public class AuxiliarServiceImpl implements IAuxiliarService{
     public List<Auxiliar> saveAll(List<Auxiliar> list) {
         return dao.saveAll(list);
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public Page<AuxOption> searchByGrupo(Long grupoId, Long predioId, String term, Pageable pageable) {
         return dao.searchByGrupo(
-            grupoId,
-            predioId,
-            term == null ? "" : term.trim(),
-            pageable
-        );
+                grupoId,
+                predioId,
+                term == null ? "" : term.trim(),
+                pageable);
     }
 
     @Override
     public List<Auxiliar> buscarPorQ(String q) {
-        return (q==null||q.isBlank())? dao.listarTodo() : dao.buscarPorQ(q.trim());
+        return (q == null || q.isBlank()) ? dao.listarTodo() : dao.buscarPorQ(q.trim());
     }
 
     @Override
@@ -79,7 +78,8 @@ public class AuxiliarServiceImpl implements IAuxiliarService{
     }
 
     @Transactional(readOnly = true)
-    public Optional<Auxiliar> findByPredioIdAndGrupoContableIdAndCodAux(Long predioId, Long grupoId, Short codAux) {
-        return dao.findByPredioIdAndGrupoContableIdAndCodAux(predioId, grupoId, codAux);
+    public Optional<Auxiliar> findByPredio_IdPredioAndGrupoContable_IdGrupoContableAndCodAux(
+            Long predioId, Long grupoId, Short codAux) {
+        return dao.findByPredio_IdPredioAndGrupoContable_IdGrupoContableAndCodAux(predioId, grupoId, codAux);
     }
 }

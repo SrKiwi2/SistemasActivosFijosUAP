@@ -18,7 +18,8 @@ public interface IAuxiliarService extends IServiceGenerico<Auxiliar, Long> {
 
     Optional<Auxiliar> findByPredioAndCodAux(Predio predio, Short codAux);
 
-    Optional<Auxiliar> findByPredioIdAndGrupoContableIdAndCodAux(Long predioId, Long grupoId, Short codAux);
+    Optional<Auxiliar> findByPredio_IdPredioAndGrupoContable_IdGrupoContableAndCodAux(
+            Long predioId, Long grupoId, Short codAux);
 
     Optional<Auxiliar> findFirstByPredioAndNombreIgnoreCase(Predio predio, String nombre);
 
@@ -26,7 +27,7 @@ public interface IAuxiliarService extends IServiceGenerico<Auxiliar, Long> {
             @Param("predioId") Long predioId,
             @Param("term") String term,
             Pageable pageable);
-    
+
     List<Auxiliar> buscarPorQ(@Param("q") String q);
 
     List<Auxiliar> listarTodo();

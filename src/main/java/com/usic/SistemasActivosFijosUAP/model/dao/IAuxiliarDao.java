@@ -16,25 +16,12 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
     Optional<Auxiliar> findByPredioAndCodAux(Predio predio, Short codAux);
 
-    Optional<Auxiliar> findByPredioIdAndGrupoContableIdAndCodAux(Long predioId, Long grupoId, Short codAux);
+    Optional<Auxiliar> findByPredio_IdPredioAndGrupoContable_IdGrupoContableAndCodAux(
+            Long predioId,
+            Long grupoId,
+            Short codAux);
 
     Optional<Auxiliar> findFirstByPredioAndNombreIgnoreCase(Predio predio, String nombre);
-
-    // @Query("""
-    // select a.idAuxiliar as id,
-    // concat(a.codAux, ' - ', a.nombre) as text
-    // from Auxiliar a
-    // where a.grupoContable.idGrupoContable = :grupoId
-    // and (
-    // :term = '' or
-    // lower(a.nombre) like lower(concat('%', :term, '%')) or
-    // concat('', a.codAux) like concat('%', :term, '%')
-    // )
-    // order by a.codAux, a.nombre
-    // """)
-    // Page<AuxOption> searchByGrupo(@Param("grupoId") Long grupoId,
-    // @Param("term") String term,
-    // Pageable pageable);
 
     @Query("""
             select a.idAuxiliar as id,

@@ -241,7 +241,7 @@ public class AuxiliarController {
 
                 // Busca por IDs (evita líos de proxies)
                 Auxiliar aux = auxiliarService
-                        .findByPredioIdAndGrupoContableIdAndCodAux(predio.getIdPredio(), grupo.getIdGrupoContable(),
+                        .findByPredio_IdPredioAndGrupoContable_IdGrupoContableAndCodAux(predio.getIdPredio(), grupo.getIdGrupoContable(),
                                 f.getCodAux())
                         .orElse(null);
 
