@@ -14,6 +14,12 @@
 
     });
 
+    function initDataTable() {
+        const $tbl = $('#data-table');
+        if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
+        $tbl.DataTable({ language: {/* tu traducción */ } });
+    }
+
     // function cargarTabla() {
     //     showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
     //     $.ajax({
@@ -36,7 +42,7 @@
     //     });
     // }
 
-        function cargarTabla(q) {
+    function cargarTabla(q) {
         showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
 
         $.ajax({
@@ -57,6 +63,6 @@
     }
 
     function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/oficina/eliminar",cargarTabla);
+        eliminarRegistroAlert(nombre, id, "/administracion/oficina/eliminar", cargarTabla);
     }
 </script>
