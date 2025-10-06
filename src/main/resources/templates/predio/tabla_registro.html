@@ -76,7 +76,11 @@
             type: 'POST',
             url: "/administracion/predio/sync-from-mounted",
             success: function (res) {
-                Swal.fire('Importación completa', `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}`, 'success');
+                  Swal.fire(
+                        'Importación completa',
+                        `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}<br>Sin entidad en BD: ${res.sinEntidadEnBD}`,
+                        'success'
+                    );
                 cargarTabla();
             },
             error: function (xhr) {
