@@ -81,7 +81,7 @@
                         `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}<br>Sin entidad en BD: ${res.sinEntidadEnBD}`,
                         'success'
                     );
-                cargarTabla();
+                cargarTabla();  
             },
             error: function (xhr) {
                 const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;

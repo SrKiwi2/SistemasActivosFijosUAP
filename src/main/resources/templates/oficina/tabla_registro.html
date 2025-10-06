@@ -1,11 +1,11 @@
 <div class="card">
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Oficina</h5>
-          <small class="text-muted" th:if="${sourceUsed=='dbf'}">(fuente: DBF)</small>
-  <small class="text-muted" th:if="${sourceUsed=='db'}">(fuente: BD)</small>
+        <small class="text-muted" th:if="${sourceUsed=='dbf'}">(fuente: DBF)</small>
+        <small class="text-muted" th:if="${sourceUsed=='db'}">(fuente: BD)</small>
         <div class="d-flex gap-2">
-            <button id="btnSyncOficina" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
-              <i class="fa-solid fa-file-import me-1"></i> Importar DBF
+            <button id="btnSyncOficina" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-file-import me-1"></i> Importar desde DBF montado
             </button>
             <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
                 data-bs-target="#modalFormularioOficina">
@@ -32,7 +32,7 @@
                     <th><input type="text" placeholder="Buscar predio" class="form-control form-control-sm" /></th>
                     <th></th>
                 </tr>
-                
+
             </thead>
             <tbody class="animate__animated animate__bounceInDown">
                 <tr th:each="oficina, index: ${listasOficinas}">
@@ -47,7 +47,8 @@
                             data-bs-toggle="modal" data-bs-target="#modalFormularioOficina">
                             <i class="fa-solid fa-pen-to-square"></i> Editar
                         </button>
-                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${oficina.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
+                        <button type="button" class="btn btn-sm btn-danger"
+                            th:onclick="eliminar([[${oficina.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
                             <i class="fa-solid fa-trash"></i> Eliminar
                         </button>
                     </th>
@@ -58,48 +59,18 @@
 </div>
 
 <script>
-    $(document).ready(function () {
-        const table = $('#data-table').DataTable({
-            language: {
-                "sProcessing": "Procesando...",
-                "sLengthMenu": "Mostrar _MENU_ registros",
-                "sZeroRecords": "No se encontraron resultados",
-                "sInfo": "Mostrando del _START_ al _END_ de _TOTAL_ registros",
-                "sInfoEmpty": "Mostrando 0 de 0 registros",
-                "sInfoFiltered": "(filtrado de _MAX_ registros)",
-                "sSearch": "Buscar general:",
-                "sLoadingRecords": "Cargando...",
-                "oPaginate": {
-                    "sFirst": "Primero",
-                    "sLast": "Último",
-                    "sNext": "Siguiente",
-                    "sPrevious": "Anterior"
-                }
+    $(document).on('click', '#btnSyncOficina', function () {
+        $.ajax({
+            type: 'POST',
+            url: "/administracion/oficina/sync-from-mounted",
+            success: function (res) {
+                Swal.fire('Listo', `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}<br>Sin entidad: ${res.sinEntidad}<br>Sin predio: ${res.sinPredio}`, 'success');
+                cargarTabla();
             },
-            initComplete: function () {
-                this.api().columns([1, 2, 3, 4]).every(function () {
-                    var column = this;
-                    $('input', this.header()).on('keyup change clear', function () {
-                        if (column.search() !== this.value) {
-                            column.search(this.value).draw();
-                        }
-                    });
-                });
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
+                Swal.fire('Error', msg, 'error');
             }
         });
     });
-    $(document).on('click', '#btnSyncOficina', function () {
-    $.ajax({
-      type: 'POST',
-      url: "/administracion/oficina/sync-from-mounted",
-      success: function (res) {
-        Swal.fire('Listo', `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}<br>Sin entidad: ${res.sinEntidad}<br>Sin predio: ${res.sinPredio}`, 'success');
-        cargarTabla();
-      },
-      error: function (xhr) {
-        const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
-        Swal.fire('Error', msg, 'error');
-      }
-    });
-  });
 </script>

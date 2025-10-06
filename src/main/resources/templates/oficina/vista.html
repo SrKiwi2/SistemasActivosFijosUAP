@@ -17,30 +17,34 @@
     function initDataTable() {
         const $tbl = $('#data-table');
         if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
-        $tbl.DataTable({ language: {/* tu traducción */ } });
-    }
+        // Inicializa
+        const table = $tbl.DataTable({
+            destroy: true,           // cinturón y tirantes
+            orderCellsTop: true,     // 2 filas de thead (filtros en la 2ª)
+            language: {
+                sProcessing: "Procesando...",
+                sLengthMenu: "Mostrar _MENU_ registros",
+                sZeroRecords: "No se encontraron resultados",
+                sInfo: "Mostrando del _START_ al _END_ de _TOTAL_ registros",
+                sInfoEmpty: "Mostrando 0 de 0 registros",
+                sInfoFiltered: "(filtrado de _MAX_ registros)",
+                sSearch: "Buscar general:",
+                sLoadingRecords: "Cargando...",
+                oPaginate: { sFirst: "Primero", sLast: "Último", sNext: "Siguiente", sPrevious: "Anterior" }
+            }
+        });
 
-    // function cargarTabla() {
-    //     showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
-    //     $.ajax({
-    //         type: 'POST',
-    //         url: "/administracion/oficina/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
-    //         success: function (response) {
-    //             $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
-    //         },
-    //         error:function(){
-    //         $("#tablaRegistro").html(`
-    //             <div class="alert alert-danger m-3">
-    //             Ocurrió un error al cargar la tabla.
-    //             <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
-    //             </div>
-    //         `);
-    //         },
-    //         complete:function(){
-    //         hideGlobalLoader();
-    //         }
-    //     });
-    // }
+        // (Re)conecta los inputs del 2º thead a las columnas 1..4
+        $tbl.find('thead tr:eq(1) th').each(function (i) {
+            const $input = $('input', this);
+            $input.off('.dt'); // evita duplicar handlers
+            $input.on('keyup.dt change.dt', function () {
+                if (table.column(i).search() !== this.value) {
+                    table.column(i).search(this.value).draw();
+                }
+            });
+        });
+    }
 
     function cargarTabla(q) {
         showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
