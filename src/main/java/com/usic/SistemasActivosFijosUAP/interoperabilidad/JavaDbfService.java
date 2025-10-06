@@ -14,6 +14,7 @@ import com.linuxense.javadbf.DBFReader;
 import com.linuxense.javadbf.DBFWriter;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.EntidadDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.GrupoContableDbf;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.OficinaDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.UnidadAdminDbf;
 
 public class JavaDbfService {
@@ -192,6 +193,77 @@ public class JavaDbfService {
                         .ciudad(ciudad)
                         .estadoUni(estado)
                         .build());
+            }
+        }
+        return out;
+    }
+
+    /* === LECTOR DE OFICINA DESDE DF WINDOWS */
+    public List<OficinaDbf> listarOficinaAll(String q) throws Exception {
+        Path file = baseDir.resolve("OFICINA.DBF"); // ojo al nombre real/case
+        List<OficinaDbf> out = new ArrayList<>();
+
+        try (InputStream in = Files.newInputStream(file);
+            DBFReader reader = new DBFReader(in)) {
+
+            if (charset != null && !charset.isBlank()) {
+                reader.setCharset(Charset.forName(charset));
+            }
+
+            int idxENT=-1, idxUNI=-1, idxCODO=-1, idxNOM=-1, idxOBS=-1, idxFEU=-1, idxUSR=-1, idxAPI=-1;
+            int n = reader.getFieldCount();
+            for (int i=0;i<n;i++) {
+                String name = reader.getField(i).getName().toUpperCase(Locale.ROOT);
+                switch (name) {
+                    case "ENTIDAD"    -> idxENT=i;
+                    case "UNIDAD"     -> idxUNI=i;
+                    case "CODOFIC"    -> idxCODO=i;
+                    case "NOMOFIC"    -> idxNOM=i;
+                    case "OBSERV"     -> idxOBS=i;
+                    case "FEULT"      -> idxFEU=i;
+                    case "USUAR"      -> idxUSR=i;
+                    case "API_ESTADO" -> idxAPI=i;
+                }
+            }
+
+            final String ql = (q==null? null : q.toLowerCase(Locale.ROOT));
+            Object[] row;
+            while ((row = reader.nextRecord()) != null) {
+                String entidad = asString(row, idxENT);
+                String unidad  = asString(row, idxUNI);
+                Integer codi   = asInt(row, idxCODO);
+                String nom     = asString(row, idxNOM);
+                String observ  = asString(row, idxOBS); // si el lib entrega "(Memo)", la limpiamos abajo
+                LocalDate feul = null;
+                java.sql.Date d = (idxFEU>=0 && row[idxFEU] instanceof java.util.Date dd) ? new java.sql.Date(dd.getTime()) : null;
+                if (d != null) feul = d.toLocalDate();
+                String usuario = asString(row, idxUSR);
+                Short api      = asInt(row, idxAPI)==null? null : asInt(row, idxAPI).shortValue();
+
+                if (ql != null) {
+                    String hay = ( (entidad==null?"":entidad) + " " + (unidad==null?"":unidad) + " " +
+                                (nom==null?"":nom) + " " + (usuario==null?"":usuario) + " " +
+                                (observ==null?"":observ) ).toLowerCase(Locale.ROOT);
+                    if (!hay.contains(ql)) continue;
+                }
+
+                if (entidad==null || entidad.isBlank() || unidad==null || unidad.isBlank() || codi==null) {
+                    continue; // claves incompletas
+                }
+
+                // limpia literal "(memo)"
+                if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) observ = null;
+
+                out.add(OficinaDbf.builder()
+                    .entidadCodigo(entidad)
+                    .unidad(unidad)
+                    .codOfi(codi.shortValue())
+                    .nomOfic(nom)
+                    .observ(observ)
+                    .feult(feul)
+                    .usuario(usuario)
+                    .apiEstado(api)
+                    .build());
             }
         }
         return out;

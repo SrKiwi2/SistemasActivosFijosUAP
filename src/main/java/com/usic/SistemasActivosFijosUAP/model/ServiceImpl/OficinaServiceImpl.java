@@ -109,4 +109,10 @@ public class OficinaServiceImpl implements IOficinaService{
     public Optional<Oficina> findByUnidadAndCodOfi(String unidad, Short codOfi) {
         return dao.findByUnidadAndCodOfi(unidad, codOfi);
     }
+
+    @Override
+    public List<Oficina> buscarPorQ(String q) {
+                if (q==null || q.isBlank()) return dao.listarOficinas();
+        return dao.buscarPorQ(q.trim());
+    }
 }

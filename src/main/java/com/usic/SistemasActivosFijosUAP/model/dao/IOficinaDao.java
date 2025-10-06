@@ -10,7 +10,7 @@ import org.springframework.data.repository.query.Param;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
-public interface IOficinaDao extends JpaRepository<Oficina, Long>{
+public interface IOficinaDao extends JpaRepository<Oficina, Long> {
     @Query("SELECT o FROM Oficina o WHERE LOWER(o.nombre) = LOWER(?1) AND o.estado = 'ACTIVO'")
     Optional<Oficina> buscarPorNombre(String nombre);
 
@@ -38,12 +38,23 @@ public interface IOficinaDao extends JpaRepository<Oficina, Long>{
     /* PARA PILLAR OFICINA CON UNIDAD Y CODOFIC */
 
     @Query("""
-    select o
-    from Oficina o
-    join o.predio p
-    where upper(trim(p.unidad)) = upper(trim(:unidad))
-        and o.codOfi = :codOfi
-    """)
+            select o
+            from Oficina o
+            join o.predio p
+            where upper(trim(p.unidad)) = upper(trim(:unidad))
+                and o.codOfi = :codOfi
+            """)
     Optional<Oficina> findByUnidadAndCodOfi(@Param("unidad") String unidad,
-                                            @Param("codOfi") Short codOfi);
+            @Param("codOfi") Short codOfi);
+
+    @Query("""
+              SELECT o FROM Oficina o
+              WHERE (:q IS NULL OR
+                     LOWER(o.nombre) LIKE LOWER(CONCAT('%',:q,'%')) OR
+                     LOWER(o.usuario) LIKE LOWER(CONCAT('%',:q,'%')) OR
+                     LOWER(o.predio.unidad) LIKE LOWER(CONCAT('%',:q,'%')) OR
+                     LOWER(o.predio.entidad.entidadCodigo) LIKE LOWER(CONCAT('%',:q,'%')))
+              ORDER BY o.nombre ASC
+            """)
+    List<Oficina> buscarPorQ(@Param("q") String q);
 }

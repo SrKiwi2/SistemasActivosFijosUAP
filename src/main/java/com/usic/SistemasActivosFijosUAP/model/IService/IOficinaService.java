@@ -24,4 +24,5 @@ public interface IOficinaService extends IServiceGenerico<Oficina, Long>{
     Optional<Oficina> findByUnidadAndCodOfi(@Param("unidad") String unidad,
                                             @Param("codOfi") Short codOfi);
 
+    List<Oficina> buscarPorQ(@Param("q") String q);
 }
