@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Date;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -16,6 +17,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.AuxiliarDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.EntidadDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.GrupoContableDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.OficinaDbf;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ResponsableDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.UnidadAdminDbf;
 
 public class JavaDbfService {
@@ -354,6 +356,94 @@ public class JavaDbfService {
         return out;
     }
 
+    // === LECTURA DBF RESP.BDF WINDOWS
+    public List<ResponsableDbf> listarResponsableAll(String q) throws Exception {
+        // Cambia si tu archivo se llama distinto:
+        Path file = baseDir.resolve("RESP.DBF");
+        List<ResponsableDbf> out = new ArrayList<>();
+
+        try (InputStream in = Files.newInputStream(file);
+                DBFReader reader = new DBFReader(in)) {
+
+            if (charset != null && !charset.isBlank()) {
+                reader.setCharset(Charset.forName(charset));
+            }
+
+            int iENT = -1, iUNI = -1, iCODOF = -1, iCODR = -1, iNOM = -1, iCARGO = -1, iOBS = -1, iCI = -1, iFE = -1,
+                    iUSU = -1, iCODEXP = -1, iAPI = -1;
+
+            int n = reader.getFieldCount();
+            for (int i = 0; i < n; i++) {
+                String name = reader.getField(i).getName().toUpperCase(Locale.ROOT);
+                switch (name) {
+                    case "ENTIDAD" -> iENT = i;
+                    case "UNIDAD" -> iUNI = i;
+                    case "CODOFIC", "CODOFI", "COD_OFI" -> iCODOF = i;
+                    case "CODRESP", "COD_RESP" -> iCODR = i;
+                    case "NOMRESP", "NOMBRE", "RESP" -> iNOM = i;
+                    case "CARGO" -> iCARGO = i;
+                    case "OBSERV", "OBS" -> iOBS = i;
+                    case "CI", "CEDULA" -> iCI = i;
+                    case "FEULT", "FECHA", "F_ULT" -> iFE = i;
+                    case "USUAR", "USUARIO" -> iUSU = i;
+                    case "COD_EXP", "CODEXP" -> iCODEXP = i;
+                    case "API_ESTADO", "APIESTADO" -> iAPI = i;
+                }
+            }
+
+            final String ql = (q == null ? null : q.toLowerCase(Locale.ROOT));
+            Object[] row;
+            while ((row = reader.nextRecord()) != null) {
+                String ent = asString(row, iENT);
+                String uni = asString(row, iUNI);
+                Short codOf = asInt(row, iCODOF) == null ? null : asInt(row, iCODOF).shortValue();
+                // codResp en DBF es numérico; guárdalo como texto o como short. Aquí lo guardo
+                // TEXT (más flexible):
+                Short codR = asInt(row, iCODR) == null ? null : asInt(row, iCODR).shortValue();
+                String nom = asString(row, iNOM);
+                String car = asString(row, iCARGO);
+                String obs = asString(row, iOBS);
+                String ci = asString(row, iCI);
+                LocalDate fe = asDate(row, iFE);
+                String usu = asString(row, iUSU);
+                Short cexp = asInt(row, iCODEXP) == null ? null : asInt(row, iCODEXP).shortValue();
+                Short api = asInt(row, iAPI) == null ? null : asInt(row, iAPI).shortValue();
+
+                if (ql != null) {
+                    String hay = (String.join(" ",
+                            ent == null ? "" : ent, uni == null ? "" : uni, String.valueOf(codOf == null ? "" : codOf),
+                            String.valueOf(codR == null ? "" : codR), nom == null ? "" : nom, car == null ? "" : car,
+                            ci == null ? "" : ci)).toLowerCase(Locale.ROOT);
+                    if (!hay.contains(ql))
+                        continue;
+                }
+
+                if (isBlank(ent) || isBlank(uni) || codOf == null)
+                    continue; // claves mínimas
+
+                // Normaliza OBS "(memo)"
+                if (obs != null && "(memo)".equalsIgnoreCase(obs.trim()))
+                    obs = null;
+
+                out.add(ResponsableDbf.builder()
+                        .entidadCodigo(ent)
+                        .unidad(uni)
+                        .codOfi(codOf)
+                        .codResp(codR == null ? null : String.valueOf(codR))
+                        .nombre(nom)
+                        .cargo(car)
+                        .observ(obs)
+                        .ci(ci)
+                        .fechaUlt(fe)
+                        .usuario(usu)
+                        .codExp(cexp)
+                        .apiEstado(api)
+                        .build());
+            }
+        }
+        return out;
+    }
+
     /** Inserta un registro en CODCONT.DBF haciendo append. */
     public void insertCodcont(
             short codcont, String nombre, short vidautil,
@@ -386,6 +476,18 @@ public class JavaDbfService {
                 // writer.close() se llama automáticamente por try-with-resources
             }
         }
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
+    }
+
+    private LocalDate asDate(Object[] r, int idx) {
+        if (idx < 0 || r[idx] == null)
+            return null;
+        if (r[idx] instanceof java.util.Date d)
+            return d.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        return null;
     }
 
     private Long asLong(Object[] r, int idx) {

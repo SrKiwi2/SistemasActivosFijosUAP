@@ -3,19 +3,19 @@
 <div class="card">
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Responsable</h5>
+        <h5>Registro Responsable <small id="badgeSource" class="text-muted ms-2"></small></h5>
         <div class="d-flex gap-2">
             <label for="filtroOficina" class="mb-0 fw-semibold">Filtrar por oficina:</label>
             <div class="d-flex align-items-center gap-2">
                 <select id="filtroOficina" class="form-select form-select" style="min-width:260px">
                     <option value="">Todas</option>
-                    <option th:each="o : ${oficinas}"
-                            th:value="${o.idOficina}"
-                            th:text="${o.predio.unidad + ' - ' + o.codOfi + ' (' + o.predio.entidad.sigla + ')'}">
+                    <option th:each="o : ${oficinas}" th:value="${o.idOficina}"
+                        th:text="${o.predio.unidad + ' - ' + o.codOfi + ' (' + o.predio.entidad.sigla + ')'}">
                     </option>
                 </select>
             </div>
-            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
-              <i class="fa-solid fa-file-import me-1"></i> Importar DBF
+            <button id="btnSyncResp" type="button" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-file-import me-1"></i> Importar desde DBF montado
             </button>
             <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
                 data-bs-target="#modalFormularioResponsable">
@@ -48,51 +48,6 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalImportDbf" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <form id="formImportDbf" class="modal-content" enctype="multipart/form-data" autocomplete="off">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fa-solid fa-file-import me-2"></i>Importar Responsable desde DBF</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Archivo .dbf</label>
-                    <input type="file" class="form-control" name="file" accept=".dbf" required />
-                    <div class="form-text">Selecciona el archivo <b>RESP.dbf</b> u otro con la misma estructura.
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Codificación (charset)</label>
-                    <select class="form-select" name="charset">
-                        <option value="windows-1252" selected>Windows-1252 (recomendado)</option>
-                        <option value="ISO-8859-1">ISO-8859-1</option>
-                        <option value="UTF-8">UTF-8</option>
-                    </select>
-                    <div class="form-text">Si ves caracteres raros, prueba ISO-8859-1 o UTF-8.</div>
-                </div>
-
-                <div id="importProgress" class="d-none">
-                    <div class="alert alert-info py-2">
-                        <i class="fa-solid fa-spinner fa-spin me-2"></i> Importando… por favor espera.
-                    </div>
-                </div>
-
-                <div id="importResult" class="d-none"></div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fa-solid fa-play me-1"></i> Iniciar importación
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <script>
     $(function () {
         $('#filtroOficina').select2({
@@ -101,45 +56,56 @@
             width: 'resolve',    // usa el width del elemento
             language: 'es'
         });
-        
+
+        $('#data-table').on('xhr.dt', function (e, settings, json) {
+            if (json && json.source) {
+                const src = json.source.toUpperCase();
+                // Puedes ponerlo en el título, o en algún span que crees:
+                $('#badgeSource').text(src === 'DBF' ? '(fuente: DBF)' : '(fuente: BD)');
+            }
+        });
+
         const $tbl = $('#data-table');
 
         // Loader global
         showGlobalLoader({ texto: 'Cargando...' });
-        $tbl.on('preXhr.dt', function () {showGlobalLoader({ texto: 'Cargando...' }); });
-        $tbl.on('xhr.dt', function () {hideGlobalLoader(); });
+        $tbl.on('preXhr.dt', function () { showGlobalLoader({ texto: 'Cargando...' }); });
+        $tbl.on('xhr.dt', function () { hideGlobalLoader(); });
 
         const tbl = $tbl.DataTable({
             processing: false,
             serverSide: true,
             deferRender: true,
             pageLength: 10,
-            lengthMenu: [10,25,50,100],
-            ajax: { 
-                url: '/administracion/responsable/api/datatables', 
+            lengthMenu: [10, 25, 50, 100],
+            ajax: {
+                url: '/administracion/responsable/api/datatables',
                 type: 'POST',
-                data: function (d) { 
+                data: function (d) {
                     const v = $('#filtroOficina').val();
                     if (v && v !== '') {
-                    d.oficinaId = v;      // nombre que espera el controller
+                        d.oficinaId = v;      // nombre que espera el controller
                     } else {
-                    // Importante: no enviar el parámetro vacío
-                    if ('oficinaId' in d) delete d.oficinaId;
+                        // Importante: no enviar el parámetro vacío
+                        if ('oficinaId' in d) delete d.oficinaId;
                     }
-                } 
+                }
             },
             columns: [
-            { data: null, orderable:false, searchable:false,
-                render:(d,t,r,m)=> m.row + m.settings._iDisplayStart + 1 },
-            { data: 'codFun'  },
-            { data: 'nombre'  },
-            { data: 'paterno' },
-            { data: 'materno' },
-            { data: 'ci'      },
-            { data: 'oficina' },
-            { data: 'cargo'   },
-            { data: 'idEnc', orderable:false, searchable:false,
-                render:(idEnc)=> `
+                {
+                    data: null, orderable: false, searchable: false,
+                    render: (d, t, r, m) => m.row + m.settings._iDisplayStart + 1
+                },
+                { data: 'codFun' },
+                { data: 'nombre' },
+                { data: 'paterno' },
+                { data: 'materno' },
+                { data: 'ci' },
+                { data: 'oficina' },
+                { data: 'cargo' },
+                {
+                    data: 'idEnc', orderable: false, searchable: false,
+                    render: (idEnc) => `
                 <div class="btn-group btn-group-sm">
                     <button class="btn btn-danger" onclick="eliminar('RESPONSABLE','${idEnc}')">
                     <i class="fa-solid fa-trash"></i> Eliminar
@@ -147,119 +113,55 @@
                 </div>` }
             ],
             language: {
-            sProcessing:"Procesando...", sLengthMenu:"Mostrar _MENU_",
-            sZeroRecords:"No se encontraron resultados",
-            sInfo:"Mostrando _START_ a _END_ de _TOTAL_",
-            sInfoEmpty:"Mostrando 0 a 0 de 0", sInfoFiltered:"(filtrado de _MAX_)",
-            sSearch:"Buscar:", oPaginate:{ sFirst:"Primero", sLast:"Último", sNext:"Siguiente", sPrevious:"Anterior" }
+                sProcessing: "Procesando...", sLengthMenu: "Mostrar _MENU_",
+                sZeroRecords: "No se encontraron resultados",
+                sInfo: "Mostrando _START_ a _END_ de _TOTAL_",
+                sInfoEmpty: "Mostrando 0 a 0 de 0", sInfoFiltered: "(filtrado de _MAX_)",
+                sSearch: "Buscar:", oPaginate: { sFirst: "Primero", sLast: "Último", sNext: "Siguiente", sPrevious: "Anterior" }
             }
         });
 
         // Debounce buscador
-        let t; $('#data-table_filter input').off().on('input', function(){
-            clearTimeout(t); const v=this.value; t=setTimeout(()=> tbl.search(v).draw(), 250);
+        let t; $('#data-table_filter input').off().on('input', function () {
+            clearTimeout(t); const v = this.value; t = setTimeout(() => tbl.search(v).draw(), 250);
         });
 
-        $('#filtroOficina').on('change', function(){
+        $('#filtroOficina').on('change', function () {
             tbl.ajax.reload(null, true); // respeta la página actual
             // Si prefieres ir siempre a la página 1: tbl.ajax.reload(null, true);
+        });
+
+        $(document).on('click', '#btnSyncResp', function () {
+            const oficinaId = $('#filtroOficina').val() || '';
+            showGlobalLoader({ texto: 'Sincronizando...' });
+            $.ajax({
+                type: 'POST',
+                url: '/administracion/responsable/sync-from-mounted' + (oficinaId ? ('?oficinaId=' + encodeURIComponent(oficinaId)) : ''),
+                success: function (res) {
+                    Swal.fire('Importación completa',
+                        `Leídas: ${res.totalLeidas}<br>
+             Insertados: ${res.insertados}<br>
+             Actualizados: ${res.actualizados}<br>
+             Sin oficina: ${res.sinOficina}<br>
+             Personas nuevas: ${res.personasCreadas}<br>
+             Cargos creados: ${res.cargosCreados}`,
+                        'success');
+                    $('#data-table').DataTable().ajax.reload(null, false);
+                },
+                error: function (xhr) {
+                    const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
+                    Swal.fire('Error', msg, 'error');
+                },
+                complete: hideGlobalLoader
+            });
         });
     });
 
     function cargarFormulario() {
-        cargarFormularioAlert("/administracion/responsable/formulario", "#contenidoModalResponsbale", "#formularioResponsable", cargarTabla);
+        cargarFormularioAlert("/administracion/responsable/formulario", "#contenidoModalResponsbale", "#formularioResponsable", () => $('#data-table').DataTable().ajax.reload(null, false));
     }
 
     function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/responsable/eliminar",cargarTabla);
+        eliminarRegistroAlert(nombre, id, "/administracion/responsable/eliminar", () => $('#data-table').DataTable().ajax.reload(null, false));
     }
-
-    (function () {
-        const form = document.getElementById('formImportDbf');
-        const progressBox = document.getElementById('importProgress');
-        const resultBox = document.getElementById('importResult');
-
-        function csrf() {
-            const token = document.querySelector('meta[name="_csrf"]')?.content;
-            const header = document.querySelector('meta[name="_csrf_header"]')?.content;
-            return token && header ? { header, token } : null;
-        }
-
-        form?.addEventListener('submit', function (e) {
-            e.preventDefault();
-
-            const fd = new FormData(form);
-            const file = fd.get('file');
-            if (!file || !file.name.toLowerCase().endsWith('.dbf')) {
-                alert('Selecciona un archivo .dbf válido');
-                return;
-            }
-
-            progressBox.classList.remove('d-none');
-            resultBox.classList.add('d-none');
-            resultBox.innerHTML = '';
-
-            const opts = { method: 'POST', body: fd };
-            const c = csrf();
-            if (c) opts.headers = { [c.header]: c.token };
-
-            fetch('/importe/import-responsable', opts)
-                .then(async (r) => {
-                    if (!r.ok) {
-                        const txt = await r.text().catch(() => '');
-                        throw new Error(txt || ('Error HTTP ' + r.status));
-                    }
-                    return r.json();
-                })
-                .then((json) => {
-
-                    progressBox.classList.add('d-none');
-                    const erroresHtml = (json.errores && json.errores.length)
-                        ? `<div class="alert alert-warning mt-2">
-                        <div class="fw-semibold mb-1">Errores:</div>
-                        <ul class="mb-0 small" style="max-height:160px;overflow:auto;">
-                            ${json.errores.slice(0, 20).map(e => `<li>${e}</li>`).join('')}
-                        </ul>
-                        ${json.errores.length > 20 ? '<div class="small text-muted mt-1">… y más</div>' : ''}
-                        </div>`
-                        : '';
-
-                    resultBox.innerHTML = `
-                        <div class="alert alert-success">
-                            <i class="fa-solid fa-circle-check me-2"></i> Importación completada.
-                            <div class="mt-2">
-                            <span class="badge text-bg-secondary me-2">Leídas: ${json.leidas ?? 0}</span>
-                            <span class="badge text-bg-success me-2">Insertados: ${json.insertados ?? 0}</span>
-                            <span class="badge text-bg-info">Actualizados: ${json.actualizados ?? 0}</span>
-                            <span class="badge text-bg-info">omitidos Campos: ${json.omitidosCampos ?? 0}</span>
-                            <span class="badge text-bg-info">omitidos Sin Entidad: ${json.omitidosSinEntidad ?? 0}</span>
-                            <span class="badge text-bg-info">omitidos Sin Predio: ${json.omitidosSinPredio ?? 0}</span>
-                            <span class="badge text-bg-info">errores Excepcion: ${json.erroresExcepcion ?? 0}</span>
-                            </div>
-                        </div>
-                        ${erroresHtml}
-                        <div class="text-end">
-                            <button id="btnRecargarEntidades" class="btn btn-primary btn-sm">
-                            <i class="fa-solid fa-rotate me-1"></i> Recargar lista
-                            </button>
-                        </div>
-                        `;
-                    resultBox.classList.remove('d-none');
-
-                    document.getElementById('btnRecargarEntidades')?.addEventListener('click', () => {
-                        location.reload();
-                    });
-                })
-                .catch((err) => {
-                    progressBox.classList.add('d-none');
-                    resultBox.classList.remove('d-none');
-                    resultBox.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="fa-solid fa-triangle-exclamation me-2"></i>
-                        Error durante la importación: <b>${(err && err.message) || err}</b>
-                    </div>`;
-                            });
-        });
-    })();
-
 </script>

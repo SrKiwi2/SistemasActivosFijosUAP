@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
@@ -57,4 +58,14 @@ public interface IOficinaDao extends JpaRepository<Oficina, Long> {
               ORDER BY o.nombre ASC
             """)
     List<Oficina> buscarPorQ(@Param("q") String q);
+
+    @Query("""
+       select o from Oficina o
+       where o.predio.entidad = :entidad
+         and lower(o.predio.unidad) = lower(:unidad)
+         and o.codOfi = :codOfi
+    """)
+    Optional<Oficina> findByEntidadUnidadAndCodOfi(@Param("entidad") Entidad entidad,
+                                                   @Param("unidad") String unidad,
+                                                   @Param("codOfi") Short codOfi);
 }

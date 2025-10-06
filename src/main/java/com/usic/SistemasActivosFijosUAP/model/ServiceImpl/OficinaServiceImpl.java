@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IOficinaDao;
+import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
@@ -114,5 +115,10 @@ public class OficinaServiceImpl implements IOficinaService{
     public List<Oficina> buscarPorQ(String q) {
                 if (q==null || q.isBlank()) return dao.listarOficinas();
         return dao.buscarPorQ(q.trim());
+    }
+
+    @Override
+    public Optional<Oficina> findByEntidadUnidadAndCodOfi(Entidad entidad, String unidad, Short codOfi) {
+        return dao.findByEntidadUnidadAndCodOfi(entidad, unidad, codOfi);
     }
 }

@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 
+import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
@@ -25,4 +26,8 @@ public interface IOficinaService extends IServiceGenerico<Oficina, Long>{
                                             @Param("codOfi") Short codOfi);
 
     List<Oficina> buscarPorQ(@Param("q") String q);
+
+    Optional<Oficina> findByEntidadUnidadAndCodOfi(@Param("entidad") Entidad entidad,
+                                                   @Param("unidad") String unidad,
+                                                   @Param("codOfi") Short codOfi);
 }
