@@ -49,5 +49,15 @@ public class OrganismoFinancieroServiceImpl implements IOrganismoFinancieroServi
     public Optional<OrganismoFinanciero> findFirstByCodOfOrderByGestionDesc(String codOf) {
         return dao.findFirstByCodOfOrderByGestionDesc(codOf);
     }
+
+    @Override
+    public List<OrganismoFinanciero> buscarPorQ(String q) {
+        return dao.buscarPorQ(q);
+    }
+
+    @Override
+    public void saveAll(List<OrganismoFinanciero> batch) {
+        dao.saveAll(batch);
+    }
     
 }

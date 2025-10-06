@@ -17,6 +17,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.AuxiliarDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.EntidadDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.GrupoContableDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.OficinaDbf;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.OrganismoFinDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ResponsableDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.UnidadAdminDbf;
 
@@ -439,6 +440,63 @@ public class JavaDbfService {
                         .codExp(cexp)
                         .apiEstado(api)
                         .build());
+            }
+        }
+        return out;
+    }
+
+    public List<OrganismoFinDbf> listarOrganismoFinAll(String q) throws Exception {
+        // Ajusta el nombre del archivo si viene distinto (may/min):
+        Path file = baseDir.resolve("organismo_fin.DBF");
+        if (!Files.exists(file)) {
+            file = baseDir.resolve("ORGANISMO_FIN.DBF");
+        }
+
+        List<OrganismoFinDbf> out = new ArrayList<>();
+        try (InputStream in = Files.newInputStream(file);
+            DBFReader reader = new DBFReader(in)) {
+
+            if (charset != null && !charset.isBlank()) {
+            reader.setCharset(Charset.forName(charset));
+            }
+
+            int iGES=-1, iOF=-1, iDES=-1, iSIG=-1;
+            for (int i=0;i<reader.getFieldCount();i++) {
+            String name = reader.getField(i).getName().toUpperCase(Locale.ROOT);
+            switch (name) {
+                case "GESTION" -> iGES=i;
+                case "OF"      -> iOF=i;
+                case "DES"     -> iDES=i;
+                case "SIGLA"   -> iSIG=i;
+            }
+            }
+
+            final String ql = (q==null? null : q.toLowerCase(Locale.ROOT));
+            Object[] row;
+            while ((row = reader.nextRecord()) != null) {
+            Short  ges = asInt(row, iGES)==null ? null : asInt(row, iGES).shortValue();
+            String of  = asString(row, iOF);
+            String des = asString(row, iDES);
+            String sig = asString(row, iSIG);
+
+            if (ql != null) {
+                String hay = ((of==null?"":of)+" "+(des==null?"":des)+" "+(sig==null?"":sig)).toLowerCase(Locale.ROOT);
+                if (!hay.contains(ql)) continue;
+            }
+
+            if (ges==null || of==null || of.isBlank() || des==null || des.isBlank()) continue;
+
+            // Normalizaciones simples
+            of  = of.trim();
+            des = des.trim();
+            if (sig!=null) sig = sig.trim();
+
+            out.add(OrganismoFinDbf.builder()
+                    .gestion(ges)
+                    .codOf(of)
+                    .descripcion(des)
+                    .sigla(sig)
+                    .build());
             }
         }
         return out;
