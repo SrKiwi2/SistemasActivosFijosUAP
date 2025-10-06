@@ -73,4 +73,14 @@ public class AuxiliarServiceImpl implements IAuxiliarService{
             pageable
         );
     }
+
+    @Override
+    public List<Auxiliar> buscarPorQ(String q) {
+        return (q==null||q.isBlank())? dao.listarTodo() : dao.buscarPorQ(q.trim());
+    }
+
+    @Override
+    public List<Auxiliar> listarTodo() {
+        return dao.listarTodo();
+    }
 }

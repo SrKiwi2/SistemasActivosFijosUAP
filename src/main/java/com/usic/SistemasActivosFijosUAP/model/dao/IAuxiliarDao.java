@@ -1,5 +1,6 @@
 package com.usic.SistemasActivosFijosUAP.model.dao;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -13,43 +14,59 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
-public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long>{
+public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
     Optional<Auxiliar> findByPredioAndCodAux(Predio predio, Short codAux);
+
     Optional<Auxiliar> findByPredioAndGrupoContableAndCodAux(Predio predio, GrupoContable gc, Short codAux);
+
     Optional<Auxiliar> findFirstByPredioAndNombreIgnoreCase(Predio predio, String nombre);
 
     // @Query("""
-    //     select a.idAuxiliar as id,
-    //             concat(a.codAux, ' - ', a.nombre) as text
-    //     from Auxiliar a
-    //     where a.grupoContable.idGrupoContable = :grupoId
-    //         and (
-    //         :term = '' or
-    //         lower(a.nombre) like lower(concat('%', :term, '%')) or
-    //         concat('', a.codAux) like concat('%', :term, '%')
-    //         )
-    //     order by a.codAux, a.nombre
+    // select a.idAuxiliar as id,
+    // concat(a.codAux, ' - ', a.nombre) as text
+    // from Auxiliar a
+    // where a.grupoContable.idGrupoContable = :grupoId
+    // and (
+    // :term = '' or
+    // lower(a.nombre) like lower(concat('%', :term, '%')) or
+    // concat('', a.codAux) like concat('%', :term, '%')
+    // )
+    // order by a.codAux, a.nombre
     // """)
     // Page<AuxOption> searchByGrupo(@Param("grupoId") Long grupoId,
-    //                               @Param("term") String term,
-    //                               Pageable pageable);
+    // @Param("term") String term,
+    // Pageable pageable);
 
     @Query("""
-    select a.idAuxiliar as id,
-           concat(a.codAux, ' - ', a.nombre) as text
-    from Auxiliar a
-    where a.grupoContable.idGrupoContable = :grupoId
-      and (:predioId is null or a.predio.idPredio = :predioId)
-      and (
-        :term = '' or
-        lower(a.nombre) like lower(concat('%', :term, '%')) or
-        cast(a.codAux as string) like concat('%', :term, '%')
-      )
-    order by a.codAux, a.nombre
-    """)
+            select a.idAuxiliar as id,
+                   concat(a.codAux, ' - ', a.nombre) as text
+            from Auxiliar a
+            where a.grupoContable.idGrupoContable = :grupoId
+              and (:predioId is null or a.predio.idPredio = :predioId)
+              and (
+                :term = '' or
+                lower(a.nombre) like lower(concat('%', :term, '%')) or
+                cast(a.codAux as string) like concat('%', :term, '%')
+              )
+            order by a.codAux, a.nombre
+            """)
     Page<AuxOption> searchByGrupo(@Param("grupoId") Long grupoId,
-                                @Param("predioId") Long predioId,
-                                @Param("term") String term,
-                                Pageable pageable);
+            @Param("predioId") Long predioId,
+            @Param("term") String term,
+            Pageable pageable);
 
+    @Query("""
+              SELECT a FROM Auxiliar a
+              WHERE (:q IS NULL OR
+                     LOWER(a.nombre) LIKE LOWER(CONCAT('%',:q,'%')) OR
+                     LOWER(a.usuario) LIKE LOWER(CONCAT('%',:q,'%')) OR
+                     LOWER(a.predio.unidad) LIKE LOWER(CONCAT('%',:q,'%')) OR
+                     LOWER(CAST(a.grupoContable.codContable AS string)) LIKE LOWER(CONCAT('%',:q,'%')) OR
+                     LOWER(a.predio.entidad.entidadCodigo) LIKE LOWER(CONCAT('%',:q,'%')))
+              ORDER BY a.nombre ASC
+            """)
+    List<Auxiliar> buscarPorQ(@Param("q") String q);
+
+    @Query("SELECT a FROM Auxiliar a ORDER BY a.nombre ASC")
+    List<Auxiliar> listarTodo();
 }

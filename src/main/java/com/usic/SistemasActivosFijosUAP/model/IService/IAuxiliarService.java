@@ -14,14 +14,21 @@ import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
 @Service
-public interface IAuxiliarService extends IServiceGenerico<Auxiliar, Long>{
+public interface IAuxiliarService extends IServiceGenerico<Auxiliar, Long> {
     List<Auxiliar> saveAll(List<Auxiliar> list);
+
     Optional<Auxiliar> findByPredioAndCodAux(Predio predio, Short codAux);
+
     Optional<Auxiliar> findByPredioAndGrupoContableAndCodAux(Predio predio, GrupoContable gc, Short codAux);
+
     Optional<Auxiliar> findFirstByPredioAndNombreIgnoreCase(Predio predio, String nombre);
 
     Page<AuxOption> searchByGrupo(@Param("grupoId") Long grupoId,
-                                @Param("predioId") Long predioId,
-                                @Param("term") String term,
-                                Pageable pageable);
+            @Param("predioId") Long predioId,
+            @Param("term") String term,
+            Pageable pageable);
+    
+    List<Auxiliar> buscarPorQ(@Param("q") String q);
+
+    List<Auxiliar> listarTodo();
 }

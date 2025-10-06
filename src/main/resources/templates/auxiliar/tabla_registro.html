@@ -1,10 +1,11 @@
 <div class="card">
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Auxiliar</h5>
-        
+        <small class="text-muted" th:if="${sourceUsed=='dbf'}">(fuente: DBF)</small>
+        <small class="text-muted" th:if="${sourceUsed=='db'}">(fuente: BD)</small>
         <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
-              <i class="fa-solid fa-file-import me-1"></i> Importar DBF
+            <button id="btnSyncAux" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-file-import me-1"></i> Importar desde DBF montado
             </button>
             <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
                 data-bs-target="#modalFormularioAuxiliar">
@@ -39,7 +40,8 @@
                             data-bs-toggle="modal" data-bs-target="#modalFormularioAuxiliar">
                             <i class="fa-solid fa-pen-to-square"></i> Editar
                         </button>
-                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${auxiliar.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
+                        <button type="button" class="btn btn-sm btn-danger"
+                            th:onclick="eliminar([[${auxiliar.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
                             <i class="fa-solid fa-trash"></i> Eliminar
                         </button>
                     </th>
@@ -74,5 +76,22 @@
                 "sSortDescending": ": Activar para ordenar la columna de manera descendente"
             }
         }
+    });
+
+    $(document).on('click', '#btnSyncAux', function () {
+        $.ajax({
+            type: 'POST',
+            url: "/administracion/auxiliar/sync-from-mounted",
+            success: function (res) {
+                Swal.fire('Listo',
+                    `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}<br>Sin entidad: ${res.sinEntidad}<br>Sin predio: ${res.sinPredio}<br>Sin grupo: ${res.sinGrupoContable}`,
+                    'success');
+                cargarTabla();
+            },
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
+                Swal.fire('Error', msg, 'error');
+            }
+        });
     });
 </script>
