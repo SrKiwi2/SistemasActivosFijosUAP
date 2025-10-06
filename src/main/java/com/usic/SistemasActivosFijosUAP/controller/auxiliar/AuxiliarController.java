@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.controller.auxiliar;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -174,6 +175,10 @@ public class AuxiliarController {
         return ResponseEntity.ok("Registro Eliminado");
     }
 
+    String key(long predioId, long grupoId, short codAux) {
+        return predioId + "|" + grupoId + "|" + codAux;
+    }
+
     // SYNC: AUXILIAR.DBF -> upsert por (Predio, GrupoContable, codAux)
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
@@ -183,7 +188,8 @@ public class AuxiliarController {
             @RequestParam(name = "gestion", required = false) Short gestionPreferida) {
         try {
             var filas = dbfService.listarAuxiliarAll(q);
-            int inserted = 0, updated = 0, sinEntidad = 0, sinPredio = 0, sinGrupo = 0;
+            int inserted = 0, updated = 0, sinEntidad = 0, sinPredio = 0, sinGrupo = 0, repetidos = 0;
+            Map<String, Auxiliar> cache = new HashMap<>(filas.size());
             List<Auxiliar> batch = new ArrayList<>(500);
 
             for (var f : filas) {
@@ -192,6 +198,7 @@ public class AuxiliarController {
                     continue;
                 }
 
+                // Resolver ENTIDAD (0148/148)
                 String cod = f.getEntidadCodigo();
                 String codNoZeros = stripLeftZeros(cod);
                 String codPad4 = leftPad4(cod);
@@ -210,22 +217,34 @@ public class AuxiliarController {
                     continue;
                 }
 
-                var predio = predioServicio.findByEntidadAndUnidadIgnoreCase(entidad, normUnidad(f.getUnidad()))
+                var predio = predioServicio
+                        .findByEntidadAndUnidadIgnoreCase(entidad, normUnidad(f.getUnidad()))
                         .orElse(null);
                 if (predio == null) {
                     sinPredio++;
                     continue;
                 }
 
-                var grupo = grupoContableService.findByCodContable(
-                        f.getCodCont() == null ? null : f.getCodCont().intValue()).orElse(null);
+                var grupo = grupoContableService
+                        .findByCodContable(f.getCodCont().intValue())
+                        .orElse(null);
                 if (grupo == null) {
                     sinGrupo++;
                     continue;
                 }
 
-                Auxiliar aux = auxiliarService.findByPredioAndGrupoContableAndCodAux(predio, grupo, f.getCodAux())
+                String k = predio.getIdPredio() + "|" + grupo.getIdGrupoContable() + "|" + f.getCodAux();
+                if (cache.containsKey(k)) { // el DBF trajo repetidos
+                    repetidos++;
+                    continue;
+                }
+
+                // Busca por IDs (evita líos de proxies)
+                Auxiliar aux = auxiliarService
+                        .findByPredioIdAndGrupoContableIdAndCodAux(predio.getIdPredio(), grupo.getIdGrupoContable(),
+                                f.getCodAux())
                         .orElse(null);
+
                 boolean nuevo = (aux == null);
                 if (aux == null) {
                     aux = new Auxiliar();
@@ -234,6 +253,7 @@ public class AuxiliarController {
                     aux.setCodAux(f.getCodAux());
                 }
 
+                // Campos de negocio
                 String nombre = (f.getNomAux() != null && !f.getNomAux().isBlank())
                         ? f.getNomAux().trim()
                         : ("AUX " + f.getCodAux());
@@ -251,11 +271,13 @@ public class AuxiliarController {
                         : (f.getUsuario().length() > 60 ? f.getUsuario().substring(0, 60) : f.getUsuario()));
                 aux.setEstado("ACTIVO");
 
+                cache.put(k, aux);
                 batch.add(aux);
                 if (nuevo)
                     inserted++;
                 else
                     updated++;
+
                 if (batch.size() == 500) {
                     auxiliarService.saveAll(batch);
                     batch.clear();
@@ -271,7 +293,9 @@ public class AuxiliarController {
                     "actualizados", updated,
                     "sinEntidad", sinEntidad,
                     "sinPredio", sinPredio,
-                    "sinGrupoContable", sinGrupo));
+                    "sinGrupoContable", sinGrupo,
+                    "duplicadosEnDbf", repetidos // 👈 útil para diagnosticar
+            ));
         } catch (Exception ex) {
             return ResponseEntity.internalServerError().body(Map.of(
                     "ok", false,

@@ -37,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor//ELIMINAR LUEGOD E PRIMER ENSAYO, YA NO NECEISTAMOS ESTO, YA NO IMPORTAMOS.
 public class AuxiliarImportService {
     
     private final IEntidadService entidadService;
@@ -147,9 +147,7 @@ public class AuxiliarImportService {
                     }
 
                     // Upsert Auxiliar
-                    Auxiliar aux = auxiliarService
-                        .findByPredioAndGrupoContableAndCodAux(predio, gc, codAux)
-                        .orElse(null);
+                    Auxiliar aux = null;//ya no neceistamos esto, todo esto tooodo, borrar lueog de primer ensayo
 
                     boolean nuevo = false;
                     if (aux == null) {

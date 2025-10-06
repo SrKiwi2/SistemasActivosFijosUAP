@@ -270,9 +270,9 @@ public class ActualImportService {
                                 res.errores.add(msgFila(res.leidas, "Grupo no encontrado CODCONT=" + codCont));
                                 continue;
                             }
-                            aux = auxiliarService
-                                    .findByPredioAndGrupoContableAndCodAux(predio, grupo2, codAux)
-                                    .orElse(null);
+                            // aux = auxiliarService
+                            //         .findByPredioAndGrupoContableAndCodAux(predio, grupo2, codAux)
+                            //         .orElse(null);
 
                             if (aux == null) {
                                 res.omitidosSinAuxiliar++;
