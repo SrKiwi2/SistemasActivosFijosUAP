@@ -16,6 +16,7 @@ public class ActivoDTO {
     private Integer vidaUtil;
     private String fechaAdquisicion;
     private String estado;
-    private String grupoContable;
-    private String acciones;
+    private String acciones;   // HTML
+    private String idEnc;      // "" cuando viene de DBF
+    private String source;  
 }

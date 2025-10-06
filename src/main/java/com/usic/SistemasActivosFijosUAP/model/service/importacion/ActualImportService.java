@@ -75,7 +75,6 @@ public class ActualImportService {
         try (InputStream in = new BufferedInputStream(dbfFile.getInputStream());
              DBFReader reader = new DBFReader(in, cs)) {
 
-            // ===== 1) Cabeceras =====
             int fc = reader.getFieldCount();
             StringBuilder sb = new StringBuilder("DBF FIELDS (ACTUAL):\n");
             Map<String,Integer> idx = new HashMap<>();
@@ -89,7 +88,6 @@ public class ActualImportService {
             }
             log.info(sb.toString());
 
-            // ===== 2) Índices =====
             int iUNIDAD     = pick(idx, "UNIDAD");
             int iENTIDAD    = pick(idx, "ENTIDAD");
             int iCODIGO     = pick(idx, "CODIGO");
@@ -282,7 +280,6 @@ public class ActualImportService {
                             }
                         }
                     }
-
 
                     EstadoActivo estado = null;
                     if (codEstado != null) {

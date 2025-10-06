@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.interoperabilidad;
 
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,6 +14,7 @@ import java.util.Locale;
 
 import com.linuxense.javadbf.DBFReader;
 import com.linuxense.javadbf.DBFWriter;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ActualDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.AuxiliarDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.EntidadDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.GrupoContableDbf;
@@ -502,6 +504,144 @@ public class JavaDbfService {
         return out;
     }
 
+    // === LECTURA DBF ACTUAL.DBF (Windows)
+    public List<ActualDbf> listarActualAll(String q) throws Exception {
+        Path file = baseDir.resolve("ACTUAL.DBF");
+        List<ActualDbf> out = new ArrayList<>();
+        try (InputStream in = Files.newInputStream(file); DBFReader reader = new DBFReader(in)) {
+
+            if (charset != null && !charset.isBlank()) reader.setCharset(Charset.forName(charset));
+
+            // indices
+            int iUNIDAD=-1,iENTIDAD=-1,iCODIGO=-1,iCODCONT=-1,iCODAUX=-1,iVIDAUTIL=-1,iDESCRIP=-1,
+                iCOSTO=-1,iDEPACU=-1,iMES=-1,iANO=-1,iB_REV=-1,iDIA=-1,iCODOFIC=-1,iCODRESP=-1,iOBSERV=-1,
+                iDIA_ANT=-1,iMES_ANT=-1,iANO_ANT=-1,iVUT_ANT=-1,iCOSTO_ANT=-1,iBAND_UFV=-1,iCODESTADO=-1,iCOD_RUBE=-1,
+                iNRO_CONV=-1,iORG_FIN=-1,iFEULT=-1,iUSUAR=-1,iAPI_ESTADO=-1,iCODIGOSEC=-1,iBANDERAS=-1,iFEC_MOD=-1,iUSU_MOD=-1;
+
+            for (int i=0;i<reader.getFieldCount();i++) {
+                String n = reader.getField(i).getName().toUpperCase(Locale.ROOT);
+                switch (n) {
+                    case "UNIDAD"   -> iUNIDAD=i;
+                    case "ENTIDAD"  -> iENTIDAD=i;
+                    case "CODIGO"   -> iCODIGO=i;
+                    case "CODCONT"  -> iCODCONT=i;
+                    case "CODAUX"   -> iCODAUX=i;
+                    case "VIDAULT","VIDAUTIL" -> iVIDAUTIL=i;
+                    case "DESCRIP"  -> iDESCRIP=i;
+                    case "COSTO"    -> iCOSTO=i;
+                    case "DEPACU"   -> iDEPACU=i;
+                    case "MES"      -> iMES=i;
+                    case "ANO"      -> iANO=i;
+                    case "B_REV"    -> iB_REV=i;
+                    case "DIA"      -> iDIA=i;
+                    case "CODOFIC"  -> iCODOFIC=i;
+                    case "CODRESP"  -> iCODRESP=i; // Numeric → texto luego
+                    case "OBSERV"   -> iOBSERV=i;
+                    case "DIA_ANT"  -> iDIA_ANT=i;
+                    case "MES_ANT"  -> iMES_ANT=i;
+                    case "ANO_ANT"  -> iANO_ANT=i;
+                    case "VUT_ANT"  -> iVUT_ANT=i;
+                    case "COSTO_ANT"-> iCOSTO_ANT=i;
+                    case "BAND_UFV" -> iBAND_UFV=i;
+                    case "CODESTADO"-> iCODESTADO=i;
+                    case "COD_RUBE" -> iCOD_RUBE=i;
+                    case "NRO_CONV" -> iNRO_CONV=i;
+                    case "ORG_FIN"  -> iORG_FIN=i;
+                    case "FEULT"    -> iFEULT=i;
+                    case "USUAR"    -> iUSUAR=i;
+                    case "API_ESTADO"-> iAPI_ESTADO=i;
+                    case "CODIGOSEC"-> iCODIGOSEC=i;
+                    case "BANDERAS" -> iBANDERAS=i;
+                    case "FEC_MOD"  -> iFEC_MOD=i;
+                    case "USU_MOD"  -> iUSU_MOD=i;
+                }
+            }
+
+            final String ql = (q==null? null : q.toLowerCase(Locale.ROOT));
+            Object[] row;
+            while ((row = reader.nextRecord()) != null) {
+                String ent = asString(row, iENTIDAD);
+                String uni = asString(row, iUNIDAD);
+                String cod = asString(row, iCODIGO);
+                if (ent==null || ent.isBlank() || uni==null || uni.isBlank() || cod==null || cod.isBlank()) continue;
+
+                String des = asString(row, iDESCRIP);
+                if (ql != null) {
+                    String hay = (String.join(" ", ent, uni, cod, des==null?"":des)).toLowerCase(Locale.ROOT);
+                    if (!hay.contains(ql)) continue;
+                }
+
+                Short  codCont = asInt(row, iCODCONT)==null? null: asInt(row, iCODCONT).shortValue();
+                Short  codAux  = asInt(row, iCODAUX)==null? null: asInt(row, iCODAUX).shortValue();
+                Integer vu     = asInt(row, iVIDAUTIL);
+                Double  costo  = asDouble(row, iCOSTO);
+                Double  depA   = asDouble(row, iDEPACU);
+
+                Integer dia  = asInt(row, iDIA);
+                Integer mes  = asInt(row, iMES);
+                Integer ano  = asInt(row, iANO);
+                Integer diaA = asInt(row, iDIA_ANT);
+                Integer mesA = asInt(row, iMES_ANT);
+                Integer anoA = asInt(row, iANO_ANT);
+
+                Integer vutA = asInt(row, iVUT_ANT);
+                Double  costoA = asDouble(row, iCOSTO_ANT);
+
+                Boolean bRev   = asBoolean(row, iB_REV);
+                Boolean bUfv   = asBoolean(row, iBAND_UFV);
+                Short   codEst = asInt(row, iCODESTADO)==null? null: asInt(row, iCODESTADO).shortValue();
+
+                String codRube = asString(row, iCOD_RUBE);
+                String nroConv = asString(row, iNRO_CONV);
+                String orgFin  = asString(row, iORG_FIN);
+
+                LocalDate feult = asDate(row, iFEULT);
+                String usu   = asString(row, iUSUAR);
+                Short  api   = asInt(row, iAPI_ESTADO)==null? null: asInt(row, iAPI_ESTADO).shortValue();
+                String codSec= asString(row, iCODIGOSEC);
+                String bands = asString(row, iBANDERAS);
+                LocalDate fmod= asDate(row, iFEC_MOD);
+                String umod = asString(row, iUSU_MOD);
+
+                Short codOfi = asInt(row, iCODOFIC)==null? null: asInt(row, iCODOFIC).shortValue();
+                String codRespTxt = numberToPlain(row, iCODRESP); // BigDecimal→String
+                String obs = asString(row, iOBSERV);
+                if (obs!=null && "(memo)".equalsIgnoreCase(obs.trim())) obs=null;
+
+                out.add(ActualDbf.builder()
+                    .entidadCodigo(ent.trim())
+                    .unidad(uni.trim())
+                    .codigo(cod.trim())
+                    .codigoSec(nvl(codSec))
+                    .descripcion(nvl(des))
+                    .codCont(codCont)
+                    .codAux(codAux)
+                    .costo(costo)
+                    .depAcum(depA)
+                    .vidaUtil(vu)
+                    .vidaUtilAnt(vutA)
+                    .dia(dia).mes(mes).ano(ano)
+                    .diaAnt(diaA).mesAnt(mesA).anoAnt(anoA)
+                    .bRev(bRev).bandUfv(bUfv)
+                    .codEstado(codEst)
+                    .codRube(nvl(codRube))
+                    .nroConv(nvl(nroConv))
+                    .orgFinCode(nvl(orgFin))
+                    .fechaUlt(feult)
+                    .usuario(nvl(usu))
+                    .apiEstado(api)
+                    .banderas(nvl(bands))
+                    .fecMod(fmod)
+                    .usuMod(nvl(umod))
+                    .codOfi(codOfi)
+                    .codRespTxt(nvl(codRespTxt))
+                    .observ(obs)
+                    .build());
+            }
+        }
+        return out;
+    }
+
     /** Inserta un registro en CODCONT.DBF haciendo append. */
     public void insertCodcont(
             short codcont, String nombre, short vidautil,
@@ -535,6 +675,8 @@ public class JavaDbfService {
             }
         }
     }
+
+    private static String nvl(String s){ return s==null? "": s; }
 
     private boolean isBlank(String s) {
         return s == null || s.trim().isEmpty();
@@ -614,5 +756,53 @@ public class JavaDbfService {
             }
         }
         return count;
+    }
+
+    // Devuelve Double desde el array de fila
+    private static Double asDouble(Object[] row, int idx) {
+        if (idx < 0) return null;
+        Object v = row[idx];
+        if (v == null) return null;
+        if (v instanceof Double d) return d;
+        if (v instanceof Float f)  return (double) f;
+        if (v instanceof BigDecimal bd) return bd.doubleValue();
+        if (v instanceof Number n) return n.doubleValue();
+        if (v instanceof String s) {
+            String t = s.trim();
+            if (t.isEmpty()) return null;
+            try { return Double.parseDouble(t.replace(',', '.')); }
+            catch (NumberFormatException ignore) { return null; }
+        }
+        return null;
+    }
+
+    // Devuelve Boolean desde el array de fila (acepta boolean/0-1/"T/F"/"Y/N"/"S/N")
+    private static Boolean asBoolean(Object[] row, int idx) {
+        if (idx < 0) return null;
+        Object v = row[idx];
+        if (v == null) return null;
+        if (v instanceof Boolean b) return b;
+        if (v instanceof Number n) return n.intValue() != 0;
+        if (v instanceof String s) {
+            String t = s.trim().toLowerCase();
+            if (t.isEmpty()) return null;
+            return switch (t) {
+                case "t","true","1","y","yes","s","si","sí" -> true;
+                case "f","false","0","n","no" -> false;
+                default -> null;
+            };
+        }
+        return null;
+    }
+
+    // Convierte un numérico del DBF (BigDecimal/Number) a String "plana" (sin exponencial)
+    private static String numberToPlain(Object[] row, int idx) {
+        if (idx < 0) return null;
+        Object v = row[idx];
+        if (v == null) return null;
+        if (v instanceof String s) return s.trim().isEmpty() ? null : s.trim();
+        if (v instanceof BigDecimal bd) return bd.stripTrailingZeros().toPlainString();
+        if (v instanceof Number n) return new BigDecimal(n.toString()).stripTrailingZeros().toPlainString();
+        return v.toString();
     }
 }
