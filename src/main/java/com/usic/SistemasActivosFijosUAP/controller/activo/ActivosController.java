@@ -264,7 +264,7 @@ public class ActivosController {
         return Map.of("codigo", codigo);
     }
 
-        @GetMapping("/sync-progress")
+    @GetMapping("/sync-progress")
     @ResponseBody
     public Map<String,Object> syncProgress() {
         return tracker.snapshot();
