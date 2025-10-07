@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -273,6 +274,7 @@ public class ActivosController {
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
     @ResponseBody
+    @Transactional
     public ResponseEntity<?> syncFromMounted(
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "gestion", required = false) Short gestionPreferida) {
