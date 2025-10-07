@@ -48,6 +48,8 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
 import com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncTracker;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
@@ -271,6 +273,9 @@ public class ActivosController {
         return tracker.snapshot();
     }
 
+    @PersistenceContext
+    private final EntityManager em;
+
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
     @ResponseBody
@@ -285,6 +290,9 @@ public class ActivosController {
             int inserted = 0, updated = 0,
                 sinEntidad = 0, sinPredio = 0, sinOficina = 0, sinResponsable = 0,
                 sinGrupo = 0, sinAuxiliar = 0, sinEstado = 0, sinOrgFin = 0;
+
+            int batchSize = 300;         // ajusta a gusto
+            int processedInTx = 0;
 
             for (var f : filas) {
                 // cada vuelta, sube “procesadas”
@@ -402,7 +410,16 @@ public class ActivosController {
                     if (nuevo){ inserted++; tracker.inc("insertados"); }
                     else      { updated++;  tracker.inc("actualizados"); }
                 } catch (org.springframework.dao.DataIntegrityViolationException ignore) { /* continúa */ }
+
+                // 💡 cada cierto número, descarga/limpia el contexto para no acumular LOBs en memoria
+                if (++processedInTx % batchSize == 0) {
+                    em.flush();
+                    em.clear();
+                }
             }
+
+            em.flush();
+            em.clear();
 
             tracker.set("running", false);
 
