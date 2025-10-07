@@ -68,19 +68,20 @@ public class ActivosController {
         return "activo/vista";
     }
 
-    // @ValidarUsuarioAutenticado
-    // @PostMapping("/tabla-registros")
-    // public String tablaRegistros_activo(Model model) throws Exception {
-    //     List<Activo> listasOficinas = activoService.listarActivos();
-    //     List<String> encryptedIds = new ArrayList<>();
-    //     for (Activo oficinas : listasOficinas) {
-    //         String id_encryptado = Encriptar.encrypt(Long.toString(oficinas.getIdActivo()));
-    //         encryptedIds.add(id_encryptado);
-    //     }
-    //     model.addAttribute("listasOficinas", listasOficinas);
-    //     model.addAttribute("id_encryptado", encryptedIds);
-    //     return "activo/tabla_registro";
-    // }
+    @ValidarUsuarioAutenticado
+    @PostMapping("/tabla-registros")
+    @Transactional(readOnly = true)
+    public String tablaRegistros_activo(Model model) throws Exception {
+        List<Activo> listasOficinas = activoService.listarActivos();
+        List<String> encryptedIds = new ArrayList<>();
+        for (Activo oficinas : listasOficinas) {
+            String id_encryptado = Encriptar.encrypt(Long.toString(oficinas.getIdActivo()));
+            encryptedIds.add(id_encryptado);
+        }
+        model.addAttribute("listasOficinas", listasOficinas);
+        model.addAttribute("id_encryptado", encryptedIds);
+        return "activo/tabla_registro";
+    }
 
     @ValidarUsuarioAutenticado
     @PostMapping("/formulario")
