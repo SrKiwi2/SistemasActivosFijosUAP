@@ -53,6 +53,7 @@ public class ResponsableServiceImpl implements IResponsableService{
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Responsable> listarResponsables() {
         return dao.listarResponsables();
     }

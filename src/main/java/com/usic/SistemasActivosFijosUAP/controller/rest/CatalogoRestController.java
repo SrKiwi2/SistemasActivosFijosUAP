@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -50,6 +51,7 @@ public class CatalogoRestController {
     }
 
     @GetMapping("/responsables")
+    @Transactional(readOnly = true)
     public List<ResponsableDTO> listarResponsables() {
         return responsableService.listarResponsables()
                 .stream()
