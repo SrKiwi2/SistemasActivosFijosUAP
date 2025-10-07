@@ -14,27 +14,27 @@
 
     });
 
-    function cargarTabla() {
-        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/activo/tabla-registros",
-            success: function (response) {
-                $("#tablaRegistro").html(response);
-            },
-            error: function () {
-                $("#tablaRegistro").html(`
-                <div class="alert alert-danger m-3">
-                Ocurrió un error al cargar la tabla.
-                <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
-                </div>
-            `);
-            },
-            complete: function () {
-                hideGlobalLoader();
-            }
-        });
-    }
+    // function cargarTabla() {
+    //     showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
+    //     $.ajax({
+    //         type: 'POST',
+    //         url: "/administracion/activo/tabla-registros",
+    //         success: function (response) {
+    //             $("#tablaRegistro").html(response);
+    //         },
+    //         error: function () {
+    //             $("#tablaRegistro").html(`
+    //             <div class="alert alert-danger m-3">
+    //             Ocurrió un error al cargar la tabla.
+    //             <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
+    //             </div>
+    //         `);
+    //         },
+    //         complete: function () {
+    //             hideGlobalLoader();
+    //         }
+    //     });
+    // }
 
     function renderProgress(data) {
         const total = data.total || 0;
