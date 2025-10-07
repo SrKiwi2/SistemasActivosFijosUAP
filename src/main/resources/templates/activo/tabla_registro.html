@@ -113,14 +113,6 @@
             hideGlobalLoader();
         });
 
-        $tbl.on('xhr.dt', function (e, settings, json) {
-            if (json && json.source) {
-                const src = json.source.toUpperCase();
-                $('#badgeSource').text(src === 'DBF' ? '(fuente: DBF)' : '(fuente: BD)');
-            }
-            hideGlobalLoader();
-        });
-
         const tbl = $tbl.DataTable({
             processing: false,
             serverSide: true,
