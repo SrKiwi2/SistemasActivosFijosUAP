@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -137,6 +138,7 @@ public class ActivosController {
 
     @PostMapping("/datatables")
     @ResponseBody
+    @Transactional(readOnly = true)
     public Map<String,Object> listarActivosDatatables(@RequestParam Map<String, String> params) throws Exception {
         int start = Integer.parseInt(params.getOrDefault("start","0"));
         int length = Integer.parseInt(params.getOrDefault("length","10"));
