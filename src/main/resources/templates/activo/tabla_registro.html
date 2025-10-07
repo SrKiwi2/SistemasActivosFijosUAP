@@ -192,34 +192,49 @@
         });
 
         $(document).on('click', '#btnSyncActivos', function () {
+            // diálogo inicial
             Swal.fire({
                 title: 'Sincronizando ACTUAL.DBF…',
                 html: `
-      <div class="mb-2">Iniciando…</div>
-      <div class="progress">
-        <div class="progress-bar" role="progressbar" style="width:0%">0%</div>
-      </div>`,
+        <div class="mb-2">Iniciando…</div>
+        <div class="progress">
+          <div class="progress-bar" role="progressbar" style="width:0%">0%</div>
+        </div>
+      `,
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 didOpen: () => {
                     Swal.showLoading();
-                    startPolling(); // seguirá consultando /sync-progress
-
+                    startPolling();
+                    // lanza la sincronización
                     $.ajax({
                         type: 'POST',
-                        url: '/administracion/activo/start-sync',   // <<<<<< AQUI
-                        success: function () {
-                            // No cerramos: el polling actualizará el modal hasta running=false
+                        url: '/administracion/activo/start-sync',
+                        success: function (res) {
+                            // una última consulta de progreso y cerrar bonito
+                            $.get('/administracion/activo/sync-progress', function (last) {
+                                const html = renderProgress(last || {});
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Importación completa',
+                                    html: html
+                                });
+                                // recarga la tabla
+                                $('#data-table').DataTable().ajax.reload(null, false);
+                            });
                         },
                         error: function (xhr) {
-                            const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
-                            stopPolling();
-                            Swal.fire({ icon: 'error', title: 'Error', text: msg });
-                        }
+                            const msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : `Error (${xhr.status})`;
+                            // muestra error + último progreso
+                            $.get('/administracion/activo/sync-progress', function (last) {
+                                const html = (last ? renderProgress(last) : '') + `<div class="mt-2 text-danger">${msg}</div>`;
+                                Swal.fire({ icon: 'error', title: 'Error', html: html });
+                            });
+                        },
+                        complete: function () { stopPolling(); }
                     });
                 }
             });
         });
-
     });
 </script>
