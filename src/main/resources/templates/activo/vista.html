@@ -36,6 +36,54 @@
         });
     }
 
+    function renderProgress(data) {
+        const total = data.total || 0;
+        const proc = data.procesadas || 0;
+        const pct = total ? Math.round((proc / total) * 100) : 0;
+        return `
+      <div style="text-align:left">
+        <div class="mb-2"><b>Progreso:</b> ${proc} / ${total} (${pct}%)</div>
+        <div class="progress mb-3">
+          <div class="progress-bar" role="progressbar" style="width:${pct}%">${pct}%</div>
+        </div>
+        <ul class="list-unstyled small mb-0">
+          <li>Insertados: <b>${data.insertados || 0}</b></li>
+          <li>Actualizados: <b>${data.actualizados || 0}</b></li>
+          <li>Sin Entidad: <b>${data.sinEntidad || 0}</b></li>
+          <li>Sin Predio: <b>${data.sinPredio || 0}</b></li>
+          <li>Sin Oficina: <b>${data.sinOficina || 0}</b></li>
+          <li>Sin Responsable: <b>${data.sinResponsable || 0}</b></li>
+          <li>Sin Grupo: <b>${data.sinGrupo || 0}</b></li>
+          <li>Sin Auxiliar: <b>${data.sinAuxiliar || 0}</b></li>
+          <li>Sin Estado: <b>${data.sinEstado || 0}</b></li>
+          <li>Sin Org. Fin.: <b>${data.sinOrgFin || 0}</b></li>
+        </ul>
+      </div>`;
+    }
+
+    let pollTimer = null;
+
+    function startPolling() {
+        stopPolling();
+        pollTimer = setInterval(() => {
+            $.get('/administracion/activo/sync-progress', function (res) {
+                if (!res) return;
+                const html = renderProgress(res);
+                $('.swal2-html-container').html(html);
+                if (res.error) {
+                    Swal.update({ icon: 'error', title: 'Error', html: html });
+                    stopPolling();
+                }
+                if (res.running === false) {
+                    stopPolling();
+                }
+            });
+        }, 600);
+    }
+    function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
     function cargarFormulario() {
         showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
         cargarFormularioAlert("/administracion/activo/formulario", "#prediocontenidoModalActivo", "#formularioActivo");
