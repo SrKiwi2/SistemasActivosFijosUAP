@@ -11,7 +11,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,8 +26,6 @@ import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
-import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
-import com.usic.SistemasActivosFijosUAP.model.IService.IEstadoActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IMunicipioService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
@@ -38,18 +35,11 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ActualDbf;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
-import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
-import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
-import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
-import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
-import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
-import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
+import com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncService;
 import com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncTracker;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
@@ -66,10 +56,10 @@ public class ActivosController {
     private final IResponsableService responsableService;
     private final IOrganismoFinancieroService organismoFinancieroService;
     private final IAuxiliarService auxiliarService;
-    private final IEstadoActivoService estadoActivoService;
-    private final IEntidadService entidadService;
     private final JavaDbfService dbfService;
     private final ActivoSyncTracker tracker;
+    private final ActivoSyncService activoSyncService;
+
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -273,178 +263,15 @@ public class ActivosController {
         return tracker.snapshot();
     }
 
-    @PersistenceContext
-    private final EntityManager em;
 
-    @ValidarUsuarioAutenticado
-    @PostMapping("/sync-from-mounted")
+    @PostMapping("/start-sync")
     @ResponseBody
-    @Transactional
-    public ResponseEntity<?> syncFromMounted(
-            @RequestParam(name = "q", required = false) String q,
-            @RequestParam(name = "gestion", required = false) Short gestionPreferida) {
-        try {
-            var filas = dbfService.listarActualAll(q);
-            tracker.reset(filas.size());  // <<< inicia progreso
+    public ResponseEntity<?> startSync(
+        @RequestParam(name="q", required=false) String q,
+        @RequestParam(name="gestion", required=false) Short gestionPreferida) {
 
-            int inserted = 0, updated = 0,
-                sinEntidad = 0, sinPredio = 0, sinOficina = 0, sinResponsable = 0,
-                sinGrupo = 0, sinAuxiliar = 0, sinEstado = 0, sinOrgFin = 0;
-
-            int batchSize = 300;         // ajusta a gusto
-            int processedInTx = 0;
-
-            for (var f : filas) {
-                // cada vuelta, sube “procesadas”
-                tracker.inc("procesadas");
-
-                if (isBlank(f.getEntidadCodigo()) || isBlank(f.getUnidad()) || isBlank(f.getCodigo())) {
-                    continue;
-                }
-
-                // ENTIDAD
-                String cod = f.getEntidadCodigo().trim();
-                String codNoZeros = stripLeftZeros(cod);
-                String codPad4 = leftPad4(codNoZeros);
-                Entidad entidad = (gestionPreferida != null)
-                        ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, cod)
-                            .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codNoZeros))
-                            .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codPad4))
-                            .orElse(null)
-                        : entidadService.findTopByEntidadCodigoOrderByGestionDesc(cod)
-                            .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codNoZeros))
-                            .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codPad4))
-                            .orElse(null);
-                if (entidad == null) { sinEntidad++; tracker.inc("sinEntidad"); continue; }
-
-                // PREDIO
-                var predio = predioServicio.findByEntidadAndUnidadIgnoreCase(entidad, f.getUnidad()).orElse(null);
-                if (predio == null) { sinPredio++; tracker.inc("sinPredio"); continue; }
-
-                // OFICINA
-                if (f.getCodOfi() == null) { sinOficina++; tracker.inc("sinOficina"); continue; }
-                var oficina = oficinaService.findByPredioAndCodOfi(predio, f.getCodOfi()).orElse(null);
-                if (oficina == null) { sinOficina++; tracker.inc("sinOficina"); continue; }
-
-                // RESPONSABLE
-                Responsable responsable = null;
-                if (!isBlank(f.getCodRespTxt())) {
-                    responsable = responsableService
-                        .findByOficinaAndCodigoFuncionario(oficina, f.getCodRespTxt().trim()).orElse(null);
-                    if (responsable == null) { sinResponsable++; tracker.inc("sinResponsable"); }
-                }
-
-                // GRUPO
-                GrupoContable grupo = null;
-                if (f.getCodCont() != null) {
-                    grupo = grupoContableService.findByCodContable(f.getCodCont().intValue()).orElse(null);
-                    if (grupo == null) { sinGrupo++; tracker.inc("sinGrupo"); continue; }
-                }
-
-                // AUXILIAR
-                Auxiliar aux = null;
-                if (grupo != null && f.getCodAux() != null) {
-                    aux = auxiliarService
-                        .findByPredio_IdPredioAndGrupoContable_IdGrupoContableAndCodAux(
-                            predio.getIdPredio(), grupo.getIdGrupoContable(), f.getCodAux()
-                        ).orElse(null);
-                    if (aux == null) { sinAuxiliar++; tracker.inc("sinAuxiliar"); }
-                }
-
-                // ESTADO
-                EstadoActivo estado = null;
-                if (f.getCodEstado() != null) {
-                    estado = estadoActivoService.buscarPorCodigo(String.valueOf(f.getCodEstado()));
-                    if (estado == null){ sinEstado++; tracker.inc("sinEstado"); }
-                }
-
-                // ORG FIN
-                OrganismoFinanciero orgFin = null;
-                if (!isBlank(f.getOrgFinCode())) {
-                    Short ges = (f.getAno() != null) ? f.getAno().shortValue()
-                              : (f.getFechaUlt() != null ? (short) f.getFechaUlt().getYear() : null);
-                    if (ges != null) {
-                        orgFin = organismoFinancieroService
-                                .findByGestionAndCodOf(ges, f.getOrgFinCode().trim()).orElse(null);
-                        if (orgFin == null){ sinOrgFin++; tracker.inc("sinOrgFin"); }
-                    }
-                }
-
-                // UPSERT
-                Activo act = activoService.findByCodigo(f.getCodigo().trim())
-                    .orElseGet(() -> activoService.findByOficinaAndCodigo(oficina, f.getCodigo().trim()).orElse(null));
-                boolean nuevo = (act == null);
-                if (act == null) { act = new Activo(); act.setCodigo(f.getCodigo().trim()); }
-
-                act.setCodigoSec(nvl(f.getCodigoSec()));
-                act.setDescripcion(nvl(f.getDescripcion()));
-                act.setNombre(trunc(nvl(f.getDescripcion()), 255));
-                act.setCosto(f.getCosto());
-                act.setDepreciacionAcum(f.getDepAcum());
-                act.setVidaUtil(f.getVidaUtil());
-                act.setVidaUtilAnterior(f.getVidaUtilAnt());
-                act.setFechaAdquisicion(buildDate(f.getAno(), f.getMes(), f.getDia()));
-                act.setFechaAnterior(buildDate(f.getAnoAnt(), f.getMesAnt(), f.getDiaAnt()));
-                act.setRevaluado(boolVal(f.getBRev()));
-                act.setBandUfv(boolVal(f.getBandUfv()));
-                act.setBanderas(nvl(f.getBanderas()));
-                act.setOficina(oficina);
-                act.setResponsable(responsable);
-                act.setGrupoContable(grupo);
-                act.setAuxiliar(aux);
-                act.setEstadoActivo(estado);
-                act.setOrgFinCode(nvl(f.getOrgFinCode()));
-                act.setOrganismoFinanciero(orgFin);
-                act.setCodRube(nvl(f.getCodRube()));
-                act.setNroConv(nvl(f.getNroConv()));
-                act.setFechaUlt(f.getFechaUlt());
-                act.setUsuario(nvl(f.getUsuario()));
-                act.setApiEstado(f.getApiEstado());
-                act.setFecMod(f.getFecMod());
-                act.setUsuMod(nvl(f.getUsuMod()));
-                act.setObserv(nvl(f.getObserv()));
-                act.setEstado("ACTIVO");
-
-                try {
-                    activoService.save(act);
-                    if (nuevo){ inserted++; tracker.inc("insertados"); }
-                    else      { updated++;  tracker.inc("actualizados"); }
-                } catch (org.springframework.dao.DataIntegrityViolationException ignore) { /* continúa */ }
-
-                // 💡 cada cierto número, descarga/limpia el contexto para no acumular LOBs en memoria
-                if (++processedInTx % batchSize == 0) {
-                    em.flush();
-                    em.clear();
-                }
-            }
-
-            em.flush();
-            em.clear();
-
-            tracker.set("running", false);
-
-            return ResponseEntity.ok(Map.ofEntries(
-                Map.entry("ok", true),
-                Map.entry("totalLeidas", filas.size()),
-                Map.entry("insertados", inserted),
-                Map.entry("actualizados", updated),
-                Map.entry("sinEntidad", sinEntidad),
-                Map.entry("sinPredio", sinPredio),
-                Map.entry("sinOficina", sinOficina),
-                Map.entry("sinResponsable", sinResponsable),
-                Map.entry("sinGrupo", sinGrupo),
-                Map.entry("sinAuxiliar", sinAuxiliar),
-                Map.entry("sinEstado", sinEstado),
-                Map.entry("sinOrgFin", sinOrgFin)
-            ));
-        } catch (Exception ex) {
-            tracker.set("running", false);
-            tracker.set("error", ex.getMessage());
-            return ResponseEntity.internalServerError().body(Map.of(
-                "ok", false,
-                "message", "Error sincronizando ACTUAL: " + ex.getMessage()
-            ));
-        }
+        activoSyncService.startSync(q, gestionPreferida);
+        return ResponseEntity.accepted().body(Map.of("ok", true));
     }
 
     private static String escapeHtml(String s){ return s==null? "": s.replace("'", "\\'").replace("\"","&quot;"); }
