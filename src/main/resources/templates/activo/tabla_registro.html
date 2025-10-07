@@ -34,10 +34,10 @@
         <div class="d-flex gap-2">
 
             <div class="d-flex gap-2">
-                <button id="btnSyncActivos" type="button" class="btn btn-outline-secondary">
-                    <i class="fa-solid fa-file-import me-1"></i> Importar desde DBF montado
+                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal"
+                    data-bs-target="#modalImportDbf">
+                    <i class="fa-solid fa-file-import me-1"></i> Importar DBF
                 </button>
-
                 <button type="button" id="btn-clear-filtros" class="btn btn-outline-dark">
                     <i class="bi bi-eraser"></i> Limpiar filtros
                 </button>
@@ -189,52 +189,6 @@
             $('#filtro-oficina').val(null).trigger('change');
 
             tbl.ajax.reload();
-        });
-
-        $(document).on('click', '#btnSyncActivos', function () {
-            // diálogo inicial
-            Swal.fire({
-                title: 'Sincronizando ACTUAL.DBF…',
-                html: `
-        <div class="mb-2">Iniciando…</div>
-        <div class="progress">
-          <div class="progress-bar" role="progressbar" style="width:0%">0%</div>
-        </div>
-      `,
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                    startPolling();
-                    // lanza la sincronización
-                    $.ajax({
-                        type: 'POST',
-                        url: '/administracion/activo/sync-from-mounted',
-                        success: function (res) {
-                            // una última consulta de progreso y cerrar bonito
-                            $.get('/administracion/activo/sync-progress', function (last) {
-                                const html = renderProgress(last || {});
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Importación completa',
-                                    html: html
-                                });
-                                // recarga la tabla
-                                $('#data-table').DataTable().ajax.reload(null, false);
-                            });
-                        },
-                        error: function (xhr) {
-                            const msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : `Error (${xhr.status})`;
-                            // muestra error + último progreso
-                            $.get('/administracion/activo/sync-progress', function (last) {
-                                const html = (last ? renderProgress(last) : '') + `<div class="mt-2 text-danger">${msg}</div>`;
-                                Swal.fire({ icon: 'error', title: 'Error', html: html });
-                            });
-                        },
-                        complete: function () { stopPolling(); }
-                    });
-                }
-            });
         });
     });
 </script>

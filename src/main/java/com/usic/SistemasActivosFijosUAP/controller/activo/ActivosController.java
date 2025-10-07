@@ -11,7 +11,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -46,10 +45,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
-import com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncTracker;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
@@ -69,7 +65,6 @@ public class ActivosController {
     private final IEstadoActivoService estadoActivoService;
     private final IEntidadService entidadService;
     private final JavaDbfService dbfService;
-    private final ActivoSyncTracker tracker;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -267,134 +262,148 @@ public class ActivosController {
         return Map.of("codigo", codigo);
     }
 
-    @GetMapping("/sync-progress")
-    @ResponseBody
-    public Map<String,Object> syncProgress() {
-        return tracker.snapshot();
-    }
-
-    @PersistenceContext
-    private final EntityManager em;
-
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
     @ResponseBody
-    @Transactional
     public ResponseEntity<?> syncFromMounted(
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "gestion", required = false) Short gestionPreferida) {
         try {
             var filas = dbfService.listarActualAll(q);
-            tracker.reset(filas.size());  // <<< inicia progreso
 
             int inserted = 0, updated = 0,
-                sinEntidad = 0, sinPredio = 0, sinOficina = 0, sinResponsable = 0,
-                sinGrupo = 0, sinAuxiliar = 0, sinEstado = 0, sinOrgFin = 0;
+                    sinEntidad = 0, sinPredio = 0, sinOficina = 0, sinResponsable = 0,
+                    sinGrupo = 0, sinAuxiliar = 0, sinEstado = 0, sinOrgFin = 0;
 
-            int batchSize = 300;         // ajusta a gusto
-            int processedInTx = 0;
-
+            List<Activo> batch = new ArrayList<>(300);
             for (var f : filas) {
-                // cada vuelta, sube “procesadas”
-                tracker.inc("procesadas");
-
-                if (isBlank(f.getEntidadCodigo()) || isBlank(f.getUnidad()) || isBlank(f.getCodigo())) {
+                // Validación mínima
+                if (isBlank(f.getEntidadCodigo()) || isBlank(f.getUnidad()) || isBlank(f.getCodigo()))
                     continue;
-                }
 
-                // ENTIDAD
+                // ENTIDAD 0148/148/pad4
                 String cod = f.getEntidadCodigo().trim();
                 String codNoZeros = stripLeftZeros(cod);
                 String codPad4 = leftPad4(codNoZeros);
                 Entidad entidad = (gestionPreferida != null)
                         ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, cod)
-                            .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codNoZeros))
-                            .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codPad4))
-                            .orElse(null)
+                                .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codNoZeros))
+                                .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codPad4))
+                                .orElse(null)
                         : entidadService.findTopByEntidadCodigoOrderByGestionDesc(cod)
-                            .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codNoZeros))
-                            .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codPad4))
-                            .orElse(null);
-                if (entidad == null) { sinEntidad++; tracker.inc("sinEntidad"); continue; }
+                                .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codNoZeros))
+                                .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codPad4))
+                                .orElse(null);
+                if (entidad == null) {
+                    sinEntidad++;
+                    continue;
+                }
 
                 // PREDIO
                 var predio = predioServicio.findByEntidadAndUnidadIgnoreCase(entidad, f.getUnidad()).orElse(null);
-                if (predio == null) { sinPredio++; tracker.inc("sinPredio"); continue; }
+                if (predio == null) {
+                    sinPredio++;
+                    continue;
+                }
 
                 // OFICINA
-                if (f.getCodOfi() == null) { sinOficina++; tracker.inc("sinOficina"); continue; }
+                if (f.getCodOfi() == null) {
+                    sinOficina++;
+                    continue;
+                }
                 var oficina = oficinaService.findByPredioAndCodOfi(predio, f.getCodOfi()).orElse(null);
-                if (oficina == null) { sinOficina++; tracker.inc("sinOficina"); continue; }
+                if (oficina == null) {
+                    sinOficina++;
+                    continue;
+                }
 
-                // RESPONSABLE
+                // RESPONSABLE (opcional, pero si hay CODRESP intentamos)
                 Responsable responsable = null;
                 if (!isBlank(f.getCodRespTxt())) {
                     responsable = responsableService
-                        .findByOficinaAndCodigoFuncionario(oficina, f.getCodRespTxt().trim()).orElse(null);
-                    if (responsable == null) { sinResponsable++; tracker.inc("sinResponsable"); }
+                            .findByOficinaAndCodigoFuncionario(oficina, f.getCodRespTxt().trim()).orElse(null);
+                    if (responsable == null)
+                        sinResponsable++;
                 }
 
                 // GRUPO
                 GrupoContable grupo = null;
                 if (f.getCodCont() != null) {
                     grupo = grupoContableService.findByCodContable(f.getCodCont().intValue()).orElse(null);
-                    if (grupo == null) { sinGrupo++; tracker.inc("sinGrupo"); continue; }
+                    if (grupo == null) {
+                        sinGrupo++;
+                        continue;
+                    }
                 }
 
-                // AUXILIAR
+                // AUXILIAR (si hay grupo y codAux)
                 Auxiliar aux = null;
                 if (grupo != null && f.getCodAux() != null) {
                     aux = auxiliarService
-                        .findByPredio_IdPredioAndGrupoContable_IdGrupoContableAndCodAux(
-                            predio.getIdPredio(), grupo.getIdGrupoContable(), f.getCodAux()
-                        ).orElse(null);
-                    if (aux == null) { sinAuxiliar++; tracker.inc("sinAuxiliar"); }
+                            .findByPredio_IdPredioAndGrupoContable_IdGrupoContableAndCodAux(
+                                    predio.getIdPredio(), grupo.getIdGrupoContable(), f.getCodAux())
+                            .orElse(null);
+                    if (aux == null)
+                        sinAuxiliar++;
                 }
 
                 // ESTADO
                 EstadoActivo estado = null;
                 if (f.getCodEstado() != null) {
                     estado = estadoActivoService.buscarPorCodigo(String.valueOf(f.getCodEstado()));
-                    if (estado == null){ sinEstado++; tracker.inc("sinEstado"); }
+                    if (estado == null)
+                        sinEstado++;
                 }
 
                 // ORG FIN
                 OrganismoFinanciero orgFin = null;
                 if (!isBlank(f.getOrgFinCode())) {
                     Short ges = (f.getAno() != null) ? f.getAno().shortValue()
-                              : (f.getFechaUlt() != null ? (short) f.getFechaUlt().getYear() : null);
+                            : (f.getFechaUlt() != null ? (short) f.getFechaUlt().getYear() : null);
                     if (ges != null) {
-                        orgFin = organismoFinancieroService
-                                .findByGestionAndCodOf(ges, f.getOrgFinCode().trim()).orElse(null);
-                        if (orgFin == null){ sinOrgFin++; tracker.inc("sinOrgFin"); }
+                        orgFin = organismoFinancieroService.findByGestionAndCodOf(ges, f.getOrgFinCode().trim())
+                                .orElse(null);
+                        if (orgFin == null)
+                            sinOrgFin++;
                     }
                 }
 
-                // UPSERT
+                // UPSERT por CODIGO
                 Activo act = activoService.findByCodigo(f.getCodigo().trim())
-                    .orElseGet(() -> activoService.findByOficinaAndCodigo(oficina, f.getCodigo().trim()).orElse(null));
-                boolean nuevo = (act == null);
-                if (act == null) { act = new Activo(); act.setCodigo(f.getCodigo().trim()); }
+                        .orElseGet(
+                                () -> activoService.findByOficinaAndCodigo(oficina, f.getCodigo().trim()).orElse(null));
 
+                boolean nuevo = (act == null);
+                if (act == null) {
+                    act = new Activo();
+                    act.setCodigo(f.getCodigo().trim());
+                }
+
+                // mapear
                 act.setCodigoSec(nvl(f.getCodigoSec()));
                 act.setDescripcion(nvl(f.getDescripcion()));
                 act.setNombre(trunc(nvl(f.getDescripcion()), 255));
+
                 act.setCosto(f.getCosto());
                 act.setDepreciacionAcum(f.getDepAcum());
                 act.setVidaUtil(f.getVidaUtil());
                 act.setVidaUtilAnterior(f.getVidaUtilAnt());
                 act.setFechaAdquisicion(buildDate(f.getAno(), f.getMes(), f.getDia()));
                 act.setFechaAnterior(buildDate(f.getAnoAnt(), f.getMesAnt(), f.getDiaAnt()));
+                act.setCostoAnterior(null); // si necesitas costo_ANT mándalo a un campo adicional
                 act.setRevaluado(boolVal(f.getBRev()));
                 act.setBandUfv(boolVal(f.getBandUfv()));
                 act.setBanderas(nvl(f.getBanderas()));
+
                 act.setOficina(oficina);
                 act.setResponsable(responsable);
                 act.setGrupoContable(grupo);
                 act.setAuxiliar(aux);
                 act.setEstadoActivo(estado);
+
                 act.setOrgFinCode(nvl(f.getOrgFinCode()));
                 act.setOrganismoFinanciero(orgFin);
+
                 act.setCodRube(nvl(f.getCodRube()));
                 act.setNroConv(nvl(f.getNroConv()));
                 act.setFechaUlt(f.getFechaUlt());
@@ -407,21 +416,14 @@ public class ActivosController {
 
                 try {
                     activoService.save(act);
-                    if (nuevo){ inserted++; tracker.inc("insertados"); }
-                    else      { updated++;  tracker.inc("actualizados"); }
-                } catch (org.springframework.dao.DataIntegrityViolationException ignore) { /* continúa */ }
-
-                // 💡 cada cierto número, descarga/limpia el contexto para no acumular LOBs en memoria
-                if (++processedInTx % batchSize == 0) {
-                    em.flush();
-                    em.clear();
+                    if (nuevo)
+                        inserted++;
+                    else
+                        updated++;
+                } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                    // duplicado por codigo u otra cuestión → continúa con el resto
                 }
             }
-
-            em.flush();
-            em.clear();
-
-            tracker.set("running", false);
 
             return ResponseEntity.ok(Map.ofEntries(
                 Map.entry("ok", true),
@@ -438,14 +440,12 @@ public class ActivosController {
                 Map.entry("sinOrgFin", sinOrgFin)
             ));
         } catch (Exception ex) {
-            tracker.set("running", false);
-            tracker.set("error", ex.getMessage());
             return ResponseEntity.internalServerError().body(Map.of(
-                "ok", false,
-                "message", "Error sincronizando ACTUAL: " + ex.getMessage()
-            ));
+                    "ok", false,
+                    "message", "Error sincronizando ACTUAL: " + ex.getMessage()));
         }
     }
+
 
     private static String escapeHtml(String s){ return s==null? "": s.replace("'", "\\'").replace("\"","&quot;"); }
 
