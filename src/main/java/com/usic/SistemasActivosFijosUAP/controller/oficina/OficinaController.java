@@ -1,5 +1,6 @@
 package com.usic.SistemasActivosFijosUAP.controller.oficina;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -46,8 +47,7 @@ public class OficinaController {
         return "oficina/vista";
     }
 
-    // LISTAR: intenta BD; si vacío, lee DBF y arma objetos "transient" para la
-    // tabla
+    // LISTAR: intenta BD; si vacío, lee DBF y arma objetos "transient" para la tabla
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla-registros")
     public String tablaRegistros_oficina(Model model,
@@ -62,8 +62,7 @@ public class OficinaController {
             listasOficinas = new ArrayList<>(filas.size());
 
             for (var f : filas) {
-                // Resolver ENTIDAD para mostrarla en la tabla (si no está, igual mostramos el
-                // código)
+                // Resolver ENTIDAD para mostrarla en la tabla (si no está, igual mostramos el código)
                 String cod = f.getEntidadCodigo();
                 String codNoZeros = stripLeftZeros(cod);
                 String codPad4 = leftPad4(cod);
@@ -119,6 +118,7 @@ public class OficinaController {
     @ValidarUsuarioAutenticado
     @PostMapping("/formulario")
     public String formulario_oficina(Model model, Oficina oficina) {
+        model.addAttribute("oficina", new Oficina());
         model.addAttribute("predios", predioServicio.findAll());
         return "oficina/formulario";
     }
@@ -135,14 +135,36 @@ public class OficinaController {
     @ValidarUsuarioAutenticado
     @PostMapping("/registrar-oficina")
     public ResponseEntity<String> Registrar_oficina(HttpServletRequest request, @Validated Oficina oficina) {
-        if (oficinaService.buscarPorNombre(oficina.getNombre()) == null) {
-            oficina.setEstado("ACTIVO");
-            oficinaService.save(oficina);
-            return ResponseEntity.ok("Se realizó el registro correctamente");
-        } else {
-            return ResponseEntity.ok("Ya existe un rol con este nombre");
+        // resolver el Predio por id, por si viene solo el id en el binding:
+        if (oficina.getPredio() != null && oficina.getPredio().getIdPredio() != null) {
+            var predio = predioServicio.findById(oficina.getPredio().getIdPredio());
+            oficina.setPredio(predio);
         }
+        if (oficina.getPredio() == null) {
+            return ResponseEntity.badRequest().body("Debe seleccionar un predio válido.");
+        }
+
+        var existente = oficinaService.findByPredioAndCodOfi(oficina.getPredio(), oficina.getCodOfi()).orElse(null);
+        if (existente != null) {
+            return ResponseEntity.ok("Ya existe una oficina con ese código en el predio seleccionado.");
+        }
+
+        oficina.setEstado("ACTIVO");
+        oficina.setFechaUlt(oficina.getFechaUlt() == null ? LocalDate.now() : oficina.getFechaUlt());
+
+        var guardada = oficinaService.save(oficina);
+
+        // escribir/actualizar en DBF
+        try {
+            dbfService.upsertOficinaDesdeEntidad(guardada);
+        } catch (Exception e) {
+            // La BD queda consistente; reportamos el problema de escritura DBF
+            return ResponseEntity.ok("Se registró en BD, pero falló al escribir en OFICINA.DBF: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok("Se realizó el registro correctamente.");
     }
+
 
     @PostMapping(value = "/modificar-oficina")
     public ResponseEntity<String> modificar_oficina(HttpServletRequest request, Oficina oficina,

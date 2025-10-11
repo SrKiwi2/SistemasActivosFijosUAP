@@ -1,17 +1,24 @@
 package com.usic.SistemasActivosFijosUAP.interoperabilidad;
 
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.Optional;
 
+import com.linuxense.javadbf.DBFDataType;
+import com.linuxense.javadbf.DBFField;
 import com.linuxense.javadbf.DBFReader;
 import com.linuxense.javadbf.DBFWriter;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ActualDbf;
@@ -22,11 +29,15 @@ import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.OficinaDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.OrganismoFinDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ResponsableDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.UnidadAdminDbf;
+import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
+import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
+import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
 public class JavaDbfService {
     private final Path baseDir;
     private final String charset; // "CP1252", "CP850", etc.
     private final Object codcontLock = new Object();
+    private final Object oficinaLock = new Object();
 
     public JavaDbfService(Path baseDir, String charset) {
         this.baseDir = baseDir;
@@ -285,6 +296,133 @@ public class JavaDbfService {
         }
         return out;
     }
+
+    /* === Convierte entidad JPA -> DTO plano para DBF === */
+    public OficinaDbf mapDesdeEntidad(Oficina o) {
+        String entidadCodigo = Optional.ofNullable(o.getPredio())
+                .map(Predio::getEntidad)
+                .map(Entidad::getEntidadCodigo)
+                .orElse(null);
+
+        String unidad = Optional.ofNullable(o.getPredio())
+                .map(Predio::getUnidad)
+                .orElse(null);
+
+        return OficinaDbf.builder()
+                .entidadCodigo(entidadCodigo)                       // ENTIDAD (texto 4)
+                .unidad(unidad)                                     // UNIDAD (texto 5)
+                .codOfi(o.getCodOfi())                              // CODOFIC (smallint)
+                .nomOfic(o.getNombre())                             // NOMOFIC (texto 65)
+                .observ(o.getObserv())                              // OBSERV (Memo)
+                .feult(o.getFechaUlt())                             // FEULT (Date)
+                .usuario(o.getUsuario() != null ? o.getUsuario() : "") // USUAR (texto 8)
+                .apiEstado(o.getApiEstado())                        // API_ESTADO (smallint)
+                .build();
+    }
+
+    /* === API pública para upsert desde una entidad JPA === */
+    public void upsertOficinaDesdeEntidad(Oficina o) throws Exception {
+        OficinaDbf dto = mapDesdeEntidad(o);
+        validarClave(dto);
+        upsertOficina(dto);
+    }
+
+    private void validarClave(OficinaDbf r) {
+        if (r.getEntidadCodigo()==null || r.getEntidadCodigo().isBlank()
+         || r.getUnidad()==null || r.getUnidad().isBlank()
+         || r.getCodOfi()==null) {
+            throw new IllegalArgumentException("Clave incompleta para OFICINA.DBF (ENTIDAD/UNIDAD/CODOFIC).");
+        }
+    }
+
+    /* === Esquema esperado (por si toca reescribir) === */
+    private DBFField[] schemaOficina() {
+        DBFField f1 = new DBFField(); f1.setName("ENTIDAD");   f1.setType(DBFDataType.CHARACTER); f1.setLength(4);
+        DBFField f2 = new DBFField(); f2.setName("UNIDAD");    f2.setType(DBFDataType.CHARACTER); f2.setLength(5);
+        DBFField f3 = new DBFField(); f3.setName("CODOFIC");   f3.setType(DBFDataType.NUMERIC);   f3.setLength(5); f3.setDecimalCount(0);
+        DBFField f4 = new DBFField(); f4.setName("NOMOFIC");   f4.setType(DBFDataType.CHARACTER); f4.setLength(65);
+        DBFField f5 = new DBFField(); f5.setName("OBSERV");    f5.setType(DBFDataType.MEMO);      // requiere DBT
+        DBFField f6 = new DBFField(); f6.setName("FEULT");     f6.setType(DBFDataType.DATE);
+        DBFField f7 = new DBFField(); f7.setName("USUAR");     f7.setType(DBFDataType.CHARACTER); f7.setLength(8);
+        DBFField f8 = new DBFField(); f8.setName("API_ESTADO");f8.setType(DBFDataType.NUMERIC);   f8.setLength(5); f8.setDecimalCount(0);
+        return new DBFField[]{f1,f2,f3,f4,f5,f6,f7,f8};
+    }
+
+    /* === UPSERT seguro: reescribe archivo completo === */
+    public void upsertOficina(OficinaDbf nuevo) throws Exception {
+        Path file = baseDir.resolve("OFICINA.DBF");
+        Path tmp  = baseDir.resolve("OFICINA.TMP.DBF");
+
+        synchronized (oficinaLock) {
+            // 1) cargar todos
+            List<OficinaDbf> todos = listarOficinaAll(null);
+
+            // 2) normalizar ancho de campos texto
+            String ent = padRight(cut(nuevo.getEntidadCodigo(), 4), 4);
+            String uni = padRight(cut(nuevo.getUnidad(), 5), 5);
+            Short cod  = nuevo.getCodOfi();
+
+            // 3) buscar si existe la clave
+            boolean replaced = false;
+            for (int i=0;i<todos.size();i++) {
+                var r = todos.get(i);
+                if (equalsKey(r, ent, uni, cod)) {
+                    todos.set(i, sanitize(nuevo));
+                    replaced = true;
+                    break;
+                }
+            }
+            if (!replaced) {
+                todos.add(sanitize(nuevo));
+            }
+
+            // 4) escribir a TMP con esquema original
+            try (OutputStream out = Files.newOutputStream(tmp, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                 DBFWriter writer = new DBFWriter(out, charset != null && !charset.isBlank() ? Charset.forName(charset) : null)) {
+
+                writer.setFields(schemaOficina());
+                for (var r : todos) writer.addRecord(asRow(r));
+            }
+
+            // 5) reemplazar atomáticamente
+            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        }
+    }
+
+    private boolean equalsKey(OficinaDbf r, String entidad4, String unidad5, Short cod) {
+        return safeEq(padRight(cut(r.getEntidadCodigo(),4),4), entidad4)
+            && safeEq(padRight(cut(r.getUnidad(),5),5), unidad5)
+            && Objects.equals(r.getCodOfi(), cod);
+    }
+
+    private OficinaDbf sanitize(OficinaDbf r) {
+        // recortar a longitudes del DBF
+        r.setEntidadCodigo(cut(r.getEntidadCodigo(), 4));
+        r.setUnidad(cut(r.getUnidad(), 5));
+        r.setNomOfic(cut(r.getNomOfic(), 65));
+        r.setUsuario(cut(r.getUsuario()==null?"":r.getUsuario(), 8));
+        return r;
+    }
+
+    private Object[] asRow(OficinaDbf r) {
+        Date fecha = (r.getFeult()!=null) ? java.sql.Date.valueOf(r.getFeult()) : null;
+        Integer api = (r.getApiEstado()!=null) ? r.getApiEstado().intValue() : null;
+
+        return new Object[] {
+            r.getEntidadCodigo(),
+            r.getUnidad(),
+            r.getCodOfi(),
+            r.getNomOfic(),
+            r.getObserv(),     // MEMO (requiere .DBT junto al .DBF)
+            fecha,
+            r.getUsuario(),
+            api
+        };
+    }
+
+    private static boolean safeEq(String a, String b){ return Objects.equals(a, b); }
+    private static String cut(String s, int n){ if (s==null) return null; return s.length()<=n? s : s.substring(0,n); }
+    private static String padRight(String s, int n){ if (s==null) return null; return String.format("%1$-" + n + "s", s); }
 
     // Lector completo con filtro q
     public List<AuxiliarDbf> listarAuxiliarAll(String q) throws Exception {
