@@ -26,7 +26,7 @@
                 <select class="select2 form-select" th:field="*{predio.idPredio}" required>
                     <option value="" disabled>Seleccione...</option>
                     <option th:each="p : ${predios}" th:value="${p.idPredio}"
-                        th:text="${p.descrip} + ' - ' + ${p.prefijo}"></option>
+                        th:text="${p.descrip} + ' - ' + ${p.codigo}"></option>
                 </select>
                 <div class="invalid-feedback">Debe seleccionar un predio.</div>
             </div>
