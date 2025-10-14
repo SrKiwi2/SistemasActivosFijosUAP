@@ -7,7 +7,7 @@ import lombok.Setter;
 
 @Setter @Getter
 public class ActivoFormDTO {
-    private Long idActivo;
+    private Long id;
     private String codigo;
     private String descripcion;
     private String fechaAdquisicion; // ISO yyyy-MM-dd
@@ -21,5 +21,5 @@ public class ActivoFormDTO {
     private String auxiliarNombre; 
     private Long oficinaId;
     private Long responsableId;
-    private Long orgFinId;
+    private Long organismoFinancieroId;
 }

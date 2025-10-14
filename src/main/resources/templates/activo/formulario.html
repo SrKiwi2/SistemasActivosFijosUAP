@@ -320,6 +320,8 @@
     </div>
 </div>
 <script>
+    let uiState = { modo: 'LOCK', autoCodigo: false, filling: false };
+
     manejarEnvioFormulario('#formularioActivo');
 
     // Helpers UI
@@ -350,37 +352,54 @@
         document.getElementById('codigo').value = '';
     }
 
+    
+
     function fillFromDTO(d) {
-        // IDs
-        document.getElementById('idActivo').value = d.id || '';
-        // Código y campos base
-        document.getElementById('codigo').value = d.codigo || '';
-        document.getElementById('fechaAdq').value = d.fechaAdquisicion || '';
-        document.getElementById('descripcion').value = d.descripcion || '';
-        document.getElementById('vidaUtil').value = d.vidaUtil ?? '';
+        uiState.filling = true;
+        try {
+            $('#idActivo').val(d.id || '');
+            $('#codigo').val(d.codigo || '');
+            $('#fechaAdq').val(d.fechaAdquisicion || '');
+            $('#descripcion').val(d.descripcion || '');
+            $('#vidaUtil').val(d.vidaUtil ?? '');
 
-        // selects por id
-        const setSel = (id, val) => { if (val != null) { $(id).val(String(val)).trigger('change'); } }
-        setSel('#municipioCode', d.municipioId);
-        setSel('#predioCode', d.predioId);
-        setSel('#grupoCode', d.grupoContableId);
-        setSel('#oficinaId', d.oficinaId);
-        setSel('#responsableId', d.responsableId);
-        setSel('#orgFinId', d.organismoFinancieroId);
-        // auxiliar (puede depender de grupo): si tu select2 es AJAX, asegúrate de hacer un "option" temporal
-        if (d.auxiliarId) {
-            const $aux = $('#auxiliarId');
-            if ($aux.find(`option[value="${d.auxiliarId}"]`).length === 0) {
-                $aux.append(`<option value="${d.auxiliarId}" selected>${d.auxiliarNombre ?? '(auxiliar)'}</option>`);
+            const setSel = (id, val) => { if (val != null) $(id).val(String(val)).trigger('change'); };
+
+            setSel('#municipioCode', d.municipioId);
+            setSel('#predioCode', d.predioId);
+            setSel('#grupoCode', d.grupoContableId);
+            setSel('#oficinaId', d.oficinaId);
+            setSel('#orgFinId', d.organismoFinancieroId);
+
+            // Responsable (AJAX): insertar opción temporal si no existe
+            if (d.responsableId) {
+                const $resp = $('#responsableId');
+                if ($resp.find(`option[value="${d.responsableId}"]`).length === 0) {
+                    $resp.append(`<option value="${d.responsableId}" selected>${d.responsableNombre ?? '(responsable)'}</option>`);
+                }
+                $resp.val(String(d.responsableId)).trigger('change');
+            } else {
+                $('#responsableId').val(null).trigger('change');
             }
-            $aux.val(String(d.auxiliarId)).trigger('change');
-        }
 
-        // costo
-        if (d.costo != null) {
-            $('#costo').val(Number(d.costo).toFixed(2));
-            const fmt = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 });
-            $('#costoFmt').val(fmt.format(Number(d.costo)));
+            // Auxiliar (ya lo tenías)
+            if (d.auxiliarId) {
+                const $aux = $('#auxiliarId');
+                if ($aux.find(`option[value="${d.auxiliarId}"]`).length === 0) {
+                    $aux.append(`<option value="${d.auxiliarId}" selected>${d.auxiliarNombre ?? '(auxiliar)'}</option>`);
+                }
+                $aux.val(String(d.auxiliarId)).trigger('change');
+            } else {
+                $('#auxiliarId').val(null).trigger('change');
+            }
+
+            if (d.costo != null) {
+                $('#costo').val(Number(d.costo).toFixed(2));
+                const fmt = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 });
+                $('#costoFmt').val(fmt.format(Number(d.costo)));
+            }
+        } finally {
+            uiState.filling = false;
         }
     }
 
@@ -527,9 +546,9 @@
         }
 
 
-        $mun.on('change', generar);
-        $pred.on('change', generar);
-        $grp.on('change', generar);
+        $mun.on('change', () => { if (uiState.autoCodigo && !uiState.filling) generar(); });
+        $pred.on('change', () => { if (uiState.autoCodigo && !uiState.filling) generar(); });
+        $grp.on('change',  () => { if (uiState.autoCodigo && !uiState.filling) generar(); });
 
         const $modal = $('#modalFormularioActivo'); // id del modal que contiene el form
         const commonOpts = {
@@ -629,11 +648,11 @@
         $('#btnRegistrar').on('click', function () {
             limpiarForm();
             setModo('REGISTRO NUEVO', 'text-bg-primary');
+            uiState.modo = 'NEW';
+            uiState.autoCodigo = true;   // <-- solo aquí habilitado
             lockForm(false);
             $('#btnModificar').prop('disabled', true);
             $('#btnCancelar').prop('disabled', false);
-            // Generación de correlativo cuando tengas M-P-G
-            // (tu función generar() puede llamarse en los change de municipio/predio/grupo)
         });
 
         // Buscar por código
@@ -649,6 +668,8 @@
                 limpiarForm();
                 fillFromDTO(dto);
                 setModo('VISTA', 'text-bg-info');
+                uiState.modo = 'VIEW';
+                uiState.autoCodigo = false; 
                 lockForm(true);
                 $('#btnModificar').prop('disabled', false);
                 $('#btnCancelar').prop('disabled', false);
@@ -663,6 +684,8 @@
         $('#btnModificar').on('click', function () {
             if (!$('#idActivo').val()) { alert('Primero busque un activo.'); return; }
             setModo('EDICIÓN', 'text-bg-warning');
+            uiState.modo = 'EDIT';
+            uiState.autoCodigo = false; 
             lockForm(false);
             $('#btnCancelar').prop('disabled', false);
         });
@@ -671,6 +694,8 @@
         $('#btnCancelar').on('click', function () {
             lockForm(true);
             setModo('BLOQUEADO', 'text-bg-secondary');
+            uiState.modo = 'LOCK';
+            uiState.autoCodigo = false;
             $('#btnModificar').prop('disabled', !$('#idActivo').val());
             $('#btnCancelar').prop('disabled', true);
         });

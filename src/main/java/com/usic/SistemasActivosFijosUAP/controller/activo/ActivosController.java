@@ -206,7 +206,7 @@ public class ActivosController {
 
     private ActivoFormDTO toDto(Activo a) {
         ActivoFormDTO dto = new ActivoFormDTO();
-        dto.setIdActivo(a.getIdActivo());
+        dto.setId(a.getIdActivo());
         dto.setCodigo(a.getCodigo());
         dto.setDescripcion(a.getDescripcion());
         dto.setFechaAdquisicion(a.getFechaAdquisicion() != null ? a.getFechaAdquisicion().toString() : null);
@@ -217,7 +217,7 @@ public class ActivosController {
         if (a.getResponsable() != null)
             dto.setResponsableId(a.getResponsable().getIdResponsable());
         if (a.getOrganismoFinanciero() != null)
-            dto.setOrgFinId(a.getOrganismoFinanciero().getIdOrganismoFinanciero());
+            dto.setOrganismoFinancieroId(a.getOrganismoFinanciero().getIdOrganismoFinanciero());
         if (a.getGrupoContable() != null)
             dto.setGrupoContableId(a.getGrupoContable().getIdGrupoContable());
         if (a.getAuxiliar() != null) {

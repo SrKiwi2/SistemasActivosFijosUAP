@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -50,7 +51,12 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
     """)
     Double sumaCostoPorPersona(@Param("personaId") Long personaId);
 
+    @EntityGraph(attributePaths = {
+        "oficina", "oficina.predio", "oficina.predio.municipio",
+        "grupoContable", "auxiliar", "responsable", "organismoFinanciero"
+    })
     Optional<Activo> findByCodigo(String codigo);
+
     Optional<Activo> findByOficinaAndCodigo(Oficina oficina, String codigo);
 
         @Query("""
