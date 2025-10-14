@@ -143,8 +143,6 @@ public class ActivosController {
 
         PageRequest pageRequest = PageRequest.of(start / length, length);
 
-        // Page<Activo> pagina = activoService.buscarPorNombreOCodigo(searchValue,
-        // pageRequest);
         Page<Activo> pagina = activoService.buscarConFiltros(
                 searchValue, codigo, responsableId, oficinaId, fecha, pageRequest);
 
@@ -180,10 +178,6 @@ public class ActivosController {
         return new DataTablesResponse<>(pagina.getTotalElements(), pagina.getTotalElements(), activosDTO);
     }
 
-    /*
-     * para consultar codigo codigo correlavtio segun municpio - predio -
-     * grupocontable
-     */
     @PostMapping(value = "/generar-correlativo", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public Map<String, String> generar(
@@ -199,52 +193,50 @@ public class ActivosController {
     @ResponseBody
     public ResponseEntity<ActivoFormDTO> buscarPorCodigo(@RequestParam("codigo") String codigo) {
         return activoService.findByCodigo(codigo)
-                .map(this::toDto) // Activo -> ActivoFormDTO
-                .map(ResponseEntity::ok) // 200 OK con DTO
-                .orElseGet(() -> ResponseEntity.notFound().build()); // 404 sin body
+                .map(this::toDto)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     private ActivoFormDTO toDto(Activo a) {
-    ActivoFormDTO dto = new ActivoFormDTO();
+        ActivoFormDTO dto = new ActivoFormDTO();
 
-    dto.setId(a.getIdActivo());                  // <- usa "id"
-    dto.setCodigo(a.getCodigo());
-    dto.setDescripcion(a.getDescripcion());
-    dto.setFechaAdquisicion(a.getFechaAdquisicion() != null ? a.getFechaAdquisicion().toString() : null);
-    dto.setVidaUtil(a.getVidaUtil());
-    dto.setCosto(a.getCosto());
+        dto.setId(a.getIdActivo());
+        dto.setCodigo(a.getCodigo());
+        dto.setDescripcion(a.getDescripcion());
+        dto.setFechaAdquisicion(a.getFechaAdquisicion() != null ? a.getFechaAdquisicion().toString() : null);
+        dto.setVidaUtil(a.getVidaUtil());
+        dto.setCosto(a.getCosto());
 
-    if (a.getGrupoContable() != null)
-        dto.setGrupoContableId(a.getGrupoContable().getIdGrupoContable());
+        if (a.getGrupoContable() != null)
+            dto.setGrupoContableId(a.getGrupoContable().getIdGrupoContable());
 
-    if (a.getAuxiliar() != null) {
-        dto.setAuxiliarId(a.getAuxiliar().getIdAuxiliar());
-        dto.setAuxiliarNombre(a.getAuxiliar().getNombre());       // <- nombre para crear option temporal
-    }
+        if (a.getAuxiliar() != null) {
+            dto.setAuxiliarId(a.getAuxiliar().getIdAuxiliar());
+            dto.setAuxiliarNombre(a.getAuxiliar().getNombre());
+        }
 
-    if (a.getOficina() != null) {
-        dto.setOficinaId(a.getOficina().getIdOficina());
-        if (a.getOficina().getPredio() != null) {
-            dto.setPredioId(a.getOficina().getPredio().getIdPredio());
-            if (a.getOficina().getPredio().getMunicipio() != null) {
-                dto.setMunicipioId(a.getOficina().getPredio().getMunicipio().getIdMunicipio());
+        if (a.getOficina() != null) {
+            dto.setOficinaId(a.getOficina().getIdOficina());
+            if (a.getOficina().getPredio() != null) {
+                dto.setPredioId(a.getOficina().getPredio().getIdPredio());
+                if (a.getOficina().getPredio().getMunicipio() != null) {
+                    dto.setMunicipioId(a.getOficina().getPredio().getMunicipio().getIdMunicipio());
+                }
             }
         }
-    }
 
-    if (a.getResponsable() != null) {
-        dto.setResponsableId(a.getResponsable().getIdResponsable());
-        if (a.getResponsable().getPersona() != null) {
-            dto.setResponsableNombre(a.getResponsable().getPersona().getNombreCompleto()); // <- idem
+        if (a.getResponsable() != null) {
+            dto.setResponsableId(a.getResponsable().getIdResponsable());
+            if (a.getResponsable().getPersona() != null) {
+                dto.setResponsableNombre(a.getResponsable().getPersona().getNombreCompleto());
+            }
         }
+
+        if (a.getOrganismoFinanciero() != null) {
+            dto.setOrganismoFinancieroId(a.getOrganismoFinanciero().getIdOrganismoFinanciero());
+            dto.setOrganismoFinancieroNombre(a.getOrganismoFinanciero().getDescripcion());
+        }
+        return dto;
     }
-
-    if (a.getOrganismoFinanciero() != null) {
-        dto.setOrganismoFinancieroId(a.getOrganismoFinanciero().getIdOrganismoFinanciero());
-        dto.setOrganismoFinancieroNombre(a.getOrganismoFinanciero().getDescripcion());    // <- opcional
-    }
-    return dto;
-}
-
-
 }

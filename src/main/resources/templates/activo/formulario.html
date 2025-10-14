@@ -330,7 +330,6 @@
         if (!f) return;
         f.classList.toggle('locked', locked);
         [...f.querySelectorAll('input, select, textarea')].forEach(el => {
-            // mantener 'codigo' siempre readonly (lo rellena el backend), pero visible
             if (el.id === 'codigo') { el.readOnly = true; return; }
             el.disabled = locked;
         });
@@ -351,8 +350,6 @@
         document.getElementById('idActivo').value = '';
         document.getElementById('codigo').value = '';
     }
-
-    
 
     function fillFromDTO(d) {
         uiState.filling = true;
@@ -403,22 +400,18 @@
         }
     }
 
-
     $(function () {
 
-        // Estado inicial: BLOQUEADO, sin datos
         setModo('BLOQUEADO', 'text-bg-secondary');
         lockForm(true);
 
         // 2) Formato de moneda en vivo + valor limpio oculto
         const fmt = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 });
-        const nf = new Intl.NumberFormat('es-BO'); // para parse auxiliar
+        const nf = new Intl.NumberFormat('es-BO');
 
         function parseMoney(str) {
             if (!str) return 0;
-            // elimina todo menos dígitos y coma/punto
             const clean = String(str).replace(/[^\d.,-]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(/\s/g, '');
-            // normaliza coma/punto: último separador se considera decimal
             const lastSep = Math.max(clean.lastIndexOf(','), clean.lastIndexOf('.'));
             let intPart = clean, decPart = '';
             if (lastSep > -1) {
@@ -430,7 +423,6 @@
         }
 
         $('#costoFmt').on('input', function () {
-            // no formatees mientras escribe: solo guarda limpio
             const val = parseMoney(this.value);
             $('#costo').val(val.toFixed(2));
         }).on('blur', function () {
@@ -456,18 +448,15 @@
         const input = document.getElementById('codigo');
 
         function maskCodigo(value) {
-            // deja solo dígitos
             const digits = value.replace(/\D/g, '');
-            // aplica patrón 2-2-2-5
             const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 6), digits.slice(6, 11)]
                 .filter(Boolean);
-            return parts.join('-').slice(0, 14); // 14 = 2+1+2+1+2+1+5
+            return parts.join('-').slice(0, 14);
         }
 
         input.addEventListener('input', (e) => {
             const v = maskCodigo(e.target.value);
             if (e.target.value !== v) e.target.value = v;
-            // feedback en vivo usando el mismo patrón del HTML
             const ok = /^\d{2}-\d{2}-\d{2}-\d{5}$/.test(e.target.value);
             e.target.setCustomValidity(ok ? '' : 'Formato: 99-99-99-99999');
         });
@@ -531,28 +520,23 @@
                     headers: { 'Accept': 'application/json' }
                 });
                 if (!r.ok) throw new Error('HTTP ' + r.status);
-                const meta = await r.json(); // {vidaUtil, depreciar, actualizar}
+                const meta = await r.json();
                 if (meta && typeof meta.vidaUtil === 'number') {
                     $vida.val(meta.vidaUtil);
-                    // (opcional) ajustar límites dinámicamente según políticas
-                    // $vida.attr({ min: 1, max: 50 });
                 } else {
                     $vida.val('');
                 }
-                // (opcional) podrías mostrar un badge si no deprecia/actualiza:
-                // mostrarBadge(meta.depreciar, meta.actualizar);
             } catch (e) {
                 console.error('Error meta grupo', e);
                 $vida.val('');
             }
         }
 
-
         $mun.on('change', () => { if (uiState.autoCodigo && !uiState.filling) generar(); });
         $pred.on('change', () => { if (uiState.autoCodigo && !uiState.filling) generar(); });
         $grp.on('change',  () => { if (uiState.autoCodigo && !uiState.filling) generar(); });
 
-        const $modal = $('#modalFormularioActivo'); // id del modal que contiene el form
+        const $modal = $('#modalFormularioActivo');
         const commonOpts = {
             theme: 'bootstrap-5',
             width: '100%',
@@ -562,7 +546,7 @@
                 noResults: () => 'Sin resultados',
                 searching: () => 'Buscando…'
             },
-            // MUY IMPORTANTE cuando está en un modal
+
             dropdownParent: $modal.length ? $modal : $(document.body)
         };
 
@@ -593,7 +577,7 @@
             dropdownParent: $('#modalFormularioActivo'),
             minimumInputLength: 0,
             ajax: {
-                url: '/api/buscar_auxiliar',              // <— misma ruta que el controller
+                url: '/api/buscar_auxiliar',
                 delay: 250,
                 dataType: 'json',
                 data: function (params) {
@@ -650,7 +634,7 @@
             limpiarForm();
             setModo('REGISTRO NUEVO', 'text-bg-primary');
             uiState.modo = 'NEW';
-            uiState.autoCodigo = true;   // <-- solo aquí habilitado
+            uiState.autoCodigo = true;
             lockForm(false);
             $('#btnModificar').prop('disabled', true);
             $('#btnCancelar').prop('disabled', false);
@@ -665,7 +649,7 @@
                 const r = await fetch('/administracion/activo/buscar-por-codigo?codigo=' + encodeURIComponent(codigo));
                 hideGlobalLoader();
                 if (!r.ok) throw new Error('No encontrado');
-                const dto = await r.json(); // ActivoDTOExtend
+                const dto = await r.json();
                 limpiarForm();
                 fillFromDTO(dto);
                 setModo('VISTA', 'text-bg-info');
@@ -707,7 +691,6 @@
             const id = $('#idActivo').val();
             const url = id ? '/administracion/activo/modificar-activo' : '/administracion/activo/registrar-activo';
             const formData = new FormData(this);
-            // asegúrate de añadir los campos que tu backend espera (ids de relaciones)
             showGlobalLoader({ texto: 'Guardando...' });
             try {
                 const r = await fetch(url, { method: 'POST', body: formData });
