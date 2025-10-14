@@ -149,4 +149,9 @@ public class ActivoServiceImpl implements IActivoService{
         dao.saveAll(batch);
     }
 
+    @Override
+    public Optional<Activo> fetchFullByCodigo(String codigo) {
+        return dao.fetchFullByCodigo(codigo);
+    }
+
 }

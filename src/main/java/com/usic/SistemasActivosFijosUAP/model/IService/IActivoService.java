@@ -24,6 +24,8 @@ public interface IActivoService extends IServiceGenerico<Activo, Long>{
     List<Activo> obtenerActivosDelResponsable(Persona persona);
     Optional<Activo> findByCodigo(String codigo);
 
+    Optional<Activo> fetchFullByCodigo(@Param("codigo") String codigo);
+
     List<OficinaConteo> conteoPorOficinaDePersona(@Param("personaId") Long personaId);
     Double sumaCostoPorPersona(@Param("personaId") Long personaId);
     Optional<Activo> findByOficinaAndCodigo(Oficina oficina, String codigo);

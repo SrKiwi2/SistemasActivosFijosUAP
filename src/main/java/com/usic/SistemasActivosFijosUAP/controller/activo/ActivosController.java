@@ -192,7 +192,7 @@ public class ActivosController {
     @GetMapping(value = "/buscar-por-codigo", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<ActivoFormDTO> buscarPorCodigo(@RequestParam("codigo") String codigo) {
-        return activoService.findByCodigo(codigo)
+        return activoService.fetchFullByCodigo(codigo)
                 .map(this::toDto)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());

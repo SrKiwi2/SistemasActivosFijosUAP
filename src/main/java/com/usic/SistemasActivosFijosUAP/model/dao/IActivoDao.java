@@ -57,6 +57,20 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
     })
     Optional<Activo> findByCodigo(String codigo);
 
+    @Query("""
+        select a from Activo a
+        left join fetch a.oficina o
+        left join fetch o.predio p
+        left join fetch p.municipio m
+        left join fetch a.grupoContable gc
+        left join fetch a.auxiliar aux
+        left join fetch a.organismoFinanciero ofi
+        left join fetch a.responsable r
+        left join fetch r.persona per
+        where a.codigo = :codigo
+    """)
+    Optional<Activo> fetchFullByCodigo(@Param("codigo") String codigo);
+
     Optional<Activo> findByOficinaAndCodigo(Oficina oficina, String codigo);
 
         @Query("""
