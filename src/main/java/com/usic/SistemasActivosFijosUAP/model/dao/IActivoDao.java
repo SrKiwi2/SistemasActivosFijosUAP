@@ -53,7 +53,7 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
 
     @EntityGraph(attributePaths = {
         "oficina.nombre", "oficina.predio.descrip", "oficina.predio.municipio.nombre",
-        "grupoContable.nombre", "auxiliar.nombre", "responsable.persona.nombreCompleto", "organismoFinanciero.codOf"
+        "grupoContable.nombre", "auxiliar.nombre", "responsable.persona.nombre", "organismoFinanciero.codOf"
     })
     Optional<Activo> findByCodigo(String codigo);
 
