@@ -191,6 +191,7 @@ public class ActivosController {
     @ValidarUsuarioAutenticado
     @GetMapping(value = "/buscar-por-codigo", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
+    @Transactional(readOnly = true)
     public ResponseEntity<ActivoFormDTO> buscarPorCodigo(@RequestParam("codigo") String codigo) {
         return activoService.fetchFullByCodigo(codigo)
                 .map(this::toDto)
