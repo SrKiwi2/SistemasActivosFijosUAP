@@ -52,7 +52,7 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
     Double sumaCostoPorPersona(@Param("personaId") Long personaId);
 
     @EntityGraph(attributePaths = {
-        "oficina.nombre", "oficina.predio.nombre", "oficina.predio.municipio.nombre",
+        "oficina.nombre", "oficina.predio.descrip", "oficina.predio.municipio.nombre",
         "grupoContable.nombre", "auxiliar.nombre", "responsable.persona.nombreCompleto", "organismoFinanciero.codOf"
     })
     Optional<Activo> findByCodigo(String codigo);
