@@ -205,32 +205,46 @@ public class ActivosController {
     }
 
     private ActivoFormDTO toDto(Activo a) {
-        ActivoFormDTO dto = new ActivoFormDTO();
-        dto.setId(a.getIdActivo());
-        dto.setCodigo(a.getCodigo());
-        dto.setDescripcion(a.getDescripcion());
-        dto.setFechaAdquisicion(a.getFechaAdquisicion() != null ? a.getFechaAdquisicion().toString() : null);
-        dto.setVidaUtil(a.getVidaUtil());
-        dto.setCosto(a.getCosto());
-        if (a.getOficina() != null)
-            dto.setOficinaId(a.getOficina().getIdOficina());
-        if (a.getResponsable() != null)
-            dto.setResponsableId(a.getResponsable().getIdResponsable());
-        if (a.getOrganismoFinanciero() != null)
-            dto.setOrganismoFinancieroId(a.getOrganismoFinanciero().getIdOrganismoFinanciero());
-        if (a.getGrupoContable() != null)
-            dto.setGrupoContableId(a.getGrupoContable().getIdGrupoContable());
-        if (a.getAuxiliar() != null) {
-            dto.setAuxiliarId(a.getAuxiliar().getIdAuxiliar());
-            dto.setAuxiliarNombre(a.getAuxiliar().getNombre());
-        }
-        if (a.getOficina() != null && a.getOficina().getPredio() != null) {
+    ActivoFormDTO dto = new ActivoFormDTO();
+
+    dto.setId(a.getIdActivo());                  // <- usa "id"
+    dto.setCodigo(a.getCodigo());
+    dto.setDescripcion(a.getDescripcion());
+    dto.setFechaAdquisicion(a.getFechaAdquisicion() != null ? a.getFechaAdquisicion().toString() : null);
+    dto.setVidaUtil(a.getVidaUtil());
+    dto.setCosto(a.getCosto());
+
+    if (a.getGrupoContable() != null)
+        dto.setGrupoContableId(a.getGrupoContable().getIdGrupoContable());
+
+    if (a.getAuxiliar() != null) {
+        dto.setAuxiliarId(a.getAuxiliar().getIdAuxiliar());
+        dto.setAuxiliarNombre(a.getAuxiliar().getNombre());       // <- nombre para crear option temporal
+    }
+
+    if (a.getOficina() != null) {
+        dto.setOficinaId(a.getOficina().getIdOficina());
+        if (a.getOficina().getPredio() != null) {
             dto.setPredioId(a.getOficina().getPredio().getIdPredio());
             if (a.getOficina().getPredio().getMunicipio() != null) {
                 dto.setMunicipioId(a.getOficina().getPredio().getMunicipio().getIdMunicipio());
             }
         }
-        return dto;
     }
+
+    if (a.getResponsable() != null) {
+        dto.setResponsableId(a.getResponsable().getIdResponsable());
+        if (a.getResponsable().getPersona() != null) {
+            dto.setResponsableNombre(a.getResponsable().getPersona().getNombreCompleto()); // <- idem
+        }
+    }
+
+    if (a.getOrganismoFinanciero() != null) {
+        dto.setOrganismoFinancieroId(a.getOrganismoFinanciero().getIdOrganismoFinanciero());
+        dto.setOrganismoFinancieroNombre(a.getOrganismoFinanciero().getDescripcion());    // <- opcional
+    }
+    return dto;
+}
+
 
 }

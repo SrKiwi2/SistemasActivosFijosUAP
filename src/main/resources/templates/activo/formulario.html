@@ -444,7 +444,7 @@
             const id = $(this).val();
             const $aux = $('#auxiliarId').prop('disabled', true).empty().append('<option value="">Seleccione…</option>');
             if (!id) return;
-            $.getJSON('/api/auxiliares?grupoCode=' + encodeURIComponent(id), (arr) => {
+            $.getJSON('/api/auxiliares?grupoId=' + encodeURIComponent(id), (arr) => {
                 fillSelect('#auxiliarId', arr);
                 $aux.prop('disabled', false);
             });
@@ -567,10 +567,8 @@
         $('#municipioCode').select2(commonOpts);
         $('#predioCode').select2(commonOpts);
         $('#grupoCode').select2(commonOpts);
-        $('#unidadId').select2(commonOpts);
         $('#oficinaId').select2(commonOpts);
         $('#orgFinId').select2(commonOpts);
-        $('#grupoCode').select2(commonOpts);
 
         $('#responsableId').select2({
             ...commonOpts,
@@ -599,9 +597,9 @@
                 data: function (params) {
                     const gid = $grp.val() || '';
                     const pid = $pred.val() || '';
-                    console.log('[AUX] params', { grupoCode: gid, predioId: pid, q: params.term, page: params.page });
+                    console.log('[AUX] params', { grupoId: gid, predioId: pid, q: params.term, page: params.page });
                     return {
-                        grupoCode: gid,
+                        grupoId: gid,
                         predioId: pid,
                         q: params.term || '',
                         page: params.page || 1
@@ -609,7 +607,7 @@
                 },
                 transport: function (params, success, failure) {
                     if (!$grp.val()) {
-                        console.warn('[AUX] sin grupoCode: no llamar backend');
+                        console.warn('[AUX] sin grupoId: no llamar backend');
                         success({ results: [], pagination: { more: false } });
                         return;
                     }
