@@ -97,7 +97,7 @@ public class ActivoServiceImpl implements IActivoService{
             if (fecha != null && !fecha.isBlank()) {
                 try {
                     LocalDate fechaParsed = LocalDate.parse(fecha);
-                    predicates.add(cb.equal(root.get("fecha_adquisición"), fechaParsed));
+                    predicates.add(cb.equal(root.get("fechaAdquisicion"), fechaParsed));
                 } catch (DateTimeParseException e) {
                     e.printStackTrace(); // O manejar adecuadamente
                 }
@@ -119,7 +119,7 @@ public class ActivoServiceImpl implements IActivoService{
         return activos;
     }
 
-    @Override
+    @Transactional(readOnly = true)
     public Optional<Activo> findByCodigo(String codigo) {
        return dao.findByCodigo(codigo);
     }

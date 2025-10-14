@@ -31,6 +31,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IOrganismoFinancieroServi
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.ActivoFormDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
@@ -88,7 +89,7 @@ public class ActivosController {
 
     @ValidarUsuarioAutenticado
     @PostMapping("/formulario-edit/{id_activo}")
-    public String formularioEdit_activo(Model model, @PathVariable("id_activo") String idActivo) throws Exception{
+    public String formularioEdit_activo(Model model, @PathVariable("id_activo") String idActivo) throws Exception {
         Long id = Long.parseLong(Encriptar.decrypt(idActivo));
         model.addAttribute("activo", activoService.findById(id));
         model.addAttribute("edit", "true");
@@ -130,7 +131,7 @@ public class ActivosController {
     @PostMapping("/datatables")
     @ResponseBody
     @Transactional(readOnly = true)
-    public DataTablesResponse<ActivoDTO> listarActivosDatatables(@RequestParam Map<String, String> params){
+    public DataTablesResponse<ActivoDTO> listarActivosDatatables(@RequestParam Map<String, String> params) {
         int start = Integer.parseInt(params.get("start"));
         int length = Integer.parseInt(params.get("length"));
         String searchValue = params.get("search[value]");
@@ -142,10 +143,10 @@ public class ActivosController {
 
         PageRequest pageRequest = PageRequest.of(start / length, length);
 
-        // Page<Activo> pagina = activoService.buscarPorNombreOCodigo(searchValue, pageRequest);
+        // Page<Activo> pagina = activoService.buscarPorNombreOCodigo(searchValue,
+        // pageRequest);
         Page<Activo> pagina = activoService.buscarConFiltros(
-            searchValue, codigo, responsableId, oficinaId, fecha, pageRequest
-        );
+                searchValue, codigo, responsableId, oficinaId, fecha, pageRequest);
 
         List<ActivoDTO> activosDTO = pagina.getContent().stream().map(activo -> {
             ActivoDTO dto = new ActivoDTO();
@@ -153,42 +154,83 @@ public class ActivosController {
             dto.setCodigo(activo.getCodigo());
             dto.setNombre(activo.getNombre());
             dto.setDescripcion(activo.getDescripcion());
-            dto.setResponsable(activo.getResponsable().getPersona().getNombre() + " " 
-                                + activo.getResponsable().getPersona().getPaterno() + " " 
-                                + activo.getResponsable().getPersona().getMaterno());
+            dto.setResponsable(activo.getResponsable().getPersona().getNombre() + " "
+                    + activo.getResponsable().getPersona().getPaterno() + " "
+                    + activo.getResponsable().getPersona().getMaterno());
             dto.setOficina(activo.getOficina().getNombre());
             dto.setCosto(activo.getCosto());
             dto.setVidaUtil(activo.getVidaUtil());
             dto.setFechaAdquisicion(activo.getFechaAdquisicion().toString());
             dto.setEstado(activo.getEstadoActivo().getNombre());
-        
+
             try {
                 String idEncriptado = Encriptar.encrypt(activo.getIdActivo().toString());
-                dto.setAcciones("<button class='btn btn-sm btn-primary' onclick=\"editar('" + idEncriptado + "')\">Editar</button>" +
-                                " <button class='btn btn-sm btn-danger' onclick=\"eliminar('" + activo.getNombre() + "', '" + idEncriptado + "')\">Eliminar</button>");
+                dto.setAcciones("<button class='btn btn-sm btn-primary' onclick=\"editar('" + idEncriptado
+                        + "')\">Editar</button>" +
+                        " <button class='btn btn-sm btn-danger' onclick=\"eliminar('" + activo.getNombre() + "', '"
+                        + idEncriptado + "')\">Eliminar</button>");
             } catch (Exception e) {
                 dto.setAcciones("<span class='text-danger'>Error al generar acciones</span>");
                 e.printStackTrace();
             }
-        
+
             return dto;
         }).toList();
-        
+
         return new DataTablesResponse<>(pagina.getTotalElements(), pagina.getTotalElements(), activosDTO);
     }
 
-    /* para consultar codigo codigo correlavtio segun municpio - predio - grupocontable */
-    @PostMapping(
-    value = "/generar-correlativo",
-    produces = MediaType.APPLICATION_JSON_VALUE
-    )
+    /*
+     * para consultar codigo codigo correlavtio segun municpio - predio -
+     * grupocontable
+     */
+    @PostMapping(value = "/generar-correlativo", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public Map<String, String> generar(
-        @RequestParam String mun,
-        @RequestParam String pred,
-        @RequestParam String grp
-    ) {
+            @RequestParam String mun,
+            @RequestParam String pred,
+            @RequestParam String grp) {
         String codigo = funciones.previewCodigoPorCodes(mun, pred, grp);
         return Map.of("codigo", codigo);
     }
+
+    @ValidarUsuarioAutenticado
+    @GetMapping(value = "/buscar-por-codigo", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<ActivoFormDTO> buscarPorCodigo(@RequestParam("codigo") String codigo) {
+        return activoService.findByCodigo(codigo)
+                .map(this::toDto) // Activo -> ActivoFormDTO
+                .map(ResponseEntity::ok) // 200 OK con DTO
+                .orElseGet(() -> ResponseEntity.notFound().build()); // 404 sin body
+    }
+
+    private ActivoFormDTO toDto(Activo a) {
+        ActivoFormDTO dto = new ActivoFormDTO();
+        dto.setIdActivo(a.getIdActivo());
+        dto.setCodigo(a.getCodigo());
+        dto.setDescripcion(a.getDescripcion());
+        dto.setFechaAdquisicion(a.getFechaAdquisicion() != null ? a.getFechaAdquisicion().toString() : null);
+        dto.setVidaUtil(a.getVidaUtil());
+        dto.setCosto(a.getCosto());
+        if (a.getOficina() != null)
+            dto.setOficinaId(a.getOficina().getIdOficina());
+        if (a.getResponsable() != null)
+            dto.setResponsableId(a.getResponsable().getIdResponsable());
+        if (a.getOrganismoFinanciero() != null)
+            dto.setOrgFinId(a.getOrganismoFinanciero().getIdOrganismoFinanciero());
+        if (a.getGrupoContable() != null)
+            dto.setGrupoContableId(a.getGrupoContable().getIdGrupoContable());
+        if (a.getAuxiliar() != null) {
+            dto.setAuxiliarId(a.getAuxiliar().getIdAuxiliar());
+            dto.setAuxiliarNombre(a.getAuxiliar().getNombre());
+        }
+        if (a.getOficina() != null && a.getOficina().getPredio() != null) {
+            dto.setPredioId(a.getOficina().getPredio().getIdPredio());
+            if (a.getOficina().getPredio().getMunicipio() != null) {
+                dto.setMunicipioId(a.getOficina().getPredio().getMunicipio().getIdMunicipio());
+            }
+        }
+        return dto;
+    }
+
 }
