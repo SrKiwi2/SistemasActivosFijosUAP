@@ -1,5 +1,6 @@
 package com.usic.SistemasActivosFijosUAP.model.repository;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -9,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class FuncionesActivoRepo {
    
-    private final JdbcTemplate jdbc;
+    private final @Qualifier("pgJdbcTemplate") JdbcTemplate jdbc;
 
     public String generarCodigoPorCodes(String mun, String pred, String grp) {
         // SELECT simple a la función
