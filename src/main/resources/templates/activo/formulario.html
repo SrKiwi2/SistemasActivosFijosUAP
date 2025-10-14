@@ -441,10 +441,12 @@
 
         // 4) Dependencia Grupo → Auxiliar
         $('#grupoCode').on('change', function () {
+            if (uiState.filling) return;
             const id = $(this).val();
             const $aux = $('#auxiliarId').prop('disabled', true).empty().append('<option value="">Seleccione…</option>');
             if (!id) return;
-            $.getJSON('/api/auxiliares?grupoId=' + encodeURIComponent(id), (arr) => {
+            const predio = $('#predioCode').val() || '';
+            $.getJSON('/api/buscar_auxiliar', { grupoId: id, predioId: predio }, (arr) => {
                 fillSelect('#auxiliarId', arr);
                 $aux.prop('disabled', false);
             });
@@ -636,6 +638,7 @@
         });
 
         $pred.on('change', function () {
+            if (uiState.filling) return;
             if ($grp.val()) {
                 $('#auxiliarId').val(null).trigger('change');
                 $('#auxiliarId').select2('open');
