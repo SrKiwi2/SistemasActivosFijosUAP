@@ -1,5 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.dto;
 
+import java.math.BigDecimal;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,7 +15,7 @@ public class ActivoDTO {
     private String responsable;
     private String oficina;
     private Double costo;
-    private Integer vidaUtil;
+    private BigDecimal vidaUtil;
     private String fechaAdquisicion;
     private String estado;
     private String acciones;   // HTML

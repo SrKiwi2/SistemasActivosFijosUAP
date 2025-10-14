@@ -1,20 +1,29 @@
 package com.usic.SistemasActivosFijosUAP.model.entity;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
 @Entity
 @Table(
     name = "activo",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_activo_codigo", columnNames = {"codigo"})
-    },
     indexes = {
         @Index(name = "idx_activo_codigo", columnList = "codigo"),
         @Index(name = "idx_activo_codigosec", columnList = "codigo_sec"),
@@ -59,7 +68,8 @@ public class Activo extends AuditoriaConfig{
 
     private Double depreciacionAcum;
 
-    private Integer vidaUtil;
+    @Column(precision = 7, scale = 2)
+    private BigDecimal vidaUtil;
 
     private Integer vidaUtilAnterior;
 
@@ -106,7 +116,6 @@ public class Activo extends AuditoriaConfig{
     private OrganismoFinanciero organismoFinanciero;
 
     // Otros campos DBF directos
-    @Lob
     @Column(name = "observ", columnDefinition = "text")
     private String observ;
 

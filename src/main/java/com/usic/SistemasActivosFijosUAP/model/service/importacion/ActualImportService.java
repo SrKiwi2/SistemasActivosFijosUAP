@@ -6,6 +6,8 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -16,9 +18,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.linuxense.javadbf.DBFField;
 import com.linuxense.javadbf.DBFReader;
@@ -42,6 +44,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
+import jakarta.persistence.EntityManager;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,9 +58,9 @@ public class ActualImportService {
     private final IOficinaService oficinaService;
     private final IResponsableService responsableService;
     private final IGrupoContableService grupoContableService;
-    private final IAuxiliarService auxiliarService; // si lo tienes
-    private final IEstadoActivoService estadoActivoService; // findByCodigo(String)
-    private final IOrganismoFinancieroService organismoFinancieroService; // opcional
+    private final IAuxiliarService auxiliarService;
+    private final IEstadoActivoService estadoActivoService;
+    private final IOrganismoFinancieroService organismoFinancieroService;
     private final IActivoService activoService;
 
     @Data
@@ -68,12 +71,19 @@ public class ActualImportService {
         private List<String> errores = new ArrayList<>();
     }
 
-    // OJO: sin @Transactional (procesamos fila a fila)
-    public ImportResult importarActual(MultipartFile dbfFile, Charset cs, Short gestionPreferida) throws IOException {
+    @Autowired EntityManager em;
+
+    @Transactional
+    public ImportResult importarActual(String importId, Path dbfPath, Charset cs, Short gestionPreferida) throws IOException {
         ImportResult res = new ImportResult();
 
-        try (InputStream in = new BufferedInputStream(dbfFile.getInputStream());
+        try (InputStream in = new BufferedInputStream(Files.newInputStream(dbfPath));
              DBFReader reader = new DBFReader(in, cs)) {
+
+                int total = reader.getRecordCount();
+
+                int batchSize = 1000, sinceLastFlush = 0;
+                DBFRow r; int filaLocal = 0;
 
             int fc = reader.getFieldCount();
             StringBuilder sb = new StringBuilder("DBF FIELDS (ACTUAL):\n");
@@ -123,19 +133,22 @@ public class ActualImportService {
             int iUSU_MOD    = pick(idx, "USU_MOD");
 
             res.setTotalFisicos(reader.getRecordCount());
-            final boolean incluirBorrados = true;
 
             // ===== 3) Lectura =====
-            List<Activo> batch = new ArrayList<>(500);
-            DBFRow r;
             int updatesDetectados = 0;
             String primerUpdateResumen = null;
+
+                        Map<String, Entidad> cacheEntidad = new HashMap<>();
+                        Map<String, Predio>  cachePredio  = new HashMap<>();
+                        Map<String, Oficina> cacheOficina = new HashMap<>();
+                        Map<String, Responsable> cacheResp = new HashMap<>();
+                        Map<Integer, GrupoContable> cacheGrupo = new HashMap<>();
+                        Map<String, EstadoActivo> cacheEstado = new HashMap<>();
+                        Map<String, OrganismoFinanciero> cacheOF = new HashMap<>();
+
             while ((r = reader.nextRow()) != null) {
                 try {
-                    if (r.isDeleted() && !incluirBorrados) {
-                        res.marcadosBorrados++;
-                        continue;
-                    }
+                    filaLocal++;
                     res.leidas++;
 
                     // --- Campos DBF básicos
@@ -150,7 +163,7 @@ public class ActualImportService {
 
                     Double costo         = bdToDouble(r.getBigDecimal(iCOSTO), "COSTO", res.leidas, res);
                     Double depAcum       = bdToDouble(r.getBigDecimal(iDEPACU), "DEPACU", res.leidas, res);
-                    Integer vidaUtil     = bdToInt(r.getBigDecimal(iVIDAUTIL), "VIDAUTIL", res.leidas, res);
+                    BigDecimal vidaUtil  = bdToBigDecimal(r.getBigDecimal(iVIDAUTIL), "VIDAUTIL", res.leidas, res);
 
                     Integer dia          = bdToInt(r.getBigDecimal(iDIA), "DIA", res.leidas, res);
                     Integer mes          = bdToInt(r.getBigDecimal(iMES), "MES", res.leidas, res);
@@ -192,11 +205,17 @@ public class ActualImportService {
                         continue;
                     }
 
+
+
                     // ===== Resolver Predio -> Oficina -> Responsable =====
-                    // Entidad (por gestión preferida o última)
-                    Entidad entidad = (gestionPreferida != null)
-                            ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, entidadCod).orElse(null)
-                            : entidadService.findTopByEntidadCodigoOrderByGestionDesc(entidadCod).orElse(null);
+
+                    Entidad entidad = cacheEntidad.computeIfAbsent(
+                        gestionKey(entidadCod, gestionPreferida),
+                        k -> (gestionPreferida != null)
+                                ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, entidadCod).orElse(null)
+                                : entidadService.findTopByEntidadCodigoOrderByGestionDesc(entidadCod).orElse(null)
+                    );
+
                     if (entidad == null) {
                         res.omitidosSinEntidad++;
                         res.errores.add(msgFila(res.leidas, "Entidad no encontrada: " + entidadCod));
@@ -304,51 +323,12 @@ public class ActualImportService {
                     }
 
                     // ===== Upsert Activo por CODIGO =====
-                    Activo act = activoService.findByCodigo(codigo)
-                            .orElseGet(() -> activoService.findByOficinaAndCodigo(oficina, codigo).orElse(null));
-
-                    boolean nuevo = false;
-                    if (act == null) {
-                        act = new Activo();
-                        act.setCodigo(codigo);
-                        nuevo = true;
-                    } else {
-                        // contar update y capturar SOLO la primera vez
-                        updatesDetectados++;
-
-                        if (primerUpdateResumen == null) {
-                            String before = String.format(
-                                    "desc='%s', costo=%s, depAcum=%s, estado=%s, oficinaId=%s, unidad='%s', codOfi=%s, respId=%s",
-                                    act.getDescripcion(), act.getCosto(), act.getDepreciacionAcum(),
-                                    (act.getEstadoActivo() != null ? act.getEstadoActivo().getCodigo() : null),
-                                    (act.getOficina() != null ? act.getOficina().getIdOficina() : null),
-                                    oficina.getPredio().getUnidad(),
-                                    oficina.getCodOfi(),
-                                    (act.getResponsable() != null ? act.getResponsable().getIdResponsable() : null)
-                            );
-
-                            String after = String.format(
-                                    "desc='%s', costo=%s, depAcum=%s, estado=%s, oficinaId=%s, unidad='%s', codOfi=%s, respId=%s",
-                                    descripcion, costo, depAcum,
-                                    (estado != null ? estado.getCodigo() : null),
-                                    oficina.getIdOficina(),
-                                    oficina.getPredio().getUnidad(),
-                                    oficina.getCodOfi(),
-                                    (responsable != null ? responsable.getIdResponsable() : null)
-                            );
-
-                            primerUpdateResumen = String.format(
-                                    "fila=%d; codigo='%s' :: BEFORE [%s]  →  AFTER [%s]",
-                                    res.leidas, codigo, before, after
-                            );
-                        }
-                    }
-
-
-                    // mapear campos
+                    Activo act = new Activo();
+        
+                    act.setCodigo(codigo);
                     act.setCodigoSec(codigoSec);
                     act.setDescripcion(descripcion);
-                    act.setNombre(truncOrNull(descripcion, 255)); // opcional
+                    act.setNombre(truncOrNull(descripcion, 255));
                     act.setCosto(costo);
                     act.setDepreciacionAcum(depAcum);
                     act.setVidaUtil(vidaUtil);
@@ -382,23 +362,32 @@ public class ActualImportService {
 
                     act.setEstado("ACTIVO");
 
-                    try {
-                        // guarda por fila (evita abortar el lote por una fila mala)
-                        activoService.save(act);
-                        if (nuevo) res.insertados++; else res.actualizados++;
-                    } catch (DataIntegrityViolationException dive) {
-                        res.erroresExcepcion++;
-                        res.errores.add(msgFila(res.leidas, "Integridad (¿duplicado CODIGO?): " + root(dive) +
-                                " [CODIGO=" + codigo + "]"));
+                    em.persist(act);
+                    res.insertados++;
+
+                    sinceLastFlush++;
+                    if (sinceLastFlush >= batchSize) {
+                        em.flush();
+                        em.clear();
+                        sinceLastFlush = 0;
                     }
 
-                    // si prefieres lotes, acumula en batch y usa saveAll; aquí lo dejo por-fila
+                    if (filaLocal % 200 == 0) {
+                        pushProgress(importId, res, total);
+                    }
 
                 } catch (Exception exRow) {
                     res.erroresExcepcion++;
                     res.errores.add(msgFila(res.leidas, root(exRow)));
+
+                        // ← CLAVE: limpia la sesión antes de continuar procesando
+                        try { em.clear(); } catch (Exception ignore) {}
+                        sinceLastFlush = 0; // reinicia el batch
                 }
             }
+
+            em.flush();
+            pushProgress(importId, res, total);
 
             // ===== resumen final de updates (una sola línea, y si hubo alguno)
             if (updatesDetectados > 0) {
@@ -418,7 +407,55 @@ public class ActualImportService {
         return res;
     }
 
+    @Autowired ImportProgressService progress;
+
+    private void pushProgress(String id, ImportResult r, int total) {
+        progress.inc(id, s -> {
+            s.setTotal(total);
+            s.setLeidas(r.getLeidas());
+            s.setInsertados(r.getInsertados());
+            s.setActualizados(r.getActualizados());
+            s.setErrores(r.getErrores() != null ? r.getErrores().size() : 0);
+
+            if (r.getErrores() != null && s.getMuestrasErrores().size() < 10) {
+                for (String e : r.getErrores()) {
+                    if (s.getMuestrasErrores().size() >= 10) break;
+                    s.getMuestrasErrores().add(e);
+                }
+            }
+        });
+    }
+
+
     /* ===== Helpers ===== */
+
+    private BigDecimal bdToBigDecimal(BigDecimal bd, String nombreCampo, int fila, ImportResult res) {
+        if (bd == null) return null;
+        try {
+            return new BigDecimal(bd.toPlainString());
+        } catch (Exception ex) {
+            res.errores.add(msgFila(fila, nombreCampo + " inválido '" + bd + "', se deja nulo."));
+            return null;
+        }
+    }
+
+
+    public class CodigoHelper {
+        public static String nextUniqueCodigo(String base, List<String> existentes) {
+            int max = 0;
+            for (String c : existentes) {
+                if (c.equals(base)) {
+                    max = Math.max(max, 1);
+                } else if (c.startsWith(base + "-")) {
+                    String tail = c.substring(base.length() + 1);
+                    if (tail.matches("\\d+")) max = Math.max(max, Integer.parseInt(tail));
+                }
+            }
+            int next = max + 1;
+            return (next == 1) ? base : base + "-" + next;
+        }
+    }
+
 
     private String msgFila(int n, String m) { return "Fila " + n + ": " + m; }
 
@@ -527,4 +564,9 @@ public class ActualImportService {
         while (x.getCause() != null) x = x.getCause();
         return x.getClass().getSimpleName() + ": " + String.valueOf(x.getMessage());
     }
+
+    private String gestionKey(String entidadCod, Short gestionPreferida) {
+        return (gestionPreferida != null ? "g:" + gestionPreferida : "last") + "|" + entidadCod;
+    }
+
 }

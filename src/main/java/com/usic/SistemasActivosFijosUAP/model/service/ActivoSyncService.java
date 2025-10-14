@@ -170,7 +170,7 @@ public class ActivoSyncService {
             act.setNombre(trunc(nvl(f.getDescripcion()), 255));
             act.setCosto(f.getCosto());
             act.setDepreciacionAcum(f.getDepAcum());
-            act.setVidaUtil(f.getVidaUtil());
+            // act.setVidaUtil(f.getVidaUtil());
             act.setVidaUtilAnterior(f.getVidaUtilAnt());
             act.setFechaAdquisicion(buildDate(f.getAno(), f.getMes(), f.getDia()));
             act.setFechaAnterior(buildDate(f.getAnoAnt(), f.getMesAnt(), f.getDiaAnt()));

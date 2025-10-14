@@ -52,4 +52,11 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
 
     Optional<Activo> findByCodigo(String codigo);
     Optional<Activo> findByOficinaAndCodigo(Oficina oficina, String codigo);
+
+        @Query("""
+    SELECT a.codigo FROM Activo a
+    WHERE a.codigo = :base
+       OR a.codigo LIKE CONCAT(:base, '-%')
+    """)
+    List<String> findCodigosByBase(@Param("base") String base);
 }

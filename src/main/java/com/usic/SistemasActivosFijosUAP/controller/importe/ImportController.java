@@ -1,22 +1,31 @@
 package com.usic.SistemasActivosFijosUAP.controller.importe;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.linuxense.javadbf.DBFReader;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.ActualImportService;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.AuxiliarImportService;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.EntidadImportService;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.GrupoContableImportService;
+import com.usic.SistemasActivosFijosUAP.model.service.importacion.ImportProgressService;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.OficinaImportService;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.OrganismoFinImportService;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.PredioImportService;
@@ -37,6 +46,8 @@ public class ImportController {
     private final AuxiliarImportService auxiliarImportService;
     private final OrganismoFinImportService organismoFinImportService;
     private final ActualImportService actualImportService;
+    private final ImportProgressService progress;
+    private final TaskExecutor taskExecutor;
 
     @PostMapping("/import-entidad")
     @ResponseBody
@@ -202,23 +213,63 @@ public class ImportController {
         }
     }
 
-    @PostMapping("/import-actual")
-    @ResponseBody
-    public ResponseEntity<?> importarActual(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "charset", defaultValue = "windows-1252") String charset,
-            @RequestParam(value = "gestion", required = false) Short gestionPreferida) {
+    // @PostMapping("/import-actual")
+    // @ResponseBody
+    // public ResponseEntity<?> importarActual(
+    //         @RequestParam("file") MultipartFile file,
+    //         @RequestParam(value = "charset", defaultValue = "windows-1252") String charset,
+    //         @RequestParam(value = "gestion", required = false) Short gestionPreferida) {
 
-        if (file == null || file.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Archivo vacío o no enviado"));
+    //     if (file == null || file.isEmpty()) {
+    //         return ResponseEntity.badRequest().body(Map.of("message", "Archivo vacío o no enviado"));
+    //     }
+    //     try {
+    //         var res = actualImportService.importarActual(file, Charset.forName(charset), gestionPreferida);
+    //         return ResponseEntity.ok(res);
+    //     } catch (Exception ex) {
+    //         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+    //                 .body(Map.of("message", "Error importando ACTUAL: " + ex.getMessage()));
+    //     }
+    // }
+
+    @PostMapping("/import-actual/start")
+    public ResponseEntity<?> start(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value="charset", defaultValue="windows-1252") String charset,
+            @RequestParam(value="gestion", required=false) Short gestion) throws IOException {
+
+        // Primero, leer el header DBF para conocer el total y crear el importId
+        int total;
+        try (InputStream in = new BufferedInputStream(file.getInputStream());
+             DBFReader reader = new DBFReader(in, Charset.forName(charset))) {
+            total = reader.getRecordCount();
         }
-        try {
-            var res = actualImportService.importarActual(file, Charset.forName(charset), gestionPreferida);
-            return ResponseEntity.ok(res);
-        } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("message", "Error importando ACTUAL: " + ex.getMessage()));
-        }
+        String importId = progress.start(total);
+
+        // Guardar temporal y ejecutar async
+        Path tmp = Files.createTempFile("import-actual-", ".dbf");
+        file.transferTo(tmp.toFile());
+
+        taskExecutor.execute(() -> {
+            try {
+                actualImportService.importarActual(importId, tmp, Charset.forName(charset), gestion);
+                progress.finish(importId, "OK");
+            } catch (Exception e) {
+                progress.inc(importId, s -> s.setMensaje("ERROR: " + e.getMessage()));
+                progress.finish(importId, "ERROR");
+            } finally {
+                try { Files.deleteIfExists(tmp); } catch (Exception ignore) {}
+            }
+        });
+
+        return ResponseEntity.ok(Map.of("importId", importId, "total", total));
+    }
+
+    @GetMapping("/import-actual/status/{id}")
+    public ResponseEntity<?> status(@PathVariable String id) {
+        ImportProgressService.Snapshot s = progress.get(id);
+        if (s == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(s);
     }
 
 }
