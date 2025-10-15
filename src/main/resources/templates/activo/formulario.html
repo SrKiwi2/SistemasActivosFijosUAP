@@ -1,9 +1,3 @@
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css"
-    rel="stylesheet">
-
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.full.min.js"></script>
-
 <style>
     /* Que el contenedor Select2 se comporte como form-control dentro del input-group */
     .input-group .select2-container {
@@ -320,393 +314,339 @@
     </div>
 </div>
 <script>
-    let uiState = { modo: 'LOCK', autoCodigo: false, filling: false };
+    window.ActivoForm = (function () {
+        let uiState = { modo: 'LOCK', autoCodigo: false, filling: false };
+        let $root;
 
-    manejarEnvioFormulario('#formularioActivo');
-
-    // Helpers UI
-    function lockForm(locked) {
-        const f = document.getElementById('fieldsetActivo');
-        if (!f) return;
-        f.classList.toggle('locked', locked);
-        [...f.querySelectorAll('input, select, textarea')].forEach(el => {
-            if (el.id === 'codigo') { el.readOnly = true; return; }
-            el.disabled = locked;
-        });
-        document.getElementById('btnModificar')?.toggleAttribute('disabled', locked);
-        document.getElementById('btnCancelar')?.toggleAttribute('disabled', locked);
-    }
-
-    function setModo(texto, badgeClass) {
-        const lbl = document.getElementById('lblModo');
-        lbl.textContent = texto;
-        lbl.className = 'badge ' + (badgeClass || 'text-bg-secondary');
-    }
-
-    function limpiarForm() {
-        document.getElementById('formularioActivo').reset();
-        $('#municipioCode, #predioCode, #grupoCode, #oficinaId, #responsableId, #orgFinId, #auxiliarId')
-            .val(null).trigger('change');
-        document.getElementById('idActivo').value = '';
-        document.getElementById('codigo').value = '';
-    }
-
-    function fillFromDTO(d) {
-        uiState.filling = true;
-        try {
-            $('#idActivo').val(d.id || '');
-            $('#codigo').val(d.codigo || '');
-            $('#fechaAdq').val(d.fechaAdquisicion || '');
-            $('#descripcion').val(d.descripcion || '');
-            $('#vidaUtil').val(d.vidaUtil ?? '');
-
-            const setSel = (id, val) => { if (val != null) $(id).val(String(val)).trigger('change'); };
-
-            setSel('#municipioCode', d.municipioId);
-            setSel('#predioCode', d.predioId);
-            setSel('#grupoCode', d.grupoContableId);
-            setSel('#oficinaId', d.oficinaId);
-            setSel('#orgFinId', d.organismoFinancieroId);
-
-            // Responsable (AJAX): insertar opción temporal si no existe
-            if (d.responsableId) {
-                const $resp = $('#responsableId');
-                if ($resp.find(`option[value="${d.responsableId}"]`).length === 0) {
-                    $resp.append(`<option value="${d.responsableId}" selected>${d.responsableNombre ?? '(responsable)'}</option>`);
-                }
-                $resp.val(String(d.responsableId)).trigger('change');
-            } else {
-                $('#responsableId').val(null).trigger('change');
-            }
-
-            // Auxiliar (ya lo tenías)
-            if (d.auxiliarId) {
-                const $aux = $('#auxiliarId');
-                if ($aux.find(`option[value="${d.auxiliarId}"]`).length === 0) {
-                    $aux.append(`<option value="${d.auxiliarId}" selected>${d.auxiliarNombre ?? '(auxiliar)'}</option>`);
-                }
-                $aux.val(String(d.auxiliarId)).trigger('change');
-            } else {
-                $('#auxiliarId').val(null).trigger('change');
-            }
-
-            if (d.costo != null) {
-                $('#costo').val(Number(d.costo).toFixed(2));
-                const fmt = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 });
-                $('#costoFmt').val(fmt.format(Number(d.costo)));
-            }
-        } finally {
-            uiState.filling = false;
-        }
-    }
-
-    $(function () {
-
-        setModo('BLOQUEADO', 'text-bg-secondary');
-        lockForm(true);
-
-        // 2) Formato de moneda en vivo + valor limpio oculto
-        const fmt = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 });
-        const nf = new Intl.NumberFormat('es-BO');
-
-        function parseMoney(str) {
-            if (!str) return 0;
-            const clean = String(str).replace(/[^\d.,-]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(/\s/g, '');
-            const lastSep = Math.max(clean.lastIndexOf(','), clean.lastIndexOf('.'));
-            let intPart = clean, decPart = '';
-            if (lastSep > -1) {
-                intPart = clean.slice(0, lastSep).replace(/[.,]/g, '');
-                decPart = clean.slice(lastSep + 1);
-            }
-            const num = Number(intPart || 0) + Number((decPart || '0').slice(0, 2)) / Math.pow(10, (decPart || '').slice(0, 2).length || 0);
-            return isNaN(num) ? 0 : num;
-        }
-
-        $('#costoFmt').on('input', function () {
-            const val = parseMoney(this.value);
-            $('#costo').val(val.toFixed(2));
-        }).on('blur', function () {
-            const val = parseFloat($('#costo').val() || '0');
-            this.value = fmt.format(isNaN(val) ? 0 : val);
-        }).trigger('blur');
-
-
-        // 4) Dependencia Grupo → Auxiliar
-        $('#grupoCode').on('change', function () {
-            if (uiState.filling) return;
-            const id = $(this).val();
-            const $aux = $('#auxiliarId').prop('disabled', true).empty().append('<option value="">Seleccione…</option>');
-            if (!id) return;
-            const predio = $('#predioCode').val() || '';
-            $.getJSON('/api/buscar_auxiliar', { grupoId: id, predioId: predio }, (arr) => {
-                fillSelect('#auxiliarId', arr);
-                $aux.prop('disabled', false);
+        // ==== helpers UI (scoped) ====
+        function lockForm(locked) {
+            const f = $root.find('#fieldsetActivo')[0];
+            if (!f) return;
+            f.classList.toggle('locked', locked);
+            [...f.querySelectorAll('input, select, textarea')].forEach(el => {
+                if (el.id === 'codigo') { el.readOnly = true; return; }
+                el.disabled = locked;
             });
-        });
-
-        // 6) autoformato + validacon codigo activo
-        const input = document.getElementById('codigo');
-
-        function maskCodigo(value) {
-            const digits = value.replace(/\D/g, '');
-            const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 6), digits.slice(6, 11)]
-                .filter(Boolean);
-            return parts.join('-').slice(0, 14);
+            $root.find('#btnModificar').prop('disabled', locked);
+            $root.find('#btnCancelar').prop('disabled', locked);
         }
 
-        input.addEventListener('input', (e) => {
-            const v = maskCodigo(e.target.value);
-            if (e.target.value !== v) e.target.value = v;
-            const ok = /^\d{2}-\d{2}-\d{2}-\d{5}$/.test(e.target.value);
-            e.target.setCustomValidity(ok ? '' : 'Formato: 99-99-99-99999');
-        });
-
-        input.addEventListener('blur', (e) => {
-            const ok = /^\d{2}-\d{2}-\d{2}-\d{5}$/.test(e.target.value);
-            e.target.setCustomValidity(ok ? '' : 'Formato: 99-99-99-99999');
-        });
-
-        // 7) llenar automaticamente el codigo correlativo segun municipio, predio y grupocontable
-        const $mun = $('#municipioCode');
-        const $pred = $('#predioCode');
-        const $grp = $('#grupoCode');
-        const $cod = $('#codigo');
-        const $vida = $('#vidaUtil');
-
-        function ready() {
-            return $mun.val() && $pred.val() && $grp.val();
+        function setModo(texto, badgeClass) {
+            const lbl = $root.find('#lblModo')[0];
+            lbl.textContent = texto;
+            lbl.className = 'badge ' + (badgeClass || 'text-bg-secondary');
         }
 
-        function getCodeFrom(sel) {
-            const opt = sel.options[sel.selectedIndex];
-            return opt ? (opt.dataset.code || '') : '';
+        function limpiarForm() {
+            const $form = $root.find('#formularioActivo');
+            if ($form.length) $form[0].reset();
+            $root.find('#municipioCode, #predioCode, #grupoCode, #oficinaId, #responsableId, #orgFinId, #auxiliarId')
+                .val(null).trigger('change');
+            $root.find('#idActivo').val('');
+            $root.find('#codigo').val('');
         }
 
-        async function generar() {
-            if (!ready()) { $cod.val(''); return; }
-
-            const m = getCodeFrom(document.getElementById('municipioCode'));
-            const p = getCodeFrom(document.getElementById('predioCode'));
-            const g = getCodeFrom(document.getElementById('grupoCode'));
-            if (!(m && p && g)) { $cod.val(''); return; }
-
-            $cod.val('Generando…');
-
-            const params = new URLSearchParams({ mun: m, pred: p, grp: g });
-            const headers = { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' };
-
+        function fillFromDTO(d) {
+            uiState.filling = true;
             try {
-                const r = await fetch('/administracion/activo/generar-correlativo', {
-                    method: 'POST',
-                    headers,
-                    body: params.toString()
-                });
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                const json = await r.json();
-                $cod.val(json.codigo || '');
-            } catch (e) {
-                console.error(e);
-                $cod.val('');
-            }
-        }
+                $root.find('#idActivo').val(d.id || '');
+                $root.find('#codigo').val(d.codigo || '');
+                $root.find('#fechaAdq').val(d.fechaAdquisicion || '');
+                $root.find('#descripcion').val(d.descripcion || '');
+                $root.find('#vidaUtil').val(d.vidaUtil ?? '');
 
-        async function cargarMetaGrupo(idGrupo) {
-            if (!idGrupo) {
-                $vida.val('');
-                return;
-            }
-            try {
-                const r = await fetch(`/api/${encodeURIComponent(idGrupo)}/meta`, {
-                    headers: { 'Accept': 'application/json' }
-                });
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                const meta = await r.json();
-                if (meta && typeof meta.vidaUtil === 'number') {
-                    $vida.val(meta.vidaUtil);
+                const setSel = (sel, val) => { if (val != null) $root.find(sel).val(String(val)).trigger('change'); };
+                setSel('#municipioCode', d.municipioId);
+                setSel('#predioCode', d.predioId);
+                setSel('#grupoCode', d.grupoContableId);
+                setSel('#oficinaId', d.oficinaId);
+                setSel('#orgFinId', d.organismoFinancieroId);
+
+                if (d.responsableId) {
+                    const $resp = $root.find('#responsableId');
+                    if ($resp.find(`option[value="${d.responsableId}"]`).length === 0) {
+                        $resp.append(`<option value="${d.responsableId}" selected>${d.responsableNombre ?? '(responsable)'}</option>`);
+                    }
+                    $resp.val(String(d.responsableId)).trigger('change');
                 } else {
+                    $root.find('#responsableId').val(null).trigger('change');
+                }
+
+                if (d.auxiliarId) {
+                    const $aux = $root.find('#auxiliarId');
+                    if ($aux.find(`option[value="${d.auxiliarId}"]`).length === 0) {
+                        $aux.append(`<option value="${d.auxiliarId}" selected>${d.auxiliarNombre ?? '(auxiliar)'}</option>`);
+                    }
+                    $aux.val(String(d.auxiliarId)).trigger('change');
+                } else {
+                    $root.find('#auxiliarId').val(null).trigger('change');
+                }
+
+                if (d.costo != null) {
+                    $root.find('#costo').val(Number(d.costo).toFixed(2));
+                    const fmt = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 });
+                    $root.find('#costoFmt').val(fmt.format(Number(d.costo)));
+                }
+            } finally {
+                uiState.filling = false;
+            }
+        }
+
+        function initSelect2() {
+            const $modal = $root.find('#modalFormularioActivo');
+            const commonOpts = {
+                theme: 'bootstrap-5',
+                width: '100%',
+                placeholder: 'Seleccione…',
+                allowClear: true,
+                language: { noResults: () => 'Sin resultados', searching: () => 'Buscando…' },
+                dropdownParent: $modal.length ? $modal : $(document.body)
+            };
+
+            $root.find('#municipioCode').select2(commonOpts);
+            $root.find('#predioCode').select2(commonOpts);
+            $root.find('#grupoCode').select2(commonOpts);
+            $root.find('#oficinaId').select2(commonOpts);
+            $root.find('#orgFinId').select2(commonOpts);
+
+            $root.find('#responsableId').select2({
+                ...commonOpts, minimumInputLength: 2,
+                ajax: {
+                    url: '/api/buscar_responsable', delay: 250,
+                    data: p => ({ q: p.term || '', page: p.page || 1 }),
+                    processResults: (data, p) => ({ results: data.results, pagination: { more: data.pagination?.more === true } })
+                }
+            });
+
+            $root.find('#auxiliarId').select2({
+                ...commonOpts, minimumInputLength: 0, ajax: {
+                    url: '/api/buscar_auxiliar', delay: 250, dataType: 'json',
+                    data: params => ({
+                        grupoId: $root.find('#grupoCode').val() || '',
+                        predioId: $root.find('#predioCode').val() || '',
+                        q: params.term || '', page: params.page || 1
+                    }),
+                    transport: (params, success, failure) => {
+                        if (!$root.find('#grupoCode').val()) { success({ results: [], pagination: { more: false } }); return; }
+                        $.ajax(params).then(success).catch(failure);
+                    },
+                    processResults: data => ({ results: data.results || [], pagination: { more: data.pagination?.more === true } })
+                }
+            });
+
+            $root.find('#auxiliarId').prop('disabled', !$root.find('#grupoCode').val()).trigger('change.select2');
+        }
+
+        // Para evitar handlers duplicados, usa nombres de espacio ('.activo')
+        function bindEvents() {
+            // Limpia bindings previos en este contenedor
+            $root.off('.activo');
+
+            // --- helpers locales que SÍ existen en este scope ---
+            const fmtMoney = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 });
+
+            function parseMoney(str) {
+                if (!str) return 0;
+                const clean = String(str).replace(/[^\d.,-]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(/\s/g, '');
+                const lastSep = Math.max(clean.lastIndexOf(','), clean.lastIndexOf('.'));
+                let intPart = clean, decPart = '';
+                if (lastSep > -1) {
+                    intPart = clean.slice(0, lastSep).replace(/[.,]/g, '');
+                    decPart = clean.slice(lastSep + 1);
+                }
+                const num = Number(intPart || 0) + Number((decPart || '0').slice(0, 2)) / Math.pow(10, (decPart || '').slice(0, 2).length || 0);
+                return isNaN(num) ? 0 : num;
+            }
+
+            function maskCodigo(value) {
+                const d = String(value || '').replace(/\D/g, '');
+                const parts = [d.slice(0, 2), d.slice(2, 4), d.slice(4, 6), d.slice(6, 11)].filter(Boolean);
+                return parts.join('-').slice(0, 14);
+            }
+
+            function getCodeFromSelect2($sel) {
+                const el = $sel[0];
+                if (!el || !el.selectedIndex || el.selectedIndex < 0) return '';
+                const opt = el.options[el.selectedIndex];
+                return (opt && opt.dataset && opt.dataset.code) ? opt.dataset.code : '';
+            }
+
+            async function generarCorrelativo() {
+                const $mun = $root.find('#municipioCode');
+                const $pred = $root.find('#predioCode');
+                const $grp = $root.find('#grupoCode');
+                const $cod = $root.find('#codigo');
+
+                const m = getCodeFromSelect2($mun);
+                const p = getCodeFromSelect2($pred);
+                const g = getCodeFromSelect2($grp);
+                if (!(m && p && g)) { $cod.val(''); return; }
+
+                $cod.val('Generando…');
+                try {
+                    const r = await fetch('/administracion/activo/generar-correlativo', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+                        body: new URLSearchParams({ mun: m, pred: p, grp: g }).toString()
+                    });
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    const json = await r.json();
+                    $cod.val(json.codigo || '');
+                } catch (e) {
+                    console.error(e);
+                    $cod.val('');
+                }
+            }
+
+            async function cargarMetaGrupo(idGrupo) {
+                const $vida = $root.find('#vidaUtil');
+                if (!idGrupo) { $vida.val(''); return; }
+                try {
+                    const r = await fetch(`/api/${encodeURIComponent(idGrupo)}/meta`, { headers: { 'Accept': 'application/json' } });
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    const meta = await r.json();
+                    if (meta && typeof meta.vidaUtil === 'number') $vida.val(meta.vidaUtil); else $vida.val('');
+                } catch (e) {
+                    console.error('Error meta grupo', e);
                     $vida.val('');
                 }
-            } catch (e) {
-                console.error('Error meta grupo', e);
-                $vida.val('');
+            }
+
+            // --- Formato de moneda ---
+            $root.on('input.activo', '#costoFmt', function () {
+                const val = parseMoney(this.value);
+                $root.find('#costo').val(val.toFixed(2));
+            });
+            $root.on('blur.activo', '#costoFmt', function () {
+                const val = parseFloat($root.find('#costo').val() || '0');
+                this.value = fmtMoney.format(isNaN(val) ? 0 : val);
+            }).find('#costoFmt').trigger('blur');
+
+            // --- Máscara de código ---
+            const $codigo = $root.find('#codigo');
+            $codigo.on('input.activo', function () {
+                const v = maskCodigo(this.value);
+                if (this.value !== v) this.value = v;
+                const ok = /^\d{2}-\d{2}-\d{2}-\d{5}$/.test(this.value);
+                this.setCustomValidity(ok ? '' : 'Formato: 99-99-99-99999');
+            });
+            $codigo.on('blur.activo', function () {
+                const ok = /^\d{2}-\d{2}-\d{2}-\d{5}$/.test(this.value);
+                this.setCustomValidity(ok ? '' : 'Formato: 99-99-99-99999');
+            });
+
+            // --- Cambios en selects que afectan correlativo / auxiliares ---
+            $root.on('change.activo', '#municipioCode, #predioCode, #grupoCode', function () {
+                if (this.id === 'grupoCode') {
+                    const $aux = $root.find('#auxiliarId').prop('disabled', true).empty().append('<option value="">Seleccione…</option>');
+                    const gid = $root.find('#grupoCode').val();
+                    const pid = $root.find('#predioCode').val() || '';
+                    if (gid) {
+                        // select2 (AJAX) cargará al abrir; si quieres precargar, haz una llamada aquí.
+                        $aux.prop('disabled', false);
+                        cargarMetaGrupo(gid);
+                    }
+                }
+                if (uiState.autoCodigo && !uiState.filling) generarCorrelativo();
+            });
+
+            // --- Botones ---
+            $root.on('click.activo', '#btnRegistrar', function () {
+                limpiarForm();
+                setModo('REGISTRO NUEVO', 'text-bg-primary');
+                uiState.modo = 'NEW'; uiState.autoCodigo = true;
+                lockForm(false);
+                $root.find('#btnModificar').prop('disabled', true);
+                $root.find('#btnCancelar').prop('disabled', false);
+            });
+
+            $root.on('click.activo', '#btnBuscarCodigo', async function () {
+                const codigo = ($root.find('#buscarCodigo').val() || '').trim();
+                if (!codigo) { alert('Ingrese un código (ej. 01-01-04-00048)'); return; }
+                try {
+                    showGlobalLoader({ texto: 'Buscando...' });
+                    const r = await fetch('/administracion/activo/buscar-por-codigo?codigo=' + encodeURIComponent(codigo));
+                    hideGlobalLoader();
+                    if (!r.ok) throw new Error('No encontrado');
+                    const dto = await r.json();
+                    limpiarForm();
+                    fillFromDTO(dto);
+                    setModo('VISTA', 'text-bg-info');
+                    uiState.modo = 'VIEW'; uiState.autoCodigo = false;
+                    lockForm(true);
+                    $root.find('#btnModificar').prop('disabled', false);
+                    $root.find('#btnCancelar').prop('disabled', false);
+                } catch (e) {
+                    hideGlobalLoader();
+                    console.error(e);
+                    alert('No se encontró el activo con ese código.');
+                }
+            });
+
+            $root.on('click.activo', '#btnModificar', function () {
+                if (!$root.find('#idActivo').val()) { alert('Primero busque un activo.'); return; }
+                setModo('EDICIÓN', 'text-bg-warning');
+                uiState.modo = 'EDIT'; uiState.autoCodigo = false;
+                lockForm(false);
+                $root.find('#btnCancelar').prop('disabled', false);
+            });
+
+            $root.on('click.activo', '#btnCancelar', function () {
+                lockForm(true);
+                setModo('BLOQUEADO', 'text-bg-secondary');
+                uiState.modo = 'LOCK'; uiState.autoCodigo = false;
+                $root.find('#btnModificar').prop('disabled', !$root.find('#idActivo').val());
+                $root.find('#btnCancelar').prop('disabled', true);
+            });
+
+            // --- Submit ---
+            $root.on('submit.activo', '#formularioActivo', async function (e) {
+                e.preventDefault();
+                const id = $root.find('#idActivo').val();
+                const url = id ? '/administracion/activo/modificar-activo' : '/administracion/activo/registrar-activo';
+                const formData = new FormData(this);
+                showGlobalLoader({ texto: 'Guardando...' });
+                try {
+                    const r = await fetch(url, { method: 'POST', body: formData });
+                    hideGlobalLoader();
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    const msg = await r.text();
+                    alert(msg || 'Guardado');
+                    lockForm(true);
+                    setModo('BLOQUEADO', 'text-bg-secondary');
+                    if (window.$ && $('#data-table').length) $('#data-table').DataTable().ajax.reload(null, false);
+                } catch (err) {
+                    hideGlobalLoader();
+                    console.error(err);
+                    alert('Error al guardar: ' + (err.message || err));
+                }
+            });
+
+            // Manejo extra (si existe)
+            if (typeof window.manejarEnvioFormulario === 'function') {
+                window.manejarEnvioFormulario('#formularioActivo');
             }
         }
 
-        $mun.on('change', () => { if (uiState.autoCodigo && !uiState.filling) generar(); });
-        $pred.on('change', () => { if (uiState.autoCodigo && !uiState.filling) generar(); });
-        $grp.on('change',  () => { if (uiState.autoCodigo && !uiState.filling) generar(); });
-
-        const $modal = $('#modalFormularioActivo');
-        const commonOpts = {
-            theme: 'bootstrap-5',
-            width: '100%',
-            placeholder: 'Seleccione…',
-            allowClear: true,
-            language: {
-                noResults: () => 'Sin resultados',
-                searching: () => 'Buscando…'
-            },
-
-            dropdownParent: $modal.length ? $modal : $(document.body)
-        };
-
-        $('#municipioCode').select2(commonOpts);
-        $('#predioCode').select2(commonOpts);
-        $('#grupoCode').select2(commonOpts);
-        $('#oficinaId').select2(commonOpts);
-        $('#orgFinId').select2(commonOpts);
-
-        $('#responsableId').select2({
-            ...commonOpts,
-            minimumInputLength: 2,
-            ajax: {
-                url: '/api/buscar_responsable',
-                delay: 250,
-                data: params => ({ q: params.term || '', page: params.page || 1 }),
-                processResults: (data, params) => ({
-                    results: data.results, pagination: { more: data.pagination?.more === true }
-                })
-            }
-        });
-
-        $('#auxiliarId').select2({
-            theme: 'bootstrap-5',
-            width: '100%',
-            placeholder: 'Seleccione…',
-            allowClear: true,
-            dropdownParent: $('#modalFormularioActivo'),
-            minimumInputLength: 0,
-            ajax: {
-                url: '/api/buscar_auxiliar',
-                delay: 250,
-                dataType: 'json',
-                data: function (params) {
-                    const gid = $grp.val() || '';
-                    const pid = $pred.val() || '';
-                    console.log('[AUX] params', { grupoId: gid, predioId: pid, q: params.term, page: params.page });
-                    return {
-                        grupoId: gid,
-                        predioId: pid,
-                        q: params.term || '',
-                        page: params.page || 1
-                    };
-                },
-                transport: function (params, success, failure) {
-                    if (!$grp.val()) {
-                        console.warn('[AUX] sin grupoId: no llamar backend');
-                        success({ results: [], pagination: { more: false } });
-                        return;
-                    }
-                    $.ajax(params).then(success).catch(failure);
-                },
-                processResults: function (data) {
-                    console.log('[AUX] data', data);
-                    return {
-                        results: data.results || [],
-                        pagination: { more: data.pagination?.more === true }
-                    };
-                },
-                error: (xhr) => console.error('AUXILIAR AJAX error', xhr.status, xhr.responseText)
-            }
-        });
-
-        // Estado inicial y reseteos
-        $('#auxiliarId').prop('disabled', !$grp.val()).trigger('change.select2');
-
-        $grp.on('change', function () {
-            $('#auxiliarId').val(null).trigger('change');
-            $('#auxiliarId').prop('disabled', !$grp.val()).trigger('change.select2');
-            if ($grp.val()) $('#auxiliarId').select2('open');
-            const id = $(this).val();
-            cargarMetaGrupo(id);
-        });
-
-        $pred.on('change', function () {
-            if (uiState.filling) return;
-            if ($grp.val()) {
-                $('#auxiliarId').val(null).trigger('change');
-                $('#auxiliarId').select2('open');
-            }
-        });
-
-        // Botón REGISTRAR: limpia y desbloquea
-        $('#btnRegistrar').on('click', function () {
-            limpiarForm();
-            setModo('REGISTRO NUEVO', 'text-bg-primary');
-            uiState.modo = 'NEW';
-            uiState.autoCodigo = true;
-            lockForm(false);
-            $('#btnModificar').prop('disabled', true);
-            $('#btnCancelar').prop('disabled', false);
-        });
-
-        // Buscar por código
-        $('#btnBuscarCodigo').on('click', async function () {
-            const codigo = ($('#buscarCodigo').val() || '').trim();
-            if (!codigo) { alert('Ingrese un código (ej. 01-01-04-00048)'); return; }
-            try {
-                showGlobalLoader({ texto: 'Buscando...' });
-                const r = await fetch('/administracion/activo/buscar-por-codigo?codigo=' + encodeURIComponent(codigo));
-                hideGlobalLoader();
-                if (!r.ok) throw new Error('No encontrado');
-                const dto = await r.json();
-                limpiarForm();
-                fillFromDTO(dto);
-                setModo('VISTA', 'text-bg-info');
-                uiState.modo = 'VIEW';
-                uiState.autoCodigo = false; 
-                lockForm(true);
-                $('#btnModificar').prop('disabled', false);
-                $('#btnCancelar').prop('disabled', false);
-            } catch (e) {
-                hideGlobalLoader();
-                console.error(e);
-                alert('No se encontró el activo con ese código.');
-            }
-        });
-
-        // MODIFICAR: desbloquear con datos cargados
-        $('#btnModificar').on('click', function () {
-            if (!$('#idActivo').val()) { alert('Primero busque un activo.'); return; }
-            setModo('EDICIÓN', 'text-bg-warning');
-            uiState.modo = 'EDIT';
-            uiState.autoCodigo = false; 
-            lockForm(false);
-            $('#btnCancelar').prop('disabled', false);
-        });
-
-        // CANCELAR: volver a bloqueado sin perder la vista actual
-        $('#btnCancelar').on('click', function () {
-            lockForm(true);
+        function init(containerSelector) {
+            $root = $(containerSelector);
             setModo('BLOQUEADO', 'text-bg-secondary');
-            uiState.modo = 'LOCK';
-            uiState.autoCodigo = false;
-            $('#btnModificar').prop('disabled', !$('#idActivo').val());
-            $('#btnCancelar').prop('disabled', true);
-        });
+            lockForm(true);
+            initSelect2();
+            bindEvents();
+        }
 
-        // Envío (registrar o modificar dependiendo si hay idActivo)
-        $('#formularioActivo').on('submit', async function (e) {
-            e.preventDefault();
-            const id = $('#idActivo').val();
-            const url = id ? '/administracion/activo/modificar-activo' : '/administracion/activo/registrar-activo';
-            const formData = new FormData(this);
-            showGlobalLoader({ texto: 'Guardando...' });
-            try {
-                const r = await fetch(url, { method: 'POST', body: formData });
-                hideGlobalLoader();
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                const msg = await r.text();
-                alert(msg || 'Guardado');
-                lockForm(true);
-                setModo('BLOQUEADO', 'text-bg-secondary');
-                // refresca tabla si aplica:
-                if (window.$ && $('#data-table').length) $('#data-table').DataTable().ajax.reload(null, false);
-            } catch (err) {
-                hideGlobalLoader();
-                console.error(err);
-                alert('Error al guardar: ' + (err.message || err));
-            }
-        });
-    });
+        function destroy() {
+            if (!$root) return;
+            // destruye select2
+            $root.find('#municipioCode, #predioCode, #grupoCode, #oficinaId, #orgFinId, #responsableId, #auxiliarId')
+                .each(function () { if ($(this).data('select2')) $(this).select2('destroy'); });
+            // desbindea eventos
+            $root.off('.activo');
+            $root = null;
+        }
+
+        return { init, destroy };
+
+    })();
 </script>

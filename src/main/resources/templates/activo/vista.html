@@ -32,12 +32,6 @@
                     </select>
                     <div class="form-text">Si ves caracteres raros, prueba ISO-8859-1 o UTF-8.</div>
                 </div>
-
-                <div id="importProgress" class="d-none">
-                    <div class="alert alert-info py-2">
-                        <i class="fa-solid fa-spinner fa-spin me-2"></i> Importando… por favor espera.
-                    </div>
-                </div>
                 <div id="importProgress" class="d-none">
                     <div class="mb-2 small text-muted">Importando…</div>
                     <div class="progress" style="height: 18px;">
@@ -90,16 +84,33 @@
         });
     }
 
-    manejarEnvioFormulario('#formularioActivo');
+    if (typeof window.manejarEnvioFormulario === 'function') {
+        window.manejarEnvioFormulario('#formularioActivo');
+    }
+
 
     function cargarFormulario() {
         showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
         cargarFormularioAlert("/administracion/activo/formulario", "#prediocontenidoModalActivo", "#formularioActivo");
+        
+        if (window.ActivoForm && typeof window.ActivoForm.destroy === 'function') {
+            window.ActivoForm.destroy();
+        }
+
         $.ajax({
             type: 'POST',
             url: "/administracion/activo/formulario",
             success: function (response) {
-                $("#formulario").html(response);
+               // Espera hasta que el script del parcial termine y expose el módulo
+                (function waitInit(tries = 0) {
+                    if (window.ActivoForm && typeof window.ActivoForm.init === 'function') {
+                    window.ActivoForm.init("#formulario");
+                    } else if (tries < 40) { // ~1s
+                    setTimeout(() => waitInit(tries + 1), 25);
+                    } else {
+                    console.error('ActivoForm no cargó (timeout).');
+                    }
+                })();
             },
             error: function () {
                 $("#formulario").html(`

@@ -200,6 +200,14 @@ public class ActivosController {
     }
 
     private ActivoFormDTO toDto(Activo a) {
+        System.out.println("oficina=" + (a.getOficina()!=null) +
+                     ", predio=" + (a.getOficina()!=null && a.getOficina().getPredio()!=null) +
+                     ", municipio=" + (a.getOficina()!=null && a.getOficina().getPredio()!=null && a.getOficina().getPredio().getMunicipio()!=null) +
+                     ", grupo=" + (a.getGrupoContable()!=null) +
+                     ", aux=" + (a.getAuxiliar()!=null) +
+                     ", resp=" + (a.getResponsable()!=null) +
+                     ", persona=" + (a.getResponsable()!=null && a.getResponsable().getPersona()!=null) +
+                     ", orgFin=" + (a.getOrganismoFinanciero()!=null));
         ActivoFormDTO dto = new ActivoFormDTO();
 
         dto.setId(a.getIdActivo());
@@ -236,7 +244,7 @@ public class ActivosController {
 
         if (a.getOrganismoFinanciero() != null) {
             dto.setOrganismoFinancieroId(a.getOrganismoFinanciero().getIdOrganismoFinanciero());
-            dto.setOrganismoFinancieroNombre(a.getOrganismoFinanciero().getDescripcion());
+            dto.setOrganismoFinancieroNombre(a.getOrganismoFinanciero().getSigla());
         }
         return dto;
     }
