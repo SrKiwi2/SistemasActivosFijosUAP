@@ -75,7 +75,7 @@ public class ActivosController {
     }
 
     @ValidarUsuarioAutenticado
-    @PostMapping("/formulario")
+    @GetMapping("/formulario")
     public String formulario_activo(Model model, Activo activo) {
         model.addAttribute("municipios", municipioService.findAll());
         model.addAttribute("predios", predioServicio.findAll());

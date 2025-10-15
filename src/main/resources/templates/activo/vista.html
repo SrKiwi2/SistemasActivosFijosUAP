@@ -84,47 +84,25 @@
         });
     }
 
-    if (typeof window.manejarEnvioFormulario === 'function') {
-        window.manejarEnvioFormulario('#formularioActivo');
-    }
-
-
     function cargarFormulario() {
         showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
-        cargarFormularioAlert("/administracion/activo/formulario", "#prediocontenidoModalActivo", "#formularioActivo");
-        
-        if (window.ActivoForm && typeof window.ActivoForm.destroy === 'function') {
-            window.ActivoForm.destroy();
-        }
 
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/activo/formulario",
-            success: function (response) {
-               // Espera hasta que el script del parcial termine y expose el módulo
-                (function waitInit(tries = 0) {
-                    if (window.ActivoForm && typeof window.ActivoForm.init === 'function') {
-                    window.ActivoForm.init("#formulario");
-                    } else if (tries < 40) { // ~1s
-                    setTimeout(() => waitInit(tries + 1), 25);
-                    } else {
-                    console.error('ActivoForm no cargó (timeout).');
-                    }
-                })();
-            },
-            error: function () {
-                $("#formulario").html(`
-                <div class="alert alert-danger m-3">
-                Ocurrió un error al cargar la tabla.
+        if (window.ActivoForm?.destroy) window.ActivoForm.destroy();
+
+        $('#formulario').load('/administracion/activo/formulario', function (resp, status) {
+            hideGlobalLoader();
+            if (status === 'success') {
+            if (window.ActivoForm?.init) window.ActivoForm.init('#formulario');
+            else console.error('ActivoForm no cargó.');
+            } else {
+            $('#formulario').html(`<div class="alert alert-danger m-3">
+                Ocurrió un error al cargar el formulario.
                 <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarFormulario()">Reintentar</button>
-                </div>
-            `);
-            },
-            complete: function () {
-                hideGlobalLoader();
+            </div>`);
             }
         });
     }
+
 
     function cargarFormularioEdit(id) {
         cargarFormularioEditAlert(id, "/administracion/activo/formulario-edit", "#prediocontenidoModalActivo", "#formularioActivo");
