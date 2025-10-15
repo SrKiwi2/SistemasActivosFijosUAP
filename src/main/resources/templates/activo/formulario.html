@@ -1,221 +1,335 @@
 <style>
-    /* Que el contenedor Select2 se comporte como form-control dentro del input-group */
-    .input-group .select2-container {
-        flex: 1 1 auto;
-        width: 1% !important;
-        /* evita que se pase de ancho */
-        min-width: 0;
-        /* permite encogerse en layouts estrechos */
+    /* Ancho máximo del formulario para que no se estire de más en pantallas grandes */
+    .af-wrap {
+        max-width: 1080px;
+        margin-inline: auto;
     }
 
-    /* Altura y padding similares a .form-select (Bootstrap 5) */
-    .select2-container--bootstrap-5 .select2-selection {
-        min-height: calc(2.5rem + 2px);
-        /* altura estándar */
-        padding: .375rem .75rem;
-        /* mismos paddings horizontales */
-        border-radius: .375rem;
-    }
-
-    /* Que el texto quede centrado verticalmente */
-    .select2-container--bootstrap-5 .select2-selection__rendered {
-        line-height: 1.5;
-    }
-
-    /* Flecha alineada a la derecha y ocupando la altura completa */
-    .select2-container--bootstrap-5 .select2-selection--single .select2-selection__arrow {
-        height: 100%;
-        right: .75rem;
-    }
-
-    /* Borde redondeado correcto cuando hay icono a la izquierda */
-    .input-group .select2-container--bootstrap-5 .select2-selection {
-        border-top-left-radius: 0;
-        border-bottom-left-radius: 0;
-    }
-
-    /* Compactar todo el formulario */
+    /* Densidad visual */
     .form-compact * {
+        font-size: .95rem;
+    }
+
+    .form-label {
         font-size: .9rem;
-    }
-
-    .form-compact .form-control,
-    .form-compact .form-select,
-    .form-compact .input-group-text {
-        padding: .25rem .5rem;
-    }
-
-    .form-compact .row.g-3 {
-        --bs-gutter-y: .5rem;
-        --bs-gutter-x: .5rem;
-    }
-
-    .card-compact .card-body {
-        padding: .75rem;
-    }
-
-    .toolbar .btn {
-        padding: .3rem .6rem;
+        margin-bottom: .35rem;
     }
 
     .mini-help {
-        font-size: .78rem;
+        font-size: .8rem;
         color: #6c757d;
+        margin-top: .15rem;
     }
 
+    /* Altura/estética de controles */
+    .form-control,
+    .form-select,
+    .select2-container--bootstrap-5 .select2-selection {
+        min-height: 2.6rem;
+        padding: .5rem .75rem;
+        border-radius: .6rem;
+        border-color: #e5e7eb;
+    }
+
+    .input-group-text {
+        background: #f6f7f9;
+        border-color: #e5e7eb;
+        border-right: 0;
+        border-radius: .6rem 0 0 .6rem;
+        padding: .5rem .65rem;
+    }
+
+    .input-group .form-control,
+    .input-group .form-select,
+    .input-group .select2-container--bootstrap-5 .select2-selection {
+        border-radius: 0 .6rem .6rem 0;
+    }
+
+    /* Select2 dentro de input-group */
+    .input-group .select2-container {
+        flex: 1 1 auto;
+        width: 1% !important;
+        min-width: 0;
+    }
+
+    .select2-container--bootstrap-5 .select2-selection__rendered {
+        line-height: 1.4;
+    }
+
+    .select2-container--bootstrap-5 .select2-selection--single .select2-selection__arrow {
+        height: 100%;
+        right: .6rem;
+    }
+
+    /* Tarjeta */
+    .card-compact {
+        border-radius: .8rem;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, .05);
+        overflow: hidden;
+    }
+
+    .card-compact .card-header {
+        background: linear-gradient(180deg, #fff, #fafafa);
+        border-bottom: 1px solid #eee;
+    }
+
+    .card-compact .card-body {
+        padding: 1rem 1rem 1.1rem;
+    }
+
+    /* Toolbar */
+    .toolbar {
+        gap: .5rem;
+        flex-wrap: wrap;
+    }
+
+    .toolbar .input-group {
+        min-width: 300px;
+    }
+
+    .toolbar .btn {
+        border-radius: .6rem;
+    }
+
+    /* Etiquetas de sección */
+    .af-section-title {
+        font-size: .85rem;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        margin: .2rem 0 .25rem;
+    }
+
+    .af-divider {
+        height: 1px;
+        background: #eee;
+        margin: .25rem 0 .8rem;
+    }
+
+    /* Campos cortos: limitamos ancho para que no se vean eternos */
+    .af-short {
+        max-width: 260px;
+    }
+
+    .af-short-220 {
+        max-width: 220px;
+    }
+
+    /* Monoespaciado para código */
+    .text-mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    /* Bloqueo */
     .locked {
-        opacity: .75;
+        opacity: .85;
         pointer-events: none;
+    }
+
+    /* Espaciado vertical consistente entre filas */
+    .af-row {
+        row-gap: .75rem;
     }
 </style>
 
 <div class="card card-compact" id="modalFormularioActivo">
-    <div class="card-header py-2 d-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center gap-2 toolbar">
-            <span class="fw-semibold">Activo</span>
-            <!-- Estado de modo -->
-            <span id="lblModo" class="badge text-bg-secondary">BLOQUEADO</span>
-        </div>
-        <div class="d-flex align-items-center gap-2 toolbar">
-            <div class="input-group input-group-sm" style="min-width:260px">
-                <span class="input-group-text"><i class="fa-solid fa-barcode"></i></span>
-                <input type="text" id="buscarCodigo" class="form-control" placeholder="01-01-04-00048">
-                <button class="btn btn-outline-secondary" id="btnBuscarCodigo">
-                    <i class="fa-solid fa-magnifying-glass"></i> Buscar
-                </button>
+    <div class="card-header py-2">
+        <div class="d-flex justify-content-between align-items-center">
+            <!-- IZQUIERDA: título, badge y buscador apilados -->
+            <div class="d-flex flex-column align-items-start gap-1">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fw-semibold">ACTIVO</span>
+                    <span id="lblModo" class="badge text-bg-secondary">BLOQUEADO</span>
+                </div>
+
+                <div class="input-group" style="max-width: 360px; width: 100%;">
+                    <span class="input-group-text"><i class="fa-solid fa-barcode"></i></span>
+                    <input type="text" id="buscarCodigo" class="form-control text-mono" placeholder="01-01-04-00048">
+                    <button class="btn btn-outline-secondary" id="btnBuscarCodigo">
+                        <i class="fa-solid fa-magnifying-glass me-1"></i> Buscar
+                    </button>
+                </div>
             </div>
 
-            <button class="btn btn-primary" id="btnRegistrar">
-                <i class="fa-solid fa-plus"></i> REGISTRAR
-            </button>
-            <button class="btn btn-warning" id="btnModificar" disabled>
-                <i class="fa-solid fa-pen-to-square"></i> MODIFICAR
-            </button>
-            <button class="btn btn-light" id="btnCancelar" disabled>
-                <i class="fa-regular fa-circle-xmark"></i> CANCELAR
-            </button>
+            <!-- DERECHA: botones -->
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button class="btn btn-primary" id="btnRegistrar">
+                    <i class="fa-solid fa-plus me-1"></i> Nuevo
+                </button>
+                <button class="btn btn-warning" id="btnModificar" disabled>
+                    <i class="fa-solid fa-pen-to-square me-1"></i> Editar
+                </button>
+                <button class="btn btn-light" id="btnCancelar" disabled>
+                    <i class="fa-regular fa-circle-xmark me-1"></i> Cancelar
+                </button>
+            </div>
         </div>
     </div>
 
     <div class="card-body">
         <form id="formularioActivo" class="form-compact needs-validation" novalidate autocomplete="off">
-            <div class="row g-3" id="fieldsetActivo">
-                <!-- FILA 1 -->
-                <div class="col-12 col-md-4">
+
+            <!-- IDENTIFICACIÓN -->
+            <div class="af-section-title">Identificación</div>
+            <div class="af-divider"></div>
+
+            <div class="row g-3 af-row fieldset-activo">
+                <!-- 3 por fila: col-xl-4 col-lg-6 col-12 -->
+                <div class="col-xl-4 col-lg-6">
                     <label class="form-label fw-semibold">Municipio</label>
-                    <select id="municipioCode" class="form-select form-select-sm select2it" required>
-                        <option value="">Seleccione…</option>
-                        <option th:each="m : ${municipios}" th:value="${m.idMunicipio}"
-                            th:data-code="${m.codigo != null ? (m.codigo.length() < 2 ? '0' + m.codigo : m.codigo) : ''}"
-                            th:text="${m.nombre + ' (' + m.codigo + ')'}"></option>
-                    </select>
-                    <div class="mini-help">Se usa para armar el código.</div>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa-regular fa-map"></i></span>
+                        <select id="municipioCode" class="form-select select2it" required>
+                            <option value="">Seleccione…</option>
+                            <option th:each="m : ${municipios}" th:value="${m.idMunicipio}"
+                                th:data-code="${m.codigo != null ? (m.codigo.length() < 2 ? '0' + m.codigo : m.codigo) : ''}"
+                                th:text="${m.nombre + ' (' + m.codigo + ')'}"></option>
+                        </select>
+                    </div>
+                    <div class="mini-help">Para construir el código.</div>
                 </div>
 
-                <div class="col-12 col-md-4">
+                <div class="col-xl-4 col-lg-6">
                     <label class="form-label fw-semibold">Predio</label>
-                    <select id="predioCode" name="predio" class="form-select form-select-sm select2it" required>
-                        <option value="">Seleccione…</option>
-                        <option th:each="p : ${predios}" th:value="${p.idPredio}"
-                            th:data-code="${p.codigo != null ? p.codigo : ''}"
-                            th:text="${p.descrip + ' (' + p.codigo + ')'}"></option>
-                    </select>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa-regular fa-building"></i></span>
+                        <select id="predioCode" name="predio" class="form-select select2it" required>
+                            <option value="">Seleccione…</option>
+                            <option th:each="p : ${predios}" th:value="${p.idPredio}"
+                                th:data-code="${p.codigo != null ? p.codigo : ''}"
+                                th:text="${p.descrip + ' (' + p.codigo + ')'}"></option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="col-12 col-md-4">
+                <div class="col-xl-4 col-lg-6">
                     <label class="form-label fw-semibold">Grupo contable</label>
-                    <select id="grupoCode" name="grupoContable" class="form-select form-select-sm select2it" required>
-                        <option value="">Seleccione…</option>
-                        <option th:each="g : ${grupos}" th:value="${g.idGrupoContable}"
-                            th:data-code="${g.codContable != null ? #numbers.formatInteger(g.codContable, 2) : ''}"
-                            th:text="${g.nombre + ' (' + g.codContable + ')'}"></option>
-                    </select>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa-solid fa-layer-group"></i></span>
+                        <select id="grupoCode" name="grupoContable" class="form-select select2it" required>
+                            <option value="">Seleccione…</option>
+                            <option th:each="g : ${grupos}" th:value="${g.idGrupoContable}"
+                                th:data-code="${g.codContable != null ? #numbers.formatInteger(g.codContable, 2) : ''}"
+                                th:text="${g.nombre + ' (' + g.codContable + ')'}"></option>
+                        </select>
+                    </div>
                 </div>
 
-                <!-- FILA 2 -->
-                <div class="col-12 col-md-6">
+                <!-- fila 2: breve + breve + descripción media -->
+                <div class="col-xl-3 col-lg-4 af-short">
                     <label class="form-label fw-semibold">Código</label>
-                    <div class="input-group input-group-sm">
+                    <div class="input-group">
                         <span class="input-group-text"><i class="fa-solid fa-hashtag"></i></span>
-                        <input type="text" id="codigo" name="codigo" class="form-control form-control-sm" readonly
+                        <input type="text" id="codigo" name="codigo" class="form-control text-mono" readonly
                             placeholder="MM-PP-GG-CCCCC">
                     </div>
-                    <div class="mini-help">Se genera (Municipio–Predio–Grupo + correlativo).</div>
                 </div>
 
-                <div class="col-12 col-md-6">
-                    <label class="form-label fw-semibold">Fecha de adquisición</label>
-                    <div class="input-group input-group-sm">
+                <div class="col-xl-3 col-lg-4 af-short">
+                    <label class="form-label fw-semibold">Fecha adquisición</label>
+                    <div class="input-group">
                         <span class="input-group-text"><i class="fa-regular fa-calendar"></i></span>
-                        <input type="date" name="fechaAdq" id="fechaAdq" class="form-control form-control-sm" required>
+                        <input type="date" name="fechaAdq" id="fechaAdq" class="form-control" required>
                     </div>
                 </div>
 
-                <!-- FILA 3 -->
-                <div class="col-12">
+                <div class="col-xl-6 col-lg-8">
                     <label class="form-label fw-semibold">Descripción</label>
-                    <textarea name="descripcion" id="descripcion" class="form-control form-control-sm" rows="2" required
-                        minlength="5" maxlength="500"
-                        placeholder="Describe el activo (modelo, marca, características)"></textarea>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa-regular fa-rectangle-list"></i></span>
+                        <textarea name="descripcion" id="descripcion" class="form-control" rows="2" required
+                            minlength="5" maxlength="500" placeholder="Modelo, marca, características…"></textarea>
+                    </div>
                 </div>
+            </div>
 
-                <!-- FILA 4 -->
-                <div class="col-12 col-md-6">
+            <!-- UBICACIÓN Y RESPONSABLE -->
+            <div class="mt-2 af-section-title">Ubicación y responsable</div>
+            <div class="af-divider"></div>
+
+            <div class="row g-3 af-row fieldset-activo">
+                <div class="col-xl-6 col-lg-6">
                     <label class="form-label fw-semibold">Oficina</label>
-                    <select name="oficinaId" id="oficinaId" class="form-select form-select-sm select2it" required>
-                        <option value="">Seleccione…</option>
-                        <option th:each="o : ${oficinas}" th:value="${o.idOficina}"
-                            th:text="${o.nombre + ' (' + o.codOfi + ')'}"></option>
-                    </select>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa-regular fa-building"></i></span>
+                        <select name="oficinaId" id="oficinaId" class="form-select select2it" required>
+                            <option value="">Seleccione…</option>
+                            <option th:each="o : ${oficinas}" th:value="${o.idOficina}"
+                                th:text="${o.nombre + ' (' + o.codOfi + ')'}"></option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="col-12 col-md-6">
+                <div class="col-xl-6 col-lg-6">
                     <label class="form-label fw-semibold">Responsable</label>
-                    <select name="responsableId" id="responsableId" class="form-select form-select-sm" required>
-                        <option value="">Buscar/seleccionar responsable…</option>
-                    </select>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa-regular fa-user"></i></span>
+                        <select name="responsableId" id="responsableId" class="form-select" required>
+                            <option value="">Buscar/seleccionar responsable…</option>
+                        </select>
+                    </div>
                 </div>
+            </div>
 
-                <!-- FILA 5 -->
-                <div class="col-12 col-md-6">
+            <!-- FINANCIAMIENTO -->
+            <div class="mt-2 af-section-title">Financiamiento</div>
+            <div class="af-divider"></div>
+
+            <div class="row g-3 af-row fieldset-activo">
+                <div class="col-xl-6 col-lg-6">
                     <label class="form-label fw-semibold">Órgano financiador</label>
-                    <select name="orgFinId" id="orgFinId" class="form-select form-select-sm" required>
-                        <option value="">Seleccione…</option>
-                        <option th:each="f: ${financiadores}" th:value="${f.idOrganismoFinanciero}"
-                            th:text="${f.descripcion + ' (' + f.codOf + ')'}"></option>
-                    </select>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa-solid fa-hand-holding-dollar"></i></span>
+                        <select name="orgFinId" id="orgFinId" class="form-select" required>
+                            <option value="">Seleccione…</option>
+                            <option th:each="f: ${financiadores}" th:value="${f.idOrganismoFinanciero}"
+                                th:text="${f.descripcion + ' (' + f.codOf + ')'}"></option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="col-12 col-md-6">
+                <div class="col-xl-6 col-lg-6">
                     <label class="form-label fw-semibold">Auxiliar</label>
-                    <select name="auxiliarId" id="auxiliarId" class="form-select form-select-sm" required>
-                        <option value="">Seleccione…</option>
-                    </select>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa-solid fa-diagram-project"></i></span>
+                        <select name="auxiliarId" id="auxiliarId" class="form-select" required>
+                            <option value="">Seleccione…</option>
+                        </select>
+                    </div>
                 </div>
+            </div>
 
-                <!-- FILA 6 -->
-                <div class="col-12 col-md-6">
+            <!-- VALORACIÓN -->
+            <div class="mt-2 af-section-title">Valoración</div>
+            <div class="af-divider"></div>
+
+            <div class="row g-3 af-row fieldset-activo">
+                <div class="col-xl-3 col-lg-4 af-short">
                     <label class="form-label fw-semibold">Costo</label>
-                    <div class="input-group input-group-sm">
+                    <div class="input-group">
                         <span class="input-group-text"><i class="fa-solid fa-money-check-dollar"></i></span>
-                        <input type="text" name="costoFmt" id="costoFmt" class="form-control text-end" required
+                        <input type="text" name="costoFmt" id="costoFmt" class="form-control" required
                             inputmode="numeric" placeholder="0,00">
                         <input type="hidden" name="costo" id="costo">
                     </div>
                 </div>
 
-                <div class="col-12 col-md-6">
+                <div class="col-xl-2 col-lg-3 af-short-220">
                     <label class="form-label fw-semibold">Vida útil (años)</label>
-                    <input type="number" id="vidaUtil" name="vidaUtil" class="form-control form-control-sm" required
-                        min="1" max="50" step="1">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa-regular fa-clock"></i></span>
+                        <input type="number" id="vidaUtil" name="vidaUtil" class="form-control" required min="1"
+                            max="50" step="1">
+                    </div>
                 </div>
             </div>
 
-            <!-- Para saber si estamos en edición -->
             <input type="hidden" id="idActivo" name="idActivo" />
         </form>
     </div>
 </div>
+
 
 <div class="modal fade" id="modalNuevoResponsable" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
