@@ -175,7 +175,6 @@
             <div class="af-divider"></div>
 
             <div class="row g-3 af-row fieldset-activo">
-                <!-- 3 por fila: col-xl-4 col-lg-6 col-12 -->
                 <div class="col-xl-4 col-lg-6">
                     <label class="form-label fw-semibold">Municipio</label>
                     <div class="input-group">
@@ -207,7 +206,8 @@
                     <label class="form-label fw-semibold">Grupo contable</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="fa-solid fa-layer-group"></i></span>
-                        <select id="grupoCode" name="grupoContable" class="form-select select2it" required>
+                        <select id="grupoCode" name="grupoContable.idGrupoContable" class="form-select select2it"
+                            required>
                             <option value="">Seleccione…</option>
                             <option th:each="g : ${grupos}" th:value="${g.idGrupoContable}"
                                 th:data-code="${g.codContable != null ? #numbers.formatInteger(g.codContable, 2) : ''}"
@@ -216,7 +216,6 @@
                     </div>
                 </div>
 
-                <!-- fila 2: breve + breve + descripción media -->
                 <div class="col-xl-3 col-lg-4 af-short">
                     <label class="form-label fw-semibold">Código</label>
                     <div class="input-group">
@@ -230,7 +229,7 @@
                     <label class="form-label fw-semibold">Fecha adquisición</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="fa-regular fa-calendar"></i></span>
-                        <input type="date" name="fechaAdq" id="fechaAdq" class="form-control" required>
+                        <input type="date" name="fechaAdquisicion" id="fechaAdq" class="form-control" required>
                     </div>
                 </div>
 
@@ -253,7 +252,7 @@
                     <label class="form-label fw-semibold">Oficina</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="fa-regular fa-building"></i></span>
-                        <select name="oficinaId" id="oficinaId" class="form-select select2it" required>
+                        <select name="oficina.idOficina" id="oficinaId" class="form-select select2it" required>
                             <option value="">Seleccione…</option>
                             <option th:each="o : ${oficinas}" th:value="${o.idOficina}"
                                 th:text="${o.nombre + ' (' + o.codOfi + ')'}"></option>
@@ -265,7 +264,7 @@
                     <label class="form-label fw-semibold">Responsable</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="fa-regular fa-user"></i></span>
-                        <select name="responsableId" id="responsableId" class="form-select" required>
+                        <select name="responsable.idResponsable" id="responsableId" class="form-select" required>
                             <option value="">Buscar/seleccionar responsable…</option>
                         </select>
                     </div>
@@ -281,7 +280,8 @@
                     <label class="form-label fw-semibold">Órgano financiador</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="fa-solid fa-hand-holding-dollar"></i></span>
-                        <select name="orgFinId" id="orgFinId" class="form-select" required>
+                        <select name="organismoFinanciero.idOrganismoFinanciero" id="orgFinId" class="form-select"
+                            required>
                             <option value="">Seleccione…</option>
                             <option th:each="f: ${financiadores}" th:value="${f.idOrganismoFinanciero}"
                                 th:text="${f.descripcion + ' (' + f.codOf + ')'}"></option>
@@ -293,7 +293,7 @@
                     <label class="form-label fw-semibold">Auxiliar</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="fa-solid fa-diagram-project"></i></span>
-                        <select name="auxiliarId" id="auxiliarId" class="form-select" required>
+                        <select name="auxiliar.idAuxiliar" id="auxiliarId" class="form-select" required>
                             <option value="">Seleccione…</option>
                         </select>
                     </div>
@@ -324,14 +324,22 @@
                     </div>
                 </div>
             </div>
-
             <input type="hidden" id="idActivo" name="idActivo" />
+            <div class="modal-footer">
+                <div class="row">
+                    <div class="col-12">
+                        <input type="submit" class="btn btn-success"
+                            th:value="${edit}? 'Guardar cambios': 'Registrar activo nuevo'">
+
+                    </div>
+                </div>
+            </div>
         </form>
     </div>
 </div>
 
 
-<div class="modal fade" id="modalNuevoResponsable" tabindex="-1" aria-hidden="true">
+<!-- <div class="modal fade" id="modalNuevoResponsable" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <form id="formNuevoResponsable" class="needs-validation" novalidate>
@@ -345,7 +353,6 @@
                 <div class="modal-body">
                     <div class="row g-3">
 
-                        <!-- Oficina (autorrellena según selección del formulario de activo) -->
                         <div class="col-12 col-md-6">
                             <label class="form-label fw-semibold">Oficina</label>
                             <input type="text" id="nr_oficinaText" class="form-control" readonly>
@@ -353,7 +360,6 @@
                             <div class="form-text">Se toma de la oficina seleccionada del formulario.</div>
                         </div>
 
-                        <!-- Código funcionario (preview auto) -->
                         <div class="col-12 col-md-6">
                             <label class="form-label fw-semibold">Código funcionario</label>
                             <div class="input-group">
@@ -364,7 +370,6 @@
                             <div class="form-text">Se genera según (predio + codOfi) de la oficina.</div>
                         </div>
 
-                        <!-- Persona (select2 AJAX) -->
                         <div class="col-12">
                             <label class="form-label fw-semibold">Persona</label>
                             <select id="nr_persona" class="form-select" required>
@@ -373,7 +378,6 @@
                             <div class="invalid-feedback">Selecciona una persona.</div>
                         </div>
 
-                        <!-- Cargo -->
                         <div class="col-12 col-md-6">
                             <label class="form-label fw-semibold">Cargo</label>
                             <select id="nr_cargo" class="form-select">
@@ -383,13 +387,11 @@
                             </select>
                         </div>
 
-                        <!-- Fecha último (fechaUlt) -->
                         <div class="col-12 col-md-6">
                             <label class="form-label fw-semibold">Fecha última</label>
                             <input type="date" id="nr_fechaUlt" class="form-control" placeholder="yyyy-mm-dd">
                         </div>
 
-                        <!-- codExp / apiEstado -->
                         <div class="col-12 col-md-6">
                             <label class="form-label fw-semibold">Cod. expediente (opcional)</label>
                             <input type="number" id="nr_codExp" class="form-control" min="0" max="32767" step="1"
@@ -405,13 +407,11 @@
                             </select>
                         </div>
 
-                        <!-- Observaciones -->
                         <div class="col-12">
                             <label class="form-label fw-semibold">Observaciones</label>
                             <textarea id="nr_observ" class="form-control" rows="3" maxlength="1000"
                                 placeholder="Observaciones (opcional)"></textarea>
                         </div>
-
                     </div>
                 </div>
 
@@ -426,24 +426,40 @@
             </form>
         </div>
     </div>
-</div>
+</div> -->
+
 <script>
     window.ActivoForm = (function () {
         let uiState = { modo: 'LOCK', autoCodigo: false, filling: false };
         let $root;
 
-        // ==== helpers UI (scoped) ====
         function lockForm(locked) {
-            const f = $root.find('#fieldsetActivo')[0];
-            if (!f) return;
-            f.classList.toggle('locked', locked);
-            [...f.querySelectorAll('input, select, textarea')].forEach(el => {
-                if (el.id === 'codigo') { el.readOnly = true; return; }
-                el.disabled = locked;
+            const $form = $root.find('#formularioActivo');
+            if (!$form.length) return;
+
+            $form.find('input, select, textarea').each(function () {
+                const $el = $(this);
+
+                if ($el.attr('id') === 'codigo') {
+                    $el.prop('readOnly', true);
+                    return;
+                }
+
+                if ($el.is('select')) {
+                    $el.prop('disabled', locked);
+                    if ($el.data('select2')) $el.trigger('change.select2');
+                } else {
+                    $el.prop('disabled', locked);
+                }
             });
+
             $root.find('#btnModificar').prop('disabled', locked);
             $root.find('#btnCancelar').prop('disabled', locked);
+
+            const f = $form[0];
+            f.classList.toggle('locked', locked);
         }
+
 
         function setModo(texto, badgeClass) {
             const lbl = $root.find('#lblModo')[0];
@@ -551,12 +567,8 @@
             $root.find('#auxiliarId').prop('disabled', !$root.find('#grupoCode').val()).trigger('change.select2');
         }
 
-        // Para evitar handlers duplicados, usa nombres de espacio ('.activo')
         function bindEvents() {
-            // Limpia bindings previos en este contenedor
             $root.off('.activo');
-
-            // --- helpers locales que SÍ existen en este scope ---
             const fmtMoney = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 });
 
             function parseMoney(str) {
@@ -626,7 +638,6 @@
                 }
             }
 
-            // --- Formato de moneda ---
             $root.on('input.activo', '#costoFmt', function () {
                 const val = parseMoney(this.value);
                 $root.find('#costo').val(val.toFixed(2));
@@ -656,7 +667,6 @@
                     const gid = $root.find('#grupoCode').val();
                     const pid = $root.find('#predioCode').val() || '';
                     if (gid) {
-                        // select2 (AJAX) cargará al abrir; si quieres precargar, haz una llamada aquí.
                         $aux.prop('disabled', false);
                         cargarMetaGrupo(gid);
                     }
@@ -724,7 +734,14 @@
                     const r = await fetch(url, { method: 'POST', body: formData });
                     hideGlobalLoader();
                     if (!r.ok) throw new Error('HTTP ' + r.status);
-                    const msg = await r.text();
+                    let payload, msg;
+                    try {
+                        payload = await r.json();
+                        msg = payload.msg || 'Guardado';
+                        console.log('ECO del servidor (activo):', payload);
+                    } catch {
+                        msg = await r.text();
+                    }
                     alert(msg || 'Guardado');
                     lockForm(true);
                     setModo('BLOQUEADO', 'text-bg-secondary');
@@ -736,26 +753,23 @@
                 }
             });
 
-            // Manejo extra (si existe)
-            if (typeof window.manejarEnvioFormulario === 'function') {
-                window.manejarEnvioFormulario('#formularioActivo');
-            }
+            // if (typeof window.manejarEnvioFormulario === 'function') {
+            //     window.manejarEnvioFormulario('#formularioActivo');
+            // }
         }
 
         function init(containerSelector) {
             $root = $(containerSelector);
             setModo('BLOQUEADO', 'text-bg-secondary');
-            lockForm(true);
             initSelect2();
+            lockForm(true);
             bindEvents();
         }
 
         function destroy() {
             if (!$root) return;
-            // destruye select2
             $root.find('#municipioCode, #predioCode, #grupoCode, #oficinaId, #orgFinId, #responsableId, #auxiliarId')
                 .each(function () { if ($(this).data('select2')) $(this).select2('destroy'); });
-            // desbindea eventos
             $root.off('.activo');
             $root = null;
         }

@@ -171,13 +171,14 @@
                         <div>Registro activos</div>
                     </a>
                 </li>
+                <li class="menu-item" id="opcion_activop">
+                    <a class="menu-link">
+                        <i class="ti ti-clipboard-text me-2"></i>
+                        <div>Registro activos pendientes</div>
+                    </a>
+                </li>
             </ul>
         </li>
-        
-        <li class="menu-header small text-uppercase" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO' or session.nombre_rol == 'RESPONSABLE'}">
-            <span class="menu-header-text">Gestion Responsable</span>
-        </li>
-        
     </ul>
 </aside>
 <!-- / Menu -->

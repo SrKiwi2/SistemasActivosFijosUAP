@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.controller.activo;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -11,19 +12,21 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IEstadoActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IMunicipioService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
@@ -34,12 +37,16 @@ import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoFormDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
+import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Controller
 @RequestMapping("/administracion/activo")
 @RequiredArgsConstructor
@@ -53,6 +60,7 @@ public class ActivosController {
     private final IResponsableService responsableService;
     private final IOrganismoFinancieroService organismoFinancieroService;
     private final IAuxiliarService auxiliarService;
+    private final IEstadoActivoService estadoActivoService;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -97,25 +105,95 @@ public class ActivosController {
     }
 
     @ValidarUsuarioAutenticado
-    @PostMapping("/registrar-activo")
-    public ResponseEntity<String> registrar_activo(HttpServletRequest request, @Validated Activo activo) {
-        if (activoService.buscarPorNombre(activo.getNombre()) == null) {
-            activo.setEstado("ACTIVO");
-            activoService.save(activo);
-            return ResponseEntity.ok("Se realizó el registro correctamente");
-        } else {
-            return ResponseEntity.ok("Ya existe un rol con este nombre");
+    @PostMapping(value="/registrar-activo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> registrar_activo(
+            HttpServletRequest request,
+            @Validated @ModelAttribute Activo activo,
+            BindingResult br) {
+
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+
+        if (br.hasErrors()) {
+            Map<String, Object> err = new LinkedHashMap<>();
+            err.put("ok", false);
+            err.put("errors", br.getFieldErrors().stream()
+                    .map(fe -> Map.of(
+                            "field", fe.getField(),
+                            "rejectedValue", fe.getRejectedValue(),
+                            "message", fe.getDefaultMessage()))
+                    .toList());
+            log.warn("Errores de binding en registrar_activo: {}", err);
+            return ResponseEntity.badRequest().body(err);
         }
+
+        // LOG de lo recibido (parcial para no cargar mucho)
+        log.info("Recibido Activo => codigo={}, fechaAdq={}, descripcion={}, costo={}, vidaUtil={}, " +
+                        "grupoContableId={}, oficinaId={}, responsableId={}, orgFinId={}, auxiliarId={}",
+                activo.getCodigo(),
+                activo.getFechaAdquisicion(),
+                activo.getDescripcion(),
+                activo.getCosto(),
+                activo.getVidaUtil(),
+                activo.getGrupoContable() != null ? activo.getGrupoContable().getIdGrupoContable() : null,
+                activo.getOficina() != null ? activo.getOficina().getIdOficina() : null,
+                activo.getResponsable() != null ? activo.getResponsable().getIdResponsable() : null,
+                activo.getOrganismoFinanciero() != null ? activo.getOrganismoFinanciero().getIdOrganismoFinanciero() : null,
+                activo.getAuxiliar() != null ? activo.getAuxiliar().getIdAuxiliar() : null
+        );
+
+        // (opcional) lógica de negocio mínima
+        activo.setApiEstado(Short.valueOf("3"));    
+        activo.setCostoAnterior(0.0);
+        activo.setDepreciacionAcum(0.0);
+
+        activo.setVidaUtilAnterior(0);
+        EstadoActivo estadoActivo = estadoActivoService.findById(1L);
+        activo.setEstadoActivo(estadoActivo);
+        
+        OrganismoFinanciero organismoFinanciero = organismoFinancieroService.findById(activo.getOrganismoFinanciero().getIdOrganismoFinanciero());
+        activo.setOrganismoFinanciero(organismoFinanciero);
+
+        activo.setOrgFinCode(activo.getOrganismoFinanciero().getCodOf());
+        activo.setUsuario(usuario.getUsuario());
+
+        activo.setEstado("PENDIENTE");
+        activoService.save(activo);
+
+        // ECO JSON (útil para probar rápido en el front)
+        Map<String, Object> activoMap = new LinkedHashMap<>();
+        activoMap.put("id", activo.getIdActivo());
+        activoMap.put("codigo", activo.getCodigo());
+        activoMap.put("fechaAdquisicion", activo.getFechaAdquisicion());
+        activoMap.put("descripcion", activo.getDescripcion());
+        activoMap.put("costo", activo.getCosto());
+        activoMap.put("vidaUtil", activo.getVidaUtil());
+        activoMap.put("grupoContableId", activo.getGrupoContable() != null ? activo.getGrupoContable().getIdGrupoContable() : null);
+        activoMap.put("oficinaId", activo.getOficina() != null ? activo.getOficina().getIdOficina() : null);
+        activoMap.put("responsableId", activo.getResponsable() != null ? activo.getResponsable().getIdResponsable() : null);
+        activoMap.put("orgFinId", activo.getOrganismoFinanciero() != null ? activo.getOrganismoFinanciero().getIdOrganismoFinanciero() : null);
+        activoMap.put("auxiliarId", activo.getAuxiliar() != null ? activo.getAuxiliar().getIdAuxiliar() : null);
+
+        Map<String, Object> ok = new LinkedHashMap<>();
+        ok.put("ok", true);
+        ok.put("msg", "Se realizó el registro correctamente");
+        ok.put("activo", activoMap);
+
+        return ResponseEntity.ok(ok);
     }
 
-    @PostMapping(value = "/modificar-activo")
-    public ResponseEntity<String> modificar_oficina(HttpServletRequest request, Activo activo,
-            RedirectAttributes redirectAttrs) {
-        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-        activo.setModificacionIdUsuario(usuario.getIdUsuario());
-        activo.setEstado("ACTIVO");
+    @ValidarUsuarioAutenticado
+    @PostMapping("/modificar-activo")
+    public ResponseEntity<?> modificar_activo(@Validated @ModelAttribute Activo activo, BindingResult br) {
+        if (br.hasErrors()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "ok", false,
+                "errors", br.getFieldErrors().stream()
+                        .map(e -> Map.of("field", e.getField(), "message", e.getDefaultMessage()))
+                        .toList()
+            ));
+        }
         activoService.save(activo);
-        return ResponseEntity.ok("Se realizó el registro correctamente");
+        return ResponseEntity.ok(Map.of("ok", true, "msg", "Se modificó correctamente"));
     }
 
     @ValidarUsuarioAutenticado
@@ -150,7 +228,6 @@ public class ActivosController {
             ActivoDTO dto = new ActivoDTO();
             dto.setIndex("");
             dto.setCodigo(activo.getCodigo());
-            dto.setNombre(activo.getNombre());
             dto.setDescripcion(activo.getDescripcion());
             dto.setResponsable(activo.getResponsable().getPersona().getNombre() + " "
                     + activo.getResponsable().getPersona().getPaterno() + " "
@@ -163,8 +240,7 @@ public class ActivosController {
 
             try {
                 String idEncriptado = Encriptar.encrypt(activo.getIdActivo().toString());
-                dto.setAcciones("<button class='btn btn-sm btn-primary' onclick=\"editar('" + idEncriptado
-                        + "')\">Editar</button>" +
+                dto.setAcciones(
                         " <button class='btn btn-sm btn-danger' onclick=\"eliminar('" + activo.getNombre() + "', '"
                         + idEncriptado + "')\">Eliminar</button>");
             } catch (Exception e) {
@@ -178,6 +254,74 @@ public class ActivosController {
         return new DataTablesResponse<>(pagina.getTotalElements(), pagina.getTotalElements(), activosDTO);
     }
 
+    @ValidarUsuarioAutenticado
+    @GetMapping("/vistap")
+    public String vista_activo_pendiente() {
+        return "activo/vista_pendientes";
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/tabla-registros_pendientes")
+    public String tabla_registro_pendiente(Model model) throws Exception {
+        List<Activo> listaActivosPendientes = activoService.listarActivosPendientes();
+        List<String> encryptedIds = new ArrayList<>();
+        for (Activo oficinas : listaActivosPendientes) {
+            String id_encryptado = Encriptar.encrypt(Long.toString(oficinas.getIdActivo()));
+            encryptedIds.add(id_encryptado);
+        }
+        model.addAttribute("listaActivosPendientes", listaActivosPendientes);
+        model.addAttribute("id_encryptado", encryptedIds);
+        return "activo/tabla_registros_pendientes";
+    }
+
+    @ValidarUsuarioAutenticado
+    @GetMapping("/api/detalle/{idEnc}")
+    @ResponseBody
+    public Map<String, Object> detalleActivo(@PathVariable String idEnc) throws Exception {
+        Long id = Long.valueOf(Encriptar.decrypt(idEnc));
+        Activo a = activoService.findById(id);
+
+        Map<String, Object> dto = new LinkedHashMap<>();
+        dto.put("codigo", a.getCodigo());
+        dto.put("descripcion", a.getDescripcion());
+        dto.put("fechaAdquisicion", a.getFechaAdquisicion() != null ? a.getFechaAdquisicion().toString() : null);
+
+        // ← usamos el campo de AuditoriaConfig
+        dto.put("estado", a.getEstado()); // PENDIENTE / ACTIVO
+
+        // Restante info (null-safe)
+        dto.put("oficinaNombre", a.getOficina() != null ? a.getOficina().getNombre() : null);
+        dto.put("responsableNombre",
+                (a.getResponsable() != null && a.getResponsable().getPersona() != null)
+                        ? a.getResponsable().getPersona().getNombre()
+                        : null);
+        dto.put("organismoFinancieroNombre",
+                a.getOrganismoFinanciero() != null ? a.getOrganismoFinanciero().getDescripcion() : null);
+        dto.put("auxiliarNombre", a.getAuxiliar() != null ? a.getAuxiliar().getNombre() : null);
+
+        dto.put("costo", a.getCosto());
+        dto.put("vidaUtil", a.getVidaUtil());
+        dto.put("costoFmt", a.getCosto() != null ? String.format("%,.2f", a.getCosto()) : null);
+
+        return dto;
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/api/aprobar/{idEnc}")
+    @ResponseBody
+    public Map<String, Object> aprobarActivo(@PathVariable String idEnc) throws Exception {
+        Long id = Long.valueOf(Encriptar.decrypt(idEnc));
+        Activo a = activoService.findById(id);
+
+        a.setEstado("ACTIVO");            // ← actualiza _estado
+        activoService.save(a);
+
+        return Map.of("ok", true, "id", id);
+    }
+
+
+
+    
     @PostMapping(value = "/generar-correlativo", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public Map<String, String> generar(

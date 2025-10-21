@@ -154,4 +154,9 @@ public class ActivoServiceImpl implements IActivoService{
         return dao.fetchFullByCodigo(codigo);
     }
 
+    @Override
+    public List<Activo> listarActivosPendientes() {
+        return dao.listarActivosPendientes();
+    }
+
 }

@@ -233,6 +233,20 @@
 
             });
 
+            $("#opcion_activop").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/administracion/activo/vistap");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_activop");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
             $("#opcion_contable").click(function (e) {
                 e.preventDefault();
                 cargarContenido("/administracion/grupoc/vista");

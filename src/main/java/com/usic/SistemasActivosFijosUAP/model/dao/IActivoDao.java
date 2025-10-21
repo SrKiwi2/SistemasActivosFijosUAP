@@ -26,6 +26,9 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
     @Query("SELECT a FROM Activo a WHERE a.estado = 'ACTIVO'")
     List<Activo> listarActivos();
 
+    @Query("SELECT a FROM Activo a WHERE a.estado = 'PENDIENTE'")
+    List<Activo> listarActivosPendientes();
+
     @Query("SELECT a FROM Activo a WHERE LOWER(a.nombre) LIKE LOWER(CONCAT('%', :filtro, '%')) OR LOWER(a.codigo) LIKE LOWER(CONCAT('%', :filtro, '%'))")
     Page<Activo> buscarPorNombreOCodigo(@Param("filtro") String filtro, Pageable pageable);
 

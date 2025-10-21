@@ -1,0 +1,84 @@
+<style>
+    #data-table {
+        font-size: .85rem;
+    }
+
+    #data-table th,
+    #data-table td {
+        padding: .35rem .5rem;
+    }
+
+    #data-table tbody tr:nth-child(even) {
+        background-color: rgba(0, 0, 0, .02);
+    }
+
+    #data-table tbody tr:hover {
+        background-color: rgba(0, 0, 0, .04);
+    }
+
+    /* Descripción: 2 líneas + elipsis */
+    .desc-2lines {
+        max-width: 520px;
+        white-space: normal;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    @media (max-width:768px) {
+        .desc-2lines {
+            max-width: 280px;
+        }
+    }
+
+    .btn-xxs {
+        padding: .2rem .45rem;
+        font-size: .75rem;
+    }
+</style>
+
+<div class="card">
+    <div class="card-datatable table-responsive pt-0 px-3" style="width:100%;">
+        <table class="table table-hover nowrap" id="data-table" style="width:100%;">
+            <thead>
+                <tr>
+                    <th style="min-width:50px;">#</th>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>Responsable</th>
+                    <th>Oficina</th>
+                    <th>Fecha Adquisición</th>
+                    <th>Estado</th>
+                    <th>OPCIONES</th>
+                </tr>
+            </thead>
+            <tbody class="animate__animated animate__bounceInDown">
+                <tr th:each="lisAcP, index: ${listaActivosPendientes}">
+                    <td th:text="${index.index+1}"></td>
+                    <td th:text="${lisAcP.codigo}"></td>
+                    <td>
+                        <div class="desc-2lines" th:attr="title=${lisAcP.descripcion}" data-bs-toggle="tooltip"
+                            th:text="${lisAcP.descripcion}">...</div>
+                    </td>
+                    <td th:text="${lisAcP.responsable?.persona?.nombre}"></td>
+                    <td th:text="${lisAcP.oficina?.nombre}"></td>
+                    <td th:text="${lisAcP.fechaAdquisicion}"></td>
+                    <td>
+                        <span class="badge" th:classappend="${lisAcP.estado}=='PENDIENTE' ? ' text-bg-warning' :
+                                  (${lisAcP.estado}=='ACTIVO' ? ' text-bg-success' : ' text-bg-secondary')"
+                            th:text="${lisAcP.estado}">—</span>
+                    </td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <button type="button" class="btn btn-xxs btn-outline-primary btn-ver"
+                                th:attr="data-id=${id_encryptado[__${index.index}__]}">
+                                <i class="fa-regular fa-eye me-1"></i> Ver
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -156,7 +156,7 @@ function manejarEnvioFormulario(selectorFormulario) {
             // Verifica si la sesión está activa antes de enviar el formulario
             $.ajax({
                 url: "/adm/cargar-datos",
-                method: "GET",
+                method: "POST",
                 success: function () {
                     // Si la sesión es válida, continúa con el envío del formulario
                     var form = $(selectorFormulario)[0];
@@ -187,12 +187,12 @@ function manejarEnvioFormulario(selectorFormulario) {
                                     response + '.',
                                     'success'
                                 );
-                            } else if (response === 'Odontólogo reactivado y modificado correctamente.' ){
+                            } else if (response === 'Se modificó correctamente' ){
                                 cargarTabla();
                                 $('.modal').modal('hide');
                                 //cargarFormulario();
                                 Swal.fire(
-                                    'Reactivado!',
+                                    'Modificado!',
                                     response + '.',
                                     'success'
                                 );

@@ -1,0 +1,169 @@
+<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Activos pendientes</h4>
+
+<div id="tablaRegistro"></div>
+
+<!-- Modal detalle -->
+<div class="modal fade" id="modalDetalleActivo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fa-regular fa-rectangle-list me-2"></i>Detalle del activo
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="modalDetalleBody">
+                <!-- se llena por JS -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
+                <!-- Botón Aprobar dentro del modal (se habilita al cargar el detalle) -->
+                <button type="button" id="btnAprobarModal" class="btn btn-success" disabled>
+                    <i class="fa-regular fa-thumbs-up me-1"></i> Aprobar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () { cargarTabla(); });
+
+    function cargarTabla() {
+        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
+        $.ajax({
+            type: 'POST',
+            url: "/administracion/activo/tabla-registros_pendientes",
+            success: function (response) {
+                $("#tablaRegistro").html(response);
+                initTablaPendientes();
+            },
+            error: function () {
+                $("#tablaRegistro").html(`
+                <div class="alert alert-danger m-3">
+                Ocurrió un error al cargar la tabla.
+                <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
+                </div>
+            `);
+            },
+            complete: function () {
+                hideGlobalLoader();
+            }
+        });
+    }
+
+    // === Todo el JS vive en la vista padre ===
+
+    function renderDetalleHtml(d) {
+        const safe = v => (v ?? '—');
+        const estado = (d.estado || '').toUpperCase();
+        const badge =
+            estado === 'PENDIENTE' ? 'text-bg-warning' :
+                (estado === 'ACTIVO' ? 'text-bg-success' : 'text-bg-secondary');
+
+        return `
+      <div class="container-fluid">
+        <div class="af-section-title fw-semibold mb-1">Identificación</div>
+        <div class="row g-3">
+          <div class="col-xl-4 col-lg-6"><div class="small text-muted mb-1">Código</div><div class="fw-semibold">${safe(d.codigo)}</div></div>
+          <div class="col-xl-4 col-lg-6"><div class="small text-muted mb-1">Fecha adquisición</div><div>${safe(d.fechaAdquisicion)}</div></div>
+          <div class="col-xl-4 col-lg-6"><div class="small text-muted mb-1">Estado</div><span class="badge ${badge}">${safe(d.estado)}</span></div>
+          <div class="col-12"><div class="small text-muted mb-1 mt-2">Descripción</div><div>${safe(d.descripcion).replace(/\n/g, '<br>')}</div></div>
+        </div>
+        <hr class="my-3">
+        <div class="af-section-title fw-semibold mb-1">Ubicación y responsable</div>
+        <div class="row g-3">
+          <div class="col-xl-6 col-lg-6"><div class="small text-muted mb-1">Oficina</div><div class="fw-semibold">${safe(d.oficinaNombre)}</div></div>
+          <div class="col-xl-6 col-lg-6"><div class="small text-muted mb-1">Responsable</div><div class="fw-semibold">${safe(d.responsableNombre)}</div></div>
+        </div>
+        <hr class="my-3">
+        <div class="af-section-title fw-semibold mb-1">Financiamiento</div>
+        <div class="row g-3">
+          <div class="col-xl-6 col-lg-6"><div class="small text-muted mb-1">Órgano financiador</div><div>${safe(d.organismoFinancieroNombre)}</div></div>
+          <div class="col-xl-6 col-lg-6"><div class="small text-muted mb-1">Auxiliar</div><div>${safe(d.auxiliarNombre)}</div></div>
+        </div>
+        <hr class="my-3">
+        <div class="af-section-title fw-semibold mb-1">Valoración</div>
+        <div class="row g-3">
+          <div class="col-xl-3 col-lg-4"><div class="small text-muted mb-1">Costo</div><div>${safe(d.costoFmt ?? d.costo)}</div></div>
+          <div class="col-xl-2 col-lg-3"><div class="small text-muted mb-1">Vida útil (años)</div><div>${safe(d.vidaUtil)}</div></div>
+        </div>
+      </div>
+    `;
+    }
+
+    function initTablaPendientes() {
+        // 1) Inicializa DataTables sobre la tabla del fragmento
+        const tableSel = '#tablaRegistro #data-table';
+        if ($.fn.DataTable.isDataTable(tableSel)) {
+            $(tableSel).DataTable().destroy();
+        }
+        const table = $(tableSel).DataTable({
+            responsive: false,
+            pageLength: 10,
+            lengthMenu: [10, 25, 50, 100],
+            columnDefs: [
+                { targets: 0, orderable: false, width: 64 },
+                { targets: 2, createdCell: td => td.style.whiteSpace = 'normal' },
+                { targets: -1, orderable: false }
+            ],
+            language: {
+                sProcessing: "Procesando...",
+                sLengthMenu: "Mostrar _MENU_ registros",
+                sZeroRecords: "No se encontraron resultados",
+                sInfo: "Mostrando _START_ a _END_ de _TOTAL_",
+                sInfoEmpty: "Mostrando 0 a 0 de 0",
+                sInfoFiltered: "(filtrado de _MAX_ registros)",
+                sSearch: "Buscar:",
+                oPaginate: { sFirst: "Primero", sLast: "Último", sNext: "Siguiente", sPrevious: "Anterior" }
+            },
+            deferRender: true,
+            drawCallback: () => {
+                // tooltips para descripción truncada
+                document.querySelectorAll('#tablaRegistro [data-bs-toggle="tooltip"]').forEach(el => {
+                    const t = bootstrap.Tooltip.getInstance(el); if (t) t.dispose();
+                    new bootstrap.Tooltip(el, { container: 'body' });
+                });
+            },
+        });
+
+        // 2) Delegación de eventos sobre el contenedor fijo (#tablaRegistro)
+        $('#tablaRegistro').off('click', '.btn-ver').on('click', '.btn-ver', async function () {
+            const idEnc = this.dataset.id;
+            try {
+                const res = await fetch(`/administracion/activo/api/detalle/${encodeURIComponent(idEnc)}`);
+                if (!res.ok) throw new Error('Error al obtener detalle');
+                const d = await res.json();
+                // normaliza estado desde tu _estado
+                if (!('estado' in d)) d.estado = d.estadoActivoNombre || '';
+                // pinta modal
+                document.getElementById('modalDetalleBody').innerHTML = renderDetalleHtml(d);
+                const btnAprobar = document.getElementById('btnAprobarModal');
+                btnAprobar.disabled = false;
+                btnAprobar.onclick = async () => {
+                    try {
+                        const resp = await fetch(`/administracion/activo/api/aprobar/${encodeURIComponent(idEnc)}`, { method: 'POST' });
+                        if (!resp.ok) throw new Error('Error al aprobar');
+                        cargarTabla();
+                        // actualiza badge de la fila (columna 7 = Estado)
+                        const tr = this.closest('tr');
+                        const badge = tr.querySelector('td:nth-child(7) .badge');
+                        if (badge) { badge.textContent = 'ACTIVO'; badge.className = 'badge text-bg-success'; }
+                        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleActivo')).hide();
+                    } catch (e) {
+                        console.error(e); alert('No se pudo aprobar el activo.');
+                    }
+                };
+                // abre modal
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleActivo')).show();
+            } catch (e) {
+                console.error(e); alert('No se pudo cargar el detalle del activo.');
+            }
+        });
+    }
+
+    function eliminar(nombre, id) {
+        eliminarRegistroAlert(nombre, id, "/administracion/activo/eliminar-pendiente", cargarTabla);
+    }
+
+</script>
