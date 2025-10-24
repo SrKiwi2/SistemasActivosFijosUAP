@@ -11,15 +11,15 @@ import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 
-import lombok.RequiredArgsConstructor;
-
 @Service
-@RequiredArgsConstructor
 public class ActualDbfWriterService {
-    @Qualifier("dbfJdbc")
+    
     private final JdbcTemplate dbfJdbc;
-
     private final Object actualLock = new Object(); // para evitar colisiones concurrentes
+
+    public ActualDbfWriterService(@Qualifier("dbfJdbc") JdbcTemplate dbfJdbc) {
+        this.dbfJdbc = dbfJdbc;
+    }
 
     // Opcional: por si necesitas convertir nulos a tipos JDBC
     private static void setParam(PreparedStatement ps, int idx, Object val, int sqlType) throws SQLException {
