@@ -141,19 +141,21 @@
                 const btnAprobar = document.getElementById('btnAprobarModal');
                 btnAprobar.disabled = false;
                 btnAprobar.onclick = async () => {
-                    try {
-                        const resp = await fetch(`/administracion/activo/api/aprobar/${encodeURIComponent(idEnc)}`, { method: 'POST' });
-                        if (!resp.ok) throw new Error('Error al aprobar');
-                        cargarTabla();
-                        // actualiza badge de la fila (columna 7 = Estado)
-                        const tr = this.closest('tr');
-                        const badge = tr.querySelector('td:nth-child(7) .badge');
-                        if (badge) { badge.textContent = 'ACTIVO'; badge.className = 'badge text-bg-success'; }
-                        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleActivo')).hide();
-                    } catch (e) {
-                        console.error(e); alert('No se pudo aprobar el activo.');
-                    }
+                try {
+                    const resp = await fetch(`/administracion/activo/api/aprobar/${encodeURIComponent(idEnc)}`, { method: 'POST' });
+                    const data = await resp.json();
+                    if (!resp.ok || !data.ok) throw new Error(data.message || 'Error al aprobar');
+                    cargarTabla();
+                    const tr = document.querySelector(`button[data-id="${idEnc}"]`)?.closest('tr');
+                    const badge = tr?.querySelector('td:nth-child(7) .badge');
+                    if (badge) { badge.textContent = 'ACTIVO'; badge.className = 'badge text-bg-success'; }
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleActivo')).hide();
+                } catch (e) {
+                    console.error(e);
+                    alert(e.message || 'No se pudo aprobar el activo.');
+                }
                 };
+
                 // abre modal
                 bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleActivo')).show();
             } catch (e) {
