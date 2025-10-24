@@ -1,0 +1,2 @@
+sudo mount -t cifs //172.16.21.4/BDF2 /mnt/dbfwin \
+  -o username=Activo6,password=1768603,domain=WORKGROUP,vers=3.0,iocharset=cp1252,uid=1000,gid=1000,file_mode=0664,dir_mode=0775,nounix,noperm
