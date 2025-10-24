@@ -642,7 +642,8 @@ public class JavaDbfService {
         return out;
     }
 
-    // === LECTURA DBF ACTUAL.DBF (Windows)
+    //================CONFIGURACION E INTERACION EL DFB ACTUAL======================
+    //LECTURA DBF ACTUAL.DBF (Windows)
     public List<ActualDbf> listarActualAll(String q) throws Exception {
         Path file = baseDir.resolve("ACTUAL.DBF");
         List<ActualDbf> out = new ArrayList<>();

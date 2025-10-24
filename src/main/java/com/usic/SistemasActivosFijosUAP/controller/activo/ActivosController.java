@@ -1,5 +1,6 @@
 package com.usic.SistemasActivosFijosUAP.controller.activo;
 
+import java.security.Principal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
+import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.ActualDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEstadoActivoService;
@@ -61,6 +63,7 @@ public class ActivosController {
     private final IOrganismoFinancieroService organismoFinancieroService;
     private final IAuxiliarService auxiliarService;
     private final IEstadoActivoService estadoActivoService;
+    private final ActualDbfWriterService actualDbfWriterService;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -309,15 +312,44 @@ public class ActivosController {
     @ValidarUsuarioAutenticado
     @PostMapping("/api/aprobar/{idEnc}")
     @ResponseBody
-    public Map<String, Object> aprobarActivo(@PathVariable String idEnc) throws Exception {
+    public Map<String, Object> aprobarActivo(@PathVariable String idEnc,
+                                            Principal principal) throws Exception {
         Long id = Long.valueOf(Encriptar.decrypt(idEnc));
         Activo a = activoService.findById(id);
 
-        a.setEstado("ACTIVO");            // ← actualiza _estado
+        if (!"PENDIENTE".equalsIgnoreCase(a.getEstado())) {
+            return Map.of("ok", false, "message", "El activo no está en estado PENDIENTE.");
+        }
+
+        // ====== prepara códigos mínimos requeridos por DBF ======
+        // ⚠️ AJUSTA: cómo obtienes ENTIDAD y UNIDAD para ACTUAL.DBF
+        String entidadCode = "UAP"; // o desde configuración (ApplicationProperties)
+        String unidadCode  = (a.getOficina() != null && a.getOficina().getCodOfi() != null)
+                ? a.getOficina().getCodOfi().toString()
+                : "0000"; // fallback
+        String usuario = (principal != null ? principal.getName() : "SISTEMA");
+
+        // 1) Insertar en ACTUAL.DBF (si no existe ya por CODIGO)
+        if (actualDbfWriterService.existsByCodigo(a.getCodigo())) {
+            // Si ya existe, puedes decidir: error, o continuar (idempotente)
+            // Aquí continuamos como idempotente:
+        } else {
+            try {
+                actualDbfWriterService.insertarDesdeActivo(a, entidadCode, unidadCode, usuario);
+            } catch (Exception e) {
+                // Loguea y devuelve error: NO cambiamos estado en Postgres
+                e.printStackTrace();
+                return Map.of("ok", false, "message", "No se pudo registrar en ACTUAL.DBF: " + e.getMessage());
+            }
+        }
+
+        // 2) Si DBF ok → marca ACTIVO en Postgres
+        a.setEstado("ACTIVO");
         activoService.save(a);
 
         return Map.of("ok", true, "id", id);
     }
+
 
 
 

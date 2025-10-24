@@ -67,6 +67,9 @@ public class MunicipioController {
     @PostMapping("/registrar-municipio")
     public ResponseEntity<String> RegistrarMunicipio(HttpServletRequest request, @Validated Municipio municipio) {
         if (municipioService.buscarPorNombre(municipio.getNombre()) == null) {
+            municipio.setModificacionIdUsuario(request.getSession().getAttribute(null) != null
+                    ? ((Usuario) request.getSession().getAttribute("usuario")).getIdUsuario()
+                    : null);
             municipio.setEstado("ACTIVO");
             municipioService.save(municipio);
             return ResponseEntity.ok("Se realizó el registro correctamente");
