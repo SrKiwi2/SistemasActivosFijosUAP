@@ -15,4 +15,4 @@ mount | grep dbfwin
 ls -ld /mnt/dbfwin
 sudo -u ubuntu touch /mnt/dbfwin/__probe__.tmp && rm /mnt/dbfwin/__probe__.tmp && echo "OK escritura"
 
-; legacy.dbf.url=jdbc:dbf:/mnt/dbfwin?charSet=CP1252&tableType=foxpro&lockType=VFP&readonly=false&delayedClose=0
+legacy.dbf.url=jdbc:dbf:/mnt/dbfwin?charSet=CP1252&tableType=foxpro&lockType=VFP&readonly=false&delayedClose=0
