@@ -782,36 +782,106 @@ public class JavaDbfService {
     }
 
     /** Inserta un registro en CODCONT.DBF haciendo append. */
-    public void insertCodcont(
-            short codcont, String nombre, short vidautil,
-            String observ, boolean depreciar, boolean actualizar,
-            LocalDate feult, String usuar) throws Exception {
-        var dbfFile = baseDir.resolve("CODCONT.DBF").toFile();
+    public boolean insertCodcont(short codcont, String nombre, short vidautil,
+                                 String observ, boolean depreciar, boolean actualizar,
+                                 LocalDate feult, String usuar) throws Exception {
+
+        Path dbfPath = baseDir.resolve("CODCONT.DBF");
+        Path tmpPath = baseDir.resolve("CODCONT.DBF.tmp");
 
         synchronized (codcontLock) {
-            // Abrimos el DBF existente y escribimos al final (append)
-            try (var writer = new DBFWriter(dbfFile)) {
-                // Charset correcto para tildes/ñ
-                if (charset != null && !charset.isBlank()) {
-                    writer.setCharset(Charset.forName(charset));
+            Files.createDirectories(baseDir);
+
+            if (!Files.exists(dbfPath)) {
+                createEmptyCodcontDbf(dbfPath);
+            }
+
+            // 1) Leer registros existentes y fields
+            List<Object[]> existing = new ArrayList<>();
+            DBFField[] fields;
+            Charset cs = (charset == null || charset.isBlank()) ? null : Charset.forName(charset);
+
+            try (InputStream is = Files.newInputStream(dbfPath);
+                 DBFReader reader = (cs == null) ? new DBFReader(is) : new DBFReader(is, cs)) {
+
+                int nf = reader.getFieldCount();
+                fields = new DBFField[nf];
+                for (int i = 0; i < nf; i++) {
+                    fields[i] = reader.getField(i);
                 }
 
-                // Orden de columnas: CODCONT, NOMBRE, VIDAUTIL, OBSERV, DEPRECIAR, ACTUALIZAR,
-                // FEULT, USUAR
-                var record = new Object[] {
-                        Short.valueOf(codcont),
-                        nombre,
-                        Short.valueOf(vidautil),
-                        observ, // puede ir null
-                        Boolean.valueOf(depreciar),
-                        Boolean.valueOf(actualizar),
-                        feult != null ? Date.valueOf(feult) : null,
-                        usuar
-                };
-
-                writer.addRecord(record);
-                // writer.close() se llama automáticamente por try-with-resources
+                Object[] row;
+                while ((row = reader.nextRecord()) != null) {
+                    existing.add(row);
+                }
             }
+
+            // 2) Preparar nuevo registro (mismo orden que campos)
+            Object[] newRec = new Object[] {
+                    Short.valueOf(codcont),
+                    nombre,
+                    Short.valueOf(vidautil),
+                    observ,
+                    Boolean.valueOf(depreciar),
+                    Boolean.valueOf(actualizar),
+                    feult != null ? Date.valueOf(feult) : null,
+                    usuar
+            };
+
+            // 3) Escribir en archivo temporal usando constructor con Charset
+            try (OutputStream os = Files.newOutputStream(tmpPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                 DBFWriter writer = (cs == null) ? new DBFWriter(os) : new DBFWriter(os, cs)) {
+
+                writer.setFields(fields);
+                for (Object[] rec : existing) {
+                    writer.addRecord(rec);
+                }
+                writer.addRecord(newRec);
+            }
+
+            // 4) Reemplazar fichero (backup opcional)
+            Path backup = baseDir.resolve("CODCONT.DBF.bak");
+            if (Files.exists(dbfPath)) {
+                Files.move(dbfPath, backup, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            }
+            Files.move(tmpPath, dbfPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            Files.deleteIfExists(backup);
+
+            // 5) Verificación: buscar codcont
+            boolean found = false;
+            try (InputStream is2 = Files.newInputStream(dbfPath);
+                 DBFReader vr = (cs == null) ? new DBFReader(is2) : new DBFReader(is2, cs)) {
+
+                Object[] r;
+                while ((r = vr.nextRecord()) != null) {
+                    if (r.length > 0 && r[0] instanceof Number && ((Number) r[0]).shortValue() == codcont) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            return found;
+        }
+    }
+
+    private void createEmptyCodcontDbf(Path dbfFile) throws Exception {
+        // Usar el constructor de DBFField en lugar de setters que están deprecados
+        DBFField[] fields = new DBFField[8];
+
+        fields[0] = new DBFField("CODCONT", DBFDataType.NUMERIC, 5, 0);
+        fields[1] = new DBFField("NOMBRE", DBFDataType.CHARACTER, 50, 0);
+        fields[2] = new DBFField("VIDAUTIL", DBFDataType.NUMERIC, 3, 0);
+        fields[3] = new DBFField("OBSERV", DBFDataType.CHARACTER, 100, 0);
+        fields[4] = new DBFField("DEPRECIAR", DBFDataType.LOGICAL, 1, 0);
+        fields[5] = new DBFField("ACTUALIZAR", DBFDataType.LOGICAL, 1, 0);
+        fields[6] = new DBFField("FEULT", DBFDataType.DATE, 8, 0);
+        fields[7] = new DBFField("USUAR", DBFDataType.CHARACTER, 20, 0);
+
+        Charset cs = (charset == null || charset.isBlank()) ? null : Charset.forName(charset);
+        try (OutputStream os = Files.newOutputStream(dbfFile, StandardOpenOption.CREATE_NEW);
+             DBFWriter writer = (cs == null) ? new DBFWriter(os) : new DBFWriter(os, cs)) {
+            writer.setFields(fields);
+            // sin registros inicialmente
         }
     }
 
