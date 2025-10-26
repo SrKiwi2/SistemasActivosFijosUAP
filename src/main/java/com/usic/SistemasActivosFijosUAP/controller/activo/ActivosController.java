@@ -1,6 +1,5 @@
 package com.usic.SistemasActivosFijosUAP.controller.activo;
 
-import java.security.Principal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -485,12 +484,11 @@ public class ActivosController {
     @PostMapping("/api/aprobar/{idEnc}")
     @ResponseBody
     public Map<String, Object> aprobarActivo(@PathVariable String idEnc,
-                                            Principal principal) throws Exception {
+                                            HttpServletRequest request) throws Exception {
         Long id = Long.valueOf(Encriptar.decrypt(idEnc));
         Activo a = activoService.findById(id);
 
-        Usuario usuarios = (Usuario) ((HttpServletRequest) principal).getSession().getAttribute("usuario");
-
+        Usuario usuarios = (Usuario) request.getSession().getAttribute("usuario");
         if (!"PENDIENTE".equalsIgnoreCase(a.getEstado())) {
             return Map.of("ok", false, "message", "El activo no está en estado PENDIENTE.");
         }
