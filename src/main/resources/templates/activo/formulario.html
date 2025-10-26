@@ -723,39 +723,67 @@
                 $root.find('#btnCancelar').prop('disabled', true);
             });
 
-            // --- Submit ---
-            $root.on('submit.activo', '#formularioActivo', async function (e) {
-                e.preventDefault();
-                const id = $root.find('#idActivo').val();
-                const url = id ? '/administracion/activo/modificar-activo' : '/administracion/activo/registrar-activo';
-                const formData = new FormData(this);
-                showGlobalLoader({ texto: 'Guardando...' });
+            // Función para cargar activo en el formulario para editar
+            async function cargarActivoParaEditar(idActivo) {
+                showGlobalLoader({ texto: 'Cargando...' });
                 try {
-                    const r = await fetch(url, { method: 'POST', body: formData });
-                    hideGlobalLoader();
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
-                    let payload, msg;
-                    try {
-                        payload = await r.json();
-                        msg = payload.msg || 'Guardado';
-                        console.log('ECO del servidor (activo):', payload);
-                    } catch {
-                        msg = await r.text();
+                    const r = await fetch(`/administracion/activo/api/detalle/${idActivo}`);
+                    if (!r.ok) throw new Error('Error al cargar activo');
+                    
+                    const activo = await r.json();
+                    
+                    // Llenar el formulario
+                    $('#idActivo').val(activo.idActivo);
+                    $('#codigo').val(activo.codigo);
+                    $('#descripcion').val(activo.descripcion);
+                    $('#fechaAdq').val(activo.fechaAdquisicion);
+                    $('#costoFmt').val(formatNumber(activo.costo));
+                    $('#costo').val(activo.costo);
+                    $('#vidaUtil').val(activo.vidaUtil);
+                    
+                    // Select2 - establecer valores
+                    if (activo.grupoContable) {
+                        $('#grupoCode').val(activo.grupoContable.idGrupoContable).trigger('change');
                     }
-                    alert(msg || 'Guardado');
-                    lockForm(true);
-                    setModo('BLOQUEADO', 'text-bg-secondary');
-                    if (window.$ && $('#data-table').length) $('#data-table').DataTable().ajax.reload(null, false);
+                    if (activo.oficina) {
+                        $('#oficinaId').val(activo.oficina.idOficina).trigger('change');
+                    }
+                    if (activo.responsable) {
+                        // Si usas select2 con AJAX para responsables
+                        const option = new Option(
+                            activo.responsable.persona.nombreCompleto,
+                            activo.responsable.idResponsable,
+                            true,
+                            true
+                        );
+                        $('#responsableId').append(option).trigger('change');
+                    }
+                    if (activo.organismoFinanciero) {
+                        $('#orgFinId').val(activo.organismoFinanciero.idOrganismoFinanciero).trigger('change');
+                    }
+                    if (activo.auxiliar) {
+                        $('#auxiliarId').val(activo.auxiliar.idAuxiliar).trigger('change');
+                    }
+                    
+                    // Cambiar modo a edición
+                    setModo('EDICION', 'text-bg-warning');
+                    lockForm(false);
+                    
+                    hideGlobalLoader();
+                    
                 } catch (err) {
                     hideGlobalLoader();
                     console.error(err);
-                    alert('Error al guardar: ' + (err.message || err));
+                    alert('Error al cargar el activo: ' + err.message);
                 }
+            }
+
+            // Usar en el botón de edición de tu tabla
+            $('#data-table').on('click', '.btn-editar', function() {
+                const idActivo = $(this).data('id');
+                cargarActivoParaEditar(idActivo);
             });
 
-            // if (typeof window.manejarEnvioFormulario === 'function') {
-            //     window.manejarEnvioFormulario('#formularioActivo');
-            // }
         }
 
         function init(containerSelector) {

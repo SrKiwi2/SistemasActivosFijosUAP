@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.controller.activo;
 
 import java.security.Principal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -186,7 +187,11 @@ public class ActivosController {
 
     @ValidarUsuarioAutenticado
     @PostMapping("/modificar-activo")
-    public ResponseEntity<?> modificar_activo(@Validated @ModelAttribute Activo activo, BindingResult br) {
+    public ResponseEntity<?> modificar_activo(
+            HttpServletRequest request,
+            @Validated @ModelAttribute Activo activoForm, 
+            BindingResult br) {
+        
         if (br.hasErrors()) {
             return ResponseEntity.badRequest().body(Map.of(
                 "ok", false,
@@ -195,8 +200,93 @@ public class ActivosController {
                         .toList()
             ));
         }
-        activoService.save(activo);
-        return ResponseEntity.ok(Map.of("ok", true, "msg", "Se modificó correctamente"));
+        
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        String usuarioNombre = (usuario != null ? usuario.getUsuario() : "SISTEMA");
+        
+        // Obtener el activo original de la BD
+        Activo activoOriginal = activoService.findById(activoForm.getIdActivo());
+        if (activoOriginal == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "ok", false,
+                "msg", "No se encontró el activo con ID: " + activoForm.getIdActivo()
+            ));
+        }
+        
+        // Guardar el código original para buscar en DBF
+        String codigoOriginal = activoOriginal.getCodigo();
+        
+        // Actualizar campos del activo
+        activoOriginal.setCodigo(activoForm.getCodigo());
+        activoOriginal.setCodigoSec(activoForm.getCodigoSec());
+        activoOriginal.setDescripcion(activoForm.getDescripcion());
+        activoOriginal.setCosto(activoForm.getCosto());
+        activoOriginal.setVidaUtil(activoForm.getVidaUtil());
+        activoOriginal.setFechaAdquisicion(activoForm.getFechaAdquisicion());
+        
+        // Actualizar relaciones
+        if (activoForm.getGrupoContable() != null) {
+            activoOriginal.setGrupoContable(activoForm.getGrupoContable());
+        }
+        if (activoForm.getOficina() != null) {
+            activoOriginal.setOficina(activoForm.getOficina());
+        }
+        if (activoForm.getResponsable() != null) {
+            activoOriginal.setResponsable(activoForm.getResponsable());
+        }
+        if (activoForm.getOrganismoFinanciero() != null) {
+            OrganismoFinanciero orgFin = organismoFinancieroService.findById(
+                activoForm.getOrganismoFinanciero().getIdOrganismoFinanciero()
+            );
+            activoOriginal.setOrganismoFinanciero(orgFin);
+            activoOriginal.setOrgFinCode(orgFin.getCodOf());
+        }
+        if (activoForm.getAuxiliar() != null) {
+            activoOriginal.setAuxiliar(activoForm.getAuxiliar());
+        }
+        
+        // Actualizar metadatos de modificación
+        activoOriginal.setFecMod(LocalDate.now());
+        activoOriginal.setUsuMod(usuarioNombre);
+        
+        // 1) Guardar en PostgreSQL
+        activoService.save(activoOriginal);
+        
+        // 2) Actualizar en DBF (solo si está ACTIVO)
+        if ("ACTIVO".equalsIgnoreCase(activoOriginal.getEstado())) {
+            try {
+                String entidadCode = "UAP";
+                String unidadCode = (activoOriginal.getOficina() != null && 
+                                    activoOriginal.getOficina().getCodOfi() != null)
+                        ? activoOriginal.getOficina().getCodOfi().toString()
+                        : "0000";
+                
+                actualDbfWriterService.actualizarDesdeActivo(
+                    codigoOriginal, 
+                    activoOriginal, 
+                    entidadCode, 
+                    unidadCode, 
+                    usuarioNombre
+                );
+                
+                log.info("Activo {} actualizado en PostgreSQL y DBF", activoOriginal.getCodigo());
+                
+            } catch (Exception e) {
+                log.error("Error actualizando DBF para activo {}: {}", 
+                        activoOriginal.getCodigo(), e.getMessage(), e);
+                
+                return ResponseEntity.status(500).body(Map.of(
+                    "ok", false,
+                    "msg", "Se guardó en la base de datos pero falló la actualización en DBF: " + e.getMessage()
+                ));
+            }
+        }
+        
+        return ResponseEntity.ok(Map.of(
+            "ok", true, 
+            "msg", "Se modificó correctamente en PostgreSQL" + 
+                ("ACTIVO".equalsIgnoreCase(activoOriginal.getEstado()) ? " y DBF" : "")
+        ));
     }
 
     @ValidarUsuarioAutenticado
@@ -277,36 +367,106 @@ public class ActivosController {
         return "activo/tabla_registros_pendientes";
     }
 
+    // @ValidarUsuarioAutenticado
+    // @GetMapping("/api/detalle/{idEnc}")
+    // @ResponseBody
+    // public Map<String, Object> detalleActivo(@PathVariable String idEnc) throws Exception {
+    //     Long id = Long.valueOf(Encriptar.decrypt(idEnc));
+    //     Activo a = activoService.findById(id);
+
+    //     Map<String, Object> dto = new LinkedHashMap<>();
+    //     dto.put("codigo", a.getCodigo());
+    //     dto.put("descripcion", a.getDescripcion());
+    //     dto.put("fechaAdquisicion", a.getFechaAdquisicion() != null ? a.getFechaAdquisicion().toString() : null);
+
+    //     // ← usamos el campo de AuditoriaConfig
+    //     dto.put("estado", a.getEstado()); // PENDIENTE / ACTIVO
+
+    //     // Restante info (null-safe)
+    //     dto.put("oficinaNombre", a.getOficina() != null ? a.getOficina().getNombre() : null);
+    //     dto.put("responsableNombre",
+    //             (a.getResponsable() != null && a.getResponsable().getPersona() != null)
+    //                     ? a.getResponsable().getPersona().getNombre()
+    //                     : null);
+    //     dto.put("organismoFinancieroNombre",
+    //             a.getOrganismoFinanciero() != null ? a.getOrganismoFinanciero().getDescripcion() : null);
+    //     dto.put("auxiliarNombre", a.getAuxiliar() != null ? a.getAuxiliar().getNombre() : null);
+
+    //     dto.put("costo", a.getCosto());
+    //     dto.put("vidaUtil", a.getVidaUtil());
+    //     dto.put("costoFmt", a.getCosto() != null ? String.format("%,.2f", a.getCosto()) : null);
+
+    //     return dto;
+    // }
+
     @ValidarUsuarioAutenticado
     @GetMapping("/api/detalle/{idEnc}")
     @ResponseBody
-    public Map<String, Object> detalleActivo(@PathVariable String idEnc) throws Exception {
-        Long id = Long.valueOf(Encriptar.decrypt(idEnc));
-        Activo a = activoService.findById(id);
-
-        Map<String, Object> dto = new LinkedHashMap<>();
-        dto.put("codigo", a.getCodigo());
-        dto.put("descripcion", a.getDescripcion());
-        dto.put("fechaAdquisicion", a.getFechaAdquisicion() != null ? a.getFechaAdquisicion().toString() : null);
-
-        // ← usamos el campo de AuditoriaConfig
-        dto.put("estado", a.getEstado()); // PENDIENTE / ACTIVO
-
-        // Restante info (null-safe)
-        dto.put("oficinaNombre", a.getOficina() != null ? a.getOficina().getNombre() : null);
-        dto.put("responsableNombre",
-                (a.getResponsable() != null && a.getResponsable().getPersona() != null)
-                        ? a.getResponsable().getPersona().getNombre()
-                        : null);
-        dto.put("organismoFinancieroNombre",
-                a.getOrganismoFinanciero() != null ? a.getOrganismoFinanciero().getDescripcion() : null);
-        dto.put("auxiliarNombre", a.getAuxiliar() != null ? a.getAuxiliar().getNombre() : null);
-
-        dto.put("costo", a.getCosto());
-        dto.put("vidaUtil", a.getVidaUtil());
-        dto.put("costoFmt", a.getCosto() != null ? String.format("%,.2f", a.getCosto()) : null);
-
-        return dto;
+    public ResponseEntity<?> obtenerDetalle(@PathVariable String idEnc) {
+        try {
+            Long id = Long.valueOf(Encriptar.decrypt(idEnc));
+            Activo activo = activoService.findById(id);
+            
+            if (activo == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("idActivo", activo.getIdActivo());
+            response.put("codigo", activo.getCodigo());
+            response.put("codigoSec", activo.getCodigoSec());
+            response.put("descripcion", activo.getDescripcion());
+            response.put("costo", activo.getCosto());
+            response.put("vidaUtil", activo.getVidaUtil());
+            response.put("fechaAdquisicion", activo.getFechaAdquisicion());
+            response.put("estado", activo.getEstado());
+            
+            if (activo.getGrupoContable() != null) {
+                response.put("grupoContable", Map.of(
+                    "idGrupoContable", activo.getGrupoContable().getIdGrupoContable(),
+                    "nombre", activo.getGrupoContable().getNombre()
+                ));
+            }
+            
+            if (activo.getOficina() != null) {
+                response.put("oficina", Map.of(
+                    "idOficina", activo.getOficina().getIdOficina(),
+                    "nombre", activo.getOficina().getNombre()
+                ));
+            }
+            
+            if (activo.getResponsable() != null) {
+                response.put("responsable", Map.of(
+                    "idResponsable", activo.getResponsable().getIdResponsable(),
+                    "persona", Map.of(
+                        "nombreCompleto", activo.getResponsable().getPersona().getNombreCompleto()
+                    )
+                ));
+            }
+            
+            if (activo.getOrganismoFinanciero() != null) {
+                response.put("organismoFinanciero", Map.of(
+                    "idOrganismoFinanciero", activo.getOrganismoFinanciero().getIdOrganismoFinanciero(),
+                    "descripcion", activo.getOrganismoFinanciero().getDescripcion()
+                ));
+            }
+            
+            if (activo.getAuxiliar() != null) {
+                response.put("auxiliar", Map.of(
+                    "idAuxiliar", activo.getAuxiliar().getIdAuxiliar(),
+                    "nombre", activo.getAuxiliar().getNombre()
+                ));
+            }
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Error obteniendo detalle: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of(
+                "ok", false,
+                "message", "Error al obtener detalle: " + e.getMessage()
+            ));
+        }
     }
 
     @ValidarUsuarioAutenticado
