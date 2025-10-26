@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.linuxense.javadbf.DBFDataType;
 import com.linuxense.javadbf.DBFField;
 import com.linuxense.javadbf.DBFReader;
 import com.linuxense.javadbf.DBFWriter;
@@ -29,6 +30,11 @@ public class ActualDbfWriterService {
 
     @Value("${legacy.dbf.path:/mnt/dbfwin}")
     private String dbfPath;
+
+    // Constructor vacío - Spring lo usa automáticamente
+    public ActualDbfWriterService() {
+        log.info("Inicializando ActualDbfWriterService con acceso directo a archivos DBF");
+    }
 
     private File getActualDbfFile() {
         File dbfFile = new File(dbfPath, "ACTUAL.DBF");
@@ -134,16 +140,16 @@ public class ActualDbfWriterService {
                 File dbfFile = getActualDbfFile();
                 File tempFile = new File(dbfFile.getParent(), "ACTUAL_TEMP.DBF");
                 
-                // Leer todos los registros existentes
                 List<Object[]> records = new ArrayList<>();
-                DBFField[] fields;
+                DBFField[] originalFields;
                 
+                // Leer todos los registros existentes
                 try (InputStream fis = new FileInputStream(dbfFile);
                      DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
                     
-                    fields = new DBFField[reader.getFieldCount()];
+                    originalFields = new DBFField[reader.getFieldCount()];
                     for (int i = 0; i < reader.getFieldCount(); i++) {
-                        fields[i] = reader.getField(i);
+                        originalFields[i] = reader.getField(i);
                     }
                     
                     Object[] record;
@@ -152,29 +158,74 @@ public class ActualDbfWriterService {
                     }
                 }
                 
-                // Crear el nuevo registro
-                Object[] newRecord = crearRegistroDesdeActivo(a, entidadCode, unidadCode, usuario, fields);
-                records.add(newRecord);
+                // Separar campos escribibles de los MEMO
+                List<DBFField> writableFieldsList = new ArrayList<>();
+                List<Integer> writableIndexes = new ArrayList<>();
                 
-                // Escribir todos los registros al archivo temporal
-                try (OutputStream fos = new FileOutputStream(tempFile);
-                     DBFWriter writer = new DBFWriter(fos, Charset.forName("CP1252"))) {
+                for (int i = 0; i < originalFields.length; i++) {
+                    DBFField field = originalFields[i];
                     
-                    writer.setFields(fields);
-                    for (Object[] record : records) {
-                        writer.addRecord(record);
+                    // Omitir solo campos MEMO (como OBSERV)
+                    if (field.getType() != DBFDataType.MEMO) {
+                        writableFieldsList.add(field);
+                        writableIndexes.add(i);
+                    } else {
+                        log.info("Omitiendo campo MEMO '{}' (no soportado para escritura)", field.getName());
                     }
                 }
                 
-                // Reemplazar el archivo original con el temporal
-                if (!dbfFile.delete()) {
-                    throw new IOException("No se pudo eliminar ACTUAL.DBF");
+                DBFField[] writableFields = writableFieldsList.toArray(new DBFField[0]);
+                
+                // Crear el nuevo registro completo (con índices originales)
+                Object[] newRecord = crearRegistroDesdeActivo(a, entidadCode, unidadCode, usuario, originalFields);
+                records.add(newRecord);
+                
+                // Escribir archivo temporal (solo con campos soportados)
+                try (OutputStream fos = new FileOutputStream(tempFile);
+                     DBFWriter writer = new DBFWriter(fos, Charset.forName("CP1252"))) {
+                    
+                    writer.setFields(writableFields);
+                    
+                    // Escribir cada registro filtrando solo los índices escribibles
+                    for (Object[] record : records) {
+                        Object[] writableRecord = new Object[writableIndexes.size()];
+                        for (int i = 0; i < writableIndexes.size(); i++) {
+                            writableRecord[i] = record[writableIndexes.get(i)];
+                        }
+                        writer.addRecord(writableRecord);
+                    }
                 }
+                
+                // Crear respaldo del archivo original
+                File backupFile = new File(dbfFile.getParent(), "ACTUAL_BACKUP.DBF");
+                if (backupFile.exists()) {
+                    backupFile.delete();
+                }
+                
+                // Copiar original a backup antes de reemplazar
+                try (InputStream in = new FileInputStream(dbfFile);
+                     OutputStream out = new FileOutputStream(backupFile)) {
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, bytesRead);
+                    }
+                }
+                
+                // Reemplazar archivo original con el temporal
+                if (!dbfFile.delete()) {
+                    throw new IOException("No se pudo eliminar ACTUAL.DBF original");
+                }
+                
                 if (!tempFile.renameTo(dbfFile)) {
+                    // Restaurar backup si falla
+                    if (backupFile.exists()) {
+                        backupFile.renameTo(dbfFile);
+                    }
                     throw new IOException("No se pudo renombrar ACTUAL_TEMP.DBF a ACTUAL.DBF");
                 }
                 
-                log.info("Activo {} insertado exitosamente en ACTUAL.DBF", a.getCodigo());
+                log.info("Activo {} insertado exitosamente en ACTUAL.DBF (campo OBSERV omitido)", a.getCodigo());
                 
             } catch (Exception e) {
                 log.error("Error insertando activo {} en DBF: {}", a.getCodigo(), e.getMessage(), e);
