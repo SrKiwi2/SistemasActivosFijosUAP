@@ -202,7 +202,7 @@ public class ActivosController {
         }
         
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-        String usuarioNombre = (usuario != null ? usuario.getUsuario() : "SISTEMA");
+        String usuarioNombre = usuario.getUsuario();
         
         // Obtener el activo original de la BD
         Activo activoOriginal = activoService.findById(activoForm.getIdActivo());
@@ -248,7 +248,17 @@ public class ActivosController {
         // Actualizar metadatos de modificación
         activoOriginal.setFecMod(LocalDate.now());
         activoOriginal.setUsuMod(usuarioNombre);
-        
+        activoOriginal.setEstado("ACTIVO");
+        activoOriginal.setModificacionIdUsuario(usuario.getIdUsuario());
+        activoOriginal.setUsuario(usuarioNombre);
+        activoOriginal.setOrgFinCode(activoForm.getOrgFinCode());
+        activoOriginal.setEstadoActivo(activoForm.getEstadoActivo());
+        activoOriginal.setVidaUtilAnterior(0);
+        activoOriginal.setFechaUlt(LocalDate.now());
+        activoOriginal.setFecMod(LocalDate.now());
+        activoOriginal.setCostoAnterior(Double.valueOf(0));
+        activoOriginal.setApiEstado(Short.valueOf("3"));
+
         // 1) Guardar en PostgreSQL
         activoService.save(activoOriginal);
         
