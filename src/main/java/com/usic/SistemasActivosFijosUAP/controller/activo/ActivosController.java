@@ -159,6 +159,8 @@ public class ActivosController {
 
         activo.setOrgFinCode(activo.getOrganismoFinanciero().getCodOf());
         activo.setUsuario(usuario.getUsuario());
+        activo.setFecMod(LocalDate.now());
+        activo.setFechaUlt(activo.getFecMod());
 
         activo.setEstado("PENDIENTE");
         activoService.save(activo);
@@ -497,7 +499,7 @@ public class ActivosController {
         String unidadCode  = (a.getOficina() != null && a.getOficina().getCodOfi() != null)
                 ? a.getOficina().getCodOfi().toString()
                 : "0000"; // fallback
-        String usuario = (principal != null ? principal.getName() : "SISTEMA");
+        String usuario = principal.getName();
 
         // 1) Insertar en ACTUAL.DBF (si no existe ya por CODIGO)
         if (actualDbfWriterService.existsByCodigo(a.getCodigo())) {
