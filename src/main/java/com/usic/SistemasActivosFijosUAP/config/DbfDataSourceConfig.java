@@ -1,7 +1,11 @@
 package com.usic.SistemasActivosFijosUAP.config;
 
+import java.io.File;
+
 import javax.sql.DataSource;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
@@ -17,14 +21,12 @@ import com.hxtt.sql.dbf.DBFDriver;
 @Configuration(proxyBeanMethods = false)
 public class DbfDataSourceConfig {
 
+    private static final Logger log = LoggerFactory.getLogger(DbfDataSourceConfig.class);
+
     @Autowired
     private Environment env;
 
-    /**
-     * Crea el DataSource SOLO si legacy.dbf.url tiene texto (ni null, ni vacío).
-     * Usamos SimpleDriverDataSource con el driver inyectado explícitamente para
-     * evitar el "driverClassName must not be empty".
-     */
+
     @Bean(name = "dbfDataSource")
     @Lazy
     @ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${legacy.dbf.url:}')")
@@ -32,23 +34,50 @@ public class DbfDataSourceConfig {
         String url = env.getProperty("legacy.dbf.url");
         String driverClass = env.getProperty("legacy.dbf.driverClassName", "com.hxtt.sql.dbf.DBFDriver");
 
-        System.out.println("[DBF] Preparando DataSource: url=" + url + " | driver=" + driverClass);
+        log.info("[DBF] Preparando DataSource");
+        log.info("[DBF] URL: {}", url);
+        log.info("[DBF] Driver: {}", driverClass);
+
+        // Verificar que el directorio existe antes de crear el DataSource
+        String path = url.replace("jdbc:dbf:", "").split("\\?")[0];
+        File dbfDir = new File(path);
+        
+        if (!dbfDir.exists()) {
+            throw new IllegalStateException(
+                String.format("El directorio DBF no existe: %s. Verifique el montaje CIFS.", path)
+            );
+        }
+        
+        if (!dbfDir.canRead()) {
+            throw new IllegalStateException(
+                String.format("El directorio DBF no es legible: %s. Verifique permisos.", path)
+            );
+        }
+        
+        log.info("[DBF] Directorio verificado: {} (existe y es legible)", path);
 
         try {
-            // Aseguramos que el driver está en el classpath
             Class.forName(driverClass);
+            log.info("[DBF] Driver cargado exitosamente");
         } catch (ClassNotFoundException e) {
             throw new IllegalStateException("No se encontró el driver HXTT: " + driverClass, e);
         }
 
-        // Creamos el DS con el driver real (sin user/pass)
-        return new SimpleDriverDataSource(new DBFDriver(), url, null, null);
+        try {
+            DataSource ds = new SimpleDriverDataSource(new DBFDriver(), url, null, null);
+            log.info("[DBF] DataSource creado exitosamente");
+            return ds;
+        } catch (Exception e) {
+            log.error("[DBF] Error creando DataSource: {}", e.getMessage(), e);
+            throw new IllegalStateException("Error al crear DataSource DBF", e);
+        }
     }
 
     @Bean(name = "dbfJdbc")
     @Lazy
     @ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${legacy.dbf.url:}')")
     public JdbcTemplate dbfJdbc(@Qualifier("dbfDataSource") DataSource ds) {
+        log.info("[DBF] Creando JdbcTemplate");
         return new JdbcTemplate(ds);
     }
 }
