@@ -235,8 +235,131 @@ public class ActualDbfWriterService {
             }
         }
     }
+
+    /**
+     * Actualiza un registro existente en ACTUAL.DBF buscándolo por código
+     */
+    public void actualizarDesdeActivo(String codigoOriginal, Activo a, String entidadCode, 
+                                      String unidadCode, String usuario) {
+        log.info("Iniciando actualización de activo {} (código original: {}) en ACTUAL.DBF", 
+                a.getCodigo(), codigoOriginal);
+        verificarConexionDBF();
+        
+        synchronized (actualLock) {
+            try {
+                File dbfFile = getActualDbfFile();
+                File tempFile = new File(dbfFile.getParent(), "ACTUAL_TEMP.DBF");
+                
+                List<Object[]> records = new ArrayList<>();
+                DBFField[] originalFields;
+                boolean encontrado = false;
+                int codigoFieldIndex = -1;
+                
+                // Leer archivo original
+                try (InputStream fis = new FileInputStream(dbfFile);
+                     DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
+                    
+                    originalFields = new DBFField[reader.getFieldCount()];
+                    for (int i = 0; i < reader.getFieldCount(); i++) {
+                        originalFields[i] = reader.getField(i);
+                        if ("CODIGO".equalsIgnoreCase(originalFields[i].getName())) {
+                            codigoFieldIndex = i;
+                        }
+                    }
+                    
+                    if (codigoFieldIndex == -1) {
+                        throw new RuntimeException("No se encontró el campo CODIGO en ACTUAL.DBF");
+                    }
+                    
+                    // Leer todos los registros y actualizar el que coincida
+                    Object[] record;
+                    while ((record = reader.nextRecord()) != null) {
+                        if (record[codigoFieldIndex] != null && 
+                            codigoOriginal.equals(record[codigoFieldIndex].toString().trim())) {
+                            
+                            // Encontrado: reemplazar con datos actualizados
+                            record = crearRegistroDesdeActivo(a, entidadCode, unidadCode, usuario, originalFields);
+                            encontrado = true;
+                            log.info("Registro encontrado y actualizado: {}", codigoOriginal);
+                        }
+                        records.add(record);
+                    }
+                }
+                
+                if (!encontrado) {
+                    throw new RuntimeException(
+                        String.format("No se encontró el activo con código '%s' en ACTUAL.DBF", codigoOriginal)
+                    );
+                }
+                
+                // Filtrar campos MEMO para escritura
+                List<DBFField> writableFieldsList = new ArrayList<>();
+                List<Integer> writableIndexes = new ArrayList<>();
+                
+                for (int i = 0; i < originalFields.length; i++) {
+                    DBFField field = originalFields[i];
+                    if (field.getType() != DBFDataType.MEMO) {
+                        writableFieldsList.add(field);
+                        writableIndexes.add(i);
+                    }
+                }
+                
+                DBFField[] writableFields = writableFieldsList.toArray(new DBFField[0]);
+                
+                // Escribir archivo temporal
+                try (OutputStream fos = new FileOutputStream(tempFile);
+                     DBFWriter writer = new DBFWriter(fos, Charset.forName("CP1252"))) {
+                    
+                    writer.setFields(writableFields);
+                    
+                    for (Object[] record : records) {
+                        Object[] writableRecord = new Object[writableIndexes.size()];
+                        for (int i = 0; i < writableIndexes.size(); i++) {
+                            writableRecord[i] = record[writableIndexes.get(i)];
+                        }
+                        writer.addRecord(writableRecord);
+                    }
+                }
+                
+                // Crear backup
+                File backupFile = new File(dbfFile.getParent(), "ACTUAL_BACKUP.DBF");
+                if (backupFile.exists()) {
+                    backupFile.delete();
+                }
+                
+                try (InputStream in = new FileInputStream(dbfFile);
+                     OutputStream out = new FileOutputStream(backupFile)) {
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, bytesRead);
+                    }
+                }
+                
+                // Reemplazar archivo
+                if (!dbfFile.delete()) {
+                    throw new IOException("No se pudo eliminar ACTUAL.DBF original");
+                }
+                
+                if (!tempFile.renameTo(dbfFile)) {
+                    if (backupFile.exists()) {
+                        backupFile.renameTo(dbfFile);
+                    }
+                    throw new IOException("No se pudo renombrar ACTUAL_TEMP.DBF a ACTUAL.DBF");
+                }
+                
+                log.info("Activo {} actualizado exitosamente en ACTUAL.DBF", a.getCodigo());
+                
+            } catch (Exception e) {
+                log.error("Error actualizando activo {} en DBF: {}", a.getCodigo(), e.getMessage(), e);
+                throw new RuntimeException(
+                    "No se pudo actualizar en ACTUAL.DBF: " + e.getMessage(), e
+                );
+            }
+        }
+    }
     
-/**
+    /**
      * Crea un arreglo de objetos con los valores del registro a partir del Activo
      */
     private Object[] crearRegistroDesdeActivo(Activo a, String entidadCode, String unidadCode, 
@@ -315,7 +438,7 @@ public class ActualDbfWriterService {
         
         Short CODESTADO = 1;
         Short API_ESTADO = 1;
-        String USUAR = (usuario != null ? usuario : "SISTEMA");
+        String USUAR = usuario;
         String OBSERV = null;
         java.util.Date FEULT = java.sql.Date.valueOf(FEC);
         
