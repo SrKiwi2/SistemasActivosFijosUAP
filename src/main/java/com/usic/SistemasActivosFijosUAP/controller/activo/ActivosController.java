@@ -489,6 +489,8 @@ public class ActivosController {
         Long id = Long.valueOf(Encriptar.decrypt(idEnc));
         Activo a = activoService.findById(id);
 
+        Usuario usuarios = (Usuario) ((HttpServletRequest) principal).getSession().getAttribute("usuario");
+
         if (!"PENDIENTE".equalsIgnoreCase(a.getEstado())) {
             return Map.of("ok", false, "message", "El activo no está en estado PENDIENTE.");
         }
@@ -499,7 +501,7 @@ public class ActivosController {
         String unidadCode  = (a.getOficina() != null && a.getOficina().getCodOfi() != null)
                 ? a.getOficina().getCodOfi().toString()
                 : "0000"; // fallback
-        String usuario = principal.getName();
+        String usuario = usuarios.getUsuario();
 
         // 1) Insertar en ACTUAL.DBF (si no existe ya por CODIGO)
         if (actualDbfWriterService.existsByCodigo(a.getCodigo())) {
