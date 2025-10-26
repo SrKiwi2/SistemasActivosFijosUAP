@@ -130,6 +130,12 @@
         // 2) Delegación de eventos sobre el contenedor fijo (#tablaRegistro)
         $('#tablaRegistro').off('click', '.btn-ver').on('click', '.btn-ver', async function () {
             const idEnc = this.dataset.id;
+            showGlobalLoader({ 
+                imgUrl: '/assets/img/logo/activofijos.png', 
+                axis: 'y', 
+                speed: 1.2, 
+                texto: 'Cargando detalle...' 
+            });
             try {
                 const res = await fetch(`/administracion/activo/api/detalle/${encodeURIComponent(idEnc)}`);
                 if (!res.ok) throw new Error('Error al obtener detalle');
@@ -160,6 +166,8 @@
                 bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleActivo')).show();
             } catch (e) {
                 console.error(e); alert('No se pudo cargar el detalle del activo.');
+            } finally {
+                hideGlobalLoader();
             }
         });
     }

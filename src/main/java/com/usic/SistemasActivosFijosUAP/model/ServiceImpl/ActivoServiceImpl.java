@@ -102,6 +102,7 @@ public class ActivoServiceImpl implements IActivoService{
                     e.printStackTrace(); // O manejar adecuadamente
                 }
             }
+            predicates.add(cb.equal(root.get("estado"), "ACTIVO"));
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };

@@ -283,9 +283,9 @@ public class ActualDbfWriterService {
         
         Integer CODRESP = null;
         if (a.getResponsable() != null && a.getResponsable().getPersona() != null) {
-            String ci = a.getResponsable().getPersona().getCi();
-            if (ci != null) {
-                String onlyDigits = ci.replaceAll("\\D+", "");
+            String codresp = a.getResponsable().getCodigoFuncionario();
+            if (codresp != null) {
+                String onlyDigits = codresp.replaceAll("\\D+", "");
                 if (!onlyDigits.isEmpty()) {
                     try {
                         CODRESP = Integer.valueOf(onlyDigits);
@@ -327,29 +327,33 @@ public class ActualDbfWriterService {
                 case "ENTIDAD" -> record[i] = ENTIDAD;
                 case "UNIDAD" -> record[i] = UNIDAD;
                 case "CODIGO" -> record[i] = CODIGO;
-                case "CODIGOSEC" -> record[i] = CODIGOSEC;
+                case "CODCONT" -> record[i] = CODCONT;
+                case "CODAUX" -> record[i] = CODAUX;
+                case "VIDAUTIL" -> record[i] = VIDAUT;
                 case "DESCRIP" -> record[i] = DESCRIP;
                 case "COSTO" -> record[i] = COSTO;
                 case "DEPACU" -> record[i] = DEPACU;
-                case "VIDAUTIL" -> record[i] = VIDAUT;
                 case "MES" -> record[i] = MES;
                 case "ANO" -> record[i] = ANO;
                 case "DIA" -> record[i] = DIA;
                 case "CODOFIC" -> record[i] = CODOFIC;
                 case "CODRESP" -> record[i] = CODRESP;
-                case "OBSERV" -> record[i] = OBSERV;
-                case "CODCONT" -> record[i] = CODCONT;
-                case "CODAUX" -> record[i] = CODAUX;
+                case "DIA_ANT" -> record[i] = 0;
+                case "MES_ANT" -> record[i] = 0;
+                case "ANO_ANT" -> record[i] = 0;
+                case "VUT_ANT" -> record[i] = 0;
+                case "COSTO_ANT" -> record[i] = 0;
+                case "CODESTADO" -> record[i] = CODESTADO;
                 case "ORG_FIN" -> record[i] = ORG_FIN;
                 case "FEULT" -> record[i] = FEULT;
                 case "USUAR" -> record[i] = USUAR;
                 case "API_ESTADO" -> record[i] = API_ESTADO;
-                case "CODESTADO" -> record[i] = CODESTADO;
+                case "CODIGOSEC" -> record[i] = CODIGOSEC;
+                case "FEC_MOD" -> record[i] = FEULT;
+                case "OBSERV" -> record[i] = OBSERV;
                 default -> record[i] = null; // Campos no mapeados
             }
         }
-        
         return record;
     }
-
 }
