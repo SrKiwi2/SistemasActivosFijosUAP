@@ -1,0 +1,62 @@
+<div class="modal-header">
+    <h4 class="modal-title" th:text="${edit}? 'Modificar Auxiliar' : 'Registrar Auxiliar'"></h4>
+    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+</div>
+<form id="formularioAuxiliar" method="post"
+    th:action="${edit}? @{/administracion/auxiliar/modificar-auxiliar} : @{/administracion/auxiliar/registrar-auxiliar}"
+    novalidate>
+    <input type="hidden" th:if="${edit != null}" th:field="${idAuxiliar}">
+    <div class="modal-body">
+        <div class="row">
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label">Grupo contable</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-layer-group"></i></span>
+                    <select th:field="*{grupoContable.idGrupoContable}" class="form-select select2it" required>
+                        <option value="">Seleccione…</option>
+                        <option th:each="g : ${gruposContables}" th:value="${g.idGrupoContable}"
+                            th:data-code="${g.codContable != null ? #numbers.formatInteger(g.codContable, 2) : ''}"
+                            th:text="${g.nombre + ' (' + g.codContable + ')'}"></option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label">Predio</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-building"></i></span>
+                    <select th:field="*{predio.idPredio}" class="form-select select2it" required>
+                        <option value="">Seleccione…</option>
+                        <option th:each="p : ${predios}" th:value="${p.idPredio}"
+                            th:text="${p.nombre + ' (' + p.codigo + ')'}"></option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="codAuxInput">Código auxiliar</label>
+                <input type="number" th:field="*{codAux}" class="form-control" placeholder="Ej: 101" required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+            
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label" for="nombreAuxiliarInput">Nombre auxiliar</label>
+                <input type="text" th:field="*{nombre}" class="form-control" placeholder="Ej: Muebles y Enseres" required />
+                <div class="valid-feedback">Correcto!</div>
+                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <div class="row">
+            <div class="col-12">
+                <a type="submit" class="btn btn-secondary" style="color: white;" data-bs-dismiss="modal">Cancelar</a>
+                <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
+
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    manejarEnvioFormulario('#formularioAuxiliar');
+</script>

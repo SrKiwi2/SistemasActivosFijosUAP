@@ -43,29 +43,6 @@ public class AuxiliarController {
     private final IGrupoContableService grupoContableService;
     private final JavaDbfService dbfService;
 
-    private String stripLeftZeros(String s) {
-        if (s == null)
-            return null;
-        String out = s.replaceFirst("^0+", "");
-        return out.isEmpty() ? "0" : out;
-    }
-
-    private String leftPad4(String s) {
-        String base = stripLeftZeros(s);
-        try {
-            return String.format("%04d", Integer.parseInt(base));
-        } catch (Exception e) {
-            return s;
-        }
-    }
-
-    private String normUnidad(String u) {
-        return u == null ? null : u.trim();
-    }
-
-    private String limit(String s, int n) {
-        return (s != null && s.length() > n) ? s.substring(0, n) : s;
-    }
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -141,6 +118,8 @@ public class AuxiliarController {
     @ValidarUsuarioAutenticado
     @PostMapping("/formulario")
     public String formulario_auxiliar(Model model, Auxiliar auxiliar) {
+        model.addAttribute("predios", predioServicio.listarPredios());
+        model.addAttribute("gruposContables", grupoContableService.listarGruposContables());
         return "auxiliar/formulario";
     }
 
@@ -150,6 +129,8 @@ public class AuxiliarController {
             throws Exception {
         Long id = Long.parseLong(Encriptar.decrypt(idAuxiliar));
         model.addAttribute("auxiliar", auxiliarService.findById(id));
+        model.addAttribute("predios", predioServicio.listarPredios());
+        model.addAttribute("gruposContables", grupoContableService.listarGruposContables());
         model.addAttribute("edit", "true");
         return "auxiliar/formulario";
     }
@@ -301,5 +282,31 @@ public class AuxiliarController {
                     "ok", false,
                     "message", "Error sincronizando AUXILIAR: " + ex.getMessage()));
         }
+    }
+
+    /* HELPERS */
+    
+    private String stripLeftZeros(String s) {
+        if (s == null)
+            return null;
+        String out = s.replaceFirst("^0+", "");
+        return out.isEmpty() ? "0" : out;
+    }
+
+    private String leftPad4(String s) {
+        String base = stripLeftZeros(s);
+        try {
+            return String.format("%04d", Integer.parseInt(base));
+        } catch (Exception e) {
+            return s;
+        }
+    }
+
+    private String normUnidad(String u) {
+        return u == null ? null : u.trim();
+    }
+
+    private String limit(String s, int n) {
+        return (s != null && s.length() > n) ? s.substring(0, n) : s;
     }
 }
