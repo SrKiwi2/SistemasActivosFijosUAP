@@ -17,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import com.usic.SistemasActivosFijosUAP.config.UapProxyController;
 import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGeneroService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
@@ -41,9 +40,6 @@ public class ResponsableServiceImpl implements IResponsableService{
 
     private final IResposableDao dao;
     private final FuncionesResponsableRepo repo;
-
-    private final UapProxyController uapProxyController;
-
     private final IPersonaService personaService;
     private final IGeneroService generoService;
     private final ICargoService cargoService;
@@ -213,25 +209,23 @@ public class ResponsableServiceImpl implements IResponsableService{
 
     @Override
     public Responsable findByCodigoFuncionarioYOficina(String codigoFuncionario, Long idOficina) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'findByCodigoFuncionarioYOficina'");
+        return dao.findByCodigoFuncionarioAndOficinaIdOficina(
+            codigoFuncionario, idOficina
+        ).orElse(null);
     }
 
     @Override
     public boolean existeResponsablePorPersona(Long idPersona) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'existeResponsablePorPersona'");
+       return dao.existsByPersonaIdPersona(idPersona);
     }
 
     @Override
     public boolean existeResponsablePorPersonaYOficina(Long idPersona, Long idOficina) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'existeResponsablePorPersonaYOficina'");
+        return dao.existsByPersonaIdPersonaAndOficinaIdOficina(idPersona, idOficina);
     }
 
     @Override
     public List<Responsable> findByPersonaId(Long idPersona) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'findByPersonaId'");
+        return dao.findByPersonaIdPersona(idPersona);
     }
 }

@@ -262,7 +262,8 @@ public class ResponsableController {
             @RequestParam(required = false) String paterno,
             @RequestParam(required = false) String materno,
             @RequestParam(required = false) String correo,
-            @RequestParam(required = false) Long idCargo) {
+            @RequestParam(required = false) Long idCargo,
+            @RequestParam(required = false) String nombreCargoApi) {
         
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
@@ -390,6 +391,32 @@ public class ResponsableController {
                 personaService.save(persona);
                 log.info("Nueva persona creada: {} (ID: {})", persona.getNombreCompleto(), persona.getIdPersona());
             }
+
+            // Cargar cargo si se proporcionó
+            Cargo cargo = null;
+            if (idCargo != null) {
+                // Opción 1: Se seleccionó un cargo existente desde el front-end (o API lo encontró)
+                cargo = cargoService.findById(idCargo);
+                
+                if (cargo == null) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "ok", false,
+                        "msg", "No se encontró el Cargo con ID: " + idCargo
+                    ));
+                }
+            } 
+            
+            // Opción 2: Si NO tiene ID de cargo, PERO tiene nombre de cargo sugerido de la API, buscar/crear.
+            else if (nombreCargoApi != null && !nombreCargoApi.trim().isEmpty()) {
+                Long idUsuario = (usuario != null) ? usuario.getIdUsuario() : null;
+                
+                // LLAMADA CLAVE: Busca el cargo por nombre o lo crea si no existe
+                cargo = cargoService.buscarOCrearPorNombre(nombreCargoApi, idUsuario);
+                
+                if (cargo != null) {
+                    log.info("Cargo procesado: ID={} ({}).", cargo.getIdCargo(), cargo.getNombre());
+                }
+            }
             
             // ========== Crear Responsable ==========
             Responsable responsable = new Responsable();
@@ -397,13 +424,7 @@ public class ResponsableController {
             responsable.setCodigoFuncionario(codigoFuncionario.trim());
             responsable.setPersona(persona);
             responsable.setOficina(oficina);
-            
-            // Cargar cargo si se proporcionó
-            if (idCargo != null) {
-                Cargo cargo = cargoService.findById(idCargo);
-                responsable.setCargo(cargo);
-            }
-            
+            responsable.setCargo(cargo);
             responsable.setFechaUlt(LocalDate.now());
             responsable.setUsuario(usuarioNombre);
             responsable.setApiEstado(Short.valueOf("1"));
@@ -510,13 +531,14 @@ public class ResponsableController {
             @RequestParam(required = false) String materno,
             @RequestParam(required = false) String correo,
             @RequestParam(required = false) Long idCargo,
+            @RequestParam(required = false) String nombreCargoApi,
             @RequestParam(defaultValue = "false") boolean forzarCreacion) {
         
         // Si forzarCreacion=true, crear siempre una nueva persona
         // Llamar al método de registro normal pero sin validación de nombres similares
         
         return registrarResponsable(request, codigoApi, ci, codigoFuncionario, 
-                                   idOficina, nombre, paterno, materno, correo, idCargo);
+                                   idOficina, nombre, paterno, materno, correo, idCargo, nombreCargoApi);
     }
 
     // En ResponsableController

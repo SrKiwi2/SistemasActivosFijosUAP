@@ -17,4 +17,6 @@ public interface ICargoDao extends JpaRepository<Cargo, Long>{
     List<Cargo> listarCargos();
 
     Optional<Cargo> findFirstByNombreIgnoreCase(String nombre);
+
+    Optional<Cargo> findByNombreIgnoreCase(String nombre);
 }

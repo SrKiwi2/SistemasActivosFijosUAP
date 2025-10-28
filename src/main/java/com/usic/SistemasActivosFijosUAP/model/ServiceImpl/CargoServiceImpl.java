@@ -49,4 +49,30 @@ public class CargoServiceImpl implements ICargoService{
     public Optional<Cargo> findFirstByNombreIgnoreCase(String nombre) {
         return dao.findFirstByNombreIgnoreCase(nombre);
     }
+
+    @Override
+    public Cargo buscarOCrearPorNombre(String nombre, Long idUsuarioRegistro) {
+        if (nombre == null || nombre.trim().isEmpty()) {
+            return null;
+        }
+        
+        // 1. Buscar por nombre ignorando mayúsculas
+        Optional<Cargo> cargoExistente = dao.findByNombreIgnoreCase(nombre.trim());
+        
+        if (cargoExistente.isPresent()) {
+            return cargoExistente.get(); // Retorna el existente
+        }
+        
+        // 2. Si no existe, crear uno nuevo
+        Cargo nuevoCargo = new Cargo();
+        nuevoCargo.setNombre(nombre.trim().toUpperCase()); // O solo trim() si prefieres minúsculas
+        nuevoCargo.setDescripcion("Registrado automáticamente desde API.");
+        // Establecer valores de AuditoriaConfig
+        nuevoCargo.setEstado("ACTIVO");
+        if (idUsuarioRegistro != null) {
+            nuevoCargo.setRegistroIdUsuario(idUsuarioRegistro);
+        }
+
+        return dao.save(nuevoCargo); // Guarda y retorna el nuevo Cargo
+    }
 }
