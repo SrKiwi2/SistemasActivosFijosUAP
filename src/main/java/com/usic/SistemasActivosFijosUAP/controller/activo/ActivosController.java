@@ -381,37 +381,6 @@ public class ActivosController {
         return "activo/tabla_registros_pendientes";
     }
 
-    // @ValidarUsuarioAutenticado
-    // @GetMapping("/api/detalle/{idEnc}")
-    // @ResponseBody
-    // public Map<String, Object> detalleActivo(@PathVariable String idEnc) throws Exception {
-    //     Long id = Long.valueOf(Encriptar.decrypt(idEnc));
-    //     Activo a = activoService.findById(id);
-
-    //     Map<String, Object> dto = new LinkedHashMap<>();
-    //     dto.put("codigo", a.getCodigo());
-    //     dto.put("descripcion", a.getDescripcion());
-    //     dto.put("fechaAdquisicion", a.getFechaAdquisicion() != null ? a.getFechaAdquisicion().toString() : null);
-
-    //     // ← usamos el campo de AuditoriaConfig
-    //     dto.put("estado", a.getEstado()); // PENDIENTE / ACTIVO
-
-    //     // Restante info (null-safe)
-    //     dto.put("oficinaNombre", a.getOficina() != null ? a.getOficina().getNombre() : null);
-    //     dto.put("responsableNombre",
-    //             (a.getResponsable() != null && a.getResponsable().getPersona() != null)
-    //                     ? a.getResponsable().getPersona().getNombre()
-    //                     : null);
-    //     dto.put("organismoFinancieroNombre",
-    //             a.getOrganismoFinanciero() != null ? a.getOrganismoFinanciero().getDescripcion() : null);
-    //     dto.put("auxiliarNombre", a.getAuxiliar() != null ? a.getAuxiliar().getNombre() : null);
-
-    //     dto.put("costo", a.getCosto());
-    //     dto.put("vidaUtil", a.getVidaUtil());
-    //     dto.put("costoFmt", a.getCosto() != null ? String.format("%,.2f", a.getCosto()) : null);
-
-    //     return dto;
-    // }
 
     @ValidarUsuarioAutenticado
     @GetMapping("/api/detalle/{idEnc}")

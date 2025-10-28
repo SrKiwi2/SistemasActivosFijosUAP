@@ -338,96 +338,6 @@
     </div>
 </div>
 
-
-<!-- <div class="modal fade" id="modalNuevoResponsable" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <form id="formNuevoResponsable" class="needs-validation" novalidate>
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-person-plus me-2"></i> Nuevo responsable
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="row g-3">
-
-                        <div class="col-12 col-md-6">
-                            <label class="form-label fw-semibold">Oficina</label>
-                            <input type="text" id="nr_oficinaText" class="form-control" readonly>
-                            <input type="hidden" id="nr_oficinaId">
-                            <div class="form-text">Se toma de la oficina seleccionada del formulario.</div>
-                        </div>
-
-                        <div class="col-12 col-md-6">
-                            <label class="form-label fw-semibold">Código funcionario</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fa-solid fa-hashtag"></i></span>
-                                <input type="text" id="nr_codigo" class="form-control" readonly
-                                    placeholder="Se generará automáticamente">
-                            </div>
-                            <div class="form-text">Se genera según (predio + codOfi) de la oficina.</div>
-                        </div>
-
-                        <div class="col-12">
-                            <label class="form-label fw-semibold">Persona</label>
-                            <select id="nr_persona" class="form-select" required>
-                                <option value="">Buscar persona…</option>
-                            </select>
-                            <div class="invalid-feedback">Selecciona una persona.</div>
-                        </div>
-
-                        <div class="col-12 col-md-6">
-                            <label class="form-label fw-semibold">Cargo</label>
-                            <select id="nr_cargo" class="form-select">
-                                <option value="">(Opcional) Selecciona un cargo…</option>
-                                <option th:each="c : ${cargos}" th:value="${c.idCargo}" th:text="${c.descripcion}">
-                                </option>
-                            </select>
-                        </div>
-
-                        <div class="col-12 col-md-6">
-                            <label class="form-label fw-semibold">Fecha última</label>
-                            <input type="date" id="nr_fechaUlt" class="form-control" placeholder="yyyy-mm-dd">
-                        </div>
-
-                        <div class="col-12 col-md-6">
-                            <label class="form-label fw-semibold">Cod. expediente (opcional)</label>
-                            <input type="number" id="nr_codExp" class="form-control" min="0" max="32767" step="1"
-                                placeholder="Ej: 12">
-                        </div>
-
-                        <div class="col-12 col-md-6">
-                            <label class="form-label fw-semibold">API Estado</label>
-                            <select id="nr_apiEstado" class="form-select">
-                                <option value="">(sin especificar)</option>
-                                <option value="1">1 - Activo</option>
-                                <option value="0">0 - Inactivo</option>
-                            </select>
-                        </div>
-
-                        <div class="col-12">
-                            <label class="form-label fw-semibold">Observaciones</label>
-                            <textarea id="nr_observ" class="form-control" rows="3" maxlength="1000"
-                                placeholder="Observaciones (opcional)"></textarea>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">
-                        <i class="fa-regular fa-circle-xmark me-1"></i> Cancelar
-                    </button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-check2-circle me-1"></i> Guardar responsable
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div> -->
-
 <script>
     window.ActivoForm = (function () {
         let uiState = { modo: 'LOCK', autoCodigo: false, filling: false };
@@ -453,7 +363,7 @@
                 }
             });
 
-            $root.find('#btnModificar').prop('disabled', locked);
+            $root.find('#btnModificar').prop('disabled', locked || !$root.find('#idActivo').val());
             $root.find('#btnCancelar').prop('disabled', locked);
 
             const f = $form[0];
@@ -727,7 +637,11 @@
             $root.on('submit.activo', '#formularioActivo', async function (e) {
                 e.preventDefault();
                 const id = $root.find('#idActivo').val();
-                const url = '/administracion/activo/registrar-activo';
+                const esModificacion = id && id.length > 0;
+                // 2. Seleccionar la URL del Controller correcta
+                const url = esModificacion
+                    ? '/administracion/activo/modificar-activo' // Endpoint para Modificación
+                    : '/administracion/activo/registrar-activo'; // Endpoint para Registro Nuevo
                 const formData = new FormData(this);
                 showGlobalLoader({ texto: 'Guardando...' });
                 try {
@@ -759,9 +673,9 @@
                 try {
                     const r = await fetch(`/administracion/activo/api/detalle/${idActivo}`);
                     if (!r.ok) throw new Error('Error al cargar activo');
-                    
+
                     const activo = await r.json();
-                    
+
                     // Llenar el formulario
                     $('#idActivo').val(activo.idActivo);
                     $('#codigo').val(activo.codigo);
@@ -770,7 +684,7 @@
                     $('#costoFmt').val(formatNumber(activo.costo));
                     $('#costo').val(activo.costo);
                     $('#vidaUtil').val(activo.vidaUtil);
-                    
+
                     // Select2 - establecer valores
                     if (activo.grupoContable) {
                         $('#grupoCode').val(activo.grupoContable.idGrupoContable).trigger('change');
@@ -794,13 +708,13 @@
                     if (activo.auxiliar) {
                         $('#auxiliarId').val(activo.auxiliar.idAuxiliar).trigger('change');
                     }
-                    
+
                     // Cambiar modo a edición
                     setModo('EDICION', 'text-bg-warning');
                     lockForm(false);
-                    
+
                     hideGlobalLoader();
-                    
+
                 } catch (err) {
                     hideGlobalLoader();
                     console.error(err);
@@ -809,14 +723,11 @@
             }
 
             // Usar en el botón de edición de tu tabla
-            $('#data-table').on('click', '.btn-editar', function() {
+            $('#data-table').on('click', '.btn-editar', function () {
                 const idActivo = $(this).data('id');
                 cargarActivoParaEditar(idActivo);
-});
+            });
 
-            // if (typeof window.manejarEnvioFormulario === 'function') {
-            //     window.manejarEnvioFormulario('#formularioActivo');
-            // }
         }
 
         function init(containerSelector) {
