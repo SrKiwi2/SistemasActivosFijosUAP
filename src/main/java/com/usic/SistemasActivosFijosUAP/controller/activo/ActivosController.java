@@ -234,18 +234,29 @@ public class ActivosController {
         if (activoForm.getGrupoContable() != null) {
             activoOriginal.setGrupoContable(activoForm.getGrupoContable());
         }
-        if (activoForm.getOficina() != null) {
-            activoOriginal.setOficina(activoForm.getOficina());
+        Oficina oficinaForm = activoForm.getOficina();
+        if (oficinaForm != null && oficinaForm.getIdOficina() != null) {
+            // Asumiendo que tiene un OficinaService inyectado
+            Oficina oficinaCompleta = oficinaService.findById(oficinaForm.getIdOficina());
+            activoOriginal.setOficina(oficinaCompleta);
+        } else {
+            activoOriginal.setOficina(null);
         }
         if (activoForm.getResponsable() != null) {
             activoOriginal.setResponsable(activoForm.getResponsable());
         }
-        if (activoForm.getOrganismoFinanciero() != null) {
+       if (activoForm.getOrganismoFinanciero() != null && activoForm.getOrganismoFinanciero().getIdOrganismoFinanciero() != null) {
             OrganismoFinanciero orgFin = organismoFinancieroService.findById(
                 activoForm.getOrganismoFinanciero().getIdOrganismoFinanciero()
             );
             activoOriginal.setOrganismoFinanciero(orgFin);
-            activoOriginal.setOrgFinCode(orgFin.getCodOf());
+            // Si el organismo fue encontrado, se setea el código
+            if (orgFin != null) {
+                activoOriginal.setOrgFinCode(orgFin.getCodOf());
+            }
+        } else {
+            activoOriginal.setOrganismoFinanciero(null);
+            activoOriginal.setOrgFinCode(null);
         }
         if (activoForm.getAuxiliar() != null) {
             activoOriginal.setAuxiliar(activoForm.getAuxiliar());
@@ -257,7 +268,6 @@ public class ActivosController {
         activoOriginal.setEstado("ACTIVO");
         activoOriginal.setModificacionIdUsuario(usuario.getIdUsuario());
         activoOriginal.setUsuario(usuarioNombre);
-        activoOriginal.setOrgFinCode(activoForm.getOrgFinCode());
         activoOriginal.setEstadoActivo(activoForm.getEstadoActivo());
         activoOriginal.setVidaUtilAnterior(0);
         activoOriginal.setFechaUlt(LocalDate.now());
