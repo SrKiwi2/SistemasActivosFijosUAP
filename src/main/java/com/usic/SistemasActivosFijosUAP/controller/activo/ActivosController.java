@@ -28,6 +28,7 @@ import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.ActualDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEstadoActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IMunicipioService;
@@ -39,8 +40,10 @@ import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoFormDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
+import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
 
@@ -55,6 +58,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ActivosController {
     private final IActivoService activoService;
     private final FuncionesActivoRepo funciones;
+    private final IEntidadService entidadService;
     private final IMunicipioService municipioService;
     private final IPredioServicio predioServicio;
     private final IGrupoContableService grupoContableService;
@@ -266,11 +270,10 @@ public class ActivosController {
         // 2) Actualizar en DBF (solo si está ACTIVO)
         if ("ACTIVO".equalsIgnoreCase(activoOriginal.getEstado())) {
             try {
-                String entidadCode = "UAP";
-                String unidadCode = (activoOriginal.getOficina() != null && 
-                                    activoOriginal.getOficina().getCodOfi() != null)
-                        ? activoOriginal.getOficina().getCodOfi().toString()
-                        : "0000";
+                Entidad entidad = activoOriginal.getOficina().getPredio().getEntidad();
+                String entidadCode = entidad.getEntidadCodigo();
+                Predio predio = activoOriginal.getOficina().getPredio();
+                String unidadCode = predio.getUnidad();
                 
                 actualDbfWriterService.actualizarDesdeActivo(
                     codigoOriginal, 
