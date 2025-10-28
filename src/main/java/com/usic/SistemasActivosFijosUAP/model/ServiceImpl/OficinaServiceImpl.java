@@ -121,4 +121,9 @@ public class OficinaServiceImpl implements IOficinaService{
     public Optional<Oficina> findByEntidadUnidadAndCodOfi(Entidad entidad, String unidad, Short codOfi) {
         return dao.findByEntidadUnidadAndCodOfi(entidad, unidad, codOfi);
     }
+
+    @Override
+    public Short findNextCodOfiByPredioId(Long idPredio) {
+        return dao.findNextCodOfiByPredioId(idPredio);
+    }
 }

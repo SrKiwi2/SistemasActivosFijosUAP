@@ -30,4 +30,6 @@ public interface IOficinaService extends IServiceGenerico<Oficina, Long>{
     Optional<Oficina> findByEntidadUnidadAndCodOfi(@Param("entidad") Entidad entidad,
                                                    @Param("unidad") String unidad,
                                                    @Param("codOfi") Short codOfi);
+
+    Short findNextCodOfiByPredioId(@Param("idPredio") Long idPredio);
 }

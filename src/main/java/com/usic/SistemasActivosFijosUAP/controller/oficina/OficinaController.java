@@ -130,6 +130,12 @@ public class OficinaController {
         return "oficina/formulario";
     }
 
+    @GetMapping("/siguiente-codigo/{idPredio}")
+    public ResponseEntity<Short> getSiguienteCodigoOficina(@PathVariable Long idPredio) {
+        Short siguienteCodOfi = oficinaService.findNextCodOfiByPredioId(idPredio);
+        return ResponseEntity.ok(siguienteCodOfi);
+    }
+
     @ValidarUsuarioAutenticado
     @PostMapping("/formulario-edit/{id_oficina}")
     public String formularioEdit_oficina(Model model, @PathVariable("id_oficina") String idOficina) throws Exception {

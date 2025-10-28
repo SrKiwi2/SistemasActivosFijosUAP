@@ -16,7 +16,7 @@
                 <label class="form-label">Predio</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-solid fa-building"></i></span>
-                    <select class="select2 form-select" th:field="*{predio.idPredio}" required>
+                    <select class="select2 form-select" th:field="*{predio.idPredio}" id="selectPredio" required>
                         <option value="">Seleccione...</option>
                         <option th:each="p : ${predios}" th:value="${p.idPredio}"
                             th:text="${p.descrip} + ' - ' + ${p.codigo}"></option>
@@ -29,20 +29,18 @@
                 <label class="form-label">Código oficina</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-solid fa-hashtag"></i></span>
-                    <input type="number" th:field="*{codOfi}" class="form-control" 
-                           min="1" max="32767" step="1" required 
-                           placeholder="Ej: 1" />
+                    <input type="number" th:field="*{codOfi}" class="form-control" id="inputCodOfi" min="1" max="32767"
+                        step="1" required placeholder="Ej: 1" />
                 </div>
                 <div class="invalid-feedback">Por favor introduzca un código válido (1-32767).</div>
             </div>
-            
+
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">Nombre Oficina</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-regular fa-building"></i></span>
-                    <input type="text" th:field="*{nombre}" class="form-control" 
-                           placeholder="Ej: Dirección de Recursos Humanos" 
-                           required maxlength="255" />
+                    <input type="text" th:field="*{nombre}" class="form-control"
+                        placeholder="Ej: Dirección de Recursos Humanos" required maxlength="255" />
                 </div>
                 <div class="invalid-feedback">Por favor introduzca un nombre válido.</div>
             </div>
@@ -62,4 +60,47 @@
 
 <script>
     manejarEnvioFormulario('#formularioOficina');
+
+    $(document).ready(function () {
+        // Escucha los cambios en el select del predio
+        $('#selectPredio').on('change', function () {
+            var idPredio = $(this).val();
+            var $inputCodOfi = $('#inputCodOfi');
+
+            // Si se seleccionó un predio
+            if (idPredio) {
+                // Deshabilitar temporalmente el campo mientras se carga
+                $inputCodOfi.prop('disabled', true).val('Cargando...');
+
+                // Llama al endpoint REST creado
+                $.ajax({
+                    url: '/api/oficinas/siguiente-codigo/' + idPredio,
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function (siguienteCodigo) {
+                        // Si la petición es exitosa, establece el valor
+                        $inputCodOfi.val(siguienteCodigo);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("Error al obtener el siguiente código:", error);
+                        // Opcional: mostrar un mensaje de error al usuario
+                        $inputCodOfi.val('');
+                        alert('Error al obtener el código correlativo.');
+                    },
+                    complete: function () {
+                        // Vuelve a habilitar el campo al finalizar (éxito o error)
+                        $inputCodOfi.prop('disabled', false);
+                    }
+                });
+            } else {
+                // Si no se seleccionó nada, vaciar el campo
+                $inputCodOfi.val('');
+            }
+        });
+
+        // IMPORTANTE: En modo de EDICIÓN, si ya tienes un valor, no lo sobrescribas.
+        // Solo aplica esta lógica si es un NUEVO registro (y no estás en modo edición)
+        // o si el campo codOfi está vacío.
+
+    });
 </script>
