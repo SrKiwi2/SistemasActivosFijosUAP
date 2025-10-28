@@ -176,12 +176,14 @@ public class OficinaController {
             oficina.setRegistroIdUsuario(usuario.getIdUsuario());
         }
 
-        Entidad entidad = oficina.getPredio().getEntidad();
-        Predio preido = oficina.getPredio();
-        
+        Predio predioOficina = predioServicio.findById(oficina.getPredio().getIdPredio());
+        Long idEntidadOficina = predioOficina.getEntidad().getIdEntidad();
+        Entidad entidadOficina = entidadService.findById(idEntidadOficina);
+
+
         // Obtener ENTIDAD y UNIDAD desde el predio
-        String entidadCode = entidad.getEntidadCodigo(); // O desde configuración
-        String unidadCode = preido.getUnidad();  // Valor por defecto
+        String entidadCode = entidadOficina.getEntidadCodigo();
+        String unidadCode = predioOficina.getUnidad();
         
         if (oficina.getPredio() != null && oficina.getPredio().getCodigo() != null) {
             unidadCode = oficina.getPredio().getCodigo();
