@@ -282,16 +282,8 @@ public class ActivosController {
             activoOriginal.setAuxiliar(null);
         }
 
-        if (activoForm.getEstadoActivo() != null && activoForm.getEstadoActivo().getIdEstadoActivo() != null) {
-            EstadoActivo estadoActivo = estadoActivoService.findById(
-                activoForm.getEstadoActivo().getIdEstadoActivo()
-            );
-            activoOriginal.setEstadoActivo(estadoActivo);
-        } else {
-            // Por defecto: estado ACTIVO (ID 1)
-            EstadoActivo estadoActivo = estadoActivoService.findById(1L);
-            activoOriginal.setEstadoActivo(estadoActivo);
-        }
+        EstadoActivo estadoActivo = estadoActivoService.findById(1L); //EN UN FURO IMPLEMENTAR PARA COLOCAR SI ESTA BUENO, REGULAR O MALO
+        activoOriginal.setEstadoActivo(estadoActivo);
 
         activoOriginal.setFecMod(LocalDate.now());
         activoOriginal.setUsuMod(usuarioNombre);
