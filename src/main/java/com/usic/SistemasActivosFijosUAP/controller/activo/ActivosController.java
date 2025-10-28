@@ -42,6 +42,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
@@ -269,10 +270,23 @@ public class ActivosController {
         
         // 2) Actualizar en DBF (solo si está ACTIVO)
         if ("ACTIVO".equalsIgnoreCase(activoOriginal.getEstado())) {
+            
+            Oficina oficina = activoOriginal.getOficina();
+            Predio predio = (oficina != null) ? oficina.getPredio() : null;
+            Entidad entidad = (predio != null) ? predio.getEntidad() : null;
+
+            if (oficina == null || predio == null || entidad == null) {
+                log.error("Activo {} tiene datos incompletos (Oficina/Predio/Entidad) para DBF. Se omitió la sincronización.", activoOriginal.getCodigo());
+                
+                // Retorna un error 400 ya que faltan datos esenciales para el proceso
+                return ResponseEntity.status(400).body(Map.of(
+                    "ok", true, // Lo ponemos en true, pero con advertencia, si el guardado en PG fue exitoso
+                    "msg", "Se modificó en PostgreSQL, pero FALTAN datos de relación (Oficina/Predio/Entidad) para actualizar en DBF."
+                ));
+            }
+
             try {
-                Entidad entidad = activoOriginal.getOficina().getPredio().getEntidad();
                 String entidadCode = entidad.getEntidadCodigo();
-                Predio predio = activoOriginal.getOficina().getPredio();
                 String unidadCode = predio.getUnidad();
                 
                 actualDbfWriterService.actualizarDesdeActivo(
