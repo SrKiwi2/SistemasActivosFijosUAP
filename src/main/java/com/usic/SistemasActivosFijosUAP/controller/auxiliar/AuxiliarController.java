@@ -240,13 +240,20 @@ public class AuxiliarController {
         String usuarioNombre = usuario.getUsuario();
         
         // Obtener el auxiliar original
-        Auxiliar auxiliarOriginal = auxiliarService.findById(auxiliarForm.getIdAuxiliar());
+        Long idAuxiliar = auxiliarForm.getIdAuxiliar();
+        Auxiliar auxiliarOriginal = auxiliarService.findById(idAuxiliar);
         if (auxiliarOriginal == null) {
             return ResponseEntity.badRequest().body(Map.of(
                 "ok", false,
                 "msg", "No se encontró el auxiliar con ID: " + auxiliarForm.getIdAuxiliar()
             ));
         }
+
+        Long idGrupoContable = auxiliarForm.getGrupoContable().getIdGrupoContable();
+        GrupoContable grupoContableCompleto = grupoContableService.findById(idGrupoContable);
+
+        Long idPredio = auxiliarForm.getPredio().getIdPredio();
+        Predio predioCompleto = predioServicio.findById(idPredio);
         
         // Guardar valores originales para buscar en DBF
         Short codContOriginal = auxiliarOriginal.getGrupoContable() != null ? 
@@ -256,8 +263,8 @@ public class AuxiliarController {
         String unidadOriginal = auxiliarOriginal.getPredio().getUnidad();
         
         // Actualizar campos
-        auxiliarOriginal.setGrupoContable(auxiliarForm.getGrupoContable());
-        auxiliarOriginal.setPredio(auxiliarForm.getPredio());
+        auxiliarOriginal.setGrupoContable(grupoContableCompleto); // <-- ¡CORREGIDO!
+        auxiliarOriginal.setPredio(predioCompleto);             // <-- ¡CORREGIDO!
         auxiliarOriginal.setCodAux(auxiliarForm.getCodAux());
         auxiliarOriginal.setNombre(auxiliarForm.getNombre());
         auxiliarOriginal.setFechaUlt(LocalDate.now());
@@ -272,8 +279,8 @@ public class AuxiliarController {
         
         // 2) Actualizar en auxiliar.DBF
         try {
-            String entidadCode = entidadOriginal;
-            String unidadCode = unidadOriginal;
+            String entidadCode = predioCompleto.getEntidad().getEntidadCodigo();
+            String unidadCode = predioCompleto.getUnidad();
             
             auxiliarDbfWriterService.actualizarDesdeAuxiliar(
                 codContOriginal,
