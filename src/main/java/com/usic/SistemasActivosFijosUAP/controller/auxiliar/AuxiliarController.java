@@ -3,6 +3,7 @@ package com.usic.SistemasActivosFijosUAP.controller.auxiliar;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -299,6 +300,51 @@ public class AuxiliarController {
             "ok", true,
             "msg", "Se modificó correctamente en PostgreSQL y DBF"
         ));
+    }
+
+    @ValidarUsuarioAutenticado
+    @GetMapping("/api/detalle/{idEnc}")
+    @ResponseBody
+    public ResponseEntity<?> obtenerDetalle(@PathVariable String idEnc) {
+        try {
+            Long id = Long.parseLong(Encriptar.decrypt(idEnc));
+            Auxiliar auxiliar = auxiliarService.findById(id);
+            
+            if (auxiliar == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("idAuxiliar", auxiliar.getIdAuxiliar());
+            response.put("codAux", auxiliar.getCodAux());
+            response.put("nombre", auxiliar.getNombre());
+            response.put("estado", auxiliar.getEstado());
+            
+            if (auxiliar.getGrupoContable() != null) {
+                response.put("grupoContable", Map.of(
+                    "idGrupoContable", auxiliar.getGrupoContable().getIdGrupoContable(),
+                    "nombre", auxiliar.getGrupoContable().getNombre(),
+                    "codContable", auxiliar.getGrupoContable().getCodContable()
+                ));
+            }
+            
+            if (auxiliar.getPredio() != null) {
+                response.put("predio", Map.of(
+                    "idPredio", auxiliar.getPredio().getIdPredio(),
+                    "descrip", auxiliar.getPredio().getDescrip(),
+                    "codigo", auxiliar.getPredio().getCodigo()
+                ));
+            }
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Error obteniendo detalle: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of(
+                "ok", false,
+                "message", "Error al obtener detalle: " + e.getMessage()
+            ));
+        }
     }
 
     @ValidarUsuarioAutenticado
