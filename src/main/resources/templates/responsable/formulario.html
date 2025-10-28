@@ -77,9 +77,6 @@
     const $idCargoHidden = document.getElementById('idCargo');
     const $codFuncFinal = document.getElementById('codFuncFinalInput');
 
-    
-
-    // Función para consultar la API
     function consultarApi() {
         const codigoFuncionario = $codFuncInput.value.trim();
         const ci = $ciInput.value.trim();
@@ -89,13 +86,11 @@
             return;
         }
 
-        // URL usando Thymeleaf para el contexto
         const url = `[[@{/administracion/responsable/consultar-api-datos}]]?codigoFuncionario=${codigoFuncionario}&ci=${ci}`;
 
         fetch(url)
             .then(response => {
                 if (!response.ok) {
-                    // Manejar errores como el 500 de la API externa
                     throw new Error('Error al consultar la API o datos no encontrados. Código: ' + response.status);
                 }
                 return response.json();
@@ -107,22 +102,11 @@
                     return;
                 }
 
-                // Rellenar campos de visualización
                 $nombreCompletoApi.value = `${data.nombre} ${data.paterno} ${data.materno || ''}`;
                 $correoApi.value = data.correo || 'N/A';
                 $cargoApi.value = data.nombreCargoApi || 'N/A';
-
-                // Rellenar campos ocultos (IDs persistidos en el servicio)
-                // NOTA: Si el servicio NO persiste la Persona/Cargo, estos campos deben ser String (nombre/ci)
-                // y la persistencia completa debe ocurrir en el @PostMapping final.
-                // Para mantener la lógica de tu controlador original (guardar catálogos primero),
-                // el DTO debería haber devuelto los IDs de Persona/Cargo.
-                // Puesto que no los devuelve, usaremos el código final de persistencia en el submit.
-
-                // Mostrar la sección de datos para que el usuario seleccione la Oficina
                 $datosDiv.style.display = 'block';
 
-                // Rellenar el Código Funcionario final
                 if (!$codFuncFinal.value) {
                     $codFuncFinal.value = codigoFuncionario;
                 }
@@ -135,9 +119,5 @@
             });
     }
 
-    // Event Listener para el botón de consulta
     $consultarBtn.addEventListener('click', consultarApi);
-
-    // Opcional: Ejecutar la consulta automáticamente al perder el foco en el CI (blur)
-    // $ciInput.addEventListener('blur', consultarApi);
 </script>
