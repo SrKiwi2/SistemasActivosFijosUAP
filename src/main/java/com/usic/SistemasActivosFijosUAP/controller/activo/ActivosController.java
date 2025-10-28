@@ -40,11 +40,14 @@ import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoFormDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
+import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
+import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
 
@@ -113,7 +116,7 @@ public class ActivosController {
     }
 
     @ValidarUsuarioAutenticado
-    @PostMapping(value="/registrar-activo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/registrar-activo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> registrar_activo(
             HttpServletRequest request,
             @Validated @ModelAttribute Activo activo,
@@ -136,7 +139,7 @@ public class ActivosController {
 
         // LOG de lo recibido (parcial para no cargar mucho)
         log.info("Recibido Activo => codigo={}, fechaAdq={}, descripcion={}, costo={}, vidaUtil={}, " +
-                        "grupoContableId={}, oficinaId={}, responsableId={}, orgFinId={}, auxiliarId={}",
+                "grupoContableId={}, oficinaId={}, responsableId={}, orgFinId={}, auxiliarId={}",
                 activo.getCodigo(),
                 activo.getFechaAdquisicion(),
                 activo.getDescripcion(),
@@ -145,20 +148,21 @@ public class ActivosController {
                 activo.getGrupoContable() != null ? activo.getGrupoContable().getIdGrupoContable() : null,
                 activo.getOficina() != null ? activo.getOficina().getIdOficina() : null,
                 activo.getResponsable() != null ? activo.getResponsable().getIdResponsable() : null,
-                activo.getOrganismoFinanciero() != null ? activo.getOrganismoFinanciero().getIdOrganismoFinanciero() : null,
-                activo.getAuxiliar() != null ? activo.getAuxiliar().getIdAuxiliar() : null
-        );
+                activo.getOrganismoFinanciero() != null ? activo.getOrganismoFinanciero().getIdOrganismoFinanciero()
+                        : null,
+                activo.getAuxiliar() != null ? activo.getAuxiliar().getIdAuxiliar() : null);
 
         // (opcional) lógica de negocio mínima
-        activo.setApiEstado(Short.valueOf("3"));    
+        activo.setApiEstado(Short.valueOf("3"));
         activo.setCostoAnterior(0.0);
         activo.setDepreciacionAcum(0.0);
 
         activo.setVidaUtilAnterior(0);
         EstadoActivo estadoActivo = estadoActivoService.findById(1L);
         activo.setEstadoActivo(estadoActivo);
-        
-        OrganismoFinanciero organismoFinanciero = organismoFinancieroService.findById(activo.getOrganismoFinanciero().getIdOrganismoFinanciero());
+
+        OrganismoFinanciero organismoFinanciero = organismoFinancieroService
+                .findById(activo.getOrganismoFinanciero().getIdOrganismoFinanciero());
         activo.setOrganismoFinanciero(organismoFinanciero);
 
         activo.setOrgFinCode(activo.getOrganismoFinanciero().getCodOf());
@@ -177,10 +181,14 @@ public class ActivosController {
         activoMap.put("descripcion", activo.getDescripcion());
         activoMap.put("costo", activo.getCosto());
         activoMap.put("vidaUtil", activo.getVidaUtil());
-        activoMap.put("grupoContableId", activo.getGrupoContable() != null ? activo.getGrupoContable().getIdGrupoContable() : null);
+        activoMap.put("grupoContableId",
+                activo.getGrupoContable() != null ? activo.getGrupoContable().getIdGrupoContable() : null);
         activoMap.put("oficinaId", activo.getOficina() != null ? activo.getOficina().getIdOficina() : null);
-        activoMap.put("responsableId", activo.getResponsable() != null ? activo.getResponsable().getIdResponsable() : null);
-        activoMap.put("orgFinId", activo.getOrganismoFinanciero() != null ? activo.getOrganismoFinanciero().getIdOrganismoFinanciero() : null);
+        activoMap.put("responsableId",
+                activo.getResponsable() != null ? activo.getResponsable().getIdResponsable() : null);
+        activoMap.put("orgFinId",
+                activo.getOrganismoFinanciero() != null ? activo.getOrganismoFinanciero().getIdOrganismoFinanciero()
+                        : null);
         activoMap.put("auxiliarId", activo.getAuxiliar() != null ? activo.getAuxiliar().getIdAuxiliar() : null);
 
         Map<String, Object> ok = new LinkedHashMap<>();
@@ -195,62 +203,68 @@ public class ActivosController {
     @PostMapping("/modificar-activo")
     public ResponseEntity<?> modificar_activo(
             HttpServletRequest request,
-            @Validated @ModelAttribute Activo activoForm, 
+            @Validated @ModelAttribute Activo activoForm,
             BindingResult br) {
-        
+
         if (br.hasErrors()) {
             return ResponseEntity.badRequest().body(Map.of(
-                "ok", false,
-                "errors", br.getFieldErrors().stream()
-                        .map(e -> Map.of("field", e.getField(), "message", e.getDefaultMessage()))
-                        .toList()
-            ));
+                    "ok", false,
+                    "errors", br.getFieldErrors().stream()
+                            .map(e -> Map.of("field", e.getField(), "message", e.getDefaultMessage()))
+                            .toList()));
         }
-        
+
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = usuario.getUsuario();
-        
-        // Obtener el activo original de la BD
+
         Activo activoOriginal = activoService.findById(activoForm.getIdActivo());
         if (activoOriginal == null) {
             return ResponseEntity.badRequest().body(Map.of(
-                "ok", false,
-                "msg", "No se encontró el activo con ID: " + activoForm.getIdActivo()
-            ));
+                    "ok", false,
+                    "msg", "No se encontró el activo con ID: " + activoForm.getIdActivo()));
         }
-        
-        // Guardar el código original para buscar en DBF
+
         String codigoOriginal = activoOriginal.getCodigo();
-        
-        // Actualizar campos del activo
+
         activoOriginal.setCodigo(activoForm.getCodigo());
         activoOriginal.setCodigoSec(activoForm.getCodigoSec());
         activoOriginal.setDescripcion(activoForm.getDescripcion());
         activoOriginal.setCosto(activoForm.getCosto());
         activoOriginal.setVidaUtil(activoForm.getVidaUtil());
         activoOriginal.setFechaAdquisicion(activoForm.getFechaAdquisicion());
-        
+
         // Actualizar relaciones
-        if (activoForm.getGrupoContable() != null) {
-            activoOriginal.setGrupoContable(activoForm.getGrupoContable());
+        if (activoForm.getGrupoContable() != null && activoForm.getGrupoContable().getIdGrupoContable() != null) {
+            GrupoContable grupoCompleto = grupoContableService.findById(
+                activoForm.getGrupoContable().getIdGrupoContable()
+            );
+            activoOriginal.setGrupoContable(grupoCompleto);
+        } else {
+            activoOriginal.setGrupoContable(null);
         }
-        Oficina oficinaForm = activoForm.getOficina();
-        if (oficinaForm != null && oficinaForm.getIdOficina() != null) {
-            // Asumiendo que tiene un OficinaService inyectado
-            Oficina oficinaCompleta = oficinaService.findById(oficinaForm.getIdOficina());
+
+        if (activoForm.getOficina() != null && activoForm.getOficina().getIdOficina() != null) {
+            Oficina oficinaCompleta = oficinaService.findById(activoForm.getOficina().getIdOficina());
             activoOriginal.setOficina(oficinaCompleta);
         } else {
             activoOriginal.setOficina(null);
         }
-        if (activoForm.getResponsable() != null) {
-            activoOriginal.setResponsable(activoForm.getResponsable());
+
+        if (activoForm.getResponsable() != null && activoForm.getResponsable().getIdResponsable() != null) {
+            Responsable responsableCompleto = responsableService.findById(
+                activoForm.getResponsable().getIdResponsable()
+            );
+            activoOriginal.setResponsable(responsableCompleto);
+        } else {
+            activoOriginal.setResponsable(null);
         }
-       if (activoForm.getOrganismoFinanciero() != null && activoForm.getOrganismoFinanciero().getIdOrganismoFinanciero() != null) {
+
+        if (activoForm.getOrganismoFinanciero() != null && 
+            activoForm.getOrganismoFinanciero().getIdOrganismoFinanciero() != null) {
             OrganismoFinanciero orgFin = organismoFinancieroService.findById(
                 activoForm.getOrganismoFinanciero().getIdOrganismoFinanciero()
             );
             activoOriginal.setOrganismoFinanciero(orgFin);
-            // Si el organismo fue encontrado, se setea el código
             if (orgFin != null) {
                 activoOriginal.setOrgFinCode(orgFin.getCodOf());
             }
@@ -258,11 +272,27 @@ public class ActivosController {
             activoOriginal.setOrganismoFinanciero(null);
             activoOriginal.setOrgFinCode(null);
         }
-        if (activoForm.getAuxiliar() != null) {
-            activoOriginal.setAuxiliar(activoForm.getAuxiliar());
+
+        if (activoForm.getAuxiliar() != null && activoForm.getAuxiliar().getIdAuxiliar() != null) {
+            Auxiliar auxiliarCompleto = auxiliarService.findById(
+                activoForm.getAuxiliar().getIdAuxiliar()
+            );
+            activoOriginal.setAuxiliar(auxiliarCompleto);
+        } else {
+            activoOriginal.setAuxiliar(null);
         }
-        
-        // Actualizar metadatos de modificación
+
+        if (activoForm.getEstadoActivo() != null && activoForm.getEstadoActivo().getIdEstadoActivo() != null) {
+            EstadoActivo estadoActivo = estadoActivoService.findById(
+                activoForm.getEstadoActivo().getIdEstadoActivo()
+            );
+            activoOriginal.setEstadoActivo(estadoActivo);
+        } else {
+            // Por defecto: estado ACTIVO (ID 1)
+            EstadoActivo estadoActivo = estadoActivoService.findById(1L);
+            activoOriginal.setEstadoActivo(estadoActivo);
+        }
+
         activoOriginal.setFecMod(LocalDate.now());
         activoOriginal.setUsuMod(usuarioNombre);
         activoOriginal.setEstado("ACTIVO");
@@ -275,56 +305,51 @@ public class ActivosController {
         activoOriginal.setCostoAnterior(Double.valueOf(0));
         activoOriginal.setApiEstado(Short.valueOf("3"));
 
-        // 1) Guardar en PostgreSQL
         activoService.save(activoOriginal);
-        
-        // 2) Actualizar en DBF (solo si está ACTIVO)
+
         if ("ACTIVO".equalsIgnoreCase(activoOriginal.getEstado())) {
-            
+
             Oficina oficina = activoOriginal.getOficina();
             Predio predio = (oficina != null) ? oficina.getPredio() : null;
             Entidad entidad = (predio != null) ? predio.getEntidad() : null;
 
             if (oficina == null || predio == null || entidad == null) {
-                log.error("Activo {} tiene datos incompletos (Oficina/Predio/Entidad) para DBF. Se omitió la sincronización.", activoOriginal.getCodigo());
-                
-                // Retorna un error 400 ya que faltan datos esenciales para el proceso
+                log.error(
+                        "Activo {} tiene datos incompletos (Oficina/Predio/Entidad) para DBF. Se omitió la sincronización.",
+                        activoOriginal.getCodigo());
                 return ResponseEntity.status(400).body(Map.of(
-                    "ok", true, // Lo ponemos en true, pero con advertencia, si el guardado en PG fue exitoso
-                    "msg", "Se modificó en PostgreSQL, pero FALTAN datos de relación (Oficina/Predio/Entidad) para actualizar en DBF."
-                ));
+                        "ok", true,
+                        "msg",
+                        "Se modificó en PostgreSQL, pero FALTAN datos de relación (Oficina/Predio/Entidad) para actualizar en DBF."));
             }
 
             try {
                 String entidadCode = entidad.getEntidadCodigo();
                 String unidadCode = predio.getUnidad();
-                
+
                 actualDbfWriterService.actualizarDesdeActivo(
-                    codigoOriginal, 
-                    activoOriginal, 
-                    entidadCode, 
-                    unidadCode, 
-                    usuarioNombre
-                );
-                
+                        codigoOriginal,
+                        activoOriginal,
+                        entidadCode,
+                        unidadCode,
+                        usuarioNombre);
+
                 log.info("Activo {} actualizado en PostgreSQL y DBF", activoOriginal.getCodigo());
-                
+
             } catch (Exception e) {
-                log.error("Error actualizando DBF para activo {}: {}", 
+                log.error("Error actualizando DBF para activo {}: {}",
                         activoOriginal.getCodigo(), e.getMessage(), e);
-                
+
                 return ResponseEntity.status(500).body(Map.of(
-                    "ok", false,
-                    "msg", "Se guardó en la base de datos pero falló la actualización en DBF: " + e.getMessage()
-                ));
+                        "ok", false,
+                        "msg", "Se guardó en la base de datos pero falló la actualización en DBF: " + e.getMessage()));
             }
         }
-        
+
         return ResponseEntity.ok(Map.of(
-            "ok", true, 
-            "msg", "Se modificó correctamente en PostgreSQL" + 
-                ("ACTIVO".equalsIgnoreCase(activoOriginal.getEstado()) ? " y DBF" : "")
-        ));
+                "ok", true,
+                "msg", "Se modificó correctamente en PostgreSQL" +
+                        ("ACTIVO".equalsIgnoreCase(activoOriginal.getEstado()) ? " y DBF" : "")));
     }
 
     @ValidarUsuarioAutenticado
@@ -373,7 +398,7 @@ public class ActivosController {
                 String idEncriptado = Encriptar.encrypt(activo.getIdActivo().toString());
                 dto.setAcciones(
                         " <button class='btn btn-sm btn-danger' onclick=\"eliminar('" + activo.getNombre() + "', '"
-                        + idEncriptado + "')\">Eliminar</button>");
+                                + idEncriptado + "')\">Eliminar</button>");
             } catch (Exception e) {
                 dto.setAcciones("<span class='text-danger'>Error al generar acciones</span>");
                 e.printStackTrace();
@@ -405,7 +430,6 @@ public class ActivosController {
         return "activo/tabla_registros_pendientes";
     }
 
-
     @ValidarUsuarioAutenticado
     @GetMapping("/api/detalle/{idEnc}")
     @ResponseBody
@@ -413,11 +437,11 @@ public class ActivosController {
         try {
             Long id = Long.valueOf(Encriptar.decrypt(idEnc));
             Activo activo = activoService.findById(id);
-            
+
             if (activo == null) {
                 return ResponseEntity.notFound().build();
             }
-            
+
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("idActivo", activo.getIdActivo());
             response.put("codigo", activo.getCodigo());
@@ -427,52 +451,45 @@ public class ActivosController {
             response.put("vidaUtil", activo.getVidaUtil());
             response.put("fechaAdquisicion", activo.getFechaAdquisicion());
             response.put("estado", activo.getEstado());
-            
+
             if (activo.getGrupoContable() != null) {
                 response.put("grupoContable", Map.of(
-                    "idGrupoContable", activo.getGrupoContable().getIdGrupoContable(),
-                    "nombre", activo.getGrupoContable().getNombre()
-                ));
+                        "idGrupoContable", activo.getGrupoContable().getIdGrupoContable(),
+                        "nombre", activo.getGrupoContable().getNombre()));
             }
-            
+
             if (activo.getOficina() != null) {
                 response.put("oficina", Map.of(
-                    "idOficina", activo.getOficina().getIdOficina(),
-                    "nombre", activo.getOficina().getNombre()
-                ));
+                        "idOficina", activo.getOficina().getIdOficina(),
+                        "nombre", activo.getOficina().getNombre()));
             }
-            
+
             if (activo.getResponsable() != null) {
                 response.put("responsable", Map.of(
-                    "idResponsable", activo.getResponsable().getIdResponsable(),
-                    "persona", Map.of(
-                        "nombreCompleto", activo.getResponsable().getPersona().getNombreCompleto()
-                    )
-                ));
+                        "idResponsable", activo.getResponsable().getIdResponsable(),
+                        "persona", Map.of(
+                                "nombreCompleto", activo.getResponsable().getPersona().getNombreCompleto())));
             }
-            
+
             if (activo.getOrganismoFinanciero() != null) {
                 response.put("organismoFinanciero", Map.of(
-                    "idOrganismoFinanciero", activo.getOrganismoFinanciero().getIdOrganismoFinanciero(),
-                    "descripcion", activo.getOrganismoFinanciero().getDescripcion()
-                ));
+                        "idOrganismoFinanciero", activo.getOrganismoFinanciero().getIdOrganismoFinanciero(),
+                        "descripcion", activo.getOrganismoFinanciero().getDescripcion()));
             }
-            
+
             if (activo.getAuxiliar() != null) {
                 response.put("auxiliar", Map.of(
-                    "idAuxiliar", activo.getAuxiliar().getIdAuxiliar(),
-                    "nombre", activo.getAuxiliar().getNombre()
-                ));
+                        "idAuxiliar", activo.getAuxiliar().getIdAuxiliar(),
+                        "nombre", activo.getAuxiliar().getNombre()));
             }
-            
+
             return ResponseEntity.ok(response);
-            
+
         } catch (Exception e) {
             log.error("Error obteniendo detalle: {}", e.getMessage(), e);
             return ResponseEntity.status(500).body(Map.of(
-                "ok", false,
-                "message", "Error al obtener detalle: " + e.getMessage()
-            ));
+                    "ok", false,
+                    "message", "Error al obtener detalle: " + e.getMessage()));
         }
     }
 
@@ -480,7 +497,7 @@ public class ActivosController {
     @PostMapping("/api/aprobar/{idEnc}")
     @ResponseBody
     public Map<String, Object> aprobarActivo(@PathVariable String idEnc,
-                                            HttpServletRequest request) throws Exception {
+            HttpServletRequest request) throws Exception {
         Long id = Long.valueOf(Encriptar.decrypt(idEnc));
         Activo a = activoService.findById(id);
 
@@ -494,7 +511,7 @@ public class ActivosController {
         Entidad entidad = a.getOficina().getPredio().getEntidad();
         String entidadCode = entidad.getEntidadCodigo(); // o desde configuración (ApplicationProperties)
         Predio predio = a.getOficina().getPredio();
-        String unidadCode  = predio.getUnidad(); // fallback
+        String unidadCode = predio.getUnidad(); // fallback
         String usuario = usuarios.getUsuario();
 
         // 1) Insertar en ACTUAL.DBF (si no existe ya por CODIGO)
@@ -518,10 +535,6 @@ public class ActivosController {
         return Map.of("ok", true, "id", id);
     }
 
-
-
-
-    
     @PostMapping(value = "/generar-correlativo", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public Map<String, String> generar(
@@ -544,14 +557,17 @@ public class ActivosController {
     }
 
     private ActivoFormDTO toDto(Activo a) {
-        System.out.println("oficina=" + (a.getOficina()!=null) +
-                     ", predio=" + (a.getOficina()!=null && a.getOficina().getPredio()!=null) +
-                     ", municipio=" + (a.getOficina()!=null && a.getOficina().getPredio()!=null && a.getOficina().getPredio().getMunicipio()!=null) +
-                     ", grupo=" + (a.getGrupoContable()!=null) +
-                     ", aux=" + (a.getAuxiliar()!=null) +
-                     ", resp=" + (a.getResponsable()!=null) +
-                     ", persona=" + (a.getResponsable()!=null && a.getResponsable().getPersona()!=null) +
-                     ", orgFin=" + (a.getOrganismoFinanciero()!=null));
+        System.out.println("oficina=" + (a.getOficina() != null) +
+                ", predio=" + (a.getOficina() != null && a.getOficina().getPredio() != null) +
+                ", municipio="
+                + (a.getOficina() != null && a.getOficina().getPredio() != null
+                        && a.getOficina().getPredio().getMunicipio() != null)
+                +
+                ", grupo=" + (a.getGrupoContable() != null) +
+                ", aux=" + (a.getAuxiliar() != null) +
+                ", resp=" + (a.getResponsable() != null) +
+                ", persona=" + (a.getResponsable() != null && a.getResponsable().getPersona() != null) +
+                ", orgFin=" + (a.getOrganismoFinanciero() != null));
         ActivoFormDTO dto = new ActivoFormDTO();
 
         dto.setId(a.getIdActivo());

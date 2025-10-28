@@ -392,7 +392,7 @@ public class ActualDbfWriterService {
         }
         
         String ORG_FIN = (a.getOrganismoFinanciero() != null)
-                ? String.valueOf(a.getOrganismoFinanciero().getIdOrganismoFinanciero())
+                ? String.valueOf(a.getOrganismoFinanciero().getCodOf())
                 : null;
         
         Short CODOFIC = null;
