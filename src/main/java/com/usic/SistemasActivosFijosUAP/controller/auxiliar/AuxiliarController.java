@@ -169,8 +169,8 @@ public class AuxiliarController {
         }
         
         // Obtener ENTIDAD y UNIDAD desde el predio
-        String entidadCode = "UAP"; // O desde configuración
-        String unidadCode = "0000";  // Valor por defecto
+        String entidadCode = auxiliar.getPredio().getEntidad().getEntidadCodigo(); // O desde configuración
+        String unidadCode = auxiliar.getPredio().getUnidad();  // Valor por defecto
         
         if (auxiliar.getPredio() != null && auxiliar.getPredio().getCodigo() != null) {
             unidadCode = auxiliar.getPredio().getCodigo();
@@ -230,8 +230,8 @@ public class AuxiliarController {
             ));
         }
         
-        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-        String usuarioNombre = (usuario != null ? usuario.getUsuario() : "SISTEMA");
+        Usuario usuario =  (Usuario) request.getSession().getAttribute("usuario");;
+        String usuarioNombre = usuario.getUsuario();
         
         // Obtener el auxiliar original
         Auxiliar auxiliarOriginal = auxiliarService.findById(auxiliarForm.getIdAuxiliar());
@@ -246,9 +246,8 @@ public class AuxiliarController {
         Short codContOriginal = auxiliarOriginal.getGrupoContable() != null ? 
                                Short.valueOf(auxiliarOriginal.getGrupoContable().getCodContable().toString()) : null;
         Short codAuxOriginal = auxiliarOriginal.getCodAux();
-        String entidadOriginal = "UAP";
-        String unidadOriginal = auxiliarOriginal.getPredio() != null ? 
-                               auxiliarOriginal.getPredio().getCodigo() : "0000";
+        String entidadOriginal = auxiliarOriginal.getPredio().getEntidad().getEntidadCodigo();
+        String unidadOriginal = auxiliarOriginal.getPredio().getUnidad();
         
         // Actualizar campos
         auxiliarOriginal.setGrupoContable(auxiliarForm.getGrupoContable());
@@ -267,9 +266,8 @@ public class AuxiliarController {
         
         // 2) Actualizar en auxiliar.DBF
         try {
-            String entidadCode = "UAP";
-            String unidadCode = auxiliarOriginal.getPredio() != null ? 
-                               auxiliarOriginal.getPredio().getCodigo() : "0000";
+            String entidadCode = entidadOriginal;
+            String unidadCode = unidadOriginal;
             
             auxiliarDbfWriterService.actualizarDesdeAuxiliar(
                 codContOriginal,
