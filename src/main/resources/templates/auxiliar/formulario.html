@@ -5,7 +5,7 @@
 <form id="formularioAuxiliar" method="post"
     th:action="${edit}? @{/administracion/auxiliar/modificar-auxiliar} : @{/administracion/auxiliar/registrar-auxiliar}"
     novalidate>
-    <input type="hidden" th:if="${edit != null}" th:field="*{auxiliar}">
+    <input type="hidden" th:if="${edit != null}" th:field="*{auxiliar.idAuxiliar}">
     <div class="modal-body">
         <div class="row">
             <div class="col-12 col-md-4 mb-2">
