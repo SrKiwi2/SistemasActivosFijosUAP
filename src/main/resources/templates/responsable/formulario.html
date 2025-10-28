@@ -12,8 +12,10 @@
     <div class="modal-body">
         <div class="row">
             <div class="col-12 col-md-4 mb-2">
-                <label class="form-label">Código Funcionario (API)</label>
-                <input type="text" id="codigoFuncionarioInput" name="codigoFuncionario" class="form-control" required />
+                <label class="form-label">Código Funcionario (API) - Opcional</label>
+                <input type="text" id="codigoFuncionarioInput" name="codigoApi" class="form-control"
+                    placeholder="Opcional - Si consulta API" />
+                <small class="text-muted">Opcional: Solo si consultas la API</small>
             </div>
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">C.I. (API)</label>
@@ -73,6 +75,86 @@
 <script>
 
     function inicializarFormularioResponsable() {
+
+        const form = document.getElementById('formularioResponsable');
+
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            if (!form.checkValidity()) {
+                e.stopPropagation();
+                form.classList.add('was-validated');
+                return;
+            }
+
+            const formData = new FormData(form);
+
+            showGlobalLoader({ texto: 'Guardando...' });
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                hideGlobalLoader();
+
+                const data = await response.json();
+
+                // Caso especial: Personas coincidentes
+                if (response.status === 409 && data.requireConfirmacion) {
+                    const confirmar = confirm(data.msg);
+
+                    if (confirmar) {
+                        // Forzar creación de nueva persona
+                        formData.append('forzarCreacion', 'true');
+                        showGlobalLoader({ texto: 'Creando nueva persona...' });
+
+                        const response2 = await fetch('/administracion/responsable/registrar-responsable-forzado', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        hideGlobalLoader();
+                        const data2 = await response2.json();
+
+                        if (data2.ok) {
+                            alert(data2.msg);
+                            cerrarModalYRecargar();
+                        } else {
+                            throw new Error(data2.msg);
+                        }
+                    }
+                    return;
+                }
+
+                if (!response.ok || !data.ok) {
+                    throw new Error(data.msg || 'Error al guardar');
+                }
+
+                alert(data.msg || 'Guardado correctamente');
+                cerrarModalYRecargar();
+
+            } catch (error) {
+                hideGlobalLoader();
+                console.error('Error:', error);
+                alert('Error al guardar: ' + error.message);
+            }
+        });
+
+        function cerrarModalYRecargar() {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalResponsable'));
+            if (modal) {
+                modal.hide();
+            }
+
+            if (window.$ && $('#data-table-responsable').length) {
+                $('#data-table-responsable').DataTable().ajax.reload(null, false);
+            }
+
+            form.reset();
+            form.classList.remove('was-validated');
+        }
 
         const $codFuncInput = document.getElementById('codigoFuncionarioInput');
         const $ciInput = document.getElementById('ciInput');

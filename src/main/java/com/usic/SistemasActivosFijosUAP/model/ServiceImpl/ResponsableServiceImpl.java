@@ -204,4 +204,34 @@ public class ResponsableServiceImpl implements IResponsableService{
         }
         return Objects.requireNonNull(response.getBody());
     }
+
+    @Override
+    public Responsable findByCodigoFuncionario(String codigoFuncionario) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'findByCodigoFuncionario'");
+    }
+
+    @Override
+    public Responsable findByCodigoFuncionarioYOficina(String codigoFuncionario, Long idOficina) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'findByCodigoFuncionarioYOficina'");
+    }
+
+    @Override
+    public boolean existeResponsablePorPersona(Long idPersona) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'existeResponsablePorPersona'");
+    }
+
+    @Override
+    public boolean existeResponsablePorPersonaYOficina(Long idPersona, Long idOficina) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'existeResponsablePorPersonaYOficina'");
+    }
+
+    @Override
+    public List<Responsable> findByPersonaId(Long idPersona) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'findByPersonaId'");
+    }
 }

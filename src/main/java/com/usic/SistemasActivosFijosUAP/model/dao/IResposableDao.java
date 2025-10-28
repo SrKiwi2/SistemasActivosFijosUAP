@@ -102,4 +102,26 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
         """,
         nativeQuery = true)
     Page<ResponsableRow> datatable(@Param("q") String q, @Param("oficinaId") Long oficinaId, Pageable pageable);
+
+    /** MODLO REGISTRO RESPONSBALE */
+    Optional<Responsable> findByCodigoFuncionario(String codigoFuncionario);
+    
+    Optional<Responsable> findByCodigoFuncionarioAndOficinaIdOficina(
+        String codigoFuncionario, Long idOficina
+    );
+    
+    List<Responsable> findByPersonaIdPersona(Long idPersona);
+    
+    boolean existsByPersonaIdPersona(Long idPersona);
+    
+    boolean existsByPersonaIdPersonaAndOficinaIdOficina(Long idPersona, Long idOficina);
+    
+    @Query("SELECT r FROM Responsable r WHERE " +
+           "r.codigoFuncionario = :codigo AND " +
+           "r.oficina.idOficina = :idOficina AND " +
+           "r.estado = 'ACTIVO'")
+    Optional<Responsable> findActivoByCodFuncionarioYOficina(
+        @Param("codigo") String codigo, 
+        @Param("idOficina") Long idOficina
+    );
 }

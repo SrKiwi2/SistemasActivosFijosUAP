@@ -16,7 +16,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 
 @Service
 public class PersonaServiceImpl implements IPersonaService {
-    
+
     @Autowired
     private IPersonasDao personaDao;
 
@@ -62,7 +62,7 @@ public class PersonaServiceImpl implements IPersonaService {
 
     @Override
     public Persona buscarPersonaPorNombrePaterno(String nombre, String paterno) {
-       return personaDao.buscarPersonaPorNombrePaterno(nombre, paterno);
+        return personaDao.buscarPersonaPorNombrePaterno(nombre, paterno);
     }
 
     @Override
@@ -87,5 +87,22 @@ public class PersonaServiceImpl implements IPersonaService {
     }
 
     @Transactional(readOnly = true)
-  public long countActivos() { return personaDao.countActivos(); }
+    public long countActivos() {
+        return personaDao.countActivos();
+    }
+
+    @Override
+    public List<Persona> buscarPorNombreApellidos(String nombre, String paterno, String materno) {
+        // Búsqueda flexible: puede tener o no materno
+        if (materno != null && !materno.trim().isEmpty()) {
+            return personaDao.findByNombreContainingIgnoreCaseAndPaternoContainingIgnoreCaseAndMaternoContainingIgnoreCase(
+                nombre, paterno, materno
+            );
+        } else {
+            return personaDao.findByNombreContainingIgnoreCaseAndPaternoContainingIgnoreCase(
+                nombre, paterno
+            );
+        }
+    }
+
 }

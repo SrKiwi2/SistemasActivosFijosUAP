@@ -91,4 +91,12 @@ public interface IPersonasDao extends JpaRepository <Persona, Long>{
     // Total sin filtro para DataTables
     @Query(value = "select count(*) from persona p where p._estado = 'ACTIVO'", nativeQuery = true)
     long countActivos();
+
+    List<Persona> findByNombreContainingIgnoreCaseAndPaternoContainingIgnoreCaseAndMaternoContainingIgnoreCase(
+        String nombre, String paterno, String materno
+    );
+    
+    List<Persona> findByNombreContainingIgnoreCaseAndPaternoContainingIgnoreCase(
+        String nombre, String paterno
+    );
 }

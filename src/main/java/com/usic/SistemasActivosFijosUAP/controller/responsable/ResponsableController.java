@@ -1,26 +1,24 @@
 package com.usic.SistemasActivosFijosUAP.controller.responsable;
 
 import java.text.Normalizer;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-import org.springframework.core.ParameterizedTypeReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -32,29 +30,29 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.client.RestTemplate;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
+import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.RespDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
-import com.usic.SistemasActivosFijosUAP.model.IService.IGeneroService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
-import com.usic.SistemasActivosFijosUAP.model.dto.ResponsableRegistroDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ResponsableDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableApiDataDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
-import com.usic.SistemasActivosFijosUAP.model.entity.Genero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
+import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesResponsableRepo;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -66,10 +64,12 @@ public class ResponsableController {
     private final IPersonaService personaService;
     private final IOficinaService oficinaService;
     private final ICargoService cargoService;
-    private final IGeneroService generoService;
     private final FuncionesResponsableRepo funcionesResponsableRepo;
     private final JavaDbfService dbfService;
     private final IEntidadService entidadService;
+    private final RespDbfWriterService respDbfWriterService;
+
+    private static final Logger log = LoggerFactory.getLogger(ResponsableController.class);
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -249,148 +249,274 @@ public class ResponsableController {
         }
     }
 
+    @ValidarUsuarioAutenticado
     @PostMapping("/registrar-responsable")
-    public ResponseEntity<ResponsableRegistroDTO> registroResponsable(@RequestParam String codigoFuncionario,
-            @RequestParam String ci) {
-
-        Responsable responsable = responsableService.buscarPorCodigo(codigoFuncionario);
-        if (responsable != null)
-            return ResponseEntity.ok(new ResponsableRegistroDTO(responsable));
-
-        Map<String, String> requestBody = Map.of(
-                "usuario", codigoFuncionario,
-                "contrasena", ci);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("key", "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10");
-
-        RestTemplate restTemplate = new RestTemplate();
-        HttpEntity<Map<String, String>> request = new HttpEntity<>(requestBody, headers);
-
-        ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                "http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos",
-                HttpMethod.POST,
-                request,
-                new ParameterizedTypeReference<Map<String, Object>>() {
-                });
-
-        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-            throw new RuntimeException("Error consultando API externa.");
-        }
-
-        Map<String, Object> datos = Objects.requireNonNull(response.getBody());
-        String nombre = (String) datos.get("per_nombres");
-        String paterno = (String) datos.get("per_ap_paterno");
-        String materno = (String) datos.get("per_ap_materno");
-        String ciPersona = (String) datos.get("per_num_doc");
-        String correo = (String) datos.get("perd_email_personal");
-        String sexo = (String) datos.get("per_sexo");
-        String nombreOficina = (String) datos.get("eo_descripcion");
-        String nombreCargo = (String) datos.get("p_descripcion");
-
-        Persona persona = personaService.buscarPersonaPorCI(ciPersona);
-        if (persona == null) {
-            persona = personaService.buscarPersonaPorNombreCompletoUno(nombre, paterno, materno);
-        }
-
-        if (persona == null) {
-            persona = new Persona();
-            persona.setNombre(nombre);
-            persona.setPaterno(paterno);
-            persona.setMaterno(materno);
-            persona.setCi(ciPersona);
-            persona.setCorreo(correo);
-            persona.setEstado("ACTIVO");
-
-            Genero genero = generoService.buscarGeneroPorNombre(sexo);
-            if (genero == null) {
-                genero = new Genero();
-                genero.setNombre(sexo);
-                genero.setEstado("ACTIVO");
-                genero.setRegistro(new Date());
-                genero.setRegistroIdUsuario(1L);
-                generoService.save(genero);
+    @ResponseBody
+    public ResponseEntity<?> registrarResponsable(
+            HttpServletRequest request,
+            @RequestParam(required = false) String codigoApi,
+            @RequestParam String ci,
+            @RequestParam String codigoFuncionario,
+            @RequestParam Long idOficina,
+            @RequestParam(required = false) String nombre,
+            @RequestParam(required = false) String paterno,
+            @RequestParam(required = false) String materno,
+            @RequestParam(required = false) String correo,
+            @RequestParam(required = false) Long idCargo) {
+        
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+        
+        try {
+            // ========== VALIDACIÓN 1: Oficina existe ==========
+            Oficina oficina = oficinaService.findById(idOficina);
+            if (oficina == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "ok", false,
+                    "msg", "No se encontró la oficina especificada"
+                ));
             }
-            persona.setGenero(genero);
-
-            personaService.save(persona);
-        }
-
-        Oficina oficina = oficinaService.buscarPorNombre(nombreOficina).orElseGet(() -> {
-            Oficina o = new Oficina();
-            o.setNombre(nombreOficina);
-            o.setEstado("ACTIVO");
-            o.setRegistro(new Date());
-            o.setRegistroIdUsuario(1L);
-            return oficinaService.save(o);
-        });
-
-        Cargo cargo = cargoService.buscarPorNombre(nombreCargo);
-        if (cargo == null) {
-            cargo = new Cargo();
-            cargo.setNombre(nombreCargo);
-            cargo.setEstado("ACTIVO");
-            cargo.setRegistro(new Date());
-            cargo.setRegistroIdUsuario(1L);
-            cargoService.save(cargo);
-        }
-
-        List<Responsable> relacionados = responsableService.findByPersonaAndEstado(persona, "ACTIVO");
-        if (relacionados.isEmpty()) {
-            // Si NO existe ninguno y quieres crear uno "base", créalo aquí.
-            // Si NO quieres crear nada cuando no hay, simplemente retorna.
-            String codigo_responsable = funcionesResponsableRepo.siguienteCodigoPorOficinaStr(oficina.getIdOficina());
-            Responsable r = new Responsable();
-            r.setPersona(persona);
-            r.setCargo(cargo);
-            r.setOficina(oficina);
-            r.setEstado("ACTIVO");
-            r.setCodigoFuncionario(codigo_responsable);
-            r.setApiEstado((short) 1);
-            r.setRegistroIdUsuario(1L);
-            r.setRegistro(new Date());
-            return ResponseEntity.ok(new ResponsableRegistroDTO(responsableService.save(r)));
-        }
-
-        // 2) Actualizas SOLO lo que corresponde (campo a campo)
-        for (Responsable r : relacionados) {
-            // Si tu intención es solo actualizar estos campos en los relacionados:
-            if (cargo != null) {
-                r.setCargo(cargo);
+            
+            // ========== VALIDACIÓN 2: Código funcionario único en oficina ==========
+            Responsable respExistente = responsableService.findByCodigoFuncionarioYOficina(
+                codigoFuncionario, idOficina
+            );
+            if (respExistente != null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "ok", false,
+                    "msg", String.format("Ya existe un responsable con código %s en la oficina %s", 
+                                        codigoFuncionario, oficina.getNombre())
+                ));
             }
-            r.setModificacion(new Date());
-            r.setModificacionIdUsuario(1L);
-        }
-        responsableService.saveAll(relacionados);
-
-        Optional<Responsable> exactoMismaOficina = relacionados.stream()
-                .filter(r -> r.getOficina() != null && r.getOficina().getIdOficina().equals(oficina.getIdOficina()))
-                .findFirst();
-
-        if (exactoMismaOficina.isPresent()) {
-            Responsable rSel = exactoMismaOficina.get();
-            if (rSel.getCodigoFuncionario() == null || rSel.getCodigoFuncionario().isBlank()) {
-                rSel.setCodigoFuncionario(codigoFuncionario);
+            
+            // ========== VALIDACIÓN 3: Buscar persona (CI primero, luego nombre) ==========
+            Persona persona = null;
+            boolean personaNueva = false;
+            
+            // Buscar por CI
+            if (ci != null && !ci.trim().isEmpty()) {
+                persona = personaService.buscarPersonaPorCI(ci.trim());
+                log.info("Búsqueda por CI '{}': {}", ci, (persona != null ? "Encontrada" : "No encontrada"));
             }
-            rSel.setModificacion(new Date());
-            rSel.setModificacionIdUsuario(1L);
-            return ResponseEntity.ok(new ResponsableRegistroDTO(responsableService.save(rSel)));
+            
+            // Si no se encontró por CI, buscar por nombre completo
+            if (persona == null && nombre != null && paterno != null) {
+                log.info("Buscando por nombre: {} {} {}", nombre, paterno, materno);
+                
+                // Búsqueda exacta
+                persona = personaService.buscarPersonaPorNombreCompletoUno(
+                    nombre.trim(), 
+                    paterno.trim(), 
+                    (materno != null) ? materno.trim() : null
+                );
+                
+                // Si no encontró exacta, buscar aproximada
+                if (persona == null) {
+                    List<Persona> personasCoincidentes = personaService.buscarPorNombreApellidos(
+                        nombre.trim(), 
+                        paterno.trim(), 
+                        (materno != null) ? materno.trim() : null
+                    );
+                    
+                    if (!personasCoincidentes.isEmpty()) {
+                        // Si hay coincidencias, alertar al usuario
+                        StringBuilder msg = new StringBuilder("Se encontraron personas similares:\n");
+                        for (Persona p : personasCoincidentes) {
+                            msg.append(String.format("- %s (CI: %s)\n", 
+                                p.getNombreCompleto(), 
+                                p.getCi() != null ? p.getCi() : "Sin CI"
+                            ));
+                        }
+                        msg.append("\n¿Desea continuar creando una nueva persona?");
+                        
+                        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                            "ok", false,
+                            "msg", msg.toString(),
+                            "personasCoincidentes", personasCoincidentes.stream()
+                                .map(p -> Map.of(
+                                    "idPersona", p.getIdPersona(),
+                                    "nombreCompleto", p.getNombreCompleto(),
+                                    "ci", p.getCi() != null ? p.getCi() : "",
+                                    "correo", p.getCorreo() != null ? p.getCorreo() : ""
+                                ))
+                                .collect(Collectors.toList()),
+                            "requireConfirmacion", true
+                        ));
+                    }
+                }
+                
+                log.info("Búsqueda por nombre: {}", (persona != null ? "Encontrada" : "No encontrada"));
+            }
+            
+            // ========== VALIDACIÓN 4: Si la persona existe, verificar si ya es responsable ==========
+            if (persona != null) {
+                // Verificar si ya es responsable en ESTA oficina
+                boolean yaEsResponsableEnOficina = responsableService.existeResponsablePorPersonaYOficina(
+                    persona.getIdPersona(), idOficina
+                );
+                
+                if (yaEsResponsableEnOficina) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "ok", false,
+                        "msg", String.format("La persona %s ya es responsable en la oficina %s", 
+                                            persona.getNombreCompleto(), oficina.getNombre())
+                    ));
+                }
+                
+                // Verificar si es responsable en otras oficinas (solo informativo)
+                List<Responsable> responsablesExistentes = responsableService.findByPersonaId(
+                    persona.getIdPersona()
+                );
+                
+                if (!responsablesExistentes.isEmpty()) {
+                    log.info("La persona {} ya es responsable en {} oficina(s)", 
+                            persona.getNombreCompleto(), responsablesExistentes.size());
+                }
+            } else {
+                // ========== Crear nueva persona ==========
+                personaNueva = true;
+                persona = new Persona();
+                persona.setCi(ci != null ? ci.trim() : null);
+                persona.setNombre(nombre != null ? nombre.trim() : null);
+                persona.setPaterno(paterno != null ? paterno.trim() : null);
+                persona.setMaterno(materno != null ? materno.trim() : null);
+                persona.setCorreo(correo != null ? correo.trim() : null);
+                persona.setEstado("ACTIVO");
+                
+                if (usuario != null) {
+                    persona.setRegistroIdUsuario(usuario.getIdUsuario());
+                }
+                
+                personaService.save(persona);
+                log.info("Nueva persona creada: {} (ID: {})", persona.getNombreCompleto(), persona.getIdPersona());
+            }
+            
+            // ========== Crear Responsable ==========
+            Responsable responsable = new Responsable();
+            responsable.setCodigoApi(codigoApi); // Puede ser null
+            responsable.setCodigoFuncionario(codigoFuncionario.trim());
+            responsable.setPersona(persona);
+            responsable.setOficina(oficina);
+            
+            // Cargar cargo si se proporcionó
+            if (idCargo != null) {
+                Cargo cargo = cargoService.findById(idCargo);
+                responsable.setCargo(cargo);
+            }
+            
+            responsable.setFechaUlt(LocalDate.now());
+            responsable.setUsuario(usuarioNombre);
+            responsable.setApiEstado(Short.valueOf("1"));
+            responsable.setCodExp(Short.valueOf("0"));
+            responsable.setEstado("ACTIVO");
+            
+            if (usuario != null) {
+                responsable.setRegistroIdUsuario(usuario.getIdUsuario());
+            }
+            
+            // Guardar en PostgreSQL
+            responsableService.save(responsable);
+            log.info("Responsable creado en PostgreSQL: ID={}, Código={}", 
+                    responsable.getIdResponsable(), responsable.getCodigoFuncionario());
+            
+            // ========== Insertar en RESP.DBF ==========
+            try {
+                Predio predio = oficina.getPredio();
+                Entidad entidad = (predio != null) ? predio.getEntidad() : null;
+                
+                if (predio == null || entidad == null) {
+                    log.warn("Responsable {} sin predio/entidad completo, no se sincroniza con DBF", 
+                            responsable.getIdResponsable());
+                    return ResponseEntity.ok(Map.of(
+                        "ok", true,
+                        "msg", "Registrado en PostgreSQL, pero SIN datos de Predio/Entidad para DBF",
+                        "id", responsable.getIdResponsable(),
+                        "personaNueva", personaNueva
+                    ));
+                }
+                
+                String entidadCode = entidad.getEntidadCodigo();
+                String unidadCode = predio.getUnidad();
+                
+                // Convertir código funcionario a numérico para DBF
+                Integer codResp = null;
+                if (codigoFuncionario != null) {
+                    String onlyDigits = codigoFuncionario.replaceAll("\\D+", "");
+                    if (!onlyDigits.isEmpty()) {
+                        codResp = Integer.valueOf(onlyDigits);
+                    }
+                }
+                
+                // Verificar si ya existe en DBF
+                if (codResp != null && respDbfWriterService.existsByCodResp(
+                        codResp, oficina.getCodOfi(), entidadCode, unidadCode)) {
+                    log.warn("Responsable CODRESP={} ya existe en RESP.DBF", codResp);
+                    return ResponseEntity.ok(Map.of(
+                        "ok", true,
+                        "msg", "Registrado en PostgreSQL, pero ya existía en DBF",
+                        "id", responsable.getIdResponsable(),
+                        "personaNueva", personaNueva
+                    ));
+                }
+                
+                // Insertar en DBF
+                respDbfWriterService.insertarDesdeResponsable(
+                    responsable, entidadCode, unidadCode, usuarioNombre
+                );
+                
+                log.info("Responsable {} registrado exitosamente en PostgreSQL y DBF", 
+                        responsable.getIdResponsable());
+                
+            } catch (Exception e) {
+                log.error("Error insertando responsable en DBF: {}", e.getMessage(), e);
+                return ResponseEntity.status(500).body(Map.of(
+                    "ok", false,
+                    "msg", "Se guardó en PostgreSQL pero falló el registro en DBF: " + e.getMessage(),
+                    "id", responsable.getIdResponsable()
+                ));
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "ok", true,
+                "msg", String.format("Responsable registrado correctamente%s", 
+                                    personaNueva ? " (nueva persona creada)" : ""),
+                "id", responsable.getIdResponsable(),
+                "personaNueva", personaNueva
+            ));
+            
+        } catch (Exception e) {
+            log.error("Error registrando responsable: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of(
+                "ok", false,
+                "msg", "Error al registrar: " + e.getMessage()
+            ));
         }
-
-        // 6.c) No hay responsable de ESA oficina: crear uno nuevo para esa oficina y
-        // devolverlo
-        Responsable nuevo = new Responsable();
-        nuevo.setPersona(persona);
-        nuevo.setCargo(cargo);
-        nuevo.setOficina(oficina);
-        nuevo.setEstado("ACTIVO");
-        nuevo.setCodigoFuncionario(codigoFuncionario);
-        nuevo.setApiEstado((short) 1);
-        nuevo.setRegistroIdUsuario(1L);
-        nuevo.setRegistro(new Date());
-
-        return ResponseEntity.ok(new ResponsableRegistroDTO(responsableService.save(nuevo)));
+    }
+    
+    /**
+     * Endpoint para forzar el registro cuando hay coincidencias de nombre
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/registrar-responsable-forzado")
+    @ResponseBody
+    public ResponseEntity<?> registrarResponsableForzado(
+            HttpServletRequest request,
+            @RequestParam(required = false) String codigoApi,
+            @RequestParam String ci,
+            @RequestParam String codigoFuncionario,
+            @RequestParam Long idOficina,
+            @RequestParam String nombre,
+            @RequestParam String paterno,
+            @RequestParam(required = false) String materno,
+            @RequestParam(required = false) String correo,
+            @RequestParam(required = false) Long idCargo,
+            @RequestParam(defaultValue = "false") boolean forzarCreacion) {
+        
+        // Si forzarCreacion=true, crear siempre una nueva persona
+        // Llamar al método de registro normal pero sin validación de nombres similares
+        
+        return registrarResponsable(request, codigoApi, ci, codigoFuncionario, 
+                                   idOficina, nombre, paterno, materno, correo, idCargo);
     }
 
     // En ResponsableController

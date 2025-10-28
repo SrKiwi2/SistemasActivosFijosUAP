@@ -39,4 +39,12 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
      * Consulta la API externa con código/CI y mapea los datos a un DTO.
      */
     ResponsableApiDataDTO getResponsableDataFromApi(String codigoFuncionario, String ci);
+
+    //*MODULO REGISTRO RESPOSNABLE */
+    Responsable findByCodigoFuncionario(String codigoFuncionario);
+    Responsable findByCodigoFuncionarioYOficina(String codigoFuncionario, Long idOficina);
+    boolean existeResponsablePorPersona(Long idPersona);
+    boolean existeResponsablePorPersonaYOficina(Long idPersona, Long idOficina);
+    List<Responsable> findByPersonaId(Long idPersona);
+
 }
