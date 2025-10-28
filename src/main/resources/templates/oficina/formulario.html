@@ -74,7 +74,7 @@
 
                 // Llama al endpoint REST creado
                 $.ajax({
-                    url: '/api/oficinas/siguiente-codigo/' + idPredio,
+                    url: '/administracion/oficina/siguiente-codigo/' + idPredio,
                     type: 'GET',
                     dataType: 'json',
                     success: function (siguienteCodigo) {
