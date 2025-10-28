@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -391,30 +392,28 @@ public class ResponsableController {
                 log.info("Nueva persona creada: {} (ID: {})", persona.getNombreCompleto(), persona.getIdPersona());
             }
 
-            // Cargar cargo si se proporcionó
-            Cargo cargo = null;
-            
-            // Si tenemos el nombre sugerido de la API, lo usamos para buscar o crear.
-            if (cargoApi != null && !cargoApi.trim().isEmpty()) {
-                Long idUsuario = (usuario != null) ? usuario.getIdUsuario() : null;
-                
-                // LLAMADA CLAVE: Busca el cargo por nombre o lo crea si no existe
-                cargo = cargoService.buscarOCrearPorNombre(cargoApi, idUsuario);
-                
-                if (cargo != null) {
-                    log.info("Cargo procesado: ID={} ({}).", cargo.getIdCargo(), cargo.getNombre());
-                } else {
-                    log.warn("El cargo '{}' sugerido no pudo ser encontrado ni creado.", cargoApi);
-                }
-            }
-            
             // ========== Crear Responsable ==========
             Responsable responsable = new Responsable();
-            responsable.setCodigoApi(codigoApi); // Puede ser null
+            responsable.setCodigoApi(codigoApi);
             responsable.setCodigoFuncionario(codigoFuncionario.trim());
             responsable.setPersona(persona);
             responsable.setOficina(oficina);
-            responsable.setCargo(cargo);
+
+            Cargo cargoEncontrado = cargoService.buscarPorNombre(cargoApi);
+            if (cargoEncontrado != null) {
+                responsable.setCargo(cargoEncontrado);
+            }else{
+                Cargo nuevoCargo = new Cargo();
+                nuevoCargo.setNombre(cargoApi);
+                nuevoCargo.setDescripcion("Cargo proporcionado de la API");
+                nuevoCargo.setEstado("ACTIVO");
+                nuevoCargo.setRegistro(new Date());
+                nuevoCargo.setRegistroIdUsuario(usuario.getIdUsuario());
+                cargoService.save(nuevoCargo);
+
+                responsable.setCargo(nuevoCargo);
+            }
+            
             responsable.setFechaUlt(LocalDate.now());
             responsable.setUsuario(usuarioNombre);
             responsable.setApiEstado(Short.valueOf("1"));
