@@ -2,50 +2,63 @@
     <h4 class="modal-title" th:text="${edit}? 'Modificar Oficina' : 'Registrar Oficina'"></h4>
     <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
 </div>
+
 <form id="formularioOficina" method="post"
     th:action="${edit} ? @{/administracion/oficina/modificar-oficina} : @{/administracion/oficina/registrar-oficina}"
     th:object="${oficina}" novalidate>
 
+    <!-- Campo oculto para ID (solo en edición) -->
+    <input type="hidden" th:if="${edit != null}" th:field="*{idOficina}" name="idOficina">
+
     <div class="modal-body">
         <div class="row">
             <div class="col-12 col-md-4 mb-2">
-                <label class="form-label">Nombre Oficina</label>
-                <input type="text" th:field="*{nombre}" class="form-control" placeholder="..." required />
-                <div class="invalid-feedback">Por favor introduzca un dato válido.</div>
+                <label class="form-label">Predio</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-building"></i></span>
+                    <select class="select2 form-select" th:field="*{predio.idPredio}" required>
+                        <option value="">Seleccione...</option>
+                        <option th:each="p : ${predios}" th:value="${p.idPredio}"
+                            th:text="${p.descrip} + ' - ' + ${p.codigo}"></option>
+                    </select>
+                </div>
+                <div class="invalid-feedback">Debe seleccionar un predio.</div>
             </div>
 
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">Código oficina</label>
-                <input type="number" th:field="*{codOfi}" class="form-control" min="0" step="1" required />
-                <div class="invalid-feedback">Por favor introduzca un código válido.</div>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-hashtag"></i></span>
+                    <input type="number" th:field="*{codOfi}" class="form-control" 
+                           min="1" max="32767" step="1" required 
+                           placeholder="Ej: 1" />
+                </div>
+                <div class="invalid-feedback">Por favor introduzca un código válido (1-32767).</div>
             </div>
-
-            <div class="col-12 col-md-4">
-                <label class="form-label">Predio</label>
-                <!-- bindea por id -->
-                <select class="select2 form-select" th:field="*{predio.idPredio}" required>
-                    <option value="" disabled>Seleccione...</option>
-                    <option th:each="p : ${predios}" th:value="${p.idPredio}"
-                        th:text="${p.descrip} + ' - ' + ${p.codigo}"></option>
-                </select>
-                <div class="invalid-feedback">Debe seleccionar un predio.</div>
-            </div>
-        </div>
-
-        <div class="row mt-2">
-            <div class="col-12">
-                <label class="form-label">Observaciones (opcional)</label>
-                <textarea th:field="*{observ}" class="form-control" rows="2" maxlength="500"></textarea>
+            
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label">Nombre Oficina</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-regular fa-building"></i></span>
+                    <input type="text" th:field="*{nombre}" class="form-control" 
+                           placeholder="Ej: Dirección de Recursos Humanos" 
+                           required maxlength="255" />
+                </div>
+                <div class="invalid-feedback">Por favor introduzca un nombre válido.</div>
             </div>
         </div>
     </div>
 
     <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar cambios' : 'Guardar registro'" />
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fa-solid fa-xmark me-1"></i> Cancelar
+        </button>
+        <button type="submit" class="btn btn-success">
+            <i class="fa-solid fa-floppy-disk me-1"></i>
+            <span th:text="${edit}? 'Guardar cambios' : 'Guardar registro'"></span>
+        </button>
     </div>
 </form>
-
 
 <script>
     manejarEnvioFormulario('#formularioOficina');

@@ -82,4 +82,20 @@ public class AuxiliarServiceImpl implements IAuxiliarService {
             Long predioId, Long grupoId, Short codAux) {
         return dao.findByPredio_IdPredioAndGrupoContable_IdGrupoContableAndCodAux(predioId, grupoId, codAux);
     }
+
+    @Override
+    public Short getNextCodAux(Long idPredio, Long idGrupoContable) {
+        return dao.findNextCodAux(idPredio, idGrupoContable);
+    }
+
+    @Override
+    public boolean isNombreUnique(String nombre, Long idAuxiliar) {
+        if (idAuxiliar == null) {
+        // Modo Registro: Solo verificamos si el nombre ya existe
+        return !dao.existsByNombreIgnoreCase(nombre);
+    } else {
+        // Modo Edición: Verificamos si existe otro (diferente al actual) con ese nombre
+        return !dao.existsByNombreIgnoreCaseAndIdAuxiliarIsNot(nombre, idAuxiliar);
+    }
+    }
 }

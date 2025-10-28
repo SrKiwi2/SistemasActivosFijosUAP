@@ -21,6 +21,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -45,6 +46,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResponsableRegistroDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ResponsableDbf;
+import com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableApiDataDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Genero;
@@ -214,14 +216,26 @@ public class ResponsableController {
         }
     }
 
-    private static String nvl(String s) {
-        return s == null ? "" : s;
-    }
-
     @ValidarUsuarioAutenticado
     @PostMapping("/formulario")
-    public String formularioResponsable(Model model, Responsable responsable) {
+    public String formularioResponsable(Model model) { 
+        model.addAttribute("responsable", new Responsable());
+        model.addAttribute("oficinas", oficinaService.listarOficinas());
         return "responsable/formulario";
+    }
+
+    @GetMapping("/consultar-api-datos")
+    @ResponseBody
+    public ResponseEntity<ResponsableApiDataDTO> consultarApiDatos(
+            @RequestParam String codigoFuncionario,
+            @RequestParam String ci) {
+        try {
+            ResponsableApiDataDTO dto = responsableService.getResponsableDataFromApi(codigoFuncionario, ci);
+            return ResponseEntity.ok(dto);
+        } catch (RuntimeException e) {
+            // Manejo de error de la API (ej: 500 Internal Server Error o 404 Not Found)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @PostMapping("/registrar-responsable")
@@ -546,6 +560,13 @@ public class ResponsableController {
                     "ok", false,
                     "message", "Error sincronizando RESPONSABLE: " + ex.getMessage()));
         }
+    }
+
+    
+    // HELPERS
+
+    private static String nvl(String s) {
+        return s == null ? "" : s;
     }
 
     private static boolean isBlank(String s) {

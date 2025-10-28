@@ -31,4 +31,7 @@ public interface IAuxiliarService extends IServiceGenerico<Auxiliar, Long> {
     List<Auxiliar> buscarPorQ(@Param("q") String q);
 
     List<Auxiliar> listarTodo();
+
+    Short getNextCodAux(Long idPredio, Long idGrupoContable);
+    boolean isNombreUnique(String nombre, Long idAuxiliar);
 }

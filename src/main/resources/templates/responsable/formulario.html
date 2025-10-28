@@ -2,38 +2,142 @@
     <h4 class="modal-title">Registrar Responsable'</h4>
     <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
 </div>
-<form id="formularioResponsable" method="post"
-      th:action="@{/administracion/responsable/registrar-responsable}" novalidate>
-    <input type="hidden" th:if="${edit != null}" th:field="${responsable.idResponsable}">
-    
+<form id="formularioResponsable" method="post" th:action="@{/administracion/responsable/registrar-responsable}"
+    novalidate>
+    <input type="hidden" th:if="${edit != null}" th:field="*{responsable.idResponsable}">
+
+    <input type="hidden" id="idPersona" name="persona.idPersona" th:field="*{responsable.persona.idPersona}">
+    <input type="hidden" id="idCargo" name="cargo.idCargo" th:field="*{responsable.cargo.idCargo}">
+
     <div class="modal-body">
         <div class="row">
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">Código Funcionario</label>
-                <input type="text" name="codigoFuncionario" class="form-control" required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Por favor introduzca un dato válido.</div>
+                <input type="text" id="codigoFuncionarioInput" name="codigoFuncionario" class="form-control" required />
             </div>
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">C.I.</label>
-                <input type="text" name="ci" class="form-control" required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Por favor introduzca un dato válido.</div>
+                <input type="text" id="ciInput" name="ci" class="form-control" required />
+            </div>
+            <div class="col-12 col-md-4 mb-2 d-flex align-items-end">
+                <button type="button" id="consultarApiBtn" class="btn btn-primary w-100">Consultar API</button>
             </div>
         </div>
+
+        <hr>
+
+        <div id="datosResponsableDiv" style="display:none;">
+            <div class="row">
+                <div class="col-12 col-md-6 mb-2">
+                    <label class="form-label">Nombre Completo</label>
+                    <input type="text" id="nombreCompletoApi" class="form-control" readonly />
+                </div>
+                <div class="col-12 col-md-6 mb-2">
+                    <label class="form-label">Correo</label>
+                    <input type="text" id="correoApi" class="form-control" readonly />
+                </div>
+                <div class="col-12 col-md-6 mb-2">
+                    <label class="form-label">Cargo Sugerido (API)</label>
+                    <input type="text" id="cargoApi" class="form-control" readonly />
+                </div>
+                <div class="col-12 col-md-6 mb-2">
+                    <label class="form-label">Oficina (Seleccione)</label>
+                    <select th:field="*{responsable.oficina.idOficina}" class="form-select select2it" required>
+                        <option value="">Seleccione Oficina...</option>
+                        <option th:each="o : ${oficinas}" th:value="${o.idOficina}" th:text="${o.nombre}"></option>
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-4 mb-2">
+                    <label class="form-label">Código Funcionario (Final)</label>
+                    <input type="text" th:field="*{responsable.codigoFuncionario}" id="codFuncFinalInput" class="form-control" required />
+                </div>
+
+            </div>
+        </div>
+
     </div>
 
-    <div class="modal-footer">
-        <div class="row">
-            <div class="col-12">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <input type="submit" class="btn btn-success"
-                       th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
-            </div>
-        </div>
-    </div>
 </form>
 
 <script>
     manejarEnvioFormulario('#formularioResponsable');
+
+    // Referencias a los nuevos elementos
+    const $codFuncInput = document.getElementById('codigoFuncionarioInput');
+    const $ciInput = document.getElementById('ciInput');
+    const $consultarBtn = document.getElementById('consultarApiBtn');
+    const $datosDiv = document.getElementById('datosResponsableDiv');
+
+    // Campos a rellenar
+    const $nombreCompletoApi = document.getElementById('nombreCompletoApi');
+    const $correoApi = document.getElementById('correoApi');
+    const $cargoApi = document.getElementById('cargoApi');
+    const $idPersonaHidden = document.getElementById('idPersona');
+    const $idCargoHidden = document.getElementById('idCargo');
+    const $codFuncFinal = document.getElementById('codFuncFinalInput');
+
+    
+
+    // Función para consultar la API
+    function consultarApi() {
+        const codigoFuncionario = $codFuncInput.value.trim();
+        const ci = $ciInput.value.trim();
+
+        if (!codigoFuncionario || !ci) {
+            alert('Por favor, ingrese el Código Funcionario y el C.I.');
+            return;
+        }
+
+        // URL usando Thymeleaf para el contexto
+        const url = `[[@{/administracion/responsable/consultar-api-datos}]]?codigoFuncionario=${codigoFuncionario}&ci=${ci}`;
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    // Manejar errores como el 500 de la API externa
+                    throw new Error('Error al consultar la API o datos no encontrados. Código: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.yaEsResponsable) {
+                    alert('¡Advertencia! Este Código Funcionario ya está registrado.');
+                    $datosDiv.style.display = 'none';
+                    return;
+                }
+
+                // Rellenar campos de visualización
+                $nombreCompletoApi.value = `${data.nombre} ${data.paterno} ${data.materno || ''}`;
+                $correoApi.value = data.correo || 'N/A';
+                $cargoApi.value = data.nombreCargoApi || 'N/A';
+
+                // Rellenar campos ocultos (IDs persistidos en el servicio)
+                // NOTA: Si el servicio NO persiste la Persona/Cargo, estos campos deben ser String (nombre/ci)
+                // y la persistencia completa debe ocurrir en el @PostMapping final.
+                // Para mantener la lógica de tu controlador original (guardar catálogos primero),
+                // el DTO debería haber devuelto los IDs de Persona/Cargo.
+                // Puesto que no los devuelve, usaremos el código final de persistencia en el submit.
+
+                // Mostrar la sección de datos para que el usuario seleccione la Oficina
+                $datosDiv.style.display = 'block';
+
+                // Rellenar el Código Funcionario final
+                if (!$codFuncFinal.value) {
+                    $codFuncFinal.value = codigoFuncionario;
+                }
+
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error en la consulta. Revise el Código Funcionario y C.I.');
+                $datosDiv.style.display = 'none';
+            });
+    }
+
+    // Event Listener para el botón de consulta
+    $consultarBtn.addEventListener('click', consultarApi);
+
+    // Opcional: Ejecutar la consulta automáticamente al perder el foco en el CI (blur)
+    // $ciInput.addEventListener('blur', consultarApi);
 </script>

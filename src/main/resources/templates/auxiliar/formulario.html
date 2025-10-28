@@ -5,14 +5,14 @@
 <form id="formularioAuxiliar" method="post"
     th:action="${edit}? @{/administracion/auxiliar/modificar-auxiliar} : @{/administracion/auxiliar/registrar-auxiliar}"
     novalidate>
-    <input type="hidden" th:if="${edit != null}" th:field="${idAuxiliar}">
+    <input type="hidden" th:if="${edit != null}" th:field="*{auxiliar}">
     <div class="modal-body">
         <div class="row">
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">Grupo contable</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-solid fa-layer-group"></i></span>
-                    <select th:field="*{grupoContable.idGrupoContable}" class="form-select select2it" required>
+                    <select id="selectGrupoContable" th:field="*{auxiliar.grupoContable.idGrupoContable}" class="form-select select2it" required>
                         <option value="">Seleccione…</option>
                         <option th:each="g : ${gruposContables}" th:value="${g.idGrupoContable}"
                             th:data-code="${g.codContable != null ? #numbers.formatInteger(g.codContable, 2) : ''}"
@@ -24,25 +24,25 @@
                 <label class="form-label">Predio</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-solid fa-building"></i></span>
-                    <select th:field="*{predio.idPredio}" class="form-select select2it" required>
+                    <select id="selectPredio" th:field="*{auxiliar.predio.idPredio}" class="form-select select2it" required>
                         <option value="">Seleccione…</option>
                         <option th:each="p : ${predios}" th:value="${p.idPredio}"
-                            th:text="${p.nombre + ' (' + p.codigo + ')'}"></option>
+                            th:text="${p.descrip + ' (' + p.codigo + ')'}"></option>
                     </select>
                 </div>
             </div>
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label" for="codAuxInput">Código auxiliar</label>
-                <input type="number" th:field="*{codAux}" class="form-control" placeholder="Ej: 101" required />
+                <input id="inputCodAux" type="number" th:field="*{auxiliar.codAux}" class="form-control" placeholder="Ej: 101" required />
                 <div class="valid-feedback">Correcto!</div>
                 <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
             </div>
             
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label" for="nombreAuxiliarInput">Nombre auxiliar</label>
-                <input type="text" th:field="*{nombre}" class="form-control" placeholder="Ej: Muebles y Enseres" required />
+                <input id="nombreAuxiliarInput" type="text" th:field="*{auxiliar.nombre}" class="form-control" placeholder="Ej: Muebles y Enseres" required />
                 <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+                <div class="invalid-feedback" id="nombreAuxiliarFeedback">Porfavor Introduzca un dato valido.</div>
             </div>
         </div>
     </div>
@@ -59,4 +59,133 @@
 
 <script>
     manejarEnvioFormulario('#formularioAuxiliar');
+
+    /*AUTOCOMPLETAR CODIGO AUXILIAR*/
+    const $selectPredio = document.getElementById('selectPredio');
+    const $selectGrupoContable = document.getElementById('selectGrupoContable');
+    const $inputCodAux = document.getElementById('inputCodAux');
+
+    function actualizarCodAux() {
+        const idPredio = $selectPredio.value;
+        const idGrupoContable = $selectGrupoContable.value;
+
+        if (idPredio && idGrupoContable) {
+            const url = `/administracion/auxiliar/obtener-cod-auxiliar?idPredio=${idPredio}&idGrupoContable=${idGrupoContable}`;
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error al obtener el correlativo: ' + response.statusText);
+                    }
+                    return response.text();
+                })
+                .then(codAux => {
+                    $inputCodAux.value = codAux;
+                    $inputCodAux.readOnly = true; 
+                })
+                .catch(error => {
+                    console.error('Fetch Error:', error);
+                    alert('No se pudo obtener el código auxiliar. Por favor, inténtelo de nuevo.');
+                });
+        } else {
+            $inputCodAux.value = '';
+            $inputCodAux.readOnly = false;
+        }
+    }
+
+    $selectPredio.addEventListener('change', actualizarCodAux);
+    $selectGrupoContable.addEventListener('change', actualizarCodAux);
+
+    if ('[[${edit}]]' === 'null' || '[[${edit}]]' === '') {
+        setTimeout(actualizarCodAux, 100); 
+    }
+
+    /*VERIFICAR NOMBRE AUXILIAR*/
+
+    const $inputNombreAux = document.getElementById('nombreAuxiliarInput');
+    const $inputIdAuxiliar = document.getElementById('idAuxiliarHidden'); 
+    const $nombreFeedback = document.getElementById('nombreAuxiliarFeedback');
+
+    let validationTimer;
+
+    function validarUnicidadNombre() {
+        clearTimeout(validationTimer);
+        
+        if (!$inputNombreAux.value.trim()) {
+            $inputNombreAux.classList.remove('is-valid', 'is-invalid');
+            $inputNombreAux.setCustomValidity('');
+            return;
+        }
+
+        validationTimer = setTimeout(() => {
+            const nombre = $inputNombreAux.value.trim();
+            const idAuxiliar = $inputIdAuxiliar ? $inputIdAuxiliar.value : '';
+
+            const baseUrl = '[[@{/administracion/auxiliar/validar-nombre-unico}]]';
+            let url = `${baseUrl}?nombre=${encodeURIComponent(nombre)}`;
+            
+            if (idAuxiliar) {
+                url += `&idAuxiliar=${idAuxiliar}`;
+            }
+
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) throw new Error('Error de red');
+                    return response.json();
+                })
+                .then(isUnique => {
+                    if (isUnique) {
+                        $inputNombreAux.classList.remove('is-invalid');
+                        $inputNombreAux.classList.add('is-valid');
+                        $inputNombreAux.setCustomValidity('');
+                    } else {
+                        $inputNombreAux.classList.remove('is-valid');
+                        $inputNombreAux.classList.add('is-invalid');
+                        $nombreFeedback.textContent = 'Este nombre auxiliar ya se encuentra registrado.';
+                        $inputNombreAux.setCustomValidity('Inválido');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error de validación:', error);
+                });
+        }, 300);
+    }
+    $inputNombreAux.addEventListener('input', validarUnicidadNombre);
+
+    // Función para cargar auxiliar para editar
+    async function cargarAuxiliarParaEditar(idAuxiliar) {
+        showGlobalLoader({ texto: 'Cargando...' });
+        
+        try {
+            const response = await fetch(`/administracion/auxiliar/api/detalle/${idAuxiliar}`);
+            if (!response.ok) throw new Error('Error al cargar auxiliar');
+            
+            const auxiliar = await response.json();
+            
+            // Llenar formulario
+            document.getElementById('idAuxiliar').value = auxiliar.idAuxiliar;
+            document.getElementById('inputCodAux').value = auxiliar.codAux;
+            document.getElementById('nombreAuxiliarInput').value = auxiliar.nombre;
+            
+            // Establecer selects
+            if (auxiliar.grupoContable) {
+                $('#selectGrupoContable').val(auxiliar.grupoContable.idGrupoContable).trigger('change');
+            }
+            if (auxiliar.predio) {
+                $('#selectPredio').val(auxiliar.predio.idPredio).trigger('change');
+            }
+            
+            // Cambiar URL del formulario a modificar
+            document.getElementById('formularioAuxiliar').action = '/administracion/auxiliar/modificar-auxiliar';
+            
+            // Cambiar texto del botón
+            document.querySelector('#formularioAuxiliar button[type="submit"]').innerHTML = 'Guardar Cambios';
+            
+            hideGlobalLoader();
+            
+        } catch (error) {
+            hideGlobalLoader();
+            console.error('Error:', error);
+            alert('Error al cargar el auxiliar: ' + error.message);
+        }
+    }
 </script>

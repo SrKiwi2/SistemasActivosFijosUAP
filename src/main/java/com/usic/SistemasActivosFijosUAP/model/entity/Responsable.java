@@ -21,25 +21,23 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(
-  name = "responsable",
-  uniqueConstraints = {
-    @UniqueConstraint(name = "uk_resp_oficina_codfunc", columnNames = {"id_oficina","codigo_funcionario"})
-  },
-  indexes = {
-    @Index(name = "idx_resp_oficina", columnList = "id_oficina"),
-    @Index(name = "idx_resp_codfunc", columnList = "codigo_funcionario")
-  }
-)
-@Setter @Getter
-public class Responsable extends AuditoriaConfig{
+@Table(name = "responsable", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_resp_oficina_codfunc", columnNames = { "id_oficina", "codigo_funcionario" })
+}, indexes = {
+        @Index(name = "idx_resp_oficina", columnList = "id_oficina"),
+        @Index(name = "idx_resp_codfunc", columnList = "codigo_funcionario")
+})
+@Setter
+@Getter
+public class Responsable extends AuditoriaConfig {
     private static final long serialVersionUID = 2629195288020321924L;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idResponsable;
 
     private String codigoFuncionario;
-    
+    private String codigoApi;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_persona", foreignKey = @ForeignKey(name = "fk_resp_persona"))
     private Persona persona;
@@ -49,22 +47,22 @@ public class Responsable extends AuditoriaConfig{
     private Oficina oficina;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_cargo",  foreignKey = @ForeignKey(name = "fk_resp_cargo"))
+    @JoinColumn(name = "id_cargo", foreignKey = @ForeignKey(name = "fk_resp_cargo"))
     private Cargo cargo;
 
     @Column(name = "observ", columnDefinition = "text")
-    private String observ;       // DBF: OBSERV (Memo)
+    private String observ; // DBF: OBSERV (Memo)
 
     @Column(name = "fecha_ult")
-    private LocalDate fechaUlt;  // DBF: FEULT (Date)
+    private LocalDate fechaUlt; // DBF: FEULT (Date)
 
     @Size(max = 60)
     @Column(name = "usuario", length = 60)
-    private String usuario;      // DBF: USUAR (Text)
+    private String usuario; // DBF: USUAR (Text)
 
     @Column(name = "cod_exp", columnDefinition = "SMALLINT")
-    private Short codExp;        // DBF: COD_EXP (SmallInt)
+    private Short codExp; // DBF: COD_EXP (SmallInt)
 
     @Column(name = "api_estado", columnDefinition = "SMALLINT")
-    private Short apiEstado;     // DBF: API_ESTADO (SmallInt)
+    private Short apiEstado; // DBF: API_ESTADO (SmallInt)
 }

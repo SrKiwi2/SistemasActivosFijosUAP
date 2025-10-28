@@ -16,8 +16,8 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
 public interface IResposableDao extends JpaRepository<Responsable, Long>{
     
-    @Query("SELECT r FROM Responsable r WHERE r.codigoFuncionario = ?1 AND r.estado = 'ACTIVO'")
-    Responsable buscarPorCodigo(String codigoFuncionario);
+    @Query("SELECT r FROM Responsable r WHERE r.codigoApi = ?1 AND r.estado = 'ACTIVO'")
+    Responsable buscarPorCodigo(String codigoApi);
 
     @Query("SELECT r FROM Responsable r WHERE r.estado = 'ACTIVO'")
     List<Responsable> listarResponsables(); //esto ya no es muy rentable, mucho resgistro de golpe, muy lento

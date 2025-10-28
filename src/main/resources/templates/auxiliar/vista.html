@@ -14,7 +14,7 @@
 
     });
 
-        function initDataTable() {
+    function initDataTable() {
         const $tbl = $('#data-table');
         if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
         $tbl.DataTable({ language: {/* tu traducción */ } });
@@ -43,4 +43,5 @@
     function eliminar(nombre, id) {
         eliminarRegistroAlert(nombre, id, "/administracion/auxiliar/eliminar", cargarTabla);
     }
+
 </script>

@@ -55,4 +55,10 @@ public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
 
     @Query("SELECT a FROM Auxiliar a ORDER BY a.nombre ASC")
     List<Auxiliar> listarTodo();
+
+    @Query(value = "SELECT COALESCE(MAX(a.cod_aux), 0) + 1 FROM auxiliar a WHERE a.id_predio = :idPredio AND a.id_grupo_contable = :idGrupoContable", nativeQuery = true)
+    Short findNextCodAux(@Param("idPredio") Long idPredio, @Param("idGrupoContable") Long idGrupoContable);
+
+    boolean existsByNombreIgnoreCase(String nombre);
+    boolean existsByNombreIgnoreCaseAndIdAuxiliarIsNot(String nombre, Long idAuxiliar);
 }

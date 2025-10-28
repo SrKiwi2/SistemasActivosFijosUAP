@@ -1,28 +1,34 @@
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Responsables</h4>
 
 <div class="card">
-    <div class="card-header d-flex justify-content-lg-between">
-        <h5>Registro Responsable</h5>
-        <h5>Registro Responsable <small id="badgeSource" class="text-muted ms-2"></small></h5>
-        <div class="d-flex gap-2">
+    <div class="card-header d-flex flex-column flex-lg-row justify-content-lg-between align-items-lg-center gap-3">
+        <h5 class="mb-0">
+            Registro Responsable 
+            <small id="badgeSource" class="text-muted ms-2"></small>
+        </h5>
+
+        <div class="d-flex flex-wrap align-items-center gap-2">
             <label for="filtroOficina" class="mb-0 fw-semibold">Filtrar por oficina:</label>
-            <div class="d-flex align-items-center gap-2">
-                <select id="filtroOficina" class="form-select form-select" style="min-width:260px">
-                    <option value="">Todas</option>
-                    <option th:each="o : ${oficinas}" th:value="${o.idOficina}"
+
+            <select id="filtroOficina" class="form-select form-select-lg" style="min-width: 120px;">
+                <option value="">Todas</option>
+                <option th:each="o : ${oficinas}"
+                        th:value="${o.idOficina}"
                         th:text="${o.predio.unidad + ' - ' + o.codOfi + ' (' + o.predio.entidad.sigla + ')'}">
-                    </option>
-                </select>
-            </div>
+                </option>
+            </select>
+
             <button id="btnSyncResp" type="button" class="btn btn-outline-secondary">
                 <i class="fa-solid fa-file-import me-1"></i> Importar desde DBF montado
             </button>
+
             <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-                data-bs-target="#modalFormularioResponsable">
-                <i class="fa-solid fa-user-plus"></i> Agregar Responsable
+                    data-bs-target="#modalFormularioResponsable">
+                <i class="fa-solid fa-user-plus me-1"></i> Agregar Responsable
             </button>
         </div>
     </div>
+
     <div class="card-datatable table-responsive pt-0">
         <table class="datatables-basic table table-hover" id="data-table">
             <thead>

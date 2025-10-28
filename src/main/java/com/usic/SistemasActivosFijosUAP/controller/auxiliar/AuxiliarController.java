@@ -1,24 +1,30 @@
 package com.usic.SistemasActivosFijosUAP.controller.auxiliar;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
+import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.AuxiliarDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
@@ -42,6 +48,8 @@ public class AuxiliarController {
     private final IEntidadService entidadService;
     private final IGrupoContableService grupoContableService;
     private final JavaDbfService dbfService;
+    private final AuxiliarDbfWriterService auxiliarDbfWriterService;
+    private static final Logger log = LoggerFactory.getLogger(AuxiliarController.class);
 
 
     @ValidarUsuarioAutenticado
@@ -65,7 +73,7 @@ public class AuxiliarController {
             var filas = dbfService.listarAuxiliarAll(q);
             lista = new ArrayList<>(filas.size());
             for (var f : filas) {
-                // Resolver Entidad (varias variantes)
+
                 String cod = f.getEntidadCodigo();
                 String codNoZeros = stripLeftZeros(cod);
                 String codPad4 = leftPad4(cod);
@@ -80,8 +88,6 @@ public class AuxiliarController {
                                 .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codPad4))
                                 .orElse(null);
 
-                // Predio “ligero” (solo para mostrar); si no hay entidad, igual mostramos
-                // unidad/codigos
                 Predio p = new Predio();
                 p.setEntidad(ent);
                 p.setUnidad(normUnidad(f.getUnidad()));
@@ -135,14 +141,161 @@ public class AuxiliarController {
         return "auxiliar/formulario";
     }
 
-    @PostMapping(value = "/modificar-auxiliar")
-    public ResponseEntity<String> modificar_auxiliar(HttpServletRequest request, Auxiliar auxiliar,
-            RedirectAttributes redirectAttrs) {
+    @ValidarUsuarioAutenticado
+    @PostMapping("/registrar-auxiliar")
+    public ResponseEntity<?> registrar_auxiliar(
+            HttpServletRequest request,
+            @Validated @ModelAttribute Auxiliar auxiliar,
+            BindingResult br) {
+        
+        if (br.hasErrors()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "ok", false,
+                "errors", br.getFieldErrors().stream()
+                        .map(e -> Map.of("field", e.getField(), "message", e.getDefaultMessage()))
+                        .toList()
+            ));
+        }
+        
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-        auxiliar.setModificacionIdUsuario(usuario.getIdUsuario());
+        String usuarioNombre = (usuario != null ? usuario.getUsuario() : "SISTEMA");
+        
+        // Establecer valores por defecto
         auxiliar.setEstado("ACTIVO");
+        auxiliar.setFechaUlt(LocalDate.now());
+        auxiliar.setUsuario(usuarioNombre);
+        if (usuario != null) {
+            auxiliar.setRegistroIdUsuario(usuario.getIdUsuario());
+        }
+        
+        // Obtener ENTIDAD y UNIDAD desde el predio
+        String entidadCode = "UAP"; // O desde configuración
+        String unidadCode = "0000";  // Valor por defecto
+        
+        if (auxiliar.getPredio() != null && auxiliar.getPredio().getCodigo() != null) {
+            unidadCode = auxiliar.getPredio().getCodigo();
+        }
+        
+        // Verificar si ya existe en DBF
+        Short codCont = auxiliar.getGrupoContable() != null ? 
+                       Short.valueOf(auxiliar.getGrupoContable().getCodContable().toString()) : null;
+        Short codAux = auxiliar.getCodAux();
+        
+        if (codCont != null && codAux != null) {
+            if (auxiliarDbfWriterService.existsByCodContYCodAux(codCont, codAux, entidadCode, unidadCode)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "ok", false,
+                    "msg", "Ya existe un auxiliar con CODCONT=" + codCont + " y CODAUX=" + codAux + " en el DBF"
+                ));
+            }
+        }
+        
+        // 1) Guardar en PostgreSQL
         auxiliarService.save(auxiliar);
-        return ResponseEntity.ok("Se realizó el registro correctamente");
+        
+        // 2) Insertar en auxiliar.DBF
+        try {
+            auxiliarDbfWriterService.insertarDesdeAuxiliar(auxiliar, entidadCode, unidadCode, usuarioNombre);
+            log.info("Auxiliar {} registrado en PostgreSQL y DBF", auxiliar.getIdAuxiliar());
+        } catch (Exception e) {
+            log.error("Error insertando auxiliar en DBF: {}", e.getMessage(), e);
+            // Opcional: podrías hacer rollback del PostgreSQL aquí
+            return ResponseEntity.status(500).body(Map.of(
+                "ok", false,
+                "msg", "Se guardó en la base de datos pero falló el registro en DBF: " + e.getMessage()
+            ));
+        }
+        
+        return ResponseEntity.ok(Map.of(
+            "ok", true,
+            "msg", "Se realizó el registro correctamente en PostgreSQL y DBF",
+            "id", auxiliar.getIdAuxiliar()
+        ));
+    }
+
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/modificar-auxiliar")
+    public ResponseEntity<?> modificar_auxiliar(
+            HttpServletRequest request,
+            @Validated @ModelAttribute Auxiliar auxiliarForm,
+            BindingResult br) {
+        
+        if (br.hasErrors()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "ok", false,
+                "errors", br.getFieldErrors().stream()
+                        .map(e -> Map.of("field", e.getField(), "message", e.getDefaultMessage()))
+                        .toList()
+            ));
+        }
+        
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        String usuarioNombre = (usuario != null ? usuario.getUsuario() : "SISTEMA");
+        
+        // Obtener el auxiliar original
+        Auxiliar auxiliarOriginal = auxiliarService.findById(auxiliarForm.getIdAuxiliar());
+        if (auxiliarOriginal == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "ok", false,
+                "msg", "No se encontró el auxiliar con ID: " + auxiliarForm.getIdAuxiliar()
+            ));
+        }
+        
+        // Guardar valores originales para buscar en DBF
+        Short codContOriginal = auxiliarOriginal.getGrupoContable() != null ? 
+                               Short.valueOf(auxiliarOriginal.getGrupoContable().getCodContable().toString()) : null;
+        Short codAuxOriginal = auxiliarOriginal.getCodAux();
+        String entidadOriginal = "UAP";
+        String unidadOriginal = auxiliarOriginal.getPredio() != null ? 
+                               auxiliarOriginal.getPredio().getCodigo() : "0000";
+        
+        // Actualizar campos
+        auxiliarOriginal.setGrupoContable(auxiliarForm.getGrupoContable());
+        auxiliarOriginal.setPredio(auxiliarForm.getPredio());
+        auxiliarOriginal.setCodAux(auxiliarForm.getCodAux());
+        auxiliarOriginal.setNombre(auxiliarForm.getNombre());
+        auxiliarOriginal.setFechaUlt(LocalDate.now());
+        auxiliarOriginal.setUsuario(usuario.getUsuario());
+        if (usuario != null) {
+            auxiliarOriginal.setModificacionIdUsuario(usuario.getIdUsuario());
+        }
+        auxiliarOriginal.setEstado("ACTIVO");
+        
+        // 1) Guardar en PostgreSQL
+        auxiliarService.save(auxiliarOriginal);
+        
+        // 2) Actualizar en auxiliar.DBF
+        try {
+            String entidadCode = "UAP";
+            String unidadCode = auxiliarOriginal.getPredio() != null ? 
+                               auxiliarOriginal.getPredio().getCodigo() : "0000";
+            
+            auxiliarDbfWriterService.actualizarDesdeAuxiliar(
+                codContOriginal,
+                codAuxOriginal,
+                entidadOriginal,
+                unidadOriginal,
+                auxiliarOriginal,
+                entidadCode,
+                unidadCode,
+                usuarioNombre
+            );
+            
+            log.info("Auxiliar {} actualizado en PostgreSQL y DBF", auxiliarOriginal.getIdAuxiliar());
+            
+        } catch (Exception e) {
+            log.error("Error actualizando auxiliar en DBF: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of(
+                "ok", false,
+                "msg", "Se guardó en la base de datos pero falló la actualización en DBF: " + e.getMessage()
+            ));
+        }
+        
+        return ResponseEntity.ok(Map.of(
+            "ok", true,
+            "msg", "Se modificó correctamente en PostgreSQL y DBF"
+        ));
     }
 
     @ValidarUsuarioAutenticado
@@ -156,11 +309,7 @@ public class AuxiliarController {
         return ResponseEntity.ok("Registro Eliminado");
     }
 
-    String key(long predioId, long grupoId, short codAux) {
-        return predioId + "|" + grupoId + "|" + codAux;
-    }
-
-    // SYNC: AUXILIAR.DBF -> upsert por (Predio, GrupoContable, codAux)
+    /*SINCRONIZADOR DBF - BD*/
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
     @ResponseBody
@@ -179,7 +328,6 @@ public class AuxiliarController {
                     continue;
                 }
 
-                // Resolver ENTIDAD (0148/148)
                 String cod = f.getEntidadCodigo();
                 String codNoZeros = stripLeftZeros(cod);
                 String codPad4 = leftPad4(cod);
@@ -215,12 +363,11 @@ public class AuxiliarController {
                 }
 
                 String k = predio.getIdPredio() + "|" + grupo.getIdGrupoContable() + "|" + f.getCodAux();
-                if (cache.containsKey(k)) { // el DBF trajo repetidos
+                if (cache.containsKey(k)) { 
                     repetidos++;
                     continue;
                 }
 
-                // Busca por IDs (evita líos de proxies)
                 Auxiliar aux = auxiliarService
                         .findByPredio_IdPredioAndGrupoContable_IdGrupoContableAndCodAux(predio.getIdPredio(), grupo.getIdGrupoContable(),
                                 f.getCodAux())
@@ -234,7 +381,6 @@ public class AuxiliarController {
                     aux.setCodAux(f.getCodAux());
                 }
 
-                // Campos de negocio
                 String nombre = (f.getNomAux() != null && !f.getNomAux().isBlank())
                         ? f.getNomAux().trim()
                         : ("AUX " + f.getCodAux());
@@ -275,7 +421,7 @@ public class AuxiliarController {
                     "sinEntidad", sinEntidad,
                     "sinPredio", sinPredio,
                     "sinGrupoContable", sinGrupo,
-                    "duplicadosEnDbf", repetidos // 👈 útil para diagnosticar
+                    "duplicadosEnDbf", repetidos
             ));
         } catch (Exception ex) {
             return ResponseEntity.internalServerError().body(Map.of(
@@ -284,8 +430,26 @@ public class AuxiliarController {
         }
     }
 
+    @ValidarUsuarioAutenticado
+    @GetMapping("/obtener-cod-auxiliar")
+    @ResponseBody
+    public Short obtenerCodAuxiliar(
+        @RequestParam("idPredio") Long idPredio,
+        @RequestParam("idGrupoContable") Long idGrupoContable) {
+        return auxiliarService.getNextCodAux(idPredio, idGrupoContable);
+    }
+
+    @ValidarUsuarioAutenticado
+    @GetMapping("/validar-nombre-unico")
+    @ResponseBody
+    public boolean validarNombreUnico(
+        @RequestParam("nombre") String nombre,
+        @RequestParam(value = "idAuxiliar", required = false) Long idAuxiliar) {
+        return auxiliarService.isNombreUnique(nombre, idAuxiliar);
+    }
+
     /* HELPERS */
-    
+
     private String stripLeftZeros(String s) {
         if (s == null)
             return null;
