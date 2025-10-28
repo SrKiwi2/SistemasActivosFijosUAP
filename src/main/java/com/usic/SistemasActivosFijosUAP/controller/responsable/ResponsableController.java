@@ -262,7 +262,6 @@ public class ResponsableController {
             @RequestParam(required = false) String paterno,
             @RequestParam(required = false) String materno,
             @RequestParam(required = false) String correo,
-            @RequestParam(required = false) Long idCargo,
             @RequestParam(required = false) String nombreCargoApi) {
         
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
@@ -394,20 +393,9 @@ public class ResponsableController {
 
             // Cargar cargo si se proporcionó
             Cargo cargo = null;
-            if (idCargo != null) {
-                // Opción 1: Se seleccionó un cargo existente desde el front-end (o API lo encontró)
-                cargo = cargoService.findById(idCargo);
-                
-                if (cargo == null) {
-                    return ResponseEntity.badRequest().body(Map.of(
-                        "ok", false,
-                        "msg", "No se encontró el Cargo con ID: " + idCargo
-                    ));
-                }
-            } 
             
-            // Opción 2: Si NO tiene ID de cargo, PERO tiene nombre de cargo sugerido de la API, buscar/crear.
-            else if (nombreCargoApi != null && !nombreCargoApi.trim().isEmpty()) {
+            // Si tenemos el nombre sugerido de la API, lo usamos para buscar o crear.
+            if (nombreCargoApi != null && !nombreCargoApi.trim().isEmpty()) {
                 Long idUsuario = (usuario != null) ? usuario.getIdUsuario() : null;
                 
                 // LLAMADA CLAVE: Busca el cargo por nombre o lo crea si no existe
@@ -415,6 +403,8 @@ public class ResponsableController {
                 
                 if (cargo != null) {
                     log.info("Cargo procesado: ID={} ({}).", cargo.getIdCargo(), cargo.getNombre());
+                } else {
+                    log.warn("El cargo '{}' sugerido no pudo ser encontrado ni creado.", nombreCargoApi);
                 }
             }
             
@@ -538,7 +528,7 @@ public class ResponsableController {
         // Llamar al método de registro normal pero sin validación de nombres similares
         
         return registrarResponsable(request, codigoApi, ci, codigoFuncionario, 
-                                   idOficina, nombre, paterno, materno, correo, idCargo, nombreCargoApi);
+                                   idOficina, nombre, paterno, materno, correo, nombreCargoApi);
     }
 
     // En ResponsableController
