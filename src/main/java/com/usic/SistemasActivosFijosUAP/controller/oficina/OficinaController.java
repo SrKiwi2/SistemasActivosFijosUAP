@@ -252,8 +252,43 @@ public class OficinaController {
                 "msg", "No se encontró la oficina con ID: " + oficinaForm.getIdOficina()
             ));
         }
-        Entidad entidad = oficinaOriginal.getPredio().getEntidad();
-        Predio preido = oficinaOriginal.getPredio();
+        // --- APLICACIÓN DE VERIFICACIONES DE NULIDAD ---
+    
+        // 1. Verificar Predio en oficinaOriginal
+        Predio predioOriginal = oficinaOriginal.getPredio();
+        if (predioOriginal == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "ok", false,
+                "msg", "Error: La oficina original no tiene un Predio asociado."
+            ));
+        }
+        
+        // 2. Verificar Entidad en predioOriginal
+        Entidad entidad = predioOriginal.getEntidad();
+        if (entidad == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "ok", false,
+                "msg", "Error: El Predio original no tiene una Entidad asociada."
+            ));
+        }
+
+        // 3. Verificar Predio en oficinaForm
+        if (oficinaForm.getPredio() == null || oficinaForm.getPredio().getIdPredio() == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "ok", false,
+                "msg", "Error: El formulario no proporciona el ID de Predio para la modificación."
+            ));
+        }
+
+        // 4. Buscar Predio actualizado (usando el ID del formulario)
+        Predio preido = predioServicio.findById(oficinaForm.getPredio().getIdPredio());
+        if (preido == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "ok", false,
+                "msg", "Error: El Predio con ID " + oficinaForm.getPredio().getIdPredio() + " no fue encontrado."
+            ));
+        }
+
         // Guardar valores originales para buscar en DBF
         Short codOficOriginal = oficinaOriginal.getCodOfi();
         String entidadOriginal = entidad.getEntidadCodigo();
@@ -276,7 +311,7 @@ public class OficinaController {
         
         // 2) Actualizar en OFICINA.DBF
         try {
-            String entidadCode = entidad.getEntidadCodigo();
+            String entidadCode = preido.getEntidad().getEntidadCodigo();
             String unidadCode = preido.getUnidad();
             
             oficinaDbfWriterService.actualizarDesdeOficina(
