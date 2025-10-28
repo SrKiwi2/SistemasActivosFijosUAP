@@ -1,22 +1,22 @@
 <div class="modal-header">
-    <h4 class="modal-title">Registrar Responsable'</h4>
+    <h4 class="modal-title">Registrar Responsable</h4>
     <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
 </div>
 <form id="formularioResponsable" method="post" th:action="@{/administracion/responsable/registrar-responsable}"
     novalidate>
     <input type="hidden" th:if="${edit != null}" th:field="*{responsable.idResponsable}">
 
-    <input type="hidden" id="idPersona" name="persona.idPersona" th:field="*{responsable.persona.idPersona}">
-    <input type="hidden" id="idCargo" name="cargo.idCargo" th:field="*{responsable.cargo.idCargo}">
+    <input type="hidden" id="idPersona" th:field="*{responsable.persona.idPersona}">
+    <input type="hidden" id="idCargo" th:field="*{responsable.cargo.idCargo}">
 
     <div class="modal-body">
         <div class="row">
             <div class="col-12 col-md-4 mb-2">
-                <label class="form-label">Código Funcionario</label>
+                <label class="form-label">Código Funcionario (API)</label>
                 <input type="text" id="codigoFuncionarioInput" name="codigoFuncionario" class="form-control" required />
             </div>
             <div class="col-12 col-md-4 mb-2">
-                <label class="form-label">C.I.</label>
+                <label class="form-label">C.I. (API)</label>
                 <input type="text" id="ciInput" name="ci" class="form-control" required />
             </div>
             <div class="col-12 col-md-4 mb-2 d-flex align-items-end">
@@ -26,56 +26,84 @@
 
         <hr>
 
-        <div id="datosResponsableDiv" style="display:none;">
-            <div class="row">
-                <div class="col-12 col-md-6 mb-2">
-                    <label class="form-label">Nombre Completo</label>
-                    <input type="text" id="nombreCompletoApi" class="form-control" readonly />
-                </div>
-                <div class="col-12 col-md-6 mb-2">
-                    <label class="form-label">Correo</label>
-                    <input type="text" id="correoApi" class="form-control" readonly />
-                </div>
-                <div class="col-12 col-md-6 mb-2">
-                    <label class="form-label">Cargo Sugerido (API)</label>
-                    <input type="text" id="cargoApi" class="form-control" readonly />
-                </div>
-                <div class="col-12 col-md-6 mb-2">
-                    <label class="form-label">Oficina (Seleccione)</label>
-                    <select th:field="*{responsable.oficina.idOficina}" class="form-select select2it" required>
-                        <option value="">Seleccione Oficina...</option>
-                        <option th:each="o : ${oficinas}" th:value="${o.idOficina}" th:text="${o.nombre}"></option>
-                    </select>
-                </div>
-
-                <div class="col-12 col-md-4 mb-2">
-                    <label class="form-label">Código Funcionario (Final)</label>
-                    <input type="text" th:field="*{responsable.codigoFuncionario}" id="codFuncFinalInput" class="form-control" required />
-                </div>
-
+        <div id="datosResponsableDiv" class="row"> 
+            
+            <div class="col-12 col-md-6 mb-2">
+                <label class="form-label">Nombre Completo</label>
+                <input type="text" id="nombreCompletoApi" class="form-control" readonly />
             </div>
-        </div>
+            <div class="col-12 col-md-6 mb-2">
+                <label class="form-label">Correo</label>
+                <input type="text" id="correoApi" class="form-control" readonly />
+            </div>
+            
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label">Cargo Sugerido (API)</label>
+                <input type="text" id="cargoApi" class="form-control" readonly />
+            </div>
+            
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label">Oficina</label>
+                <select th:field="*{responsable.oficina.idOficina}" id="selectOficina" class="form-select select2it" required>
+                    <option value="">Seleccione Oficina...</option>
+                    <option th:each="o : ${oficinas}" th:value="${o.idOficina}" th:text="${o.nombre}"></option>
+                </select>
+            </div>
 
+            <div class="col-12 col-md-4 mb-2">
+                <label class="form-label">Código Funcionario (Final)</label>
+                <input type="text" th:field="*{responsable.codigoFuncionario}" id="codFuncFinalInput" class="form-control" required readonly /> 
+            </div>
+
+        </div>
     </div>
 
+    <div class="modal-footer">
+        <div class="row">
+            <div class="col-12">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
+            </div>
+        </div>
+    </div>
 </form>
 
 <script>
     manejarEnvioFormulario('#formularioResponsable');
 
-    // Referencias a los nuevos elementos
     const $codFuncInput = document.getElementById('codigoFuncionarioInput');
     const $ciInput = document.getElementById('ciInput');
     const $consultarBtn = document.getElementById('consultarApiBtn');
     const $datosDiv = document.getElementById('datosResponsableDiv');
-
-    // Campos a rellenar
+    
     const $nombreCompletoApi = document.getElementById('nombreCompletoApi');
     const $correoApi = document.getElementById('correoApi');
     const $cargoApi = document.getElementById('cargoApi');
-    const $idPersonaHidden = document.getElementById('idPersona');
-    const $idCargoHidden = document.getElementById('idCargo');
     const $codFuncFinal = document.getElementById('codFuncFinalInput');
+    const $selectOficina = document.getElementById('selectOficina');
+
+    function obtenerCorrelativoCodigoFuncionario() {
+        const idOficina = $selectOficina.value;
+
+        if (!idOficina) {
+            $codFuncFinal.value = '';
+            return;
+        }
+
+        const url = `[[@{/administracion/responsable/obtener-siguiente-codigo-funcionario}]]?idOficina=${idOficina}`;
+        fetch(url)
+            .then(response => {
+                if (!response.ok) throw new Error('Error al obtener el correlativo.');
+                return response.text();
+            })
+            .then(siguienteCodigo => {
+                $codFuncFinal.value = siguienteCodigo.trim();
+            })
+            .catch(error => {
+                console.error('Error al obtener el correlativo:', error);
+                $codFuncFinal.value = '';
+            });
+    }
 
     function consultarApi() {
         const codigoFuncionario = $codFuncInput.value.trim();
@@ -87,6 +115,10 @@
         }
 
         const url = `[[@{/administracion/responsable/consultar-api-datos}]]?codigoFuncionario=${codigoFuncionario}&ci=${ci}`;
+
+        if (typeof showGlobalLoader === 'function') {
+            showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Consultando API...' });
+        }
 
         fetch(url)
             .then(response => {
@@ -105,19 +137,29 @@
                 $nombreCompletoApi.value = `${data.nombre} ${data.paterno} ${data.materno || ''}`;
                 $correoApi.value = data.correo || 'N/A';
                 $cargoApi.value = data.nombreCargoApi || 'N/A';
-                $datosDiv.style.display = 'block';
-
-                if (!$codFuncFinal.value) {
-                    $codFuncFinal.value = codigoFuncionario;
-                }
-
             })
             .catch(error => {
                 console.error('Error:', error);
                 alert('Error en la consulta. Revise el Código Funcionario y C.I.');
-                $datosDiv.style.display = 'none';
+                $nombreCompletoApi.value = '';
+                $correoApi.value = '';
+                $cargoApi.value = '';
+            })
+            .finally(() => {
+                if (typeof hideGlobalLoader === 'function') {
+                    hideGlobalLoader();
+                }
             });
     }
 
     $consultarBtn.addEventListener('click', consultarApi);
+    $selectOficina.addEventListener('change', obtenerCorrelativoCodigoFuncionario);
+
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            if ($selectOficina.value) {
+                obtenerCorrelativoCodigoFuncionario();
+            }
+        }, 100); 
+    });
 </script>

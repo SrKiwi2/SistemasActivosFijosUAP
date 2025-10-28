@@ -224,6 +224,17 @@ public class ResponsableController {
         return "responsable/formulario";
     }
 
+    @GetMapping("/obtener-siguiente-codigo-funcionario")
+    @ResponseBody
+    public Short obtenerSiguienteCodigoFuncionario(@RequestParam("idOficina") Long idOficina) {
+        String codigoStr = funcionesResponsableRepo.siguienteCodigoPorOficinaStr(idOficina);
+        try {
+            return Short.parseShort(codigoStr); 
+        } catch (Exception e) {
+            return 1; 
+        }
+    }
+
     @GetMapping("/consultar-api-datos")
     @ResponseBody
     public ResponseEntity<ResponsableApiDataDTO> consultarApiDatos(
