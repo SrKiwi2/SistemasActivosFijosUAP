@@ -178,7 +178,7 @@ public class AuxiliarController {
         String unidadCode = predioCompleto.getUnidad();
         
         if (auxiliar.getPredio() != null && auxiliar.getPredio().getCodigo() != null) {
-            unidadCode = auxiliar.getPredio().getCodigo();
+            unidadCode = auxiliar.getPredio().getUnidad();
         }
         
         // Verificar si ya existe en DBF
