@@ -12,7 +12,6 @@
                 <label class="form-label">Código Funcionario (API) - Opcional</label>
                 <input type="text" id="codigoFuncionarioInput" name="codigoApi" class="form-control"
                     placeholder="Opcional - Si consulta API" />
-                <small class="text-muted">Opcional: Solo si consultas la API</small>
             </div>
             
             <div class="col-12 col-md-4 mb-2">
@@ -27,10 +26,12 @@
         <hr>
         
         <div id="datosResponsableDiv" class="row">
+            <!-- Campos hidden para datos de la API -->
             <input type="hidden" id="nombreInput" name="nombre">
             <input type="hidden" id="paternoInput" name="paterno">
             <input type="hidden" id="maternoInput" name="materno">
             <input type="hidden" id="correoInput" name="correo">
+            <input type="hidden" id="idCargoInput" name="idCargo">
             
             <div class="col-12 col-md-6 mb-2">
                 <label class="form-label">Nombre Completo</label>
@@ -44,11 +45,12 @@
             
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">Cargo Sugerido (API)</label>
-                <input type="text" id="cargoApi" name="nombreCargoApi" class="form-control" readonly />
+                <input type="text" id="cargoApi" class="form-control" readonly />
             </div>
             
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">Oficina</label>
+                <!-- ✅ CAMBIADO: name="idOficina" en lugar de th:field -->
                 <select id="selectOficina" name="idOficina" class="form-select select2it" required>
                     <option value="">Seleccione Oficina...</option>
                     <option th:each="o : ${oficinas}" th:value="${o.idOficina}" th:text="${o.nombre}"></option>
@@ -57,6 +59,7 @@
             
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">Código Funcionario (Final)</label>
+                <!-- ✅ CAMBIADO: name="codigoFuncionario" en lugar de th:field -->
                 <input type="text" id="codFuncFinalInput" name="codigoFuncionario" 
                        class="form-control" required readonly />
             </div>
@@ -84,6 +87,7 @@
         const $codFuncFinal = document.getElementById('codFuncFinalInput');
         const $selectOficina = document.getElementById('selectOficina');
         
+        // Campos hidden para enviar al servidor
         const $nombreInput = document.getElementById('nombreInput');
         const $paternoInput = document.getElementById('paternoInput');
         const $maternoInput = document.getElementById('maternoInput');
@@ -121,6 +125,7 @@
                 return;
             }
             
+            // Si no hay código de funcionario API, solo validar CI y continuar
             if (!codigoFuncionario) {
                 console.log('No se proporcionó código de funcionario API, continuando solo con CI');
                 return;
@@ -145,10 +150,12 @@
                         return;
                     }
                     
+                    // Llenar campos visibles
                     $nombreCompletoApi.value = `${data.nombre} ${data.paterno} ${data.materno || ''}`.trim();
                     $correoApi.value = data.correo || 'N/A';
                     $cargoApi.value = data.nombreCargoApi || 'N/A';
                     
+                    // ✅ Llenar campos hidden para enviar al servidor
                     $nombreInput.value = data.nombre || '';
                     $paternoInput.value = data.paterno || '';
                     $maternoInput.value = data.materno || '';
@@ -176,6 +183,7 @@
             setTimeout(obtenerCorrelativoCodigoFuncionario, 100);
         }
         
+        // ===== MANEJO DEL SUBMIT =====
         const form = document.getElementById('formularioResponsable');
         
         form.addEventListener('submit', async function (e) {
@@ -189,6 +197,7 @@
             
             const formData = new FormData(form);
             
+            // Log para debug
             console.log('Datos del formulario:');
             for (let [key, value] of formData.entries()) {
                 console.log(`${key}: ${value}`);
@@ -203,8 +212,10 @@
                 });
                 
                 hideGlobalLoader();
+                
                 const data = await response.json();
-            
+                
+                // Caso especial: Personas coincidentes
                 if (response.status === 409 && data.requireConfirmacion) {
                     const confirmar = confirm(data.msg);
                     

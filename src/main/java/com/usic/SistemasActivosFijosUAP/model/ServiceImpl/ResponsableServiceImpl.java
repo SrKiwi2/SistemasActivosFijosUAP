@@ -129,13 +129,6 @@ public class ResponsableServiceImpl implements IResponsableService{
     @Override
     public ResponsableApiDataDTO getResponsableDataFromApi(String codigoFuncionarioApi, String ci) {
         
-        Responsable responsableExistente = this.buscarPorCodigo(codigoFuncionarioApi);
-        if (responsableExistente != null) {
-            ResponsableApiDataDTO dto = new ResponsableApiDataDTO();
-            dto.setYaEsResponsable(true);
-            return dto;
-        }
-
         Map<String, Object> datos = consumirApiExterna(codigoFuncionarioApi, ci);
 
         String nombre = (String) datos.get("per_nombres");
