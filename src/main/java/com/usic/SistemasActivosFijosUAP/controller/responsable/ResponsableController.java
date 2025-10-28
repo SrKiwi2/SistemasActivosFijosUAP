@@ -262,7 +262,7 @@ public class ResponsableController {
             @RequestParam(required = false) String paterno,
             @RequestParam(required = false) String materno,
             @RequestParam(required = false) String correo,
-            @RequestParam(required = false) String nombreCargoApi) {
+            @RequestParam(required = false) String cargoApi) {
         
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
@@ -395,16 +395,16 @@ public class ResponsableController {
             Cargo cargo = null;
             
             // Si tenemos el nombre sugerido de la API, lo usamos para buscar o crear.
-            if (nombreCargoApi != null && !nombreCargoApi.trim().isEmpty()) {
+            if (cargoApi != null && !cargoApi.trim().isEmpty()) {
                 Long idUsuario = (usuario != null) ? usuario.getIdUsuario() : null;
                 
                 // LLAMADA CLAVE: Busca el cargo por nombre o lo crea si no existe
-                cargo = cargoService.buscarOCrearPorNombre(nombreCargoApi, idUsuario);
+                cargo = cargoService.buscarOCrearPorNombre(cargoApi, idUsuario);
                 
                 if (cargo != null) {
                     log.info("Cargo procesado: ID={} ({}).", cargo.getIdCargo(), cargo.getNombre());
                 } else {
-                    log.warn("El cargo '{}' sugerido no pudo ser encontrado ni creado.", nombreCargoApi);
+                    log.warn("El cargo '{}' sugerido no pudo ser encontrado ni creado.", cargoApi);
                 }
             }
             
