@@ -498,10 +498,10 @@ public class ActivosController {
 
         // ====== prepara códigos mínimos requeridos por DBF ======
         // ⚠️ AJUSTA: cómo obtienes ENTIDAD y UNIDAD para ACTUAL.DBF
-        String entidadCode = "UAP"; // o desde configuración (ApplicationProperties)
-        String unidadCode  = (a.getOficina() != null && a.getOficina().getCodOfi() != null)
-                ? a.getOficina().getCodOfi().toString()
-                : "0000"; // fallback
+        Entidad entidad = a.getOficina().getPredio().getEntidad();
+        String entidadCode = entidad.getEntidadCodigo(); // o desde configuración (ApplicationProperties)
+        Predio predio = a.getOficina().getPredio();
+        String unidadCode  = predio.getUnidad(); // fallback
         String usuario = usuarios.getUsuario();
 
         // 1) Insertar en ACTUAL.DBF (si no existe ya por CODIGO)
