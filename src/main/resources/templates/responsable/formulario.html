@@ -4,11 +4,8 @@
 </div>
 <form id="formularioResponsable" method="post" th:action="@{/administracion/responsable/registrar-responsable}"
     novalidate>
-    <input type="hidden" th:if="${edit != null}" th:field="*{responsable.idResponsable}">
-
-    <input type="hidden" id="idPersona" th:field="*{responsable.persona.idPersona}">
-    <input type="hidden" id="idCargo" th:field="*{responsable.cargo.idCargo}">
-
+    <input type="hidden" th:if="${edit != null}" name="idResponsable">
+    
     <div class="modal-body">
         <div class="row">
             <div class="col-12 col-md-4 mb-2">
@@ -17,164 +14,94 @@
                     placeholder="Opcional - Si consulta API" />
                 <small class="text-muted">Opcional: Solo si consultas la API</small>
             </div>
+            
             <div class="col-12 col-md-4 mb-2">
-                <label class="form-label">C.I. (API)</label>
+                <label class="form-label">C.I.</label>
                 <input type="text" id="ciInput" name="ci" class="form-control" required />
             </div>
+            
             <div class="col-12 col-md-4 mb-2 d-flex align-items-end">
                 <button type="button" id="consultarApiBtn" class="btn btn-primary w-100">Consultar API</button>
             </div>
         </div>
-
         <hr>
-
+        
         <div id="datosResponsableDiv" class="row">
-
+            <!-- Campos hidden para datos de la API -->
+            <input type="hidden" id="nombreInput" name="nombre">
+            <input type="hidden" id="paternoInput" name="paterno">
+            <input type="hidden" id="maternoInput" name="materno">
+            <input type="hidden" id="correoInput" name="correo">
+            <input type="hidden" id="idCargoInput" name="idCargo">
+            
             <div class="col-12 col-md-6 mb-2">
                 <label class="form-label">Nombre Completo</label>
                 <input type="text" id="nombreCompletoApi" class="form-control" readonly />
             </div>
+            
             <div class="col-12 col-md-6 mb-2">
                 <label class="form-label">Correo</label>
                 <input type="text" id="correoApi" class="form-control" readonly />
             </div>
-
+            
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">Cargo Sugerido (API)</label>
                 <input type="text" id="cargoApi" class="form-control" readonly />
             </div>
-
+            
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">Oficina</label>
-                <select th:field="*{responsable.oficina.idOficina}" id="selectOficina" class="form-select select2it"
-                    required>
+                <!-- ✅ CAMBIADO: name="idOficina" en lugar de th:field -->
+                <select id="selectOficina" name="idOficina" class="form-select select2it" required>
                     <option value="">Seleccione Oficina...</option>
                     <option th:each="o : ${oficinas}" th:value="${o.idOficina}" th:text="${o.nombre}"></option>
                 </select>
             </div>
-
+            
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">Código Funcionario (Final)</label>
-                <input type="text" th:field="*{responsable.codigoFuncionario}" id="codFuncFinalInput"
-                    class="form-control" required readonly />
+                <!-- ✅ CAMBIADO: name="codigoFuncionario" en lugar de th:field -->
+                <input type="text" id="codFuncFinalInput" name="codigoFuncionario" 
+                       class="form-control" required readonly />
             </div>
-
         </div>
     </div>
-
+    
     <div class="modal-footer">
         <div class="row">
             <div class="col-12">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
+                <input type="submit" class="btn btn-success" value="Guardar Registro">
             </div>
         </div>
     </div>
 </form>
 
 <script>
-
     function inicializarFormularioResponsable() {
-
-        const form = document.getElementById('formularioResponsable');
-
-        form.addEventListener('submit', async function (e) {
-            e.preventDefault();
-
-            if (!form.checkValidity()) {
-                e.stopPropagation();
-                form.classList.add('was-validated');
-                return;
-            }
-
-            const formData = new FormData(form);
-
-            showGlobalLoader({ texto: 'Guardando...' });
-
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                hideGlobalLoader();
-
-                const data = await response.json();
-
-                // Caso especial: Personas coincidentes
-                if (response.status === 409 && data.requireConfirmacion) {
-                    const confirmar = confirm(data.msg);
-
-                    if (confirmar) {
-                        // Forzar creación de nueva persona
-                        formData.append('forzarCreacion', 'true');
-                        showGlobalLoader({ texto: 'Creando nueva persona...' });
-
-                        const response2 = await fetch('/administracion/responsable/registrar-responsable-forzado', {
-                            method: 'POST',
-                            body: formData
-                        });
-
-                        hideGlobalLoader();
-                        const data2 = await response2.json();
-
-                        if (data2.ok) {
-                            alert(data2.msg);
-                            cerrarModalYRecargar();
-                        } else {
-                            throw new Error(data2.msg);
-                        }
-                    }
-                    return;
-                }
-
-                if (!response.ok || !data.ok) {
-                    throw new Error(data.msg || 'Error al guardar');
-                }
-
-                alert(data.msg || 'Guardado correctamente');
-                cerrarModalYRecargar();
-
-            } catch (error) {
-                hideGlobalLoader();
-                console.error('Error:', error);
-                alert('Error al guardar: ' + error.message);
-            }
-        });
-
-        function cerrarModalYRecargar() {
-            const modal = bootstrap.Modal.getInstance(document.getElementById('modalResponsable'));
-            if (modal) {
-                modal.hide();
-            }
-
-            if (window.$ && $('#data-table-responsable').length) {
-                $('#data-table-responsable').DataTable().ajax.reload(null, false);
-            }
-
-            form.reset();
-            form.classList.remove('was-validated');
-        }
-
         const $codFuncInput = document.getElementById('codigoFuncionarioInput');
         const $ciInput = document.getElementById('ciInput');
         const $consultarBtn = document.getElementById('consultarApiBtn');
-        const $datosDiv = document.getElementById('datosResponsableDiv');
-
         const $nombreCompletoApi = document.getElementById('nombreCompletoApi');
         const $correoApi = document.getElementById('correoApi');
         const $cargoApi = document.getElementById('cargoApi');
         const $codFuncFinal = document.getElementById('codFuncFinalInput');
         const $selectOficina = document.getElementById('selectOficina');
-
+        
+        // Campos hidden para enviar al servidor
+        const $nombreInput = document.getElementById('nombreInput');
+        const $paternoInput = document.getElementById('paternoInput');
+        const $maternoInput = document.getElementById('maternoInput');
+        const $correoInput = document.getElementById('correoInput');
+        const $idCargoInput = document.getElementById('idCargoInput');
+        
         function obtenerCorrelativoCodigoFuncionario() {
             const idOficina = $selectOficina.value;
-
             if (!idOficina) {
                 $codFuncFinal.value = '';
                 return;
             }
-
+            
             const url = `[[@{/administracion/responsable/obtener-siguiente-codigo-funcionario}]]?idOficina=${idOficina}`;
             fetch(url)
                 .then(response => {
@@ -189,22 +116,28 @@
                     $codFuncFinal.value = '';
                 });
         }
-
+        
         function consultarApi() {
             const codigoFuncionario = $codFuncInput.value.trim();
             const ci = $ciInput.value.trim();
-
-            if (!codigoFuncionario || !ci) {
-                alert('Por favor, ingrese el Código Funcionario y el C.I.');
+            
+            if (!ci) {
+                alert('Por favor, ingrese el C.I.');
                 return;
             }
-
-            const url = `[[@{/administracion/responsable/consultar-api-datos}]]?codigoFuncionario=${codigoFuncionario}&ci=${ci}`;
-
-            if (typeof showGlobalLoader === 'function') {
-                showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Consultando API...' });
+            
+            // Si no hay código de funcionario API, solo validar CI y continuar
+            if (!codigoFuncionario) {
+                console.log('No se proporcionó código de funcionario API, continuando solo con CI');
+                return;
             }
-
+            
+            const url = `[[@{/administracion/responsable/consultar-api-datos}]]?codigoFuncionario=${codigoFuncionario}&ci=${ci}`;
+            
+            if (typeof showGlobalLoader === 'function') {
+                showGlobalLoader({ texto: 'Consultando API...' });
+            }
+            
             fetch(url)
                 .then(response => {
                     if (!response.ok) {
@@ -215,17 +148,24 @@
                 .then(data => {
                     if (data.yaEsResponsable) {
                         alert('¡Advertencia! Este Código Funcionario ya está registrado.');
-                        $datosDiv.style.display = 'none';
                         return;
                     }
-
-                    $nombreCompletoApi.value = `${data.nombre} ${data.paterno} ${data.materno || ''}`;
+                    
+                    // Llenar campos visibles
+                    $nombreCompletoApi.value = `${data.nombre} ${data.paterno} ${data.materno || ''}`.trim();
                     $correoApi.value = data.correo || 'N/A';
                     $cargoApi.value = data.nombreCargoApi || 'N/A';
+                    
+                    // ✅ Llenar campos hidden para enviar al servidor
+                    $nombreInput.value = data.nombre || '';
+                    $paternoInput.value = data.paterno || '';
+                    $maternoInput.value = data.materno || '';
+                    $correoInput.value = data.correo || '';
+                    $idCargoInput.value = data.idCargo || '';
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Error en la consulta. Revise el Código Funcionario y C.I.');
+                    alert('Error en la consulta. Puede continuar con el registro manual.');
                     $nombreCompletoApi.value = '';
                     $correoApi.value = '';
                     $cargoApi.value = '';
@@ -236,14 +176,100 @@
                     }
                 });
         }
-
+        
         $consultarBtn.addEventListener('click', consultarApi);
         $selectOficina.addEventListener('change', obtenerCorrelativoCodigoFuncionario);
-
+        
         if ($selectOficina.value) {
             setTimeout(obtenerCorrelativoCodigoFuncionario, 100);
         }
-        manejarEnvioFormulario('#formularioResponsable');
+        
+        // ===== MANEJO DEL SUBMIT =====
+        const form = document.getElementById('formularioResponsable');
+        
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            
+            if (!form.checkValidity()) {
+                e.stopPropagation();
+                form.classList.add('was-validated');
+                return;
+            }
+            
+            const formData = new FormData(form);
+            
+            // Log para debug
+            console.log('Datos del formulario:');
+            for (let [key, value] of formData.entries()) {
+                console.log(`${key}: ${value}`);
+            }
+            
+            showGlobalLoader({ texto: 'Guardando...' });
+            
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                hideGlobalLoader();
+                
+                const data = await response.json();
+                
+                // Caso especial: Personas coincidentes
+                if (response.status === 409 && data.requireConfirmacion) {
+                    const confirmar = confirm(data.msg);
+                    
+                    if (confirmar) {
+                        formData.append('forzarCreacion', 'true');
+                        showGlobalLoader({ texto: 'Creando nueva persona...' });
+                        
+                        const response2 = await fetch('/administracion/responsable/registrar-responsable-forzado', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        hideGlobalLoader();
+                        const data2 = await response2.json();
+                        
+                        if (data2.ok) {
+                            alert(data2.msg);
+                            cerrarModalYRecargar();
+                        } else {
+                            throw new Error(data2.msg);
+                        }
+                    }
+                    return;
+                }
+                
+                if (!response.ok || !data.ok) {
+                    throw new Error(data.msg || 'Error al guardar');
+                }
+                
+                alert(data.msg || 'Guardado correctamente');
+                cerrarModalYRecargar();
+                
+            } catch (error) {
+                hideGlobalLoader();
+                console.error('Error:', error);
+                alert('Error al guardar: ' + error.message);
+            }
+        });
+        
+        function cerrarModalYRecargar() {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalResponsable'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            if (window.$ && $('#data-table-responsable').length) {
+                $('#data-table-responsable').DataTable().ajax.reload(null, false);
+            }
+            
+            form.reset();
+            form.classList.remove('was-validated');
+        }
     }
+    
     inicializarFormularioResponsable();
 </script>
