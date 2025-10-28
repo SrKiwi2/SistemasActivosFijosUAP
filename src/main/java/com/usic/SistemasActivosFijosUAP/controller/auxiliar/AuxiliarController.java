@@ -213,7 +213,7 @@ public class AuxiliarController {
         
         return ResponseEntity.ok(Map.of(
             "ok", true,
-            "msg", "Se realizó el registro correctamente en PostgreSQL y DBF",
+            "msg", "Se realizó el registro correctamente",
             "id", auxiliar.getIdAuxiliar()
         ));
     }

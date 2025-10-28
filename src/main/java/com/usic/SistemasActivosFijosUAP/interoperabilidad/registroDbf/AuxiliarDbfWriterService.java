@@ -97,7 +97,6 @@ public class AuxiliarDbfWriterService {
             try (InputStream fis = new FileInputStream(getAuxiliarDbfFile());
                  DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
                 
-                // Buscar índices de campos
                 int codContIndex = -1;
                 int codAuxIndex = -1;
                 int entidadIndex = -1;
@@ -117,12 +116,10 @@ public class AuxiliarDbfWriterService {
                     throw new RuntimeException("No se encontraron los campos CODCONT o CODAUX en auxiliar.DBF");
                 }
                 
-                // Buscar registro coincidente
                 Object[] record;
                 while ((record = reader.nextRecord()) != null) {
                     boolean match = true;
                     
-                    // Comparar CODCONT
                     if (codContIndex >= 0 && record[codContIndex] != null) {
                         Integer recCodCont = ((Number) record[codContIndex]).intValue();
                         if (!recCodCont.equals(codCont.intValue())) {
@@ -130,7 +127,6 @@ public class AuxiliarDbfWriterService {
                         }
                     }
                     
-                    // Comparar CODAUX
                     if (match && codAuxIndex >= 0 && record[codAuxIndex] != null) {
                         Short recCodAux = ((Number) record[codAuxIndex]).shortValue();
                         if (!recCodAux.equals(codAux)) {
@@ -138,7 +134,6 @@ public class AuxiliarDbfWriterService {
                         }
                     }
                     
-                    // Comparar ENTIDAD
                     if (match && entidadIndex >= 0 && record[entidadIndex] != null) {
                         String recEntidad = record[entidadIndex].toString().trim();
                         if (!recEntidad.equals(entidad)) {
@@ -146,7 +141,6 @@ public class AuxiliarDbfWriterService {
                         }
                     }
                     
-                    // Comparar UNIDAD
                     if (match && unidadIndex >= 0 && record[unidadIndex] != null) {
                         String recUnidad = record[unidadIndex].toString().trim();
                         if (!recUnidad.equals(unidad)) {
@@ -185,7 +179,6 @@ public class AuxiliarDbfWriterService {
                 List<Object[]> records = new ArrayList<>();
                 DBFField[] originalFields;
                 
-                // Leer todos los registros existentes
                 try (InputStream fis = new FileInputStream(dbfFile);
                      DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
                     
@@ -200,14 +193,12 @@ public class AuxiliarDbfWriterService {
                     }
                 }
                 
-                // Separar campos escribibles de los MEMO
                 List<DBFField> writableFieldsList = new ArrayList<>();
                 List<Integer> writableIndexes = new ArrayList<>();
                 
                 for (int i = 0; i < originalFields.length; i++) {
                     DBFField field = originalFields[i];
                     
-                    // Omitir solo campos MEMO (como OBSERV)
                     if (field.getType() != DBFDataType.MEMO) {
                         writableFieldsList.add(field);
                         writableIndexes.add(i);
@@ -218,17 +209,14 @@ public class AuxiliarDbfWriterService {
                 
                 DBFField[] writableFields = writableFieldsList.toArray(new DBFField[0]);
                 
-                // Crear el nuevo registro completo
                 Object[] newRecord = crearRegistroDesdeAuxiliar(auxiliar, entidadCode, unidadCode, usuario, originalFields);
                 records.add(newRecord);
                 
-                // Escribir archivo temporal (solo con campos soportados)
                 try (OutputStream fos = new FileOutputStream(tempFile);
                      DBFWriter writer = new DBFWriter(fos, Charset.forName("CP1252"))) {
                     
                     writer.setFields(writableFields);
-                    
-                    // Escribir cada registro filtrando solo los índices escribibles
+
                     for (Object[] record : records) {
                         Object[] writableRecord = new Object[writableIndexes.size()];
                         for (int i = 0; i < writableIndexes.size(); i++) {
@@ -238,7 +226,6 @@ public class AuxiliarDbfWriterService {
                     }
                 }
                 
-                // Crear respaldo del archivo original
                 File backupFile = new File(dbfFile.getParent(), "auxiliar_BACKUP.DBF");
                 if (backupFile.exists()) {
                     backupFile.delete();
@@ -253,7 +240,6 @@ public class AuxiliarDbfWriterService {
                     }
                 }
                 
-                // Reemplazar archivo original con el temporal
                 if (!dbfFile.delete()) {
                     throw new IOException("No se pudo eliminar auxiliar.DBF original");
                 }
@@ -296,13 +282,11 @@ public class AuxiliarDbfWriterService {
                 DBFField[] originalFields;
                 boolean encontrado = false;
                 
-                // Índices de campos clave
                 int codContIndex = -1;
                 int codAuxIndex = -1;
                 int entidadIndex = -1;
                 int unidadIndex = -1;
                 
-                // Leer archivo original
                 try (InputStream fis = new FileInputStream(dbfFile);
                      DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
                     
@@ -317,12 +301,10 @@ public class AuxiliarDbfWriterService {
                         else if ("UNIDAD".equals(fieldName)) unidadIndex = i;
                     }
                     
-                    // Leer todos los registros y actualizar el que coincida
                     Object[] record;
                     while ((record = reader.nextRecord()) != null) {
                         boolean match = true;
                         
-                        // Verificar coincidencia
                         if (codContIndex >= 0 && record[codContIndex] != null) {
                             Integer recCodCont = ((Number) record[codContIndex]).intValue();
                             if (!recCodCont.equals(codContOriginal.intValue())) {
@@ -352,7 +334,7 @@ public class AuxiliarDbfWriterService {
                         }
                         
                         if (match) {
-                            // Encontrado: reemplazar con datos actualizados
+
                             record = crearRegistroDesdeAuxiliar(auxiliar, entidadCode, unidadCode, usuario, originalFields);
                             encontrado = true;
                             log.info("Registro encontrado y actualizado: CODCONT={}, CODAUX={}", 
@@ -370,7 +352,6 @@ public class AuxiliarDbfWriterService {
                     );
                 }
                 
-                // Filtrar campos MEMO para escritura
                 List<DBFField> writableFieldsList = new ArrayList<>();
                 List<Integer> writableIndexes = new ArrayList<>();
                 
@@ -384,7 +365,6 @@ public class AuxiliarDbfWriterService {
                 
                 DBFField[] writableFields = writableFieldsList.toArray(new DBFField[0]);
                 
-                // Escribir archivo temporal
                 try (OutputStream fos = new FileOutputStream(tempFile);
                      DBFWriter writer = new DBFWriter(fos, Charset.forName("CP1252"))) {
                     
@@ -399,7 +379,6 @@ public class AuxiliarDbfWriterService {
                     }
                 }
                 
-                // Crear backup
                 File backupFile = new File(dbfFile.getParent(), "auxiliar_BACKUP.DBF");
                 if (backupFile.exists()) {
                     backupFile.delete();
@@ -414,7 +393,6 @@ public class AuxiliarDbfWriterService {
                     }
                 }
                 
-                // Reemplazar archivo
                 if (!dbfFile.delete()) {
                     throw new IOException("No se pudo eliminar auxiliar.DBF original");
                 }
@@ -463,7 +441,6 @@ public class AuxiliarDbfWriterService {
         LocalDate FEULT = LocalDate.now();
         String USUAR = (usuario != null ? usuario : "SISTEMA");
         
-        // Llenar el arreglo según el orden de los campos del DBF
         for (int i = 0; i < fields.length; i++) {
             String fieldName = fields[i].getName().toUpperCase();
             
@@ -473,7 +450,7 @@ public class AuxiliarDbfWriterService {
                 case "CODCONT" -> record[i] = CODCONT;
                 case "CODAUX" -> record[i] = CODAUX;
                 case "NOMAUX" -> record[i] = NOMAUX;
-                case "OBSERV" -> record[i] = null; // Campo MEMO - se omite
+                case "OBSERV" -> record[i] = null;
                 case "FEULT" -> record[i] = java.sql.Date.valueOf(FEULT);
                 case "USUAR" -> record[i] = USUAR;
                 default -> {
