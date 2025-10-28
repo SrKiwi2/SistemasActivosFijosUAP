@@ -26,8 +26,8 @@
 
         <hr>
 
-        <div id="datosResponsableDiv" class="row"> 
-            
+        <div id="datosResponsableDiv" class="row">
+
             <div class="col-12 col-md-6 mb-2">
                 <label class="form-label">Nombre Completo</label>
                 <input type="text" id="nombreCompletoApi" class="form-control" readonly />
@@ -36,15 +36,16 @@
                 <label class="form-label">Correo</label>
                 <input type="text" id="correoApi" class="form-control" readonly />
             </div>
-            
+
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">Cargo Sugerido (API)</label>
                 <input type="text" id="cargoApi" class="form-control" readonly />
             </div>
-            
+
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">Oficina</label>
-                <select th:field="*{responsable.oficina.idOficina}" id="selectOficina" class="form-select select2it" required>
+                <select th:field="*{responsable.oficina.idOficina}" id="selectOficina" class="form-select select2it"
+                    required>
                     <option value="">Seleccione Oficina...</option>
                     <option th:each="o : ${oficinas}" th:value="${o.idOficina}" th:text="${o.nombre}"></option>
                 </select>
@@ -52,7 +53,8 @@
 
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label">Código Funcionario (Final)</label>
-                <input type="text" th:field="*{responsable.codigoFuncionario}" id="codFuncFinalInput" class="form-control" required readonly /> 
+                <input type="text" th:field="*{responsable.codigoFuncionario}" id="codFuncFinalInput"
+                    class="form-control" required readonly />
             </div>
 
         </div>
@@ -69,97 +71,97 @@
 </form>
 
 <script>
-    manejarEnvioFormulario('#formularioResponsable');
 
-    const $codFuncInput = document.getElementById('codigoFuncionarioInput');
-    const $ciInput = document.getElementById('ciInput');
-    const $consultarBtn = document.getElementById('consultarApiBtn');
-    const $datosDiv = document.getElementById('datosResponsableDiv');
-    
-    const $nombreCompletoApi = document.getElementById('nombreCompletoApi');
-    const $correoApi = document.getElementById('correoApi');
-    const $cargoApi = document.getElementById('cargoApi');
-    const $codFuncFinal = document.getElementById('codFuncFinalInput');
-    const $selectOficina = document.getElementById('selectOficina');
+    function inicializarFormularioResponsable() {
 
-    function obtenerCorrelativoCodigoFuncionario() {
-        const idOficina = $selectOficina.value;
+        const $codFuncInput = document.getElementById('codigoFuncionarioInput');
+        const $ciInput = document.getElementById('ciInput');
+        const $consultarBtn = document.getElementById('consultarApiBtn');
+        const $datosDiv = document.getElementById('datosResponsableDiv');
 
-        if (!idOficina) {
-            $codFuncFinal.value = '';
-            return;
-        }
+        const $nombreCompletoApi = document.getElementById('nombreCompletoApi');
+        const $correoApi = document.getElementById('correoApi');
+        const $cargoApi = document.getElementById('cargoApi');
+        const $codFuncFinal = document.getElementById('codFuncFinalInput');
+        const $selectOficina = document.getElementById('selectOficina');
 
-        const url = `[[@{/administracion/responsable/obtener-siguiente-codigo-funcionario}]]?idOficina=${idOficina}`;
-        fetch(url)
-            .then(response => {
-                if (!response.ok) throw new Error('Error al obtener el correlativo.');
-                return response.text();
-            })
-            .then(siguienteCodigo => {
-                $codFuncFinal.value = siguienteCodigo.trim();
-            })
-            .catch(error => {
-                console.error('Error al obtener el correlativo:', error);
+        function obtenerCorrelativoCodigoFuncionario() {
+            const idOficina = $selectOficina.value;
+
+            if (!idOficina) {
                 $codFuncFinal.value = '';
-            });
-    }
-
-    function consultarApi() {
-        const codigoFuncionario = $codFuncInput.value.trim();
-        const ci = $ciInput.value.trim();
-
-        if (!codigoFuncionario || !ci) {
-            alert('Por favor, ingrese el Código Funcionario y el C.I.');
-            return;
-        }
-
-        const url = `[[@{/administracion/responsable/consultar-api-datos}]]?codigoFuncionario=${codigoFuncionario}&ci=${ci}`;
-
-        if (typeof showGlobalLoader === 'function') {
-            showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Consultando API...' });
-        }
-
-        fetch(url)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Error al consultar la API o datos no encontrados. Código: ' + response.status);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.yaEsResponsable) {
-                    alert('¡Advertencia! Este Código Funcionario ya está registrado.');
-                    $datosDiv.style.display = 'none';
-                    return;
-                }
-
-                $nombreCompletoApi.value = `${data.nombre} ${data.paterno} ${data.materno || ''}`;
-                $correoApi.value = data.correo || 'N/A';
-                $cargoApi.value = data.nombreCargoApi || 'N/A';
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error en la consulta. Revise el Código Funcionario y C.I.');
-                $nombreCompletoApi.value = '';
-                $correoApi.value = '';
-                $cargoApi.value = '';
-            })
-            .finally(() => {
-                if (typeof hideGlobalLoader === 'function') {
-                    hideGlobalLoader();
-                }
-            });
-    }
-
-    $consultarBtn.addEventListener('click', consultarApi);
-    $selectOficina.addEventListener('change', obtenerCorrelativoCodigoFuncionario);
-
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
-            if ($selectOficina.value) {
-                obtenerCorrelativoCodigoFuncionario();
+                return;
             }
-        }, 100); 
-    });
+
+            const url = `[[@{/administracion/responsable/obtener-siguiente-codigo-funcionario}]]?idOficina=${idOficina}`;
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) throw new Error('Error al obtener el correlativo.');
+                    return response.text();
+                })
+                .then(siguienteCodigo => {
+                    $codFuncFinal.value = siguienteCodigo.trim();
+                })
+                .catch(error => {
+                    console.error('Error al obtener el correlativo:', error);
+                    $codFuncFinal.value = '';
+                });
+        }
+
+        function consultarApi() {
+            const codigoFuncionario = $codFuncInput.value.trim();
+            const ci = $ciInput.value.trim();
+
+            if (!codigoFuncionario || !ci) {
+                alert('Por favor, ingrese el Código Funcionario y el C.I.');
+                return;
+            }
+
+            const url = `[[@{/administracion/responsable/consultar-api-datos}]]?codigoFuncionario=${codigoFuncionario}&ci=${ci}`;
+
+            if (typeof showGlobalLoader === 'function') {
+                showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Consultando API...' });
+            }
+
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error al consultar la API o datos no encontrados. Código: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.yaEsResponsable) {
+                        alert('¡Advertencia! Este Código Funcionario ya está registrado.');
+                        $datosDiv.style.display = 'none';
+                        return;
+                    }
+
+                    $nombreCompletoApi.value = `${data.nombre} ${data.paterno} ${data.materno || ''}`;
+                    $correoApi.value = data.correo || 'N/A';
+                    $cargoApi.value = data.nombreCargoApi || 'N/A';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error en la consulta. Revise el Código Funcionario y C.I.');
+                    $nombreCompletoApi.value = '';
+                    $correoApi.value = '';
+                    $cargoApi.value = '';
+                })
+                .finally(() => {
+                    if (typeof hideGlobalLoader === 'function') {
+                        hideGlobalLoader();
+                    }
+                });
+        }
+
+        $consultarBtn.addEventListener('click', consultarApi);
+        $selectOficina.addEventListener('change', obtenerCorrelativoCodigoFuncionario);
+
+        if ($selectOficina.value) {
+            setTimeout(obtenerCorrelativoCodigoFuncionario, 100);
+        }
+        manejarEnvioFormulario('#formularioResponsable');
+    }
+    inicializarFormularioResponsable();
 </script>
