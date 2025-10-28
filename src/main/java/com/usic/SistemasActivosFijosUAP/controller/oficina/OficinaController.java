@@ -2,6 +2,7 @@ package com.usic.SistemasActivosFijosUAP.controller.oficina;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -300,6 +301,7 @@ public class OficinaController {
         oficinaOriginal.setNombre(oficinaForm.getNombre());
         oficinaOriginal.setObserv(oficinaForm.getObserv());
         oficinaOriginal.setFechaUlt(LocalDate.now());
+        oficinaOriginal.setModificacion(new Date());
         oficinaOriginal.setUsuario(usuarioNombre);
         if (usuario != null) {
             oficinaOriginal.setModificacionIdUsuario(usuario.getIdUsuario());

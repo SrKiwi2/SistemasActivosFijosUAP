@@ -2,6 +2,7 @@ package com.usic.SistemasActivosFijosUAP.controller.auxiliar;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -268,6 +269,7 @@ public class AuxiliarController {
         auxiliarOriginal.setCodAux(auxiliarForm.getCodAux());
         auxiliarOriginal.setNombre(auxiliarForm.getNombre());
         auxiliarOriginal.setFechaUlt(LocalDate.now());
+        auxiliarOriginal.setModificacion(new Date());
         auxiliarOriginal.setUsuario(usuario.getUsuario());
         if (usuario != null) {
             auxiliarOriginal.setModificacionIdUsuario(usuario.getIdUsuario());
