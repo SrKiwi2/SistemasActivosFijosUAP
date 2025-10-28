@@ -167,10 +167,15 @@ public class AuxiliarController {
         if (usuario != null) {
             auxiliar.setRegistroIdUsuario(usuario.getIdUsuario());
         }
+
+        Predio predioCompleto = predioServicio.findById(auxiliar.getPredio().getIdPredio());
+        auxiliar.setPredio(predioCompleto);
         
-        // Obtener ENTIDAD y UNIDAD desde el predio
-        String entidadCode = auxiliar.getPredio().getEntidad().getEntidadCodigo(); // O desde configuración
-        String unidadCode = auxiliar.getPredio().getUnidad();  // Valor por defecto
+        GrupoContable grupoContable = grupoContableService.findById(auxiliar.getGrupoContable().getIdGrupoContable());
+        auxiliar.setGrupoContable(grupoContable);
+
+        String entidadCode = predioCompleto.getEntidad().getEntidadCodigo();
+        String unidadCode = predioCompleto.getUnidad();
         
         if (auxiliar.getPredio() != null && auxiliar.getPredio().getCodigo() != null) {
             unidadCode = auxiliar.getPredio().getCodigo();
