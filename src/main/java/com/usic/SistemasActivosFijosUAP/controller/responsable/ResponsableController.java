@@ -428,7 +428,8 @@ public class ResponsableController {
             responsableService.save(responsable);
             log.info("Responsable creado en PostgreSQL: ID={}, Código={}", 
                     responsable.getIdResponsable(), responsable.getCodigoFuncionario());
-            
+
+            Responsable responsableCargado = responsableService.findByIdWithRelations(responsable.getIdResponsable());
             // ========== Insertar en RESP.DBF ==========
             try {
                 Predio predio = oficina.getPredio();
@@ -471,7 +472,7 @@ public class ResponsableController {
                 
                 // Insertar en DBF
                 respDbfWriterService.insertarDesdeResponsable(
-                    responsable, entidadCode, unidadCode, usuarioNombre
+                    responsableCargado, entidadCode, unidadCode, usuarioNombre
                 );
                 
                 log.info("Responsable {} registrado exitosamente en PostgreSQL y DBF", 

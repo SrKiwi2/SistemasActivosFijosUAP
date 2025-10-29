@@ -221,4 +221,11 @@ public class ResponsableServiceImpl implements IResponsableService{
     public List<Responsable> findByPersonaId(Long idPersona) {
         return dao.findByPersonaIdPersona(idPersona);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Responsable findByIdWithRelations(Long id) {
+        return dao.findByIdWithPersonaAndCargo(id)
+                .orElse(null);
+    }
 }

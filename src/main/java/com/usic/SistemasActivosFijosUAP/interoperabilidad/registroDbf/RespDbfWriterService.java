@@ -20,6 +20,7 @@ import com.linuxense.javadbf.DBFDataType;
 import com.linuxense.javadbf.DBFField;
 import com.linuxense.javadbf.DBFReader;
 import com.linuxense.javadbf.DBFWriter;
+import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
 /**
@@ -442,29 +443,51 @@ public class RespDbfWriterService {
 
         String NOMBRESP = null;
         if (resp.getPersona() != null) {
-            StringBuilder nombreCompleto = new StringBuilder();
-            
-            // Nombre (siempre debe ir)
-            if (resp.getPersona().getNombre() != null) {
-                nombreCompleto.append(resp.getPersona().getNombre().trim());
+            try {
+                Persona p = resp.getPersona();
+                
+                // Log para debug
+                log.info("Persona ID: {}", p.getIdPersona());
+                log.info("Nombre: {}", p.getNombre());
+                log.info("Paterno: {}", p.getPaterno());
+                log.info("Materno: {}", p.getMaterno());
+                
+                StringBuilder nombreCompleto = new StringBuilder();
+                
+                // Nombre (validar que no sea null ni vacío)
+                if (p.getNombre() != null && !p.getNombre().trim().isEmpty()) {
+                    nombreCompleto.append(p.getNombre().trim());
+                }
+                
+                // Paterno
+                if (p.getPaterno() != null && !p.getPaterno().trim().isEmpty()) {
+                    if (nombreCompleto.length() > 0) nombreCompleto.append(" ");
+                    nombreCompleto.append(p.getPaterno().trim());
+                }
+                
+                // Materno (opcional)
+                if (p.getMaterno() != null && !p.getMaterno().trim().isEmpty()) {
+                    if (nombreCompleto.length() > 0) nombreCompleto.append(" ");
+                    nombreCompleto.append(p.getMaterno().trim());
+                }
+                
+                NOMBRESP = nombreCompleto.toString().toUpperCase().trim();
+                
+                // Validar que no esté vacío
+                if (NOMBRESP.isEmpty()) {
+                    log.error("NOMBRESP resultó vacío para persona ID: {}", p.getIdPersona());
+                    NOMBRESP = "SIN NOMBRE"; // Fallback
+                }
+                
+                log.info("NOMBRESP final: '{}'", NOMBRESP);
+                
+            } catch (Exception e) {
+                log.error("Error construyendo NOMBRESP: {}", e.getMessage(), e);
+                NOMBRESP = "ERROR AL OBTENER NOMBRE";
             }
-
-            // Paterno
-            if (resp.getPersona().getPaterno() != null && !resp.getPersona().getPaterno().trim().isEmpty()) {
-                if (nombreCompleto.length() > 0) nombreCompleto.append(" ");
-                nombreCompleto.append(resp.getPersona().getPaterno().trim());
-            }
-
-            // Materno (opcional)
-            if (resp.getPersona().getMaterno() != null && !resp.getPersona().getMaterno().trim().isEmpty()) {
-                if (nombreCompleto.length() > 0) nombreCompleto.append(" ");
-                nombreCompleto.append(resp.getPersona().getMaterno().trim());
-            }
-
-            NOMBRESP = nombreCompleto.toString().toUpperCase(); // Usar mayúsculas para DBF
-            log.debug("NOMBRESP mapeado: {}", NOMBRESP);
         } else {
-            log.warn("Persona es NULL para responsable {}", resp.getIdResponsable());
+            log.error("Persona es NULL para responsable {}", resp.getIdResponsable());
+            NOMBRESP = "PERSONA NULL";
         }
 
         String CARGO = null;

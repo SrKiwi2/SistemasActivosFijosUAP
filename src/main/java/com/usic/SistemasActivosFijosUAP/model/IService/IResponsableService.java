@@ -47,4 +47,6 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     boolean existeResponsablePorPersonaYOficina(Long idPersona, Long idOficina);
     List<Responsable> findByPersonaId(Long idPersona);
 
+    Responsable findByIdWithRelations(Long id);
+
 }

@@ -124,4 +124,11 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
         @Param("codigo") String codigo, 
         @Param("idOficina") Long idOficina
     );
+
+    @Query("SELECT r FROM Responsable r " +
+           "LEFT JOIN FETCH r.persona p " +
+           "LEFT JOIN FETCH r.cargo c " +
+           "LEFT JOIN FETCH r.oficina o " +
+           "WHERE r.idResponsable = :id")
+    Optional<Responsable> findByIdWithPersonaAndCargo(@Param("id") Long id);
 }
