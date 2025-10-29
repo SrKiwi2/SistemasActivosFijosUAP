@@ -478,7 +478,7 @@ public class RespDbfWriterService {
 
         LocalDate FEULT = LocalDate.now();
         String USUAR = (usuario != null && !usuario.trim().isEmpty()) ? usuario : "SISTEMA";
-        Short COD_EXP = (resp.getCodExp() != null) ? resp.getCodExp() : Short.valueOf("0");
+        Short COD_EXP = (resp.getCodExp() != null) ? resp.getCodExp() : Short.valueOf("1");
         Short API_ESTADO = (resp.getApiEstado() != null) ? resp.getApiEstado() : Short.valueOf("1");
 
         for (int i = 0; i < fields.length; i++) {
