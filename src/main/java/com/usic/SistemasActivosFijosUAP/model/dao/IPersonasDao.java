@@ -99,4 +99,9 @@ public interface IPersonasDao extends JpaRepository <Persona, Long>{
     List<Persona> findByNombreContainingIgnoreCaseAndPaternoContainingIgnoreCase(
         String nombre, String paterno
     );
+
+    Optional<Persona> findByNombreAndPaternoAndMaterno(String nombre, String paterno, String materno);
+    Optional<Persona> findByNombreAndPaterno(String nombre, String paterno);
+
 }
+

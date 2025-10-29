@@ -517,53 +517,54 @@ public class RespDbfWriterService {
         }
         
         try {
-            log.info("Construyendo nombre completo - ID: {}, Nombre: '{}', Paterno: '{}', Materno: '{}'",
-                    persona.getIdPersona(), 
-                    persona.getNombre(), 
-                    persona.getPaterno(), 
-                    persona.getMaterno());
+            String nombre = (persona.getNombre() != null) ? persona.getNombre().trim() : "";
+            String paterno = (persona.getPaterno() != null) ? persona.getPaterno().trim() : "";
+            String materno = (persona.getMaterno() != null) ? persona.getMaterno().trim() : "";
+
+            log.info("=== CONSTRUYENDO NOMBRE ===");
+            log.info("Persona ID: {}", persona.getIdPersona());
+            log.info("Nombre: '{}'", nombre);
+            log.info("Paterno: '{}'", paterno);
+            log.info("Materno: '{}'", materno);
             
-            StringBuilder nombreCompleto = new StringBuilder();
-            
-            // Agregar nombre
-            if (persona.getNombre() != null && !persona.getNombre().trim().isEmpty()) {
-                nombreCompleto.append(persona.getNombre().trim());
+            StringBuilder sb = new StringBuilder();
+        
+            if (!nombre.isEmpty()) {
+                sb.append(nombre);
             }
             
-            // Agregar paterno
-            if (persona.getPaterno() != null && !persona.getPaterno().trim().isEmpty()) {
-                if (nombreCompleto.length() > 0) {
-                    nombreCompleto.append(" ");
-                }
-                nombreCompleto.append(persona.getPaterno().trim());
+            if (!paterno.isEmpty()) {
+                if (sb.length() > 0) sb.append(" ");
+                sb.append(paterno);
             }
             
-            // Agregar materno
-            if (persona.getMaterno() != null && !persona.getMaterno().trim().isEmpty()) {
-                if (nombreCompleto.length() > 0) {
-                    nombreCompleto.append(" ");
-                }
-                nombreCompleto.append(persona.getMaterno().trim());
+            if (!materno.isEmpty()) {
+                if (sb.length() > 0) sb.append(" ");
+                sb.append(materno);
             }
             
-            String resultado = nombreCompleto.toString().toUpperCase().trim();
+            String resultado = sb.toString().toUpperCase().trim();
             
-            // Validar que no esté vacío
             if (resultado.isEmpty()) {
-                log.error("Nombre completo resultó vacío para persona ID: {}", persona.getIdPersona());
-                return "SIN NOMBRE";
+                log.error("Nombre completo vacío para persona ID: {}", persona.getIdPersona());
+                resultado = "SIN_NOMBRE";
             }
             
-            // Truncar si excede la longitud máxima
+            // Truncar si excede
             if (longitudMaxima > 0 && resultado.length() > longitudMaxima) {
-                String original = resultado;
                 resultado = resultado.substring(0, longitudMaxima).trim();
-                log.warn("Nombre truncado de {} a {} chars: '{}' -> '{}'", 
-                        original.length(), resultado.length(), original, resultado);
+                log.warn("Nombre truncado a {} caracteres: '{}'", longitudMaxima, resultado);
             }
             
-            log.info("Nombre completo construido: '{}' (longitud: {})", resultado, resultado.length());
+            // ✅ CRÍTICO: Rellenar con espacios hasta la longitud del campo
+            // Algunos DBF requieren esto
+            while (resultado.length() < longitudMaxima) {
+                resultado += " ";
+            }
+            
+            log.info("Nombre final ({}  chars): '{}'", resultado.length(), resultado);
             return resultado;
+            
             
         } catch (Exception e) {
             log.error("Error construyendo nombre completo: {}", e.getMessage(), e);

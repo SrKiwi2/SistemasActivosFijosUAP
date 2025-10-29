@@ -245,7 +245,6 @@ public class ResponsableController {
             ResponsableApiDataDTO dto = responsableService.getResponsableDataFromApi(codigoFuncionario, ci);
             return ResponseEntity.ok(dto);
         } catch (RuntimeException e) {
-            // Manejo de error de la API (ej: 500 Internal Server Error o 404 Not Found)
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -264,13 +263,16 @@ public class ResponsableController {
             @RequestParam(required = false) String materno,
             @RequestParam(required = false) String correo,
             @RequestParam(required = false) String cargoApi) {
-                System.out.println("ESTE ES EL CARGO QUE AMNDO DESDE MI FORM: " + cargoApi);
+
+        log.info("=== INICIANDO REGISTRO DE RESPONSABLE ===");
+        log.info("CI: {}, Código: {}, Nombre: {}, Paterno: {}, Materno: {}", 
+            ci, codigoFuncionario, nombre, paterno, materno);
         
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
         
         try {
-            // ========== VALIDACIÓN 1: Oficina existe ==========
+            
             Oficina oficina = oficinaService.findById(idOficina);
             if (oficina == null) {
                 return ResponseEntity.badRequest().body(Map.of(
@@ -279,7 +281,6 @@ public class ResponsableController {
                 ));
             }
             
-            // ========== VALIDACIÓN 2: Código funcionario único en oficina ==========
             Responsable respExistente = responsableService.findByCodigoFuncionarioYOficina(
                 codigoFuncionario, idOficina
             );
@@ -291,68 +292,79 @@ public class ResponsableController {
                 ));
             }
             
-            // ========== VALIDACIÓN 3: Buscar persona (CI primero, luego nombre) ==========
             Persona persona = null;
             boolean personaNueva = false;
             
-            // Buscar por CI
             if (ci != null && !ci.trim().isEmpty()) {
                 persona = personaService.buscarPersonaPorCI(ci.trim());
                 log.info("Búsqueda por CI '{}': {}", ci, (persona != null ? "Encontrada" : "No encontrada"));
             }
             
-            // Si no se encontró por CI, buscar por nombre completo
-            if (persona == null && nombre != null && paterno != null) {
-                log.info("Buscando por nombre: {} {} {}", nombre, paterno, materno);
+            if (persona == null) {
+                // Validar que tengamos al menos nombre y paterno
+                boolean tieneDatosSuficientes = (nombre != null && !nombre.trim().isEmpty()) && 
+                                            (paterno != null && !paterno.trim().isEmpty());
                 
-                // Búsqueda exacta
-                persona = personaService.buscarPersonaPorNombreCompletoUno(
-                    nombre.trim(), 
-                    paterno.trim(), 
-                    (materno != null) ? materno.trim() : null
-                );
-                
-                // Si no encontró exacta, buscar aproximada
-                if (persona == null) {
-                    List<Persona> personasCoincidentes = personaService.buscarPorNombreApellidos(
-                        nombre.trim(), 
-                        paterno.trim(), 
-                        (materno != null) ? materno.trim() : null
-                    );
+                if (tieneDatosSuficientes) {
+                    log.info("Buscando por nombre: {} {} {}", nombre, paterno, materno);
                     
-                    if (!personasCoincidentes.isEmpty()) {
-                        // Si hay coincidencias, alertar al usuario
-                        StringBuilder msg = new StringBuilder("Se encontraron personas similares:\n");
-                        for (Persona p : personasCoincidentes) {
-                            msg.append(String.format("- %s (CI: %s)\n", 
-                                p.getNombreCompleto(), 
-                                p.getCi() != null ? p.getCi() : "Sin CI"
-                            ));
-                        }
-                        msg.append("\n¿Desea continuar creando una nueva persona?");
+                    try {
+                        // Búsqueda exacta
+                        persona = personaService.buscarPersonaPorNombreCompletoUno(
+                            nombre.trim(), 
+                            paterno.trim(), 
+                            (materno != null && !materno.trim().isEmpty()) ? materno.trim() : null
+                        );
                         
-                        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
-                            "ok", false,
-                            "msg", msg.toString(),
-                            "personasCoincidentes", personasCoincidentes.stream()
-                                .map(p -> Map.of(
-                                    "idPersona", p.getIdPersona(),
-                                    "nombreCompleto", p.getNombreCompleto(),
-                                    "ci", p.getCi() != null ? p.getCi() : "",
-                                    "correo", p.getCorreo() != null ? p.getCorreo() : ""
-                                ))
-                                .collect(Collectors.toList()),
-                            "requireConfirmacion", true
-                        ));
+                        log.info("Búsqueda exacta por nombre: {}", (persona != null ? "Encontrada" : "No encontrada"));
+                        
+                        // Solo buscar aproximada si no encontró exacta
+                        if (persona == null) {
+                            List<Persona> personasCoincidentes = personaService.buscarPorNombreApellidos(
+                                nombre.trim(), 
+                                paterno.trim(), 
+                                (materno != null && !materno.trim().isEmpty()) ? materno.trim() : null
+                            );
+                            
+                            if (personasCoincidentes != null && !personasCoincidentes.isEmpty()) {
+                                log.info("Se encontraron {} personas coincidentes", personasCoincidentes.size());
+                                
+                                StringBuilder msg = new StringBuilder("Se encontraron personas similares:\n");
+                                for (Persona p : personasCoincidentes) {
+                                    msg.append(String.format("- %s (CI: %s)\n", 
+                                        p.getNombreCompleto(), 
+                                        p.getCi() != null ? p.getCi() : "Sin CI"
+                                    ));
+                                }
+                                msg.append("\n¿Desea continuar creando una nueva persona?");
+                                
+                                return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                                    "ok", false,
+                                    "msg", msg.toString(),
+                                    "personasCoincidentes", personasCoincidentes.stream()
+                                        .limit(10) // Limitar a 10 resultados
+                                        .map(p -> Map.of(
+                                            "idPersona", p.getIdPersona(),
+                                            "nombreCompleto", p.getNombreCompleto(),
+                                            "ci", p.getCi() != null ? p.getCi() : "",
+                                            "correo", p.getCorreo() != null ? p.getCorreo() : ""
+                                        ))
+                                        .collect(Collectors.toList()),
+                                    "requireConfirmacion", true
+                                ));
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.error("Error en búsqueda por nombre: {}", e.getMessage());
+                        // Continuar para crear nueva persona
                     }
+                } else {
+                    log.warn("No se proporcionaron datos suficientes para buscar por nombre (nombre y paterno requeridos)");
                 }
-                
-                log.info("Búsqueda por nombre: {}", (persona != null ? "Encontrada" : "No encontrada"));
             }
             
-            // ========== VALIDACIÓN 4: Si la persona existe, verificar si ya es responsable ==========
+            // Verificar si ya es responsable en esta oficina
             if (persona != null) {
-                // Verificar si ya es responsable en ESTA oficina
                 boolean yaEsResponsableEnOficina = responsableService.existeResponsablePorPersonaYOficina(
                     persona.getIdPersona(), idOficina
                 );
@@ -364,25 +376,16 @@ public class ResponsableController {
                                             persona.getNombreCompleto(), oficina.getNombre())
                     ));
                 }
-                
-                // Verificar si es responsable en otras oficinas (solo informativo)
-                List<Responsable> responsablesExistentes = responsableService.findByPersonaId(
-                    persona.getIdPersona()
-                );
-                
-                if (!responsablesExistentes.isEmpty()) {
-                    log.info("La persona {} ya es responsable en {} oficina(s)", 
-                            persona.getNombreCompleto(), responsablesExistentes.size());
-                }
-            } else {
-                // ========== Crear nueva persona ==========
+            }
+
+            if (persona == null) {
                 personaNueva = true;
                 persona = new Persona();
-                persona.setCi(ci != null ? ci.trim() : null);
-                persona.setNombre(nombre != null ? nombre.trim() : null);
-                persona.setPaterno(paterno != null ? paterno.trim() : null);
-                persona.setMaterno(materno != null ? materno.trim() : null);
-                persona.setCorreo(correo != null ? correo.trim() : null);
+                persona.setCi(ci != null && !ci.trim().isEmpty() ? ci.trim() : null);
+                persona.setNombre(nombre != null && !nombre.trim().isEmpty() ? nombre.trim().toUpperCase() : null);
+                persona.setPaterno(paterno != null && !paterno.trim().isEmpty() ? paterno.trim().toUpperCase() : null);
+                persona.setMaterno(materno != null && !materno.trim().isEmpty() ? materno.trim().toUpperCase() : null);
+                persona.setCorreo(correo != null && !correo.trim().isEmpty() ? correo.trim() : null);
                 persona.setEstado("ACTIVO");
                 
                 if (usuario != null) {
@@ -390,28 +393,35 @@ public class ResponsableController {
                 }
                 
                 personaService.save(persona);
-                log.info("Nueva persona creada: {} (ID: {})", persona.getNombreCompleto(), persona.getIdPersona());
+                log.info("✅ Nueva persona creada: {} (ID: {})", persona.getNombreCompleto(), persona.getIdPersona());
+            } else {
+                log.info("✅ Persona existente encontrada: {} (ID: {})", persona.getNombreCompleto(), persona.getIdPersona());
             }
 
-            // ========== Crear Responsable ==========
             Responsable responsable = new Responsable();
             responsable.setCodigoApi(codigoApi);
             responsable.setCodigoFuncionario(codigoFuncionario.trim());
             responsable.setPersona(persona);
             responsable.setOficina(oficina);
 
-            Cargo cargoEncontrado = cargoService.buscarPorNombre(cargoApi);
-            if (cargoEncontrado == null) {
-                Cargo nuevoCargo = new Cargo();
-                nuevoCargo.setNombre(cargoApi);
-                nuevoCargo.setDescripcion("Cargo proporcionado de la API");
-                nuevoCargo.setEstado("ACTIVO");
-                nuevoCargo.setRegistro(new Date());
-                nuevoCargo.setRegistroIdUsuario(usuario.getIdUsuario());
-                cargoService.save(nuevoCargo);
-                responsable.setCargo(nuevoCargo);
-            }else{
-               responsable.setCargo(cargoEncontrado);
+            if (cargoApi != null && !cargoApi.trim().isEmpty()) {
+                Cargo cargoEncontrado = cargoService.buscarPorNombre(cargoApi.trim());
+                if (cargoEncontrado == null) {
+                    Cargo nuevoCargo = new Cargo();
+                    nuevoCargo.setNombre(cargoApi.trim().toUpperCase());
+                    nuevoCargo.setDescripcion("Cargo proporcionado de la API");
+                    nuevoCargo.setEstado("ACTIVO");
+                    nuevoCargo.setRegistro(new Date());
+                    if (usuario != null) {
+                        nuevoCargo.setRegistroIdUsuario(usuario.getIdUsuario());
+                    }
+                    cargoService.save(nuevoCargo);
+                    responsable.setCargo(nuevoCargo);
+                    log.info("✅ Nuevo cargo creado: {}", nuevoCargo.getNombre());
+                } else {
+                    responsable.setCargo(cargoEncontrado);
+                    log.info("✅ Cargo existente asignado: {}", cargoEncontrado.getNombre());
+                }
             }
             
             responsable.setFechaUlt(LocalDate.now());
@@ -424,13 +434,12 @@ public class ResponsableController {
                 responsable.setRegistroIdUsuario(usuario.getIdUsuario());
             }
             
-            // Guardar en PostgreSQL
             responsableService.save(responsable);
             log.info("Responsable creado en PostgreSQL: ID={}, Código={}", 
                     responsable.getIdResponsable(), responsable.getCodigoFuncionario());
 
             Responsable responsableCargado = responsableService.findByIdWithRelations(responsable.getIdResponsable());
-            // ========== Insertar en RESP.DBF ==========
+
             try {
                 Predio predio = oficina.getPredio();
                 Entidad entidad = (predio != null) ? predio.getEntidad() : null;
@@ -449,7 +458,6 @@ public class ResponsableController {
                 String entidadCode = entidad.getEntidadCodigo();
                 String unidadCode = predio.getUnidad();
                 
-                // Convertir código funcionario a numérico para DBF
                 Integer codResp = null;
                 if (codigoFuncionario != null) {
                     String onlyDigits = codigoFuncionario.replaceAll("\\D+", "");
@@ -457,8 +465,7 @@ public class ResponsableController {
                         codResp = Integer.valueOf(onlyDigits);
                     }
                 }
-                
-                // Verificar si ya existe en DBF
+
                 if (codResp != null && respDbfWriterService.existsByCodResp(
                         codResp, oficina.getCodOfi(), entidadCode, unidadCode)) {
                     log.warn("Responsable CODRESP={} ya existe en RESP.DBF", codResp);
