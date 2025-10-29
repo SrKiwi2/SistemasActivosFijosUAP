@@ -427,7 +427,7 @@ public class ResponsableController {
             responsable.setFechaUlt(LocalDate.now());
             responsable.setUsuario(usuarioNombre);
             responsable.setApiEstado(Short.valueOf("1"));
-            responsable.setCodExp(Short.valueOf("0"));
+            responsable.setCodExp(Short.valueOf("1"));
             responsable.setEstado("ACTIVO");
             
             if (usuario != null) {
