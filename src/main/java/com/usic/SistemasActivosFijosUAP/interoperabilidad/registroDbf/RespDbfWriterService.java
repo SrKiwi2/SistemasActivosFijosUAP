@@ -202,6 +202,13 @@ public class RespDbfWriterService {
                     if (field.getType() != DBFDataType.MEMO) {
                         writableFieldsList.add(field);
                         writableIndexes.add(i);
+
+                        // ✅ Log para NOMBRESP específicamente
+                        if ("NOMBRESP".equalsIgnoreCase(field.getName())) {
+                            log.info("✅ Campo NOMBRESP encontrado - Índice: {}, Tipo: {}, Longitud: {}",
+                                    i, field.getType(), field.getLength());
+                        }
+
                     } else {
                         log.info("Omitiendo campo MEMO '{}' (no soportado para escritura)", field.getName());
                     }
@@ -209,9 +216,15 @@ public class RespDbfWriterService {
 
                 DBFField[] writableFields = writableFieldsList.toArray(new DBFField[0]);
 
-                Object[] newRecord = crearRegistroDesdeResponsable(resp, entidadCode, unidadCode, usuario,
-                        originalFields);
+                Object[] newRecord = crearRegistroDesdeResponsable(resp, entidadCode, unidadCode, usuario, originalFields);
                 records.add(newRecord);
+                // ✅ Verificar el valor de NOMBRESP en el registro antes de filtrar
+                for (int i = 0; i < originalFields.length; i++) {
+                    if ("NOMBRESP".equalsIgnoreCase(originalFields[i].getName())) {
+                        log.info("✅ NOMBRESP en registro original (índice {}): '{}'", i, newRecord[i]);
+                        break;
+                    }
+                }
 
                 try (OutputStream fos = new FileOutputStream(tempFile);
                         DBFWriter writer = new DBFWriter(fos, Charset.forName("CP1252"))) {
@@ -222,6 +235,10 @@ public class RespDbfWriterService {
                         Object[] writableRecord = new Object[writableIndexes.size()];
                         for (int i = 0; i < writableIndexes.size(); i++) {
                             writableRecord[i] = record[writableIndexes.get(i)];
+                            // ✅ Log para NOMBRESP al copiar
+                            if ("NOMBRESP".equalsIgnoreCase(writableFields[i].getName())) {
+                                log.info("✅ NOMBRESP copiado a writableRecord[{}]: '{}'", i, writableRecord[i]);
+                            }
                         }
                         writer.addRecord(writableRecord);
                     }
@@ -441,54 +458,8 @@ public class RespDbfWriterService {
             }
         }
 
-        String NOMBRESP = null;
-        if (resp.getPersona() != null) {
-            try {
-                Persona p = resp.getPersona();
-                
-                // Log para debug
-                log.info("Persona ID: {}", p.getIdPersona());
-                log.info("Nombre: {}", p.getNombre());
-                log.info("Paterno: {}", p.getPaterno());
-                log.info("Materno: {}", p.getMaterno());
-                
-                StringBuilder nombreCompleto = new StringBuilder();
-                
-                // Nombre (validar que no sea null ni vacío)
-                if (p.getNombre() != null && !p.getNombre().trim().isEmpty()) {
-                    nombreCompleto.append(p.getNombre().trim());
-                }
-                
-                // Paterno
-                if (p.getPaterno() != null && !p.getPaterno().trim().isEmpty()) {
-                    if (nombreCompleto.length() > 0) nombreCompleto.append(" ");
-                    nombreCompleto.append(p.getPaterno().trim());
-                }
-                
-                // Materno (opcional)
-                if (p.getMaterno() != null && !p.getMaterno().trim().isEmpty()) {
-                    if (nombreCompleto.length() > 0) nombreCompleto.append(" ");
-                    nombreCompleto.append(p.getMaterno().trim());
-                }
-                
-                NOMBRESP = nombreCompleto.toString().toUpperCase().trim();
-                
-                // Validar que no esté vacío
-                if (NOMBRESP.isEmpty()) {
-                    log.error("NOMBRESP resultó vacío para persona ID: {}", p.getIdPersona());
-                    NOMBRESP = "SIN NOMBRE"; // Fallback
-                }
-                
-                log.info("NOMBRESP final: '{}'", NOMBRESP);
-                
-            } catch (Exception e) {
-                log.error("Error construyendo NOMBRESP: {}", e.getMessage(), e);
-                NOMBRESP = "ERROR AL OBTENER NOMBRE";
-            }
-        } else {
-            log.error("Persona es NULL para responsable {}", resp.getIdResponsable());
-            NOMBRESP = "PERSONA NULL";
-        }
+        String NOMBRESP = construirNombreCompleto(resp.getPersona(), 35);
+        log.info("NOMBRESP final para DBF: '{}' (longitud: {})", NOMBRESP, NOMBRESP != null ? NOMBRESP.length() : 0);
 
         String CARGO = null;
         if (resp.getCargo() != null && resp.getCargo().getNombre() != null) {
@@ -537,5 +508,66 @@ public class RespDbfWriterService {
                 CODOFIC, CODRESP, NOMBRESP, CI);
 
         return record;
+    }
+
+    private String construirNombreCompleto(Persona persona, int longitudMaxima) {
+        if (persona == null) {
+            log.error("Persona es NULL al construir nombre completo");
+            return "PERSONA NULL";
+        }
+        
+        try {
+            log.info("Construyendo nombre completo - ID: {}, Nombre: '{}', Paterno: '{}', Materno: '{}'",
+                    persona.getIdPersona(), 
+                    persona.getNombre(), 
+                    persona.getPaterno(), 
+                    persona.getMaterno());
+            
+            StringBuilder nombreCompleto = new StringBuilder();
+            
+            // Agregar nombre
+            if (persona.getNombre() != null && !persona.getNombre().trim().isEmpty()) {
+                nombreCompleto.append(persona.getNombre().trim());
+            }
+            
+            // Agregar paterno
+            if (persona.getPaterno() != null && !persona.getPaterno().trim().isEmpty()) {
+                if (nombreCompleto.length() > 0) {
+                    nombreCompleto.append(" ");
+                }
+                nombreCompleto.append(persona.getPaterno().trim());
+            }
+            
+            // Agregar materno
+            if (persona.getMaterno() != null && !persona.getMaterno().trim().isEmpty()) {
+                if (nombreCompleto.length() > 0) {
+                    nombreCompleto.append(" ");
+                }
+                nombreCompleto.append(persona.getMaterno().trim());
+            }
+            
+            String resultado = nombreCompleto.toString().toUpperCase().trim();
+            
+            // Validar que no esté vacío
+            if (resultado.isEmpty()) {
+                log.error("Nombre completo resultó vacío para persona ID: {}", persona.getIdPersona());
+                return "SIN NOMBRE";
+            }
+            
+            // Truncar si excede la longitud máxima
+            if (longitudMaxima > 0 && resultado.length() > longitudMaxima) {
+                String original = resultado;
+                resultado = resultado.substring(0, longitudMaxima).trim();
+                log.warn("Nombre truncado de {} a {} chars: '{}' -> '{}'", 
+                        original.length(), resultado.length(), original, resultado);
+            }
+            
+            log.info("Nombre completo construido: '{}' (longitud: {})", resultado, resultado.length());
+            return resultado;
+            
+        } catch (Exception e) {
+            log.error("Error construyendo nombre completo: {}", e.getMessage(), e);
+            return "ERROR NOMBRE";
+        }
     }
 }
