@@ -264,6 +264,7 @@ public class ResponsableController {
             @RequestParam(required = false) String materno,
             @RequestParam(required = false) String correo,
             @RequestParam(required = false) String cargoApi) {
+                System.out.println("ESTE ES EL CARGO QUE AMNDO DESDE MI FORM: " + cargoApi);
         
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
