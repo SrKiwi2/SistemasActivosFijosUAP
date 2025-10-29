@@ -442,7 +442,26 @@ public class RespDbfWriterService {
 
         String NOMBRESP = null;
         if (resp.getPersona() != null) {
-            NOMBRESP = resp.getPersona().getNombreCompleto();
+            StringBuilder nombreCompleto = new StringBuilder();
+            
+            // Nombre (siempre debe ir)
+            if (resp.getPersona().getNombre() != null) {
+                nombreCompleto.append(resp.getPersona().getNombre().trim());
+            }
+
+            // Paterno
+            if (resp.getPersona().getPaterno() != null && !resp.getPersona().getPaterno().trim().isEmpty()) {
+                if (nombreCompleto.length() > 0) nombreCompleto.append(" ");
+                nombreCompleto.append(resp.getPersona().getPaterno().trim());
+            }
+
+            // Materno (opcional)
+            if (resp.getPersona().getMaterno() != null && !resp.getPersona().getMaterno().trim().isEmpty()) {
+                if (nombreCompleto.length() > 0) nombreCompleto.append(" ");
+                nombreCompleto.append(resp.getPersona().getMaterno().trim());
+            }
+
+            NOMBRESP = nombreCompleto.toString().toUpperCase(); // Usar mayúsculas para DBF
             log.debug("NOMBRESP mapeado: {}", NOMBRESP);
         } else {
             log.warn("Persona es NULL para responsable {}", resp.getIdResponsable());

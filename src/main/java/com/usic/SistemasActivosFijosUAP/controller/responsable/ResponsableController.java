@@ -409,10 +409,9 @@ public class ResponsableController {
                 nuevoCargo.setRegistro(new Date());
                 nuevoCargo.setRegistroIdUsuario(usuario.getIdUsuario());
                 cargoService.save(nuevoCargo);
+                responsable.setCargo(nuevoCargo);
             }else{
                responsable.setCargo(cargoEncontrado);
-
-                
             }
             
             responsable.setFechaUlt(LocalDate.now());
