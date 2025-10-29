@@ -400,9 +400,7 @@ public class ResponsableController {
             responsable.setOficina(oficina);
 
             Cargo cargoEncontrado = cargoService.buscarPorNombre(cargoApi);
-            if (cargoEncontrado != null) {
-                responsable.setCargo(cargoEncontrado);
-            }else{
+            if (cargoEncontrado == null) {
                 Cargo nuevoCargo = new Cargo();
                 nuevoCargo.setNombre(cargoApi);
                 nuevoCargo.setDescripcion("Cargo proporcionado de la API");
@@ -410,8 +408,10 @@ public class ResponsableController {
                 nuevoCargo.setRegistro(new Date());
                 nuevoCargo.setRegistroIdUsuario(usuario.getIdUsuario());
                 cargoService.save(nuevoCargo);
+            }else{
+               responsable.setCargo(cargoEncontrado);
 
-                responsable.setCargo(nuevoCargo);
+                
             }
             
             responsable.setFechaUlt(LocalDate.now());
