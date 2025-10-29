@@ -203,9 +203,9 @@ public class RespDbfWriterService {
                         writableFieldsList.add(field);
                         writableIndexes.add(i);
 
-                        // ✅ Log para NOMBRESP específicamente
-                        if ("NOMBRESP".equalsIgnoreCase(field.getName())) {
-                            log.info("✅ Campo NOMBRESP encontrado - Índice: {}, Tipo: {}, Longitud: {}",
+                        // ✅ Log para NOMRESP específicamente
+                        if ("NOMRESP".equalsIgnoreCase(field.getName())) {
+                            log.info("✅ Campo NOMRESP encontrado - Índice: {}, Tipo: {}, Longitud: {}",
                                     i, field.getType(), field.getLength());
                         }
 
@@ -218,10 +218,10 @@ public class RespDbfWriterService {
 
                 Object[] newRecord = crearRegistroDesdeResponsable(resp, entidadCode, unidadCode, usuario, originalFields);
                 records.add(newRecord);
-                // ✅ Verificar el valor de NOMBRESP en el registro antes de filtrar
+                // ✅ Verificar el valor de NOMRESP en el registro antes de filtrar
                 for (int i = 0; i < originalFields.length; i++) {
-                    if ("NOMBRESP".equalsIgnoreCase(originalFields[i].getName())) {
-                        log.info("✅ NOMBRESP en registro original (índice {}): '{}'", i, newRecord[i]);
+                    if ("NOMRESP".equalsIgnoreCase(originalFields[i].getName())) {
+                        log.info("✅ NOMRESP en registro original (índice {}): '{}'", i, newRecord[i]);
                         break;
                     }
                 }
@@ -235,9 +235,9 @@ public class RespDbfWriterService {
                         Object[] writableRecord = new Object[writableIndexes.size()];
                         for (int i = 0; i < writableIndexes.size(); i++) {
                             writableRecord[i] = record[writableIndexes.get(i)];
-                            // ✅ Log para NOMBRESP al copiar
-                            if ("NOMBRESP".equalsIgnoreCase(writableFields[i].getName())) {
-                                log.info("✅ NOMBRESP copiado a writableRecord[{}]: '{}'", i, writableRecord[i]);
+                            // ✅ Log para NOMRESP al copiar
+                            if ("NOMRESP".equalsIgnoreCase(writableFields[i].getName())) {
+                                log.info("✅ NOMRESP copiado a writableRecord[{}]: '{}'", i, writableRecord[i]);
                             }
                         }
                         writer.addRecord(writableRecord);
@@ -458,8 +458,8 @@ public class RespDbfWriterService {
             }
         }
 
-        String NOMBRESP = construirNombreCompleto(resp.getPersona(), 35);
-        log.info("NOMBRESP final para DBF: '{}' (longitud: {})", NOMBRESP, NOMBRESP != null ? NOMBRESP.length() : 0);
+        String NOMRESP = construirNombreCompleto(resp.getPersona(), 35);
+        log.info("NOMRESP final para DBF: '{}' (longitud: {})", NOMRESP, NOMRESP != null ? NOMRESP.length() : 0);
 
         String CARGO = null;
         if (resp.getCargo() != null && resp.getCargo().getNombre() != null) {
@@ -489,7 +489,7 @@ public class RespDbfWriterService {
                 case "UNIDAD" -> record[i] = UNIDAD;
                 case "CODOFIC" -> record[i] = CODOFIC;
                 case "CODRESP" -> record[i] = CODRESP;
-                case "NOMBRESP" -> record[i] = NOMBRESP;
+                case "NOMRESP" -> record[i] = NOMRESP;
                 case "CARGO" -> record[i] = CARGO;
                 case "OBSERV" -> record[i] = null; // MEMO
                 case "CI" -> record[i] = CI;
@@ -504,8 +504,8 @@ public class RespDbfWriterService {
             }
         }
 
-        log.debug("Registro DBF creado - CODOFIC: {}, CODRESP: {}, NOMBRESP: {}, CI: {}",
-                CODOFIC, CODRESP, NOMBRESP, CI);
+        log.debug("Registro DBF creado - CODOFIC: {}, CODRESP: {}, NOMRESP: {}, CI: {}",
+                CODOFIC, CODRESP, NOMRESP, CI);
 
         return record;
     }
