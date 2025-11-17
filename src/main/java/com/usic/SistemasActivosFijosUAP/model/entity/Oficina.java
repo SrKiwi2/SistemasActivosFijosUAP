@@ -1,6 +1,9 @@
 package com.usic.SistemasActivosFijosUAP.model.entity;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+import org.apache.commons.codec.digest.DigestUtils;
 
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
@@ -25,7 +28,9 @@ import lombok.Setter;
 @Table(name = "oficina", uniqueConstraints = @UniqueConstraint(name = "uk_oficina_predio_codofi", columnNames = {
         "id_predio", "cod_ofi" }), indexes = {
                 @Index(name = "idx_oficina_predio", columnList = "id_predio"),
-                @Index(name = "idx_oficina_codofi", columnList = "cod_ofi")
+                @Index(name = "idx_oficina_codofi", columnList = "cod_ofi"),
+                @Index(name = "idx_oficina_sync_fecha", columnList = "fecha_ultima_sync"),
+                @Index(name = "idx_oficina_hash", columnList = "hash_datos")
         })
 @Setter
 @Getter
@@ -59,4 +64,27 @@ public class Oficina extends AuditoriaConfig {
 
     @Column(name = "api_estado", columnDefinition = "SMALLINT")
     private Short apiEstado; // DBF: API_ESTADO
+
+    @Column(name = "fecha_ultima_sync")
+    private LocalDateTime fechaUltimaSync;
+    
+    @Column(name = "hash_datos", length = 32)
+    private String hashDatos;
+    
+    /**
+     * Calcula hash MD5 de los datos importantes para detectar cambios
+     */
+    public String calcularHash() {
+        String datos = String.join("|",
+            predio != null && predio.getIdPredio() != null 
+                ? String.valueOf(predio.getIdPredio()) : "",
+            codOfi != null ? String.valueOf(codOfi) : "",
+            nombre != null ? nombre : "",
+            observ != null ? observ : "",
+            fechaUlt != null ? fechaUlt.toString() : "",
+            usuario != null ? usuario : "",
+            apiEstado != null ? String.valueOf(apiEstado) : ""
+        );
+        return DigestUtils.md5Hex(datos);
+    }
 }

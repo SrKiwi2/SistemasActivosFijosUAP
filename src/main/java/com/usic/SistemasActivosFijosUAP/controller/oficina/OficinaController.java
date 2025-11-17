@@ -1,10 +1,13 @@
 package com.usic.SistemasActivosFijosUAP.controller.oficina;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +34,9 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
+import com.usic.SistemasActivosFijosUAP.model.entity.SyncControl;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -46,12 +51,36 @@ public class OficinaController {
     private final IEntidadService entidadService;
     private final JavaDbfService dbfService;
     private final OficinaDbfWriterService oficinaDbfWriterService;
+    private final SyncControlService syncControlService;
 
     private static final Logger log = LoggerFactory.getLogger(OficinaController.class);
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String inicio_oficina() {
+    public String inicio_oficina(Model model) {
+
+        try {
+            SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("oficina");
+            
+            if (syncInfo != null) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+                String fechaFormateada = syncInfo.getUltimaSincronizacion().format(formatter);
+                
+                model.addAttribute("ultimaSincronizacion", fechaFormateada);
+                model.addAttribute("estadoSync", syncInfo.getEstado());
+                model.addAttribute("registrosProcesados", syncInfo.getRegistrosProcesados());
+                model.addAttribute("registrosNuevos", syncInfo.getRegistrosNuevos());
+                model.addAttribute("registrosActualizados", syncInfo.getRegistrosActualizados());
+                model.addAttribute("duracionUltimaSync", syncInfo.getDuracionMs() / 1000.0);
+            } else {
+                model.addAttribute("ultimaSincronizacion", "Nunca sincronizado");
+                model.addAttribute("estadoSync", "PENDIENTE");
+            }
+        } catch (Exception e) {
+            model.addAttribute("ultimaSincronizacion", "Error al obtener info");
+            model.addAttribute("estadoSync", "ERROR");
+        }
+
         return "oficina/vista";
     }
 
@@ -70,31 +99,13 @@ public class OficinaController {
             listasOficinas = new ArrayList<>(filas.size());
 
             for (var f : filas) {
-                // Resolver ENTIDAD para mostrarla en la tabla (si no está, igual mostramos el código)
-                String cod = f.getEntidadCodigo();
-                String codNoZeros = stripLeftZeros(cod);
-                String codPad4 = leftPad4(cod);
+                Entidad ent = resolverEntidad(gestionPreferida, f.getEntidadCodigo());
 
-                Entidad ent = null;
-                if (gestionPreferida != null) {
-                    ent = entidadService.findByGestionAndEntidadCodigo(gestionPreferida, cod)
-                            .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codNoZeros))
-                            .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codPad4))
-                            .orElse(null);
-                } else {
-                    ent = entidadService.findTopByEntidadCodigoOrderByGestionDesc(cod)
-                            .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codNoZeros))
-                            .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codPad4))
-                            .orElse(null);
-                }
-
-                // Construimos una Oficina "de vista" SIN persistir:
                 Oficina o = new Oficina();
-                o.setIdOficina(null);
+                o.setIdOficina(null); // NULL = solo lectura
 
-                // armamos Predio "ligero" sólo para la tabla
                 Predio p = new Predio();
-                p.setEntidad(ent != null ? ent : null);
+                p.setEntidad(ent);
                 p.setUnidad(normUnidad(f.getUnidad()));
                 o.setPredio(p);
 
@@ -114,7 +125,9 @@ public class OficinaController {
 
         List<String> encryptedIds = new ArrayList<>();
         for (Oficina o : listasOficinas) {
-            encryptedIds.add(o.getIdOficina() == null ? "" : Encriptar.encrypt(Long.toString(o.getIdOficina())));
+            encryptedIds.add(o.getIdOficina() == null 
+                ? "" 
+                : Encriptar.encrypt(Long.toString(o.getIdOficina())));
         }
 
         model.addAttribute("listasOficinas", listasOficinas);
@@ -356,74 +369,223 @@ public class OficinaController {
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
     @ResponseBody
-    public ResponseEntity<?> syncFromMounted(@RequestParam(name="q", required=false) String q,
-                                             @RequestParam(name="gestion", required=false) Short gestionPreferida) {
+    public ResponseEntity<?> syncFromMounted(
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "gestion", required = false) Short gestionPreferida,
+            @RequestParam(name = "forzarCompleto", defaultValue = "false") boolean forzarCompleto) {
+        
+        long inicio = System.currentTimeMillis();
+        
         try {
+            // 1️⃣ Leer DBF
             var filas = dbfService.listarOficinaAll(q);
-            int inserted=0, updated=0, sinEntidad=0, sinPredio=0;
+            
+            // 2️⃣ Cargar oficinas existentes en caché
+            Map<String, Oficina> oficinasExistentes = cargarOficinasEnCache(gestionPreferida);
+            
+            int inserted = 0, updated = 0, skipped = 0, sinEntidad = 0, sinPredio = 0;
             List<Oficina> batch = new ArrayList<>(500);
 
             for (var f : filas) {
-                String cod = f.getEntidadCodigo();
-                String codNoZeros = stripLeftZeros(cod);
-                String codPad4 = leftPad4(cod);
-
-                Entidad entidad = (gestionPreferida != null)
-                        ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, cod)
-                          .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codNoZeros))
-                          .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codPad4))
-                          .orElse(null)
-                        : entidadService.findTopByEntidadCodigoOrderByGestionDesc(cod)
-                          .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codNoZeros))
-                          .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codPad4))
-                          .orElse(null);
-
-                if (entidad == null) { sinEntidad++; continue; }
-
-                var predio = predioServicio.findByEntidadAndUnidadIgnoreCase(entidad, normUnidad(f.getUnidad())).orElse(null);
-                if (predio == null) { sinPredio++; continue; }
-
-                Oficina o = oficinaService.findByPredioAndCodOfi(predio, f.getCodOfi()).orElse(null);
-                boolean nuevo = (o == null);
-                if (o == null) {
-                    o = new Oficina();
-                    o.setPredio(predio);
-                    o.setCodOfi(f.getCodOfi());
+                // 3️⃣ Resolver entidad
+                Entidad entidad = resolverEntidad(gestionPreferida, f.getEntidadCodigo());
+                if (entidad == null) {
+                    sinEntidad++;
+                    continue;
                 }
 
-                String nombreFinal = (f.getNomOfic()!=null && !f.getNomOfic().isBlank())
-                        ? f.getNomOfic().trim() : ("OFICINA " + f.getCodOfi());
-                if (nombreFinal.length() > 255) nombreFinal = nombreFinal.substring(0, 255);
+                // 4️⃣ Resolver predio
+                Predio predio = predioServicio
+                    .findByEntidadAndUnidadIgnoreCase(entidad, normUnidad(f.getUnidad()))
+                    .orElse(null);
+                if (predio == null) {
+                    sinPredio++;
+                    continue;
+                }
+
+                // 5️⃣ Crear clave única para búsqueda en caché
+                String clave = predio.getIdPredio() + "-" + f.getCodOfi();
+                Oficina oficinaExistente = oficinasExistentes.get(clave);
+                
+                // 6️⃣ Determinar si es nuevo o actualización
+                Oficina oficina;
+                boolean esNueva = (oficinaExistente == null);
+                
+                if (esNueva) {
+                    oficina = new Oficina();
+                    oficina.setPredio(predio);
+                    oficina.setCodOfi(f.getCodOfi());
+                } else {
+                    oficina = oficinaExistente;
+                }
+
+                // 7️⃣ Mapear datos del DBF
+                String nombreFinal = (f.getNomOfic() != null && !f.getNomOfic().isBlank())
+                        ? f.getNomOfic().trim()
+                        : ("OFICINA " + f.getCodOfi());
+                if (nombreFinal.length() > 255) {
+                    nombreFinal = nombreFinal.substring(0, 255);
+                }
 
                 String observ = f.getObserv();
-                if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) observ = null;
+                if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) {
+                    observ = null;
+                }
 
-                o.setNombre(nombreFinal);
-                o.setObserv(observ);
-                o.setFechaUlt(f.getFeult());
-                o.setUsuario( f.getUsuario()==null? null : (f.getUsuario().length()>60 ? f.getUsuario().substring(0,60) : f.getUsuario()));
-                o.setApiEstado(f.getApiEstado());
-                o.setEstado("ACTIVO");
+                oficina.setNombre(nombreFinal);
+                oficina.setObserv(observ);
+                oficina.setFechaUlt(f.getFeult());
+                oficina.setUsuario(f.getUsuario() == null 
+                    ? null 
+                    : (f.getUsuario().length() > 60 
+                        ? f.getUsuario().substring(0, 60) 
+                        : f.getUsuario()));
+                oficina.setApiEstado(f.getApiEstado());
+                oficina.setEstado("ACTIVO");
 
-                batch.add(o);
-                if (nuevo) inserted++; else updated++;
-                if (batch.size()==500) { oficinaService.saveAll(batch); batch.clear(); }
+                // 8️⃣ OPTIMIZACIÓN: Calcular hash y comparar
+                String nuevoHash = oficina.calcularHash();
+                
+                if (!esNueva && !forzarCompleto) {
+                    // Verificar si realmente cambió
+                    if (nuevoHash.equals(oficina.getHashDatos())) {
+                        skipped++;
+                        continue; // ⭐ NO procesar si no hay cambios
+                    }
+                }
+
+                // 9️⃣ Actualizar metadatos
+                oficina.setHashDatos(nuevoHash);
+                oficina.setFechaUltimaSync(LocalDateTime.now());
+
+                batch.add(oficina);
+                if (esNueva) inserted++; else updated++;
+
+                // 🔟 Guardar en lotes
+                if (batch.size() >= 500) {
+                    oficinaService.saveAll(batch);
+                    batch.clear();
+                }
             }
-            if (!batch.isEmpty()) oficinaService.saveAll(batch);
+            
+            // 1️⃣1️⃣ Guardar lote final
+            if (!batch.isEmpty()) {
+                oficinaService.saveAll(batch);
+                batch.clear();
+            }
+
+            // 1️⃣2️⃣ Registrar en sync_control
+            long duracion = System.currentTimeMillis() - inicio;
+            syncControlService.registrarSincronizacion("oficina", filas.size(), inserted, updated, duracion);
 
             return ResponseEntity.ok(Map.of(
                 "ok", true,
                 "totalLeidas", filas.size(),
                 "insertados", inserted,
                 "actualizados", updated,
+                "omitidos", skipped,
                 "sinEntidad", sinEntidad,
-                "sinPredio", sinPredio
+                "sinPredio", sinPredio,
+                "duracionMs", duracion,
+                "mensaje", String.format("Sincronización completada en %.2f segundos", duracion / 1000.0)
             ));
+            
         } catch (Exception ex) {
+            // Registrar error
+            syncControlService.registrarError("oficina", ex.getMessage());
+            
             return ResponseEntity.internalServerError().body(Map.of(
                 "ok", false,
                 "message", "Error sincronizando OFICINA: " + ex.getMessage()
             ));
+        }
+    }
+
+    /**
+     * ✅ OPTIMIZACIÓN: Cargar todas las oficinas en memoria (1 sola consulta)
+     */
+    private Map<String, Oficina> cargarOficinasEnCache(Short gestion) {
+        List<Oficina> todas;
+        
+        if (gestion != null) {
+            // Filtrar por gestión de la entidad relacionada
+            todas = oficinaService.findAll().stream()
+                .filter(o -> o.getPredio() != null && 
+                           o.getPredio().getEntidad() != null &&
+                           gestion.equals(o.getPredio().getEntidad().getGestion()))
+                .collect(Collectors.toList());
+        } else {
+            todas = oficinaService.findAll();
+        }
+        
+        // Crear mapa con clave: "predioId-codOfi"
+        return todas.stream()
+            .collect(Collectors.toMap(
+                o -> o.getPredio().getIdPredio() + "-" + o.getCodOfi(),
+                o -> o,
+                (existing, replacement) -> existing
+            ));
+    }
+
+    /**
+     * ✅ ENDPOINT AJAX para obtener info de sincronización
+     */
+    @GetMapping("/sync-info")
+    @ResponseBody
+    public ResponseEntity<?> obtenerInfoSync() {
+        try {
+            SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("oficina");
+            
+            if (syncInfo != null) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+                
+                return ResponseEntity.ok(Map.of(
+                    "ultimaSincronizacion", syncInfo.getUltimaSincronizacion().format(formatter),
+                    "estado", syncInfo.getEstado(),
+                    "registrosProcesados", syncInfo.getRegistrosProcesados(),
+                    "registrosNuevos", syncInfo.getRegistrosNuevos(),
+                    "registrosActualizados", syncInfo.getRegistrosActualizados(),
+                    "duracionSegundos", syncInfo.getDuracionMs() / 1000.0
+                ));
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "ultimaSincronizacion", "Nunca sincronizado",
+                "estado", "PENDIENTE",
+                "registrosProcesados", 0,
+                "registrosNuevos", 0,
+                "registrosActualizados", 0,
+                "duracionSegundos", 0.0
+            ));
+            
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                "ultimaSincronizacion", "Error al obtener info",
+                "estado", "ERROR",
+                "registrosProcesados", 0,
+                "registrosNuevos", 0,
+                "registrosActualizados", 0,
+                "duracionSegundos", 0.0
+            ));
+        }
+    }
+
+    // ✅ Métodos auxiliares
+    private Entidad resolverEntidad(Short gestionPreferida, String codigo) {
+        String cod = codigo.trim();
+        String codNoZeros = stripLeftZeros(codigo);
+        String codPad4 = leftPad4(codigo);
+
+        if (gestionPreferida != null) {
+            return entidadService.findByGestionAndEntidadCodigo(gestionPreferida, cod)
+                    .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codNoZeros))
+                    .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codPad4))
+                    .orElse(null);
+        } else {
+            return entidadService.findTopByEntidadCodigoOrderByGestionDesc(cod)
+                    .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codNoZeros))
+                    .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codPad4))
+                    .orElse(null);
         }
     }
 

@@ -222,7 +222,7 @@ public class JavaDbfService {
 
     // ===== OFICINA.DBF
     public List<OficinaDbf> listarOficinaAll(String q) throws Exception {
-        Path file = baseDir.resolve("OFICINA.DBF"); // ojo al nombre real/case
+        Path file = baseDir.resolve("OFICINA.DBF");
         List<OficinaDbf> out = new ArrayList<>();
 
         Charset cs = (charset != null && !charset.isBlank()) 

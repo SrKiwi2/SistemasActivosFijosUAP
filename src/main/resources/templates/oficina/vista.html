@@ -12,15 +12,20 @@
     $(document).ready(function () {
         cargarTabla();
 
+        // Inicializar tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
     });
 
     function initDataTable() {
         const $tbl = $('#data-table');
         if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
-        // Inicializa
+
         const table = $tbl.DataTable({
-            destroy: true,           // cinturón y tirantes
-            orderCellsTop: true,     // 2 filas de thead (filtros en la 2ª)
+            destroy: true,
+            orderCellsTop: true,
             language: {
                 sProcessing: "Procesando...",
                 sLengthMenu: "Mostrar _MENU_ registros",
@@ -30,14 +35,19 @@
                 sInfoFiltered: "(filtrado de _MAX_ registros)",
                 sSearch: "Buscar general:",
                 sLoadingRecords: "Cargando...",
-                oPaginate: { sFirst: "Primero", sLast: "Último", sNext: "Siguiente", sPrevious: "Anterior" }
+                oPaginate: {
+                    sFirst: "Primero",
+                    sLast: "Último",
+                    sNext: "Siguiente",
+                    sPrevious: "Anterior"
+                }
             }
         });
 
-        // (Re)conecta los inputs del 2º thead a las columnas 1..4
+        // Filtros por columna
         $tbl.find('thead tr:eq(1) th').each(function (i) {
             const $input = $('input', this);
-            $input.off('.dt'); // evita duplicar handlers
+            $input.off('.dt');
             $input.on('keyup.dt change.dt', function () {
                 if (table.column(i).search() !== this.value) {
                     table.column(i).search(this.value).draw();
@@ -47,13 +57,23 @@
     }
 
     function cargarTabla(q) {
-        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
+        showGlobalLoader({
+            imgUrl: '/assets/img/logo/activofijos.png',
+            axis: 'y',
+            speed: 1.2,
+            texto: 'Cargando...'
+        });
 
         $.ajax({
             type: 'POST',
             url: "/administracion/oficina/tabla-registros" + (q ? ('?q=' + encodeURIComponent(q)) : ''),
-            success: function (html) { $("#tablaRegistro").html(html); initDataTable(); },
-            error: function (xhr) { $("#tablaRegistro").html(`<div class="alert alert-danger m-3">Error cargando tabla</div>`); },
+            success: function (html) {
+                $("#tablaRegistro").html(html);
+                initDataTable();
+            },
+            error: function (xhr) {
+                $("#tablaRegistro").html(`<div class="alert alert-danger m-3">Error cargando tabla</div>`);
+            },
             complete: hideGlobalLoader
         });
     }
