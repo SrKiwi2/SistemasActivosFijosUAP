@@ -1,16 +1,33 @@
 <div class="card">
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Entidad - Institución</h5>
-        <div class="d-flex gap-2">
-            <span class="badge bg-info" id="ultimaSync">
-                Última sincronizacion: <span th:text="${ultimaSincronizacion}">--</span>
+        <div class="d-flex gap-2 align-items-center">
+            <!-- Badge con información de última sincronización -->
+            <span class="badge bg-info" id="ultimaSync" 
+                  data-bs-toggle="tooltip" 
+                  data-bs-placement="bottom"
+                  th:title="'Procesados: ' + (${registrosProcesados ?: 0}) + ' | Nuevos: ' + (${registrosNuevos ?: 0}) + ' | Actualizados: ' + (${registrosActualizados ?: 0}) + ' | Duración: ' + (${duracionUltimaSync ?: 0}) + 's'">
+                <i class="fa-solid fa-clock me-1"></i>
+                Última sync: <span th:text="${ultimaSincronizacion ?: 'Nunca'}">--</span>
             </span>
-            <button id="btnSyncEntidad" class="btn btn-outline-secondary" data-bs-toggle="modal"
-                data-bs-target="#modalImportDbf">
-                <i class="fa-solid fa-file-import me-1"></i> Sincronizar Incremental
+            
+            <!-- Badge de estado -->
+            <span class="badge" 
+                  th:classappend="${estadoSync == 'COMPLETADO'} ? 'bg-success' : (estadoSync == 'ERROR' ? 'bg-danger' : 'bg-warning')"
+                  th:text="${estadoSync ?: 'PENDIENTE'}">
+            </span>
+            
+            <!-- Botón sincronización incremental -->
+            <button id="btnSyncEntidad" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-sync me-1"></i> Sincronizar
             </button>
-            <button id="btnSyncCompleto" class="btn btn-outline-warning">
-                <i class="fa-solid fa-database me-1"></i> Sync Completo (Forzar)
+            
+            <!-- Botón sincronización completa -->
+            <button id="btnSyncCompleto" class="btn btn-outline-warning btn-sm"
+                    data-bs-toggle="tooltip" 
+                    data-bs-placement="bottom"
+                    title="Forzar sincronización completa (más lento)">
+                <i class="fa-solid fa-database me-1"></i> Sync Completo
             </button>
         </div>
     </div>
@@ -42,26 +59,63 @@
     });
 
     $(document).on('click', '#btnSyncCompleto', function () {
-        if (confirm('¿Seguro que desea forzar sincronización completa? Esto puede tardar más.')) {
-            sincronizar(true);
-        }
+        Swal.fire({
+            title: '¿Forzar sincronización completa?',
+            text: "Esto procesará todos los registros y puede tardar más tiempo",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, sincronizar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                sincronizar(true);
+            }
+        });
     });
 
     function sincronizar(forzarCompleto) {
+        Swal.fire({
+            title: 'Sincronizando...',
+            html: 'Por favor espere',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
         $.ajax({
             type: 'POST',
             url: "/administracion/entidad/sync-from-mounted",
             data: { forzarCompleto: forzarCompleto },
             success: function (res) {
+                const tiempoSegundos = (res.duracionMs / 1000).toFixed(2);
                 const msg = `
-                    <b>Sincronización exitosa</b><br>
-                    Total leídas: ${res.totalLeidas}<br>
-                    Insertados: ${res.insertados}<br>
-                    Actualizados: ${res.actualizados}<br>
-                    Omitidos (sin cambios): ${res.omitidos}<br>
-                    Tiempo: ${(res.duracionMs/1000).toFixed(2)}s
+                    <div class="text-start">
+                        <p><strong>✅ Sincronización exitosa</strong></p>
+                        <hr>
+                        <p><i class="fa-solid fa-file-import"></i> Total leídas: <strong>${res.totalLeidas}</strong></p>
+                        <p><i class="fa-solid fa-plus-circle text-success"></i> Insertados: <strong>${res.insertados}</strong></p>
+                        <p><i class="fa-solid fa-edit text-primary"></i> Actualizados: <strong>${res.actualizados}</strong></p>
+                        <p><i class="fa-solid fa-check-circle text-info"></i> Omitidos (sin cambios): <strong>${res.omitidos}</strong></p>
+                        <p><i class="fa-solid fa-clock"></i> Tiempo: <strong>${tiempoSegundos}s</strong></p>
+                    </div>
                 `;
-                Swal.fire('Completado', msg, 'success');
+                
+                Swal.fire({
+                    title: 'Completado',
+                    html: msg,
+                    icon: 'success',
+                    confirmButtonText: 'Aceptar'
+                });
+                
+                // Actualizar badge de última sincronización
+                const ahora = new Date();
+                const fechaFormateada = ahora.toLocaleString('es-BO');
+                $('#ultimaSync span').text(fechaFormateada);
+                
+                // Recargar tabla
                 cargarTabla();
             },
             error: function (xhr) {

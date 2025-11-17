@@ -8,6 +8,9 @@ import java.time.ZoneId;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.usic.SistemasActivosFijosUAP.model.dao.SyncControlRepository;
+import com.usic.SistemasActivosFijosUAP.model.entity.SyncControl;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +21,8 @@ public class SyncControlService {
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    private final SyncControlRepository syncControlRepository;
     
     public LocalDateTime getUltimaSincronizacion(String tabla) {
         String sql = "SELECT ultima_sincronizacion FROM sync_control WHERE tabla_nombre = :tabla";
@@ -49,5 +54,33 @@ public class SyncControlService {
             .setParameter("actualizados", actualizados)
             .setParameter("duracion", duracionMs)
             .executeUpdate();
+    }
+
+    /**
+     * Obtiene la información de sincronización de una tabla
+     */
+    public SyncControl obtenerInfoSincronizacion(String tablaNombre) {
+        return syncControlRepository.findByTablaNombre(tablaNombre)
+            .orElse(null);
+    }
+
+    
+    /**
+     * Registra un error en la sincronización
+     */
+    @Transactional
+    public void registrarError(String tablaNombre, String mensajeError) {
+        SyncControl sync = syncControlRepository.findByTablaNombre(tablaNombre)
+            .orElseGet(() -> {
+                SyncControl nuevo = new SyncControl();
+                nuevo.setTablaNombre(tablaNombre);
+                nuevo.setUltimaSincronizacion(LocalDateTime.now());
+                return nuevo;
+            });
+        
+        sync.setEstado("ERROR");
+        sync.setMensajeError(mensajeError);
+        
+        syncControlRepository.save(sync);
     }
 }

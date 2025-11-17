@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.controller.entidad;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,7 @@ import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.EntidadDbf;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
+import com.usic.SistemasActivosFijosUAP.model.entity.SyncControl;
 import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
 
 import lombok.RequiredArgsConstructor;
@@ -35,7 +37,31 @@ public class EntidadController {
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String inicioEntidad() {
+    public String inicioEntidad(Model model) {
+
+        try {
+            SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("entidad");
+            
+            if (syncInfo != null) {
+                // Formatear la fecha para mostrar
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+                String fechaFormateada = syncInfo.getUltimaSincronizacion().format(formatter);
+                
+                model.addAttribute("ultimaSincronizacion", fechaFormateada);
+                model.addAttribute("estadoSync", syncInfo.getEstado());
+                model.addAttribute("registrosProcesados", syncInfo.getRegistrosProcesados());
+                model.addAttribute("registrosNuevos", syncInfo.getRegistrosNuevos());
+                model.addAttribute("registrosActualizados", syncInfo.getRegistrosActualizados());
+                model.addAttribute("duracionUltimaSync", syncInfo.getDuracionMs() / 1000.0);
+            } else {
+                model.addAttribute("ultimaSincronizacion", "Nunca sincronizado");
+                model.addAttribute("estadoSync", "PENDIENTE");
+            }
+        } catch (Exception e) {
+            model.addAttribute("ultimaSincronizacion", "Error al obtener info");
+            model.addAttribute("estadoSync", "ERROR");
+        }
+
         return "entidad/vista";
     }
 
