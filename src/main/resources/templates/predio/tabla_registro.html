@@ -47,7 +47,7 @@
             <tr th:each="predio, index: ${listasPredios}">
                 <td th:text="${index.index + 1}"></td>
                 <td>
-                    <!-- ✅ Mostrar código de entidad con fallback -->
+                    <!-- Mostrar código de entidad con fallback -->
                     <span th:if="${predio?.entidad != null}" 
                           th:text="${predio.entidad.entidadCodigo}"
                           class="badge bg-primary">
@@ -75,7 +75,7 @@
                     </span>
                 </td>
                 <td>
-                    <!-- ✅ Badge de estado con colores -->
+                    <!-- Badge de estado con colores -->
                     <span th:if="${predio.estadoUni != null}"
                           class="badge"
                           th:classappend="${predio.estadoUni == 1} ? 'bg-success' : 'bg-warning'"
@@ -87,25 +87,26 @@
                     </span>
                 </td>
                 <td class="text-center">
-                    <!-- ✅ Botones solo si tiene ID (existe en BD) -->
+                    <!-- ✅ SOLUCIÓN: Usar data-* attributes en lugar de th:onclick -->
                     <div th:if="${predio.idPredio != null}" class="btn-group btn-group-sm" role="group">
                         <button type="button" 
-                                class="btn btn-primary"
-                                th:onclick="'cargarFormularioEdit(\'' + ${id_encryptado[index.index]} + '\')'"
+                                class="btn btn-primary btn-editar-predio"
+                                th:data-id="${id_encryptado[index.index]}"
                                 data-bs-toggle="modal" 
                                 data-bs-target="#modalFormularioPredio"
                                 title="Editar predio">
                             <i class="fa-solid fa-pen-to-square"></i>
                         </button>
                         <button type="button" 
-                                class="btn btn-danger"
-                                th:onclick="'eliminar(\'' + ${predio.unidad} + '\', \'' + ${id_encryptado[index.index]} + '\')'"
+                                class="btn btn-danger btn-eliminar-predio"
+                                th:data-id="${id_encryptado[index.index]}"
+                                th:data-unidad="${predio.unidad}"
                                 title="Eliminar predio">
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     </div>
                     
-                    <!-- ✅ Si NO tiene ID (viene del DBF), mostrar mensaje -->
+                    <!-- Si NO tiene ID (viene del DBF), mostrar mensaje -->
                     <div th:if="${predio.idPredio == null}">
                         <span class="badge bg-warning" 
                               data-bs-toggle="tooltip"
