@@ -2,9 +2,12 @@ package com.usic.SistemasActivosFijosUAP.controller.grupo_contable;
 
 import java.io.File;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +28,9 @@ import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.GrupoContableDbf;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
+import com.usic.SistemasActivosFijosUAP.model.entity.SyncControl;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +42,7 @@ public class GrupoContableController {
 
     private final IGrupoContableService grupoContableService;
     private final JavaDbfService dbfService;
+    private final SyncControlService syncControlService;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -44,32 +50,38 @@ public class GrupoContableController {
         return "grupoContable/vista";
     }
 
-    // @ValidarUsuarioAutenticado
-    // @PostMapping("/tabla-registros")
-    // public String tablaRegistros(Model model) throws Exception {
-    // List<GrupoContable> listasGrupoContable =
-    // grupoContableService.listarGruposContables();
-    // List<String> encryptedIds = new ArrayList<>();
-    // for (GrupoContable grupoContables : listasGrupoContable) {
-    // String id_encryptado =
-    // Encriptar.encrypt(Long.toString(grupoContables.getIdGrupoContable()));
-    // encryptedIds.add(id_encryptado);
-    // }
-    // model.addAttribute("listasGrupoContable", listasGrupoContable);
-    // model.addAttribute("id_encryptado", encryptedIds);
-    // return "grupoContable/tabla_registro";
-    // }
-
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla-registros")
     public String tablaRegistros(
             @RequestParam(name = "q", required = false) String q,
             Model model) throws Exception {
 
+        try {
+            SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("grupo_contable");
+            
+            if (syncInfo != null) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+                String fechaFormateada = syncInfo.getUltimaSincronizacion().format(formatter);
+                
+                model.addAttribute("ultimaSincronizacion", fechaFormateada);
+                model.addAttribute("estadoSync", syncInfo.getEstado());
+                model.addAttribute("registrosProcesados", syncInfo.getRegistrosProcesados());
+                model.addAttribute("registrosNuevos", syncInfo.getRegistrosNuevos());
+                model.addAttribute("registrosActualizados", syncInfo.getRegistrosActualizados());
+                model.addAttribute("duracionUltimaSync", syncInfo.getDuracionMs() / 1000.0);
+            } else {
+                model.addAttribute("ultimaSincronizacion", "Nunca sincronizado");
+                model.addAttribute("estadoSync", "PENDIENTE");
+            }
+        } catch (Exception e) {
+            model.addAttribute("ultimaSincronizacion", "Error al obtener info");
+            model.addAttribute("estadoSync", "ERROR");
+        }
+
         // 1) Intentar desde BD
         List<GrupoContable> bd = (q == null || q.isBlank())
-                ? grupoContableService.listarGruposContables() // todos
-                : grupoContableService.buscarPorNombreLike("%" + q.trim() + "%"); // implementa este finder
+                ? grupoContableService.listarGruposContables()
+                : grupoContableService.buscarPorNombreLike("%" + q.trim() + "%");
 
         boolean fromDb = (bd != null && !bd.isEmpty());
 
@@ -81,7 +93,7 @@ public class GrupoContableController {
                     .vidaUtil(gc.getVidaUtil())
                     .depreciar(gc.getDepreciar())
                     .actualizar(gc.getActualizar())
-                    .idGrupoContable(gc.getIdGrupoContable()) // usa id real de BD aquí
+                    .idGrupoContable(gc.getIdGrupoContable())
                     .build()).toList();
 
             var encryptedIds = new ArrayList<String>();
@@ -91,7 +103,7 @@ public class GrupoContableController {
 
             model.addAttribute("listasGrupoContable", listasGrupoContable);
             model.addAttribute("id_encryptado", encryptedIds);
-            model.addAttribute("sourceUsed", "db"); // para debug/etiqueta opcional
+            model.addAttribute("sourceUsed", "db");
             return "grupoContable/tabla_registro";
         }
 
@@ -124,20 +136,6 @@ public class GrupoContableController {
         return "grupoContable/formulario";
     }
 
-    // @ValidarUsuarioAutenticado
-    // @PostMapping("/registrar-grupoc")
-    // public ResponseEntity<String> registrarGrupoContable(HttpServletRequest
-    // request, @Validated GrupoContable grupoContable) {
-    // if (grupoContableService.buscarPorNombre(grupoContable.getNombre()) == null)
-    // {
-    // grupoContable.setEstado("ACTIVO");
-    // grupoContableService.save(grupoContable);
-    // return ResponseEntity.ok("Se realizó el registro correctamente");
-    // } else {
-    // return ResponseEntity.ok("Ya existe un rol con este nombre");
-    // }
-    // }
-
     /* para ahcer registros al archivo dbf de windows */
     @ValidarUsuarioAutenticado
     @PostMapping("/registrar-grupoc")
@@ -157,8 +155,8 @@ public class GrupoContableController {
             short codcont = Short.parseShort(codigoStr);
 
             // 2) Defaults (ajusta a tus reglas)
-            short vidautil = 5; // <-- cámbialo si tienes otra regla
-            String observ = ""; // o "", como prefieras
+            short vidautil = 5;
+            String observ = "";
             boolean depreciar = true;
             boolean actualizar = true;
             LocalDate feult = LocalDate.now();
@@ -222,53 +220,159 @@ public class GrupoContableController {
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
     @ResponseBody
-    public ResponseEntity<?> syncFromMounted(@RequestParam(name = "q", required = false) String q) {
+    public ResponseEntity<?> syncFromMounted(
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "forzarCompleto", defaultValue = "false") boolean forzarCompleto) {
+        
+        long inicio = System.currentTimeMillis();
+        
         try {
-            // 1) Leer todo el CODCONT.DBF desde la carpeta montada
+            // Leer DBF
             var registros = dbfService.listarCodcontAll(q);
-
-            // 2) Upsert en BD (lote)
-            int inserted = 0, updated = 0;
+            
+            // Cargar grupos existentes en caché
+            Map<Integer, GrupoContable> gruposExistentes = cargarGruposEnCache();
+            
+            int inserted = 0, updated = 0, skipped = 0;
             List<GrupoContable> batch = new ArrayList<>(500);
 
             for (var d : registros) {
                 Integer cod = d.getCodContable() != null ? d.getCodContable().intValue() : null;
+                
+                // Validar clave obligatoria
+                if (cod == null) {
+                    continue;
+                }
 
-                // Busca por clave natural (cod_contable). Crea si no existe.
-                var existente = grupoContableService.findByCodContable(cod).orElse(null);
-                boolean nuevo = (existente == null);
+                // Buscar en caché
+                GrupoContable g = gruposExistentes.get(cod);
+                
+                // Determinar si es nuevo
+                boolean esNuevo = (g == null);
+                
+                if (esNuevo) {
+                    g = new GrupoContable();
+                    g.setCodContable(cod);
+                }
 
-                var g = nuevo ? new GrupoContable() : existente;
-                g.setCodContable(cod);
+                // Mapear datos
                 g.setNombre(d.getNombre());
-                g.setVidaUtil(d.getVidaUtil());
+                g.setVidaUtil(d.getVidaUtil() != null ? d.getVidaUtil().intValue() : null);
                 g.setDepreciar(Boolean.TRUE.equals(d.getDepreciar()));
                 g.setActualizar(Boolean.TRUE.equals(d.getActualizar()));
-                // g.setEstado("ACTIVO"); // si tu entidad lo tiene
+                g.setEstado("ACTIVO");
+
+                // OPTIMIZACIÓN: Calcular hash y comparar
+                String nuevoHash = g.calcularHash();
+                
+                if (!esNuevo && !forzarCompleto) {
+                    // Verificar si realmente cambió
+                    if (nuevoHash.equals(g.getHashDatos())) {
+                        skipped++;
+                        continue; // ⭐ NO procesar si no hay cambios
+                    }
+                }
+
+                // Actualizar metadatos
+                g.setHashDatos(nuevoHash);
+                g.setFechaUltimaSync(LocalDateTime.now());
 
                 batch.add(g);
-                if (nuevo)
-                    inserted++;
-                else
-                    updated++;
+                if (esNuevo) inserted++; else updated++;
 
-                if (batch.size() == 500) {
+                //  Guardar en lotes
+                if (batch.size() >= 500) {
                     grupoContableService.saveAll(batch);
                     batch.clear();
                 }
             }
-            if (!batch.isEmpty())
+            
+            // Guardar lote final
+            if (!batch.isEmpty()) {
                 grupoContableService.saveAll(batch);
+                batch.clear();
+            }
+
+            // Registrar en sync_control
+            long duracion = System.currentTimeMillis() - inicio;
+            syncControlService.registrarSincronizacion("grupo_contable", registros.size(), inserted, updated, duracion);
 
             return ResponseEntity.ok(Map.of(
-                    "ok", true,
-                    "totalLeidas", registros.size(),
-                    "insertados", inserted,
-                    "actualizados", updated));
+                "ok", true,
+                "totalLeidas", registros.size(),
+                "insertados", inserted,
+                "actualizados", updated,
+                "omitidos", skipped,
+                "duracionMs", duracion,
+                "mensaje", String.format("Sincronización completada en %.2f segundos", duracion / 1000.0)
+            ));
+            
         } catch (Exception e) {
+            // Registrar error
+            syncControlService.registrarError("grupo_contable", e.getMessage());
+            
             return ResponseEntity.internalServerError().body(Map.of(
-                    "ok", false,
-                    "message", "Error sincronizando desde DBF montado: " + e.getMessage()));
+                "ok", false,
+                "message", "Error sincronizando desde DBF montado: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * OPTIMIZACIÓN: Cargar todos los grupos en memoria (1 sola consulta)
+     */
+    private Map<Integer, GrupoContable> cargarGruposEnCache() {
+        List<GrupoContable> todos = grupoContableService.findAll();
+        
+        return todos.stream()
+            .filter(g -> g.getCodContable() != null)
+            .collect(Collectors.toMap(
+                GrupoContable::getCodContable,
+                g -> g,
+                (existing, replacement) -> existing
+            ));
+    }
+
+    /**
+     * ENDPOINT AJAX para obtener info de sincronización
+     */
+    @GetMapping("/sync-info")
+    @ResponseBody
+    public ResponseEntity<?> obtenerInfoSync() {
+        try {
+            SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("grupo_contable");
+            
+            if (syncInfo != null) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+                
+                return ResponseEntity.ok(Map.of(
+                    "ultimaSincronizacion", syncInfo.getUltimaSincronizacion().format(formatter),
+                    "estado", syncInfo.getEstado(),
+                    "registrosProcesados", syncInfo.getRegistrosProcesados(),
+                    "registrosNuevos", syncInfo.getRegistrosNuevos(),
+                    "registrosActualizados", syncInfo.getRegistrosActualizados(),
+                    "duracionSegundos", syncInfo.getDuracionMs() / 1000.0
+                ));
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "ultimaSincronizacion", "Nunca sincronizado",
+                "estado", "PENDIENTE",
+                "registrosProcesados", 0,
+                "registrosNuevos", 0,
+                "registrosActualizados", 0,
+                "duracionSegundos", 0.0
+            ));
+            
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                "ultimaSincronizacion", "Error al obtener info",
+                "estado", "ERROR",
+                "registrosProcesados", 0,
+                "registrosNuevos", 0,
+                "registrosActualizados", 0,
+                "duracionSegundos", 0.0
+            ));
         }
     }
 

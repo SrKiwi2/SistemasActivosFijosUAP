@@ -1,14 +1,30 @@
 <div class="card">
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Grupo Contable</h5>
-        
-        <div class="d-flex gap-2">
-            <button id="btnSync" class="btn btn-outline-primary btn-sm">
-            <i class="fa-solid fa-rotate me-1"></i> Importar desde DBF montado
+
+        <div class="d-flex gap-2 align-items-center">
+            <!-- ✅ Badge con información de última sincronización -->
+            <span class="badge bg-info" id="ultimaSync" data-bs-toggle="tooltip" data-bs-placement="bottom"
+                th:title="'Procesados: ' + (${registrosProcesados ?: 0}) + ' | Nuevos: ' + (${registrosNuevos ?: 0}) + ' | Actualizados: ' + (${registrosActualizados ?: 0}) + ' | Duración: ' + (${duracionUltimaSync ?: 0}) + 's'">
+                <i class="fa-solid fa-clock me-1"></i>
+                Última sync: <span th:text="${ultimaSincronizacion ?: 'Nunca'}">--</span>
+            </span>
+
+            <!-- ✅ Badge de estado -->
+            <span class="badge" id="estadoSyncBadge"
+                th:classappend="${estadoSync == 'COMPLETADO'} ? 'bg-success' : (${estadoSync == 'ERROR'} ? 'bg-danger' : 'bg-warning')"
+                th:text="${estadoSync ?: 'PENDIENTE'}">
+            </span>
+
+            <!-- ✅ Botón sincronización incremental -->
+            <button id="btnSyncGrupoContable" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-sync me-1"></i> Sincronizar
             </button>
-            <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-                data-bs-target="#modalFormularioGrupoContable">
-                <i class="fa-solid fa-user-plus"></i> Agregar Grupo Contable
+
+            <!-- ✅ Botón sincronización completa -->
+            <button id="btnSyncCompleto" class="btn btn-outline-warning btn-sm" data-bs-toggle="tooltip"
+                data-bs-placement="bottom" title="Forzar sincronización completa (más lento)">
+                <i class="fa-solid fa-database me-1"></i> Sync Completo
             </button>
         </div>
     </div>
@@ -18,32 +34,37 @@
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>CODIGO CONTABLE</th>
-                    <th>NOMBRE</th>
-                    <th>VIDA UTIL</th>
-                    <th>DEPRECIAR</th>
-                    <th>ACTUALIZAR</th>
-                    <th>OPCIONES</th>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Vida Útil</th>
+                    <th>Depreciar</th>
+                    <th>Actualizar</th>
                 </tr>
             </thead>
-            <tbody class="animate__animated animate__bounceInDown">
-                <tr th:each="grupoc, index: ${listasGrupoContable}">
-                    <th th:text="${index.index+1}"></th>
-                    <th th:text="${grupoc.codContable}"></th>
-                    <th th:text="${grupoc.nombre}"></th>
-                    <th th:text="${grupoc.vidaUtil}"></th>
-                    <th th:text="${grupoc.depreciar}"></th>
-                    <th th:text="${grupoc.actualizar}"></th>
-                    <th>
-                        <button type="button" class="btn btn-sm btn-primary"
-                            th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
-                            data-bs-toggle="modal" data-bs-target="#modalFormularioGrupoContable">
-                            <i class="fa-solid fa-pen-to-square"></i> Editar
-                        </button>
-                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${grupoc.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
-                            <i class="fa-solid fa-trash"></i> Eliminar
-                        </button>
-                    </th>
+            <tbody>
+                <tr th:each="gc, index: ${listasGrupoContable}">
+                    <td th:text="${index.index + 1}"></td>
+                    <td>
+                        <span class="badge bg-primary" th:text="${gc.codContable}"></span>
+                    </td>
+                    <td th:text="${gc.nombre}"></td>
+                    <td th:text="${gc.vidaUtil ?: '-'}"></td>
+                    <td>
+                        <span th:if="${gc.depreciar != null && gc.depreciar == true}" class="badge bg-success">
+                            <i class="fa-solid fa-check"></i> Sí
+                        </span>
+                        <span th:if="${gc.depreciar == null || gc.depreciar == false}" class="badge bg-secondary">
+                            <i class="fa-solid fa-times"></i> No
+                        </span>
+                    </td>
+                    <td>
+                        <span th:if="${gc.actualizar != null && gc.actualizar == true}" class="badge bg-success">
+                            <i class="fa-solid fa-check"></i> Sí
+                        </span>
+                        <span th:if="${gc.actualizar == null || gc.actualizar == false}" class="badge bg-secondary">
+                            <i class="fa-solid fa-times"></i> No
+                        </span>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -51,6 +72,95 @@
 </div>
 
 <script>
+    $(document).on('click', '#btnSyncGrupoContable', function () {
+        sincronizar(false);
+    });
+
+    $(document).on('click', '#btnSyncCompleto', function () {
+        Swal.fire({
+            title: '¿Forzar sincronización completa?',
+            text: "Esto procesará todos los registros y puede tardar más tiempo",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, sincronizar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                sincronizar(true);
+            }
+        });
+    });
+
+    function sincronizar(forzarCompleto) {
+        showGlobalLoader({ texto: 'Sincronizando Grupos Contables...' });
+
+        $.ajax({
+            type: 'POST',
+            url: '/administracion/grupoc/sync-from-mounted',
+            data: { forzarCompleto: forzarCompleto },
+            success: function (res) {
+                const tiempoSegundos = (res.duracionMs / 1000).toFixed(2);
+                const msg = `
+                        <div class="text-start">
+                            <p><strong>✅ Sincronización exitosa</strong></p>
+                            <hr>
+                            <p><i class="fa-solid fa-file-import"></i> Total leídas: <strong>${res.totalLeidas}</strong></p>
+                            <p><i class="fa-solid fa-plus-circle text-success"></i> Insertados: <strong>${res.insertados}</strong></p>
+                            <p><i class="fa-solid fa-edit text-primary"></i> Actualizados: <strong>${res.actualizados}</strong></p>
+                            <p><i class="fa-solid fa-check-circle text-info"></i> Omitidos (sin cambios): <strong>${res.omitidos}</strong></p>
+                            <p><i class="fa-solid fa-clock"></i> Tiempo: <strong>${tiempoSegundos}s</strong></p>
+                        </div>
+                    `;
+
+                Swal.fire({
+                    title: 'Completado',
+                    html: msg,
+                    icon: 'success',
+                    confirmButtonText: 'Aceptar'
+                });
+
+                // ✅ Actualizar badge
+                actualizarInfoSync();
+
+                cargarTabla();
+            },
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
+                Swal.fire('Error', msg, 'error');
+            },
+            complete: hideGlobalLoader
+        });
+    }
+
+    // ✅ Actualizar badges sin recargar página
+    function actualizarInfoSync() {
+        $.ajax({
+            type: 'GET',
+            url: '/administracion/grupoc/sync-info',
+            success: function (info) {
+                $('#ultimaSync span').text(info.ultimaSincronizacion);
+
+                const tooltip = `Procesados: ${info.registrosProcesados || 0} | Nuevos: ${info.registrosNuevos || 0} | Actualizados: ${info.registrosActualizados || 0} | Duración: ${info.duracionSegundos || 0}s`;
+                $('#ultimaSync').attr('data-bs-original-title', tooltip);
+
+                const badgeEstado = $('#estadoSyncBadge');
+                badgeEstado.removeClass('bg-success bg-danger bg-warning');
+
+                if (info.estado === 'COMPLETADO') {
+                    badgeEstado.addClass('bg-success');
+                } else if (info.estado === 'ERROR') {
+                    badgeEstado.addClass('bg-danger');
+                } else {
+                    badgeEstado.addClass('bg-warning');
+                }
+
+                badgeEstado.text(info.estado);
+            }
+        });
+    }
+
     $('#data-table').DataTable({
         language: {
             "sProcessing": "Procesando...",
@@ -75,21 +185,5 @@
                 "sSortDescending": ": Activar para ordenar la columna de manera descendente"
             }
         }
-    });
-
-    document.getElementById('btnSync').addEventListener('click', function () {
-
-        $.ajax({
-            type: 'POST',
-            url: '/administracion/grupoc/sync-from-mounted',
-            success: function (res) {
-                Swal.fire('Listo', `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}`, 'success');
-                cargarTabla(); // refresca tu tabla
-            },
-            error: function (xhr) {
-                const msg = xhr.responseJSON?.message || 'Error al sincronizar';
-                Swal.fire('Error', msg, 'error');
-            }
-        });
     });
 </script>
