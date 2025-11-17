@@ -611,6 +611,7 @@ public class JavaDbfService {
             }
 
             final String ql = (q==null? null : q.toLowerCase(Locale.ROOT));
+            
             Object[] row;
             while ((row = reader.nextRecord()) != null) {
             Short  ges = asInt(row, iGES)==null ? null : asInt(row, iGES).shortValue();

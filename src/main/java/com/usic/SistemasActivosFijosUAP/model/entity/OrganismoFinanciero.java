@@ -1,9 +1,21 @@
 package com.usic.SistemasActivosFijosUAP.model.entity;
 
+import java.time.LocalDateTime;
+
+import org.apache.commons.codec.digest.DigestUtils;
+
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -16,7 +28,9 @@ import lombok.Setter;
     indexes = {
         @Index(name = "idx_orgfin_gestion", columnList = "gestion"),
         @Index(name = "idx_orgfin_sigla", columnList = "sigla"),
-        @Index(name = "idx_orgfin_descripcion", columnList = "descripcion")
+        @Index(name = "idx_orgfin_descripcion", columnList = "descripcion"),
+        @Index(name = "idx_orgfin_sync_fecha", columnList = "fecha_ultima_sync"),
+        @Index(name = "idx_orgfin_hash", columnList = "hash_datos")
     }
 )
 @Setter @Getter
@@ -46,4 +60,23 @@ public class OrganismoFinanciero extends AuditoriaConfig{
     @Size(max = 60)
     @Column(name = "sigla", length = 60)
     private String sigla;
+
+    @Column(name = "fecha_ultima_sync")
+    private LocalDateTime fechaUltimaSync;
+    
+    @Column(name = "hash_datos", length = 32)
+    private String hashDatos;
+    
+    /**
+     * Calcula hash MD5 de los datos importantes para detectar cambios
+     */
+    public String calcularHash() {
+        String datos = String.join("|",
+            gestion != null ? String.valueOf(gestion) : "",
+            codOf != null ? codOf : "",
+            descripcion != null ? descripcion : "",
+            sigla != null ? sigla : ""
+        );
+        return DigestUtils.md5Hex(datos);
+    }
 }

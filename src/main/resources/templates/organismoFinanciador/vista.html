@@ -2,15 +2,14 @@
 
 <div id="tablaRegistro"></div>
 
-<div class="modal fade" id="modalFormularioAuxiliar" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" id="prediocontenidoModalOF"></div>
-    </div>
-</div>
-
 <script>
     $(document).ready(function () {
         cargarTabla();
+
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
 
     });
 
@@ -37,18 +36,6 @@
             error: function () { $('#tablaRegistro').html('<div class="alert alert-danger m-3">Error al cargar la tabla.</div>'); },
             complete: hideGlobalLoader
         });
-    }
-
-    function cargarFormulario() {
-        cargarFormularioAlert("/administracion/organismo/formulario", "#prediocontenidoModalOF", "#formularioOF");
-    }
-
-    function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/administracion/organismo/formulario-edit", "#prediocontenidoModalOF", "#formularioOF");
-    }
-
-    function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/organismo/eliminar", cargarTabla);
     }
 
 </script>
