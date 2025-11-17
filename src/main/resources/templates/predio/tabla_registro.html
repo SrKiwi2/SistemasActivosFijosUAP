@@ -3,47 +3,235 @@
         <h5>Registro Predio</h5>
         <small class="text-muted" th:if="${sourceUsed=='dbf'}">(fuente: DBF)</small>
         <small class="text-muted" th:if="${sourceUsed=='db'}">(fuente: BD)</small>
-        <div class="d-flex gap-2">
-            <button id="btnSyncPredio" class="btn btn-outline-secondary">
-                <i class="fa-solid fa-file-import me-1"></i> Importar desde DBF montado
+        <div class="d-flex gap-2 align-items-center">
+            <!-- ✅ Badge con información de última sincronización -->
+            <span class="badge bg-info" id="ultimaSync" data-bs-toggle="tooltip" data-bs-placement="bottom"
+                th:title="'Procesados: ' + (${registrosProcesados ?: 0}) + ' | Nuevos: ' + (${registrosNuevos ?: 0}) + ' | Actualizados: ' + (${registrosActualizados ?: 0}) + ' | Duración: ' + (${duracionUltimaSync ?: 0}) + 's'">
+                <i class="fa-solid fa-clock me-1"></i>
+                Última sync: <span th:text="${ultimaSincronizacion ?: 'Nunca'}">--</span>
+            </span>
+
+            <!-- ✅ Badge de estado -->
+            <span class="badge" id="estadoSyncBadge"
+                th:classappend="${estadoSync == 'COMPLETADO'} ? 'bg-success' : (${estadoSync == 'ERROR'} ? 'bg-danger' : 'bg-warning')"
+                th:text="${estadoSync ?: 'PENDIENTE'}">
+            </span>
+
+            <!-- ✅ Botón sincronización incremental -->
+            <button id="btnSyncPredio" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-sync me-1"></i> Sincronizar
+            </button>
+
+            <!-- ✅ Botón sincronización completa -->
+            <button id="btnSyncCompleto" class="btn btn-outline-warning btn-sm" data-bs-toggle="tooltip"
+                data-bs-placement="bottom" title="Forzar sincronización completa (más lento)">
+                <i class="fa-solid fa-database me-1"></i> Sync Completo
             </button>
         </div>
     </div>
-    <div class="card-datatable table-responsive pt-0">
-        <table class="datatables-basic table table-hover" id="data-table">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Entidad</th>
-                    <th>Unidad</th>
-                    <th>Descripcion</th>
-                    <th>OPCIONES</th>
-                </tr>
-            </thead>
-            <tbody class="animate__animated animate__bounceInDown">
-                <tr th:each="predio, index: ${listasPredios}">
-                    <th th:text="${index.index+1}"></th>
-                    <th th:text="${predio?.entidad?.entidadCodigo ?: (predio?.codigo ?: '-')}"></th>
-                    <th th:text="${predio.unidad}"></th>
-                    <th th:text="${predio.descrip}"></th>
-                    <th>
-                        <button type="button" class="btn btn-sm btn-primary"
-                            th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
-                            data-bs-toggle="modal" data-bs-target="#modalFormularioPredio">
-                            <i class="fa-solid fa-pen-to-square"></i> Editar
+</div>
+<div class="card-datatable table-responsive pt-0">
+    <table class="datatables-basic table table-hover" id="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Entidad</th>
+                <th>Unidad</th>
+                <th>Descripción</th>
+                <th>Ciudad</th>
+                <th>Estado</th>
+                <th class="text-center">Opciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="predio, index: ${listasPredios}">
+                <td th:text="${index.index + 1}"></td>
+                <td>
+                    <!-- ✅ Mostrar código de entidad con fallback -->
+                    <span th:if="${predio?.entidad != null}" 
+                          th:text="${predio.entidad.entidadCodigo}"
+                          class="badge bg-primary">
+                    </span>
+                    <span th:if="${predio?.entidad == null && predio?.codigo != null}" 
+                          th:text="${predio.codigo}"
+                          class="badge bg-secondary"
+                          data-bs-toggle="tooltip"
+                          title="Entidad no encontrada en BD">
+                    </span>
+                    <span th:if="${predio?.entidad == null && predio?.codigo == null}"
+                          class="text-muted">
+                        -
+                    </span>
+                </td>
+                <td th:text="${predio.unidad}"></td>
+                <td th:text="${predio.descrip}"></td>
+                <td>
+                    <span th:if="${predio.ciudad != null && !#strings.isEmpty(predio.ciudad)}"
+                          th:text="${predio.ciudad}">
+                    </span>
+                    <span th:if="${predio.ciudad == null || #strings.isEmpty(predio.ciudad)}"
+                          class="text-muted">
+                        -
+                    </span>
+                </td>
+                <td>
+                    <!-- ✅ Badge de estado con colores -->
+                    <span th:if="${predio.estadoUni != null}"
+                          class="badge"
+                          th:classappend="${predio.estadoUni == 1} ? 'bg-success' : 'bg-warning'"
+                          th:text="${predio.estadoUni == 1} ? 'Activo' : 'Inactivo'">
+                    </span>
+                    <span th:if="${predio.estadoUni == null}"
+                          class="text-muted">
+                        -
+                    </span>
+                </td>
+                <td class="text-center">
+                    <!-- ✅ Botones solo si tiene ID (existe en BD) -->
+                    <div th:if="${predio.idPredio != null}" class="btn-group btn-group-sm" role="group">
+                        <button type="button" 
+                                class="btn btn-primary"
+                                th:onclick="'cargarFormularioEdit(\'' + ${id_encryptado[index.index]} + '\')'"
+                                data-bs-toggle="modal" 
+                                data-bs-target="#modalFormularioPredio"
+                                title="Editar predio">
+                            <i class="fa-solid fa-pen-to-square"></i>
                         </button>
-                        <button type="button" class="btn btn-sm btn-danger"
-                            th:onclick="eliminar([[${predio.unidad}]],[[${id_encryptado[__${index.index}__]}]])">
-                            <i class="fa-solid fa-trash"></i> Eliminar
+                        <button type="button" 
+                                class="btn btn-danger"
+                                th:onclick="'eliminar(\'' + ${predio.unidad} + '\', \'' + ${id_encryptado[index.index]} + '\')'"
+                                title="Eliminar predio">
+                            <i class="fa-solid fa-trash"></i>
                         </button>
-                    </th>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+                    </div>
+                    
+                    <!-- ✅ Si NO tiene ID (viene del DBF), mostrar mensaje -->
+                    <div th:if="${predio.idPredio == null}">
+                        <span class="badge bg-warning" 
+                              data-bs-toggle="tooltip"
+                              title="Registro solo lectura desde DBF. Sincronice para poder editar.">
+                            <i class="fa-solid fa-lock"></i> Solo lectura
+                        </span>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
 </div>
 
 <script>
+    
+    $(document).ready(function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+
+    $(document).on('click', '#btnSyncPredio', function () {
+        sincronizar(false);
+    });
+
+    $(document).on('click', '#btnSyncCompleto', function () {
+        Swal.fire({
+            title: '¿Forzar sincronización completa?',
+            text: "Esto procesará todos los registros y puede tardar más tiempo",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, sincronizar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                sincronizar(true);
+            }
+        });
+    });
+
+    function sincronizar(forzarCompleto) {
+        // Mostrar loading
+        Swal.fire({
+            title: 'Sincronizando Predios...',
+            html: 'Por favor espere',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        $.ajax({
+            type: 'POST',
+            url: "/administracion/predio/sync-from-mounted",
+            data: { forzarCompleto: forzarCompleto },
+            success: function (res) {
+                const tiempoSegundos = (res.duracionMs / 1000).toFixed(2);
+                const msg = `
+                    <div class="text-start">
+                        <p><strong>✅ Sincronización de Predios exitosa</strong></p>
+                        <hr>
+                        <p><i class="fa-solid fa-file-import"></i> Total leídas: <strong>${res.totalLeidas}</strong></p>
+                        <p><i class="fa-solid fa-plus-circle text-success"></i> Insertados: <strong>${res.insertados}</strong></p>
+                        <p><i class="fa-solid fa-edit text-primary"></i> Actualizados: <strong>${res.actualizados}</strong></p>
+                        <p><i class="fa-solid fa-check-circle text-info"></i> Omitidos (sin cambios): <strong>${res.omitidos}</strong></p>
+                        <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin entidad en BD: <strong>${res.sinEntidadEnBD}</strong></p>
+                        <p><i class="fa-solid fa-clock"></i> Tiempo: <strong>${tiempoSegundos}s</strong></p>
+                    </div>
+                `;
+
+                Swal.fire({
+                    title: 'Completado',
+                    html: msg,
+                    icon: 'success',
+                    confirmButtonText: 'Aceptar'
+                });
+
+                // ✅ Actualizar badge dinámicamente
+                actualizarInfoSync();
+
+                // Recargar tabla
+                cargarTabla();
+            },
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
+                Swal.fire('Error en Sincronización', msg, 'error');
+            }
+        });
+    }
+
+    function actualizarInfoSync() {
+        $.ajax({
+            type: 'GET',
+            url: '/administracion/predio/sync-info',
+            success: function (info) {
+                // Actualizar fecha
+                $('#ultimaSync span').text(info.ultimaSincronizacion);
+
+                // Actualizar tooltip
+                const tooltip = `Procesados: ${info.registrosProcesados || 0} | Nuevos: ${info.registrosNuevos || 0} | Actualizados: ${info.registrosActualizados || 0} | Duración: ${info.duracionSegundos || 0}s`;
+                $('#ultimaSync').attr('data-bs-original-title', tooltip);
+
+                // Actualizar badge de estado
+                const badgeEstado = $('#estadoSyncBadge');
+                badgeEstado.removeClass('bg-success bg-danger bg-warning');
+
+                if (info.estado === 'COMPLETADO') {
+                    badgeEstado.addClass('bg-success');
+                } else if (info.estado === 'ERROR') {
+                    badgeEstado.addClass('bg-danger');
+                } else {
+                    badgeEstado.addClass('bg-warning');
+                }
+
+                badgeEstado.text(info.estado);
+            },
+            error: function (xhr) {
+                console.error('Error actualizando info de sync:', xhr);
+            }
+        });
+    }
+
     $('#data-table').DataTable({
         language: {
             "sProcessing": "Procesando...",
@@ -76,12 +264,12 @@
             type: 'POST',
             url: "/administracion/predio/sync-from-mounted",
             success: function (res) {
-                  Swal.fire(
-                        'Importación completa',
-                        `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}<br>Sin entidad en BD: ${res.sinEntidadEnBD}`,
-                        'success'
-                    );
-                cargarTabla();  
+                Swal.fire(
+                    'Importación completa',
+                    `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}<br>Sin entidad en BD: ${res.sinEntidadEnBD}`,
+                    'success'
+                );
+                cargarTabla();
             },
             error: function (xhr) {
                 const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;

@@ -1,8 +1,11 @@
 package com.usic.SistemasActivosFijosUAP.controller.predio;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -20,6 +23,8 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
+import com.usic.SistemasActivosFijosUAP.model.entity.SyncControl;
+import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +35,7 @@ public class PredioController {
     private final IPredioServicio predioServicio;
     private final IEntidadService entidadService;
     private final JavaDbfService dbfService;
+    private final SyncControlService syncControlService;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -44,22 +50,40 @@ public class PredioController {
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "gestion", required = false) Short gestionPreferida) throws Exception {
 
+        try {
+            SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("predio");
+            
+            if (syncInfo != null) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+                String fechaFormateada = syncInfo.getUltimaSincronizacion().format(formatter);
+                
+                model.addAttribute("ultimaSincronizacion", fechaFormateada);
+                model.addAttribute("estadoSync", syncInfo.getEstado());
+                model.addAttribute("registrosProcesados", syncInfo.getRegistrosProcesados());
+                model.addAttribute("registrosNuevos", syncInfo.getRegistrosNuevos());
+                model.addAttribute("registrosActualizados", syncInfo.getRegistrosActualizados());
+                model.addAttribute("duracionUltimaSync", syncInfo.getDuracionMs() / 1000.0);
+            } else {
+                model.addAttribute("ultimaSincronizacion", "Nunca sincronizado");
+                model.addAttribute("estadoSync", "PENDIENTE");
+            }
+        } catch (Exception e) {
+            model.addAttribute("ultimaSincronizacion", "Error al obtener info");
+            model.addAttribute("estadoSync", "ERROR");
+        }
+
         // 1) BD
         List<Predio> listasPredios = predioServicio.buscarPorQ(q);
         boolean fromDb = listasPredios != null && !listasPredios.isEmpty();
 
         if (!fromDb) {
-            // 2) Fallback DBF: mapea a VM Predio (id nulo -> solo lectura)
+
             var filas = dbfService.listarUnidadAdminAll(q);
             listasPredios = new ArrayList<>(filas.size());
-            for (var f : filas) {
-                // Resolver Entidad por gestión recibida o gestión más reciente
-                Entidad ent = resolverEntidad(entidadService, gestionPreferida, f.getEntidadCodigo());
 
-                if (ent == null) {
-                    // Si no está la Entidad aún en BD, puedes dejarla nula y mostrar “-”, o saltar
-                    // Aquí la asignamos nula y la vista debería tolerarlo
-                }
+            for (var f : filas) {
+
+                Entidad ent = resolverEntidad(entidadService, gestionPreferida, f.getEntidadCodigo());
 
                 Predio p = new Predio();
                 p.setIdPredio(null);
@@ -69,7 +93,6 @@ public class PredioController {
                 p.setCiudad(f.getCiudad());
                 p.setEstadoUni(f.getEstadoUni());
                 p.setCodigo(f.getEntidadCodigo());
-                // Si tu AuditoriaConfig tiene 'estado', descomenta:
                 p.setEstado("ACTIVO");
 
                 listasPredios.add(p);
@@ -87,62 +110,146 @@ public class PredioController {
         return "predio/tabla_registro";
     }
 
-    // SYNC: importar unidadadmin.DBF → BD (upsert por Entidad + Unidad)
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
     @ResponseBody
     public ResponseEntity<?> syncFromMounted(
             @RequestParam(name = "q", required = false) String q,
-            @RequestParam(name = "gestion", required = false) Short gestionPreferida) {
+            @RequestParam(name = "gestion", required = false) Short gestionPreferida,
+            @RequestParam(name = "forzarCompleto", defaultValue = "false") boolean forzarCompleto) {
+        
+        long inicio = System.currentTimeMillis();
+        
         try {
+            // Leer DBF
             var filas = dbfService.listarUnidadAdminAll(q);
-            int inserted = 0, updated = 0, skipped=0;
+            
+            // Cargar predios existentes en caché (1 sola consulta)
+            Map<String, Predio> prediosExistentes = cargarPrediosEnCache(gestionPreferida);
+            
+            int inserted = 0, updated = 0, skipped = 0, sinEntidad = 0;
             List<Predio> batch = new ArrayList<>(500);
 
             for (var f : filas) {
-                if (f.getEntidadCodigo() == null || f.getEntidadCodigo().isBlank()
-                        || f.getUnidad() == null || f.getUnidad().isBlank()) {
+                // Validar claves obligatorias
+                if (isBlank(f.getEntidadCodigo()) || isBlank(f.getUnidad())) {
                     skipped++;
                     continue;
                 }
 
-                // Entidad: por gestión preferida o la más reciente
-                var entidad = resolverEntidad(entidadService, gestionPreferida, f.getEntidadCodigo());
-                if (entidad == null) { skipped++; continue; }
+                // Resolver entidad
+                Entidad entidad = resolverEntidad(entidadService, gestionPreferida, f.getEntidadCodigo());
+                if (entidad == null) {
+                    sinEntidad++;
+                    continue;
+                }
 
-                Predio p = predioServicio.findByEntidadAndUnidad(entidad, f.getUnidad())
-                        .orElseGet(() -> {
-                            Predio np = new Predio();
-                            np.setEntidad(entidad);
-                            np.setUnidad(f.getUnidad());
-                            return np;
-                        });
+                // Crear clave única para búsqueda en caché
+                String clave = entidad.getIdEntidad() + "-" + f.getUnidad().trim();
+                Predio predioExistente = prediosExistentes.get(clave);
+                
+                // Determinar si es nuevo o actualización
+                Predio predio;
+                boolean esNuevo = (predioExistente == null);
+                
+                if (esNuevo) {
+                    predio = new Predio();
+                    predio.setEntidad(entidad);
+                    predio.setUnidad(f.getUnidad().trim());
+                } else {
+                    predio = predioExistente;
+                }
 
-                boolean nuevo = (p.getIdPredio() == null);
+                // Mapear datos del DBF
+                predio.setDescrip(f.getDescrip() != null ? f.getDescrip().trim() : "");
+                predio.setCiudad(f.getCiudad() != null ? f.getCiudad().trim() : null);
+                predio.setEstadoUni(f.getEstadoUni());
+                predio.setEstado("ACTIVO");
 
-                p.setDescrip(f.getDescrip());
-                p.setCiudad(f.getCiudad());
-                p.setEstadoUni(f.getEstadoUni());
-                p.setEstado("ACTIVO");
+                // OPTIMIZACIÓN: Calcular hash y comparar
+                String nuevoHash = predio.calcularHash();
+                
+                if (!esNuevo && !forzarCompleto) {
+                    // Verificar si realmente cambió
+                    if (nuevoHash.equals(predio.getHashDatos())) {
+                        skipped++;
+                        continue; // NO procesar si no hay cambios
+                    }
+                }
 
-                batch.add(p);
-                if (nuevo) inserted++; else updated++;
+                // Actualizar metadatos de sincronización
+                predio.setHashDatos(nuevoHash);
+                predio.setFechaUltimaSync(LocalDateTime.now());
 
-                if (batch.size() == 500) { predioServicio.saveAll(batch); batch.clear(); }
+                batch.add(predio);
+                if (esNuevo) inserted++; else updated++;
+
+                // Guardar en lotes de 500
+                if (batch.size() >= 500) {
+                    predioServicio.saveAll(batch);
+                    batch.clear();
+                }
             }
-            if (!batch.isEmpty()) predioServicio.saveAll(batch);
+            
+            // Guardar lote final
+            if (!batch.isEmpty()) {
+                predioServicio.saveAll(batch);
+                batch.clear();
+            }
+
+            // Registrar en sync_control
+            long duracion = System.currentTimeMillis() - inicio;
+            syncControlService.registrarSincronizacion("predio", filas.size(), inserted, updated, duracion);
 
             return ResponseEntity.ok(Map.of(
-                    "ok", true,
-                    "totalLeidas", filas.size(),
-                    "insertados", inserted,
-                    "actualizados", updated,
-                    "sinEntidadEnBD", skipped));
+                "ok", true,
+                "totalLeidas", filas.size(),
+                "insertados", inserted,
+                "actualizados", updated,
+                "omitidos", skipped,
+                "sinEntidadEnBD", sinEntidad,
+                "duracionMs", duracion,
+                "mensaje", String.format("Sincronización completada en %.2f segundos", duracion / 1000.0)
+            ));
+            
         } catch (Exception ex) {
+            // Registrar error
+            syncControlService.registrarError("predio", ex.getMessage());
+            
             return ResponseEntity.internalServerError().body(Map.of(
-                    "ok", false,
-                    "message", "Error sincronizando UNIDADADMIN: " + ex.getMessage()));
+                "ok", false,
+                "message", "Error sincronizando UNIDADADMIN: " + ex.getMessage()
+            ));
         }
+    }
+
+    /**
+     * OPTIMIZACIÓN: Cargar todos los predios en memoria (1 sola consulta SQL)
+     */
+    private Map<String, Predio> cargarPrediosEnCache(Short gestion) {
+        List<Predio> todos;
+        
+        if (gestion != null) {
+            // Filtrar por gestión de la entidad relacionada
+            todos = predioServicio.findAll().stream()
+                .filter(p -> p.getEntidad() != null && 
+                           gestion.equals(p.getEntidad().getGestion()))
+                .collect(Collectors.toList());
+        } else {
+            todos = predioServicio.findAll();
+        }
+        
+        // Crear mapa con clave: "entidadId-unidad"
+        return todos.stream()
+            .collect(Collectors.toMap(
+                p -> p.getEntidad().getIdEntidad() + "-" + p.getUnidad().trim(),
+                p -> p,
+                (existing, replacement) -> existing // En caso de duplicados, mantener el existente
+            ));
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
     }
 
     private String stripLeftZeros(String s) {
@@ -182,6 +289,49 @@ public class PredioController {
                     .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codNoZeros))
                     .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codPad4))
                     .orElse(null);
+        }
+    }
+
+    /**
+     * ENDPOINT AJAX para obtener info de sincronización
+     */
+    @GetMapping("/sync-info")
+    @ResponseBody
+    public ResponseEntity<?> obtenerInfoSync() {
+        try {
+            SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("predio");
+            
+            if (syncInfo != null) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+                
+                return ResponseEntity.ok(Map.of(
+                    "ultimaSincronizacion", syncInfo.getUltimaSincronizacion().format(formatter),
+                    "estado", syncInfo.getEstado(),
+                    "registrosProcesados", syncInfo.getRegistrosProcesados(),
+                    "registrosNuevos", syncInfo.getRegistrosNuevos(),
+                    "registrosActualizados", syncInfo.getRegistrosActualizados(),
+                    "duracionSegundos", syncInfo.getDuracionMs() / 1000.0
+                ));
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "ultimaSincronizacion", "Nunca sincronizado",
+                "estado", "PENDIENTE",
+                "registrosProcesados", 0,
+                "registrosNuevos", 0,
+                "registrosActualizados", 0,
+                "duracionSegundos", 0.0
+            ));
+            
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                "ultimaSincronizacion", "Error al obtener info",
+                "estado", "ERROR",
+                "registrosProcesados", 0,
+                "registrosNuevos", 0,
+                "registrosActualizados", 0,
+                "duracionSegundos", 0.0
+            ));
         }
     }
 

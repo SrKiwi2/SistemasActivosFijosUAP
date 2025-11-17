@@ -4,6 +4,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -49,12 +50,12 @@ public class JavaDbfService {
         Path file = baseDir.resolve("CODCONT.DBF");
         List<GrupoContableDbf> out = new ArrayList<>();
 
-        try (InputStream in = Files.newInputStream(file);
-                DBFReader reader = new DBFReader(in)) {
+        Charset cs = (charset != null && !charset.isBlank()) 
+        ? Charset.forName(charset) 
+        : StandardCharsets.UTF_8;
 
-            if (charset != null && !charset.isBlank()) {
-                reader.setCharset(Charset.forName(charset));
-            }
+        try (InputStream in = Files.newInputStream(file);
+            DBFReader reader = new DBFReader(in, cs)) {
 
             int idxCODCONT = -1, idxNOMBRE = -1, idxVIDAUTIL = -1, idxDEPRECIAR = -1, idxACTUALIZAR = -1;
             int n = reader.getFieldCount();
@@ -100,12 +101,12 @@ public class JavaDbfService {
         Path file = baseDir.resolve("entidades.DBF");
         List<EntidadDbf> out = new ArrayList<>();
 
-        try (InputStream in = Files.newInputStream(file);
-                DBFReader reader = new DBFReader(in)) {
+        Charset cs = (charset != null && !charset.isBlank()) 
+        ? Charset.forName(charset) 
+        : StandardCharsets.UTF_8;
 
-            if (charset != null && !charset.isBlank()) {
-                reader.setCharset(Charset.forName(charset));
-            }
+        try (InputStream in = Files.newInputStream(file);
+                DBFReader reader = new DBFReader(in, cs)) {
 
             int idxGESTION = -1, idxENTIDAD = -1, idxDESC = -1, idxSIGLA = -1,
                     idxSECTOR = -1, idxSUBSEC = -1, idxAREA = -1, idxSUBAREA = -1, idxNIVEL = -1;
@@ -165,14 +166,15 @@ public class JavaDbfService {
         Path file = baseDir.resolve("unidadadmin.DBF");
         List<UnidadAdminDbf> out = new ArrayList<>();
 
-        try (InputStream in = Files.newInputStream(file);
-                DBFReader reader = new DBFReader(in)) {
+        Charset cs = (charset != null && !charset.isBlank()) 
+        ? Charset.forName(charset) 
+        : StandardCharsets.UTF_8;
 
-            if (charset != null && !charset.isBlank()) {
-                reader.setCharset(Charset.forName(charset));
-            }
+        try (InputStream in = Files.newInputStream(file);
+                DBFReader reader = new DBFReader(in, cs)) {
 
             int idxENTIDAD = -1, idxUNIDAD = -1, idxDESCRIP = -1, idxCIUDAD = -1, idxESTADO = -1;
+            
             int n = reader.getFieldCount();
             for (int i = 0; i < n; i++) {
                 String name = reader.getField(i).getName().toUpperCase(Locale.ROOT);
@@ -223,12 +225,12 @@ public class JavaDbfService {
         Path file = baseDir.resolve("OFICINA.DBF"); // ojo al nombre real/case
         List<OficinaDbf> out = new ArrayList<>();
 
-        try (InputStream in = Files.newInputStream(file);
-                DBFReader reader = new DBFReader(in)) {
+        Charset cs = (charset != null && !charset.isBlank()) 
+        ? Charset.forName(charset) 
+        : StandardCharsets.UTF_8;
 
-            if (charset != null && !charset.isBlank()) {
-                reader.setCharset(Charset.forName(charset));
-            }
+        try (InputStream in = Files.newInputStream(file);
+                DBFReader reader = new DBFReader(in, cs)) {
 
             int idxENT = -1, idxUNI = -1, idxCODO = -1, idxNOM = -1, idxOBS = -1, idxFEU = -1, idxUSR = -1, idxAPI = -1;
             int n = reader.getFieldCount();
@@ -425,12 +427,12 @@ public class JavaDbfService {
         Path file = baseDir.resolve("AUXILIAR.DBF");
         List<AuxiliarDbf> out = new ArrayList<>();
 
-        try (InputStream in = Files.newInputStream(file);
-                DBFReader reader = new DBFReader(in)) {
+        Charset cs = (charset != null && !charset.isBlank()) 
+        ? Charset.forName(charset) 
+        : StandardCharsets.UTF_8;
 
-            if (charset != null && !charset.isBlank()) {
-                reader.setCharset(Charset.forName(charset));
-            }
+        try (InputStream in = Files.newInputStream(file);
+                DBFReader reader = new DBFReader(in, cs)) {
 
             int iENT = -1, iUNI = -1, iCC = -1, iCA = -1, iNOM = -1, iOBS = -1, iF = -1, iUSR = -1;
             int n = reader.getFieldCount();
@@ -499,12 +501,12 @@ public class JavaDbfService {
         Path file = baseDir.resolve("RESP.DBF");
         List<ResponsableDbf> out = new ArrayList<>();
 
-        try (InputStream in = Files.newInputStream(file);
-                DBFReader reader = new DBFReader(in)) {
+        Charset cs = (charset != null && !charset.isBlank()) 
+        ? Charset.forName(charset) 
+        : StandardCharsets.UTF_8;
 
-            if (charset != null && !charset.isBlank()) {
-                reader.setCharset(Charset.forName(charset));
-            }
+        try (InputStream in = Files.newInputStream(file);
+                DBFReader reader = new DBFReader(in, cs)) {
 
             int iENT = -1, iUNI = -1, iCODOF = -1, iCODR = -1, iNOM = -1, iCARGO = -1, iOBS = -1, iCI = -1, iFE = -1,
                     iUSU = -1, iCODEXP = -1, iAPI = -1;
@@ -589,12 +591,13 @@ public class JavaDbfService {
         }
 
         List<OrganismoFinDbf> out = new ArrayList<>();
-        try (InputStream in = Files.newInputStream(file);
-            DBFReader reader = new DBFReader(in)) {
 
-            if (charset != null && !charset.isBlank()) {
-            reader.setCharset(Charset.forName(charset));
-            }
+        Charset cs = (charset != null && !charset.isBlank()) 
+        ? Charset.forName(charset) 
+        : StandardCharsets.UTF_8;
+
+        try (InputStream in = Files.newInputStream(file);
+            DBFReader reader = new DBFReader(in, cs)) {
 
             int iGES=-1, iOF=-1, iDES=-1, iSIG=-1;
             for (int i=0;i<reader.getFieldCount();i++) {
@@ -643,9 +646,12 @@ public class JavaDbfService {
     public List<ActualDbf> listarActualAll(String q) throws Exception {
         Path file = baseDir.resolve("ACTUAL.DBF");
         List<ActualDbf> out = new ArrayList<>();
-        try (InputStream in = Files.newInputStream(file); DBFReader reader = new DBFReader(in)) {
 
-            if (charset != null && !charset.isBlank()) reader.setCharset(Charset.forName(charset));
+        Charset cs = (charset != null && !charset.isBlank()) 
+        ? Charset.forName(charset) 
+        : StandardCharsets.UTF_8;
+
+        try (InputStream in = Files.newInputStream(file); DBFReader reader = new DBFReader(in, cs)) {
 
             // indices
             int iUNIDAD=-1,iENTIDAD=-1,iCODIGO=-1,iCODCONT=-1,iCODAUX=-1,iVIDAUTIL=-1,iDESCRIP=-1,
@@ -930,12 +936,12 @@ public class JavaDbfService {
         Path file = baseDir.resolve("CODCONT.DBF");
         int count = 0;
 
-        try (InputStream in = Files.newInputStream(file);
-                DBFReader reader = new DBFReader(in)) {
+        Charset cs = (charset != null && !charset.isBlank()) 
+        ? Charset.forName(charset) 
+        : StandardCharsets.UTF_8;
 
-            if (charset != null && !charset.isBlank()) {
-                reader.setCharset(Charset.forName(charset));
-            }
+        try (InputStream in = Files.newInputStream(file);
+                DBFReader reader = new DBFReader(in, cs)) {
 
             // localizar índices que usaremos (solo NOMBRE para el filtro)
             int idxNOMBRE = -1;

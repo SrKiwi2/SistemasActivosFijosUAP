@@ -1,5 +1,9 @@
 package com.usic.SistemasActivosFijosUAP.model.entity;
 
+import java.time.LocalDateTime;
+
+import org.apache.commons.codec.digest.DigestUtils;
+
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
 import jakarta.persistence.Column;
@@ -67,4 +71,25 @@ public class Predio extends AuditoriaConfig {
 
     /* Esto no se manda ene l dbf */
     private String codigo;
+
+    // ✅ NUEVO: Campos de control de sincronización
+    @Column(name = "fecha_ultima_sync")
+    private LocalDateTime fechaUltimaSync;
+    
+    @Column(name = "hash_datos", length = 32)
+    private String hashDatos;
+    
+    /**
+     * Calcula hash MD5 de los datos importantes para detectar cambios
+     */
+    public String calcularHash() {
+        String datos = String.join("|",
+            entidad != null ? String.valueOf(entidad.getIdEntidad()) : "",
+            unidad != null ? unidad : "",
+            descrip != null ? descrip : "",
+            ciudad != null ? ciudad : "",
+            estadoUni != null ? String.valueOf(estadoUni) : ""
+        );
+        return DigestUtils.md5Hex(datos);
+    }
 }

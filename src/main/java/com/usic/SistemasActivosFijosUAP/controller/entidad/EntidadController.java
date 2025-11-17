@@ -37,7 +37,17 @@ public class EntidadController {
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String inicioEntidad(Model model) {
+    public String inicioEntidad() {
+        return "entidad/vista";
+    }
+
+    // LISTA: intenta BD, si vacío cae a DBF
+    @ValidarUsuarioAutenticado
+    @PostMapping("/tabla-registros")
+    public String tablaRegistrosEntidad(
+            @RequestParam(name="q", required=false) String q,
+            @RequestParam(name="gestion", required=false) Short gestion,
+            Model model) throws Exception {
 
         try {
             SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("entidad");
@@ -61,17 +71,6 @@ public class EntidadController {
             model.addAttribute("ultimaSincronizacion", "Error al obtener info");
             model.addAttribute("estadoSync", "ERROR");
         }
-
-        return "entidad/vista";
-    }
-
-    // LISTA: intenta BD, si vacío cae a DBF
-    @ValidarUsuarioAutenticado
-    @PostMapping("/tabla-registros")
-    public String tablaRegistrosEntidad(
-            @RequestParam(name="q", required=false) String q,
-            @RequestParam(name="gestion", required=false) Short gestion,
-            Model model) throws Exception {
 
         // 1) BD
         List<Entidad> listasEntidades = entidadService.buscarPorQ(q);
