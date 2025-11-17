@@ -35,7 +35,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
 public class JavaDbfService {
     private final Path baseDir;
-    private final String charset; // "CP1252", "CP850", etc.
+    private final String charset;
     private final Object codcontLock = new Object();
     private final Object oficinaLock = new Object();
 
@@ -44,7 +44,7 @@ public class JavaDbfService {
         this.charset = charset;
     }
 
-    // === LECTOR COMPLETO SIN PAGINAR ===
+    //==== LECTOR DE CODCONT,BDF
     public List<GrupoContableDbf> listarCodcontAll(String filtroTexto) throws Exception {
         Path file = baseDir.resolve("CODCONT.DBF");
         List<GrupoContableDbf> out = new ArrayList<>();
@@ -94,9 +94,9 @@ public class JavaDbfService {
         return out;
     }
 
-    // === LECTOR DE ENTIDADES ===
+    // ===== ENTIDADES.DBF
     public List<EntidadDbf> listarEntidadesAll(Short gestionFiltro, String q) throws Exception {
-        // Ajusta el nombre EXACTO si en tu share está con otra capitalización:
+
         Path file = baseDir.resolve("entidades.DBF");
         List<EntidadDbf> out = new ArrayList<>();
 
@@ -160,10 +160,7 @@ public class JavaDbfService {
         return out;
     }
 
-    /**
-     * Lee TODO unidadadmin.DBF, con filtro opcional por texto (en código, unidad,
-     * descrip, ciudad).
-     */
+    // ==== UNIDADADMIN.DBF
     public List<UnidadAdminDbf> listarUnidadAdminAll(String q) throws Exception {
         Path file = baseDir.resolve("unidadadmin.DBF");
         List<UnidadAdminDbf> out = new ArrayList<>();
@@ -206,7 +203,7 @@ public class JavaDbfService {
                 }
 
                 if ((entidad == null || entidad.isBlank()) || (unidad == null || unidad.isBlank())) {
-                    continue; // claves vacías: descarta
+                    continue;
                 }
 
                 out.add(UnidadAdminDbf.builder()
@@ -221,7 +218,7 @@ public class JavaDbfService {
         return out;
     }
 
-    /* === LECTOR DE OFICINA DESDE DF WINDOWS */
+    // ===== OFICINA.DBF
     public List<OficinaDbf> listarOficinaAll(String q) throws Exception {
         Path file = baseDir.resolve("OFICINA.DBF"); // ojo al nombre real/case
         List<OficinaDbf> out = new ArrayList<>();
@@ -256,7 +253,7 @@ public class JavaDbfService {
                 String unidad = asString(row, idxUNI);
                 Integer codi = asInt(row, idxCODO);
                 String nom = asString(row, idxNOM);
-                String observ = asString(row, idxOBS); // si el lib entrega "(Memo)", la limpiamos abajo
+                String observ = asString(row, idxOBS);
                 LocalDate feul = null;
                 java.sql.Date d = (idxFEU >= 0 && row[idxFEU] instanceof java.util.Date dd)
                         ? new java.sql.Date(dd.getTime())
@@ -275,10 +272,9 @@ public class JavaDbfService {
                 }
 
                 if (entidad == null || entidad.isBlank() || unidad == null || unidad.isBlank() || codi == null) {
-                    continue; // claves incompletas
+                    continue;
                 }
 
-                // limpia literal "(memo)"
                 if (observ != null && "(memo)".equalsIgnoreCase(observ.trim()))
                     observ = null;
 
@@ -309,14 +305,14 @@ public class JavaDbfService {
                 .orElse(null);
 
         return OficinaDbf.builder()
-                .entidadCodigo(entidadCodigo)                       // ENTIDAD (texto 4)
-                .unidad(unidad)                                     // UNIDAD (texto 5)
-                .codOfi(o.getCodOfi())                              // CODOFIC (smallint)
-                .nomOfic(o.getNombre())                             // NOMOFIC (texto 65)
-                .observ(o.getObserv())                              // OBSERV (Memo)
-                .feult(o.getFechaUlt())                             // FEULT (Date)
-                .usuario(o.getUsuario() != null ? o.getUsuario() : "") // USUAR (texto 8)
-                .apiEstado(o.getApiEstado())                        // API_ESTADO (smallint)
+                .entidadCodigo(entidadCodigo)
+                .unidad(unidad)
+                .codOfi(o.getCodOfi())
+                .nomOfic(o.getNombre())
+                .observ(o.getObserv())
+                .feult(o.getFechaUlt())
+                .usuario(o.getUsuario() != null ? o.getUsuario() : "")
+                .apiEstado(o.getApiEstado())
                 .build();
     }
 

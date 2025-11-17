@@ -2,9 +2,15 @@
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Entidad - Institución</h5>
         <div class="d-flex gap-2">
+            <span class="badge bg-info" id="ultimaSync">
+                Última sincronizacion: <span th:text="${ultimaSincronizacion}">--</span>
+            </span>
             <button id="btnSyncEntidad" class="btn btn-outline-secondary" data-bs-toggle="modal"
                 data-bs-target="#modalImportDbf">
-                <i class="fa-solid fa-file-import me-1"></i> Importar desde DBF montado
+                <i class="fa-solid fa-file-import me-1"></i> Sincronizar Incremental
+            </button>
+            <button id="btnSyncCompleto" class="btn btn-outline-warning">
+                <i class="fa-solid fa-database me-1"></i> Sync Completo (Forzar)
             </button>
         </div>
     </div>
@@ -31,6 +37,40 @@
 </div>
 
 <script>
+    $(document).on('click', '#btnSyncEntidad', function () {
+        sincronizar(false);
+    });
+
+    $(document).on('click', '#btnSyncCompleto', function () {
+        if (confirm('¿Seguro que desea forzar sincronización completa? Esto puede tardar más.')) {
+            sincronizar(true);
+        }
+    });
+
+    function sincronizar(forzarCompleto) {
+        $.ajax({
+            type: 'POST',
+            url: "/administracion/entidad/sync-from-mounted",
+            data: { forzarCompleto: forzarCompleto },
+            success: function (res) {
+                const msg = `
+                    <b>Sincronización exitosa</b><br>
+                    Total leídas: ${res.totalLeidas}<br>
+                    Insertados: ${res.insertados}<br>
+                    Actualizados: ${res.actualizados}<br>
+                    Omitidos (sin cambios): ${res.omitidos}<br>
+                    Tiempo: ${(res.duracionMs/1000).toFixed(2)}s
+                `;
+                Swal.fire('Completado', msg, 'success');
+                cargarTabla();
+            },
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
+                Swal.fire('Error', msg, 'error');
+            }
+        });
+    }
+
     $('#data-table').DataTable({
         language: {
             "sProcessing": "Procesando...",
@@ -57,19 +97,4 @@
         }
     });
 
-    $(document).on('click', '#btnSyncEntidad', function () {
-
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/entidad/sync-from-mounted",
-            success: function (res) {
-                Swal.fire('Importación completa', `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}`, 'success');
-                cargarTabla();
-            },
-            error: function (xhr) {
-                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
-                Swal.fire('Error', msg, 'error');
-            }
-        });
-    });
 </script>

@@ -18,7 +18,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
 @Service
 public interface IResponsableService extends IServiceGenerico<Responsable, Long>{
-    Responsable buscarPorCodigo(String codigo_funcionario);
+    Responsable buscarPorCodigo(String codigoApi);
     List<Responsable> listarResponsables();
     Responsable responsablePersonaOficinaCargo(Persona persona, Oficina oficina, Cargo cargo);
     List<Responsable> findAllByPersonaIdPersona(@Param("idPersona") Long idPersona);

@@ -75,9 +75,7 @@ public class AsignacionActivoNuevoController {
 
         try {
             Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-            System.out.println("llegó aqui");
-            Responsable responsablePropietario = obtenerORegistrarResponsable(codigoFuncionario, ci);
-            System.out.println("Prbando");
+            Responsable responsablePropietario = obtenerORegistrarResponsable(codigoFuncionario, ci, usuario);
             Persona persona = responsablePropietario.getPersona();
 
             byte[] pdfBytes = pdfGeneratorService.generarPdfAsignacion(
@@ -88,7 +86,7 @@ public class AsignacionActivoNuevoController {
                 persona.getExtension(),
                 ubicacionActivo,
                 descripcionActivo,
-                hr  // Añade el campo del modal al controlador
+                hr
             );
 
             HttpHeaders headers1 = new HttpHeaders();
@@ -105,18 +103,15 @@ public class AsignacionActivoNuevoController {
             asignacion.setRegistroIdUsuario(usuario.getIdUsuario());
             asignacion.setEstado("A");
             asginacionService.save(asignacion);
-            System.out.println("HOLAA");
             return new ResponseEntity<>(pdfBytes, headers1, HttpStatus.OK);
 
         } catch (Exception ex) {
-            // Manejar errores internos
             String errorMsg = "Error procesando: " + ex.getMessage();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
         }
     }
 
-    private Responsable obtenerORegistrarResponsable(String codigoFuncionario, String ci) {
-        Responsable responsable = responsableService.buscarPorCodigo(codigoFuncionario);
+    private Responsable obtenerORegistrarResponsable(String codigoFuncionario, String ci, Usuario usuario) {
         
         Map<String, String> requestBody = Map.of(
             "usuario", codigoFuncionario,
@@ -156,32 +151,71 @@ public class AsignacionActivoNuevoController {
         Persona persona = personaService.buscarPersonaPorCI(ciPersona);
         if (persona == null) {
             persona = personaService.buscarPersonaPorNombreCompletoUno(nombre, paterno, materno);
-        }
-    
-        if (persona == null) {
-            persona = new Persona();
+            if (persona == null) {
+                persona = new Persona();
+                persona.setNombre(nombre);
+                persona.setPaterno(paterno);
+                persona.setMaterno(materno);
+                persona.setCi(ciPersona);
+                persona.setExtension(extension);
+                persona.setCorreo(correo);
+                persona.setEstado("ACTIVO");
+        
+                Genero genero = generoService.buscarGeneroPorNombre(sexo);
+                if (genero == null) {
+                    genero = new Genero();
+                    genero.setNombre(sexo);
+                    genero.setEstado("ACTIVO");
+                    genero.setRegistro(new Date());
+                    genero.setRegistroIdUsuario(usuario.getIdUsuario());
+                    generoService.save(genero);
+                }
+                persona.setGenero(genero);
+                persona.setRegistroIdUsuario(usuario.getIdUsuario());
+                personaService.save(persona);
+            }else{
+                persona.setCi(ciPersona);
+                persona.setNombre(nombre);
+                persona.setPaterno(paterno);
+                persona.setMaterno(materno);
+                persona.setExtension(extension);
+                persona.setCorreo(correo);
+                persona.setEstado("ACTIVO");
+                persona.setModificacionIdUsuario(usuario.getIdUsuario());
+                Genero genero = generoService.buscarGeneroPorNombre(sexo);
+                if (genero == null) {
+                    genero = new Genero();
+                    genero.setNombre(sexo);
+                    genero.setEstado("ACTIVO");
+                    genero.setRegistro(new Date());
+                    genero.setRegistroIdUsuario(usuario.getIdUsuario());
+                    generoService.save(genero);
+                }
+                persona.setGenero(genero);
+                personaService.save(persona);
+            }
+        }else{
+            persona.setCi(ciPersona);
             persona.setNombre(nombre);
             persona.setPaterno(paterno);
             persona.setMaterno(materno);
-            persona.setCi(ciPersona);
             persona.setExtension(extension);
             persona.setCorreo(correo);
             persona.setEstado("ACTIVO");
-    
+            persona.setModificacionIdUsuario(usuario.getIdUsuario());
             Genero genero = generoService.buscarGeneroPorNombre(sexo);
             if (genero == null) {
                 genero = new Genero();
                 genero.setNombre(sexo);
                 genero.setEstado("ACTIVO");
                 genero.setRegistro(new Date());
-                genero.setRegistroIdUsuario(1L);
+                genero.setRegistroIdUsuario(usuario.getIdUsuario());
                 generoService.save(genero);
             }
             persona.setGenero(genero);
-    
             personaService.save(persona);
         }
-
+    
         Predio predio = predioServicio.findByDescrip(nombrePredio)
             .orElseGet(() -> {
                 Entidad entidadP = entidadService.findById(53L);

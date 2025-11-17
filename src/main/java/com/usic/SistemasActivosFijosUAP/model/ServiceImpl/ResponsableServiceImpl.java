@@ -65,8 +65,8 @@ public class ResponsableServiceImpl implements IResponsableService{
     }
 
     @Override
-    public Responsable buscarPorCodigo(String codigo_funcionario) {
-        return dao.buscarPorCodigo(codigo_funcionario);
+    public Responsable buscarPorCodigo(String codigoApi) {
+        return dao.buscarPorCodigo(codigoApi);
     }
 
     @Override

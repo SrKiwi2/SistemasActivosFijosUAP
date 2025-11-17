@@ -1,8 +1,10 @@
 package com.usic.SistemasActivosFijosUAP.controller.entidad;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -17,7 +19,9 @@ import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.EntidadDbf;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
+import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 public class EntidadController {
     private final IEntidadService entidadService;
     private final JavaDbfService dbfService;
+    private final SyncControlService syncControlService;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -90,44 +95,113 @@ public class EntidadController {
     @ResponseBody
     public ResponseEntity<?> syncFromMounted(
             @RequestParam(name="q", required=false) String q,
-            @RequestParam(name="gestion", required=false) Short gestion) {
+            @RequestParam(name="gestion", required=false) Short gestion,
+            @RequestParam(name="forzarCompleto", defaultValue="false") boolean forzarCompleto) {
+        
+        long inicio = System.currentTimeMillis();
+        
         try {
+            // Obtener registros del DBF
             var registros = dbfService.listarEntidadesAll(gestion, q);
-            int inserted=0, updated=0;
+            
+            // Cargar claves existentes en memoria (OPTIMIZACIÓN CLAVE)
+            Map<String, Entidad> entidadesExistentes = cargarEntidadesExistentesEnCache(gestion);
+            
+            int inserted = 0, updated = 0, skipped = 0;
             List<Entidad> batch = new ArrayList<>(500);
-
-            for (var d : registros) {
-                var opt = entidadService.findByGestionAndEntidadCodigo(d.getGestion(), d.getEntidadCodigo());
-                Entidad e = opt.orElseGet(Entidad::new);
-                boolean nuevo = e.getIdEntidad()==null;
-
-                e.setGestion(d.getGestion());
-                e.setEntidadCodigo(d.getEntidadCodigo());
-                e.setDescripcion(d.getDescripcion());
-                e.setSigla(d.getSigla());
-                e.setSectorEnt(d.getSectorEnt());
-                e.setSubsecEnt(d.getSubsecEnt());
-                e.setAreaEnt(d.getAreaEnt());
-                e.setSubareaEnt(d.getSubareaEnt());
-                e.setNivelInst(d.getNivelInst());
-
-                batch.add(e);
-                if (nuevo) inserted++; else updated++;
-                if (batch.size()==500) { entidadService.saveAll(batch); batch.clear(); }
+            
+            for (var dbfRecord : registros) {
+                String clave = dbfRecord.getGestion() + "-" + dbfRecord.getEntidadCodigo();
+                Entidad entidadExistente = entidadesExistentes.get(clave);
+                
+                // Crear/actualizar entidad
+                Entidad entidad;
+                boolean esNueva = (entidadExistente == null);
+                
+                if (esNueva) {
+                    entidad = new Entidad();
+                } else {
+                    entidad = entidadExistente;
+                }
+                
+                // Mapear datos del DBF
+                mapearDatosDbfAEntidad(dbfRecord, entidad);
+                
+                // OPTIMIZACIÓN: Calcular hash y comparar
+                String nuevoHash = entidad.calcularHash();
+                
+                if (!esNueva && !forzarCompleto) {
+                    // Verificar si realmente cambió
+                    if (nuevoHash.equals(entidad.getHashDatos())) {
+                        skipped++;
+                        continue; // NO procesar si no hay cambios
+                    }
+                }
+                
+                // Actualizar metadatos
+                entidad.setHashDatos(nuevoHash);
+                entidad.setFechaUltimaSync(LocalDateTime.now());
+                
+                batch.add(entidad);
+                if (esNueva) inserted++; else updated++;
+                
+                // Procesar en lotes
+                if (batch.size() >= 500) {
+                    entidadService.saveAll(batch);
+                    batch.clear();
+                }
             }
-            if (!batch.isEmpty()) entidadService.saveAll(batch);
-
+            
+            // Guardar lote final
+            if (!batch.isEmpty()) {
+                entidadService.saveAll(batch);
+                batch.clear();
+            }
+            
+            // Registrar sincronización
+            long duracion = System.currentTimeMillis() - inicio;
+            syncControlService.registrarSincronizacion("entidad", registros.size(), inserted, updated, duracion);
+            
             return ResponseEntity.ok(Map.of(
                 "ok", true,
                 "totalLeidas", registros.size(),
                 "insertados", inserted,
-                "actualizados", updated
+                "actualizados", updated,
+                "omitidos", skipped,
+                "duracionMs", duracion,
+                "mensaje", String.format("Sincronización completada en %.2f segundos", duracion/1000.0)
             ));
+            
         } catch (Exception ex) {
             return ResponseEntity.internalServerError().body(Map.of(
                 "ok", false,
-                "message", "Error sincronizando ENTIDADES: " + ex.getMessage()
+                "message", "Error sincronizando: " + ex.getMessage()
             ));
         }
+    }
+
+    // OPTIMIZACIÓN: Cargar todas las claves existentes en un Map (1 sola consulta)
+    private Map<String, Entidad> cargarEntidadesExistentesEnCache(Short gestion) {
+        List<Entidad> todas = (gestion != null) 
+            ? entidadService.findByGestion(gestion)
+            : entidadService.findAll();
+        
+        return todas.stream()
+            .collect(Collectors.toMap(
+                e -> e.getGestion() + "-" + e.getEntidadCodigo(),
+                e -> e
+            ));
+    }
+    
+    private void mapearDatosDbfAEntidad(EntidadDbf dbf, Entidad entidad) {
+        entidad.setGestion(dbf.getGestion());
+        entidad.setEntidadCodigo(dbf.getEntidadCodigo());
+        entidad.setDescripcion(dbf.getDescripcion());
+        entidad.setSigla(dbf.getSigla());
+        entidad.setSectorEnt(dbf.getSectorEnt());
+        entidad.setSubsecEnt(dbf.getSubsecEnt());
+        entidad.setAreaEnt(dbf.getAreaEnt());
+        entidad.setSubareaEnt(dbf.getSubareaEnt());
+        entidad.setNivelInst(dbf.getNivelInst());
     }
 }

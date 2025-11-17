@@ -28,4 +28,5 @@ public interface IEntidadDao extends JpaRepository<Entidad, Long> {
             """, nativeQuery = true)
     List<Entidad> buscarPorQ(@Param("q") String q);
 
+    List<Entidad> findByGestion(Short gestion);
 }

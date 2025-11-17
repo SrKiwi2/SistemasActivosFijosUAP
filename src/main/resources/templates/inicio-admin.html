@@ -25,8 +25,6 @@
                                     <div class="content-wrapper">
                                         <div class="card animated-card position-relative p-0 mb-4 overflow-hidden shadow-sm border-0"
                                             style="min-height: 200px; border-radius: 14px; background: linear-gradient(135deg, rgba(30,58,138,0.06), rgba(185,28,28,0.06));">
-
-                                            <!-- Logos (desktop) -->
                                             <div class="position-absolute top-0 start-0 p-4 d-none d-sm-block">
                                                 <img src="../../assets/img/logo/activofijos.png" alt="UAP" height="90"
                                                     class="logo-hover" />
@@ -35,31 +33,23 @@
                                                 <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="100"
                                                     class="logo-hover" />
                                             </div>
-
-                                            <!-- Contenido central -->
                                             <div
                                                 class="card-body d-flex flex-column justify-content-center align-items-center text-center py-5 px-3">
-                                                <!-- Logos en móvil -->
                                                 <div class="d-block d-sm-none text-center pb-3">
                                                     <img src="../../assets/img/logo/activofijos.png" alt="UAP"
                                                         height="60" class="logo-hover mx-1" />
                                                     <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="65"
                                                         class="logo-hover mx-1" />
                                                 </div>
-                                                <!-- Nombre del sistema dinámico -->
                                                 <h1 class="titulo-sistema mb-2 text-uppercase">
                                                     SAYOVE <span class="version">2.0</span>
                                                 </h1>
-
                                                 <p class="slogan mb-0 fst-italic d-sm-block">
                                                     Escribiendo una nueva historia con vos...
                                                 </p>
-
                                             </div>
-
                                         </div>
 
-                                        <!-- Sección de botones -->
                                         <div class="btn-section">
                                             <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal"
                                                 data-bs-target="#formularioModalAsignacionActivo">
@@ -84,6 +74,7 @@
                                             </button>
                                             <input id="qrFile" type="file" accept="image/*" capture="environment" class="d-none">
                                         </div>
+
                                         <div class="card shadow-sm p-4" th:if="${session.nombre_rol == 'RESPONSABLE'}">
                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                 <h5 class="text-primary fw-bold mb-0">Activos asignados a su nombre</h5>

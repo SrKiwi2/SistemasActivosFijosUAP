@@ -1,12 +1,23 @@
 package com.usic.SistemasActivosFijosUAP.model.entity;
 
+import java.time.LocalDateTime;
+
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import org.apache.commons.codec.digest.DigestUtils;
+
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -57,4 +68,23 @@ public class Entidad extends AuditoriaConfig {
 
     @Column(name = "nivel_inst", columnDefinition = "SMALLINT")
     private Short nivelInst; // DBF: NIVEL_INST (SmallInt)
+
+    // NUEVO: Campos de control de sincronización
+    @Column(name = "fecha_ultima_sync")
+    private LocalDateTime fechaUltimaSync;
+    
+    @Column(name = "hash_datos")
+    private String hashDatos;  // Para detectar cambios reales
+    
+    // Método para calcular hash de los datos importantes
+    public String calcularHash() {
+        String datos = String.join("|", 
+            String.valueOf(gestion),
+            entidadCodigo,
+            descripcion != null ? descripcion : "",
+            sigla != null ? sigla : ""
+            // incluir otros campos relevantes
+        );
+        return DigestUtils.md5Hex(datos);
+    }
 }

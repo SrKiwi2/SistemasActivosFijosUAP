@@ -19,4 +19,8 @@ public interface IEntidadService extends IServiceGenerico<Entidad, Long> {
     List<Entidad> saveAll(Iterable<Entidad> entidades);
 
     List<Entidad> buscarPorQ(@Param("q") String q);
+
+    List<Entidad> findByGestion(Short gestion);
+
+    void saveAll(List<Entidad> entidades);
 }
