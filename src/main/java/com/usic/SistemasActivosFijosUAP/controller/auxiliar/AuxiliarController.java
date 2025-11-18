@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.controller.auxiliar;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
@@ -405,7 +406,110 @@ public class AuxiliarController {
             List<Auxiliar> batch = new ArrayList<>(500);
             Set<String> seen = new HashSet<>(filas.size());
 
-            // ... (tu lógica de sincronización existente)
+            for (var f : filas) {
+                // ✅ Validar campos obligatorios
+                if (f.getEntidadCodigo() == null || f.getUnidad() == null || 
+                    f.getCodCont() == null || f.getCodAux() == null) {
+                    continue;
+                }
+
+                // 3️⃣ Detectar duplicados en el DBF
+                String keyDbf = f.getEntidadCodigo() + "|" + f.getUnidad() + "|" + 
+                               f.getCodCont() + "|" + f.getCodAux();
+                if (!seen.add(keyDbf)) {
+                    repetidos++;
+                    continue;
+                }
+
+                // 4️⃣ Resolver entidad
+                Entidad entidad = resolverEntidad(gestionPreferida, f.getEntidadCodigo());
+                if (entidad == null) {
+                    sinEntidad++;
+                    continue;
+                }
+
+                // 5️⃣ Resolver predio
+                Predio predio = predioServicio
+                    .findByEntidadAndUnidadIgnoreCase(entidad, normUnidad(f.getUnidad()))
+                    .orElse(null);
+                if (predio == null) {
+                    sinPredio++;
+                    continue;
+                }
+
+                // 6️⃣ Resolver grupo contable
+                GrupoContable grupo = grupoContableService
+                    .findByCodContable(f.getCodCont().intValue())
+                    .orElse(null);
+                if (grupo == null) {
+                    sinGrupo++;
+                    continue;
+                }
+
+                // 7️⃣ Crear clave única para búsqueda en caché
+                String clave = predio.getIdPredio() + "|" + 
+                              grupo.getIdGrupoContable() + "|" + 
+                              f.getCodAux();
+                
+                Auxiliar aux = auxiliaresExistentes.get(clave);
+                
+                // 8️⃣ Determinar si es nuevo
+                boolean esNuevo = (aux == null);
+                
+                if (esNuevo) {
+                    aux = new Auxiliar();
+                    aux.setPredio(predio);
+                    aux.setGrupoContable(grupo);
+                    aux.setCodAux(f.getCodAux());
+                }
+
+                // 9️⃣ Mapear datos del DBF
+                String nombre = (f.getNomAux() != null && !f.getNomAux().isBlank())
+                    ? f.getNomAux().trim()
+                    : ("AUX " + f.getCodAux());
+                if (nombre.length() > 255) {
+                    nombre = nombre.substring(0, 255);
+                }
+
+                String observ = f.getObserv();
+                if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) {
+                    observ = null;
+                }
+
+                aux.setNombre(nombre);
+                aux.setObserv(observ);
+                aux.setFechaUlt(f.getFechaUlt());
+                aux.setUsuario(f.getUsuario() == null 
+                    ? null 
+                    : (f.getUsuario().length() > 60 
+                        ? f.getUsuario().substring(0, 60) 
+                        : f.getUsuario()));
+                aux.setEstado("ACTIVO");
+
+                // 🔟 OPTIMIZACIÓN: Calcular hash y comparar
+                String nuevoHash = aux.calcularHash();
+                
+                if (!esNuevo && !forzarCompleto) {
+                    // Verificar si realmente cambió
+                    if (nuevoHash.equals(aux.getHashDatos())) {
+                        skipped++;
+                        continue; // ⭐ NO procesar si no hay cambios
+                    }
+                }
+
+                // 1️⃣1️⃣ Actualizar metadatos
+                aux.setHashDatos(nuevoHash);
+                aux.setFechaUltimaSync(LocalDateTime.now());
+
+                batch.add(aux);
+                if (esNuevo) inserted++; else updated++;
+
+                // 1️⃣2️⃣ Guardar en lotes
+                if (batch.size() >= 500) {
+                    auxiliarService.saveAll(batch);
+                    batch.clear();
+                }
+            }
 
             if (!batch.isEmpty()) {
                 auxiliarService.saveAll(batch);
