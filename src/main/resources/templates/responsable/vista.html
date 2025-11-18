@@ -2,30 +2,43 @@
 
 <div class="card">
     <div class="card-header d-flex flex-column flex-lg-row justify-content-lg-between align-items-lg-center gap-3">
-        <h5 class="mb-0">
-            Registro Responsable 
-            <small id="badgeSource" class="text-muted ms-2"></small>
-        </h5>
+        <div class="d-flex align-items-center gap-2">
+            <h5 class="mb-0">Registro Responsable</h5>
+        </div>
 
-        <div class="d-flex flex-wrap align-items-center gap-2">
-            <label for="filtroOficina" class="mb-0 fw-semibold">Filtrar por oficina:</label>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- ✅ Badge con información de última sincronización -->
+            <span class="badge bg-info" id="ultimaSync" data-bs-toggle="tooltip" data-bs-placement="bottom"
+                th:title="'Procesados: ' + (${registrosProcesados ?: 0}) + ' | Nuevos: ' + (${registrosNuevos ?: 0}) + ' | Actualizados: ' + (${registrosActualizados ?: 0}) + ' | Duración: ' + (${duracionUltimaSync ?: 0}) + 's'">
+                <i class="fa-solid fa-clock me-1"></i>
+                Última sync: <span th:text="${ultimaSincronizacion ?: 'Nunca'}">--</span>
+            </span>
 
-            <select id="filtroOficina" class="form-select form-select-lg" style="min-width: 120px;">
+            <!-- ✅ Badge de estado -->
+            <span class="badge" id="estadoSyncBadge"
+                th:classappend="${estadoSync == 'COMPLETADO'} ? 'bg-success' : (${estadoSync == 'ERROR'} ? 'bg-danger' : 'bg-warning')"
+                th:text="${estadoSync ?: 'PENDIENTE'}">
+            </span>
+
+            <!-- ✅ Botón sincronización incremental -->
+            <button id="btnSyncResp" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-sync me-1"></i> Sincronizar
+            </button>
+
+            <!-- ✅ Botón sincronización completa -->
+            <button id="btnSyncCompleto" class="btn btn-outline-warning btn-sm" data-bs-toggle="tooltip"
+                data-bs-placement="bottom" title="Forzar sincronización completa">
+                <i class="fa-solid fa-database me-1"></i> Sync Completo
+            </button>
+
+            <!-- Filtro de oficina -->
+            <label for="filtroOficina" class="mb-0 fw-semibold">Filtro:</label>
+            <select id="filtroOficina" class="form-select form-select-sm" style="min-width: 150px;">
                 <option value="">Todas</option>
-                <option th:each="o : ${oficinas}"
-                        th:value="${o.idOficina}"
-                        th:text="${o.predio.unidad + ' - ' + o.codOfi + ' (' + o.predio.entidad.sigla + ')'}">
+                <option th:each="o : ${oficinas}" th:value="${o.idOficina}"
+                    th:text="${o.predio.unidad + ' - ' + o.codOfi}">
                 </option>
             </select>
-
-            <button id="btnSyncResp" type="button" class="btn btn-outline-secondary">
-                <i class="fa-solid fa-file-import me-1"></i> Importar desde DBF montado
-            </button>
-
-            <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-                    data-bs-target="#modalFormularioResponsable">
-                <i class="fa-solid fa-user-plus me-1"></i> Agregar Responsable
-            </button>
         </div>
     </div>
 
@@ -54,35 +67,61 @@
     </div>
 </div>
 
-<script>
-    $(function () {
+<script th:inline="javascript">
+    $(document).ready(function () {
+        // Inicializar select2
         $('#filtroOficina').select2({
             placeholder: 'Todas las oficinas',
             allowClear: true,
-            width: 'resolve',    // usa el width del elemento
+            width: 'resolve',
             language: 'es'
         });
 
-        $('#data-table').on('xhr.dt', function (e, settings, json) {
-            if (json && json.source) {
-                const src = json.source.toUpperCase();
-                // Puedes ponerlo en el título, o en algún span que crees:
-                $('#badgeSource').text(src === 'DBF' ? '(fuente: DBF)' : '(fuente: BD)');
-            }
+        // Inicializar tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
         });
 
+        // Inicializar DataTable
+        initDataTable();
+
+        // Eventos
+        $('#filtroOficina').on('change', function () {
+            $('#data-table').DataTable().ajax.reload(null, false);
+        });
+
+        $(document).on('click', '#btnSyncResp', function () {
+            sincronizar(false);
+        });
+
+        $(document).on('click', '#btnSyncCompleto', function () {
+            Swal.fire({
+                title: '¿Forzar sincronización completa?',
+                text: "Esto procesará todos los registros y puede tardar más tiempo",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, sincronizar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    sincronizar(true);
+                }
+            });
+        });
+    });
+
+    function initDataTable() {
         const $tbl = $('#data-table');
+        if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
 
-        // Loader global
-        showGlobalLoader({ texto: 'Cargando...' });
-        $tbl.on('preXhr.dt', function () { showGlobalLoader({ texto: 'Cargando...' }); });
-        $tbl.on('xhr.dt', function () { hideGlobalLoader(); });
-
-        const tbl = $tbl.DataTable({
+        const table = $tbl.DataTable({
             processing: false,
             serverSide: true,
             deferRender: true,
-            pageLength: 10,
+            pageLength: 25,
             lengthMenu: [10, 25, 50, 100],
             ajax: {
                 url: '/administracion/responsable/api/datatables',
@@ -90,9 +129,8 @@
                 data: function (d) {
                     const v = $('#filtroOficina').val();
                     if (v && v !== '') {
-                        d.oficinaId = v;      // nombre que espera el controller
+                        d.oficinaId = v;
                     } else {
-                        // Importante: no enviar el parámetro vacío
                         if ('oficinaId' in d) delete d.oficinaId;
                     }
                 }
@@ -110,64 +148,115 @@
                 { data: 'oficina' },
                 { data: 'cargo' },
                 {
-                    data: 'idEnc', orderable: false, searchable: false,
-                    render: (idEnc) => `
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-danger" onclick="eliminar('RESPONSABLE','${idEnc}')">
-                    <i class="fa-solid fa-trash"></i> Eliminar
-                    </button>
-                </div>` }
+                    data: 'idResponsable', orderable: false, searchable: false,
+                    render: (id) => `
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-danger btn-eliminar-responsable"
+                                        data-id="${id}"
+                                        title="Eliminar responsable">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>`
+                }
             ],
             language: {
-                sProcessing: "Procesando...", sLengthMenu: "Mostrar _MENU_",
+                sProcessing: "Procesando...",
+                sLengthMenu: "Mostrar _MENU_ registros",
                 sZeroRecords: "No se encontraron resultados",
-                sInfo: "Mostrando _START_ a _END_ de _TOTAL_",
-                sInfoEmpty: "Mostrando 0 a 0 de 0", sInfoFiltered: "(filtrado de _MAX_)",
-                sSearch: "Buscar:", oPaginate: { sFirst: "Primero", sLast: "Último", sNext: "Siguiente", sPrevious: "Anterior" }
+                sInfo: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                sInfoEmpty: "Mostrando 0 a 0 de 0 registros",
+                sInfoFiltered: "(filtrado de _MAX_ registros)",
+                sSearch: "Buscar:",
+                oPaginate: {
+                    sFirst: "Primero",
+                    sLast: "Último",
+                    sNext: "Siguiente",
+                    sPrevious: "Anterior"
+                }
             }
         });
+    }
 
-        // Debounce buscador
-        let t; $('#data-table_filter input').off().on('input', function () {
-            clearTimeout(t); const v = this.value; t = setTimeout(() => tbl.search(v).draw(), 250);
-        });
+    function sincronizar(forzarCompleto) {
+        showGlobalLoader({ texto: 'Sincronizando Responsables...' });
 
-        $('#filtroOficina').on('change', function () {
-            tbl.ajax.reload(null, true); // respeta la página actual
-            // Si prefieres ir siempre a la página 1: tbl.ajax.reload(null, true);
-        });
+        $.ajax({
+            type: 'POST',
+            url: '/administracion/responsable/sync-from-mounted',
+            data: { forzarCompleto: forzarCompleto },
+            success: function (res) {
+                const tiempoSegundos = (res.duracionMs / 1000).toFixed(2);
+                const msg = `
+                        <div class="text-start">
+                            <p><strong>✅ Sincronización exitosa</strong></p>
+                            <hr>
+                            <p><i class="fa-solid fa-file-import"></i> Total leídas: <strong>${res.totalLeidas}</strong></p>
+                            <p><i class="fa-solid fa-plus-circle text-success"></i> Insertados: <strong>${res.insertados}</strong></p>
+                            <p><i class="fa-solid fa-edit text-primary"></i> Actualizados: <strong>${res.actualizados}</strong></p>
+                            <p><i class="fa-solid fa-check-circle text-info"></i> Omitidos (sin cambios): <strong>${res.omitidos}</strong></p>
+                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin oficina: <strong>${res.sinOficina}</strong></p>
+                            <p><i class="fa-solid fa-user-plus text-info"></i> Personas creadas: <strong>${res.personasCreadas}</strong></p>
+                            <p><i class="fa-solid fa-briefcase text-info"></i> Cargos creados: <strong>${res.cargosCreados}</strong></p>
+                            <p><i class="fa-solid fa-clock"></i> Tiempo: <strong>${tiempoSegundos}s</strong></p>
+                        </div>
+                    `;
 
-        $(document).on('click', '#btnSyncResp', function () {
-            const oficinaId = $('#filtroOficina').val() || '';
-            showGlobalLoader({ texto: 'Sincronizando...' });
-            $.ajax({
-                type: 'POST',
-                url: '/administracion/responsable/sync-from-mounted' + (oficinaId ? ('?oficinaId=' + encodeURIComponent(oficinaId)) : ''),
-                success: function (res) {
-                    Swal.fire('Importación completa',
-                        `Leídas: ${res.totalLeidas}<br>
-             Insertados: ${res.insertados}<br>
-             Actualizados: ${res.actualizados}<br>
-             Sin oficina: ${res.sinOficina}<br>
-             Personas nuevas: ${res.personasCreadas}<br>
-             Cargos creados: ${res.cargosCreados}`,
-                        'success');
-                    $('#data-table').DataTable().ajax.reload(null, false);
-                },
-                error: function (xhr) {
-                    const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
-                    Swal.fire('Error', msg, 'error');
-                },
-                complete: hideGlobalLoader
-            });
+                Swal.fire({
+                    title: 'Completado',
+                    html: msg,
+                    icon: 'success',
+                    confirmButtonText: 'Aceptar'
+                });
+
+                actualizarInfoSync();
+                $('#data-table').DataTable().ajax.reload(null, false);
+            },
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
+                Swal.fire('Error', msg, 'error');
+            },
+            complete: hideGlobalLoader
         });
+    }
+
+    function actualizarInfoSync() {
+        $.ajax({
+            type: 'GET',
+            url: '/administracion/responsable/sync-info',
+            success: function (info) {
+                $('#ultimaSync span').text(info.ultimaSincronizacion);
+
+                const tooltip = `Procesados: ${info.registrosProcesados || 0} | Nuevos: ${info.registrosNuevos || 0} | Actualizados: ${info.registrosActualizados || 0} | Duración: ${info.duracionSegundos || 0}s`;
+                $('#ultimaSync').attr('data-bs-original-title', tooltip);
+
+                const badgeEstado = $('#estadoSyncBadge');
+                badgeEstado.removeClass('bg-success bg-danger bg-warning');
+
+                if (info.estado === 'COMPLETADO') {
+                    badgeEstado.addClass('bg-success');
+                } else if (info.estado === 'ERROR') {
+                    badgeEstado.addClass('bg-danger');
+                } else {
+                    badgeEstado.addClass('bg-warning');
+                }
+
+                badgeEstado.text(info.estado);
+            }
+        });
+    }
+
+    $(document).on('click', '.btn-eliminar-responsable', function () {
+        const id = $(this).data('id');
+        eliminar('RESPONSABLE', id);
     });
 
     function cargarFormulario() {
-        cargarFormularioAlert("/administracion/responsable/formulario", "#contenidoModalResponsbale", "#formularioResponsable", () => $('#data-table').DataTable().ajax.reload(null, false));
+        cargarFormularioAlert("/administracion/responsable/formulario", "#contenidoModalResponsable", "#formularioResponsable",
+            () => $('#data-table').DataTable().ajax.reload(null, false));
     }
 
     function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/responsable/eliminar", () => $('#data-table').DataTable().ajax.reload(null, false));
+        eliminarRegistroAlert(nombre, id, "/administracion/responsable/eliminar",
+            () => $('#data-table').DataTable().ajax.reload(null, false));
     }
 </script>

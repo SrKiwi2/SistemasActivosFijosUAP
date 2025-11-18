@@ -566,76 +566,91 @@ public class JavaDbfService {
         try (InputStream in = Files.newInputStream(file);
                 DBFReader reader = new DBFReader(in, cs)) {
 
-            int iENT = -1, iUNI = -1, iCODOF = -1, iCODR = -1, iNOM = -1, iCARGO = -1, iOBS = -1, iCI = -1, iFE = -1,
-                    iUSU = -1, iCODEXP = -1, iAPI = -1;
-
+            int idxENT = -1, idxUNI = -1, idxCODOFI = -1, idxCODRESP = -1,
+                idxNOMBRE = -1, idxCI = -1, idxCARGO = -1, idxOBS = -1,
+                idxFEULT = -1, idxUSUAR = -1, idxCODEXP = -1, idxAPI = -1;
+            
             int n = reader.getFieldCount();
             for (int i = 0; i < n; i++) {
                 String name = reader.getField(i).getName().toUpperCase(Locale.ROOT);
                 switch (name) {
-                    case "ENTIDAD" -> iENT = i;
-                    case "UNIDAD" -> iUNI = i;
-                    case "CODOFIC", "CODOFI", "COD_OFI" -> iCODOF = i;
-                    case "CODRESP", "COD_RESP" -> iCODR = i;
-                    case "NOMRESP", "NOMBRE", "RESP" -> iNOM = i;
-                    case "CARGO" -> iCARGO = i;
-                    case "OBSERV", "OBS" -> iOBS = i;
-                    case "CI", "CEDULA" -> iCI = i;
-                    case "FEULT", "FECHA", "F_ULT" -> iFE = i;
-                    case "USUAR", "USUARIO" -> iUSU = i;
-                    case "COD_EXP", "CODEXP" -> iCODEXP = i;
-                    case "API_ESTADO", "APIESTADO" -> iAPI = i;
+                    case "ENTIDAD" -> idxENT = i;
+                    case "UNIDAD" -> idxUNI = i;
+                    case "CODOFI" -> idxCODOFI = i;
+                    case "CODRESP" -> idxCODRESP = i;
+                    case "NOMBRE" -> idxNOMBRE = i;
+                    case "CI" -> idxCI = i;
+                    case "CARGO" -> idxCARGO = i;
+                    case "OBSERV" -> idxOBS = i;
+                    case "FEULT" -> idxFEULT = i;
+                    case "USUAR" -> idxUSUAR = i;
+                    case "COD_EXP" -> idxCODEXP = i;
+                    case "API_ESTADO" -> idxAPI = i;
                 }
             }
 
-            final String ql = (q == null ? null : q.toLowerCase(Locale.ROOT));
+            final String ql = (q != null) ? q.toLowerCase(Locale.ROOT) : null;
+
             Object[] row;
             while ((row = reader.nextRecord()) != null) {
-                String ent = asString(row, iENT);
-                String uni = asString(row, iUNI);
-                Short codOf = asInt(row, iCODOF) == null ? null : asInt(row, iCODOF).shortValue();
-                // codResp en DBF es numérico; guárdalo como texto o como short. Aquí lo guardo
-                // TEXT (más flexible):
-                Short codR = asInt(row, iCODR) == null ? null : asInt(row, iCODR).shortValue();
-                String nom = asString(row, iNOM);
-                String car = asString(row, iCARGO);
-                String obs = asString(row, iOBS);
-                String ci = asString(row, iCI);
-                LocalDate fe = asDate(row, iFE);
-                String usu = asString(row, iUSU);
-                Short cexp = asInt(row, iCODEXP) == null ? null : asInt(row, iCODEXP).shortValue();
-                Short api = asInt(row, iAPI) == null ? null : asInt(row, iAPI).shortValue();
-
-                if (ql != null) {
-                    String hay = (String.join(" ",
-                            ent == null ? "" : ent, uni == null ? "" : uni, String.valueOf(codOf == null ? "" : codOf),
-                            String.valueOf(codR == null ? "" : codR), nom == null ? "" : nom, car == null ? "" : car,
-                            ci == null ? "" : ci)).toLowerCase(Locale.ROOT);
-                    if (!hay.contains(ql))
-                        continue;
+                String entidad = asString(row, idxENT);
+                String unidad = asString(row, idxUNI);
+                Integer codofi = asInt(row, idxCODOFI);
+                String codresp = asString(row, idxCODRESP);
+                String nombre = asString(row, idxNOMBRE);
+                String ci = asString(row, idxCI);
+                String cargo = asString(row, idxCARGO);
+                String observ = asString(row, idxOBS);
+                String usuar = asString(row, idxUSUAR);
+                Integer codexp = asInt(row, idxCODEXP);
+                Integer api = asInt(row, idxAPI);
+                
+                LocalDate feult = null;
+                if (idxFEULT >= 0 && row[idxFEULT] != null) {
+                    if (row[idxFEULT] instanceof java.util.Date dd) {
+                        java.sql.Date d = new java.sql.Date(dd.getTime());
+                        feult = d.toLocalDate();
+                    }
                 }
-
-                if (isBlank(ent) || isBlank(uni) || codOf == null)
-                    continue; // claves mínimas
-
-                // Normaliza OBS "(memo)"
-                if (obs != null && "(memo)".equalsIgnoreCase(obs.trim()))
-                    obs = null;
-
+                
+                // ✅ Filtro de búsqueda
+                if (ql != null) {
+                    String hay = String.join(" ",
+                        entidad != null ? entidad : "",
+                        unidad != null ? unidad : "",
+                        codresp != null ? codresp : "",
+                        nombre != null ? nombre : "",
+                        ci != null ? ci : "",
+                        cargo != null ? cargo : ""
+                    ).toLowerCase(Locale.ROOT);
+                    
+                    if (!hay.contains(ql)) continue;
+                }
+                
+                // ✅ Validar claves obligatorias
+                if (isBlank(entidad) || isBlank(unidad) || codofi == null) {
+                    continue;
+                }
+                
+                // ✅ Normalizar observaciones MEMO
+                if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) {
+                    observ = null;
+                }
+                
                 out.add(ResponsableDbf.builder()
-                        .entidadCodigo(ent)
-                        .unidad(uni)
-                        .codOfi(codOf)
-                        .codResp(codR == null ? null : String.valueOf(codR))
-                        .nombre(nom)
-                        .cargo(car)
-                        .observ(obs)
-                        .ci(ci)
-                        .fechaUlt(fe)
-                        .usuario(usu)
-                        .codExp(cexp)
-                        .apiEstado(api)
-                        .build());
+                    .entidadCodigo(entidad.trim())
+                    .unidad(unidad.trim())
+                    .codOfi(codofi.shortValue())
+                    .codResp(codresp != null ? codresp.trim() : null)
+                    .nombre(nombre != null ? nombre.trim() : null)
+                    .ci(ci != null ? ci.trim() : null)
+                    .cargo(cargo != null ? cargo.trim() : null)
+                    .observ(observ)
+                    .fechaUlt(feult)
+                    .usuario(usuar != null ? usuar.trim() : null)
+                    .codExp(codexp != null ? codexp.shortValue() : null)
+                    .apiEstado(api != null ? api.shortValue() : null)
+                    .build());
             }
         }
         return out;

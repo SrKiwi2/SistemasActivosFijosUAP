@@ -1,6 +1,9 @@
 package com.usic.SistemasActivosFijosUAP.model.entity;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+import org.apache.commons.codec.digest.DigestUtils;
 
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
@@ -25,7 +28,10 @@ import lombok.Setter;
         @UniqueConstraint(name = "uk_resp_oficina_codfunc", columnNames = { "id_oficina", "codigo_funcionario" })
 }, indexes = {
         @Index(name = "idx_resp_oficina", columnList = "id_oficina"),
-        @Index(name = "idx_resp_codfunc", columnList = "codigo_funcionario")
+        @Index(name = "idx_resp_codfunc", columnList = "codigo_funcionario"),
+        @Index(name = "idx_resp_persona", columnList = "id_persona"),
+        @Index(name = "idx_resp_sync_fecha", columnList = "fecha_ultima_sync"),
+        @Index(name = "idx_resp_hash", columnList = "hash_datos")
 })
 @Setter
 @Getter
@@ -65,4 +71,31 @@ public class Responsable extends AuditoriaConfig {
 
     @Column(name = "api_estado", columnDefinition = "SMALLINT")
     private Short apiEstado; // DBF: API_ESTADO (SmallInt)
+
+    @Column(name = "fecha_ultima_sync")
+    private LocalDateTime fechaUltimaSync;
+    
+    @Column(name = "hash_datos", length = 32)
+    private String hashDatos;
+    
+    /**
+     * Calcula hash MD5 de los datos importantes para detectar cambios
+     */
+    public String calcularHash() {
+        String datos = String.join("|",
+            oficina != null && oficina.getIdOficina() != null 
+                ? String.valueOf(oficina.getIdOficina()) : "",
+            codigoFuncionario != null ? codigoFuncionario : "",
+            persona != null && persona.getIdPersona() != null 
+                ? String.valueOf(persona.getIdPersona()) : "",
+            cargo != null && cargo.getIdCargo() != null 
+                ? String.valueOf(cargo.getIdCargo()) : "",
+            observ != null ? observ : "",
+            fechaUlt != null ? fechaUlt.toString() : "",
+            usuario != null ? usuario : "",
+            codExp != null ? String.valueOf(codExp) : "",
+            apiEstado != null ? String.valueOf(apiEstado) : ""
+        );
+        return DigestUtils.md5Hex(datos);
+    }
 }

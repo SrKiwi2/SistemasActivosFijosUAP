@@ -10,6 +10,7 @@ import com.usic.SistemasActivosFijosUAP.controller.grupo_contable.GrupoContableC
 import com.usic.SistemasActivosFijosUAP.controller.oficina.OficinaController;
 import com.usic.SistemasActivosFijosUAP.controller.organismoFinanciador.OrganismoFinanciadorController;
 import com.usic.SistemasActivosFijosUAP.controller.predio.PredioController;
+import com.usic.SistemasActivosFijosUAP.controller.responsable.ResponsableController;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +24,7 @@ public class SyncScheduler {
     private final OrganismoFinanciadorController organismoController;
     private final GrupoContableController grupoContableController;
     private final AuxiliarController auxiliarController;
+    private final ResponsableController responsableController;
     
     // Ejecutar cada 30 minutos
     @Scheduled(cron = "0 */30 * * * *")
@@ -34,9 +36,10 @@ public class SyncScheduler {
             organismoController.syncFromMounted(null, false);
             grupoContableController.syncFromMounted(null, false);
             auxiliarController.syncFromMounted(null, null, false);
+            responsableController.syncFromMounted(null, false);
             // Agregar sincronización de otras tablas
         } catch (Exception e) {
-            // Log error
+            System.err.println("Error en sincronización automática: " + e.getMessage());
         }
     }
 }

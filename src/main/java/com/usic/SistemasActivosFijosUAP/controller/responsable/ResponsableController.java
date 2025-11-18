@@ -2,6 +2,8 @@ package com.usic.SistemasActivosFijosUAP.controller.responsable;
 
 import java.text.Normalizer;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,6 +45,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ResponsableDbf;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SyncResult;
 import com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableApiDataDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
@@ -50,8 +53,10 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.SyncControl;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesResponsableRepo;
+import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -69,6 +74,7 @@ public class ResponsableController {
     private final JavaDbfService dbfService;
     private final IEntidadService entidadService;
     private final RespDbfWriterService respDbfWriterService;
+    private final SyncControlService syncControlService;
 
     private static final Logger log = LoggerFactory.getLogger(ResponsableController.class);
 
@@ -542,183 +548,318 @@ public class ResponsableController {
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
     @ResponseBody
+    @Transactional
     public ResponseEntity<?> syncFromMounted(
             @RequestParam(name = "q", required = false) String q,
-            @RequestParam(name = "gestion", required = false) Short gestionPreferida) {
+            @RequestParam(name = "forzarCompleto", defaultValue = "false") boolean forzarCompleto) {
+        
+        long inicio = System.currentTimeMillis();
+        
         try {
+            // 1️⃣ Leer DBF
             var filas = dbfService.listarResponsableAll(q);
-
-            int inserted = 0, updated = 0, sinEntidad = 0, sinPredio = 0, sinOficina = 0;
-            int creadosPersona = 0, creadosCargo = 0, duplicadosEnDbf = 0;
-
-            // caches para acelerar (mismo patrón que usaste)
-            Map<String, Persona> cachePersonaPorCI = new HashMap<>(4000); // ci -> Persona
-            Map<String, Persona> cachePersonaPorNombre = new HashMap<>(8000); // canon -> Persona
-            Map<String, Cargo> cacheCargoPorNombre = new HashMap<>(2000);
-            Set<String> antiDupDBF = new HashSet<>(filas.size());
-
+            
+            // 2️⃣ Cargar caché de entidades relacionadas (1 consulta cada una)
+            Map<String, Oficina> oficinasCache = cargarOficinasEnCache();
+            Map<String, Persona> personasCache = cargarPersonasEnCache();
+            Map<String, Cargo> cargosCache = cargarCargosEnCache();
+            Map<String, Responsable> responsablesCache = cargarResponsablesEnCache();
+            
+            int inserted = 0, updated = 0, skipped = 0;
+            int sinOficina = 0, personasCreadas = 0, cargosCreados = 0;
             List<Responsable> batch = new ArrayList<>(500);
+            Set<String> seenKeys = new HashSet<>(filas.size());
 
             for (var f : filas) {
-                // ENTIDAD
-                String cod = nvl(f.getEntidadCodigo());
-                String codNoZeros = stripLeftZeros(cod);
-                String codPad4 = leftPad4(cod);
-
-                Entidad entidad = (gestionPreferida != null)
-                        ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, cod)
-                                .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codNoZeros))
-                                .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codPad4))
-                                .orElse(null)
-                        : entidadService.findTopByEntidadCodigoOrderByGestionDesc(cod)
-                                .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codNoZeros))
-                                .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codPad4))
-                                .orElse(null);
-                if (entidad == null) {
-                    sinEntidad++;
+                // ✅ Validar campos obligatorios
+                if (f.getEntidadCodigo() == null || f.getUnidad() == null || f.getCodOfi() == null) {
                     continue;
                 }
 
-                // PREDIO (por unidad) y OFICINA (por codOfi)
-                String unidad = normUnidad(f.getUnidad());
-                Short codOfi = f.getCodOfi();
-                if (isBlank(unidad) || codOfi == null) {
-                    sinPredio++;
+                // 3️⃣ Detectar duplicados en el DBF
+                String keyDbf = f.getEntidadCodigo() + "|" + f.getUnidad() + "|" + f.getCodOfi();
+                if (!seenKeys.add(keyDbf)) {
                     continue;
                 }
 
-                var oficina = oficinaService.findByEntidadUnidadAndCodOfi(entidad, unidad, codOfi).orElse(null);
+                // 4️⃣ Resolver Oficina (clave: entidad|unidad|codOfi)
+                String keyOficina = keyDbf;
+                Oficina oficina = oficinasCache.get(keyOficina);
                 if (oficina == null) {
                     sinOficina++;
                     continue;
                 }
 
-                // Deduplicación por (oficinaId|codFunc|nombre|ci)
-                String k = oficina.getIdOficina() + "|" + (f.getCodResp() == null ? "" : f.getCodResp().trim()) + "|" +
-                        (f.getNombre() == null ? "" : f.getNombre().trim()) + "|"
-                        + (f.getCi() == null ? "" : f.getCi().trim());
-                if (!antiDupDBF.add(k)) {
-                    duplicadosEnDbf++;
-                    continue;
-                }
-
-                // PERSONA (upsert)
+                // 5️⃣ Crear o buscar Persona (por CI o nombre completo)
                 Persona persona = null;
-                String ci = nvl(f.getCi());
-                if (!isBlank(ci)) {
-                    persona = cachePersonaPorCI.get(ci);
+                if (f.getCi() != null && !f.getCi().isBlank()) {
+                    persona = personasCache.get(f.getCi().toUpperCase());
                     if (persona == null) {
-                        persona = personaService.findFirstByCi(ci).orElse(null);
-                        if (persona != null)
-                            cachePersonaPorCI.put(ci, persona);
-                    }
-                }
-                if (persona == null) {
-                    String canon = canonNombre(nvl(f.getNombre()));
-                    if (!isBlank(canon)) {
-                        persona = cachePersonaPorNombre.get(canon);
-                    }
-                    if (persona == null) {
-                        // crear persona básica a partir del nombre “Nombres ApellidoP ApellidoM”
-                        String[] np = splitNombrePersona(nvl(f.getNombre())); // implementa simple: [nombre, paterno,
-                                                                              // materno]
+                        // Crear persona nueva
                         persona = new Persona();
-                        persona.setNombre(clip(np[0], 120));
-                        persona.setPaterno(clip(np[1], 60));
-                        persona.setMaterno(clip(np[2], 60));
-                        persona.setCi(isBlank(ci) ? null : ci.trim());
+                        persona.setNombre(f.getNombre() != null ? f.getNombre().trim() : "");
+                        persona.setPaterno(extractPaterno(f.getNombre()));
+                        persona.setMaterno(extractMaterno(f.getNombre()));
+                        persona.setCi(f.getCi().trim());
                         persona.setEstado("ACTIVO");
-                        personaService.save(persona);
-                        creadosPersona++;
-                        if (!isBlank(ci))
-                            cachePersonaPorCI.put(ci, persona);
-                        if (!isBlank(canon))
-                            cachePersonaPorNombre.put(canon, persona);
+                        persona = personaService.save(persona);
+                        personasCache.put(f.getCi().toUpperCase(), persona);
+                        personasCreadas++;
+                        log.info("Persona creada: {} - {}", f.getCi(), f.getNombre());
                     }
                 }
 
-                // CARGO (upsert por nombre)
+                // 6️⃣ Crear o buscar Cargo (por nombre)
                 Cargo cargo = null;
-                String cargoNom = nvl(f.getCargo());
-                if (!isBlank(cargoNom)) {
-                    String keyCargo = cargoNom.trim().toLowerCase(Locale.ROOT);
-                    cargo = cacheCargoPorNombre.get(keyCargo);
+                if (f.getCargo() != null && !f.getCargo().isBlank()) {
+                    String keyCargoNorm = f.getCargo().toUpperCase().trim();
+                    cargo = cargosCache.get(keyCargoNorm);
                     if (cargo == null) {
-                        cargo = cargoService.findFirstByNombreIgnoreCase(cargoNom.trim()).orElse(null);
-                        if (cargo == null) {
-                            Cargo c = new Cargo();
-                            c.setNombre(clip(cargoNom.trim(), 120));
-                            c.setDescripcion(null);
-                            c.setEstado("ACTIVO");
-                            cargo = cargoService.save(c);
-                            creadosCargo++;
-                        }
-                        cacheCargoPorNombre.put(keyCargo, cargo);
+                        // Crear cargo nuevo
+                        cargo = new Cargo();
+                        cargo.setNombre(f.getCargo().trim());
+                        cargo.setEstado("ACTIVO");
+                        cargo = cargoService.save(cargo);
+                        cargosCache.put(keyCargoNorm, cargo);
+                        cargosCreados++;
+                        log.info("Cargo creado: {}", f.getCargo());
                     }
                 }
 
-                // UPSERT Responsable:
-                // Regla: si viene CODRESP -> llave (oficina, codigoFuncionario)
-                // si NO viene -> llave (oficina, persona)
-                Responsable resp = null;
-                String codFun = isBlank(f.getCodResp()) ? null : f.getCodResp().trim();
-
-                if (!isBlank(codFun)) {
-                    resp = responsableService.findByOficinaAndCodigoFuncionario(oficina, codFun).orElse(null);
-                } else {
-                    resp = responsableService.findByOficinaAndPersona(oficina, persona).orElse(null);
+                // 7️⃣ Crear clave única para búsqueda en caché responsables
+                String clave = oficina.getIdOficina() + "|" + 
+                              (persona != null ? persona.getIdPersona() : "NULL") + "|" + 
+                              (cargo != null ? cargo.getIdCargo() : "NULL");
+                
+                Responsable responsable = responsablesCache.get(clave);
+                
+                // 8️⃣ Determinar si es nuevo
+                boolean esNuevo = (responsable == null);
+                
+                if (esNuevo) {
+                    responsable = new Responsable();
+                    responsable.setOficina(oficina);
+                    responsable.setPersona(persona);
+                    responsable.setCargo(cargo);
                 }
 
-                boolean nuevo = (resp == null);
-                if (resp == null) {
-                    resp = new Responsable();
-                    resp.setOficina(oficina);
-                    resp.setPersona(persona);
+                // 9️⃣ Mapear datos del DBF
+                responsable.setCodigoFuncionario(f.getCodResp() != null ? f.getCodResp().trim() : null);
+                
+                String observ = f.getObserv();
+                if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) {
+                    observ = null;
+                }
+                
+                responsable.setObserv(observ);
+                responsable.setFechaUlt(f.getFechaUlt());
+                responsable.setUsuario(f.getUsuario() != null 
+                    ? (f.getUsuario().length() > 60 ? f.getUsuario().substring(0, 60) : f.getUsuario())
+                    : null);
+                responsable.setCodExp(f.getCodExp());
+                responsable.setApiEstado(f.getApiEstado());
+                responsable.setEstado("ACTIVO");
+
+                // 🔟 OPTIMIZACIÓN: Calcular hash y comparar
+                String nuevoHash = responsable.calcularHash();
+                
+                if (!esNuevo && !forzarCompleto) {
+                    // Verificar si realmente cambió
+                    if (nuevoHash.equals(responsable.getHashDatos())) {
+                        skipped++;
+                        continue; // ⭐ NO procesar si no hay cambios
+                    }
                 }
 
-                resp.setCodigoFuncionario(codFun);
-                resp.setCargo(cargo);
-                resp.setObserv(nvl(f.getObserv()));
-                resp.setFechaUlt(f.getFechaUlt());
-                resp.setUsuario(trunc(nvl(f.getUsuario()), 60));
-                resp.setCodExp(f.getCodExp());
-                resp.setApiEstado(f.getApiEstado());
-                resp.setEstado("ACTIVO");
+                // 1️⃣1️⃣ Actualizar metadatos
+                responsable.setHashDatos(nuevoHash);
+                responsable.setFechaUltimaSync(LocalDateTime.now());
 
-                if (nuevo)
-                    inserted++;
-                else
-                    updated++;
-                // Guarda por fila (para ver errores exactos) o en lote. Aquí guardo en lote
-                // como en otros:
-                batch.add(resp);
-                if (batch.size() == 500) {
+                batch.add(responsable);
+                if (esNuevo) inserted++; else updated++;
+
+                // 1️⃣2️⃣ Guardar en lotes
+                if (batch.size() >= 500) {
                     responsableService.saveAll(batch);
                     batch.clear();
                 }
             }
-            if (!batch.isEmpty())
+            
+            // 1️⃣3️⃣ Guardar lote final
+            if (!batch.isEmpty()) {
                 responsableService.saveAll(batch);
+                batch.clear();
+            }
 
-            return ResponseEntity.ok(Map.of(
-                    "ok", true,
-                    "totalLeidas", filas.size(),
-                    "insertados", inserted,
-                    "actualizados", updated,
-                    "sinEntidad", sinEntidad,
-                    "sinPredio", sinPredio,
-                    "sinOficina", sinOficina,
-                    "creadosPersona", creadosPersona,
-                    "creadosCargo", creadosCargo,
-                    "duplicadosEnDbf", duplicadosEnDbf));
+            // 1️⃣4️⃣ Registrar en sync_control
+            long duracion = System.currentTimeMillis() - inicio;
+            
+            SyncResult resultado = SyncResult.builder()
+                .totalLeidas(filas.size())
+                .insertados(inserted)
+                .actualizados(updated)
+                .duracionMs(duracion)
+                .omitidos(skipped)
+                .sinOficina(sinOficina)
+                .build();
+            
+            syncControlService.registrarSincronizacion("responsable", resultado);
+
+            log.info("RESP.DBF sincronización completada: leídas={}, insertadas={}, actualizadas={}, omitidas={}, personas_creadas={}, cargos_creados={}",
+                filas.size(), inserted, updated, skipped, personasCreadas, cargosCreados);
+
+            // ✅ Respuesta con mapa extendido
+            Map<String, Object> response = resultado.toResponseMap();
+            response.put("personasCreadas", personasCreadas);
+            response.put("cargosCreados", cargosCreados);
+            
+            return ResponseEntity.ok(response);
+            
         } catch (Exception ex) {
+            log.error("Error en sincronización de RESP.DBF", ex);
+            syncControlService.registrarError("responsable", ex.getMessage());
+            
             return ResponseEntity.internalServerError().body(Map.of(
-                    "ok", false,
-                    "message", "Error sincronizando RESPONSABLE: " + ex.getMessage()));
+                "ok", false,
+                "message", "Error sincronizando RESPONSABLE: " + ex.getMessage()
+            ));
         }
     }
 
+    /**
+     * ✅ OPTIMIZACIÓN: Cargar todas las oficinas en caché (1 sola consulta)
+     * Clave: entidad|unidad|codOfi
+     */
+    private Map<String, Oficina> cargarOficinasEnCache() {
+        List<Oficina> todas = oficinaService.findAll();
+        
+        Map<String, Oficina> cache = new HashMap<>();
+        for (Oficina o : todas) {
+            if (o.getPredio() != null && o.getPredio().getEntidad() != null) {
+                String key = o.getPredio().getEntidad().getEntidadCodigo() + "|" +
+                            o.getPredio().getUnidad() + "|" +
+                            o.getCodOfi();
+                cache.put(key, o);
+            }
+        }
+        return cache;
+    }
+
+    /**
+     * ✅ OPTIMIZACIÓN: Cargar todas las personas en caché (1 sola consulta)
+     * Clave: CI (mayúsculas)
+     */
+    private Map<String, Persona> cargarPersonasEnCache() {
+        List<Persona> todas = personaService.findAll();
+        
+        return todas.stream()
+            .collect(Collectors.toMap(
+                p -> (p.getCi() != null ? p.getCi().toUpperCase() : ""),
+                p -> p,
+                (existing, replacement) -> existing,
+                HashMap::new
+            ));
+    }
+
+    /**
+     * ✅ OPTIMIZACIÓN: Cargar todos los cargos en caché (1 sola consulta)
+     * Clave: Nombre (mayúsculas)
+     */
+    private Map<String, Cargo> cargarCargosEnCache() {
+        List<Cargo> todos = cargoService.findAll();
+        
+        return todos.stream()
+            .collect(Collectors.toMap(
+                c -> (c.getNombre() != null ? c.getNombre().toUpperCase().trim() : ""),
+                c -> c,
+                (existing, replacement) -> existing,
+                HashMap::new
+            ));
+    }
+
+    /**
+     * ✅ OPTIMIZACIÓN: Cargar todos los responsables en caché (1 sola consulta)
+     * Clave: idOficina|idPersona|idCargo
+     */
+    private Map<String, Responsable> cargarResponsablesEnCache() {
+        List<Responsable> todos = responsableService.findAll();
+        
+        Map<String, Responsable> cache = new HashMap<>();
+        for (Responsable r : todos) {
+            String key = r.getOficina().getIdOficina() + "|" +
+                        (r.getPersona() != null ? String.valueOf(r.getPersona().getIdPersona()) : "NULL") + "|" +
+                        (r.getCargo() != null ? String.valueOf(r.getCargo().getIdCargo()) : "NULL");
+            cache.put(key, r);
+        }
+        return cache;
+    }
+
+    /**
+     * ✅ ENDPOINT AJAX para obtener info de sincronización
+     */
+    @GetMapping("/sync-info")
+    @ResponseBody
+    public ResponseEntity<?> obtenerInfoSync() {
+        try {
+            SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("responsable");
+            
+            if (syncInfo != null) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+                
+                return ResponseEntity.ok(Map.of(
+                    "ultimaSincronizacion", syncInfo.getUltimaSincronizacion().format(formatter),
+                    "estado", syncInfo.getEstado(),
+                    "registrosProcesados", syncInfo.getRegistrosProcesados(),
+                    "registrosNuevos", syncInfo.getRegistrosNuevos(),
+                    "registrosActualizados", syncInfo.getRegistrosActualizados(),
+                    "duracionSegundos", syncInfo.getDuracionMs() / 1000.0
+                ));
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "ultimaSincronizacion", "Nunca sincronizado",
+                "estado", "PENDIENTE",
+                "registrosProcesados", 0,
+                "registrosNuevos", 0,
+                "registrosActualizados", 0,
+                "duracionSegundos", 0.0
+            ));
+            
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                "ultimaSincronizacion", "Error al obtener info",
+                "estado", "ERROR",
+                "registrosProcesados", 0,
+                "registrosNuevos", 0,
+                "registrosActualizados", 0,
+                "duracionSegundos", 0.0
+            ));
+        }
+    }
+
+    // ===== MÉTODOS AUXILIARES =====
     
+    /**
+     * Extrae apellido paterno del nombre completo
+     */
+    private String extractPaterno(String nombreCompleto) {
+        if (nombreCompleto == null || nombreCompleto.isBlank()) return "";
+        
+        String[] partes = nombreCompleto.trim().split("\\s+");
+        return partes.length > 0 ? partes[0] : "";
+    }
+
+    /**
+     * Extrae apellido materno del nombre completo
+     */
+    private String extractMaterno(String nombreCompleto) {
+        if (nombreCompleto == null || nombreCompleto.isBlank()) return "";
+        
+        String[] partes = nombreCompleto.trim().split("\\s+");
+        return partes.length > 1 ? partes[1] : "";
+    }
+
+
     // HELPERS
 
     private static String nvl(String s) {

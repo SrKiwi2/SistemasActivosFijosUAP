@@ -1,6 +1,9 @@
 package com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad;
 
 
+import java.util.HashMap;
+import java.util.Map;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -38,5 +41,70 @@ public class SyncResult {
      */
     public int getProcesados() {
         return insertados + actualizados;
+    }
+
+    /**
+     * ✅ NUEVO: Convierte el resultado a un Map para respuestas HTTP
+     * Este método permite enviar el DTO como JSON al frontend
+     */
+    public Map<String, Object> toResponseMap() {
+        Map<String, Object> map = new HashMap<>();
+        
+        // Campos obligatorios
+        map.put("ok", true);
+        map.put("totalLeidas", totalLeidas);
+        map.put("insertados", insertados);
+        map.put("actualizados", actualizados);
+        map.put("duracionMs", duracionMs);
+        map.put("mensaje", getMensaje());
+        
+        // Campos opcionales (solo si tienen valor)
+        if (omitidos > 0) {
+            map.put("omitidos", omitidos);
+        }
+        if (sinEntidad > 0) {
+            map.put("sinEntidad", sinEntidad);
+        }
+        if (sinPredio > 0) {
+            map.put("sinPredio", sinPredio);
+        }
+        if (sinGrupoContable > 0) {
+            map.put("sinGrupoContable", sinGrupoContable);
+        }
+        if (sinOficina > 0) {
+            map.put("sinOficina", sinOficina);
+        }
+        if (duplicadosEnDbf > 0) {
+            map.put("duplicadosEnDbf", duplicadosEnDbf);
+        }
+        if (errores > 0) {
+            map.put("errores", errores);
+        }
+        
+        return map;
+    }
+    
+    /**
+     * ✅ ALTERNATIVA: Convierte a Map incluyendo TODOS los campos (incluso con valor 0)
+     * Útil cuando el frontend espera todos los campos siempre
+     */
+    public Map<String, Object> toFullResponseMap() {
+        Map<String, Object> map = new HashMap<>();
+        
+        map.put("ok", true);
+        map.put("totalLeidas", totalLeidas);
+        map.put("insertados", insertados);
+        map.put("actualizados", actualizados);
+        map.put("duracionMs", duracionMs);
+        map.put("omitidos", omitidos);
+        map.put("sinEntidad", sinEntidad);
+        map.put("sinPredio", sinPredio);
+        map.put("sinGrupoContable", sinGrupoContable);
+        map.put("sinOficina", sinOficina);
+        map.put("duplicadosEnDbf", duplicadosEnDbf);
+        map.put("errores", errores);
+        map.put("mensaje", getMensaje());
+        
+        return map;
     }
 }
