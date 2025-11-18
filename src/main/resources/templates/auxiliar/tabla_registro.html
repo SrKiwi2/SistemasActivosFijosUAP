@@ -1,15 +1,32 @@
 <div class="card">
-    <div class="card-header d-flex justify-content-lg-between">
-        <h5>Registro Auxiliar</h5>
-        <small class="text-muted" th:if="${sourceUsed=='dbf'}">(fuente: DBF)</small>
-        <small class="text-muted" th:if="${sourceUsed=='db'}">(fuente: BD)</small>
-        <div class="d-flex gap-2">
-            <button id="btnSyncAux" class="btn btn-outline-secondary">
-                <i class="fa-solid fa-file-import me-1"></i> Importar desde DBF montado
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+            <h5 class="mb-0">Registro Auxiliar</h5>
+        </div>
+
+        <div class="d-flex gap-2 align-items-center">
+            <!-- ✅ Badge con información de última sincronización -->
+            <span class="badge bg-info" id="ultimaSync" data-bs-toggle="tooltip" data-bs-placement="bottom"
+                th:title="'Procesados: ' + (${registrosProcesados ?: 0}) + ' | Nuevos: ' + (${registrosNuevos ?: 0}) + ' | Actualizados: ' + (${registrosActualizados ?: 0}) + ' | Duración: ' + (${duracionUltimaSync ?: 0}) + 's'">
+                <i class="fa-solid fa-clock me-1"></i>
+                Última sync: <span th:text="${ultimaSincronizacion ?: 'Nunca'}">--</span>
+            </span>
+
+            <!-- ✅ Badge de estado -->
+            <span class="badge" id="estadoSyncBadge"
+                th:classappend="${estadoSync == 'COMPLETADO'} ? 'bg-success' : (${estadoSync == 'ERROR'} ? 'bg-danger' : 'bg-warning')"
+                th:text="${estadoSync ?: 'PENDIENTE'}">
+            </span>
+
+            <!-- ✅ Botón sincronización incremental -->
+            <button id="btnSyncAux" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-sync me-1"></i> Sincronizar
             </button>
-            <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-                data-bs-target="#modalFormularioAuxiliar">
-                <i class="fa-solid fa-user-plus"></i> Agregar Auxiliar
+
+            <!-- ✅ Botón sincronización completa -->
+            <button id="btnSyncCompleto" class="btn btn-outline-warning btn-sm" data-bs-toggle="tooltip"
+                data-bs-placement="bottom" title="Forzar sincronización completa (más lento)">
+                <i class="fa-solid fa-database me-1"></i> Sync Completo
             </button>
         </div>
     </div>
@@ -20,31 +37,59 @@
                     <th>#</th>
                     <th>Entidad</th>
                     <th>Unidad</th>
-                    <th>Codigo Contable</th>
-                    <th>Codigo Auxiliar</th>
+                    <th>Código Contable</th>
+                    <th>Código Auxiliar</th>
                     <th>Nombre Auxiliar</th>
-                    <th>OPCIONES</th>
+                    <th class="text-center">Opciones</th>
                 </tr>
             </thead>
-            <tbody class="animate__animated animate__bounceInDown">
+            <tbody>
                 <tr th:each="auxiliar, index: ${listasAuxiliares}">
-                    <th th:text="${index.index+1}"></th>
-                    <th th:text="${auxiliar.predio.entidad.entidadCodigo}"></th>
-                    <th th:text="${auxiliar.predio.unidad}"></th>
-                    <th th:text="${auxiliar.grupoContable.codContable}"></th>
-                    <th th:text="${auxiliar.codAux}"></th>
-                    <th th:text="${auxiliar.nombre}"></th>
-                    <th>
-                        <button type="button" class="btn btn-sm btn-primary"
-                            th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
-                            data-bs-toggle="modal" data-bs-target="#modalFormularioAuxiliar">
-                            <i class="fa-solid fa-pen-to-square"></i> Editar
-                        </button>
-                        <button type="button" class="btn btn-sm btn-danger"
-                            th:onclick="eliminar([[${auxiliar.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
-                            <i class="fa-solid fa-trash"></i> Eliminar
-                        </button>
-                    </th>
+                    <td th:text="${index.index + 1}"></td>
+                    <td>
+                        <span th:if="${auxiliar.predio?.entidad != null}"
+                            th:text="${auxiliar.predio.entidad.entidadCodigo}" class="badge bg-primary">
+                        </span>
+                        <span th:if="${auxiliar.predio?.entidad == null}" class="text-muted">
+                            —
+                        </span>
+                    </td>
+                    <td th:text="${auxiliar.predio?.unidad ?: '—'}"></td>
+                    <td>
+                        <span th:if="${auxiliar.grupoContable?.codContable != null}"
+                            th:text="${auxiliar.grupoContable.codContable}" class="badge bg-secondary">
+                        </span>
+                        <span th:if="${auxiliar.grupoContable?.codContable == null}" class="text-muted">
+                            —
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge bg-info" th:text="${auxiliar.codAux}"></span>
+                    </td>
+                    <td th:text="${auxiliar.nombre}"></td>
+                    <td class="text-center">
+                        <!-- ✅ Botones solo si tiene ID (existe en BD) -->
+                        <div th:if="${auxiliar.idAuxiliar != null}" class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-primary btn-editar-auxiliar"
+                                th:data-id="${id_encryptado[index.index]}" data-bs-toggle="modal"
+                                data-bs-target="#modalFormularioAuxiliar" title="Editar auxiliar">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button type="button" class="btn btn-danger btn-eliminar-auxiliar"
+                                th:data-id="${id_encryptado[index.index]}" th:data-nombre="${auxiliar.nombre}"
+                                title="Eliminar auxiliar">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+
+                        <!-- ✅ Si NO tiene ID (viene del DBF), mostrar mensaje -->
+                        <div th:if="${auxiliar.idAuxiliar == null}">
+                            <span class="badge bg-warning" data-bs-toggle="tooltip"
+                                title="Registro solo lectura desde DBF. Sincronice para poder editar.">
+                                <i class="fa-solid fa-lock"></i> Solo lectura
+                            </span>
+                        </div>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -52,6 +97,118 @@
 </div>
 
 <script>
+
+    $(document).ready(function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+
+    $(document).on('click', '.btn-editar-auxiliar', function() {
+        const idEncriptado = $(this).data('id');
+        cargarFormularioEdit(idEncriptado);
+    });
+
+    $(document).on('click', '.btn-eliminar-auxiliar', function() {
+        const idEncriptado = $(this).data('id');
+        const nombre = $(this).data('nombre');
+        eliminar(nombre, idEncriptado);
+    });
+
+    $(document).on('click', '#btnSyncAux', function () {
+        sincronizar(false);
+    });
+
+    $(document).on('click', '#btnSyncCompleto', function () {
+        Swal.fire({
+            title: '¿Forzar sincronización completa?',
+            text: "Esto procesará todos los registros y puede tardar más tiempo",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, sincronizar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                sincronizar(true);
+            }
+        });
+    });
+
+    function sincronizar(forzarCompleto) {
+        showGlobalLoader({ texto: 'Sincronizando Auxiliares...' });
+
+        $.ajax({
+            type: 'POST',
+            url: '/administracion/auxiliar/sync-from-mounted',
+            data: { forzarCompleto: forzarCompleto },
+            success: function (res) {
+                const tiempoSegundos = (res.duracionMs / 1000).toFixed(2);
+                const msg = `
+                        <div class="text-start">
+                            <p><strong>✅ Sincronización exitosa</strong></p>
+                            <hr>
+                            <p><i class="fa-solid fa-file-import"></i> Total leídas: <strong>${res.totalLeidas}</strong></p>
+                            <p><i class="fa-solid fa-plus-circle text-success"></i> Insertados: <strong>${res.insertados}</strong></p>
+                            <p><i class="fa-solid fa-edit text-primary"></i> Actualizados: <strong>${res.actualizados}</strong></p>
+                            <p><i class="fa-solid fa-check-circle text-info"></i> Omitidos (sin cambios): <strong>${res.omitidos}</strong></p>
+                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin entidad: <strong>${res.sinEntidad}</strong></p>
+                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin predio: <strong>${res.sinPredio}</strong></p>
+                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin grupo: <strong>${res.sinGrupoContable}</strong></p>
+                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Duplicados en DBF: <strong>${res.duplicadosEnDbf}</strong></p>
+                            <p><i class="fa-solid fa-clock"></i> Tiempo: <strong>${tiempoSegundos}s</strong></p>
+                        </div>
+                    `;
+
+                Swal.fire({
+                    title: 'Completado',
+                    html: msg,
+                    icon: 'success',
+                    confirmButtonText: 'Aceptar'
+                });
+
+                // ✅ Actualizar badge
+                actualizarInfoSync();
+
+                cargarTabla();
+            },
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
+                Swal.fire('Error', msg, 'error');
+            },
+            complete: hideGlobalLoader
+        });
+    }
+
+    // ✅ Actualizar badges sin recargar página
+    function actualizarInfoSync() {
+        $.ajax({
+            type: 'GET',
+            url: '/administracion/auxiliar/sync-info',
+            success: function (info) {
+                $('#ultimaSync span').text(info.ultimaSincronizacion);
+
+                const tooltip = `Procesados: ${info.registrosProcesados || 0} | Nuevos: ${info.registrosNuevos || 0} | Actualizados: ${info.registrosActualizados || 0} | Duración: ${info.duracionSegundos || 0}s`;
+                $('#ultimaSync').attr('data-bs-original-title', tooltip);
+
+                const badgeEstado = $('#estadoSyncBadge');
+                badgeEstado.removeClass('bg-success bg-danger bg-warning');
+
+                if (info.estado === 'COMPLETADO') {
+                    badgeEstado.addClass('bg-success');
+                } else if (info.estado === 'ERROR') {
+                    badgeEstado.addClass('bg-danger');
+                } else {
+                    badgeEstado.addClass('bg-warning');
+                }
+
+                badgeEstado.text(info.estado);
+            }
+        });
+    }
+
     $('#data-table').DataTable({
         language: {
             "sProcessing": "Procesando...",
@@ -76,22 +233,5 @@
                 "sSortDescending": ": Activar para ordenar la columna de manera descendente"
             }
         }
-    });
-
-    $(document).on('click', '#btnSyncAux', function () {
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/auxiliar/sync-from-mounted",
-            success: function (res) {
-                Swal.fire('Listo',
-                    `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}<br>Sin entidad: ${res.sinEntidad}<br>Sin predio: ${res.sinPredio}<br>Sin grupo: ${res.sinGrupoContable}`,
-                    'success');
-                cargarTabla();
-            },
-            error: function (xhr) {
-                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
-                Swal.fire('Error', msg, 'error');
-            }
-        });
     });
 </script>

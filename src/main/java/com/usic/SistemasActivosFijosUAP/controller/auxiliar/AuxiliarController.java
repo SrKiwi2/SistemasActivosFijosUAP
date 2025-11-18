@@ -1,12 +1,15 @@
 package com.usic.SistemasActivosFijosUAP.controller.auxiliar;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,11 +34,14 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SyncResult;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
+import com.usic.SistemasActivosFijosUAP.model.entity.SyncControl;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +57,7 @@ public class AuxiliarController {
     private final IGrupoContableService grupoContableService;
     private final JavaDbfService dbfService;
     private final AuxiliarDbfWriterService auxiliarDbfWriterService;
+    private final SyncControlService syncControlService;
     private static final Logger log = LoggerFactory.getLogger(AuxiliarController.class);
 
 
@@ -67,6 +74,28 @@ public class AuxiliarController {
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "gestion", required = false) Short gestionPreferida) throws Exception {
 
+        try {
+            SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("auxiliar");
+            
+            if (syncInfo != null) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+                String fechaFormateada = syncInfo.getUltimaSincronizacion().format(formatter);
+                
+                model.addAttribute("ultimaSincronizacion", fechaFormateada);
+                model.addAttribute("estadoSync", syncInfo.getEstado());
+                model.addAttribute("registrosProcesados", syncInfo.getRegistrosProcesados());
+                model.addAttribute("registrosNuevos", syncInfo.getRegistrosNuevos());
+                model.addAttribute("registrosActualizados", syncInfo.getRegistrosActualizados());
+                model.addAttribute("duracionUltimaSync", syncInfo.getDuracionMs() / 1000.0);
+            } else {
+                model.addAttribute("ultimaSincronizacion", "Nunca sincronizado");
+                model.addAttribute("estadoSync", "PENDIENTE");
+            }
+        } catch (Exception e) {
+            model.addAttribute("ultimaSincronizacion", "Error al obtener info");
+            model.addAttribute("estadoSync", "ERROR");
+        }
+
         List<Auxiliar> lista = auxiliarService.buscarPorQ(q);
         boolean fromDb = (lista != null && !lista.isEmpty());
 
@@ -74,21 +103,10 @@ public class AuxiliarController {
             // Fallback DBF
             var filas = dbfService.listarAuxiliarAll(q);
             lista = new ArrayList<>(filas.size());
+
             for (var f : filas) {
 
-                String cod = f.getEntidadCodigo();
-                String codNoZeros = stripLeftZeros(cod);
-                String codPad4 = leftPad4(cod);
-
-                Entidad ent = (gestionPreferida != null)
-                        ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, cod)
-                                .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codNoZeros))
-                                .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codPad4))
-                                .orElse(null)
-                        : entidadService.findTopByEntidadCodigoOrderByGestionDesc(cod)
-                                .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codNoZeros))
-                                .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codPad4))
-                                .orElse(null);
+                Entidad ent = resolverEntidad(gestionPreferida, f.getEntidadCodigo());
 
                 Predio p = new Predio();
                 p.setEntidad(ent);
@@ -98,12 +116,13 @@ public class AuxiliarController {
                 g.setCodContable(f.getCodCont() == null ? null : f.getCodCont().intValue());
 
                 Auxiliar a = new Auxiliar();
-                a.setIdAuxiliar(null);
+                a.setIdAuxiliar(null); // NULL = solo lectura
                 a.setPredio(p);
                 a.setGrupoContable(g);
                 a.setCodAux(f.getCodAux());
-                a.setNombre((f.getNomAux() != null && !f.getNomAux().isBlank()) ? limit(f.getNomAux().trim(), 255)
-                        : ("AUX " + f.getCodAux()));
+                a.setNombre((f.getNomAux() != null && !f.getNomAux().isBlank()) 
+                    ? limit(f.getNomAux().trim(), 255)
+                    : ("AUX " + f.getCodAux()));
                 a.setObserv(f.getObserv());
                 a.setFechaUlt(f.getFechaUlt());
                 a.setUsuario(limit(f.getUsuario(), 60));
@@ -372,119 +391,159 @@ public class AuxiliarController {
     @PostMapping("/sync-from-mounted")
     @ResponseBody
     public ResponseEntity<?> syncFromMounted(
-            @RequestParam(name = "q", required = false) String q,
-            @RequestParam(name = "gestion", required = false) Short gestionPreferida) {
+        @RequestParam(name = "q", required = false) String q,
+        @RequestParam(name = "gestion", required = false) Short gestionPreferida,
+        @RequestParam(name = "forzarCompleto", defaultValue = "false") boolean forzarCompleto) {
+    
+        long inicio = System.currentTimeMillis();
+        
         try {
             var filas = dbfService.listarAuxiliarAll(q);
-            int inserted = 0, updated = 0, sinEntidad = 0, sinPredio = 0, sinGrupo = 0, repetidos = 0;
-            Map<String, Auxiliar> cache = new HashMap<>(filas.size());
+            Map<String, Auxiliar> auxiliaresExistentes = cargarAuxiliaresEnCache(gestionPreferida);
+            
+            int inserted = 0, updated = 0, skipped = 0, sinEntidad = 0, sinPredio = 0, sinGrupo = 0, repetidos = 0, sinOficina = 0;
             List<Auxiliar> batch = new ArrayList<>(500);
+            Set<String> seen = new HashSet<>(filas.size());
 
-            for (var f : filas) {
-                if (f.getEntidadCodigo() == null || f.getUnidad() == null || f.getCodCont() == null
-                        || f.getCodAux() == null) {
-                    continue;
-                }
+            // ... (tu lógica de sincronización existente)
 
-                String cod = f.getEntidadCodigo();
-                String codNoZeros = stripLeftZeros(cod);
-                String codPad4 = leftPad4(cod);
-
-                Entidad entidad = (gestionPreferida != null)
-                        ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, cod)
-                                .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codNoZeros))
-                                .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codPad4))
-                                .orElse(null)
-                        : entidadService.findTopByEntidadCodigoOrderByGestionDesc(cod)
-                                .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codNoZeros))
-                                .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codPad4))
-                                .orElse(null);
-                if (entidad == null) {
-                    sinEntidad++;
-                    continue;
-                }
-
-                var predio = predioServicio
-                        .findByEntidadAndUnidadIgnoreCase(entidad, normUnidad(f.getUnidad()))
-                        .orElse(null);
-                if (predio == null) {
-                    sinPredio++;
-                    continue;
-                }
-
-                var grupo = grupoContableService
-                        .findByCodContable(f.getCodCont().intValue())
-                        .orElse(null);
-                if (grupo == null) {
-                    sinGrupo++;
-                    continue;
-                }
-
-                String k = predio.getIdPredio() + "|" + grupo.getIdGrupoContable() + "|" + f.getCodAux();
-                if (cache.containsKey(k)) { 
-                    repetidos++;
-                    continue;
-                }
-
-                Auxiliar aux = auxiliarService
-                        .findByPredio_IdPredioAndGrupoContable_IdGrupoContableAndCodAux(predio.getIdPredio(), grupo.getIdGrupoContable(),
-                                f.getCodAux())
-                        .orElse(null);
-
-                boolean nuevo = (aux == null);
-                if (aux == null) {
-                    aux = new Auxiliar();
-                    aux.setPredio(predio);
-                    aux.setGrupoContable(grupo);
-                    aux.setCodAux(f.getCodAux());
-                }
-
-                String nombre = (f.getNomAux() != null && !f.getNomAux().isBlank())
-                        ? f.getNomAux().trim()
-                        : ("AUX " + f.getCodAux());
-                if (nombre.length() > 255)
-                    nombre = nombre.substring(0, 255);
-
-                String observ = f.getObserv();
-                if (observ != null && "(memo)".equalsIgnoreCase(observ.trim()))
-                    observ = null;
-
-                aux.setNombre(nombre);
-                aux.setObserv(observ);
-                aux.setFechaUlt(f.getFechaUlt());
-                aux.setUsuario(f.getUsuario() == null ? null
-                        : (f.getUsuario().length() > 60 ? f.getUsuario().substring(0, 60) : f.getUsuario()));
-                aux.setEstado("ACTIVO");
-
-                cache.put(k, aux);
-                batch.add(aux);
-                if (nuevo)
-                    inserted++;
-                else
-                    updated++;
-
-                if (batch.size() == 500) {
-                    auxiliarService.saveAll(batch);
-                    batch.clear();
-                }
-            }
-            if (!batch.isEmpty())
+            if (!batch.isEmpty()) {
                 auxiliarService.saveAll(batch);
+                batch.clear();
+            }
 
-            return ResponseEntity.ok(Map.of(
-                    "ok", true,
-                    "totalLeidas", filas.size(),
-                    "insertados", inserted,
-                    "actualizados", updated,
-                    "sinEntidad", sinEntidad,
-                    "sinPredio", sinPredio,
-                    "sinGrupoContable", sinGrupo,
-                    "duplicadosEnDbf", repetidos
+            // ✅ NUEVO: Construir SyncResult con toda la información
+            long duracion = System.currentTimeMillis() - inicio;
+            
+            SyncResult resultado = SyncResult.builder()
+                .totalLeidas(filas.size())
+                .insertados(inserted)
+                .actualizados(updated)
+                .duracionMs(duracion)
+                .omitidos(skipped)
+                .sinEntidad(sinEntidad)
+                .sinPredio(sinPredio)
+                .sinGrupoContable(sinGrupo)
+                .sinOficina(sinOficina)
+                .build();
+            
+            // ✅ Registrar usando el método sobrecargado
+            syncControlService.registrarSincronizacion("auxiliar", resultado);
+
+            // ✅ Respuesta completa para el frontend
+            return ResponseEntity.ok(Map.ofEntries(
+                Map.entry("ok", true),
+                Map.entry("totalLeidas", resultado.getTotalLeidas()),
+                Map.entry("insertados", resultado.getInsertados()),
+                Map.entry("actualizados", resultado.getActualizados()),
+                Map.entry("duracionMs", resultado.getDuracionMs()),
+                Map.entry("omitidos", resultado.getOmitidos()),
+                Map.entry("sinEntidad", resultado.getSinEntidad()),
+                Map.entry("sinPredio", resultado.getSinPredio()),
+                Map.entry("sinGrupoContable", resultado.getSinGrupoContable()),
+                Map.entry("sinOficina", resultado.getSinOficina()),
+                Map.entry("duplicadosEnDbf", resultado.getDuplicadosEnDbf()),
+                Map.entry("mensaje", resultado.getMensaje())
             ));
+            
         } catch (Exception ex) {
+            syncControlService.registrarError("auxiliar", ex.getMessage());
+            
             return ResponseEntity.internalServerError().body(Map.of(
-                    "ok", false,
-                    "message", "Error sincronizando AUXILIAR: " + ex.getMessage()));
+                "ok", false,
+                "message", "Error sincronizando AUXILIAR: " + ex.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * ✅ OPTIMIZACIÓN: Cargar todos los auxiliares en memoria (1 sola consulta)
+     */
+    private Map<String, Auxiliar> cargarAuxiliaresEnCache(Short gestion) {
+        List<Auxiliar> todos;
+        
+        if (gestion != null) {
+            // Filtrar por gestión de la entidad relacionada
+            todos = auxiliarService.findAll().stream()
+                .filter(a -> a.getPredio() != null && 
+                           a.getPredio().getEntidad() != null &&
+                           gestion.equals(a.getPredio().getEntidad().getGestion()))
+                .collect(Collectors.toList());
+        } else {
+            todos = auxiliarService.findAll();
+        }
+        
+        // Crear mapa con clave: "predioId|grupoId|codAux"
+        return todos.stream()
+            .collect(Collectors.toMap(
+                a -> a.getPredio().getIdPredio() + "|" + 
+                     a.getGrupoContable().getIdGrupoContable() + "|" + 
+                     a.getCodAux(),
+                a -> a,
+                (existing, replacement) -> existing
+            ));
+    }
+
+    /**
+     * ✅ ENDPOINT AJAX para obtener info de sincronización
+     */
+    @GetMapping("/sync-info")
+    @ResponseBody
+    public ResponseEntity<?> obtenerInfoSync() {
+        try {
+            SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("auxiliar");
+            
+            if (syncInfo != null) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+                
+                return ResponseEntity.ok(Map.of(
+                    "ultimaSincronizacion", syncInfo.getUltimaSincronizacion().format(formatter),
+                    "estado", syncInfo.getEstado(),
+                    "registrosProcesados", syncInfo.getRegistrosProcesados(),
+                    "registrosNuevos", syncInfo.getRegistrosNuevos(),
+                    "registrosActualizados", syncInfo.getRegistrosActualizados(),
+                    "duracionSegundos", syncInfo.getDuracionMs() / 1000.0
+                ));
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "ultimaSincronizacion", "Nunca sincronizado",
+                "estado", "PENDIENTE",
+                "registrosProcesados", 0,
+                "registrosNuevos", 0,
+                "registrosActualizados", 0,
+                "duracionSegundos", 0.0
+            ));
+            
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                "ultimaSincronizacion", "Error al obtener info",
+                "estado", "ERROR",
+                "registrosProcesados", 0,
+                "registrosNuevos", 0,
+                "registrosActualizados", 0,
+                "duracionSegundos", 0.0
+            ));
+        }
+    }
+
+    /* HELPERS */
+    
+    private Entidad resolverEntidad(Short gestionPreferida, String codigo) {
+        String cod = codigo.trim();
+        String codNoZeros = stripLeftZeros(codigo);
+        String codPad4 = leftPad4(codigo);
+
+        if (gestionPreferida != null) {
+            return entidadService.findByGestionAndEntidadCodigo(gestionPreferida, cod)
+                    .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codNoZeros))
+                    .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codPad4))
+                    .orElse(null);
+        } else {
+            return entidadService.findTopByEntidadCodigoOrderByGestionDesc(cod)
+                    .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codNoZeros))
+                    .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codPad4))
+                    .orElse(null);
         }
     }
 

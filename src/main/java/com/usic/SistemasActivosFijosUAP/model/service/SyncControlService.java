@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.usic.SistemasActivosFijosUAP.model.dao.SyncControlRepository;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SyncResult;
 import com.usic.SistemasActivosFijosUAP.model.entity.SyncControl;
 
 import jakarta.persistence.EntityManager;
@@ -53,6 +54,36 @@ public class SyncControlService {
             .setParameter("nuevos", nuevos)
             .setParameter("actualizados", actualizados)
             .setParameter("duracion", duracionMs)
+            .executeUpdate();
+    }
+
+    /**
+     * ✅ NUEVO MÉTODO SOBRECARGADO - Acepta información detallada
+     * Usado por: Auxiliar, OrganismoFinanciero, GrupoContable, y futuras implementaciones
+     * 
+     * @param tabla Nombre de la tabla sincronizada
+     * @param resultado Objeto con toda la información de sincronización
+     */
+    @Transactional
+    public void registrarSincronizacion(String tabla, SyncResult resultado) {
+        String sql = """
+            UPDATE sync_control 
+            SET ultima_sincronizacion = CURRENT_TIMESTAMP,
+                registros_procesados = :procesados,
+                registros_nuevos = :nuevos,
+                registros_actualizados = :actualizados,
+                duracion_ms = :duracion,
+                estado = 'COMPLETADO',
+                mensaje_error = NULL
+            WHERE tabla_nombre = :tabla
+            """;
+        
+        entityManager.createNativeQuery(sql)
+            .setParameter("tabla", tabla)
+            .setParameter("procesados", resultado.getTotalLeidas())
+            .setParameter("nuevos", resultado.getInsertados())
+            .setParameter("actualizados", resultado.getActualizados())
+            .setParameter("duracion", resultado.getDuracionMs())
             .executeUpdate();
     }
 

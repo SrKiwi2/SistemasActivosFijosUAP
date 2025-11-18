@@ -4,6 +4,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.usic.SistemasActivosFijosUAP.controller.auxiliar.AuxiliarController;
 import com.usic.SistemasActivosFijosUAP.controller.entidad.EntidadController;
 import com.usic.SistemasActivosFijosUAP.controller.grupo_contable.GrupoContableController;
 import com.usic.SistemasActivosFijosUAP.controller.oficina.OficinaController;
@@ -21,6 +22,7 @@ public class SyncScheduler {
     private final OficinaController oficinaController;
     private final OrganismoFinanciadorController organismoController;
     private final GrupoContableController grupoContableController;
+    private final AuxiliarController auxiliarController;
     
     // Ejecutar cada 30 minutos
     @Scheduled(cron = "0 */30 * * * *")
@@ -31,6 +33,7 @@ public class SyncScheduler {
             oficinaController.syncFromMounted(null, null, false);
             organismoController.syncFromMounted(null, false);
             grupoContableController.syncFromMounted(null, false);
+            auxiliarController.syncFromMounted(null, null, false);
             // Agregar sincronización de otras tablas
         } catch (Exception e) {
             // Log error

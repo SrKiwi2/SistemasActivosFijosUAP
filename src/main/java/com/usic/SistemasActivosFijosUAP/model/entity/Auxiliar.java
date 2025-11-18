@@ -1,6 +1,9 @@
 package com.usic.SistemasActivosFijosUAP.model.entity;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+import org.apache.commons.codec.digest.DigestUtils;
 
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
@@ -31,7 +34,9 @@ import lombok.Setter;
         @Index(name = "idx_aux_grupo", columnList = "id_grupo_contable"),
         @Index(name = "idx_aux_predio_grupo_codaux", columnList = "id_predio,id_grupo_contable,cod_aux"),
         @Index(name = "idx_aux_codaux", columnList = "cod_aux"),
-        @Index(name = "idx_aux_nombre", columnList = "nombre")
+        @Index(name = "idx_aux_nombre", columnList = "nombre"),
+        @Index(name = "idx_aux_sync_fecha", columnList = "fecha_ultima_sync"),
+        @Index(name = "idx_aux_hash", columnList = "hash_datos")
     }
 )
 @Setter @Getter
@@ -74,4 +79,28 @@ public class Auxiliar extends AuditoriaConfig{
     @Size(max = 60)
     @Column(name = "usuario", length = 60)
     private String usuario;
+
+    @Column(name = "fecha_ultima_sync")
+    private LocalDateTime fechaUltimaSync;
+    
+    @Column(name = "hash_datos", length = 32)
+    private String hashDatos;
+    
+    /**
+     * Calcula hash MD5 de los datos importantes para detectar cambios
+     */
+    public String calcularHash() {
+        String datos = String.join("|",
+            predio != null && predio.getIdPredio() != null 
+                ? String.valueOf(predio.getIdPredio()) : "",
+            grupoContable != null && grupoContable.getIdGrupoContable() != null 
+                ? String.valueOf(grupoContable.getIdGrupoContable()) : "",
+            codAux != null ? String.valueOf(codAux) : "",
+            nombre != null ? nombre : "",
+            observ != null ? observ : "",
+            fechaUlt != null ? fechaUlt.toString() : "",
+            usuario != null ? usuario : ""
+        );
+        return DigestUtils.md5Hex(datos);
+    }
 }
