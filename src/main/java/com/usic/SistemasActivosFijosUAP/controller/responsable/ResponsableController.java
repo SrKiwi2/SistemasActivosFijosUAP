@@ -726,6 +726,8 @@ public class ResponsableController {
         }
     }
 
+    
+
     /**
      * ✅ OPTIMIZACIÓN: Cargar todas las oficinas en caché (1 sola consulta)
      * Clave: entidad|unidad|codOfi
