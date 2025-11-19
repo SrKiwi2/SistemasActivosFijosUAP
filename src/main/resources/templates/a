@@ -16,3 +16,42 @@ ls -ld /mnt/dbfwin
 sudo -u ubuntu touch /mnt/dbfwin/__probe__.tmp && rm /mnt/dbfwin/__probe__.tmp && echo "OK escritura"
 
 legacy.dbf.url=jdbc:dbf:/mnt/dbfwin?charSet=CP1252&tableType=foxpro&lockType=VFP&readonly=false&delayedClose=0
+
+
+═══════════════════════════════════════════════════════
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : 📊 RESUMEN DE SINCRONIZACIÓN RESP.DBF
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : ═══════════════════════════════════════════════════════
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : 📖 Total leídos del DBF: 2162
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : ✅ Insertados: 826
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : 🔄 Actualizados: 0
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : ⏭️  Omitidos (sin cambios): 0
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : ───────────────────────────────────────────────────────
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : ❌ Rechazados por campos nulos: 0
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : 🔁 Duplicados en DBF: 1336
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : 🏢 Sin oficina coincidente: 0
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : 👤 Sin CI: 512
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : ⚠️  Colisiones de caché detectadas: 0
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : ───────────────────────────────────────────────────────
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : ➕ Personas creadas: 141
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : 💼 Cargos creados: 256
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : ═══════════════════════════════════════════════════════
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          : 👤 Registros SIN CI (primeros 10):
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          :   - OFICINA=148|CAUN|2, CARGO=RESP. CANAL UNIV. (sin CI ni nombre)
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          :   - OFICINA=148|CAUN|3, CARGO=RESP. CANAL UNIV. (sin CI ni nombre)
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          :   - OFICINA=148|CAUN|4, CARGO=RESP. CANAL UNIV. (sin CI ni nombre)
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          :   - OFICINA=148|CAUN|5, CARGO=RESP. CANAL UNIV. (sin CI ni nombre)
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          :   - OFICINA=148|CAUN|6, CARGO=RESP. CANAL UNIV. (sin CI ni nombre)
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          :   - OFICINA=148|CAUN|7, CARGO=RESP. CANAL UNIV. (sin CI ni nombre)
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          :   - OFICINA=148|CAUN|8, CARGO=RESP. CANAL UNIV. (sin CI ni nombre)
+2025-11-19T17:54:14.026-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          :   - OFICINA=148|CAUN|10, CARGO=RESP. CANAL UNIV. (sin CI ni nombre)
+2025-11-19T17:54:14.029-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          :   - OFICINA=148|CAUN|11, CARGO=RESP. CANAL UNIV. (sin CI ni nombre)
+2025-11-19T17:54:14.029-04:00  INFO 1444774 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.r.ResponsableController          :   - OFICINA=148|CAUN|12, CARGO=RESP. CANAL UNIV. (sin CI ni nombre)
+
+
+
+
+
+
+
+
+
