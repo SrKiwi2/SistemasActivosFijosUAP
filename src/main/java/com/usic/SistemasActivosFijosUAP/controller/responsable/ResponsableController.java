@@ -1,6 +1,5 @@
 package com.usic.SistemasActivosFijosUAP.controller.responsable;
 
-import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -614,15 +613,34 @@ public class ResponsableController {
                     persona = personasCache.get(ciNorm);
 
                     if (persona == null) {
+
+                        String nombre = extractNombre(f.getNombre());
+                        String paterno = extractPaterno(f.getNombre());
+                        String materno = extractMaterno(f.getNombre());
+
+                        // ⚠️ Validar que al menos tenga nombre
+                        if (nombre.isEmpty()) {
+                            log.warn("⚠️ Registro con CI pero sin nombre válido: CI={}, Nombre original='{}'", 
+                                f.getCi(), f.getNombre());
+                            sinCi++;
+                            registrosSinCi.add(String.format(
+                                "CI=%s, NOMBRE_ORIGINAL='%s' (no se pudo extraer nombre válido)",
+                                f.getCi(), f.getNombre()
+                            ));
+                            continue;
+                        }
+
                         // Crear persona nueva
                         persona = new Persona();
-                        persona.setNombre(f.getNombre() != null ? f.getNombre().trim() : "");
+                        persona.setNombre(extractNombre(f.getNombre()));
                         persona.setPaterno(extractPaterno(f.getNombre()));
                         persona.setMaterno(extractMaterno(f.getNombre()));
                         persona.setCi(f.getCi().trim());
                         persona.setEstado("ACTIVO");
                         persona = personaService.save(persona);
-                        personasCache.put(f.getCi(), persona);
+
+                        personasCache.put(ciNorm, persona);
+
                         personasCreadas++;
                         log.info("Persona creada: {} - {}", f.getCi(), f.getNombre());
                     }
@@ -634,19 +652,33 @@ public class ResponsableController {
                     
                     if (persona == null) {
                         // Buscar en BD por nombre completo
-                        persona = personaService.buscarPersonaPorNombreCompletoUno(
-                            extractNombre(f.getNombre()),
-                            extractPaterno(f.getNombre()),
-                            extractMaterno(f.getNombre())
-                        );
+
+                        String nombre = extractNombre(f.getNombre());
+                        String paterno = extractPaterno(f.getNombre());
+                        String materno = extractMaterno(f.getNombre());
+
+                        // ⚠️ Validar que al menos tenga nombre
+                        if (nombre.isEmpty()) {
+                            log.warn("⚠️ Registro sin CI y sin nombre válido: Nombre original='{}'", 
+                                f.getNombre());
+                            sinCi++;
+                            registrosSinCi.add(String.format(
+                                "OFICINA=%s, NOMBRE_ORIGINAL='%s' (no se pudo extraer nombre válido)",
+                                keyOficina, f.getNombre()
+                            ));
+                            continue;
+                        }
+                        
+                        // Buscar en BD por nombre completo
+                        persona = personaService.buscarPersonaPorNombreCompletoUno(nombre, paterno, materno);
                         
                         if (persona == null) {
                             // Crear persona SIN CI
                             persona = new Persona();
-                            persona.setNombre(extractNombre(f.getNombre()));
-                            persona.setPaterno(extractPaterno(f.getNombre()));
-                            persona.setMaterno(extractMaterno(f.getNombre()));
-                            persona.setCi(null); // ⚠️ SIN CI
+                            persona.setNombre(nombre);
+                            persona.setPaterno(paterno.isEmpty() ? null : paterno);
+                            persona.setMaterno(materno.isEmpty() ? null : materno);
+                            persona.setCi(null);
                             persona.setEstado("ACTIVO");
                             persona = personaService.save(persona);
                             personasCreadas++;
@@ -655,8 +687,13 @@ public class ResponsableController {
                             log.debug("🔍 Persona encontrada por nombre: {}", f.getNombre());
                         }
                         
-                        // Agregar a caché con prefijo "NOMBRE:"
-                        personasCache.put("NOMBRE:" + nombreCompleto, persona);
+                         // Agregar a caché con prefijo "NOMBRE:"
+                        String nombreCompletoNorm = String.join(" ", 
+                            nombre, 
+                            paterno.isEmpty() ? "" : paterno, 
+                            materno.isEmpty() ? "" : materno
+                        ).trim().toUpperCase();
+                        personasCache.put("NOMBRE:" + nombreCompletoNorm, persona);
                     } else {
                         log.debug("🔍 Persona encontrada en caché por nombre: {}", nombreCompleto);
                     }
@@ -982,20 +1019,55 @@ public class ResponsableController {
      * Extrae apellido paterno del nombre completo
      */
     private String extractPaterno(String nombreCompleto) {
-        if (nombreCompleto == null || nombreCompleto.isBlank()) return "";
+        if (nombreCompleto == null || nombreCompleto.isBlank()) {
+            return "";
+        }
         
-        String[] partes = nombreCompleto.trim().split("\\s+");
-        return partes.length > 0 ? partes[0] : "";
+        String limpio = limpiarNombre(nombreCompleto);
+        String[] partes = limpio.split("\\s+");
+        
+        if (partes.length <= 1) {
+            // Solo 1 palabra → Sin apellido paterno
+            return "";
+        } else if (partes.length == 2) {
+            // 2 palabras → Segunda es paterno
+            return partes[1];
+        } else if (partes.length == 3) {
+            // 3 palabras → Segunda es paterno
+            return partes[1];
+        } else {
+            // 4+ palabras → Tercera es paterno
+            return partes[2];
+        }
     }
 
     /**
      * Extrae apellido materno del nombre completo
      */
     private String extractMaterno(String nombreCompleto) {
-        if (nombreCompleto == null || nombreCompleto.isBlank()) return "";
+        if (nombreCompleto == null || nombreCompleto.isBlank()) {
+            return "";
+        }
         
-        String[] partes = nombreCompleto.trim().split("\\s+");
-        return partes.length > 1 ? partes[1] : "";
+        String limpio = limpiarNombre(nombreCompleto);
+        String[] partes = limpio.split("\\s+");
+        
+        if (partes.length <= 2) {
+            // 1 o 2 palabras → Sin apellido materno
+            return "";
+        } else if (partes.length == 3) {
+            // 3 palabras → Tercera es materno
+            return partes[2];
+        } else {
+            // 4+ palabras → Cuarta en adelante es materno
+            // Unir el resto con espacios
+            StringBuilder materno = new StringBuilder();
+            for (int i = 3; i < partes.length; i++) {
+                if (i > 3) materno.append(" ");
+                materno.append(partes[i]);
+            }
+            return materno.toString();
+        }
     }
 
 
@@ -1006,9 +1078,49 @@ public class ResponsableController {
      * Ej: "JORGE ARROYO ZABALA" → "JORGE"
      */
     private String extractNombre(String nombreCompleto) {
-        if (nombreCompleto == null || nombreCompleto.isBlank()) return "";
-        String[] partes = nombreCompleto.trim().split("\\s+");
-        return partes.length > 0 ? partes[0] : "";
+        if (nombreCompleto == null || nombreCompleto.isBlank()) {
+            return "";
+        }
+        
+        // 🧹 Limpiar caracteres especiales pero mantener estructura
+        String limpio = limpiarNombre(nombreCompleto);
+        String[] partes = limpio.split("\\s+");
+        
+        if (partes.length == 0) {
+            return "";
+        } else if (partes.length == 1) {
+            // Solo 1 palabra → Todo es nombre
+            return partes[0];
+        } else if (partes.length == 2) {
+            // 2 palabras → Primera es nombre
+            return partes[0];
+        } else if (partes.length == 3) {
+            // 3 palabras → Primera es nombre
+            return partes[0];
+        } else {
+            // 4+ palabras → Primeras 2 son nombre compuesto
+            return partes[0] + " " + partes[1];
+        }
+    }
+
+    private String limpiarNombre(String nombre) {
+        if (nombre == null || nombre.isBlank()) {
+            return "";
+        }
+        
+        return nombre
+            .toUpperCase()                          // Mayúsculas
+            .replaceAll("[ÁÀÄÂ]", "A")             // Normalizar acentos
+            .replaceAll("[ÉÈËÊ]", "E")
+            .replaceAll("[ÍÌÏÎ]", "I")
+            .replaceAll("[ÓÒÖÔ]", "O")
+            .replaceAll("[ÚÙÜÛ]", "U")
+            .replaceAll("[Ñ]", "N")
+            .replaceAll("\\.", " ")                 // Reemplazar puntos por espacios
+            .replaceAll("-", " ")                   // Reemplazar guiones por espacios
+            .replaceAll("[^A-Z0-9\\s]", "")        // Eliminar otros caracteres especiales
+            .replaceAll("\\s+", " ")               // Normalizar espacios múltiples
+            .trim();
     }
 
     private static String nvl(String s) {
@@ -1017,51 +1129,6 @@ public class ResponsableController {
 
     private static boolean isBlank(String s) {
         return s == null || s.trim().isEmpty();
-    }
-
-    private String stripLeftZeros(String s) {
-        if (s == null)
-            return null;
-        return s.replaceFirst("^0+(?!$)", "");
-    }
-
-    private String leftPad4(String s) {
-        if (s == null)
-            return null;
-        String t = stripLeftZeros(s);
-        if (t == null)
-            return null;
-        return String.format("%04d", Integer.parseInt(t));
-    }
-
-    private String normUnidad(String u) {
-        return u == null ? null : u.trim();
-    }
-
-    private String trunc(String s, int n) {
-        if (s == null)
-            return null;
-        return s.length() > n ? s.substring(0, n) : s;
-    }
-
-    private String clip(String s, int n) {
-        return trunc(nvl(s), n);
-    }
-
-    private static String canonNombre(String s) {
-        String t = nvl(s);
-        if (t == null)
-            return null;
-        // quita acentos
-        t = Normalizer.normalize(t, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", "");
-        // mayúsculas
-        t = t.toUpperCase(Locale.ROOT);
-        // deja solo letras/números/espacios
-        t = t.replaceAll("[^A-Z0-9\\s]+", " ");
-        // colapsa espacios
-        t = t.trim().replaceAll("\\s+", " ");
-        return t.isEmpty() ? null : t;
     }
 
     // divide lo más básico: "Nombres ApellidoP ApellidoM"
