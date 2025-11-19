@@ -554,6 +554,7 @@ public class ResponsableController {
         try {
             // 1️⃣ Leer DBF
             var filas = dbfService.listarResponsableAll(q);
+            log.info("✅ Total registros leídos del DBF: {}", filas.size());
             
             // 2️⃣ Cargar caché de entidades relacionadas (1 consulta cada una)
             Map<String, Oficina> oficinasCache = cargarOficinasEnCache();
@@ -563,18 +564,31 @@ public class ResponsableController {
             
             int inserted = 0, updated = 0, skipped = 0;
             int sinOficina = 0, personasCreadas = 0, cargosCreados = 0;
+            int camposNulos = 0;          // ← NUEVO
+            int duplicadosDbf = 0;        // ← NUEVO
+            int sinCi = 0;                // ← NUEVO
+            int colisionesCache = 0;      // ← NUEVO
+
             List<Responsable> batch = new ArrayList<>(500);
             Set<String> seenKeys = new HashSet<>(filas.size());
+
+            List<String> registrosSinOficina = new ArrayList<>();
+            List<String> registrosSinCi = new ArrayList<>();
+            Map<String, Integer> colisionesPorClave = new HashMap<>();
 
             for (var f : filas) {
                 // ✅ Validar campos obligatorios
                 if (f.getEntidadCodigo() == null || f.getUnidad() == null || f.getCodOfi() == null) {
+                    camposNulos++;
+                    log.debug("❌ Registro con campos nulos: {}", f);
                     continue;
                 }
 
                 // 3️⃣ Detectar duplicados en el DBF
                 String keyDbf = f.getEntidadCodigo() + "|" + f.getUnidad() + "|" + f.getCodOfi();
                 if (!seenKeys.add(keyDbf)) {
+                    duplicadosDbf++;
+                    log.debug("⚠️ Duplicado detectado en DBF: {}", keyDbf);
                     continue;
                 }
 
@@ -583,13 +597,22 @@ public class ResponsableController {
                 Oficina oficina = oficinasCache.get(keyOficina);
                 if (oficina == null) {
                     sinOficina++;
+                    registrosSinOficina.add(String.format(
+                        "ENTIDAD=%s, UNIDAD=%s, CODOFIC=%d, NOMBRE=%s",
+                        f.getEntidadCodigo(), f.getUnidad(), f.getCodOfi(), 
+                        f.getNombre()
+                    ));
+                    log.warn("❌ Sin oficina: {} - {}", keyOficina, f.getNombre());
                     continue;
                 }
 
                 // 5️⃣ Crear o buscar Persona (por CI o nombre completo)
                 Persona persona = null;
                 if (f.getCi() != null && !f.getCi().isBlank()) {
-                    persona = personasCache.get(f.getCi().toUpperCase());
+
+                    String ciNorm = f.getCi().trim().toUpperCase();
+                    persona = personasCache.get(ciNorm);
+
                     if (persona == null) {
                         // Crear persona nueva
                         persona = new Persona();
@@ -599,11 +622,55 @@ public class ResponsableController {
                         persona.setCi(f.getCi().trim());
                         persona.setEstado("ACTIVO");
                         persona = personaService.save(persona);
-                        personasCache.put(f.getCi().toUpperCase(), persona);
+                        personasCache.put(f.getCi(), persona);
                         personasCreadas++;
                         log.info("Persona creada: {} - {}", f.getCi(), f.getNombre());
                     }
+                } else if (f.getNombre() != null && !f.getNombre().isBlank()) {
+                    String nombreCompleto = f.getNombre().trim().toUpperCase();
+                    
+                    // Buscar en caché por nombre
+                    persona = personasCache.get("NOMBRE:" + nombreCompleto);
+                    
+                    if (persona == null) {
+                        // Buscar en BD por nombre completo
+                        persona = personaService.buscarPersonaPorNombreCompletoUno(
+                            extractNombre(f.getNombre()),
+                            extractPaterno(f.getNombre()),
+                            extractMaterno(f.getNombre())
+                        );
+                        
+                        if (persona == null) {
+                            // Crear persona SIN CI
+                            persona = new Persona();
+                            persona.setNombre(extractNombre(f.getNombre()));
+                            persona.setPaterno(extractPaterno(f.getNombre()));
+                            persona.setMaterno(extractMaterno(f.getNombre()));
+                            persona.setCi(null); // ⚠️ SIN CI
+                            persona.setEstado("ACTIVO");
+                            persona = personaService.save(persona);
+                            personasCreadas++;
+                            log.info("✅ Persona creada SIN CI: {}", f.getNombre());
+                        } else {
+                            log.debug("🔍 Persona encontrada por nombre: {}", f.getNombre());
+                        }
+                        
+                        // Agregar a caché con prefijo "NOMBRE:"
+                        personasCache.put("NOMBRE:" + nombreCompleto, persona);
+                    } else {
+                        log.debug("🔍 Persona encontrada en caché por nombre: {}", nombreCompleto);
+                    }
+                } else {
+                    // ⚠️ Registro sin CI ni nombre
+                    sinCi++;
+                    registrosSinCi.add(String.format(
+                        "OFICINA=%s, CARGO=%s (sin CI ni nombre)",
+                        keyOficina, f.getCargo()
+                    ));
+                    log.warn("⚠️ Responsable sin CI ni nombre válido en oficina: {}", keyOficina);
                 }
+
+
 
                 // 6️⃣ Crear o buscar Cargo (por nombre)
                 Cargo cargo = null;
@@ -624,10 +691,15 @@ public class ResponsableController {
 
                 // 7️⃣ Crear clave única para búsqueda en caché responsables
                 String clave = oficina.getIdOficina() + "|" + 
-                              (persona != null ? persona.getIdPersona() : "NULL") + "|" + 
-                              (cargo != null ? cargo.getIdCargo() : "NULL");
+                    (persona != null ? persona.getIdPersona() : "NULL") + "|" + 
+                    (cargo != null ? cargo.getIdCargo() : "NULL") + "|" +
+                    (f.getCodResp() != null ? f.getCodResp().trim() : "NULL");
                 
                 Responsable responsable = responsablesCache.get(clave);
+
+                if (responsable != null) {
+                    colisionesPorClave.merge(clave, 1, Integer::sum);
+                }
                 
                 // 8️⃣ Determinar si es nuevo
                 boolean esNuevo = (responsable == null);
@@ -637,6 +709,8 @@ public class ResponsableController {
                     responsable.setOficina(oficina);
                     responsable.setPersona(persona);
                     responsable.setCargo(cargo);
+
+                    responsablesCache.put(clave, responsable);
                 }
 
                 // 9️⃣ Mapear datos del DBF
@@ -701,13 +775,54 @@ public class ResponsableController {
             
             syncControlService.registrarSincronizacion("responsable", resultado);
 
-            log.info("RESP.DBF sincronización completada: leídas={}, insertadas={}, actualizadas={}, omitidas={}, personas_creadas={}, cargos_creados={}",
-                filas.size(), inserted, updated, skipped, personasCreadas, cargosCreados);
+            log.info("═══════════════════════════════════════════════════════");
+            log.info("📊 RESUMEN DE SINCRONIZACIÓN RESP.DBF");
+            log.info("═══════════════════════════════════════════════════════");
+            log.info("📖 Total leídos del DBF: {}", filas.size());
+            log.info("✅ Insertados: {}", inserted);
+            log.info("🔄 Actualizados: {}", updated);
+            log.info("⏭️  Omitidos (sin cambios): {}", skipped);
+            log.info("───────────────────────────────────────────────────────");
+            log.info("❌ Rechazados por campos nulos: {}", camposNulos);
+            log.info("🔁 Duplicados en DBF: {}", duplicadosDbf);
+            log.info("🏢 Sin oficina coincidente: {}", sinOficina);
+            log.info("👤 Sin CI: {}", sinCi);
+            log.info("⚠️  Colisiones de caché detectadas: {}", colisionesPorClave.size());
+            log.info("───────────────────────────────────────────────────────");
+            log.info("➕ Personas creadas: {}", personasCreadas);
+            log.info("💼 Cargos creados: {}", cargosCreados);
+            log.info("═══════════════════════════════════════════════════════");
+
+            // 📝 Mostrar registros problemáticos (primeros 10)
+            if (!registrosSinOficina.isEmpty()) {
+                log.warn("🏢 Registros SIN OFICINA (primeros 10):");
+                registrosSinOficina.stream().limit(10).forEach(r -> log.warn("  - {}", r));
+            }
+            
+            if (!registrosSinCi.isEmpty()) {
+                log.info("👤 Registros SIN CI (primeros 10):");
+                registrosSinCi.stream().limit(10).forEach(r -> log.info("  - {}", r));
+            }
+            
+            if (!colisionesPorClave.isEmpty()) {
+                log.warn("⚠️  COLISIONES DE CACHÉ DETECTADAS (primeras 10):");
+                colisionesPorClave.entrySet().stream()
+                    .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                    .limit(10)
+                    .forEach(e -> log.warn("  - Clave: {} → {} colisiones", e.getKey(), e.getValue()));
+            }
 
             // ✅ Respuesta con mapa extendido
             Map<String, Object> response = resultado.toResponseMap();
             response.put("personasCreadas", personasCreadas);
             response.put("cargosCreados", cargosCreados);
+            response.put("camposNulos", camposNulos);
+            response.put("duplicadosDbf", duplicadosDbf);
+            response.put("sinCi", sinCi);
+            response.put("colisiones", colisionesPorClave.size());
+            response.put("registrosSinOficina", registrosSinOficina.size() <= 10 
+                ? registrosSinOficina 
+                : registrosSinOficina.subList(0, 10));
             
             return ResponseEntity.ok(response);
             
@@ -749,15 +864,33 @@ public class ResponsableController {
      */
     private Map<String, Persona> cargarPersonasEnCache() {
         List<Persona> todas = personaService.findAll();
+        Map<String, Persona> cache = new HashMap<>(todas.size() * 2); // *2 para CI + nombre
         
-        return todas.stream()
-            .collect(Collectors.toMap(
-                p -> (p.getCi() != null ? p.getCi().toUpperCase() : ""),
-                p -> p,
-                (existing, replacement) -> existing,
-                HashMap::new
-            ));
+        log.info("=== CONSTRUYENDO CACHÉ DE PERSONAS ===");
+        
+        for (Persona p : todas) {
+            // Clave 1: Por CI (si tiene)
+            if (p.getCi() != null && !p.getCi().isBlank()) {
+                String ciKey = p.getCi().trim().toUpperCase();
+                cache.put(ciKey, p);
+            }
+            
+            // Clave 2: Por nombre completo (siempre)
+            String nombreCompleto = String.join(" ",
+                p.getNombre() != null ? p.getNombre().trim() : "",
+                p.getPaterno() != null ? p.getPaterno().trim() : "",
+                p.getMaterno() != null ? p.getMaterno().trim() : ""
+            ).trim().toUpperCase();
+            
+            if (!nombreCompleto.isEmpty()) {
+                cache.put("NOMBRE:" + nombreCompleto, p);
+            }
+        }
+        
+        log.info("✅ Personas en caché: {} (con {} claves)", todas.size(), cache.size());
+        return cache;
     }
+
 
     /**
      * ✅ OPTIMIZACIÓN: Cargar todos los cargos en caché (1 sola consulta)
@@ -781,16 +914,24 @@ public class ResponsableController {
      */
     private Map<String, Responsable> cargarResponsablesEnCache() {
         List<Responsable> todos = responsableService.findAll();
+        Map<String, Responsable> cache = new HashMap<>(todos.size());
         
-        Map<String, Responsable> cache = new HashMap<>();
+        log.info("=== CONSTRUYENDO CACHÉ DE RESPONSABLES ===");
+        
         for (Responsable r : todos) {
-            String key = r.getOficina().getIdOficina() + "|" +
-                        (r.getPersona() != null ? String.valueOf(r.getPersona().getIdPersona()) : "NULL") + "|" +
-                        (r.getCargo() != null ? String.valueOf(r.getCargo().getIdCargo()) : "NULL");
-            cache.put(key, r);
+            if (r.getOficina() != null) {
+                // ✅ Clave basada en constraint único de BD
+                String key = r.getOficina().getIdOficina() + "|" + 
+                            (r.getCodigoFuncionario() != null ? r.getCodigoFuncionario() : "NULL");
+                
+                cache.put(key, r);
+            }
         }
+        
+        log.info("✅ Responsables en caché: {}", cache.size());
         return cache;
     }
+
 
     /**
      * ✅ ENDPOINT AJAX para obtener info de sincronización
@@ -859,6 +1000,16 @@ public class ResponsableController {
 
 
     // HELPERS
+
+    /**
+     * Extrae el primer nombre de un nombre completo
+     * Ej: "JORGE ARROYO ZABALA" → "JORGE"
+     */
+    private String extractNombre(String nombreCompleto) {
+        if (nombreCompleto == null || nombreCompleto.isBlank()) return "";
+        String[] partes = nombreCompleto.trim().split("\\s+");
+        return partes.length > 0 ? partes[0] : "";
+    }
 
     private static String nvl(String s) {
         return s == null ? "" : s;
