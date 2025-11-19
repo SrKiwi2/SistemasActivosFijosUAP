@@ -576,12 +576,12 @@ public class JavaDbfService {
                 switch (name) {
                     case "ENTIDAD" -> idxENT = i;
                     case "UNIDAD" -> idxUNI = i;
-                    case "CODOFI" -> idxCODOFI = i;
+                    case "CODOFIC" -> idxCODOFI = i;
                     case "CODRESP" -> idxCODRESP = i;
-                    case "NOMBRE" -> idxNOMBRE = i;
-                    case "CI" -> idxCI = i;
+                    case "NOMBRESP" -> idxNOMBRE = i;
                     case "CARGO" -> idxCARGO = i;
                     case "OBSERV" -> idxOBS = i;
+                    case "CI" -> idxCI = i;
                     case "FEULT" -> idxFEULT = i;
                     case "USUAR" -> idxUSUAR = i;
                     case "COD_EXP" -> idxCODEXP = i;

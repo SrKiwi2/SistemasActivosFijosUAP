@@ -39,7 +39,6 @@ import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.RespDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
-import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
@@ -72,7 +71,6 @@ public class ResponsableController {
     private final ICargoService cargoService;
     private final FuncionesResponsableRepo funcionesResponsableRepo;
     private final JavaDbfService dbfService;
-    private final IEntidadService entidadService;
     private final RespDbfWriterService respDbfWriterService;
     private final SyncControlService syncControlService;
 
@@ -147,8 +145,6 @@ public class ResponsableController {
             if (oficinaFiltro != null) {
                 String unidad = oficinaFiltro.getPredio().getUnidad();
                 Short codOf = oficinaFiltro.getCodOfi();
-                // además, si quieres, podrías matchear ENTIDAD por sigla/código, pero con
-                // unidad+codOf suele bastar
                 String unidadNorm = unidad == null ? null : unidad.trim().toUpperCase(Locale.ROOT);
                 List<ResponsableDbf> filtradas = new ArrayList<>();
                 for (var r : filas) {
@@ -208,7 +204,7 @@ public class ResponsableController {
             res.put("recordsTotal", totalAfterFilter);
             res.put("recordsFiltered", totalAfterFilter);
             res.put("data", data);
-            res.put("source", "dbf"); // opcional: badge en front
+            res.put("source", "dbf");
             return res;
 
         } catch (Exception ex) {
@@ -726,7 +722,7 @@ public class ResponsableController {
         }
     }
 
-    
+
 
     /**
      * ✅ OPTIMIZACIÓN: Cargar todas las oficinas en caché (1 sola consulta)

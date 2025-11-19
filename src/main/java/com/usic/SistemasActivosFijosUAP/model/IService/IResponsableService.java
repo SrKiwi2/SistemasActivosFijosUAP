@@ -24,20 +24,12 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     List<Responsable> findAllByPersonaIdPersona(@Param("idPersona") Long idPersona);
     List<Responsable> findAllByPersona(Persona persona);
     List<Responsable> findByPersonaAndEstado(Persona persona, String estado);
-
     Optional<Responsable> findByOficinaAndCodigoFuncionario(Oficina oficina, String codigo_funcionario);
     Optional<Responsable> findByOficinaAndPersona(Oficina oficina, Persona persona);
     List<Responsable> saveAll(Iterable<Responsable> responsables);
-
-    /* pra ver mejor lista de un repsonsbale */
     Page<IResposableDao.ResponsableRow> datatable(String q, Long oficinaId, Pageable pageable);
     long countActivos();
-
     Page<RespOption> search(@Param("term") String term, Pageable pageable);
-
-    /**
-     * Consulta la API externa con código/CI y mapea los datos a un DTO.
-     */
     ResponsableApiDataDTO getResponsableDataFromApi(String codigoFuncionario, String ci);
 
     //*MODULO REGISTRO RESPOSNABLE */
@@ -48,5 +40,4 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     List<Responsable> findByPersonaId(Long idPersona);
 
     Responsable findByIdWithRelations(Long id);
-
 }
