@@ -588,6 +588,18 @@ public class ResponsableController {
             Map<String, Integer> colisionesPorClave = new HashMap<>();
 
             for (var f : filas) {
+
+                if (inserted + updated < 5) {
+                    log.info("═══ REGISTRO #{} ═══", inserted + updated + 1);
+                    log.info("ENTIDAD: {}", f.getEntidadCodigo());
+                    log.info("UNIDAD: {}", f.getUnidad());
+                    log.info("CODOFIC: {}", f.getCodOfi());
+                    log.info("NOMBRESP: '{}'", f.getNombre());
+                    log.info("CI: '{}'", f.getCi());
+                    log.info("CARGO: '{}'", f.getCargo());
+                    log.info("═══════════════════════");
+                }
+
                 // ✅ Validar campos obligatorios
                 if (f.getEntidadCodigo() == null || f.getUnidad() == null || f.getCodOfi() == null) {
                     camposNulos++;
@@ -619,6 +631,12 @@ public class ResponsableController {
 
                 // 5️⃣ Crear o buscar Persona (por CI o nombre completo)
                 Persona persona = null;
+
+                log.debug("═══ DEBUG REGISTRO DBF ═══");
+                log.debug("NOMBRESP del DBF: '{}'", f.getNombre());
+                log.debug("CI del DBF: '{}'", f.getCi());
+                log.debug("═══════════════════════════");
+
                 boolean tieneCiValido = esCiValido(f.getCi());
 
                 if (tieneCiValido) {
@@ -627,22 +645,23 @@ public class ResponsableController {
                     persona = personasCache.get(ciNorm);
 
                     if (persona == null) {
+                        log.debug("→ Procesando nombre: '{}'", f.getNombre());
                         String nombre = extractNombre(f.getNombre());
                         String paterno = extractPaterno(f.getNombre());
                         String materno = extractMaterno(f.getNombre());
 
                         // ⚠️ Validar que al menos tenga nombre
-                        if (nombre.isEmpty()) {
+                        if (nombre == null || nombre.isEmpty()) {
+                            log.warn("⚠️ ALERTA: Nombre extraído VACÍO de: '{}' - Usando 'SIN DATOS'", 
+                                f.getNombre());
                             nombre = "SIN DATOS";
-                            log.warn("⚠️ Registro con CI válido pero sin nombre: CI={}, se usará 'SIN DATOS'", 
-                                f.getCi());
                         }
 
                         // Crear persona nueva
                         persona = new Persona();
                         persona.setNombre(nombre);
-                        persona.setPaterno(paterno.isEmpty() ? null : paterno);
-                        persona.setMaterno(materno.isEmpty() ? null : materno);
+                        persona.setPaterno(paterno != null && !paterno.isEmpty() ? paterno : null);
+                        persona.setMaterno(materno != null && !materno.isEmpty() ? materno : null);
                         persona.setCi(ciNorm);
                         persona.setEstado("ACTIVO");
                         persona = personaService.save(persona);
@@ -651,66 +670,77 @@ public class ResponsableController {
 
                         String nombreCompleto = String.join(" ", 
                             nombre, 
-                            paterno.isEmpty() ? "" : paterno, 
-                            materno.isEmpty() ? "" : materno
+                            paterno != null && !paterno.isEmpty() ? paterno : "", 
+                            materno != null && !materno.isEmpty() ? materno : ""
                         ).trim().toUpperCase();
                         personasCache.put("NOMBRE:" + nombreCompleto, persona);
 
                         personasCreadas++;
-                        log.info("Persona creada: {} - {}", f.getCi(), f.getNombre());
+                        log.info("✅ Persona creada CON CI: {} - Nombre='{}', Paterno='{}', Materno='{}'", 
+                            ciNorm, nombre, paterno, materno);
+                    } else {
+                        log.debug("🔍 Persona encontrada en caché por CI: {}", ciNorm);
                     }
 
                 } else if (f.getNombre() != null && !f.getNombre().isBlank()) {
-                    String nombreCompleto = f.getNombre().trim().toUpperCase();
+                    String nombreOriginal = f.getNombre().trim().toUpperCase();
                     
+                    log.debug("→ Procesando nombre SIN CI: '{}'", nombreOriginal);
+
+                    String nombre = extractNombre(nombreOriginal);
+                    String paterno = extractPaterno(nombreOriginal);
+                    String materno = extractMaterno(nombreOriginal);
+
+                    log.debug("→ Resultado extracción: nombre='{}', paterno='{}', materno='{}'", 
+                        nombre, paterno, materno);
+
+                    if (nombre == null || nombre.isEmpty()) {
+                        log.warn("⚠️ ALERTA: extractNombre() retornó vacío de: '{}' - Usando original completo", 
+                            nombreOriginal);
+                        nombre = nombreOriginal;
+                        paterno = null;
+                        materno = null;
+                    }
+
+                    String nombreCompletoNorm = String.join(" ", 
+                        nombre, 
+                        paterno != null && !paterno.isEmpty() ? paterno : "", 
+                        materno != null && !materno.isEmpty() ? materno : ""
+                    ).trim().toUpperCase();
+
                     // Buscar en caché por nombre
-                    persona = personasCache.get("NOMBRE:" + nombreCompleto);
-                    
+                    persona = personasCache.get("NOMBRE:" + nombreCompletoNorm);
+
                     if (persona == null) {
                         // Buscar en BD por nombre completo
 
-                        String nombre = extractNombre(f.getNombre());
-                        String paterno = extractPaterno(f.getNombre());
-                        String materno = extractMaterno(f.getNombre());
+                        persona = personaService.buscarPersonaPorNombreCompletoUno(
+                            nombre, 
+                            paterno != null && !paterno.isEmpty() ? paterno : null, 
+                            materno != null && !materno.isEmpty() ? materno : null
+                        );
 
-                        // ⚠️ Validar que al menos tenga nombre
-                        if (nombre.isEmpty()) {
-                            nombre = nombreCompleto;
-                            paterno = null;
-                            materno = null;
-                            log.warn("⚠️ No se pudo extraer nombre estructurado, se usará nombre completo: '{}'", 
-                                nombreCompleto);
-                        }
-                        
-                        // Buscar en BD por nombre completo
-                        persona = personaService.buscarPersonaPorNombreCompletoUno(nombre, paterno, materno);
-                        
                         if (persona == null) {
-                            // Crear persona SIN CI
                             persona = new Persona();
                             persona.setNombre(nombre);
-                            persona.setPaterno(paterno);
-                            persona.setMaterno(materno);
+                            persona.setPaterno(paterno != null && !paterno.isEmpty() ? paterno : null);
+                            persona.setMaterno(materno != null && !materno.isEmpty() ? materno : null);
                             persona.setCi(null);
                             persona.setEstado("ACTIVO");
                             persona = personaService.save(persona);
                             personasCreadas++;
-                            log.info("✅ Persona creada SIN CI: {}", f.getNombre());
+                            log.info("✅ Persona creada SIN CI: Nombre='{}', Paterno='{}', Materno='{}'", 
+                                nombre, paterno, materno);
                         } else {
-                            log.debug("🔍 Persona encontrada por nombre: {}", f.getNombre());
+                            log.debug("🔍 Persona encontrada en BD por nombre: {}", nombreCompletoNorm);
                         }
                         
-                         // Agregar a caché con prefijo "NOMBRE:"
-                        String nombreCompletoNorm = String.join(" ", 
-                            nombre, 
-                            paterno.isEmpty() ? "" : paterno, 
-                            materno.isEmpty() ? "" : materno
-                        ).trim().toUpperCase();
                         personasCache.put("NOMBRE:" + nombreCompletoNorm, persona);
                     } else {
-                        log.debug("🔍 Persona encontrada en caché por nombre: {}", nombreCompleto);
+                        log.debug("🔍 Persona encontrada en caché por nombre: {}", nombreCompletoNorm);
                     }
                 } else {
+                    log.error("❌ CRÍTICO: Registro sin CI ni NOMBRESP válido - DBF: '{}'", f.getNombre());
                     // Buscar si ya existe persona "SIN DATOS" en caché
                     persona = personasCache.get("NOMBRE:SIN DATOS");
                     
@@ -744,8 +774,7 @@ public class ResponsableController {
                         "OFICINA=%s, CARGO=%s, CI='%s', NOMBRE='%s' (asignado a 'SIN DATOS')",
                         keyOficina, f.getCargo(), f.getCi(), f.getNombre()
                     ));
-                    log.warn("⚠️ Responsable asignado a persona 'SIN DATOS' - Oficina: {}, CI: '{}', Nombre: '{}'", 
-                        keyOficina, f.getCi(), f.getNombre());
+                    
                 }
 
                 // ✅ VALIDACIÓN CRÍTICA: Persona NUNCA debe ser NULL en este punto
@@ -1135,10 +1164,18 @@ public class ResponsableController {
         
         // 🧹 Limpiar caracteres especiales pero mantener estructura
         String limpio = limpiarNombre(nombreCompleto);
+        
+        // ⚠️ Si después de limpiar queda vacío, retornar original
+        if (limpio.isEmpty()) {
+            log.warn("⚠️ limpiarNombre() vació el texto, retornando original: '{}'", nombreCompleto);
+            return nombreCompleto.trim();
+        }
+        
         String[] partes = limpio.split("\\s+");
         
         if (partes.length == 0) {
-            return "";
+            // ⚠️ Si split() no genera partes, retornar limpio completo
+            return limpio.isEmpty() ? nombreCompleto.trim() : limpio;
         } else if (partes.length == 1) {
             // Solo 1 palabra → Todo es nombre
             return partes[0];
@@ -1159,12 +1196,12 @@ public class ResponsableController {
             return "";
         }
         
-        return nombre
+        String limpio = nombre
             .toUpperCase()                          // Mayúsculas
-            .replaceAll("[ÁÀÄÂ]", "A")             // Normalizar acentos
+            .replaceAll("[ÁÀÄÂÃ]", "A")            // Normalizar acentos (agregué Ã)
             .replaceAll("[ÉÈËÊ]", "E")
             .replaceAll("[ÍÌÏÎ]", "I")
-            .replaceAll("[ÓÒÖÔ]", "O")
+            .replaceAll("[ÓÒÖÔÕ]", "O")            // Agregué Õ
             .replaceAll("[ÚÙÜÛ]", "U")
             .replaceAll("[Ñ]", "N")
             .replaceAll("\\.", " ")                 // Reemplazar puntos por espacios
@@ -1172,6 +1209,13 @@ public class ResponsableController {
             .replaceAll("[^A-Z0-9\\s]", "")        // Eliminar otros caracteres especiales
             .replaceAll("\\s+", " ")               // Normalizar espacios múltiples
             .trim();
+        
+        // 🔍 DEBUG: Verificar resultado
+        if (limpio.isEmpty()) {
+            log.warn("⚠️ limpiarNombre() retornó VACÍO para input: '{}'", nombre);
+        }
+        
+        return limpio;
     }
 
     private static String nvl(String s) {
