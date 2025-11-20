@@ -539,6 +539,18 @@ public class ResponsableController {
                                    idOficina, nombre, paterno, materno, correo, nombreCargoApi);
     }
 
+    private boolean esCiValido(String ci) {
+        if (ci == null || ci.isBlank()) {
+            return false;
+        }
+        
+        // Limpiar espacios y puntos
+        String ciLimpio = ci.trim().replaceAll("[.\\-\\s]", "");
+        
+        // Debe tener solo números y al menos 5 dígitos
+        return ciLimpio.matches("\\d{5,}");
+    }
+
     // En ResponsableController
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
@@ -607,43 +619,47 @@ public class ResponsableController {
 
                 // 5️⃣ Crear o buscar Persona (por CI o nombre completo)
                 Persona persona = null;
-                if (f.getCi() != null && !f.getCi().isBlank()) {
+                boolean tieneCiValido = esCiValido(f.getCi());
 
-                    String ciNorm = f.getCi().trim().toUpperCase();
+                if (tieneCiValido) {
+
+                    String ciNorm = f.getCi().trim().replaceAll("[.\\-\\s]", "").toUpperCase();
                     persona = personasCache.get(ciNorm);
 
                     if (persona == null) {
-
                         String nombre = extractNombre(f.getNombre());
                         String paterno = extractPaterno(f.getNombre());
                         String materno = extractMaterno(f.getNombre());
 
                         // ⚠️ Validar que al menos tenga nombre
                         if (nombre.isEmpty()) {
-                            log.warn("⚠️ Registro con CI pero sin nombre válido: CI={}, Nombre original='{}'", 
-                                f.getCi(), f.getNombre());
-                            sinCi++;
-                            registrosSinCi.add(String.format(
-                                "CI=%s, NOMBRE_ORIGINAL='%s' (no se pudo extraer nombre válido)",
-                                f.getCi(), f.getNombre()
-                            ));
-                            continue;
+                            nombre = "SIN DATOS";
+                            log.warn("⚠️ Registro con CI válido pero sin nombre: CI={}, se usará 'SIN DATOS'", 
+                                f.getCi());
                         }
 
                         // Crear persona nueva
                         persona = new Persona();
-                        persona.setNombre(extractNombre(f.getNombre()));
-                        persona.setPaterno(extractPaterno(f.getNombre()));
-                        persona.setMaterno(extractMaterno(f.getNombre()));
-                        persona.setCi(f.getCi().trim());
+                        persona.setNombre(nombre);
+                        persona.setPaterno(paterno.isEmpty() ? null : paterno);
+                        persona.setMaterno(materno.isEmpty() ? null : materno);
+                        persona.setCi(ciNorm);
                         persona.setEstado("ACTIVO");
                         persona = personaService.save(persona);
 
                         personasCache.put(ciNorm, persona);
 
+                        String nombreCompleto = String.join(" ", 
+                            nombre, 
+                            paterno.isEmpty() ? "" : paterno, 
+                            materno.isEmpty() ? "" : materno
+                        ).trim().toUpperCase();
+                        personasCache.put("NOMBRE:" + nombreCompleto, persona);
+
                         personasCreadas++;
                         log.info("Persona creada: {} - {}", f.getCi(), f.getNombre());
                     }
+
                 } else if (f.getNombre() != null && !f.getNombre().isBlank()) {
                     String nombreCompleto = f.getNombre().trim().toUpperCase();
                     
@@ -659,14 +675,11 @@ public class ResponsableController {
 
                         // ⚠️ Validar que al menos tenga nombre
                         if (nombre.isEmpty()) {
-                            log.warn("⚠️ Registro sin CI y sin nombre válido: Nombre original='{}'", 
-                                f.getNombre());
-                            sinCi++;
-                            registrosSinCi.add(String.format(
-                                "OFICINA=%s, NOMBRE_ORIGINAL='%s' (no se pudo extraer nombre válido)",
-                                keyOficina, f.getNombre()
-                            ));
-                            continue;
+                            nombre = nombreCompleto;
+                            paterno = null;
+                            materno = null;
+                            log.warn("⚠️ No se pudo extraer nombre estructurado, se usará nombre completo: '{}'", 
+                                nombreCompleto);
                         }
                         
                         // Buscar en BD por nombre completo
@@ -676,8 +689,8 @@ public class ResponsableController {
                             // Crear persona SIN CI
                             persona = new Persona();
                             persona.setNombre(nombre);
-                            persona.setPaterno(paterno.isEmpty() ? null : paterno);
-                            persona.setMaterno(materno.isEmpty() ? null : materno);
+                            persona.setPaterno(paterno);
+                            persona.setMaterno(materno);
                             persona.setCi(null);
                             persona.setEstado("ACTIVO");
                             persona = personaService.save(persona);
@@ -698,15 +711,49 @@ public class ResponsableController {
                         log.debug("🔍 Persona encontrada en caché por nombre: {}", nombreCompleto);
                     }
                 } else {
-                    // ⚠️ Registro sin CI ni nombre
+                    // Buscar si ya existe persona "SIN DATOS" en caché
+                    persona = personasCache.get("NOMBRE:SIN DATOS");
+                    
+                    if (persona == null) {
+                        // Buscar en BD
+                        persona = personaService.buscarPersonaPorNombreCompletoUno("SIN DATOS", null, null);
+                        
+                        if (persona == null) {
+                            // Crear persona genérica UNA SOLA VEZ
+                            persona = new Persona();
+                            persona.setNombre("SIN DATOS");
+                            persona.setPaterno(null);
+                            persona.setMaterno(null);
+                            persona.setCi(null);
+                            persona.setEstado("ACTIVO");
+                            persona = personaService.save(persona);
+                            personasCreadas++;
+                            log.warn("⚠️ Persona genérica 'SIN DATOS' creada para registros sin información");
+                        } else {
+                            log.debug("🔍 Persona 'SIN DATOS' encontrada en BD");
+                        }
+                        
+                        // Agregar al caché para reutilización
+                        personasCache.put("NOMBRE:SIN DATOS", persona);
+                    } else {
+                        log.debug("🔍 Persona 'SIN DATOS' encontrada en caché");
+                    }
+                    
                     sinCi++;
                     registrosSinCi.add(String.format(
-                        "OFICINA=%s, CARGO=%s (sin CI ni nombre)",
-                        keyOficina, f.getCargo()
+                        "OFICINA=%s, CARGO=%s, CI='%s', NOMBRE='%s' (asignado a 'SIN DATOS')",
+                        keyOficina, f.getCargo(), f.getCi(), f.getNombre()
                     ));
-                    log.warn("⚠️ Responsable sin CI ni nombre válido en oficina: {}", keyOficina);
+                    log.warn("⚠️ Responsable asignado a persona 'SIN DATOS' - Oficina: {}, CI: '{}', Nombre: '{}'", 
+                        keyOficina, f.getCi(), f.getNombre());
                 }
 
+                // ✅ VALIDACIÓN CRÍTICA: Persona NUNCA debe ser NULL en este punto
+                if (persona == null) {
+                    log.error("❌ ERROR CRÍTICO: Persona es NULL después de procesamiento - Registro: {}", f);
+                    sinCi++;
+                    continue; // ⚠️ Saltar este registro como última medida de seguridad
+                }
 
 
                 // 6️⃣ Crear o buscar Cargo (por nombre)
@@ -728,8 +775,6 @@ public class ResponsableController {
 
                 // 7️⃣ Crear clave única para búsqueda en caché responsables
                 String clave = oficina.getIdOficina() + "|" + 
-                    (persona != null ? persona.getIdPersona() : "NULL") + "|" + 
-                    (cargo != null ? cargo.getIdCargo() : "NULL") + "|" +
                     (f.getCodResp() != null ? f.getCodResp().trim() : "NULL");
                 
                 Responsable responsable = responsablesCache.get(clave);
@@ -908,8 +953,14 @@ public class ResponsableController {
         for (Persona p : todas) {
             // Clave 1: Por CI (si tiene)
             if (p.getCi() != null && !p.getCi().isBlank()) {
-                String ciKey = p.getCi().trim().toUpperCase();
-                cache.put(ciKey, p);
+                String ciNormalizado = p.getCi().trim()
+                .replaceAll("[.\\-\\s]", "")
+                .toUpperCase();
+            
+                // Solo agregar si es numérico válido
+                if (ciNormalizado.matches("\\d{5,}")) {
+                    cache.put(ciNormalizado, p);
+                }
             }
             
             // Clave 2: Por nombre completo (siempre)

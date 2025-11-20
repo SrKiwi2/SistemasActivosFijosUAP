@@ -187,25 +187,42 @@
             success: function (res) {
                 const tiempoSegundos = (res.duracionMs / 1000).toFixed(2);
                 const msg = `
-                        <div class="text-start">
-                            <p><strong>✅ Sincronización exitosa</strong></p>
+                    <div class="text-start">
+                        <p><strong>✅ Sincronización exitosa</strong></p>
+                        <hr>
+                        <p><i class="fa-solid fa-file-import"></i> Total leídas: <strong>${res.totalLeidas}</strong></p>
+                        <p><i class="fa-solid fa-plus-circle text-success"></i> Insertados: <strong>${res.insertados}</strong></p>
+                        <p><i class="fa-solid fa-edit text-primary"></i> Actualizados: <strong>${res.actualizados}</strong></p>
+                        <p><i class="fa-solid fa-check-circle text-info"></i> Omitidos (sin cambios): <strong>${res.omitidos || 0}</strong></p>
+                        <hr>
+                        <p class="text-muted"><strong>Análisis de registros no procesados:</strong></p>
+                        <p><i class="fa-solid fa-times-circle text-danger"></i> Campos nulos: <strong>${res.camposNulos || 0}</strong></p>
+                        <p><i class="fa-solid fa-copy text-warning"></i> Duplicados en DBF: <strong>${res.duplicadosDbf || 0}</strong></p>
+                        <p><i class="fa-solid fa-building text-danger"></i> Sin oficina: <strong>${res.sinOficina || 0}</strong></p>
+                        <p><i class="fa-solid fa-id-card text-warning"></i> Sin CI: <strong>${res.sinCi || 0}</strong></p>
+                        ${res.colisiones > 0 ? `<p><i class="fa-solid fa-exclamation-triangle text-danger"></i> Colisiones de caché: <strong>${res.colisiones}</strong></p>` : ''}
+                        <hr>
+                        <p><i class="fa-solid fa-user-plus text-info"></i> Personas creadas: <strong>${res.personasCreadas}</strong></p>
+                        <p><i class="fa-solid fa-briefcase text-info"></i> Cargos creados: <strong>${res.cargosCreados}</strong></p>
+                        <p><i class="fa-solid fa-clock"></i> Tiempo: <strong>${tiempoSegundos}s</strong></p>
+                        ${res.registrosSinOficina && res.registrosSinOficina.length > 0 ? `
                             <hr>
-                            <p><i class="fa-solid fa-file-import"></i> Total leídas: <strong>${res.totalLeidas}</strong></p>
-                            <p><i class="fa-solid fa-plus-circle text-success"></i> Insertados: <strong>${res.insertados}</strong></p>
-                            <p><i class="fa-solid fa-edit text-primary"></i> Actualizados: <strong>${res.actualizados}</strong></p>
-                            <p><i class="fa-solid fa-check-circle text-info"></i> Omitidos (sin cambios): <strong>${res.omitidos}</strong></p>
-                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin oficina: <strong>${res.sinOficina}</strong></p>
-                            <p><i class="fa-solid fa-user-plus text-info"></i> Personas creadas: <strong>${res.personasCreadas}</strong></p>
-                            <p><i class="fa-solid fa-briefcase text-info"></i> Cargos creados: <strong>${res.cargosCreados}</strong></p>
-                            <p><i class="fa-solid fa-clock"></i> Tiempo: <strong>${tiempoSegundos}s</strong></p>
-                        </div>
-                    `;
+                            <details>
+                                <summary class="text-danger"><strong>⚠️ Ver registros sin oficina (${res.registrosSinOficina.length})</strong></summary>
+                                <ul class="mt-2" style="max-height: 200px; overflow-y: auto;">
+                                    ${res.registrosSinOficina.map(r => `<li><small>${r}</small></li>`).join('')}
+                                </ul>
+                            </details>
+                        ` : ''}
+                    </div>
+                `;
 
                 Swal.fire({
                     title: 'Completado',
                     html: msg,
                     icon: 'success',
-                    confirmButtonText: 'Aceptar'
+                    confirmButtonText: 'Aceptar',
+                    width: '600px'
                 });
 
                 actualizarInfoSync();
@@ -218,6 +235,7 @@
             complete: hideGlobalLoader
         });
     }
+
 
     function actualizarInfoSync() {
         $.ajax({
