@@ -80,15 +80,9 @@ public class HojaRutaController {
         Map<String, Object> response = new HashMap<>();
         
         try {
-            Optional<HojaRuta> hojaRutaOpt = hojaRutaService.findByCodigo(codigo);
             
-            if (hojaRutaOpt.isEmpty()) {
-                response.put("ok", false);
-                response.put("msg", "No se encontró la hoja de ruta con el código: " + codigo);
-                return ResponseEntity.ok(response);
-            }
             
-            HojaRuta hojaRuta = hojaRutaOpt.get();
+            HojaRuta hojaRuta = hojaRutaService.findByTipoAndCodigoAndGestion(tipo, codigo, gestion);
             
             // Verificar que coincida el tipo y gestión
             if (!hojaRuta.getTipo().equals(tipo) || !hojaRuta.getGestion().equals(gestion)) {

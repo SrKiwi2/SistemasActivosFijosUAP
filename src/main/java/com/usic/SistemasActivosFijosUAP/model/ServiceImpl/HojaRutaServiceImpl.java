@@ -66,4 +66,9 @@ public class HojaRutaServiceImpl implements IHojaRutaService{
     public List<HojaRuta> findByDescripcionContaining(String descripcion) {
         return dao.findByDescripcionContaining(descripcion);
     }
+
+    @Override
+    public HojaRuta findByTipoAndCodigoAndGestion(String tipo, String codigo, Integer gestion) {
+        return dao.findByTipoAndCodigoAndGestion(tipo, codigo, gestion);
+    }
 }

@@ -26,4 +26,6 @@ public interface IHojaRutaDao extends JpaRepository<HojaRuta, Long>{
     
     @Query("SELECT hr FROM HojaRuta hr WHERE hr.descripcion LIKE %:descripcion%")
     List<HojaRuta> findByDescripcionContaining(@Param("descripcion") String descripcion);
+
+    HojaRuta findByTipoAndCodigoAndGestion(String tipo, String codigo, Integer gestion);
 }

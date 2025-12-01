@@ -14,4 +14,5 @@ public interface IHojaRutaService extends IServiceGenerico<HojaRuta, Long> {
     List<HojaRuta> findBySolicitante(@Param("solicitanteId") Long solicitanteId);
     List<HojaRuta> findByGestionAndTipo(@Param("gestion") Integer gestion, @Param("tipo") String tipo);
     List<HojaRuta> findByDescripcionContaining(@Param("descripcion") String descripcion);
+    HojaRuta findByTipoAndCodigoAndGestion(String tipo, String codigo, Integer gestion);
 }
