@@ -1147,12 +1147,21 @@
             $("#formHojaRuta")[0].reset();
             $("#idHojaRuta").val("");
             $("#tituloModalHojaRuta").text("Nueva Hoja de Ruta");
+            
+            // Mostrar campos y restaurar required
             $("#hrUnidadOrigen").closest(".col-md-6").show();
+            $("#hrUnidadOrigen").attr("required", "required");
+            
             $("#hrFecha").closest(".col-md-6").show();
+            $("#hrFecha").attr("required", "required");
+            
             $("#hrHora").closest(".col-md-6").show();
+            $("#hrHora").attr("required", "required");
+            
             $("#modalHojaRuta").addClass("show");
             setTimeout(() => inicializarSelect2EnModal('modalHojaRuta'), 200);
-        }
+            }
+
 
         function editarHojaRuta() {
             if (!hojaRutaActual) return;
@@ -1163,16 +1172,25 @@
             $("#hrDescripcion").val(hojaRutaActual.descripcion);
             $("#hrCertificacion").val(hojaRutaActual.certificacion || "");
             $("#hrMonto").val(hojaRutaActual.monto || "");
+            
+            // Ocultar campos y remover required
             $("#hrUnidadOrigen").closest(".col-md-6").hide();
+            $("#hrUnidadOrigen").removeAttr("required");
+            
             $("#hrFecha").closest(".col-md-6").hide();
+            $("#hrFecha").removeAttr("required");
+            
             $("#hrHora").closest(".col-md-6").hide();
+            $("#hrHora").removeAttr("required");
+            
             $("#tituloModalHojaRuta").text("Modificar Hoja de Ruta");
             $("#modalHojaRuta").addClass("show");
             setTimeout(() => {
                 inicializarSelect2EnModal('modalHojaRuta');
                 $("#hrSolicitante").val(hojaRutaActual.solicitanteId).trigger("change");
             }, 200);
-        }
+            }
+
 
         $("#formHojaRuta").on("submit", function (e) {
             e.preventDefault();
