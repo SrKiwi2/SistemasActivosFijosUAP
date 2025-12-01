@@ -1,8 +1,4 @@
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Usuario</h4>
-<!-- <form action="/administracion/usuario/generar-usuarios" method="post">
-    <button type="submit">Generar Usuarios y Descargar CSV</button>
-</form> -->
-
 <div id="tablaRegistro"></div>
 
 <div class="modal fade" id="modalFormularioUsuario" tabindex="-1" aria-hidden="true">
@@ -22,9 +18,9 @@
         
         $.ajax({
             type: 'POST',
-            url: "/administracion/usuario/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
+            url: "/administracion/usuario/tabla-registros",
             success: function (response) {
-                $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
+                $("#tablaRegistro").html(response);
             },
             error:function(){
             $("#tablaRegistro").html(`

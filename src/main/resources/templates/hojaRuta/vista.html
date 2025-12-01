@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hoja de Ruta - UAP</title>
+
+    <!-- Boxicons -->
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <!-- Select2 -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        :root {
+            --uap-red: #C1272D;
+            --uap-red-dark: #9B1F24;
+            --uap-blue: #003D82;
+            --uap-blue-dark: #002855;
+
+            --bg-primary: #F8F9FA;
+            --bg-secondary: #FFFFFF;
+            --bg-card: #FFFFFF;
+            --text-primary: #212529;
+            --text-secondary: #6C757D;
+            --border-color: #DEE2E6;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
+
+            --success: #28A745;
+            --warning: #FFC107;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1A1D23;
+            --bg-secondary: #242830;
+            --bg-card: #2D3139;
+            --text-primary: #E9ECEF;
+            --text-secondary: #ADB5BD;
+            --border-color: #3D4147;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .navbar-uap {
+            background: linear-gradient(135deg, var(--uap-red) 0%, var(--uap-blue) 100%);
+            padding: 1rem 2rem;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .navbar-brand i {
+            font-size: 2rem;
+        }
+
+        .navbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .theme-toggle,
+        .user-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover,
+        .user-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .user-menu {
+            position: relative;
+        }
+
+        .user-dropdown {
+            position: absolute;
+            top: calc(100% + 0.5rem);
+            right: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--shadow-hover);
+            min-width: 250px;
+            display: none;
+            overflow: hidden;
+        }
+
+        .user-dropdown.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .user-info {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .user-info h4 {
+            margin-bottom: 0.25rem;
+            color: var(--text-primary);
+        }
+
+        .user-info p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .dropdown-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-primary);
+        }
+
+        .dropdown-item i {
+            font-size: 1.25rem;
+        }
+
+        .dropdown-item.logout {
+            color: var(--uap-red);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .page-header h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-header h1 i {
+            color: var(--uap-red);
+            font-size: 2.5rem;
+        }
+
+        .breadcrumb {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            margin-bottom: 1.5rem;
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            background: linear-gradient(135deg, var(--uap-red) 0%, var(--uap-blue) 100%);
+            border-radius: 16px 16px 0 0;
+        }
+
+        .card-header h5 {
+            margin: 0;
+            color: white;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .form-control,
+        .form-select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: var(--uap-blue);
+            box-shadow: 0 0 0 3px rgba(0, 61, 130, 0.1);
+        }
+
+        .form-control:disabled {
+            background: var(--bg-primary);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn i {
+            font-size: 1.2rem;
+        }
+
+        .btn-primary {
+            background: var(--uap-blue);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--uap-blue-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 61, 130, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: var(--text-secondary);
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+        }
+
+        .btn-outline-primary {
+            background: transparent;
+            border: 1px solid var(--uap-blue);
+            color: var(--uap-blue);
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--uap-blue);
+            color: white;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+        }
+
+        .table thead {
+            background: linear-gradient(135deg, var(--uap-red) 0%, var(--uap-blue) 100%);
+        }
+
+        .table th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: white;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        .table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .table tbody tr:hover {
+            background: var(--bg-primary);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .bg-label-success {
+            background: rgba(40, 167, 69, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+
+        .bg-label-warning {
+            background: rgba(255, 193, 7, 0.15);
+            color: #D39E00;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .bg-label-secondary {
+            background: rgba(108, 117, 125, 0.15);
+            color: var(--text-secondary);
+            border: 1px solid rgba(108, 117, 125, 0.3);
+        }
+
+        .bg-label-info {
+            background: rgba(0, 61, 130, 0.15);
+            color: var(--uap-blue);
+            border: 1px solid rgba(0, 61, 130, 0.3);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex !important;
+        }
+
+        .modal-dialog {
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-dialog-lg {
+            max-width: 900px;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            background: linear-gradient(135deg, var(--uap-red) 0%, var(--uap-blue) 100%);
+            border-radius: 16px 16px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            margin: 0;
+            color: white;
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+
+        .btn-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 8px;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -0.75rem;
+        }
+
+        .row.g-3>* {
+            padding: 0 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .col-md-2 {
+            flex: 0 0 16.666%;
+            max-width: 16.666%;
+        }
+
+        .col-md-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .col-md-4 {
+            flex: 0 0 33.333%;
+            max-width: 33.333%;
+        }
+
+        .col-md-5 {
+            flex: 0 0 41.666%;
+            max-width: 41.666%;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .col-md-7 {
+            flex: 0 0 58.333%;
+            max-width: 58.333%;
+        }
+
+        .col-md-12 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        .w-100 {
+            width: 100%;
+        }
+
+        .text-danger {
+            color: var(--uap-red);
+        }
+
+        .text-muted {
+            color: var(--text-secondary);
+        }
+
+        .text-primary-color {
+            color: var(--uap-blue);
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-end {
+            text-align: right;
+        }
+
+        .d-flex {
+            display: flex;
+        }
+
+        .align-items-center {
+            align-items: center;
+        }
+
+        .align-items-end {
+            align-items: flex-end;
+        }
+
+        .justify-content-between {
+            justify-content: space-between;
+        }
+
+        @media (max-width: 768px) {
+            .navbar-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .col-md-2,
+            .col-md-3,
+            .col-md-4,
+            .col-md-5,
+            .col-md-6,
+            .col-md-7,
+            .col-md-12 {
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+
+            .main-container {
+                padding: 0 1rem;
+            }
+        }
+
+        /* Select2 dark mode fix */
+        [data-theme="dark"] .select2-container--default .select2-selection--single {
+            background-color: var(--bg-secondary);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] .select2-container--default .select2-selection--single .select2-selection__rendered {
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] .select2-dropdown {
+            background-color: var(--bg-card);
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .select2-container--default .select2-results__option {
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] .select2-container--default .select2-results__option--highlighted[aria-selected] {
+            background-color: var(--uap-blue);
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navbar -->
+    <nav class="navbar-uap">
+        <div class="navbar-content">
+            <div class="navbar-brand">
+                <i class='bx bx-file-find'></i>
+                <span>Hoja de Ruta - UAP</span>
+            </div>
+
+            <div class="navbar-actions">
+                <button class="theme-toggle" id="themeToggle" title="Cambiar tema">
+                    <i class='bx bx-moon' id="themeIcon"></i>
+                </button>
+
+                <div class="user-menu">
+                    <button class="user-button" id="userButton">
+                        <i class='bx bx-user-circle'></i>
+                        <span id="userName">Usuario</span>
+                        <i class='bx bx-chevron-down'></i>
+                    </button>
+
+                    <div class="user-dropdown" id="userDropdown">
+                        <div class="user-info">
+                            <h4 id="userFullName">Nombre Usuario</h4>
+                            <p id="userRole">Rol de Usuario</p>
+                        </div>
+                        <div class="dropdown-item" onclick="verPerfil()">
+                            <i class='bx bx-user'></i>
+                            <span>Mi Perfil</span>
+                        </div>
+                        <div class="dropdown-item logout" onclick="cerrarSesion()">
+                            <i class='bx bx-log-out'></i>
+                            <span>Cerrar Sesión</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <div class="page-header">
+            <h1>
+                <i class='bx bx-search-alt'></i>
+                Búsqueda de Hoja de Ruta
+            </h1>
+            <div class="breadcrumb">
+                <span>Administración</span> / <span>Hoja de Ruta</span>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="card">
+            <div class="card-header">
+                <h5>
+                    <i class='bx bx-filter'></i>
+                    Filtros de Búsqueda
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <label class="form-label">Tipo</label>
+                        <select id="filtroTipo" class="form-select">
+                            <option value="">Seleccionar</option>
+                            <option value="RECTORADO">RECTORADO</option>
+                            <option value="DAF">DAF</option>
+                            <option value="PEDIDO">PEDIDO</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">N° Hoja de Ruta</label>
+                        <input type="text" id="filtroCodigo" class="form-control" placeholder="Ej: 12345" disabled />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Gestión</label>
+                        <input type="number" id="filtroGestion" class="form-control" placeholder="2025" min="2020"
+                            max="2030" />
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="button" class="btn btn-primary w-100" onclick="buscarHojaRuta()" disabled
+                            id="btnBuscar">
+                            <i class='bx bx-search'></i>
+                            Buscar
+                        </button>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="button" class="btn btn-success w-100" onclick="abrirModalNuevaHojaRuta()">
+                            <i class='bx bx-plus'></i>
+                            Nueva Hoja de Ruta
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resultados -->
+        <div class="row" id="contenedorResultados" style="display: none">
+            <div class="col-md-5">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5>
+                            <i class='bx bx-file'></i>
+                            Datos de Hoja de Ruta
+                        </h5>
+                        <button type="button" class="btn btn-sm btn-icon btn-outline-primary" onclick="editarHojaRuta()"
+                            title="Editar"
+                            style="background: rgba(255,255,255,0.2); border-color: white; color: white;">
+                            <i class='bx bx-edit'></i>
+                        </button>
+                    </div>
+                    <div class="card-body" id="datosHojaRuta"></div>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <button type="button" class="btn btn-sm" onclick="abrirModalNuevoMovimiento()"
+                                    style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                                    <i class='bx bx-plus'></i>
+                                    Nuevo Movimiento
+                                </button>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <span class="badge bg-label-info">
+                                    <i class='bx bx-map'></i>
+                                    Estado: <span id="movimientoActualTexto">-</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Estado</th>
+                                        <th>Fecha</th>
+                                        <th>Hora</th>
+                                        <th>Origen</th>
+                                        <th>Destino</th>
+                                        <th>Opciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaMovimientos"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Hoja Ruta -->
+        <div class="modal" id="modalHojaRuta">
+            <div class="modal-dialog modal-dialog-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="tituloModalHojaRuta">Nueva Hoja de Ruta</h5>
+                        <button type="button" class="btn-close" onclick="cerrarModal('modalHojaRuta')">&times;</button>
+                    </div>
+                    <form id="formHojaRuta">
+                        <input type="hidden" id="idHojaRuta" name="idHojaRuta" />
+                        <div class="modal-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Tipo <span class="text-danger">*</span></label>
+                                    <select id="hrTipo" name="tipo" class="form-select" required>
+                                        <option value="">Seleccionar</option>
+                                        <option value="RECTORADO">RECTORADO</option>
+                                        <option value="DAF">DAF</option>
+                                        <option value="PEDIDO">PEDIDO</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">N° Hoja de Ruta <span class="text-danger">*</span></label>
+                                    <input type="text" id="hrCodigo" name="codigo" class="form-control" required />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Gestión <span class="text-danger">*</span></label>
+                                    <input type="number" id="hrGestion" name="gestion" class="form-control" required
+                                        min="2020" max="2030" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Solicitante <span class="text-danger">*</span></label>
+                                    <select id="hrSolicitante" name="solicitanteId" class="form-select select2"
+                                        required>
+                                        <option value="">Seleccionar</option>
+                                        <option th:each="sol : ${listaSolicitantes}" th:value="${sol.idSolicitante}"
+                                            th:text="${sol.nombre + ' - ' + sol.cargo}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Unidad Origen <span class="text-danger">*</span></label>
+                                    <select id="hrUnidadOrigen" name="unidadOrigenId" class="form-select select2"
+                                        required>
+                                        <option value="">Seleccionar</option>
+                                        <option th:each="unidad : ${listaUnidades}" th:value="${unidad.idUnidad}"
+                                            th:text="${unidad.nombre}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">Descripción <span class="text-danger">*</span></label>
+                                    <textarea id="hrDescripcion" name="descripcion" class="form-control" rows="3"
+                                        required></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">N° Certificación</label>
+                                    <input type="text" id="hrCertificacion" name="certificacion" class="form-control" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Monto</label>
+                                    <input type="number" id="hrMonto" name="monto" class="form-control" step="0.01"
+                                        min="0" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Fecha <span class="text-danger">*</span></label>
+                                    <input type="date" id="hrFecha" name="fecha" class="form-control" required />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Hora <span class="text-danger">*</span></label>
+                                    <input type="time" id="hrHora" name="hora" class="form-control" required />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary"
+                                onclick="cerrarModal('modalHojaRuta')">Cancelar</button>
+                            <button type="submit" class="btn btn-success">
+                                <i class='bx bx-save'></i> Guardar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Movimiento -->
+        <div class="modal" id="modalMovimiento">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="tituloModalMovimiento">Nuevo Movimiento</h5>
+                        <button type="button" class="btn-close"
+                            onclick="cerrarModal('modalMovimiento')">&times;</button>
+                    </div>
+                    <form id="formMovimiento">
+                        <input type="hidden" id="idMovimiento" name="idMovimiento" />
+                        <input type="hidden" id="movHojaRutaId" name="hojaRutaId" />
+                        <div class="modal-body">
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Estado <span class="text-danger">*</span></label>
+                                    <select id="movEstado" name="estado" class="form-select" required>
+                                        <option value="">Seleccionar</option>
+                                        <option value="1">RECIBIR</option>
+                                        <option value="2">ENVIAR</option>
+                                        <option value="3">ARCHIVAR</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Fecha <span class="text-danger">*</span></label>
+                                    <input type="date" id="movFecha" name="fecha" class="form-control" required />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Hora <span class="text-danger">*</span></label>
+                                    <input type="time" id="movHora" name="hora" class="form-control" required />
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">Unidad Origen <span class="text-danger">*</span></label>
+                                    <select id="movUnidadOrigen" name="unidadOrigenId" class="form-select select2"
+                                        required>
+                                        <option value="">Seleccionar</option>
+                                        <option th:each="unidad : ${listaUnidades}" th:value="${unidad.idUnidad}"
+                                            th:text="${unidad.nombre}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">Unidad Destino <span class="text-danger">*</span></label>
+                                    <select id="movUnidadDestino" name="unidadDestinoId" class="form-select select2"
+                                        required>
+                                        <option value="">Seleccionar</option>
+                                        <option th:each="unidad : ${listaUnidades}" th:value="${unidad.idUnidad}"
+                                            th:text="${unidad.nombre}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">Observación</label>
+                                    <textarea id="movObservacion" name="observacion" class="form-control"
+                                        rows="2"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary"
+                                onclick="cerrarModal('modalMovimiento')">Cancelar</button>
+                            <button type="submit" class="btn btn-success">
+                                <i class='bx bx-save'></i> Guardar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        let hojaRutaActual = null;
+
+        // Theme
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        document.getElementById('themeIcon').className = savedTheme === 'dark' ? 'bx bx-sun' : 'bx bx-moon';
+
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            const current = document.documentElement.getAttribute('data-theme');
+            const newTheme = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            document.getElementById('themeIcon').className = newTheme === 'dark' ? 'bx bx-sun' : 'bx bx-moon';
+        });
+
+        // User menu
+        document.getElementById('userButton').addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('userDropdown').classList.toggle('show');
+        });
+
+        document.addEventListener('click', () => {
+            document.getElementById('userDropdown').classList.remove('show');
+        });
+
+        // Funciones principales
+        function verPerfil() {
+            Swal.fire("Perfil", "Función de perfil en desarrollo", "info");
+        }
+
+        function cerrarSesion() {
+            Swal.fire({
+                title: '¿Cerrar sesión?',
+                text: "¿Estás seguro de que deseas salir?",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#C1272D',
+                cancelButtonColor: '#6C757D',
+                confirmButtonText: 'Sí, salir',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = '/logout';
+                }
+            });
+        }
+
+        function inicializarSelect2EnModal(modalId) {
+            $('#' + modalId + ' .select2').each(function () {
+                if ($(this).hasClass("select2-hidden-accessible")) {
+                    $(this).select2('destroy');
+                }
+            });
+
+            $('#' + modalId + ' .select2').select2({
+                dropdownParent: $('#' + modalId),
+                width: '100%',
+                language: {
+                    noResults: () => "No se encontraron resultados",
+                    searching: () => "Buscando..."
+                },
+                placeholder: "Seleccionar",
+                allowClear: true
+            });
+        }
+
+        function validarFiltros() {
+            const tipo = $("#filtroTipo").val();
+            const gestion = $("#filtroGestion").val();
+
+            if (tipo && gestion) {
+                $("#filtroCodigo").prop("disabled", false);
+                $("#btnBuscar").prop("disabled", false);
+            } else {
+                $("#filtroCodigo").prop("disabled", true).val("");
+                $("#btnBuscar").prop("disabled", true);
+            }
+        }
+
+        function buscarHojaRuta() {
+            const tipo = $("#filtroTipo").val();
+            const gestion = $("#filtroGestion").val();
+            const codigo = $("#filtroCodigo").val().trim();
+
+            if (!tipo || !gestion || !codigo) {
+                Swal.fire("Atención", "Complete todos los filtros de búsqueda", "warning");
+                return;
+            }
+
+            $.ajax({
+                type: "POST",
+                url: "/administracion/hoja-ruta/buscar",
+                data: { tipo, gestion, codigo },
+                success: function (response) {
+                    if (response.ok) {
+                        hojaRutaActual = response.hojaRuta;
+                        mostrarResultados(response);
+                    } else {
+                        Swal.fire("No encontrado", response.msg, "info");
+                        $("#contenedorResultados").hide();
+                    }
+                },
+                error: () => Swal.fire("Error", "Ocurrió un error al buscar", "error")
+            });
+        }
+
+        function mostrarResultados(data) {
+            const hr = data.hojaRuta;
+            let htmlDatos = `
+          <div class="row g-2">
+            <div class="col-md-12">
+              <p style="margin-bottom: 0.5rem;"><strong class="text-primary-color">Código:</strong> ${hr.codigo}</p>
+              <p style="margin-bottom: 0.5rem;"><strong class="text-primary-color">Tipo:</strong> <span class="badge bg-label-info">${hr.tipo}</span></p>
+              <p style="margin-bottom: 0.5rem;"><strong class="text-primary-color">Gestión:</strong> ${hr.gestion}</p>
+            </div>
+            <div class="col-md-12"><hr style="border-color: var(--border-color); margin: 0.5rem 0;"></div>
+            <div class="col-md-12">
+              <p style="margin-bottom: 0.5rem;"><strong>Solicitante:</strong> ${hr.solicitanteNombre}</p>
+              <p style="margin-bottom: 0.5rem;"><strong>Cargo:</strong> ${hr.solicitanteCargo}</p>
+            </div>
+            <div class="col-md-12"><hr style="border-color: var(--border-color); margin: 0.5rem 0;"></div>
+            <div class="col-md-12">
+              <p style="margin-bottom: 0.5rem;"><strong>Descripción:</strong></p>
+              <p class="text-muted">${hr.descripcion}</p>
+            </div>
+        `;
+
+            if (hr.certificacion) htmlDatos += `<div class="col-md-12"><p style="margin-bottom: 0.5rem;"><strong>N° Certificación:</strong> ${hr.certificacion}</p></div>`;
+            if (hr.monto) htmlDatos += `<div class="col-md-12"><p style="margin-bottom: 0.5rem;"><strong>Monto:</strong> Bs. ${parseFloat(hr.monto).toFixed(2)}</p></div>`;
+
+            htmlDatos += `</div>`;
+            $("#datosHojaRuta").html(htmlDatos);
+            $("#movimientoActualTexto").text(data.movimientoActual);
+
+            let htmlMovimientos = "";
+            if (data.movimientos.length === 0) {
+                htmlMovimientos = '<tr><td colspan="6" class="text-center text-muted">No hay movimientos registrados</td></tr>';
+            } else {
+                data.movimientos.forEach((mov) => {
+                    const estadoBadge = getEstadoBadge(mov.estado);
+                    const fecha = mov.fecha ? formatearFecha(mov.fecha) : "Sin fecha";
+                    const hora = mov.hora || "Sin hora";
+
+                    htmlMovimientos += `
+              <tr>
+                <td>${estadoBadge}</td>
+                <td>${fecha}</td>
+                <td>${hora}</td>
+                <td><small>${mov.origen}</small></td>
+                <td><small>${mov.destino}</small></td>
+                <td>
+                  <button class="btn btn-sm btn-icon btn-outline-primary" onclick="editarMovimiento(${mov.idMovimiento})" title="Editar">
+                    <i class='bx bx-edit'></i>
+                  </button>
+                </td>
+              </tr>
+            `;
+                });
+            }
+            $("#tablaMovimientos").html(htmlMovimientos);
+            $("#contenedorResultados").fadeIn();
+        }
+
+        function getEstadoBadge(estado) {
+            const badges = {
+                RECIBIDO: '<span class="badge bg-label-success"><i class="bx bx-check-circle"></i> RECIBIDO</span>',
+                ENVIADO: '<span class="badge bg-label-warning"><i class="bx bx-send"></i> ENVIADO</span>',
+                ARCHIVADO: '<span class="badge bg-label-secondary"><i class="bx bx-archive"></i> ARCHIVADO</span>',
+            };
+            return badges[estado] || '<span class="badge bg-label-secondary">' + estado + "</span>";
+        }
+
+        function formatearFecha(fecha) {
+            const f = new Date(fecha + "T00:00:00");
+            return f.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+        }
+
+        function abrirModalNuevaHojaRuta() {
+            $("#formHojaRuta")[0].reset();
+            $("#idHojaRuta").val("");
+            $("#tituloModalHojaRuta").text("Nueva Hoja de Ruta");
+            $("#hrUnidadOrigen").closest(".col-md-6").show();
+            $("#hrFecha").closest(".col-md-6").show();
+            $("#hrHora").closest(".col-md-6").show();
+            $("#modalHojaRuta").addClass("show");
+            setTimeout(() => inicializarSelect2EnModal('modalHojaRuta'), 200);
+        }
+
+        function editarHojaRuta() {
+            if (!hojaRutaActual) return;
+            $("#idHojaRuta").val(hojaRutaActual.idHojaRuta);
+            $("#hrTipo").val(hojaRutaActual.tipo);
+            $("#hrCodigo").val(hojaRutaActual.codigo);
+            $("#hrGestion").val(hojaRutaActual.gestion);
+            $("#hrDescripcion").val(hojaRutaActual.descripcion);
+            $("#hrCertificacion").val(hojaRutaActual.certificacion || "");
+            $("#hrMonto").val(hojaRutaActual.monto || "");
+            $("#hrUnidadOrigen").closest(".col-md-6").hide();
+            $("#hrFecha").closest(".col-md-6").hide();
+            $("#hrHora").closest(".col-md-6").hide();
+            $("#tituloModalHojaRuta").text("Modificar Hoja de Ruta");
+            $("#modalHojaRuta").addClass("show");
+            setTimeout(() => {
+                inicializarSelect2EnModal('modalHojaRuta');
+                $("#hrSolicitante").val(hojaRutaActual.solicitanteId).trigger("change");
+            }, 200);
+        }
+
+        $("#formHojaRuta").on("submit", function (e) {
+            e.preventDefault();
+            if (!this.checkValidity()) {
+                $(this).addClass("was-validated");
+                return;
+            }
+            const idHojaRuta = $("#idHojaRuta").val();
+            const url = idHojaRuta ? "/administracion/hoja-ruta/modificar" : "/administracion/hoja-ruta/registrar";
+
+            $.ajax({
+                type: "POST",
+                url: url,
+                data: $(this).serialize(),
+                success: function (response) {
+                    if (response.ok) {
+                        Swal.fire("Éxito", response.msg, "success");
+                        cerrarModal("modalHojaRuta");
+                        if (idHojaRuta) {
+                            buscarHojaRuta();
+                        } else {
+                            $("#formHojaRuta")[0].reset();
+                        }
+                    } else {
+                        Swal.fire("Error", response.msg, "error");
+                    }
+                },
+                error: () => Swal.fire("Error", "Ocurrió un error al guardar", "error")
+            });
+        });
+
+        function abrirModalNuevoMovimiento() {
+            if (!hojaRutaActual) {
+                Swal.fire("Atención", "Primero busque una hoja de ruta", "warning");
+                return;
+            }
+            $("#formMovimiento")[0].reset();
+            $("#idMovimiento").val("");
+            $("#movHojaRutaId").val(hojaRutaActual.idHojaRuta);
+            const hoy = new Date();
+            $("#movFecha").val(hoy.toISOString().split("T")[0]);
+            $("#movHora").val(hoy.toTimeString().substring(0, 5));
+            $("#tituloModalMovimiento").text("Nuevo Movimiento");
+            $("#modalMovimiento").addClass("show");
+            setTimeout(() => inicializarSelect2EnModal('modalMovimiento'), 200);
+        }
+
+        function editarMovimiento(idMovimiento) {
+            $.ajax({
+                type: "GET",
+                url: "/administracion/hoja-ruta/movimiento/" + idMovimiento,
+                success: function (response) {
+                    if (response.ok) {
+                        const mov = response.movimiento;
+                        $("#idMovimiento").val(mov.idMovimiento);
+                        $("#movHojaRutaId").val(hojaRutaActual.idHojaRuta);
+                        $("#movEstado").val(mov.estadoNumero);
+                        $("#movFecha").val(mov.fecha);
+                        $("#movHora").val(mov.hora);
+                        $("#movObservacion").val(mov.observacion || "");
+                        $("#tituloModalMovimiento").text("Modificar Movimiento");
+                        $("#modalMovimiento").addClass("show");
+                        setTimeout(() => {
+                            inicializarSelect2EnModal('modalMovimiento');
+                            $("#movUnidadOrigen").val(mov.unidadOrigenId).trigger("change");
+                            $("#movUnidadDestino").val(mov.unidadDestinoId).trigger("change");
+                        }, 200);
+                    } else {
+                        Swal.fire("Error", response.msg, "error");
+                    }
+                },
+                error: () => Swal.fire("Error", "Ocurrió un error al cargar el movimiento", "error")
+            });
+        }
+
+        $("#formMovimiento").on("submit", function (e) {
+            e.preventDefault();
+            if (!this.checkValidity()) {
+                $(this).addClass("was-validated");
+                return;
+            }
+            $.ajax({
+                type: "POST",
+                url: "/administracion/hoja-ruta/movimiento/guardar",
+                data: $(this).serialize(),
+                success: function (response) {
+                    if (response.ok) {
+                        Swal.fire("Éxito", response.msg, "success");
+                        cerrarModal("modalMovimiento");
+                        buscarHojaRuta();
+                    } else {
+                        Swal.fire("Error", response.msg, "error");
+                    }
+                },
+                error: () => Swal.fire("Error", "Ocurrió un error al guardar", "error")
+            });
+        });
+
+        function cerrarModal(modalId) {
+            $("#" + modalId).removeClass("show");
+            $('#' + modalId + ' .select2').each(function () {
+                if ($(this).hasClass("select2-hidden-accessible")) {
+                    $(this).select2('destroy');
+                }
+            });
+        }
+
+        $(document).ready(function () {
+            $("#filtroTipo, #filtroGestion").on("change", validarFiltros);
+            const hoy = new Date();
+            $("#hrFecha, #movFecha").val(hoy.toISOString().split("T")[0]);
+            $("#hrHora, #movHora").val(hoy.toTimeString().substring(0, 5));
+            $("#hrGestion").val(hoy.getFullYear());
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal.show').forEach(modal => {
+                    cerrarModal(modal.id);
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>

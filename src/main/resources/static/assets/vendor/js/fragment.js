@@ -158,16 +158,33 @@ function manejarEnvioFormulario(selectorFormulario) {
                 url: "/adm/cargar-datos",
                 method: "GET",
                 success: function () {
-                    // Si la sesión es válida, continúa con el envío del formulario
-                    var form = $(selectorFormulario)[0];
-                    var formData = new FormData(form);
+                    var form = $(selectorFormulario);
+                    
+                    // CAMBIO AQUÍ: usar serialize() en lugar de FormData
+                    // Solo usa FormData si hay archivos
+                    var hasFiles = form.find('input[type="file"]').length > 0;
+                    var formData;
+                    var contentType;
+                    var processData;
+                    
+                    if (hasFiles) {
+                        // Si hay archivos, usar FormData
+                        formData = new FormData(form[0]);
+                        contentType = false;
+                        processData = false;
+                    } else {
+                        // Si NO hay archivos, usar serialize (form-urlencoded)
+                        formData = form.serialize();
+                        contentType = 'application/x-www-form-urlencoded; charset=UTF-8';
+                        processData = true;
+                    }
 
                     $.ajax({
                         type: 'POST',
-                        url: $(selectorFormulario).attr('action'),
+                        url: form.attr('action'),
                         data: formData,
-                        contentType: false,  // No establecer el tipo de contenido aquí
-                        processData: false,  // No procesar los datos
+                        contentType: contentType,
+                        processData: processData,
                         dataType: 'json',
                         success: function (response) {
                             if (response.ok) {
@@ -176,16 +193,13 @@ function manejarEnvioFormulario(selectorFormulario) {
                                 $('.modal').modal('hide');
                                 
                                 Swal.fire(
-                                    // Usar el campo 'msg' para determinar el título
                                     response.msg.includes('registro') ? 'Registrado!' : 'Modificado!',
                                     response.msg + '.',
                                     'success'
                                 );
                                 
                             } else {
-                                // Fallo: Manejar errores del lado del servidor (como el caso de CODCONT duplicado)
-                                
-                                // Si hay errores específicos del campo (BindingResult)
+                                // Fallo
                                 let errorMessage = response.msg || 'Ha ocurrido un error desconocido.';
                                 
                                 if (response.errors && response.errors.length > 0) {
@@ -199,21 +213,21 @@ function manejarEnvioFormulario(selectorFormulario) {
                                 );
                             }
                         },
-                        error: function (xhr) { // xhr ya contiene la información del error HTTP
+                        error: function (xhr) {
                             let errorMsg = 'Error de conexión con el servidor.';
                             
-                            // Si el servidor envía un JSON de error 400/500 con un mensaje 'msg'
                             try {
                                 const errorJson = JSON.parse(xhr.responseText);
                                 if (errorJson.msg) {
                                     errorMsg = errorJson.msg;
+                                } else if (errorJson.message) {
+                                    errorMsg = errorJson.message;
                                 }
                             } catch (e) {
-                                // Si no es JSON o el cuerpo está vacío, usamos el mensaje genérico
                                 if (xhr.status === 500) {
                                     errorMsg = 'Error interno del servidor (500). Revise los logs.';
                                 } else if (xhr.status === 400) {
-                                    errorMsg = 'Solicitud incorrecta (400). Faltan datos.';
+                                    errorMsg = 'Solicitud incorrecta (400). Datos inválidos.';
                                 }
                             }
                             
@@ -228,7 +242,6 @@ function manejarEnvioFormulario(selectorFormulario) {
                 },
                 error: function (xhr) {
                     if (xhr.status === 401) {
-                        // Si la sesión ha expirado, muestra una alerta con SweetAlert2
                         Swal.fire({
                             title: 'Sesión expirada',
                             text: 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
@@ -236,7 +249,7 @@ function manejarEnvioFormulario(selectorFormulario) {
                             confirmButtonText: 'Ir al login'
                         }).then((result) => {
                             if (result.isConfirmed) {
-                                window.location.href = '/form-login'; // Redirige a la página de login
+                                window.location.href = '/form-login';
                             }
                         });
                     }
@@ -245,4 +258,3 @@ function manejarEnvioFormulario(selectorFormulario) {
         });
     });
 }
-
