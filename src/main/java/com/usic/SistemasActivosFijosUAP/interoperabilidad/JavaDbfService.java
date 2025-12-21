@@ -225,19 +225,18 @@ public class JavaDbfService {
     }
 
     // ===== OFICINA.DBF
-    public List<OficinaDbf> listarOficinaAll(String q) { // Quitamos throws Exception general
+    public List<OficinaDbf> listarOficinaAll(String q) {
         Path file = baseDir.resolve("OFICINA.DBF");
         List<OficinaDbf> out = new ArrayList<>();
 
         if (!Files.exists(file)) return out;
 
-        // Usamos CP1252 para soportar Ñ y acentos de Windows
         Charset cs = (charset != null && !charset.isBlank()) ? Charset.forName(charset) : Charset.forName("CP1252");
 
         try (InputStream in = Files.newInputStream(file);
              DBFReader reader = new DBFReader(in, cs)) {
 
-            // Mapeo dinámico de columnas
+            // Mapeo de índices
             int idxENT = -1, idxUNI = -1, idxCODO = -1, idxNOM = -1, idxOBS = -1, idxFEU = -1, idxUSR = -1, idxAPI = -1;
             int n = reader.getFieldCount();
             
@@ -259,54 +258,55 @@ public class JavaDbfService {
             Object[] row;
             int rowNum = 0;
 
-            // LEER FILA POR FILA
-            while ((row = reader.nextRecord()) != null) {
-                rowNum++;
+            // ⚠️ CAMBIO CRÍTICO: Bucle infinito controlado manualmente para atrapar el error de nextRecord
+            while (true) {
                 try {
-                    // 1. Validar integridad mínima (Claves primarias)
-                    // Si el archivo está corrupto y faltan columnas, saltamos
+                    // Intentamos leer el siguiente registro
+                    row = reader.nextRecord();
+                    
+                    // Si es null, llegamos al final del archivo correctamente
+                    if (row == null) break; 
+                    
+                    rowNum++;
+
+                    // --- PROCESAMIENTO DEL REGISTRO (Tu lógica original) ---
+                    
+                    // Validar integridad mínima
                     if (idxENT == -1 || idxUNI == -1 || idxCODO == -1) continue;
 
                     String entidad = asString(row, idxENT);
                     String unidad = asString(row, idxUNI);
                     Integer codi = asInt(row, idxCODO);
 
-                    // Si los datos clave son nulos, es basura
                     if (entidad == null || entidad.isBlank() || unidad == null || unidad.isBlank() || codi == null) {
                         continue;
                     }
 
-                    // 2. Filtro de búsqueda (si aplica)
                     String nom = asString(row, idxNOM);
-                    String usuario = asString(row, idxUSR);
                     String observ = null;
-
-                    // Blindaje especial para campos MEMO/Texto que suelen fallar
                     try {
                         observ = asString(row, idxOBS);
                         if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) observ = null;
-                    } catch (Exception e) {
-                        observ = null; // Si falla leer observación, lo ignoramos
-                    }
+                    } catch (Exception e) { observ = null; }
+
+                    String usuario = asString(row, idxUSR);
 
                     if (ql != null) {
                         String hay = ((entidad) + " " + (unidad) + " " + (nom != null ? nom : "")).toLowerCase(Locale.ROOT);
                         if (!hay.contains(ql)) continue;
                     }
 
-                    // 3. Manejo seguro de fechas
                     LocalDate feul = null;
                     if (idxFEU >= 0 && row[idxFEU] != null) {
                         try {
                             if (row[idxFEU] instanceof java.util.Date dd) {
                                 feul = new java.sql.Date(dd.getTime()).toLocalDate();
                             }
-                        } catch (Exception e) { /* Ignorar fecha corrupta */ }
+                        } catch (Exception e) { }
                     }
 
                     Short api = asInt(row, idxAPI) != null ? asInt(row, idxAPI).shortValue() : null;
 
-                    // Agregar a la lista
                     out.add(OficinaDbf.builder()
                             .entidadCodigo(entidad.trim())
                             .unidad(unidad.trim())
@@ -319,16 +319,21 @@ public class JavaDbfService {
                             .build());
 
                 } catch (Exception ex) {
-                    // 🚨 AQUÍ ATRAPAMOS EL ERROR DEL REGISTRO 850
-                    log.error("⚠️ Registro DBF corrupto omitido (Fila #{}): {}", rowNum, ex.getMessage());
-                    // El bucle 'while' continúa con la fila 851
+                    // 🚨 AQUÍ CAPTURAMOS EL ERROR FATAL DEL REGISTRO 850
+                    log.error("🔥 Error FATAL leyendo OFICINA.DBF en registro #{}. Se detiene la lectura, pero se conservan {} registros válidos.", rowNum, out.size());
+                    log.debug("Detalle del error DBF: {}", ex.getMessage());
+                    
+                    // ROMPEMOS EL BUCLE (break) para devolver lo que ya leímos
+                    break; 
                 }
             }
         } catch (Exception e) {
-            log.error("Error fatal abriendo el archivo OFICINA.DBF", e);
-            // Devolvemos lista vacía para no romper la pantalla, pero logueamos el error grave
+            log.error("Error al abrir el flujo del archivo DBF", e);
+            // Si falla al abrir, devolvemos lista vacía, pero no lanzamos excepción para no romper la web
         }
-        return out;
+        
+        // Devolvemos la lista parcial (ej. 849 registros)
+        return out; 
     }
 
     /* === Convierte entidad JPA -> DTO plano para DBF === */
