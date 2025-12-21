@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -98,44 +99,69 @@ public class OficinaController {
             // 2. Comparación Cruzada (BD vs DBF)
             if (listasOficinas != null && !listasOficinas.isEmpty()) {
                 
-                // Leemos el DBF (Ahora el método es seguro y saltará la fila 850)
+                // Leemos el DBF (El método blindado que ya tienes)
                 var filasDbf = dbfService.listarOficinaAll(null); 
                 
-                log.info("📊 Oficinas leídas correctamente del DBF: {}", filasDbf.size());
+                log.info("📊 DEBUG: Registros BD: {} | Registros DBF Válidos: {}", listasOficinas.size(), filasDbf.size());
 
-                // Crear Set de claves únicas del DBF
-                Set<String> clavesDbf = filasDbf.stream()
-                    .map(f -> generarClaveUnica(f.getEntidadCodigo(), f.getUnidad(), f.getCodOfi()))
-                    .collect(Collectors.toSet());
+                // --- DEBUG: VER CÓMO SE GENERAN LAS CLAVES DEL DBF ---
+                Set<String> clavesDbf = new HashSet<>();
+                int debugCounter = 0;
+                
+                for (var f : filasDbf) {
+                    String clave = generarClaveUnica(f.getEntidadCodigo(), f.getUnidad(), f.getCodOfi());
+                    clavesDbf.add(clave);
+                    
+                    // Imprimir las primeras 3 claves del DBF para comparar visualmente
+                    if (debugCounter < 3) {
+                        log.info("🔑 CLAVE DBF [{}]: '{}'", debugCounter, clave);
+                        debugCounter++;
+                    }
+                }
 
-                // Verificar BD
+                // --- DEBUG: VER CÓMO SE GENERAN LAS CLAVES DE LA BD ---
+                debugCounter = 0;
                 for (Oficina o : listasOficinas) {
                     if (o.getPredio() != null && o.getPredio().getEntidad() != null) {
+                        
                         String ent = o.getPredio().getEntidad().getEntidadCodigo();
-                        String uni = o.getPredio().getUnidad();
-                        if (o.getPredio().getCodigo() != null) uni = o.getPredio().getCodigo();
+                        
+                        // Lógica: Usamos Código si existe, si no Unidad.
+                        String uni = o.getPredio().getCodigo();
+                        if (uni == null || uni.isBlank()) {
+                            uni = o.getPredio().getUnidad();
+                        }
                         
                         String claveBd = generarClaveUnica(ent, uni, o.getCodOfi());
                         
-                        // Si la clave NO está en el DBF, marcamos false
-                        if (!clavesDbf.contains(claveBd)) {
-                            o.setExisteEnDbf(false); 
+                        // Imprimir las primeras 3 claves de BD para comparar
+                        if (debugCounter < 3) {
+                            log.info("🗝️ CLAVE BD  [{}]: '{}'", debugCounter, claveBd);
+                            debugCounter++;
+                        }
+
+                        // LA COMPARACIÓN REAL
+                        if (clavesDbf.contains(claveBd)) {
+                            o.setExisteEnDbf(true); 
                         } else {
-                            o.setExisteEnDbf(true);
+                            o.setExisteEnDbf(false);
+                            // Loguear el primer fallo para entender por qué no cruza
+                            if (debugCounter == 3) { 
+                                log.warn("⚠️ NO CRUZÓ: La clave BD '{}' no se halló en el Set del DBF.", claveBd);
+                                debugCounter++;
+                            }
                         }
                     } else {
-                        o.setExisteEnDbf(false); // Datos incompletos
+                        o.setExisteEnDbf(false); 
                     }
                 }
             }
 
-            // 3. Encriptación IDs
+            // 3. Encriptación IDs (Igual que antes)
             List<String> encryptedIds = new ArrayList<>();
             if (listasOficinas != null) {
                 for (Oficina o : listasOficinas) {
-                    encryptedIds.add(o.getIdOficina() == null 
-                        ? "" 
-                        : Encriptar.encrypt(Long.toString(o.getIdOficina())));
+                    encryptedIds.add(o.getIdOficina() == null ? "" : Encriptar.encrypt(Long.toString(o.getIdOficina())));
                 }
             }
 
@@ -151,11 +177,20 @@ public class OficinaController {
         return "oficina/tabla_registro";
     }
 
-    // Método auxiliar clave normalizada
+    // 🔴 MÉTODO DE CLAVE NORMALIZADA (AGRESIVO)
     private String generarClaveUnica(String entidad, String unidad, Short codOfi) {
-        String e = (entidad == null) ? "" : entidad.trim().toUpperCase();
-        String u = (unidad == null) ? "" : unidad.trim().toUpperCase();
+        // 1. Manejo de nulos
+        String e = (entidad == null) ? "" : entidad;
+        String u = (unidad == null) ? "" : unidad;
+        
+        // 2. Limpieza agresiva: Mayúsculas, Trim y eliminar espacios invisibles raros
+        e = e.trim().toUpperCase().replaceAll("\\p{C}", ""); // Quita caracteres de control
+        u = u.trim().toUpperCase().replaceAll("\\p{C}", "");
+        
+        // 3. Código Numérico
         String c = (codOfi == null) ? "0" : String.valueOf(codOfi);
+        
+        // 4. Retorno: "148|CUSP|1"
         return e + "|" + u + "|" + c;
     }
 
