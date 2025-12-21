@@ -197,3 +197,15 @@ Caused by: java.lang.NumberFormatException: Character a is neither a decimal dig
         at java.base/java.math.BigDecimal.<init>(BigDecimal.java:900) ~[na:na]
         at com.linuxense.javadbf.DBFUtils.readNumericStoredAsText(DBFUtils.java:80) ~[javadbf-1.13.1.jar:1.13.1]
         ... 129 common frames omitted
+
+
+
+ERROR 2066211 --- [SistemasActivosFijosUAP] [nio-9696-exec-9] c.u.S.interoperabilidad.JavaDbfService   : 🔥 Error FATAL leyendo OFICINA.DBF en registro #827. Se detiene la lectura, pero se conservan 827 registros válidos.
+2025-12-21T19:54:22.649-04:00  INFO 2066211 --- [SistemasActivosFijosUAP] [nio-9696-exec-9] c.u.S.c.oficina.OficinaController        : 📊 DEBUG: Registros BD: 829 | Registros DBF Válidos: 827
+2025-12-21T19:54:22.649-04:00  INFO 2066211 --- [SistemasActivosFijosUAP] [nio-9696-exec-9] c.u.S.c.oficina.OficinaController        : 🔑 CLAVE DBF [0]: '148|CAUN|1'
+2025-12-21T19:54:22.649-04:00  INFO 2066211 --- [SistemasActivosFijosUAP] [nio-9696-exec-9] c.u.S.c.oficina.OficinaController        : 🔑 CLAVE DBF [1]: '148|CAUN|2'
+2025-12-21T19:54:22.649-04:00  INFO 2066211 --- [SistemasActivosFijosUAP] [nio-9696-exec-9] c.u.S.c.oficina.OficinaController        : 🔑 CLAVE DBF [2]: '148|CAUN|3'
+2025-12-21T19:54:22.655-04:00  INFO 2066211 --- [SistemasActivosFijosUAP] [nio-9696-exec-9] c.u.S.c.oficina.OficinaController        : 🗝️ CLAVE BD  [0]: '148|03|1'
+2025-12-21T19:54:22.655-04:00  INFO 2066211 --- [SistemasActivosFijosUAP] [nio-9696-exec-9] c.u.S.c.oficina.OficinaController        : 🗝️ CLAVE BD  [1]: '148|03|2'
+2025-12-21T19:54:22.655-04:00  INFO 2066211 --- [SistemasActivosFijosUAP] [nio-9696-exec-9] c.u.S.c.oficina.OficinaController        : 🗝️ CLAVE BD  [2]: '148|03|3'
+2025-12-21T19:54:22.655-04:00  WARN 2066211 --- [SistemasActivosFijosUAP] [nio-9696-exec-9] c.u.S.c.oficina.OficinaController        : ⚠️ NO CRUZÓ: La clave BD '148|03|3' no se halló en el Set del DBF.
