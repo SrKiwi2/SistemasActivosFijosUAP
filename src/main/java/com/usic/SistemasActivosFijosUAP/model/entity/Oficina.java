@@ -18,6 +18,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -87,4 +88,10 @@ public class Oficina extends AuditoriaConfig {
         );
         return DigestUtils.md5Hex(datos);
     }
+
+    @Transient // Importante: no crea columna en Postgres
+    private boolean existeEnDbf = true; // Por defecto asumimos que sí está
+
+    public boolean isExisteEnDbf() { return existeEnDbf; }
+    public void setExisteEnDbf(boolean existeEnDbf) { this.existeEnDbf = existeEnDbf; }
 }

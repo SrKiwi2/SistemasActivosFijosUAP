@@ -2,31 +2,27 @@
     <div class="card-header d-flex justify-content-lg-between">
         <h5>Registro Oficina</h5>
         <div class="d-flex gap-2 align-items-center">
-            <!-- ✅ Badge con información de última sincronización -->
+
             <span class="badge bg-info" id="ultimaSync" data-bs-toggle="tooltip" data-bs-placement="bottom"
                 th:title="'Procesados: ' + (${registrosProcesados ?: 0}) + ' | Nuevos: ' + (${registrosNuevos ?: 0}) + ' | Actualizados: ' + (${registrosActualizados ?: 0}) + ' | Duración: ' + (${duracionUltimaSync ?: 0}) + 's'">
                 <i class="fa-solid fa-clock me-1"></i>
                 Última sync: <span th:text="${ultimaSincronizacion ?: 'Nunca'}">--</span>
             </span>
 
-            <!-- ✅ Badge de estado -->
             <span class="badge" id="estadoSyncBadge"
                 th:classappend="${estadoSync == 'COMPLETADO'} ? 'bg-success' : (${estadoSync == 'ERROR'} ? 'bg-danger' : 'bg-warning')"
                 th:text="${estadoSync ?: 'PENDIENTE'}">
             </span>
 
-            <!-- ✅ Botón sincronización incremental -->
             <button id="btnSyncOficina" class="btn btn-outline-secondary btn-sm">
                 <i class="fa-solid fa-sync me-1"></i> Sincronizar
             </button>
 
-            <!-- ✅ Botón sincronización completa -->
             <button id="btnSyncCompleto" class="btn btn-outline-warning btn-sm" data-bs-toggle="tooltip"
                 data-bs-placement="bottom" title="Forzar sincronización completa (más lento)">
                 <i class="fa-solid fa-database me-1"></i> Sync Completo
             </button>
 
-            <!-- Botón agregar -->
             <button type="button" class="btn btn-primary btn-sm" onclick="cargarFormulario()" data-bs-toggle="modal"
                 data-bs-target="#modalFormularioOficina">
                 <i class="fa-solid fa-user-plus"></i> Agregar Oficina
@@ -71,26 +67,35 @@
                     </td>
                     <td th:text="${oficina.nombre}"></td>
                     <td class="text-center">
-                        <!-- ✅ Botones solo si tiene ID (existe en BD) -->
-                        <div th:if="${oficina.idOficina != null}" class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-primary btn-editar-oficina"
-                                th:data-id="${id_encryptado[index.index]}" data-bs-toggle="modal"
-                                data-bs-target="#modalFormularioOficina" title="Editar oficina">
-                                <i class="fa-solid fa-pen-to-square"></i>
-                            </button>
-                            <button type="button" class="btn btn-danger btn-eliminar-oficina"
-                                th:data-id="${id_encryptado[index.index]}" th:data-nombre="${oficina.nombre}"
-                                title="Eliminar oficina">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
-                        </div>
+                        <div class="d-flex justify-content-center align-items-center gap-2">
+                            
+                            <div th:if="${oficina.idOficina != null}" class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-primary btn-editar-oficina"
+                                    th:data-id="${id_encryptado[index.index]}" data-bs-toggle="modal"
+                                    data-bs-target="#modalFormularioOficina" title="Editar oficina">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button type="button" class="btn btn-danger btn-eliminar-oficina"
+                                    th:data-id="${id_encryptado[index.index]}" th:data-nombre="${oficina.nombre}"
+                                    title="Eliminar oficina">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
 
-                        <!-- ✅ Si NO tiene ID (viene del DBF), mostrar mensaje -->
-                        <div th:if="${oficina.idOficina == null}">
-                            <span class="badge bg-warning" data-bs-toggle="tooltip"
-                                title="Registro solo lectura desde DBF. Sincronice para poder editar.">
-                                <i class="fa-solid fa-lock"></i> Solo lectura
-                            </span>
+                            <div th:if="${oficina.idOficina != null and !oficina.existeEnDbf}">
+                                <button type="button" class="btn btn-warning btn-sm btn-subir-dbf"
+                                    th:data-id="${id_encryptado[index.index]}"
+                                    data-bs-toggle="tooltip" title="⚠️ NO ESTÁ EN EL DBF. Clic para subirlo ahora.">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                </button>
+                            </div>
+
+                            <div th:if="${oficina.idOficina == null}">
+                                <span class="badge bg-warning" data-bs-toggle="tooltip"
+                                    title="Registro solo lectura desde DBF. Sincronice para poder editar.">
+                                    <i class="fa-solid fa-lock"></i>
+                                </span>
+                            </div>
                         </div>
                     </td>
                 </tr>
@@ -136,6 +141,45 @@
         }).then((result) => {
             if (result.isConfirmed) {
                 sincronizar(true);
+            }
+        });
+    });
+
+    // Evento para el botón de subir al DBF
+    $(document).on('click', '.btn-subir-dbf', function() {
+        const idEncriptado = $(this).data('id');
+        
+        Swal.fire({
+            title: '¿Subir a OFICINA.DBF?',
+            text: "Este registro existe en la base de datos pero NO en el archivo DBF. ¿Desea insertarlo ahora?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ffc107', // Amarillo warning
+            confirmButtonText: 'Sí, subir ahora',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                showGlobalLoader({ texto: 'Escribiendo en DBF...' });
+                
+                $.ajax({
+                    type: 'POST',
+                    url: '/administracion/oficina/subir-dbf/' + idEncriptado,
+                    success: function (res) {
+                        hideGlobalLoader();
+                        if (res.ok) {
+                            Swal.fire('¡Sincronizado!', res.msg, 'success');
+                            cargarTabla(); // Recargar para que desaparezca el botón de alerta
+                        } else {
+                            Swal.fire('Error', res.msg, 'error');
+                        }
+                    },
+                    error: function (xhr) {
+                        hideGlobalLoader();
+                        let msg = 'Ocurrió un error inesperado';
+                        if(xhr.responseJSON && xhr.responseJSON.msg) msg = xhr.responseJSON.msg;
+                        Swal.fire('Error', msg, 'error');
+                    }
+                });
             }
         });
     });

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -84,56 +85,71 @@ public class OficinaController {
         return "oficina/vista";
     }
 
-    // LISTAR: intenta BD; si vacío, lee DBF y arma objetos "transient" para la tabla
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla-registros")
     public String tablaRegistros_oficina(Model model,
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "gestion", required = false) Short gestionPreferida) throws Exception {
 
+        // 1. Obtener datos de la Base de Datos
         List<Oficina> listasOficinas = oficinaService.buscarPorQ(q);
-        boolean fromDb = listasOficinas != null && !listasOficinas.isEmpty();
+        
+        // 2. Lógica de Verificación Cruzada (BD vs DBF)
+        if (listasOficinas != null && !listasOficinas.isEmpty()) {
+            try {
+                // Leemos el DBF actual (usamos null en q para traer todos los códigos y comparar bien)
+                var filasDbf = dbfService.listarOficinaAll(null); 
+                
+                // Creamos un Set de claves únicas del DBF para búsqueda instantánea
+                Set<String> clavesDbf = filasDbf.stream()
+                    .map(f -> generarClave(f.getEntidadCodigo(), f.getUnidad(), f.getCodOfi()))
+                    .collect(Collectors.toSet());
 
-        if (!fromDb) {
-            var filas = dbfService.listarOficinaAll(q);
-            listasOficinas = new ArrayList<>(filas.size());
-
-            for (var f : filas) {
-                Entidad ent = resolverEntidad(gestionPreferida, f.getEntidadCodigo());
-
-                Oficina o = new Oficina();
-                o.setIdOficina(null); // NULL = solo lectura
-
-                Predio p = new Predio();
-                p.setEntidad(ent);
-                p.setUnidad(normUnidad(f.getUnidad()));
-                o.setPredio(p);
-
-                o.setCodOfi(f.getCodOfi());
-                o.setNombre((f.getNomOfic() != null && !f.getNomOfic().isBlank())
-                        ? f.getNomOfic().trim()
-                        : ("OFICINA " + f.getCodOfi()));
-                o.setObserv(f.getObserv());
-                o.setFechaUlt(f.getFeult());
-                o.setUsuario(f.getUsuario());
-                o.setApiEstado(f.getApiEstado());
-                o.setEstado("ACTIVO");
-
-                listasOficinas.add(o);
+                // Recorremos la lista de BD y marcamos los que faltan
+                for (Oficina o : listasOficinas) {
+                    if (o.getPredio() != null && o.getPredio().getEntidad() != null) {
+                        String ent = o.getPredio().getEntidad().getEntidadCodigo();
+                        String uni = o.getPredio().getUnidad(); 
+                        // Ajuste por si usas el código de predio como unidad
+                        if (o.getPredio().getCodigo() != null) uni = o.getPredio().getCodigo();
+                        
+                        String claveBd = generarClave(ent, uni, o.getCodOfi());
+                        
+                        // SI LA CLAVE NO ESTÁ EN EL SET DEL DBF -> FALTA
+                        if (!clavesDbf.contains(claveBd)) {
+                            o.setExisteEnDbf(false); 
+                        }
+                    } else {
+                        o.setExisteEnDbf(false); // Datos incompletos
+                    }
+                }
+            } catch (Exception e) {
+                log.error("No se pudo verificar contra DBF: " + e.getMessage());
             }
         }
 
+        // 3. Encriptación de IDs (Tu lógica original)
         List<String> encryptedIds = new ArrayList<>();
-        for (Oficina o : listasOficinas) {
-            encryptedIds.add(o.getIdOficina() == null 
-                ? "" 
-                : Encriptar.encrypt(Long.toString(o.getIdOficina())));
+        if (listasOficinas != null) {
+            for (Oficina o : listasOficinas) {
+                encryptedIds.add(o.getIdOficina() == null 
+                    ? "" 
+                    : Encriptar.encrypt(Long.toString(o.getIdOficina())));
+            }
         }
 
         model.addAttribute("listasOficinas", listasOficinas);
         model.addAttribute("id_encryptado", encryptedIds);
-        model.addAttribute("sourceUsed", fromDb ? "db" : "dbf");
+        model.addAttribute("sourceUsed", "db"); // Siempre mostramos la BD enriquecida
+        
         return "oficina/tabla_registro";
+    }
+
+    // Helper privado para generar clave única consistente
+    private String generarClave(String entidad, String unidad, Short codOfi) {
+        return (entidad == null ? "" : entidad.trim()) + "|" +
+               (unidad == null ? "" : unidad.trim()) + "|" +
+               (codOfi == null ? "0" : codOfi);
     }
 
     @ValidarUsuarioAutenticado
@@ -181,7 +197,6 @@ public class OficinaController {
         
         String usuarioNombre = usuario.getUsuario();
         
-        // Establecer valores por defecto
         oficina.setEstado("ACTIVO");
         oficina.setFechaUlt(LocalDate.now());
         oficina.setUsuario(usuarioNombre);
@@ -194,8 +209,6 @@ public class OficinaController {
         Long idEntidadOficina = predioOficina.getEntidad().getIdEntidad();
         Entidad entidadOficina = entidadService.findById(idEntidadOficina);
 
-
-        // Obtener ENTIDAD y UNIDAD desde el predio
         String entidadCode = entidadOficina.getEntidadCodigo();
         String unidadCode = predioOficina.getUnidad();
         
@@ -203,7 +216,6 @@ public class OficinaController {
             unidadCode = oficina.getPredio().getCodigo();
         }
         
-        // Verificar si ya existe en DBF
         Short codOfic = oficina.getCodOfi();
         
         if (codOfic != null) {
@@ -215,10 +227,8 @@ public class OficinaController {
             }
         }
         
-        // 1) Guardar en PostgreSQL
         oficinaService.save(oficina);
         
-        // 2) Insertar en OFICINA.DBF
         try {
             oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
             log.info("Oficina {} registrada en PostgreSQL y DBF", oficina.getIdOficina());
@@ -258,7 +268,6 @@ public class OficinaController {
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = usuario.getUsuario();
         
-        // Obtener la oficina original
         Oficina oficinaOriginal = oficinaService.findById(oficinaForm.getIdOficina());
         if (oficinaOriginal == null) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -266,9 +275,7 @@ public class OficinaController {
                 "msg", "No se encontró la oficina con ID: " + oficinaForm.getIdOficina()
             ));
         }
-        // --- APLICACIÓN DE VERIFICACIONES DE NULIDAD ---
-    
-        // 1. Verificar Predio en oficinaOriginal
+
         Predio predioOriginal = oficinaOriginal.getPredio();
         if (predioOriginal == null) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -277,7 +284,6 @@ public class OficinaController {
             ));
         }
         
-        // 2. Verificar Entidad en predioOriginal
         Entidad entidad = predioOriginal.getEntidad();
         if (entidad == null) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -286,7 +292,6 @@ public class OficinaController {
             ));
         }
 
-        // 3. Verificar Predio en oficinaForm
         if (oficinaForm.getPredio() == null || oficinaForm.getPredio().getIdPredio() == null) {
             return ResponseEntity.badRequest().body(Map.of(
                 "ok", false,
@@ -294,7 +299,6 @@ public class OficinaController {
             ));
         }
 
-        // 4. Buscar Predio actualizado (usando el ID del formulario)
         Predio preido = predioServicio.findById(oficinaForm.getPredio().getIdPredio());
         if (preido == null) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -303,12 +307,10 @@ public class OficinaController {
             ));
         }
 
-        // Guardar valores originales para buscar en DBF
         Short codOficOriginal = oficinaOriginal.getCodOfi();
         String entidadOriginal = entidad.getEntidadCodigo();
         String unidadOriginal = preido.getUnidad();
         
-        // Actualizar campos
         oficinaOriginal.setPredio(oficinaForm.getPredio());
         oficinaOriginal.setCodOfi(oficinaForm.getCodOfi());
         oficinaOriginal.setNombre(oficinaForm.getNombre());
@@ -321,10 +323,8 @@ public class OficinaController {
         }
         oficinaOriginal.setEstado("ACTIVO");
         
-        // 1) Guardar en PostgreSQL
         oficinaService.save(oficinaOriginal);
         
-        // 2) Actualizar en OFICINA.DBF
         try {
             String entidadCode = preido.getEntidad().getEntidadCodigo();
             String unidadCode = preido.getUnidad();
@@ -365,7 +365,52 @@ public class OficinaController {
         return ResponseEntity.ok("Registro Eliminado");
     }
 
-    // SYNC: OFICINA.DBF -> upsert por (Predio, codOfi)
+    @ValidarUsuarioAutenticado
+    @PostMapping("/subir-dbf/{id_oficina}")
+    @ResponseBody
+    public ResponseEntity<?> subirOficinaADbf(HttpServletRequest request, 
+                                              @PathVariable("id_oficina") String idOficinaEnc) {
+        try {
+            Long id = Long.parseLong(Encriptar.decrypt(idOficinaEnc));
+            Oficina oficina = oficinaService.findById(id);
+            
+            if (oficina == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Oficina no encontrada en BD"));
+            }
+
+            // Validar datos necesarios
+            Predio predio = oficina.getPredio();
+            if (predio == null || predio.getEntidad() == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Datos de Predio/Entidad incompletos"));
+            }
+
+            String entidadCode = predio.getEntidad().getEntidadCodigo();
+            String unidadCode = (predio.getCodigo() != null) ? predio.getCodigo() : predio.getUnidad();
+            
+            Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+            String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+
+            // Verificar si ya existe (Doble check de seguridad)
+            if (oficinaDbfWriterService.existsByCodOfic(oficina.getCodOfi(), entidadCode, unidadCode)) {
+                 // Si ya existe, actualizamos para asegurar consistencia
+                 oficinaDbfWriterService.actualizarDesdeOficina(
+                     oficina.getCodOfi(), entidadCode, unidadCode, 
+                     oficina, entidadCode, unidadCode, usuarioNombre
+                 );
+                 return ResponseEntity.ok(Map.of("ok", true, "msg", "La oficina ya existía, se han actualizado sus datos en el DBF."));
+            }
+
+            // Insertar
+            oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
+
+            return ResponseEntity.ok(Map.of("ok", true, "msg", "Sincronización manual exitosa: Registrado en OFICINA.DBF"));
+
+        } catch (Exception e) {
+            log.error("Error subiendo oficina a DBF: ", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
+        }
+    }
+
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
     @ResponseBody
@@ -377,24 +422,22 @@ public class OficinaController {
         long inicio = System.currentTimeMillis();
         
         try {
-            // 1️⃣ Leer DBF
+
             var filas = dbfService.listarOficinaAll(q);
             
-            // 2️⃣ Cargar oficinas existentes en caché
             Map<String, Oficina> oficinasExistentes = cargarOficinasEnCache(gestionPreferida);
             
             int inserted = 0, updated = 0, skipped = 0, sinEntidad = 0, sinPredio = 0;
             List<Oficina> batch = new ArrayList<>(500);
 
             for (var f : filas) {
-                // 3️⃣ Resolver entidad
+
                 Entidad entidad = resolverEntidad(gestionPreferida, f.getEntidadCodigo());
                 if (entidad == null) {
                     sinEntidad++;
                     continue;
                 }
 
-                // 4️⃣ Resolver predio
                 Predio predio = predioServicio
                     .findByEntidadAndUnidadIgnoreCase(entidad, normUnidad(f.getUnidad()))
                     .orElse(null);
@@ -403,11 +446,9 @@ public class OficinaController {
                     continue;
                 }
 
-                // 5️⃣ Crear clave única para búsqueda en caché
                 String clave = predio.getIdPredio() + "-" + f.getCodOfi();
                 Oficina oficinaExistente = oficinasExistentes.get(clave);
                 
-                // 6️⃣ Determinar si es nuevo o actualización
                 Oficina oficina;
                 boolean esNueva = (oficinaExistente == null);
                 
@@ -419,7 +460,6 @@ public class OficinaController {
                     oficina = oficinaExistente;
                 }
 
-                // 7️⃣ Mapear datos del DBF
                 String nombreFinal = (f.getNomOfic() != null && !f.getNomOfic().isBlank())
                         ? f.getNomOfic().trim()
                         : ("OFICINA " + f.getCodOfi());
@@ -443,38 +483,32 @@ public class OficinaController {
                 oficina.setApiEstado(f.getApiEstado());
                 oficina.setEstado("ACTIVO");
 
-                // 8️⃣ OPTIMIZACIÓN: Calcular hash y comparar
                 String nuevoHash = oficina.calcularHash();
                 
                 if (!esNueva && !forzarCompleto) {
-                    // Verificar si realmente cambió
                     if (nuevoHash.equals(oficina.getHashDatos())) {
                         skipped++;
-                        continue; // ⭐ NO procesar si no hay cambios
+                        continue;
                     }
                 }
 
-                // 9️⃣ Actualizar metadatos
                 oficina.setHashDatos(nuevoHash);
                 oficina.setFechaUltimaSync(LocalDateTime.now());
 
                 batch.add(oficina);
                 if (esNueva) inserted++; else updated++;
 
-                // 🔟 Guardar en lotes
                 if (batch.size() >= 500) {
                     oficinaService.saveAll(batch);
                     batch.clear();
                 }
             }
             
-            // 1️⃣1️⃣ Guardar lote final
             if (!batch.isEmpty()) {
                 oficinaService.saveAll(batch);
                 batch.clear();
             }
 
-            // 1️⃣2️⃣ Registrar en sync_control
             long duracion = System.currentTimeMillis() - inicio;
             syncControlService.registrarSincronizacion("oficina", filas.size(), inserted, updated, duracion);
 
@@ -491,7 +525,7 @@ public class OficinaController {
             ));
             
         } catch (Exception ex) {
-            // Registrar error
+
             syncControlService.registrarError("oficina", ex.getMessage());
             
             return ResponseEntity.internalServerError().body(Map.of(
@@ -501,14 +535,10 @@ public class OficinaController {
         }
     }
 
-    /**
-     * ✅ OPTIMIZACIÓN: Cargar todas las oficinas en memoria (1 sola consulta)
-     */
     private Map<String, Oficina> cargarOficinasEnCache(Short gestion) {
         List<Oficina> todas;
         
         if (gestion != null) {
-            // Filtrar por gestión de la entidad relacionada
             todas = oficinaService.findAll().stream()
                 .filter(o -> o.getPredio() != null && 
                            o.getPredio().getEntidad() != null &&
@@ -518,7 +548,6 @@ public class OficinaController {
             todas = oficinaService.findAll();
         }
         
-        // Crear mapa con clave: "predioId-codOfi"
         return todas.stream()
             .collect(Collectors.toMap(
                 o -> o.getPredio().getIdPredio() + "-" + o.getCodOfi(),
@@ -527,9 +556,6 @@ public class OficinaController {
             ));
     }
 
-    /**
-     * ✅ ENDPOINT AJAX para obtener info de sincronización
-     */
     @GetMapping("/sync-info")
     @ResponseBody
     public ResponseEntity<?> obtenerInfoSync() {
@@ -570,7 +596,6 @@ public class OficinaController {
         }
     }
 
-    // ✅ Métodos auxiliares
     private Entidad resolverEntidad(Short gestionPreferida, String codigo) {
         String cod = codigo.trim();
         String codNoZeros = stripLeftZeros(codigo);
@@ -605,9 +630,7 @@ public class OficinaController {
         }
     }
 
-    // si tu UNIDAD en BD está normalizada (trim/upper):
     private String normUnidad(String u) {
         return u == null ? null : u.trim();
     }
-
 }
