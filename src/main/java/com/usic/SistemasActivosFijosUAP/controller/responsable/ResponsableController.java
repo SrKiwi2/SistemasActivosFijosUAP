@@ -646,9 +646,10 @@ public class ResponsableController {
 
                     if (persona == null) {
                         log.debug("→ Procesando nombre: '{}'", f.getNombre());
-                        String nombre = extractNombre(f.getNombre());
-                        String paterno = extractPaterno(f.getNombre());
-                        String materno = extractMaterno(f.getNombre());
+                        String[] partes = procesarNombreCompleto(f.getNombre());
+                        String nombre = partes[0];
+                        String paterno = partes[1];
+                        String materno = partes[2];
 
                         // ⚠️ Validar que al menos tenga nombre
                         if (nombre == null || nombre.isEmpty()) {
@@ -687,9 +688,10 @@ public class ResponsableController {
                     
                     log.debug("→ Procesando nombre SIN CI: '{}'", nombreOriginal);
 
-                    String nombre = extractNombre(nombreOriginal);
-                    String paterno = extractPaterno(nombreOriginal);
-                    String materno = extractMaterno(nombreOriginal);
+                    String[] partes = procesarNombreCompleto(nombreOriginal);
+                    String nombre = partes[0];
+                    String paterno = partes[1];
+                    String materno = partes[2];
 
                     log.debug("→ Resultado extracción: nombre='{}', paterno='{}', materno='{}'", 
                         nombre, paterno, materno);
@@ -698,15 +700,13 @@ public class ResponsableController {
                         log.warn("⚠️ ALERTA: extractNombre() retornó vacío de: '{}' - Usando original completo", 
                             nombreOriginal);
                         nombre = nombreOriginal;
-                        paterno = null;
-                        materno = null;
                     }
 
                     String nombreCompletoNorm = String.join(" ", 
                         nombre, 
                         paterno != null && !paterno.isEmpty() ? paterno : "", 
                         materno != null && !materno.isEmpty() ? materno : ""
-                    ).trim().toUpperCase();
+                    ).trim().replaceAll("\\s+", " ");
 
                     // Buscar en caché por nombre
                     persona = personasCache.get("NOMBRE:" + nombreCompletoNorm);
@@ -715,9 +715,7 @@ public class ResponsableController {
                         // Buscar en BD por nombre completo
 
                         persona = personaService.buscarPersonaPorNombreCompletoUno(
-                            nombre, 
-                            paterno != null && !paterno.isEmpty() ? paterno : null, 
-                            materno != null && !materno.isEmpty() ? materno : null
+                            nombre, paterno, materno
                         );
 
                         if (persona == null) {
@@ -1093,131 +1091,6 @@ public class ResponsableController {
         }
     }
 
-    // ===== MÉTODOS AUXILIARES =====
-    
-    /**
-     * Extrae apellido paterno del nombre completo
-     */
-    private String extractPaterno(String nombreCompleto) {
-        if (nombreCompleto == null || nombreCompleto.isBlank()) {
-            return "";
-        }
-        
-        String limpio = limpiarNombre(nombreCompleto);
-        String[] partes = limpio.split("\\s+");
-        
-        if (partes.length <= 1) {
-            // Solo 1 palabra → Sin apellido paterno
-            return "";
-        } else if (partes.length == 2) {
-            // 2 palabras → Segunda es paterno
-            return partes[1];
-        } else if (partes.length == 3) {
-            // 3 palabras → Segunda es paterno
-            return partes[1];
-        } else {
-            // 4+ palabras → Tercera es paterno
-            return partes[2];
-        }
-    }
-
-    /**
-     * Extrae apellido materno del nombre completo
-     */
-    private String extractMaterno(String nombreCompleto) {
-        if (nombreCompleto == null || nombreCompleto.isBlank()) {
-            return "";
-        }
-        
-        String limpio = limpiarNombre(nombreCompleto);
-        String[] partes = limpio.split("\\s+");
-        
-        if (partes.length <= 2) {
-            // 1 o 2 palabras → Sin apellido materno
-            return "";
-        } else if (partes.length == 3) {
-            // 3 palabras → Tercera es materno
-            return partes[2];
-        } else {
-            // 4+ palabras → Cuarta en adelante es materno
-            // Unir el resto con espacios
-            StringBuilder materno = new StringBuilder();
-            for (int i = 3; i < partes.length; i++) {
-                if (i > 3) materno.append(" ");
-                materno.append(partes[i]);
-            }
-            return materno.toString();
-        }
-    }
-
-
-    // HELPERS
-
-    /**
-     * Extrae el primer nombre de un nombre completo
-     * Ej: "JORGE ARROYO ZABALA" → "JORGE"
-     */
-    private String extractNombre(String nombreCompleto) {
-        if (nombreCompleto == null || nombreCompleto.isBlank()) {
-            return "";
-        }
-        
-        // 🧹 Limpiar caracteres especiales pero mantener estructura
-        String limpio = limpiarNombre(nombreCompleto);
-        
-        // ⚠️ Si después de limpiar queda vacío, retornar original
-        if (limpio.isEmpty()) {
-            log.warn("⚠️ limpiarNombre() vació el texto, retornando original: '{}'", nombreCompleto);
-            return nombreCompleto.trim();
-        }
-        
-        String[] partes = limpio.split("\\s+");
-        
-        if (partes.length == 0) {
-            // ⚠️ Si split() no genera partes, retornar limpio completo
-            return limpio.isEmpty() ? nombreCompleto.trim() : limpio;
-        } else if (partes.length == 1) {
-            // Solo 1 palabra → Todo es nombre
-            return partes[0];
-        } else if (partes.length == 2) {
-            // 2 palabras → Primera es nombre
-            return partes[0];
-        } else if (partes.length == 3) {
-            // 3 palabras → Primera es nombre
-            return partes[0];
-        } else {
-            // 4+ palabras → Primeras 2 son nombre compuesto
-            return partes[0] + " " + partes[1];
-        }
-    }
-
-    private String limpiarNombre(String nombre) {
-        if (nombre == null || nombre.isBlank()) {
-            return "";
-        }
-        
-        String limpio = nombre
-            .toUpperCase()                          // Mayúsculas
-            .replaceAll("[ÁÀÄÂÃ]", "A")            // Normalizar acentos (agregué Ã)
-            .replaceAll("[ÉÈËÊ]", "E")
-            .replaceAll("[ÍÌÏÎ]", "I")
-            .replaceAll("[ÓÒÖÔÕ]", "O")            // Agregué Õ
-            .replaceAll("[ÚÙÜÛ]", "U")
-            .replaceAll("[Ñ]", "N")
-            .replaceAll("\\.", " ")                 // Reemplazar puntos por espacios
-            .replaceAll("-", " ")                   // Reemplazar guiones por espacios
-            .replaceAll("[^A-Z0-9\\s]", "")        // Eliminar otros caracteres especiales
-            .replaceAll("\\s+", " ")               // Normalizar espacios múltiples
-            .trim();
-        
-        // 🔍 DEBUG: Verificar resultado
-        if (limpio.isEmpty()) {
-            log.warn("⚠️ limpiarNombre() retornó VACÍO para input: '{}'", nombre);
-        }
-        
-        return limpio;
-    }
-
     private static String nvl(String s) {
         return s == null ? "" : s;
     }
@@ -1241,5 +1114,81 @@ public class ResponsableController {
         String paterno = parts[parts.length - 2];
         String materno = parts[parts.length - 1];
         return new String[] { nombre, paterno, materno };
+    }
+
+    // =========================================================================
+    // ✅ NUEVOS HELPERS OPTIMIZADOS (Pega esto al final de tu Controller)
+    // =========================================================================
+
+    /**
+     * Procesa un nombre completo y devuelve un arreglo de 3 posiciones:
+     * [0] = Nombre(s)
+     * [1] = Apellido Paterno
+     * [2] = Apellido Materno
+     */
+    private String[] procesarNombreCompleto(String nombreCompleto) {
+        // 1. Limpieza centralizada
+        String limpio = limpiarNombre(nombreCompleto);
+        
+        // Si está vacío, retornamos todo null
+        if (limpio.isEmpty()) {
+            return new String[]{null, null, null};
+        }
+
+        String[] partes = limpio.split("\\s+");
+        int n = partes.length;
+
+        String nombre;
+        String paterno = null;
+        String materno = null;
+
+        if (n == 1) {
+            // Caso: "JUAN" -> Solo nombre
+            nombre = partes[0];
+        } 
+        else if (n == 2) {
+            // Caso: "JUAN PEREZ" -> Nombre y Paterno
+            nombre = partes[0];
+            paterno = partes[1];
+        } 
+        else {
+            // Caso 3+: "JUAN CARLOS PEREZ" o "JOHANES JOAQUIN OLIVEIRA MORENO"
+            // Lógica: Las últimas 2 palabras son siempre Paterno y Materno.
+            // Todo lo anterior es el Nombre.
+            
+            materno = partes[n - 1]; // Última palabra (MORENO)
+            paterno = partes[n - 2]; // Penúltima palabra (OLIVEIRA)
+            
+            // Unir el resto para el nombre (JOHANES JOAQUIN)
+            // Usamos Arrays.copyOfRange para tomar desde el inicio hasta antes del paterno
+            nombre = String.join(" ", java.util.Arrays.copyOfRange(partes, 0, n - 2));
+        }
+
+        return new String[]{nombre, paterno, materno};
+    }
+
+    private String limpiarNombre(String nombre) {
+        if (nombre == null || nombre.isBlank()) {
+            return "";
+        }
+        
+        // Optimizamos la limpieza encadenando los replace
+        String limpio = nombre.toUpperCase().trim();
+        
+        limpio = limpio
+            .replace("Á", "A")
+            .replace("É", "E")
+            .replace("Í", "I")
+            .replace("Ó", "O")
+            .replace("Ú", "U")
+            .replace("Ñ", "N") // Mantenemos tu lógica de quitar la Ñ
+            .replace("-", " ")
+            .replace(".", " ");
+
+        // Eliminar todo lo que no sea letra o número
+        limpio = limpio.replaceAll("[^A-Z0-9\\s]", "");
+        
+        // Eliminar espacios dobles
+        return limpio.replaceAll("\\s+", " ").trim();
     }
 }
