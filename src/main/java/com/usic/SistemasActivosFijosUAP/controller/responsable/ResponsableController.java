@@ -567,7 +567,7 @@ public class ResponsableController {
             var filas = dbfService.listarResponsableAll(q);
             log.info("✅ Total registros leídos del DBF: {}", filas.size());
             
-            // 2️⃣ Cargar caché de entidades relacionadas (1 consulta cada una)
+            // 2️⃣ Cargar caché
             Map<String, Oficina> oficinasCache = cargarOficinasEnCache();
             Map<String, Persona> personasCache = cargarPersonasEnCache();
             Map<String, Cargo> cargosCache = cargarCargosEnCache();
@@ -575,10 +575,10 @@ public class ResponsableController {
             
             int inserted = 0, updated = 0, skipped = 0;
             int sinOficina = 0, personasCreadas = 0, cargosCreados = 0;
-            int camposNulos = 0;          // ← NUEVO
-            int duplicadosDbf = 0;        // ← NUEVO
-            int sinCi = 0;                // ← NUEVO
-            int colisionesCache = 0;      // ← NUEVO
+            int camposNulos = 0;
+            int duplicadosDbf = 0;
+            int sinCi = 0;
+            int colisionesCache = 0;
 
             List<Responsable> batch = new ArrayList<>(500);
             Set<String> seenKeys = new HashSet<>(filas.size());
@@ -589,315 +589,197 @@ public class ResponsableController {
 
             for (var f : filas) {
 
-                if (inserted + updated < 5) {
-                    log.info("═══ REGISTRO #{} ═══", inserted + updated + 1);
-                    log.info("ENTIDAD: {}", f.getEntidadCodigo());
-                    log.info("UNIDAD: {}", f.getUnidad());
-                    log.info("CODOFIC: {}", f.getCodOfi());
-                    log.info("NOMRESP: '{}'", f.getNombre());
-                    log.info("CI: '{}'", f.getCi());
-                    log.info("CARGO: '{}'", f.getCargo());
-                    log.info("═══════════════════════");
-                }
-
                 // ✅ Validar campos obligatorios
                 if (f.getEntidadCodigo() == null || f.getUnidad() == null || f.getCodOfi() == null) {
                     camposNulos++;
-                    log.debug("❌ Registro con campos nulos: {}", f);
                     continue;
                 }
 
-                // 3️⃣ Detectar duplicados en el DBF
-                String keyDbf = f.getEntidadCodigo() + "|" + f.getUnidad() + "|" + f.getCodOfi();
+                // 3️⃣ Detectar duplicados en el DBF (CORREGIDO)
+                // ⚠️ AHORA INCLUIMOS EL CODRESP PARA DIFERENCIAR REGISTROS EN LA MISMA OFICINA
+                String keyDbf = f.getEntidadCodigo() + "|" + 
+                                f.getUnidad() + "|" + 
+                                f.getCodOfi() + "|" + 
+                                (f.getCodResp() != null ? f.getCodResp() : "NULL");
+
                 if (!seenKeys.add(keyDbf)) {
                     duplicadosDbf++;
-                    log.debug("⚠️ Duplicado detectado en DBF: {}", keyDbf);
+                    // Solo logueamos si es un duplicado real exacto
+                    log.debug("⚠️ Duplicado REAL detectado en DBF: {}", keyDbf);
                     continue;
                 }
 
-                // 4️⃣ Resolver Oficina (clave: entidad|unidad|codOfi)
-                String keyOficina = keyDbf;
+                // 4️⃣ Resolver Oficina
+                // La clave de oficina sigue siendo solo por ubicación (sin codResp)
+                String keyOficina = f.getEntidadCodigo() + "|" + f.getUnidad() + "|" + f.getCodOfi();
                 Oficina oficina = oficinasCache.get(keyOficina);
+                
                 if (oficina == null) {
                     sinOficina++;
-                    registrosSinOficina.add(String.format(
-                        "ENTIDAD=%s, UNIDAD=%s, CODOFIC=%d, NOMBRE=%s",
-                        f.getEntidadCodigo(), f.getUnidad(), f.getCodOfi(), 
-                        f.getNombre()
-                    ));
-                    log.warn("❌ Sin oficina: {} - {}", keyOficina, f.getNombre());
+                    registrosSinOficina.add("OFICINA NO ENCONTRADA: " + keyOficina + " - " + f.getNombre());
                     continue;
                 }
 
-                // 5️⃣ Crear o buscar Persona (por CI o nombre completo)
+                // 5️⃣ Resolver Persona (LÓGICA MEJORADA)
                 Persona persona = null;
-
-                log.debug("═══ DEBUG REGISTRO DBF ═══");
-                log.debug("NOMRESP del DBF: '{}'", f.getNombre());
-                log.debug("CI del DBF: '{}'", f.getCi());
-                log.debug("═══════════════════════════");
-
                 boolean tieneCiValido = esCiValido(f.getCi());
 
                 if (tieneCiValido) {
-
                     String ciNorm = f.getCi().trim().replaceAll("[.\\-\\s]", "").toUpperCase();
                     persona = personasCache.get(ciNorm);
 
                     if (persona == null) {
-                        log.debug("→ Procesando nombre: '{}'", f.getNombre());
+                        // CREAR NUEVA PERSONA CON CI
                         String[] partes = procesarNombreCompleto(f.getNombre());
-                        String nombre = partes[0];
-                        String paterno = partes[1];
-                        String materno = partes[2];
-
-                        // ⚠️ Validar que al menos tenga nombre
-                        if (nombre == null || nombre.isEmpty()) {
-                            log.warn("⚠️ ALERTA: Nombre extraído VACÍO de: '{}' - Usando 'SIN DATOS'", 
-                                f.getNombre());
-                            nombre = "SIN DATOS";
-                        }
-
-                        // Crear persona nueva
+                        String nombre = partes[0] == null || partes[0].isEmpty() ? "SIN DATOS" : partes[0];
+                        
                         persona = new Persona();
                         persona.setNombre(nombre);
-                        persona.setPaterno(paterno != null && !paterno.isEmpty() ? paterno : null);
-                        persona.setMaterno(materno != null && !materno.isEmpty() ? materno : null);
+                        persona.setPaterno(partes[1]);
+                        persona.setMaterno(partes[2]);
                         persona.setCi(ciNorm);
                         persona.setEstado("ACTIVO");
                         persona = personaService.save(persona);
 
                         personasCache.put(ciNorm, persona);
-
-                        String nombreCompleto = String.join(" ", 
-                            nombre, 
-                            paterno != null && !paterno.isEmpty() ? paterno : "", 
-                            materno != null && !materno.isEmpty() ? materno : ""
-                        ).trim().toUpperCase();
-                        personasCache.put("NOMBRE:" + nombreCompleto, persona);
-
                         personasCreadas++;
-                        log.info("✅ Persona creada CON CI: {} - Nombre='{}', Paterno='{}', Materno='{}'", 
-                            ciNorm, nombre, paterno, materno);
                     } else {
-                        // SI EXISTE, VERIFICAR SI TIENE DATOS "BASURA" Y ACTUALIZAR
-                        
+                        // ♻️ REPARACIÓN AUTOMÁTICA DE NOMBRES "SIN DATOS"
                         boolean nombreInvalido = "SIN DATOS".equals(persona.getNombre()) 
                                                 || persona.getNombre() == null 
                                                 || persona.getNombre().isBlank();
-                        
-                        // Si la persona en BD no tiene nombre, pero el DBF sí trae nombre... ¡ACTUALIZAR!
-                        if (nombreInvalido && f.getNombre() != null && !f.getNombre().isBlank()) {
-                            
-                            log.info("♻️ Reparando Persona ID {} (CI {}): De '{}' a '{}'", 
-                                persona.getIdPersona(), ciNorm, persona.getNombre(), f.getNombre());
 
+                        if (nombreInvalido && f.getNombre() != null && !f.getNombre().isBlank()) {
+                            log.info("♻️ Reparando nombre Persona ID {}: '{}'", persona.getIdPersona(), f.getNombre());
                             String[] partes = procesarNombreCompleto(f.getNombre());
-                            
                             persona.setNombre(partes[0]);
                             persona.setPaterno(partes[1]);
                             persona.setMaterno(partes[2]);
-                            
-                            // Guardamos la actualización
                             persona = personaService.save(persona);
-                            
-                            // Actualizamos caché para que no haya inconsistencia
-                            personasCache.put(ciNorm, persona);
-                        } else {
-                            log.debug("🔍 Persona encontrada y válida por CI: {}", ciNorm);
+                            personasCache.put(ciNorm, persona); // Actualizar caché
                         }
                     }
-
                 } else if (f.getNombre() != null && !f.getNombre().isBlank()) {
-                    String nombreOriginal = f.getNombre().trim().toUpperCase();
+                    // Lógica por Nombre (cuando no hay CI)
+                    String[] partes = procesarNombreCompleto(f.getNombre());
+                    String nombreCompletoNorm = String.join(" ", partes[0], nvl(partes[1]), nvl(partes[2])).trim();
                     
-                    log.debug("→ Procesando nombre SIN CI: '{}'", nombreOriginal);
-
-                    String[] partes = procesarNombreCompleto(nombreOriginal);
-                    String nombre = partes[0];
-                    String paterno = partes[1];
-                    String materno = partes[2];
-
-                    log.debug("→ Resultado extracción: nombre='{}', paterno='{}', materno='{}'", 
-                        nombre, paterno, materno);
-
-                    if (nombre == null || nombre.isEmpty()) {
-                        log.warn("⚠️ ALERTA: extractNombre() retornó vacío de: '{}' - Usando original completo", 
-                            nombreOriginal);
-                        nombre = nombreOriginal;
-                    }
-
-                    String nombreCompletoNorm = String.join(" ", 
-                        nombre, 
-                        paterno != null && !paterno.isEmpty() ? paterno : "", 
-                        materno != null && !materno.isEmpty() ? materno : ""
-                    ).trim().replaceAll("\\s+", " ");
-
-                    // Buscar en caché por nombre
                     persona = personasCache.get("NOMBRE:" + nombreCompletoNorm);
-
+                    
                     if (persona == null) {
-                        // Buscar en BD por nombre completo
-
-                        persona = personaService.buscarPersonaPorNombreCompletoUno(
-                            nombre, paterno, materno
-                        );
-
-                        if (persona == null) {
+                         // Buscar en BD
+                         persona = personaService.buscarPersonaPorNombreCompletoUno(partes[0], partes[1], partes[2]);
+                         if (persona == null) {
                             persona = new Persona();
-                            persona.setNombre(nombre);
-                            persona.setPaterno(paterno != null && !paterno.isEmpty() ? paterno : null);
-                            persona.setMaterno(materno != null && !materno.isEmpty() ? materno : null);
-                            persona.setCi(null);
+                            persona.setNombre(partes[0]);
+                            persona.setPaterno(partes[1]);
+                            persona.setMaterno(partes[2]);
                             persona.setEstado("ACTIVO");
                             persona = personaService.save(persona);
                             personasCreadas++;
-                            log.info("✅ Persona creada SIN CI: Nombre='{}', Paterno='{}', Materno='{}'", 
-                                nombre, paterno, materno);
-                        } else {
-                            log.debug("🔍 Persona encontrada en BD por nombre: {}", nombreCompletoNorm);
-                        }
-                        
-                        personasCache.put("NOMBRE:" + nombreCompletoNorm, persona);
-                    } else {
-                        log.debug("🔍 Persona encontrada en caché por nombre: {}", nombreCompletoNorm);
+                         }
+                         personasCache.put("NOMBRE:" + nombreCompletoNorm, persona);
                     }
                 } else {
-                    log.error("❌ CRÍTICO: Registro sin CI ni NOMRESP válido - DBF: '{}'", f.getNombre());
-                    // Buscar si ya existe persona "SIN DATOS" en caché
+                    // Fallback SIN DATOS
                     persona = personasCache.get("NOMBRE:SIN DATOS");
-                    
                     if (persona == null) {
-                        // Buscar en BD
                         persona = personaService.buscarPersonaPorNombreCompletoUno("SIN DATOS", null, null);
-                        
                         if (persona == null) {
-                            // Crear persona genérica UNA SOLA VEZ
-                            persona = new Persona();
-                            persona.setNombre("SIN DATOS");
-                            persona.setPaterno(null);
-                            persona.setMaterno(null);
-                            persona.setCi(null);
-                            persona.setEstado("ACTIVO");
-                            persona = personaService.save(persona);
-                            personasCreadas++;
-                            log.warn("⚠️ Persona genérica 'SIN DATOS' creada para registros sin información");
-                        } else {
-                            log.debug("🔍 Persona 'SIN DATOS' encontrada en BD");
+                             persona = new Persona();
+                             persona.setNombre("SIN DATOS");
+                             persona.setEstado("ACTIVO");
+                             persona = personaService.save(persona);
                         }
-                        
-                        // Agregar al caché para reutilización
                         personasCache.put("NOMBRE:SIN DATOS", persona);
-                    } else {
-                        log.debug("🔍 Persona 'SIN DATOS' encontrada en caché");
                     }
-                    
                     sinCi++;
-                    registrosSinCi.add(String.format(
-                        "OFICINA=%s, CARGO=%s, CI='%s', NOMBRE='%s' (asignado a 'SIN DATOS')",
-                        keyOficina, f.getCargo(), f.getCi(), f.getNombre()
-                    ));
-                    
                 }
 
-                // ✅ VALIDACIÓN CRÍTICA: Persona NUNCA debe ser NULL en este punto
-                if (persona == null) {
-                    log.error("❌ ERROR CRÍTICO: Persona es NULL después de procesamiento - Registro: {}", f);
-                    sinCi++;
-                    continue; // ⚠️ Saltar este registro como última medida de seguridad
-                }
+                if (persona == null) continue; // Safety check
 
-
-                // 6️⃣ Crear o buscar Cargo (por nombre)
+                // 6️⃣ Cargo
                 Cargo cargo = null;
                 if (f.getCargo() != null && !f.getCargo().isBlank()) {
-                    String keyCargoNorm = f.getCargo().toUpperCase().trim();
-                    cargo = cargosCache.get(keyCargoNorm);
+                    String keyCargo = f.getCargo().toUpperCase().trim();
+                    cargo = cargosCache.get(keyCargo);
                     if (cargo == null) {
-                        // Crear cargo nuevo
                         cargo = new Cargo();
                         cargo.setNombre(f.getCargo().trim());
                         cargo.setEstado("ACTIVO");
                         cargo = cargoService.save(cargo);
-                        cargosCache.put(keyCargoNorm, cargo);
+                        cargosCache.put(keyCargo, cargo);
                         cargosCreados++;
-                        log.info("Cargo creado: {}", f.getCargo());
                     }
                 }
 
-                // 7️⃣ Crear clave única para búsqueda en caché responsables
-                String clave = oficina.getIdOficina() + "|" + 
+                // 7️⃣ CLAVE ÚNICA DE RESPONSABLE
+                // Esta clave debe coincidir con tu @UniqueConstraint de la Entidad
+                // id_oficina + codigo_funcionario
+                String claveResponsable = oficina.getIdOficina() + "|" + 
                     (f.getCodResp() != null ? f.getCodResp().trim() : "NULL");
                 
-                Responsable responsable = responsablesCache.get(clave);
+                Responsable responsable = responsablesCache.get(claveResponsable);
 
                 if (responsable != null) {
-                    colisionesPorClave.merge(clave, 1, Integer::sum);
+                    colisionesPorClave.merge(claveResponsable, 1, Integer::sum);
                 }
                 
-                // 8️⃣ Determinar si es nuevo
                 boolean esNuevo = (responsable == null);
                 
                 if (esNuevo) {
                     responsable = new Responsable();
                     responsable.setOficina(oficina);
-                    responsable.setPersona(persona);
+                    // IMPORTANTE: Aquí asignamos la persona. 
+                    // Si ya existe la persona (RIMBERT), se reutiliza su ID.
+                    responsable.setPersona(persona); 
                     responsable.setCargo(cargo);
-
-                    responsablesCache.put(clave, responsable);
+                    responsablesCache.put(claveResponsable, responsable);
                 }
 
-                // 9️⃣ Mapear datos del DBF
+                // 9️⃣ Mapeo de datos
                 responsable.setCodigoFuncionario(f.getCodResp() != null ? f.getCodResp().trim() : null);
+                responsable.setPersona(persona); // Aseguramos actualización si la persona cambió (ej. reparación de SIN DATOS)
+                responsable.setCargo(cargo);     // Aseguramos actualización de cargo
                 
                 String observ = f.getObserv();
-                if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) {
-                    observ = null;
-                }
-                
+                if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) observ = null;
                 responsable.setObserv(observ);
+                
                 responsable.setFechaUlt(f.getFechaUlt());
-                responsable.setUsuario(f.getUsuario() != null 
-                    ? (f.getUsuario().length() > 60 ? f.getUsuario().substring(0, 60) : f.getUsuario())
-                    : null);
+                responsable.setUsuario(f.getUsuario());
                 responsable.setCodExp(f.getCodExp());
                 responsable.setApiEstado(f.getApiEstado());
                 responsable.setEstado("ACTIVO");
 
-                // 🔟 OPTIMIZACIÓN: Calcular hash y comparar
+                // 🔟 Hash Check
                 String nuevoHash = responsable.calcularHash();
-                
                 if (!esNuevo && !forzarCompleto) {
-                    // Verificar si realmente cambió
                     if (nuevoHash.equals(responsable.getHashDatos())) {
                         skipped++;
-                        continue; // ⭐ NO procesar si no hay cambios
+                        continue;
                     }
                 }
 
-                // 1️⃣1️⃣ Actualizar metadatos
                 responsable.setHashDatos(nuevoHash);
                 responsable.setFechaUltimaSync(LocalDateTime.now());
 
                 batch.add(responsable);
                 if (esNuevo) inserted++; else updated++;
 
-                // 1️⃣2️⃣ Guardar en lotes
                 if (batch.size() >= 500) {
                     responsableService.saveAll(batch);
                     batch.clear();
                 }
             }
             
-            // 1️⃣3️⃣ Guardar lote final
             if (!batch.isEmpty()) {
                 responsableService.saveAll(batch);
                 batch.clear();
             }
 
-            // 1️⃣4️⃣ Registrar en sync_control
+            // Registro Final
             long duracion = System.currentTimeMillis() - inicio;
-            
             SyncResult resultado = SyncResult.builder()
                 .totalLeidas(filas.size())
                 .insertados(inserted)
@@ -908,66 +790,16 @@ public class ResponsableController {
                 .build();
             
             syncControlService.registrarSincronizacion("responsable", resultado);
-
-            log.info("═══════════════════════════════════════════════════════");
-            log.info("📊 RESUMEN DE SINCRONIZACIÓN RESP.DBF");
-            log.info("═══════════════════════════════════════════════════════");
-            log.info("📖 Total leídos del DBF: {}", filas.size());
-            log.info("✅ Insertados: {}", inserted);
-            log.info("🔄 Actualizados: {}", updated);
-            log.info("⏭️  Omitidos (sin cambios): {}", skipped);
-            log.info("───────────────────────────────────────────────────────");
-            log.info("❌ Rechazados por campos nulos: {}", camposNulos);
-            log.info("🔁 Duplicados en DBF: {}", duplicadosDbf);
-            log.info("🏢 Sin oficina coincidente: {}", sinOficina);
-            log.info("👤 Sin CI: {}", sinCi);
-            log.info("⚠️  Colisiones de caché detectadas: {}", colisionesPorClave.size());
-            log.info("───────────────────────────────────────────────────────");
-            log.info("➕ Personas creadas: {}", personasCreadas);
-            log.info("💼 Cargos creados: {}", cargosCreados);
-            log.info("═══════════════════════════════════════════════════════");
-
-            // 📝 Mostrar registros problemáticos (primeros 10)
-            if (!registrosSinOficina.isEmpty()) {
-                log.warn("🏢 Registros SIN OFICINA (primeros 10):");
-                registrosSinOficina.stream().limit(10).forEach(r -> log.warn("  - {}", r));
-            }
             
-            if (!registrosSinCi.isEmpty()) {
-                log.info("👤 Registros SIN CI (primeros 10):");
-                registrosSinCi.stream().limit(10).forEach(r -> log.info("  - {}", r));
-            }
-            
-            if (!colisionesPorClave.isEmpty()) {
-                log.warn("⚠️  COLISIONES DE CACHÉ DETECTADAS (primeras 10):");
-                colisionesPorClave.entrySet().stream()
-                    .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                    .limit(10)
-                    .forEach(e -> log.warn("  - Clave: {} → {} colisiones", e.getKey(), e.getValue()));
-            }
-
-            // ✅ Respuesta con mapa extendido
+            // Retorno JSON
             Map<String, Object> response = resultado.toResponseMap();
             response.put("personasCreadas", personasCreadas);
-            response.put("cargosCreados", cargosCreados);
-            response.put("camposNulos", camposNulos);
             response.put("duplicadosDbf", duplicadosDbf);
-            response.put("sinCi", sinCi);
-            response.put("colisiones", colisionesPorClave.size());
-            response.put("registrosSinOficina", registrosSinOficina.size() <= 10 
-                ? registrosSinOficina 
-                : registrosSinOficina.subList(0, 10));
-            
             return ResponseEntity.ok(response);
-            
+
         } catch (Exception ex) {
-            log.error("Error en sincronización de RESP.DBF", ex);
-            syncControlService.registrarError("responsable", ex.getMessage());
-            
-            return ResponseEntity.internalServerError().body(Map.of(
-                "ok", false,
-                "message", "Error sincronizando RESPONSABLE: " + ex.getMessage()
-            ));
+            log.error("Error sync", ex);
+            return ResponseEntity.internalServerError().body(Map.of("error", ex.getMessage()));
         }
     }
 
