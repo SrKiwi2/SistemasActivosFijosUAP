@@ -578,7 +578,7 @@ public class JavaDbfService {
                     case "UNIDAD" -> idxUNI = i;
                     case "CODOFIC" -> idxCODOFI = i;
                     case "CODRESP" -> idxCODRESP = i;
-                    case "NOMBRESP" -> idxNOMBRE = i;
+                    case "NOMRESP" -> idxNOMBRE = i;
                     case "CARGO" -> idxCARGO = i;
                     case "OBSERV" -> idxOBS = i;
                     case "CI" -> idxCI = i;
