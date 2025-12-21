@@ -52,52 +52,52 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
     long countActivos();
 
     @Query(value = """
-        select
-            r.id_responsable              as idResponsable,
-            as_text(r.codigo_funcionario) as codFun,
-            as_text(p.nombre)             as nombre,
-            as_text(p.paterno)            as paterno,
-            as_text(p.materno)            as materno,
-            as_text(p.ci)                 as ci,
-            (o.cod_ofi)::text             as oficina,
-            as_text(c.nombre)             as cargo
-        from responsable r
-        left join persona  p on p.id_persona = r.id_persona
-        left join oficina  o on o.id_oficina = r.id_oficina
-        left join cargo    c on c.id_cargo   = r.id_cargo
-        where r._estado = 'ACTIVO'
-            and ( :oficinaId is null or o.id_oficina = :oficinaId )
-            and (
-            :q is null
-            or as_text(r.codigo_funcionario) ilike concat('%', :q, '%')
-            or as_text(p.nombre)             ilike concat('%', :q, '%')
-            or as_text(p.paterno)            ilike concat('%', :q, '%')
-            or as_text(p.materno)            ilike concat('%', :q, '%')
-            or as_text(p.ci)                 ilike concat('%', :q, '%')
-            or (o.cod_ofi)::text             ilike concat('%', :q, '%')
-            or as_text(c.nombre)             ilike concat('%', :q, '%')
+        SELECT
+            r.id_responsable          as idResponsable,
+            r.codigo_funcionario      as codFun,
+            p.nombre                  as nombre,
+            p.paterno                 as paterno,
+            p.materno                 as materno,
+            p.ci                      as ci,
+            (o.cod_ofi)::text         as oficina,
+            c.nombre                  as cargo
+        FROM responsable r
+        LEFT JOIN persona  p ON p.id_persona = r.id_persona
+        LEFT JOIN oficina  o ON o.id_oficina = r.id_oficina
+        LEFT JOIN cargo    c ON c.id_cargo   = r.id_cargo
+        WHERE r.estado = 'ACTIVO'
+            AND ( :oficinaId IS NULL OR o.id_oficina = :oficinaId )
+            AND (
+                :q IS NULL OR :q = '' OR
+                r.codigo_funcionario      ILIKE CONCAT('%', :q, '%') OR
+                p.nombre                  ILIKE CONCAT('%', :q, '%') OR
+                p.paterno                 ILIKE CONCAT('%', :q, '%') OR
+                p.materno                 ILIKE CONCAT('%', :q, '%') OR
+                p.ci                      ILIKE CONCAT('%', :q, '%') OR
+                (o.cod_ofi)::text         ILIKE CONCAT('%', :q, '%') OR
+                c.nombre                  ILIKE CONCAT('%', :q, '%')
             )
-        order by r.id_responsable desc
-        limit :#{#pageable.pageSize}
-        offset :#{#pageable.offset}
+        ORDER BY r.id_responsable DESC
+        LIMIT :#{#pageable.pageSize}
+        OFFSET :#{#pageable.offset}
         """,
         countQuery = """
-        select count(*)
-        from responsable r
-        left join persona  p on p.id_persona = r.id_persona
-        left join oficina  o on o.id_oficina = r.id_oficina
-        left join cargo    c on c.id_cargo   = r.id_cargo
-        where r._estado = 'ACTIVO'
-            and ( :oficinaId is null or o.id_oficina = :oficinaId )
-            and (
-            :q is null
-            or as_text(r.codigo_funcionario) ilike concat('%', :q, '%')
-            or as_text(p.nombre)             ilike concat('%', :q, '%')
-            or as_text(p.paterno)            ilike concat('%', :q, '%')
-            or as_text(p.materno)            ilike concat('%', :q, '%')
-            or as_text(p.ci)                 ilike concat('%', :q, '%')
-            or (o.cod_ofi)::text             ilike concat('%', :q, '%')
-            or as_text(c.nombre)             ilike concat('%', :q, '%')
+        SELECT count(*)
+        FROM responsable r
+        LEFT JOIN persona  p ON p.id_persona = r.id_persona
+        LEFT JOIN oficina  o ON o.id_oficina = r.id_oficina
+        LEFT JOIN cargo    c ON c.id_cargo   = r.id_cargo
+        WHERE r.estado = 'ACTIVO'
+            AND ( :oficinaId IS NULL OR o.id_oficina = :oficinaId )
+            AND (
+                :q IS NULL OR :q = '' OR
+                r.codigo_funcionario      ILIKE CONCAT('%', :q, '%') OR
+                p.nombre                  ILIKE CONCAT('%', :q, '%') OR
+                p.paterno                 ILIKE CONCAT('%', :q, '%') OR
+                p.materno                 ILIKE CONCAT('%', :q, '%') OR
+                p.ci                      ILIKE CONCAT('%', :q, '%') OR
+                (o.cod_ofi)::text         ILIKE CONCAT('%', :q, '%') OR
+                c.nombre                  ILIKE CONCAT('%', :q, '%')
             )
         """,
         nativeQuery = true)
