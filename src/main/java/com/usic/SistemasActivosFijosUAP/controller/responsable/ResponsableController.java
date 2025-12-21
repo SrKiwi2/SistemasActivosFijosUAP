@@ -594,7 +594,7 @@ public class ResponsableController {
                     log.info("ENTIDAD: {}", f.getEntidadCodigo());
                     log.info("UNIDAD: {}", f.getUnidad());
                     log.info("CODOFIC: {}", f.getCodOfi());
-                    log.info("NOMBRESP: '{}'", f.getNombre());
+                    log.info("NOMRESP: '{}'", f.getNombre());
                     log.info("CI: '{}'", f.getCi());
                     log.info("CARGO: '{}'", f.getCargo());
                     log.info("═══════════════════════");
@@ -633,7 +633,7 @@ public class ResponsableController {
                 Persona persona = null;
 
                 log.debug("═══ DEBUG REGISTRO DBF ═══");
-                log.debug("NOMBRESP del DBF: '{}'", f.getNombre());
+                log.debug("NOMRESP del DBF: '{}'", f.getNombre());
                 log.debug("CI del DBF: '{}'", f.getCi());
                 log.debug("═══════════════════════════");
 
@@ -680,7 +680,32 @@ public class ResponsableController {
                         log.info("✅ Persona creada CON CI: {} - Nombre='{}', Paterno='{}', Materno='{}'", 
                             ciNorm, nombre, paterno, materno);
                     } else {
-                        log.debug("🔍 Persona encontrada en caché por CI: {}", ciNorm);
+                        // SI EXISTE, VERIFICAR SI TIENE DATOS "BASURA" Y ACTUALIZAR
+                        
+                        boolean nombreInvalido = "SIN DATOS".equals(persona.getNombre()) 
+                                                || persona.getNombre() == null 
+                                                || persona.getNombre().isBlank();
+                        
+                        // Si la persona en BD no tiene nombre, pero el DBF sí trae nombre... ¡ACTUALIZAR!
+                        if (nombreInvalido && f.getNombre() != null && !f.getNombre().isBlank()) {
+                            
+                            log.info("♻️ Reparando Persona ID {} (CI {}): De '{}' a '{}'", 
+                                persona.getIdPersona(), ciNorm, persona.getNombre(), f.getNombre());
+
+                            String[] partes = procesarNombreCompleto(f.getNombre());
+                            
+                            persona.setNombre(partes[0]);
+                            persona.setPaterno(partes[1]);
+                            persona.setMaterno(partes[2]);
+                            
+                            // Guardamos la actualización
+                            persona = personaService.save(persona);
+                            
+                            // Actualizamos caché para que no haya inconsistencia
+                            personasCache.put(ciNorm, persona);
+                        } else {
+                            log.debug("🔍 Persona encontrada y válida por CI: {}", ciNorm);
+                        }
                     }
 
                 } else if (f.getNombre() != null && !f.getNombre().isBlank()) {
@@ -738,7 +763,7 @@ public class ResponsableController {
                         log.debug("🔍 Persona encontrada en caché por nombre: {}", nombreCompletoNorm);
                     }
                 } else {
-                    log.error("❌ CRÍTICO: Registro sin CI ni NOMBRESP válido - DBF: '{}'", f.getNombre());
+                    log.error("❌ CRÍTICO: Registro sin CI ni NOMRESP válido - DBF: '{}'", f.getNombre());
                     // Buscar si ya existe persona "SIN DATOS" en caché
                     persona = personasCache.get("NOMBRE:SIN DATOS");
                     
