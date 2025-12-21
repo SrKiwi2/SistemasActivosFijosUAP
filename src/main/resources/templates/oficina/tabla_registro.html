@@ -67,17 +67,16 @@
                     </td>
                     <td th:text="${oficina.nombre}"></td>
                     <td class="text-center">
-                        <div class="d-flex justify-content-center align-items-center gap-2">
+                        <div class="d-flex justify-content-center align-items-center gap-1">
                             
-                            <div th:if="${oficina.idOficina != null}" class="btn-group btn-group-sm" role="group">
+                            <div th:if="${oficina.idOficina != null}" class="btn-group btn-group-sm">
                                 <button type="button" class="btn btn-primary btn-editar-oficina"
                                     th:data-id="${id_encryptado[index.index]}" data-bs-toggle="modal"
-                                    data-bs-target="#modalFormularioOficina" title="Editar oficina">
-                                    <i class="fa-solid fa-pen-to-square"></i>
+                                    data-bs-target="#modalFormularioOficina">
+                                    <i class="fa-solid fa-pen"></i>
                                 </button>
                                 <button type="button" class="btn btn-danger btn-eliminar-oficina"
-                                    th:data-id="${id_encryptado[index.index]}" th:data-nombre="${oficina.nombre}"
-                                    title="Eliminar oficina">
+                                    th:data-id="${id_encryptado[index.index]}" th:data-nombre="${oficina.nombre}">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
                             </div>
@@ -85,17 +84,11 @@
                             <div th:if="${oficina.idOficina != null and !oficina.existeEnDbf}">
                                 <button type="button" class="btn btn-warning btn-sm btn-subir-dbf"
                                     th:data-id="${id_encryptado[index.index]}"
-                                    data-bs-toggle="tooltip" title="⚠️ NO ESTÁ EN EL DBF. Clic para subirlo ahora.">
+                                    data-bs-toggle="tooltip" title="Registro no encontrado en DBF. Click para subir.">
                                     <i class="fa-solid fa-cloud-arrow-up"></i>
                                 </button>
                             </div>
 
-                            <div th:if="${oficina.idOficina == null}">
-                                <span class="badge bg-warning" data-bs-toggle="tooltip"
-                                    title="Registro solo lectura desde DBF. Sincronice para poder editar.">
-                                    <i class="fa-solid fa-lock"></i>
-                                </span>
-                            </div>
                         </div>
                     </td>
                 </tr>
@@ -147,38 +140,32 @@
 
     // Evento para el botón de subir al DBF
     $(document).on('click', '.btn-subir-dbf', function() {
-        const idEncriptado = $(this).data('id');
-        
+        const idEnc = $(this).data('id');
         Swal.fire({
-            title: '¿Subir a OFICINA.DBF?',
-            text: "Este registro existe en la base de datos pero NO en el archivo DBF. ¿Desea insertarlo ahora?",
+            title: 'Sincronizar DBF',
+            text: "Esta oficina existe en el sistema pero no en el archivo DBF. ¿Desea registrarla ahora?",
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#ffc107', // Amarillo warning
-            confirmButtonText: 'Sí, subir ahora',
-            cancelButtonText: 'Cancelar'
+            confirmButtonText: 'Sí, registrar',
+            confirmButtonColor: '#ffc107'
         }).then((result) => {
             if (result.isConfirmed) {
-                showGlobalLoader({ texto: 'Escribiendo en DBF...' });
-                
+                showGlobalLoader({ texto: 'Registrando...' });
                 $.ajax({
                     type: 'POST',
-                    url: '/administracion/oficina/subir-dbf/' + idEncriptado,
-                    success: function (res) {
-                        hideGlobalLoader();
-                        if (res.ok) {
-                            Swal.fire('¡Sincronizado!', res.msg, 'success');
-                            cargarTabla(); // Recargar para que desaparezca el botón de alerta
+                    url: '/administracion/oficina/subir-dbf/' + idEnc,
+                    success: function(res) {
+                        if(res.ok) {
+                            Swal.fire('Éxito', res.msg, 'success');
+                            cargarTabla(); // Recargar para quitar el icono
                         } else {
-                            Swal.fire('Error', res.msg, 'error');
+                            Swal.fire('Atención', res.msg, 'warning');
                         }
                     },
-                    error: function (xhr) {
-                        hideGlobalLoader();
-                        let msg = 'Ocurrió un error inesperado';
-                        if(xhr.responseJSON && xhr.responseJSON.msg) msg = xhr.responseJSON.msg;
-                        Swal.fire('Error', msg, 'error');
-                    }
+                    error: function(xhr) {
+                        Swal.fire('Error', 'Falló el registro', 'error');
+                    },
+                    complete: hideGlobalLoader
                 });
             }
         });

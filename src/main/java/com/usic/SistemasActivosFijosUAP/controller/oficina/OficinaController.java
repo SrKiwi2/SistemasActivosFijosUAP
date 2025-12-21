@@ -89,67 +89,74 @@ public class OficinaController {
     @PostMapping("/tabla-registros")
     public String tablaRegistros_oficina(Model model,
             @RequestParam(name = "q", required = false) String q,
-            @RequestParam(name = "gestion", required = false) Short gestionPreferida) throws Exception {
+            @RequestParam(name = "gestion", required = false) Short gestionPreferida) {
 
-        // 1. Obtener datos de la Base de Datos
-        List<Oficina> listasOficinas = oficinaService.buscarPorQ(q);
-        
-        // 2. Lógica de Verificación Cruzada (BD vs DBF)
-        if (listasOficinas != null && !listasOficinas.isEmpty()) {
-            try {
-                // Leemos el DBF actual (usamos null en q para traer todos los códigos y comparar bien)
+        try {
+            // 1. Cargar datos de la BD
+            List<Oficina> listasOficinas = oficinaService.buscarPorQ(q);
+            
+            // 2. Comparación Cruzada (BD vs DBF)
+            if (listasOficinas != null && !listasOficinas.isEmpty()) {
+                
+                // Leemos el DBF (Ahora el método es seguro y saltará la fila 850)
                 var filasDbf = dbfService.listarOficinaAll(null); 
                 
-                // Creamos un Set de claves únicas del DBF para búsqueda instantánea
+                log.info("📊 Oficinas leídas correctamente del DBF: {}", filasDbf.size());
+
+                // Crear Set de claves únicas del DBF
                 Set<String> clavesDbf = filasDbf.stream()
-                    .map(f -> generarClave(f.getEntidadCodigo(), f.getUnidad(), f.getCodOfi()))
+                    .map(f -> generarClaveUnica(f.getEntidadCodigo(), f.getUnidad(), f.getCodOfi()))
                     .collect(Collectors.toSet());
 
-                // Recorremos la lista de BD y marcamos los que faltan
+                // Verificar BD
                 for (Oficina o : listasOficinas) {
                     if (o.getPredio() != null && o.getPredio().getEntidad() != null) {
                         String ent = o.getPredio().getEntidad().getEntidadCodigo();
-                        String uni = o.getPredio().getUnidad(); 
-                        // Ajuste por si usas el código de predio como unidad
+                        String uni = o.getPredio().getUnidad();
                         if (o.getPredio().getCodigo() != null) uni = o.getPredio().getCodigo();
                         
-                        String claveBd = generarClave(ent, uni, o.getCodOfi());
+                        String claveBd = generarClaveUnica(ent, uni, o.getCodOfi());
                         
-                        // SI LA CLAVE NO ESTÁ EN EL SET DEL DBF -> FALTA
+                        // Si la clave NO está en el DBF, marcamos false
                         if (!clavesDbf.contains(claveBd)) {
                             o.setExisteEnDbf(false); 
+                        } else {
+                            o.setExisteEnDbf(true);
                         }
                     } else {
                         o.setExisteEnDbf(false); // Datos incompletos
                     }
                 }
-            } catch (Exception e) {
-                log.error("No se pudo verificar contra DBF: " + e.getMessage());
             }
-        }
 
-        // 3. Encriptación de IDs (Tu lógica original)
-        List<String> encryptedIds = new ArrayList<>();
-        if (listasOficinas != null) {
-            for (Oficina o : listasOficinas) {
-                encryptedIds.add(o.getIdOficina() == null 
-                    ? "" 
-                    : Encriptar.encrypt(Long.toString(o.getIdOficina())));
+            // 3. Encriptación IDs
+            List<String> encryptedIds = new ArrayList<>();
+            if (listasOficinas != null) {
+                for (Oficina o : listasOficinas) {
+                    encryptedIds.add(o.getIdOficina() == null 
+                        ? "" 
+                        : Encriptar.encrypt(Long.toString(o.getIdOficina())));
+                }
             }
-        }
 
-        model.addAttribute("listasOficinas", listasOficinas);
-        model.addAttribute("id_encryptado", encryptedIds);
-        model.addAttribute("sourceUsed", "db"); // Siempre mostramos la BD enriquecida
+            model.addAttribute("listasOficinas", listasOficinas);
+            model.addAttribute("id_encryptado", encryptedIds);
+            model.addAttribute("sourceUsed", "db");
+
+        } catch (Exception e) {
+            log.error("Error cargando tabla oficinas", e);
+            model.addAttribute("error", "Error cargando datos: " + e.getMessage());
+        }
         
         return "oficina/tabla_registro";
     }
 
-    // Helper privado para generar clave única consistente
-    private String generarClave(String entidad, String unidad, Short codOfi) {
-        return (entidad == null ? "" : entidad.trim()) + "|" +
-               (unidad == null ? "" : unidad.trim()) + "|" +
-               (codOfi == null ? "0" : codOfi);
+    // Método auxiliar clave normalizada
+    private String generarClaveUnica(String entidad, String unidad, Short codOfi) {
+        String e = (entidad == null) ? "" : entidad.trim().toUpperCase();
+        String u = (unidad == null) ? "" : unidad.trim().toUpperCase();
+        String c = (codOfi == null) ? "0" : String.valueOf(codOfi);
+        return e + "|" + u + "|" + c;
     }
 
     @ValidarUsuarioAutenticado
@@ -374,40 +381,28 @@ public class OficinaController {
             Long id = Long.parseLong(Encriptar.decrypt(idOficinaEnc));
             Oficina oficina = oficinaService.findById(id);
             
-            if (oficina == null) {
-                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Oficina no encontrada en BD"));
-            }
+            if (oficina == null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Oficina no encontrada"));
 
-            // Validar datos necesarios
             Predio predio = oficina.getPredio();
-            if (predio == null || predio.getEntidad() == null) {
-                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Datos de Predio/Entidad incompletos"));
-            }
-
             String entidadCode = predio.getEntidad().getEntidadCodigo();
             String unidadCode = (predio.getCodigo() != null) ? predio.getCodigo() : predio.getUnidad();
             
             Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
             String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
 
-            // Verificar si ya existe (Doble check de seguridad)
+            // Usamos el WriterService (el que usa RandomAccessFile o DBFWriter)
             if (oficinaDbfWriterService.existsByCodOfic(oficina.getCodOfi(), entidadCode, unidadCode)) {
-                 // Si ya existe, actualizamos para asegurar consistencia
-                 oficinaDbfWriterService.actualizarDesdeOficina(
-                     oficina.getCodOfi(), entidadCode, unidadCode, 
-                     oficina, entidadCode, unidadCode, usuarioNombre
-                 );
-                 return ResponseEntity.ok(Map.of("ok", true, "msg", "La oficina ya existía, se han actualizado sus datos en el DBF."));
+                 return ResponseEntity.ok(Map.of("ok", true, "msg", "La oficina ya existe en el DBF."));
             }
 
             // Insertar
             oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
 
-            return ResponseEntity.ok(Map.of("ok", true, "msg", "Sincronización manual exitosa: Registrado en OFICINA.DBF"));
+            return ResponseEntity.ok(Map.of("ok", true, "msg", "Oficina registrada correctamente en el DBF."));
 
         } catch (Exception e) {
-            log.error("Error subiendo oficina a DBF: ", e);
-            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
+            log.error("Error subiendo a DBF", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
         }
     }
 

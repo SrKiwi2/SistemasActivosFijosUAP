@@ -18,6 +18,9 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.linuxense.javadbf.DBFDataType;
 import com.linuxense.javadbf.DBFField;
 import com.linuxense.javadbf.DBFReader;
@@ -43,6 +46,8 @@ public class JavaDbfService {
         this.baseDir = baseDir;
         this.charset = charset;
     }
+
+    private static final Logger log = LoggerFactory.getLogger(JavaDbfService.class);
 
     // ==== LECTOR DE CODCONT,BDF
     public List<GrupoContableDbf> listarCodcontAll(String filtroTexto) throws Exception {
@@ -220,19 +225,22 @@ public class JavaDbfService {
     }
 
     // ===== OFICINA.DBF
-    public List<OficinaDbf> listarOficinaAll(String q) throws Exception {
+    public List<OficinaDbf> listarOficinaAll(String q) { // Quitamos throws Exception general
         Path file = baseDir.resolve("OFICINA.DBF");
         List<OficinaDbf> out = new ArrayList<>();
 
-        Charset cs = (charset != null && !charset.isBlank())
-                ? Charset.forName(charset)
-                : StandardCharsets.UTF_8;
+        if (!Files.exists(file)) return out;
+
+        // Usamos CP1252 para soportar Ñ y acentos de Windows
+        Charset cs = (charset != null && !charset.isBlank()) ? Charset.forName(charset) : Charset.forName("CP1252");
 
         try (InputStream in = Files.newInputStream(file);
-                DBFReader reader = new DBFReader(in, cs)) {
+             DBFReader reader = new DBFReader(in, cs)) {
 
+            // Mapeo dinámico de columnas
             int idxENT = -1, idxUNI = -1, idxCODO = -1, idxNOM = -1, idxOBS = -1, idxFEU = -1, idxUSR = -1, idxAPI = -1;
             int n = reader.getFieldCount();
+            
             for (int i = 0; i < n; i++) {
                 String name = reader.getField(i).getName().toUpperCase(Locale.ROOT);
                 switch (name) {
@@ -249,47 +257,76 @@ public class JavaDbfService {
 
             final String ql = (q == null ? null : q.toLowerCase(Locale.ROOT));
             Object[] row;
+            int rowNum = 0;
+
+            // LEER FILA POR FILA
             while ((row = reader.nextRecord()) != null) {
-                String entidad = asString(row, idxENT);
-                String unidad = asString(row, idxUNI);
-                Integer codi = asInt(row, idxCODO);
-                String nom = asString(row, idxNOM);
-                String observ = asString(row, idxOBS);
-                LocalDate feul = null;
-                java.sql.Date d = (idxFEU >= 0 && row[idxFEU] instanceof java.util.Date dd)
-                        ? new java.sql.Date(dd.getTime())
-                        : null;
-                if (d != null)
-                    feul = d.toLocalDate();
-                String usuario = asString(row, idxUSR);
-                Short api = asInt(row, idxAPI) == null ? null : asInt(row, idxAPI).shortValue();
+                rowNum++;
+                try {
+                    // 1. Validar integridad mínima (Claves primarias)
+                    // Si el archivo está corrupto y faltan columnas, saltamos
+                    if (idxENT == -1 || idxUNI == -1 || idxCODO == -1) continue;
 
-                if (ql != null) {
-                    String hay = ((entidad == null ? "" : entidad) + " " + (unidad == null ? "" : unidad) + " " +
-                            (nom == null ? "" : nom) + " " + (usuario == null ? "" : usuario) + " " +
-                            (observ == null ? "" : observ)).toLowerCase(Locale.ROOT);
-                    if (!hay.contains(ql))
+                    String entidad = asString(row, idxENT);
+                    String unidad = asString(row, idxUNI);
+                    Integer codi = asInt(row, idxCODO);
+
+                    // Si los datos clave son nulos, es basura
+                    if (entidad == null || entidad.isBlank() || unidad == null || unidad.isBlank() || codi == null) {
                         continue;
+                    }
+
+                    // 2. Filtro de búsqueda (si aplica)
+                    String nom = asString(row, idxNOM);
+                    String usuario = asString(row, idxUSR);
+                    String observ = null;
+
+                    // Blindaje especial para campos MEMO/Texto que suelen fallar
+                    try {
+                        observ = asString(row, idxOBS);
+                        if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) observ = null;
+                    } catch (Exception e) {
+                        observ = null; // Si falla leer observación, lo ignoramos
+                    }
+
+                    if (ql != null) {
+                        String hay = ((entidad) + " " + (unidad) + " " + (nom != null ? nom : "")).toLowerCase(Locale.ROOT);
+                        if (!hay.contains(ql)) continue;
+                    }
+
+                    // 3. Manejo seguro de fechas
+                    LocalDate feul = null;
+                    if (idxFEU >= 0 && row[idxFEU] != null) {
+                        try {
+                            if (row[idxFEU] instanceof java.util.Date dd) {
+                                feul = new java.sql.Date(dd.getTime()).toLocalDate();
+                            }
+                        } catch (Exception e) { /* Ignorar fecha corrupta */ }
+                    }
+
+                    Short api = asInt(row, idxAPI) != null ? asInt(row, idxAPI).shortValue() : null;
+
+                    // Agregar a la lista
+                    out.add(OficinaDbf.builder()
+                            .entidadCodigo(entidad.trim())
+                            .unidad(unidad.trim())
+                            .codOfi(codi.shortValue())
+                            .nomOfic(nom != null ? nom.trim() : null)
+                            .observ(observ)
+                            .feult(feul)
+                            .usuario(usuario != null ? usuario.trim() : null)
+                            .apiEstado(api)
+                            .build());
+
+                } catch (Exception ex) {
+                    // 🚨 AQUÍ ATRAPAMOS EL ERROR DEL REGISTRO 850
+                    log.error("⚠️ Registro DBF corrupto omitido (Fila #{}): {}", rowNum, ex.getMessage());
+                    // El bucle 'while' continúa con la fila 851
                 }
-
-                if (entidad == null || entidad.isBlank() || unidad == null || unidad.isBlank() || codi == null) {
-                    continue;
-                }
-
-                if (observ != null && "(memo)".equalsIgnoreCase(observ.trim()))
-                    observ = null;
-
-                out.add(OficinaDbf.builder()
-                        .entidadCodigo(entidad)
-                        .unidad(unidad)
-                        .codOfi(codi.shortValue())
-                        .nomOfic(nom)
-                        .observ(observ)
-                        .feult(feul)
-                        .usuario(usuario)
-                        .apiEstado(api)
-                        .build());
             }
+        } catch (Exception e) {
+            log.error("Error fatal abriendo el archivo OFICINA.DBF", e);
+            // Devolvemos lista vacía para no romper la pantalla, pero logueamos el error grave
         }
         return out;
     }
