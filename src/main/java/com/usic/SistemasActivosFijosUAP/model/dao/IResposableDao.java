@@ -65,7 +65,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
         LEFT JOIN persona  p ON p.id_persona = r.id_persona
         LEFT JOIN oficina  o ON o.id_oficina = r.id_oficina
         LEFT JOIN cargo    c ON c.id_cargo   = r.id_cargo
-        WHERE r.estado = 'ACTIVO'
+        WHERE r._estado = 'ACTIVO'
             AND ( :oficinaId IS NULL OR o.id_oficina = :oficinaId )
             AND (
                 :q IS NULL OR :q = '' OR
@@ -87,7 +87,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
         LEFT JOIN persona  p ON p.id_persona = r.id_persona
         LEFT JOIN oficina  o ON o.id_oficina = r.id_oficina
         LEFT JOIN cargo    c ON c.id_cargo   = r.id_cargo
-        WHERE r.estado = 'ACTIVO'
+        WHERE r._estado = 'ACTIVO'
             AND ( :oficinaId IS NULL OR o.id_oficina = :oficinaId )
             AND (
                 :q IS NULL OR :q = '' OR
