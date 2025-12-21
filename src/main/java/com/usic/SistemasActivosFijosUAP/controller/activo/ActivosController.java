@@ -1,11 +1,14 @@
 package com.usic.SistemasActivosFijosUAP.controller.activo;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
+import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.ActualDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
@@ -51,7 +55,10 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
+import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -73,6 +80,12 @@ public class ActivosController {
     private final IAuxiliarService auxiliarService;
     private final IEstadoActivoService estadoActivoService;
     private final ActualDbfWriterService actualDbfWriterService;
+    private final SyncControlService syncControlService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    private final JavaDbfService dbfService;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -92,6 +105,54 @@ public class ActivosController {
         model.addAttribute("listasOficinas", listasOficinas);
         model.addAttribute("id_encryptado", encryptedIds);
         return "activo/tabla_registro";
+    }
+
+    @PostMapping("/datatables")
+    @ResponseBody
+    @Transactional(readOnly = true)
+    public DataTablesResponse<ActivoDTO> listarActivosDatatables(@RequestParam Map<String, String> params) {
+        int start = Integer.parseInt(params.get("start"));
+        int length = Integer.parseInt(params.get("length"));
+        String searchValue = params.get("search[value]");
+
+        String codigo = params.get("codigo");
+        String responsableId = params.get("responsable");
+        String oficinaId = params.get("oficina");
+        String fecha = params.get("fecha");
+
+        PageRequest pageRequest = PageRequest.of(start / length, length);
+
+        Page<Activo> pagina = activoService.buscarConFiltros(
+                searchValue, codigo, responsableId, oficinaId, fecha, pageRequest);
+
+        List<ActivoDTO> activosDTO = pagina.getContent().stream().map(activo -> {
+            ActivoDTO dto = new ActivoDTO();
+            dto.setIndex("");
+            dto.setCodigo(activo.getCodigo());
+            dto.setDescripcion(activo.getDescripcion());
+            dto.setResponsable(activo.getResponsable().getPersona().getNombre() + " "
+                    + activo.getResponsable().getPersona().getPaterno() + " "
+                    + activo.getResponsable().getPersona().getMaterno());
+            dto.setOficina(activo.getOficina().getNombre());
+            dto.setCosto(activo.getCosto());
+            dto.setVidaUtil(activo.getVidaUtil());
+            dto.setFechaAdquisicion(activo.getFechaAdquisicion().toString());
+            dto.setEstado(activo.getEstadoActivo().getNombre());
+
+            try {
+                String idEncriptado = Encriptar.encrypt(activo.getIdActivo().toString());
+                dto.setAcciones(
+                        " <button class='btn btn-sm btn-danger' onclick=\"eliminar('" + activo.getNombre() + "', '"
+                                + idEncriptado + "')\">Eliminar</button>");
+            } catch (Exception e) {
+                dto.setAcciones("<span class='text-danger'>Error al generar acciones</span>");
+                e.printStackTrace();
+            }
+
+            return dto;
+        }).toList();
+
+        return new DataTablesResponse<>(pagina.getTotalElements(), pagina.getTotalElements(), activosDTO);
     }
 
     @ValidarUsuarioAutenticado
@@ -115,6 +176,7 @@ public class ActivosController {
         model.addAttribute("edit", "true");
         return "activo/formulario";
     }
+
 
     @ValidarUsuarioAutenticado
     @PostMapping(value = "/registrar-activo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -356,53 +418,9 @@ public class ActivosController {
         return ResponseEntity.ok("Registro Eliminado");
     }
 
-    @PostMapping("/datatables")
-    @ResponseBody
-    @Transactional(readOnly = true)
-    public DataTablesResponse<ActivoDTO> listarActivosDatatables(@RequestParam Map<String, String> params) {
-        int start = Integer.parseInt(params.get("start"));
-        int length = Integer.parseInt(params.get("length"));
-        String searchValue = params.get("search[value]");
-
-        String codigo = params.get("codigo");
-        String responsableId = params.get("responsable");
-        String oficinaId = params.get("oficina");
-        String fecha = params.get("fecha");
-
-        PageRequest pageRequest = PageRequest.of(start / length, length);
-
-        Page<Activo> pagina = activoService.buscarConFiltros(
-                searchValue, codigo, responsableId, oficinaId, fecha, pageRequest);
-
-        List<ActivoDTO> activosDTO = pagina.getContent().stream().map(activo -> {
-            ActivoDTO dto = new ActivoDTO();
-            dto.setIndex("");
-            dto.setCodigo(activo.getCodigo());
-            dto.setDescripcion(activo.getDescripcion());
-            dto.setResponsable(activo.getResponsable().getPersona().getNombre() + " "
-                    + activo.getResponsable().getPersona().getPaterno() + " "
-                    + activo.getResponsable().getPersona().getMaterno());
-            dto.setOficina(activo.getOficina().getNombre());
-            dto.setCosto(activo.getCosto());
-            dto.setVidaUtil(activo.getVidaUtil());
-            dto.setFechaAdquisicion(activo.getFechaAdquisicion().toString());
-            dto.setEstado(activo.getEstadoActivo().getNombre());
-
-            try {
-                String idEncriptado = Encriptar.encrypt(activo.getIdActivo().toString());
-                dto.setAcciones(
-                        " <button class='btn btn-sm btn-danger' onclick=\"eliminar('" + activo.getNombre() + "', '"
-                                + idEncriptado + "')\">Eliminar</button>");
-            } catch (Exception e) {
-                dto.setAcciones("<span class='text-danger'>Error al generar acciones</span>");
-                e.printStackTrace();
-            }
-
-            return dto;
-        }).toList();
-
-        return new DataTablesResponse<>(pagina.getTotalElements(), pagina.getTotalElements(), activosDTO);
-    }
+    /* =============================== */
+    /* ========== PENDIENTES ========= */
+    /* =============================== */
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vistap")
@@ -500,12 +518,10 @@ public class ActivosController {
             return Map.of("ok", false, "message", "El activo no está en estado PENDIENTE.");
         }
 
-        // ====== prepara códigos mínimos requeridos por DBF ======
-        // ⚠️ AJUSTA: cómo obtienes ENTIDAD y UNIDAD para ACTUAL.DBF
         Entidad entidad = a.getOficina().getPredio().getEntidad();
-        String entidadCode = entidad.getEntidadCodigo(); // o desde configuración (ApplicationProperties)
+        String entidadCode = entidad.getEntidadCodigo();
         Predio predio = a.getOficina().getPredio();
-        String unidadCode = predio.getUnidad(); // fallback
+        String unidadCode = predio.getUnidad();
         String usuario = usuarios.getUsuario();
 
         // 1) Insertar en ACTUAL.DBF (si no existe ya por CODIGO)
