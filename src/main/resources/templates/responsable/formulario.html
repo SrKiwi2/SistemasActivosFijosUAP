@@ -270,18 +270,29 @@ $(document).ready(function() {
     });
 
     // 6. SUGERIR CODIGO
-    $('#selectOficinaForm').on('change', function() {
+    $('#selectOficinaForm').on('select2:select', function(e) {
         const idOficina = $(this).val();
         if(idOficina) {
-            // Llamada AJAX para obtener siguiente correlativo
-            $.get('/administracion/responsable/obtener-siguiente-codigo-funcionario', { idOficina: idOficina }, function(cod) {
-                $('#txtCodFun').val(cod);
-                // Efecto visual para mostrar que cambió
-                $('#txtCodFun').addClass('bg-warning-subtle');
-                setTimeout(() => $('#txtCodFun').removeClass('bg-warning-subtle'), 500);
-            });
+            // Solo autogenerar si estamos creando O si el usuario cambió la oficina a propósito
+            // Para edición, no queremos perder el código original al abrir el modal
+            sugerirCodigo(idOficina);
         }
     });
+
+    $('#btnSugerir').click(function() {
+        let idOficina = $('#selectOficinaForm').val();
+        if(idOficina) sugerirCodigo(idOficina);
+        else Swal.fire('Atención', 'Seleccione una oficina', 'warning');
+    });
+
+    function sugerirCodigo(idOficina) {
+        $.get('/administracion/responsable/obtener-siguiente-codigo-funcionario', { idOficina: idOficina }, function(cod) {
+            $('#txtCodFun').val(cod).addClass('bg-warning-subtle');
+            setTimeout(() => $('#txtCodFun').removeClass('bg-warning-subtle'), 500);
+        });
+    }
+
+
 
     // 7. GUARDAR
     $('#btnGuardar').click(function() {
@@ -291,17 +302,15 @@ $(document).ready(function() {
         }
 
         let data = $('#formResponsable').serialize();
-        let idVal = $('input[name="idResponsable"]').val(); 
-        let esEdicion = (idVal && idVal !== "");
-        let urlDestino = esEdicion 
-            ? '/administracion/responsable/modificar-responsable' 
-            : '/administracion/responsable/registrar-responsable';
+        let idEnc = $('input[name="idResponsableEnc"]').val();
+        let url = idEnc ? '/administracion/responsable/modificar-responsable' : '/administracion/responsable/registrar-responsable';
+        let texto = idEnc ? 'Actualizando...' : 'Registrando...';
 
-        showGlobalLoader({ texto: esEdicion ? 'Actualizando...' : 'Registrando...' });
+        showGlobalLoader({ texto: texto });
 
         $.ajax({
             type: 'POST',
-            url: urlDestino,
+            url: url,
             data: data,
             success: function(res) {
                 hideGlobalLoader();

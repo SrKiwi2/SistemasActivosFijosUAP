@@ -138,31 +138,55 @@
         });
     }
 
-    // Función para abrir el modal en modo EDICIÓN
-    function editarResponsable(idEnc) {
-        // 1. Mostrar Spinner
+    function abrirModalResponsable(idEnc = null) {
+        // 1. Limpiar y mostrar spinner
         $('#contenidoModalResponsbale').html(`
             <div class="modal-body text-center py-5">
                 <div class="spinner-border text-primary" role="status"></div>
-                <p class="mt-2 text-muted">Cargando datos del responsable...</p>
+                <p class="mt-2 text-muted">Cargando formulario...</p>
             </div>
         `);
         
         $('#modalFormularioResponsable').modal('show');
 
-        // 2. Cargar formulario pasando el ID
-        $.get("/administracion/responsable/formulario", { id: idEnc }, function(data) {
+        // 2. Preparar datos
+        let params = {};
+        if (idEnc) params.id = idEnc;
+
+        // 3. Cargar HTML
+        $.get("/administracion/responsable/formulario", params, function(data) {
             $('#contenidoModalResponsbale').html(data);
             
-            // 3. Inyectar ID en el formulario (si no viene en el HTML) y cambiar título
-            // Esto es opcional si Thymeleaf ya renderiza el input hidden con el ID real
-            // Pero es bueno guardar el idEnc para el envío
-            $('#formResponsable').append(`<input type="hidden" name="idResponsableEnc" value="${idEnc}">`);
+            // 4. Si es edición, inyectamos el ID encriptado para que el controlador sepa a quién actualizar
+            if (idEnc) {
+                // Buscamos el form y le agregamos el ID si no vino en el HTML
+                if ($('#formResponsable input[name="idResponsableEnc"]').length === 0) {
+                    $('#formResponsable').append(`<input type="hidden" name="idResponsableEnc" value="${idEnc}">`);
+                }
+                
+                // Cambiar título visualmente
+                $('#modalFormularioResponsable .modal-title span').text('Editar Responsable');
+            }
             
-        }).fail(function() {
-            Swal.fire('Error', 'No se pudo cargar el formulario', 'error');
-            $('#modalFormularioResponsable').modal('hide');
+        }).fail(function(xhr) {
+            console.error("Error cargando formulario:", xhr);
+            $('#contenidoModalResponsbale').html(`
+                <div class="modal-body text-center text-danger py-4">
+                    <i class="fa-solid fa-triangle-exclamation fa-2x mb-2"></i>
+                    <p>Error al cargar el formulario.</p>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            `);
         });
+    }
+
+    // Wrappers para los botones
+    function cargarFormulario() {
+        abrirModalResponsable(null); // Modo Crear
+    }
+
+    function editarResponsable(idEnc) {
+        abrirModalResponsable(idEnc); // Modo Editar
     }
 
     function initDataTable() {
@@ -309,12 +333,6 @@
         });
     }
 
-    // Funciones auxiliares
-    function editarResponsable(idEnc) {
-        // Reusamos la misma lógica del modal pero pasando el ID (si implementas edición)
-        // Por ahora, solo abrimos el modal vacío o implementas endpoint de edición
-        console.log("Editar ID:", idEnc);
-    }
 
     $(document).on('click', '.btn-subir-dbf', function() {
         const idEnc = $(this).data('id');
