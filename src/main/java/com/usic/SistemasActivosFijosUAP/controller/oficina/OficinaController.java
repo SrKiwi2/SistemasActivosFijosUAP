@@ -126,10 +126,12 @@ public class OficinaController {
                         
                         String ent = o.getPredio().getEntidad().getEntidadCodigo();
                         
-                        // Lógica: Usamos Código si existe, si no Unidad.
-                        String uni = o.getPredio().getCodigo();
+                        // CAMBIO: Usamos getUnidad() porque en el log del DBF sale "CAUN"
+                        String uni = o.getPredio().getUnidad(); 
+
+                        // Solo si unidad es nula, usamos el código como respaldo (opcional)
                         if (uni == null || uni.isBlank()) {
-                            uni = o.getPredio().getUnidad();
+                            uni = o.getPredio().getCodigo();
                         }
                         
                         String claveBd = generarClaveUnica(ent, uni, o.getCodOfi());
