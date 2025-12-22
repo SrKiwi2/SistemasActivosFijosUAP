@@ -204,6 +204,7 @@ public class ResponsableController {
             HttpServletRequest request,
             @RequestParam(required = false) String codigoApi,
             @RequestParam String ci,
+            @RequestParam(required = false, defaultValue = "1") Short codExp,
             @RequestParam String codigoFuncionario,
             @RequestParam Long idOficina,
             @RequestParam(required = false) String nombre,
@@ -371,7 +372,7 @@ public class ResponsableController {
             responsable.setFechaUlt(LocalDate.now());
             responsable.setUsuario(usuarioNombre);
             responsable.setApiEstado(Short.valueOf("1"));
-            responsable.setCodExp(Short.valueOf("1"));
+            responsable.setCodExp(codExp != null ? codExp : Short.valueOf("9"));
             responsable.setEstado("ACTIVO");
             
             if (usuario != null) {
@@ -461,6 +462,7 @@ public class ResponsableController {
             HttpServletRequest request,
             @RequestParam(required = false) String codigoApi,
             @RequestParam String ci,
+            @RequestParam(required = false, defaultValue = "1") Short codExp,
             @RequestParam String codigoFuncionario,
             @RequestParam Long idOficina,
             @RequestParam String nombre,
@@ -471,7 +473,7 @@ public class ResponsableController {
             @RequestParam(required = false) String nombreCargoApi,
             @RequestParam(defaultValue = "false") boolean forzarCreacion) {
         
-        return registrarResponsable(request, codigoApi, ci, codigoFuncionario, 
+        return registrarResponsable(request, codigoApi, ci, codExp,codigoFuncionario,
                                    idOficina, nombre, paterno, materno, correo, nombreCargoApi);
     }
 

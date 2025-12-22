@@ -17,16 +17,32 @@
                 </h6>
                 
                 <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold">C.I. <span class="text-danger">*</span></label>
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold">C.I. / Documento <span class="text-danger">*</span></label>
                         <div class="input-group input-group-sm">
                             <input type="text" class="form-control" id="txtCi" name="ci" 
-                                   th:value="${responsable.persona?.ci}" placeholder="Carnet" required>
+                                   th:value="${responsable.persona?.ci}" placeholder="Número de Carnet" required>
+                            
+                            <select class="form-select" name="codExp" style="max-width: 130px;" required>
+                                <option value="1" th:selected="${responsable.codExp == 1}">CHQ (1)</option>
+                                <option value="2" th:selected="${responsable.codExp == 2}">LPZ (2)</option>
+                                <option value="3" th:selected="${responsable.codExp == 3}">CBB (3)</option>
+                                <option value="4" th:selected="${responsable.codExp == 4}">ORU (4)</option>
+                                <option value="5" th:selected="${responsable.codExp == 5}">PTS (5)</option>
+                                <option value="6" th:selected="${responsable.codExp == 6}">TAR (6)</option>
+                                <option value="7" th:selected="${responsable.codExp == 7}">SCZ (7)</option>
+                                <option value="8" th:selected="${responsable.codExp == 8}">BEN (8)</option>
+                                <option value="9" th:selected="${responsable.codExp == 9}">PAN (9)</option>
+                            </select>
+
                             <button class="btn btn-outline-primary" type="button" id="btnBuscarPersona" title="Buscar">
                                 <i class="fa-solid fa-search"></i>
                             </button>
                         </div>
                     </div>
+                    
+                    <div class="col-md-4">
+                         </div>
                     
                     <div class="col-md-8">
                         <div class="alert alert-secondary py-1 px-2 mb-0 mt-4 d-none" id="msgPersona" style="font-size: 0.85rem;">
