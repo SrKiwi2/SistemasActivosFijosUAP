@@ -155,72 +155,117 @@
                     d.oficinaId = $('#filtroOficina').val();
                 }
             },
+            // ⚠️ CORRECCIÓN: Definimos EXACTAMENTE 7 columnas para coincidir con el HTML
             columns: [
+                // 1. Contador (#)
                 { 
                     data: null, 
                     orderable: false, 
+                    searchable: false,
+                    width: '30px',
                     render: (d, t, r, m) => m.row + m.settings._iDisplayStart + 1 
                 },
-                { data: 'codFun' },
-                { data: 'nombre' },
-                { data: 'paterno' },
-                { data: 'materno' },
-                { data: 'ci' },
-                { data: 'oficina' },
-                { data: 'cargo' },
+                // 2. Código (Con badge bonito)
+                { 
+                    data: 'codFun',
+                    width: '80px',
+                    render: (data) => `<span class="badge bg-label-primary">${data || '--'}</span>`
+                },
+                // 3. Nombre Completo (Combinamos Nombre + Paterno + Materno aquí)
+                { 
+                    data: null,
+                    render: function(d, t, row) {
+                        // Construimos el nombre completo en una sola celda
+                        const completo = `${row.nombre || ''} ${row.paterno || ''} ${row.materno || ''}`.trim();
+                        // Mostramos apellidos en negrita para resaltar
+                        return `<div class="d-flex flex-column">
+                                    <span class="fw-bold text-dark">${row.paterno || ''} ${row.materno || ''}</span>
+                                    <span class="text-muted small">${row.nombre || ''}</span>
+                                </div>`;
+                    }
+                },
+                // 4. C.I.
+                { 
+                    data: 'ci',
+                    width: '100px'
+                },
+                // 5. Oficina (Texto pequeño para ahorrar espacio)
+                { 
+                    data: 'oficina',
+                    render: (data) => `<div class="text-wrap small text-muted" style="max-width: 250px;">${data || ''}</div>`
+                },
+                // 6. Cargo
+                { 
+                    data: 'cargo',
+                    render: (data) => `<span class="fw-semibold text-primary" style="font-size: 0.85rem;">${data || ''}</span>`
+                },
+                // 7. Opciones (Botones)
                 {
                     data: 'idResponsable', 
                     orderable: false, 
                     searchable: false,
+                    className: 'text-center',
+                    width: '100px',
                     render: function(data, type, row) { 
                         let botones = `
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-danger btn-eliminar-responsable"
+                            <div class="d-inline-flex gap-1">
+                                <button class="btn btn-icon btn-sm btn-outline-danger btn-eliminar-responsable"
                                         data-id="${row.idEnc}"
                                         title="Eliminar responsable">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
-                            </div>
                         `;
+
+                        // Botón de alerta si falta en DBF
                         if (row.existeEnDbf === false) {
                             botones += `
-                                <button class="btn btn-warning btn-sm ms-1 btn-subir-dbf"
+                                <button class="btn btn-icon btn-sm btn-warning btn-subir-dbf"
                                         data-id="${row.idEnc}"
-                                        title="⚠️ No encontrado en DBF. Subir ahora.">
+                                        data-bs-toggle="tooltip"
+                                        title="⚠️ No encontrado en DBF. Click para subir.">
                                     <i class="fa-solid fa-cloud-arrow-up"></i>
                                 </button>
                             `;
                         } else {
                             botones += `
-                                <span class="badge bg-success ms-1" title="Sincronizado">
+                                <span class="btn btn-icon btn-sm btn-label-success pe-none" title="Sincronizado">
                                     <i class="fa-solid fa-check"></i>
                                 </span>
                             `;
                         }
+                        
+                        botones += `</div>`;
                         return botones;
                     }
                 }
             ],
-            // ✅ SOLUCIÓN CORS: Traducción incrustada (Hardcoded)
+            // Traducción incrustada para evitar error CORS
             language: {
                 "decimal": "",
                 "emptyTable": "No hay información",
-                "info": "Mostrando _START_ a _END_ de _TOTAL_ Entradas",
-                "infoEmpty": "Mostrando 0 to 0 of 0 Entradas",
-                "infoFiltered": "(Filtrado de _MAX_ total entradas)",
+                "info": "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                "infoEmpty": "Mostrando 0 a 0 de 0 registros",
+                "infoFiltered": "(Filtrado de _MAX_ total registros)",
                 "infoPostFix": "",
                 "thousands": ",",
-                "lengthMenu": "Mostrar _MENU_ Entradas",
+                "lengthMenu": "Mostrar _MENU_ registros",
                 "loadingRecords": "Cargando...",
                 "processing": "Procesando...",
                 "search": "Buscar:",
                 "zeroRecords": "Sin resultados encontrados",
                 "paginate": {
                     "first": "Primero",
-                    "last": "Ultimo",
+                    "last": "Último",
                     "next": "Siguiente",
                     "previous": "Anterior"
                 }
+            },
+            drawCallback: function() {
+                // Reactivar tooltips después de cada redibujado de tabla
+                var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                tooltipTriggerList.map(function (tooltipTriggerEl) {
+                    return new bootstrap.Tooltip(tooltipTriggerEl);
+                });
             }
         });
     }
