@@ -311,14 +311,21 @@ public class OficinaDbfWriterService {
             byte typeByte = raf.readByte();
             raf.skipBytes(4); // Displacement
             int length = raf.readUnsignedByte();
-            int decimals = raf.readUnsignedByte();
+            int decimals = raf.readUnsignedByte(); // Leemos el byte, pero no siempre lo usamos
             raf.skipBytes(14); // Reserved
 
             DBFField field = new DBFField();
             field.setName(name);
-            field.setType(matchType(typeByte));
+            
+            DBFDataType type = matchType(typeByte);
+            field.setType(type);
             field.setLength(length);
-            field.setDecimalCount(decimals);
+
+            // ✅ CORRECCIÓN: Solo asignar decimales si es Numérico o Flotante
+            if (type == DBFDataType.NUMERIC || type == DBFDataType.FLOATING_POINT) {
+                field.setDecimalCount(decimals);
+            }
+
             fields.add(field);
         }
         return fields;
