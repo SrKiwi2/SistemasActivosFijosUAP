@@ -67,12 +67,7 @@
 
 <div class="modal fade" id="modalFormularioResponsable" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content" id="contenidoModalResponsbale">
-            <div class="modal-body text-center py-5">
-                <div class="spinner-border text-primary" role="status"></div>
-                <p class="mt-2 text-muted">Cargando formulario...</p>
-            </div>
-        </div>
+        <div class="modal-content" id="contenidoModalResponsable"> </div>
     </div>
 </div>
 
@@ -159,21 +154,20 @@
             
             // 4. Si es edición, inyectamos el ID encriptado para que el controlador sepa a quién actualizar
             if (idEnc) {
-                // Buscamos el form y le agregamos el ID si no vino en el HTML
+
                 if ($('#formResponsable input[name="idResponsableEnc"]').length === 0) {
-                    $('#formResponsable').append(`<input type="hidden" name="idResponsableEnc" value="${idEnc}">`);
+                    $('#formResponsable').prepend(`<input type="hidden" name="idResponsableEnc" value="${idEnc}">`);
                 }
                 
-                // Cambiar título visualmente
-                $('#modalFormularioResponsable .modal-title span').text('Editar Responsable');
+                $('#modalTitle span').text('Editar Responsable');
             }
             
         }).fail(function(xhr) {
             console.error("Error cargando formulario:", xhr);
-            $('#contenidoModalResponsbale').html(`
+            $('#contenidoModalResponsable').html(`
                 <div class="modal-body text-center text-danger py-4">
-                    <i class="fa-solid fa-triangle-exclamation fa-2x mb-2"></i>
-                    <p>Error al cargar el formulario.</p>
+                    <i class="fa-solid fa-circle-exclamation fa-2x mb-2"></i>
+                    <p>No se pudo cargar el formulario.</p>
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             `);

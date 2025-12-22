@@ -302,7 +302,11 @@ $(document).ready(function() {
         }
 
         let data = $('#formResponsable').serialize();
+        
+        // Detectar si es edición buscando el input hidden que inyectamos
         let idEnc = $('input[name="idResponsableEnc"]').val();
+        
+        // Definir URL y mensaje
         let url = idEnc ? '/administracion/responsable/modificar-responsable' : '/administracion/responsable/registrar-responsable';
         let texto = idEnc ? 'Actualizando...' : 'Registrando...';
 
@@ -320,13 +324,13 @@ $(document).ready(function() {
                         $('#data-table').DataTable().ajax.reload(null, false);
                     });
                 } else {
-                    let icon = res.msg.includes("DBF") ? 'warning' : 'error';
+                    let icon = (res.msg && res.msg.includes("DBF")) ? 'warning' : 'error';
                     Swal.fire('Atención', res.msg, icon);
                 }
             },
             error: function(xhr) {
                 hideGlobalLoader();
-                let msg = xhr.responseJSON ? xhr.responseJSON.msg : 'Error al procesar';
+                let msg = xhr.responseJSON ? xhr.responseJSON.msg : 'Error desconocido';
                 Swal.fire('Error', msg, 'error');
             }
         });

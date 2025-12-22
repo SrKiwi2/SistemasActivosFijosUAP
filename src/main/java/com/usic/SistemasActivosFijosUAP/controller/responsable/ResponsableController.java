@@ -173,15 +173,18 @@ public class ResponsableController {
         if (id != null && !id.isEmpty()) {
             try {
                 Long idDec = Long.parseLong(Encriptar.decrypt(id));
-                responsable = responsableService.findByIdWithRelations(idDec);
+                Responsable encontrado = responsableService.findByIdWithRelations(idDec);
+                if (encontrado != null) {
+                    responsable = encontrado;
+                }
             } catch (Exception e) {
-                log.error("Error desencriptando ID al cargar formulario", e);
+                log.error("Error cargando responsable ID: " + id, e);
             }
         }
 
         if(responsable.getCodExp() == null) responsable.setCodExp(Short.valueOf("9"));
 
-        model.addAttribute("responsable", new Responsable());
+        model.addAttribute("responsable", responsable);
         model.addAttribute("oficinas", oficinaService.listarOficinas());
         return "responsable/formulario";
     }
