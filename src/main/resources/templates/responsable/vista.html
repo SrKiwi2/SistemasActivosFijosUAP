@@ -154,12 +154,36 @@
                 { data: 'cargo' },
                 {
                     data: 'idResponsable', orderable: false, searchable: false,
-                    render: (id) => `
-                           <div class="btn-group btn-group-sm">
-                <button class="btn btn-warning btn-subir-dbf" data-id="${row.idEnc}" title="Subir a DBF">
-                    <i class="fa-solid fa-cloud-arrow-up"></i>
-                </button>
-                </div>`
+                    render: function(data, type, row) { // ✅ Usar function para ver 'row'
+                        let botones = `
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-danger btn-eliminar-responsable"
+                                        data-id="${row.idEnc}"
+                                        title="Eliminar responsable">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        `;
+
+                        // ✅ Lógica del botón amarillo basada en la bandera del Controller
+                        if (row.existeEnDbf === false) {
+                            botones += `
+                                <button class="btn btn-warning btn-sm ms-1 btn-subir-dbf"
+                                        data-id="${row.idEnc}"
+                                        title="⚠️ No encontrado en DBF. Subir ahora.">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                </button>
+                            `;
+                        } else {
+                            botones += `
+                                <span class="badge bg-success ms-1" title="Sincronizado">
+                                    <i class="fa-solid fa-check"></i>
+                                </span>
+                            `;
+                        }
+
+                        return botones;
+                    }
                 }
             ],
             language: {
