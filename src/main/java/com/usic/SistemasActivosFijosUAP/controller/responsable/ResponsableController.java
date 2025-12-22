@@ -28,6 +28,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -97,125 +98,55 @@ public class ResponsableController {
         int page = Math.max(start, 0) / Math.max(size, 1);
         Pageable pageable = PageRequest.of(page, size);
 
-        // 1) Intento BD con server-side paging
         Page<IResposableDao.ResponsableRow> p = responsableService.datatable(search, oficinaId, pageable);
-        if (p.getTotalElements() > 0) {
-            List<Map<String, Object>> data = new ArrayList<>(p.getNumberOfElements());
-            for (var row : p.getContent()) {
-                String idEnc;
-                try {
-                    idEnc = Encriptar.encrypt(String.valueOf(row.getIdResponsable()));
-                } catch (Exception e) {
-                    idEnc = "";
-                }
 
-                Map<String, Object> m = new HashMap<>();
-                m.put("idEnc", idEnc);
-                m.put("codFun", nvl(row.getCodFun()));
-                m.put("nombre", nvl(row.getNombre()));
-                m.put("paterno", nvl(row.getPaterno()));
-                m.put("materno", nvl(row.getMaterno()));
-                m.put("ci", nvl(row.getCi()));
-                m.put("oficina", nvl(row.getOficina()));
-                m.put("cargo", nvl(row.getCargo()));
-                data.add(m);
-            }
-
-            long total = responsableService.countActivos(); // total sin filtro BD
-            Map<String, Object> res = new HashMap<>();
-            res.put("draw", draw);
-            res.put("recordsTotal", total);
-            res.put("recordsFiltered", p.getTotalElements());
-            res.put("data", data);
-            res.put("source", "db"); // opcional, por si quieres mostrar un badge en el front
-            return res;
-        }
-
-        // 2) Fallback: leer RESP.DBF y devolver el mismo JSON para DataTables
+        Set<String> clavesDbf = new HashSet<>();
         try {
-            // a) leer y filtrar por 'search' desde el propio lector
-            List<ResponsableDbf> filas = dbfService.listarResponsableAll(search);
-
-            // b) si viene oficinaId, filtramos por esa oficina (unidad + codOfi)
-            Oficina oficinaFiltro = null;
-            if (oficinaId != null) {
-                oficinaFiltro = oficinaService.findById(oficinaId);
+            // Leemos todos los responsables del DBF (blindado)
+            var filasDbf = dbfService.listarResponsableAll(null);
+            for(var f : filasDbf) {
+                // Clave: ENTIDAD|UNIDAD|CODOFI|CODRESP
+                String k = generarClaveUnica(f.getEntidadCodigo(), f.getUnidad(), f.getCodOfi(), 
+                                             (f.getCodResp() != null ? f.getCodResp() : "0"));
+                clavesDbf.add(k);
             }
-            if (oficinaFiltro != null) {
-                String unidad = oficinaFiltro.getPredio().getUnidad();
-                Short codOf = oficinaFiltro.getCodOfi();
-                String unidadNorm = unidad == null ? null : unidad.trim().toUpperCase(Locale.ROOT);
-                List<ResponsableDbf> filtradas = new ArrayList<>();
-                for (var r : filas) {
-                    String u = r.getUnidad() == null ? null : r.getUnidad().trim().toUpperCase(Locale.ROOT);
-                    if (Objects.equals(u, unidadNorm) && Objects.equals(r.getCodOfi(), codOf)) {
-                        filtradas.add(r);
-                    }
-                }
-                filas = filtradas;
-            }
-
-            // c) total después de filtros (para DataTables fallback)
-            int totalAfterFilter = filas.size();
-
-            // d) paginar con start/length
-            int from = Math.min(start, totalAfterFilter);
-            int to = Math.min(from + size, totalAfterFilter);
-            List<ResponsableDbf> pageList = filas.subList(from, to);
-
-            // e) mapear a las mismas columnas del DataTable
-            List<Map<String, Object>> data = new ArrayList<>(pageList.size());
-            for (var r : pageList) {
-                // nombre → nombre/paterno/materno (simple split)
-                String[] np = splitNombrePersona(nvl(r.getNombre()));
-                String nombre = np[0];
-                String paterno = np[1];
-                String materno = np[2];
-
-                // etiqueta oficina: UNIDAD - CODOFI (SIGLA) si se puede, sino UNIDAD - CODOFI
-                String oficinaLabel;
-                if (oficinaFiltro != null) {
-                    String sig = (oficinaFiltro.getPredio().getEntidad().getSigla() == null) ? ""
-                            : oficinaFiltro.getPredio().getEntidad().getSigla();
-                    oficinaLabel = oficinaFiltro.getPredio().getUnidad() + " - " + oficinaFiltro.getCodOfi()
-                            + (isBlank(sig) ? "" : (" (" + sig + ")"));
-                } else {
-                    oficinaLabel = (nvl(r.getUnidad()) == null ? "" : r.getUnidad()) + " - "
-                            + (r.getCodOfi() == null ? "" : r.getCodOfi());
-                }
-
-                Map<String, Object> m = new HashMap<>();
-                m.put("idEnc", ""); // viene de DBF, no hay id
-                m.put("codFun", nvl(r.getCodResp())); // en tu tabla es "CODIGO FUNCIONARIO"
-                m.put("nombre", nvl(nombre));
-                m.put("paterno", nvl(paterno));
-                m.put("materno", nvl(materno));
-                m.put("ci", nvl(r.getCi()));
-                m.put("oficina", oficinaLabel);
-                m.put("cargo", nvl(r.getCargo()));
-                data.add(m);
-            }
-
-            // f) armar respuesta
-            Map<String, Object> res = new HashMap<>();
-            res.put("draw", draw);
-            // Como es fallback, usamos el mismo total para ambos campos
-            res.put("recordsTotal", totalAfterFilter);
-            res.put("recordsFiltered", totalAfterFilter);
-            res.put("data", data);
-            res.put("source", "dbf");
-            return res;
-
-        } catch (Exception ex) {
-            // Si el DBF tampoco pudo leerse, devolvemos vacío y un mensaje si gustas
-            Map<String, Object> res = new HashMap<>();
-            res.put("draw", draw);
-            res.put("recordsTotal", 0);
-            res.put("recordsFiltered", 0);
-            res.put("data", Collections.emptyList());
-            res.put("source", "error");
-            return res;
+        } catch (Exception e) {
+            log.error("No se pudo leer RESP.DBF para comparación", e);
         }
+
+        List<Map<String, Object>> data = new ArrayList<>(p.getNumberOfElements());
+
+        for (var row : p.getContent()) {
+            String idEnc = "";
+            try { idEnc = Encriptar.encrypt(String.valueOf(row.getIdResponsable())); } catch (Exception e) {}
+
+            boolean enDbf = true;
+
+            Map<String, Object> m = new HashMap<>();
+            m.put("idEnc", idEnc);
+            m.put("codFun", nvl(row.getCodFun()));
+            m.put("nombre", nvl(row.getNombre()));
+            m.put("paterno", nvl(row.getPaterno()));
+            m.put("materno", nvl(row.getMaterno()));
+            m.put("ci", nvl(row.getCi()));
+            m.put("oficina", nvl(row.getOficina()));
+            m.put("cargo", nvl(row.getCargo()));
+            m.put("idResponsable", row.getIdResponsable());
+
+            m.put("existeEnDbf", true);
+
+            data.add(m);
+        }
+        
+        long total = responsableService.countActivos();
+        Map<String, Object> res = new HashMap<>();
+        res.put("draw", draw);
+        res.put("recordsTotal", total);
+        res.put("recordsFiltered", p.getTotalElements());
+        res.put("data", data);
+        res.put("source", "db");
+        return res;
+
     }
 
     @ValidarUsuarioAutenticado
@@ -302,7 +233,6 @@ public class ResponsableController {
             }
             
             if (persona == null) {
-                // Validar que tengamos al menos nombre y paterno
                 boolean tieneDatosSuficientes = (nombre != null && !nombre.trim().isEmpty()) && 
                                             (paterno != null && !paterno.trim().isEmpty());
                 
@@ -310,7 +240,7 @@ public class ResponsableController {
                     log.info("Buscando por nombre: {} {} {}", nombre, paterno, materno);
                     
                     try {
-                        // Búsqueda exacta
+
                         persona = personaService.buscarPersonaPorNombreCompletoUno(
                             nombre.trim(), 
                             paterno.trim(), 
@@ -319,7 +249,6 @@ public class ResponsableController {
                         
                         log.info("Búsqueda exacta por nombre: {}", (persona != null ? "Encontrada" : "No encontrada"));
                         
-                        // Solo buscar aproximada si no encontró exacta
                         if (persona == null) {
                             List<Persona> personasCoincidentes = personaService.buscarPorNombreApellidos(
                                 nombre.trim(), 
@@ -343,7 +272,7 @@ public class ResponsableController {
                                     "ok", false,
                                     "msg", msg.toString(),
                                     "personasCoincidentes", personasCoincidentes.stream()
-                                        .limit(10) // Limitar a 10 resultados
+                                        .limit(10)
                                         .map(p -> Map.of(
                                             "idPersona", p.getIdPersona(),
                                             "nombreCompleto", p.getNombreCompleto(),
@@ -357,14 +286,12 @@ public class ResponsableController {
                         }
                     } catch (Exception e) {
                         log.error("Error en búsqueda por nombre: {}", e.getMessage());
-                        // Continuar para crear nueva persona
                     }
                 } else {
                     log.warn("No se proporcionaron datos suficientes para buscar por nombre (nombre y paterno requeridos)");
                 }
             }
             
-            // Verificar si ya es responsable en esta oficina
             if (persona != null) {
                 boolean yaEsResponsableEnOficina = responsableService.existeResponsablePorPersonaYOficina(
                     persona.getIdPersona(), idOficina
@@ -478,7 +405,6 @@ public class ResponsableController {
                     ));
                 }
                 
-                // Insertar en DBF
                 respDbfWriterService.insertarDesdeResponsable(
                     responsableCargado, entidadCode, unidadCode, usuarioNombre
                 );
@@ -511,10 +437,7 @@ public class ResponsableController {
             ));
         }
     }
-    
-    /**
-     * Endpoint para forzar el registro cuando hay coincidencias de nombre
-     */
+
     @ValidarUsuarioAutenticado
     @PostMapping("/registrar-responsable-forzado")
     @ResponseBody
@@ -532,9 +455,6 @@ public class ResponsableController {
             @RequestParam(required = false) String nombreCargoApi,
             @RequestParam(defaultValue = "false") boolean forzarCreacion) {
         
-        // Si forzarCreacion=true, crear siempre una nueva persona
-        // Llamar al método de registro normal pero sin validación de nombres similares
-        
         return registrarResponsable(request, codigoApi, ci, codigoFuncionario, 
                                    idOficina, nombre, paterno, materno, correo, nombreCargoApi);
     }
@@ -544,14 +464,10 @@ public class ResponsableController {
             return false;
         }
         
-        // Limpiar espacios y puntos
         String ciLimpio = ci.trim().replaceAll("[.\\-\\s]", "");
-        
-        // Debe tener solo números y al menos 5 dígitos
         return ciLimpio.matches("\\d{5,}");
     }
 
-    // En ResponsableController
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
     @ResponseBody
@@ -563,11 +479,9 @@ public class ResponsableController {
         long inicio = System.currentTimeMillis();
         
         try {
-            // 1️⃣ Leer DBF
             var filas = dbfService.listarResponsableAll(q);
             log.info("✅ Total registros leídos del DBF: {}", filas.size());
             
-            // 2️⃣ Cargar caché
             Map<String, Oficina> oficinasCache = cargarOficinasEnCache();
             Map<String, Persona> personasCache = cargarPersonasEnCache();
             Map<String, Cargo> cargosCache = cargarCargosEnCache();
@@ -589,14 +503,11 @@ public class ResponsableController {
 
             for (var f : filas) {
 
-                // ✅ Validar campos obligatorios
                 if (f.getEntidadCodigo() == null || f.getUnidad() == null || f.getCodOfi() == null) {
                     camposNulos++;
                     continue;
                 }
 
-                // 3️⃣ Detectar duplicados en el DBF (CORREGIDO)
-                // ⚠️ AHORA INCLUIMOS EL CODRESP PARA DIFERENCIAR REGISTROS EN LA MISMA OFICINA
                 String keyDbf = f.getEntidadCodigo() + "|" + 
                                 f.getUnidad() + "|" + 
                                 f.getCodOfi() + "|" + 
@@ -604,13 +515,10 @@ public class ResponsableController {
 
                 if (!seenKeys.add(keyDbf)) {
                     duplicadosDbf++;
-                    // Solo logueamos si es un duplicado real exacto
                     log.debug("⚠️ Duplicado REAL detectado en DBF: {}", keyDbf);
                     continue;
                 }
 
-                // 4️⃣ Resolver Oficina
-                // La clave de oficina sigue siendo solo por ubicación (sin codResp)
                 String keyOficina = f.getEntidadCodigo() + "|" + f.getUnidad() + "|" + f.getCodOfi();
                 Oficina oficina = oficinasCache.get(keyOficina);
                 
@@ -620,7 +528,6 @@ public class ResponsableController {
                     continue;
                 }
 
-                // 5️⃣ Resolver Persona (LÓGICA MEJORADA)
                 Persona persona = null;
                 boolean tieneCiValido = esCiValido(f.getCi());
 
@@ -629,7 +536,6 @@ public class ResponsableController {
                     persona = personasCache.get(ciNorm);
 
                     if (persona == null) {
-                        // CREAR NUEVA PERSONA CON CI
                         String[] partes = procesarNombreCompleto(f.getNombre());
                         String nombre = partes[0] == null || partes[0].isEmpty() ? "SIN DATOS" : partes[0];
                         
@@ -644,7 +550,6 @@ public class ResponsableController {
                         personasCache.put(ciNorm, persona);
                         personasCreadas++;
                     } else {
-                        // ♻️ REPARACIÓN AUTOMÁTICA DE NOMBRES "SIN DATOS"
                         boolean nombreInvalido = "SIN DATOS".equals(persona.getNombre()) 
                                                 || persona.getNombre() == null 
                                                 || persona.getNombre().isBlank();
@@ -656,18 +561,16 @@ public class ResponsableController {
                             persona.setPaterno(partes[1]);
                             persona.setMaterno(partes[2]);
                             persona = personaService.save(persona);
-                            personasCache.put(ciNorm, persona); // Actualizar caché
+                            personasCache.put(ciNorm, persona);
                         }
                     }
                 } else if (f.getNombre() != null && !f.getNombre().isBlank()) {
-                    // Lógica por Nombre (cuando no hay CI)
                     String[] partes = procesarNombreCompleto(f.getNombre());
                     String nombreCompletoNorm = String.join(" ", partes[0], nvl(partes[1]), nvl(partes[2])).trim();
                     
                     persona = personasCache.get("NOMBRE:" + nombreCompletoNorm);
                     
                     if (persona == null) {
-                         // Buscar en BD
                          persona = personaService.buscarPersonaPorNombreCompletoUno(partes[0], partes[1], partes[2]);
                          if (persona == null) {
                             persona = new Persona();
@@ -681,7 +584,6 @@ public class ResponsableController {
                          personasCache.put("NOMBRE:" + nombreCompletoNorm, persona);
                     }
                 } else {
-                    // Fallback SIN DATOS
                     persona = personasCache.get("NOMBRE:SIN DATOS");
                     if (persona == null) {
                         persona = personaService.buscarPersonaPorNombreCompletoUno("SIN DATOS", null, null);
@@ -696,9 +598,8 @@ public class ResponsableController {
                     sinCi++;
                 }
 
-                if (persona == null) continue; // Safety check
+                if (persona == null) continue;
 
-                // 6️⃣ Cargo
                 Cargo cargo = null;
                 if (f.getCargo() != null && !f.getCargo().isBlank()) {
                     String keyCargo = f.getCargo().toUpperCase().trim();
@@ -713,9 +614,6 @@ public class ResponsableController {
                     }
                 }
 
-                // 7️⃣ CLAVE ÚNICA DE RESPONSABLE
-                // Esta clave debe coincidir con tu @UniqueConstraint de la Entidad
-                // id_oficina + codigo_funcionario
                 String claveResponsable = oficina.getIdOficina() + "|" + 
                     (f.getCodResp() != null ? f.getCodResp().trim() : "NULL");
                 
@@ -730,17 +628,14 @@ public class ResponsableController {
                 if (esNuevo) {
                     responsable = new Responsable();
                     responsable.setOficina(oficina);
-                    // IMPORTANTE: Aquí asignamos la persona. 
-                    // Si ya existe la persona (RIMBERT), se reutiliza su ID.
                     responsable.setPersona(persona); 
                     responsable.setCargo(cargo);
                     responsablesCache.put(claveResponsable, responsable);
                 }
 
-                // 9️⃣ Mapeo de datos
                 responsable.setCodigoFuncionario(f.getCodResp() != null ? f.getCodResp().trim() : null);
-                responsable.setPersona(persona); // Aseguramos actualización si la persona cambió (ej. reparación de SIN DATOS)
-                responsable.setCargo(cargo);     // Aseguramos actualización de cargo
+                responsable.setPersona(persona);
+                responsable.setCargo(cargo);
                 
                 String observ = f.getObserv();
                 if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) observ = null;
@@ -752,7 +647,6 @@ public class ResponsableController {
                 responsable.setApiEstado(f.getApiEstado());
                 responsable.setEstado("ACTIVO");
 
-                // 🔟 Hash Check
                 String nuevoHash = responsable.calcularHash();
                 if (!esNuevo && !forzarCompleto) {
                     if (nuevoHash.equals(responsable.getHashDatos())) {
@@ -778,7 +672,6 @@ public class ResponsableController {
                 batch.clear();
             }
 
-            // Registro Final
             long duracion = System.currentTimeMillis() - inicio;
             SyncResult resultado = SyncResult.builder()
                 .totalLeidas(filas.size())
@@ -791,7 +684,6 @@ public class ResponsableController {
             
             syncControlService.registrarSincronizacion("responsable", resultado);
             
-            // Retorno JSON
             Map<String, Object> response = resultado.toResponseMap();
             response.put("personasCreadas", personasCreadas);
             response.put("duplicadosDbf", duplicadosDbf);
@@ -803,12 +695,6 @@ public class ResponsableController {
         }
     }
 
-
-
-    /**
-     * ✅ OPTIMIZACIÓN: Cargar todas las oficinas en caché (1 sola consulta)
-     * Clave: entidad|unidad|codOfi
-     */
     private Map<String, Oficina> cargarOficinasEnCache() {
         List<Oficina> todas = oficinaService.findAll();
         
@@ -824,30 +710,22 @@ public class ResponsableController {
         return cache;
     }
 
-    /**
-     * ✅ OPTIMIZACIÓN: Cargar todas las personas en caché (1 sola consulta)
-     * Clave: CI (mayúsculas)
-     */
     private Map<String, Persona> cargarPersonasEnCache() {
         List<Persona> todas = personaService.findAll();
-        Map<String, Persona> cache = new HashMap<>(todas.size() * 2); // *2 para CI + nombre
-        
+        Map<String, Persona> cache = new HashMap<>(todas.size() * 2);
         log.info("=== CONSTRUYENDO CACHÉ DE PERSONAS ===");
         
         for (Persona p : todas) {
-            // Clave 1: Por CI (si tiene)
             if (p.getCi() != null && !p.getCi().isBlank()) {
                 String ciNormalizado = p.getCi().trim()
                 .replaceAll("[.\\-\\s]", "")
                 .toUpperCase();
             
-                // Solo agregar si es numérico válido
                 if (ciNormalizado.matches("\\d{5,}")) {
                     cache.put(ciNormalizado, p);
                 }
             }
             
-            // Clave 2: Por nombre completo (siempre)
             String nombreCompleto = String.join(" ",
                 p.getNombre() != null ? p.getNombre().trim() : "",
                 p.getPaterno() != null ? p.getPaterno().trim() : "",
@@ -858,16 +736,10 @@ public class ResponsableController {
                 cache.put("NOMBRE:" + nombreCompleto, p);
             }
         }
-        
         log.info("✅ Personas en caché: {} (con {} claves)", todas.size(), cache.size());
         return cache;
     }
 
-
-    /**
-     * ✅ OPTIMIZACIÓN: Cargar todos los cargos en caché (1 sola consulta)
-     * Clave: Nombre (mayúsculas)
-     */
     private Map<String, Cargo> cargarCargosEnCache() {
         List<Cargo> todos = cargoService.findAll();
         
@@ -880,19 +752,13 @@ public class ResponsableController {
             ));
     }
 
-    /**
-     * ✅ OPTIMIZACIÓN: Cargar todos los responsables en caché (1 sola consulta)
-     * Clave: idOficina|idPersona|idCargo
-     */
     private Map<String, Responsable> cargarResponsablesEnCache() {
         List<Responsable> todos = responsableService.findAll();
         Map<String, Responsable> cache = new HashMap<>(todos.size());
-        
         log.info("=== CONSTRUYENDO CACHÉ DE RESPONSABLES ===");
         
         for (Responsable r : todos) {
             if (r.getOficina() != null) {
-                // ✅ Clave basada en constraint único de BD
                 String key = r.getOficina().getIdOficina() + "|" + 
                             (r.getCodigoFuncionario() != null ? r.getCodigoFuncionario() : "NULL");
                 
@@ -904,10 +770,6 @@ public class ResponsableController {
         return cache;
     }
 
-
-    /**
-     * ✅ ENDPOINT AJAX para obtener info de sincronización
-     */
     @GetMapping("/sync-info")
     @ResponseBody
     public ResponseEntity<?> obtenerInfoSync() {
@@ -948,76 +810,107 @@ public class ResponsableController {
         }
     }
 
-    private static String nvl(String s) {
-        return s == null ? "" : s;
-    }
+    @ValidarUsuarioAutenticado
+    @PostMapping("/subir-dbf/{id}")
+    @ResponseBody
+    public ResponseEntity<?> subirResponsableADbf(@PathVariable("id") String idEnc, HttpServletRequest request) {
+        try {
+            Long id = Long.parseLong(Encriptar.decrypt(idEnc));
+            Responsable resp = responsableService.findByIdWithRelations(id); // Asegurar traer oficina/predio
+            
+            if (resp == null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No encontrado"));
 
-    private static boolean isBlank(String s) {
-        return s == null || s.trim().isEmpty();
-    }
+            Oficina ofi = resp.getOficina();
+            if (ofi == null || ofi.getPredio() == null || ofi.getPredio().getEntidad() == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Datos de oficina incompletos"));
+            }
 
-    // divide lo más básico: "Nombres ApellidoP ApellidoM"
-    private String[] splitNombrePersona(String full) {
-        String n = nvl(full);
-        if (n == null)
-            return new String[] { "DESCONOCIDO", null, null };
-        String[] parts = n.split("\\s+");
-        if (parts.length == 1)
-            return new String[] { parts[0], null, null };
-        if (parts.length == 2)
-            return new String[] { parts[0], parts[1], null };
-        // nombre = todo salvo los dos últimos
-        String nombre = String.join(" ", Arrays.copyOf(parts, parts.length - 2));
-        String paterno = parts[parts.length - 2];
-        String materno = parts[parts.length - 1];
-        return new String[] { nombre, paterno, materno };
+            String entidad = ofi.getPredio().getEntidad().getEntidadCodigo();
+            String unidad = ofi.getPredio().getUnidad(); // O getCodigo() según tu lógica normalizada
+            String usuario = (Usuario) request.getSession().getAttribute("usuario") != null ? 
+                             ((Usuario) request.getSession().getAttribute("usuario")).getUsuario() : "SISTEMA";
+
+            Integer codResp = Integer.valueOf(resp.getCodigoFuncionario().replaceAll("\\D+", ""));
+
+            // Verificar si existe (usando el servicio blindado)
+            if (respDbfWriterService.existsByCodResp(codResp, ofi.getCodOfi(), entidad, unidad)) {
+                // Actualizar
+                respDbfWriterService.actualizarDesdeResponsable(
+                    codResp, ofi.getCodOfi(), entidad, unidad, 
+                    resp, entidad, unidad, usuario
+                );
+                return ResponseEntity.ok(Map.of("ok", true, "msg", "Responsable actualizado en DBF."));
+            }
+
+            // Insertar
+            respDbfWriterService.insertarDesdeResponsable(resp, entidad, unidad, usuario);
+            return ResponseEntity.ok(Map.of("ok", true, "msg", "Responsable insertado en DBF."));
+
+        } catch (Exception e) {
+            log.error("Error subiendo responsable", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
     }
 
     // =========================================================================
-    // ✅ NUEVOS HELPERS OPTIMIZADOS (Pega esto al final de tu Controller)
+    // HELPERS
     // =========================================================================
 
-    /**
-     * Procesa un nombre completo y devuelve un arreglo de 3 posiciones:
-     * [0] = Nombre(s)
-     * [1] = Apellido Paterno
-     * [2] = Apellido Materno
-     */
+    private String generarClaveUnica(String entidad, String unidad, Short codOfi, String codResp) {
+        // 1. Normalizar Texto (Entidad y Unidad)
+        // Quitamos espacios, pasamos a mayúsculas y eliminamos caracteres ocultos
+        String e = (entidad == null) ? "" : entidad.trim().toUpperCase().replaceAll("\\p{C}", "");
+        String u = (unidad == null) ? "" : unidad.trim().toUpperCase().replaceAll("\\p{C}", "");
+        
+        // 2. Normalizar Código Oficina
+        String cOfi = (codOfi == null) ? "0" : String.valueOf(codOfi);
+
+        // 3. Normalizar Código Responsable (CRÍTICO)
+        // El DBF puede tener "005", "5 ", "05". La BD suele tener "5".
+        // Convertimos todo a entero y luego a string para asegurar "5" == "5".
+        String cResp = "0";
+        if (codResp != null) {
+            // Eliminar todo lo que no sea número
+            String soloNumeros = codResp.replaceAll("\\D+", ""); 
+            if (!soloNumeros.isEmpty()) {
+                try {
+                    // "005" -> 5 -> "5"
+                    cResp = String.valueOf(Integer.parseInt(soloNumeros));
+                } catch (NumberFormatException ex) {
+                    cResp = soloNumeros; // Fallback por si acaso
+                }
+            }
+        }
+
+        return e + "|" + u + "|" + cOfi + "|" + cResp;
+    }
+
     private String[] procesarNombreCompleto(String nombreCompleto) {
-        // 1. Limpieza centralizada
+
         String limpio = limpiarNombre(nombreCompleto);
         
-        // Si está vacío, retornamos todo null
         if (limpio.isEmpty()) {
             return new String[]{null, null, null};
         }
 
         String[] partes = limpio.split("\\s+");
         int n = partes.length;
-
         String nombre;
         String paterno = null;
         String materno = null;
 
         if (n == 1) {
-            // Caso: "JUAN" -> Solo nombre
             nombre = partes[0];
         } 
+
         else if (n == 2) {
-            // Caso: "JUAN PEREZ" -> Nombre y Paterno
             nombre = partes[0];
             paterno = partes[1];
         } 
+
         else {
-            // Caso 3+: "JUAN CARLOS PEREZ" o "JOHANES JOAQUIN OLIVEIRA MORENO"
-            // Lógica: Las últimas 2 palabras son siempre Paterno y Materno.
-            // Todo lo anterior es el Nombre.
-            
-            materno = partes[n - 1]; // Última palabra (MORENO)
-            paterno = partes[n - 2]; // Penúltima palabra (OLIVEIRA)
-            
-            // Unir el resto para el nombre (JOHANES JOAQUIN)
-            // Usamos Arrays.copyOfRange para tomar desde el inicio hasta antes del paterno
+            materno = partes[n - 1];
+            paterno = partes[n - 2];
             nombre = String.join(" ", java.util.Arrays.copyOfRange(partes, 0, n - 2));
         }
 
@@ -1029,7 +922,6 @@ public class ResponsableController {
             return "";
         }
         
-        // Optimizamos la limpieza encadenando los replace
         String limpio = nombre.toUpperCase().trim();
         
         limpio = limpio
@@ -1038,14 +930,35 @@ public class ResponsableController {
             .replace("Í", "I")
             .replace("Ó", "O")
             .replace("Ú", "U")
-            .replace("Ñ", "N") // Mantenemos tu lógica de quitar la Ñ
+            .replace("Ñ", "N")
             .replace("-", " ")
             .replace(".", " ");
 
-        // Eliminar todo lo que no sea letra o número
         limpio = limpio.replaceAll("[^A-Z0-9\\s]", "");
         
-        // Eliminar espacios dobles
         return limpio.replaceAll("\\s+", " ").trim();
+    }
+
+    private static String nvl(String s) {
+        return s == null ? "" : s;
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
+    }
+
+    private String[] splitNombrePersona(String full) {
+        String n = nvl(full);
+        if (n == null)
+            return new String[] { "DESCONOCIDO", null, null };
+        String[] parts = n.split("\\s+");
+        if (parts.length == 1)
+            return new String[] { parts[0], null, null };
+        if (parts.length == 2)
+            return new String[] { parts[0], parts[1], null };
+        String nombre = String.join(" ", Arrays.copyOf(parts, parts.length - 2));
+        String paterno = parts[parts.length - 2];
+        String materno = parts[parts.length - 1];
+        return new String[] { nombre, paterno, materno };
     }
 }
