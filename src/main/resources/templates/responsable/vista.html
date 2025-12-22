@@ -153,8 +153,11 @@
                 { data: 'oficina' },
                 { data: 'cargo' },
                 {
-                    data: 'idResponsable', orderable: false, searchable: false,
-                    render: function(data, type, row) { // ✅ Usar function para ver 'row'
+                    data: 'idResponsable', 
+                    orderable: false, 
+                    searchable: false,
+                    // 🔴 CORRECCIÓN AQUÍ: Usar 'function(data, type, row)'
+                    render: function(data, type, row) { 
                         let botones = `
                             <div class="btn-group btn-group-sm">
                                 <button class="btn btn-danger btn-eliminar-responsable"
@@ -165,7 +168,7 @@
                             </div>
                         `;
 
-                        // ✅ Lógica del botón amarillo basada en la bandera del Controller
+                        // ✅ Lógica del botón amarillo basada en la respuesta del Controller
                         if (row.existeEnDbf === false) {
                             botones += `
                                 <button class="btn btn-warning btn-sm ms-1 btn-subir-dbf"
