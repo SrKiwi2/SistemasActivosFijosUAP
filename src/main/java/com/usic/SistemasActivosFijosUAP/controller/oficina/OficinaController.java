@@ -197,7 +197,7 @@ public class OficinaController {
     }
 
     @ValidarUsuarioAutenticado
-    @PostMapping("/formulario")
+    @RequestMapping("/formulario")
     public String formulario_oficina(Model model, Oficina oficina) {
         model.addAttribute("oficina", new Oficina());
         model.addAttribute("predios", predioServicio.findAll());

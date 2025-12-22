@@ -139,11 +139,15 @@
     }
 
     function initDataTable() {
-        if ($.fn.DataTable.isDataTable('#data-table')) $('#data-table').DataTable().destroy();
+        const $tbl = $('#data-table');
+        if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
 
-        $('#data-table').DataTable({
+        const table = $tbl.DataTable({
             processing: true,
             serverSide: true,
+            deferRender: true,
+            pageLength: 25,
+            lengthMenu: [10, 25, 50, 100],
             ajax: {
                 url: '/administracion/responsable/api/datatables',
                 type: 'POST',
@@ -157,53 +161,66 @@
                     orderable: false, 
                     render: (d, t, r, m) => m.row + m.settings._iDisplayStart + 1 
                 },
-                { 
-                    data: 'codFun',
-                    render: (data) => `<span class="badge bg-label-primary">${data}</span>`
-                },
-                { 
-                    data: null,
-                    render: function(d, t, row) {
-                        return `<strong>${row.paterno || ''} ${row.materno || ''}</strong> ${row.nombre}`;
-                    }
-                },
+                { data: 'codFun' },
+                { data: 'nombre' },
+                { data: 'paterno' },
+                { data: 'materno' },
                 { data: 'ci' },
-                { 
-                    data: 'oficina',
-                    render: (data) => `<small class="text-muted">${data}</small>`
-                },
+                { data: 'oficina' },
                 { data: 'cargo' },
                 {
-                    data: 'idResponsable',
-                    orderable: false,
-                    className: 'text-center',
-                    render: function(data, type, row) {
-                        let btns = `
-                            <button class="btn btn-icon btn-sm btn-outline-primary me-1" 
-                                    onclick="editarResponsable('${row.idEnc}')" title="Editar">
-                                <i class="fa-solid fa-pen"></i>
-                            </button>
-                            <button class="btn btn-icon btn-sm btn-outline-danger me-1 btn-eliminar-responsable" 
-                                    data-id="${row.idEnc}" title="Eliminar">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
+                    data: 'idResponsable', 
+                    orderable: false, 
+                    searchable: false,
+                    render: function(data, type, row) { 
+                        let botones = `
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-danger btn-eliminar-responsable"
+                                        data-id="${row.idEnc}"
+                                        title="Eliminar responsable">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
                         `;
-
-                        // Botón Amarillo si falta en DBF
                         if (row.existeEnDbf === false) {
-                            btns += `
-                                <button class="btn btn-icon btn-sm btn-warning btn-subir-dbf" 
-                                        data-id="${row.idEnc}" title="⚠️ No en DBF. Subir ahora.">
+                            botones += `
+                                <button class="btn btn-warning btn-sm ms-1 btn-subir-dbf"
+                                        data-id="${row.idEnc}"
+                                        title="⚠️ No encontrado en DBF. Subir ahora.">
                                     <i class="fa-solid fa-cloud-arrow-up"></i>
                                 </button>
                             `;
+                        } else {
+                            botones += `
+                                <span class="badge bg-success ms-1" title="Sincronizado">
+                                    <i class="fa-solid fa-check"></i>
+                                </span>
+                            `;
                         }
-                        return btns;
+                        return botones;
                     }
                 }
             ],
+            // ✅ SOLUCIÓN CORS: Traducción incrustada (Hardcoded)
             language: {
-                url: "//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json"
+                "decimal": "",
+                "emptyTable": "No hay información",
+                "info": "Mostrando _START_ a _END_ de _TOTAL_ Entradas",
+                "infoEmpty": "Mostrando 0 to 0 of 0 Entradas",
+                "infoFiltered": "(Filtrado de _MAX_ total entradas)",
+                "infoPostFix": "",
+                "thousands": ",",
+                "lengthMenu": "Mostrar _MENU_ Entradas",
+                "loadingRecords": "Cargando...",
+                "processing": "Procesando...",
+                "search": "Buscar:",
+                "zeroRecords": "Sin resultados encontrados",
+                "paginate": {
+                    "first": "Primero",
+                    "last": "Ultimo",
+                    "next": "Siguiente",
+                    "previous": "Anterior"
+                }
             }
         });
     }
