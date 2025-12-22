@@ -134,7 +134,7 @@ $(document).ready(function() {
         tags: true, // Permite escribir texto nuevo
         placeholder: 'Busque o escriba un cargo nuevo...',
         ajax: {
-            url: '/api/cargos/search',
+            url: '/administracion/responsable/api/cargos/search',
             dataType: 'json',
             delay: 250,
             data: function (params) {
@@ -159,7 +159,7 @@ $(document).ready(function() {
         $('#btnBuscarPersona').html('<i class="fa-solid fa-spinner fa-spin"></i>');
 
         $.ajax({
-            url: '/api/personas/buscar-por-ci',
+            url: '/administracion/responsable/api/personas/buscar-por-ci',
             data: { ci: ci },
             success: function(p) {
                 // Encontrado -> Bloquear campos
@@ -210,7 +210,7 @@ $(document).ready(function() {
     });
 
     function recargarSelectOficinas() {
-        $.get('/api/oficinas/list-select', function(data) {
+        $.get('/administracion/responsable/api/oficinas/list-select', function(data) {
             let opts = '<option value="">Buscar oficina...</option>';
             data.forEach(o => {
                 opts += `<option value="${o.idOficina}">${o.predio.unidad} - ${o.codOfi} | ${o.nombre}</option>`;
