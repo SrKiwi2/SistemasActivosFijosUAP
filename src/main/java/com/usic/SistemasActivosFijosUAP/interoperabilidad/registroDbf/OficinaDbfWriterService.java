@@ -99,48 +99,38 @@ public class OficinaDbfWriterService {
             try (InputStream fis = new FileInputStream(getOficinaDbfFile());
                  DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
 
-                int codOficIndex = -1, entidadIndex = -1, unidadIndex = -1;
-
+                int idxCODOFIC = -1, idxENT = -1, idxUNI = -1;
                 for (int i = 0; i < reader.getFieldCount(); i++) {
                     String name = reader.getField(i).getName().toUpperCase();
-                    if ("CODOFIC".equals(name)) codOficIndex = i;
-                    else if ("ENTIDAD".equals(name)) entidadIndex = i;
-                    else if ("UNIDAD".equals(name)) unidadIndex = i;
+                    if ("CODOFIC".equals(name)) idxCODOFIC = i;
+                    if ("ENTIDAD".equals(name)) idxENT = i;
+                    if ("UNIDAD".equals(name)) idxUNI = i;
                 }
 
-                if (codOficIndex == -1) return false; // O lanzar error si prefieres
-
-                // 🛡️ BUCLE BLINDADO CONTRA REGISTROS CORRUPTOS
                 Object[] record;
-                while (true) {
+                while ((record = reader.nextRecord()) != null) {
                     try {
-                        record = reader.nextRecord();
-                        if (record == null) break;
 
                         boolean match = true;
 
-                        // Comparar CODOFIC
-                        if (codOficIndex >= 0 && record[codOficIndex] != null) {
-                            Number val = (Number) record[codOficIndex];
+                        if (idxCODOFIC >= 0 && record[idxCODOFIC] != null) {
+                            Number val = (Number) record[idxCODOFIC];
                             if (val.shortValue() != codOfic.shortValue()) match = false;
                         }
 
-                        // Comparar ENTIDAD
-                        if (match && entidadIndex >= 0 && record[entidadIndex] != null) {
-                            String val = record[entidadIndex].toString().trim();
+                        if (match && idxENT >= 0 && record[idxENT] != null) {
+                            String val = record[idxENT].toString().trim();
                             if (!val.equals(entidad)) match = false;
                         }
 
-                        // Comparar UNIDAD
-                        if (match && unidadIndex >= 0 && record[unidadIndex] != null) {
-                            String val = record[unidadIndex].toString().trim();
+                        if (match && idxUNI >= 0 && record[idxUNI] != null) {
+                            String val = record[idxUNI].toString().trim();
                             if (!val.equals(unidad)) match = false;
                         }
 
                         if (match) return true;
 
                     } catch (Exception e) {
-                        // ⚠️ SALTAMOS EL REGISTRO CORRUPTO Y SEGUIMOS BUSCANDO
                         log.warn("⚠️ Registro corrupto detectado al verificar existencia (saltando): {}", e.getMessage());
                     }
                 }
@@ -162,137 +152,58 @@ public class OficinaDbfWriterService {
         verificarConexionDBF();
 
         synchronized (oficinaLock) {
-            try {
-                File dbfFile = getOficinaDbfFile();
-                File tempFile = new File(dbfFile.getParent(), "OFICINA_TEMP.DBF");
-
-                List<Object[]> records = new ArrayList<>();
-                DBFField[] originalFields;
-
-                // 1. LEER TODO EL ARCHIVO (SALTANDO CORRUPTOS)
-                try (InputStream fis = new FileInputStream(dbfFile);
-                     DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
-
-                    originalFields = new DBFField[reader.getFieldCount()];
-                    for (int i = 0; i < reader.getFieldCount(); i++) {
-                        originalFields[i] = reader.getField(i);
-                    }
-
-                    Object[] record;
-                    int rowNum = 0;
-                    while (true) {
-                        try {
-                            record = reader.nextRecord();
-                            if (record == null) break;
-                            rowNum++;
-                            records.add(record); // Solo agregamos si se leyó bien
-                        } catch (Exception ex) {
-                            // 🗑️ AQUÍ ELIMINAMOS EL REGISTRO 850 PARA SIEMPRE
-                            log.error("🔥 Registro corrupto #{} eliminado durante la reescritura: {}", rowNum, ex.getMessage());
-                        }
-                    }
-                }
-
-                // 2. Preparar campos escribibles
-                List<DBFField> writableFieldsList = new ArrayList<>();
-                List<Integer> writableIndexes = new ArrayList<>();
-
-                for (int i = 0; i < originalFields.length; i++) {
-                    if (originalFields[i].getType() != DBFDataType.MEMO) {
-                        writableFieldsList.add(originalFields[i]);
-                        writableIndexes.add(i);
-                    }
-                }
-                DBFField[] writableFields = writableFieldsList.toArray(new DBFField[0]);
-
-                // 3. Agregar el NUEVO registro a la lista en memoria
-                Object[] newRecord = crearRegistroDesdeOficina(oficina, entidadCode, unidadCode, usuario, originalFields);
-                records.add(newRecord);
-
-                // 4. Escribir archivo limpio
-                try (OutputStream fos = new FileOutputStream(tempFile);
-                     DBFWriter writer = new DBFWriter(fos, Charset.forName("CP1252"))) {
-
-                    writer.setFields(writableFields);
-
-                    for (Object[] record : records) {
-                        Object[] writableRecord = new Object[writableIndexes.size()];
-                        for (int i = 0; i < writableIndexes.size(); i++) {
-                            writableRecord[i] = record[writableIndexes.get(i)];
-                        }
-                        writer.addRecord(writableRecord);
-                    }
-                }
-
-                // 5. Reemplazar archivo (Swap atómico)
-                File backupFile = new File(dbfFile.getParent(), "OFICINA_BACKUP.DBF");
-                if (backupFile.exists()) backupFile.delete();
+            File dbfFile = getOficinaDbfFile();
+            try (RandomAccessFile raf = new RandomAccessFile(dbfFile, "rw");
+                FileChannel channel = raf.getChannel();
+                FileLock lock = channel.lock()) {
                 
-                // Backup manual rápido
-                try (InputStream in = new FileInputStream(dbfFile); OutputStream out = new FileOutputStream(backupFile)) {
-                    in.transferTo(out);
+                raf.seek(4);
+                int numRecords = Integer.reverseBytes(raf.readInt());
+                short headerLen = Short.reverseBytes(raf.readShort());
+                short recordLen = Short.reverseBytes(raf.readShort());
+
+                List<DBFField> fields = leerMetadatosCampos(raf);
+
+                byte[] nuevoRegistro = new byte[recordLen];
+                Arrays.fill(nuevoRegistro, (byte) 0x20);
+
+                nuevoRegistro[0] = 0x20;
+
+                int currentOffset = 1;
+
+                for (DBFField field : fields) {
+                    Object valor = obtenerValorCampo(field.getName(), oficina, entidadCode, unidadCode, usuario);
+                    
+                    // IMPORTANTE: Para MEMO, escribimos 10 espacios (puntero vacío) si es nuevo
+                    // Esto evita corromper el archivo .DBT
+                    if (field.getType() == DBFDataType.MEMO) {
+                        valor = null; 
+                    }
+
+                    byte[] valorBytes = convertirValorABytes(valor, field);
+                    System.arraycopy(valorBytes, 0, nuevoRegistro, currentOffset, Math.min(valorBytes.length, field.getLength()));
+                    
+                    currentOffset += field.getLength();
                 }
 
-                if (!dbfFile.delete()) throw new IOException("No se pudo eliminar OFICINA.DBF original");
-                if (!tempFile.renameTo(dbfFile)) throw new IOException("No se pudo renombrar OFICINA_TEMP.DBF");
+                long posFinal = headerLen + ((long) numRecords * recordLen);
+                raf.seek(posFinal);
+                raf.write(nuevoRegistro);
 
-                log.info("✅ Oficina insertada y archivo DBF saneado.");
+                raf.writeByte(0x1A);
+
+                raf.seek(4);
+                raf.writeInt(Integer.reverseBytes(numRecords + 1));
+
+                actualizarFechaModificacion(raf);
+
+                log.info("✅ Registro añadido correctamente. Total registros: {}", numRecords + 1);
 
             } catch (Exception e) {
-                log.error("Error insertando oficina: {}", e.getMessage(), e);
-                throw new RuntimeException("No se pudo registrar en DBF: " + e.getMessage(), e);
+                log.error("Error crítico escribiendo DBF: {}", e.getMessage(), e);
+                throw new RuntimeException("Error escribiendo en DBF: " + e.getMessage());
             }
         }
-    }
-
-    /**
-     * Convierte un valor Java a bytes según el tipo de campo DBF
-     */
-    private byte[] convertirValorABytes(Object value, DBFField field) {
-        int fieldLength = field.getLength();
-        byte[] bytes = new byte[fieldLength];
-        Arrays.fill(bytes, (byte) ' '); // Rellenar con espacios
-        
-        if (value == null) {
-            return bytes;
-        }
-        
-        try {
-            switch (field.getType()) {
-                case CHARACTER:
-                    String strValue = value.toString();
-                    byte[] strBytes = strValue.getBytes("CP1252");
-                    System.arraycopy(strBytes, 0, bytes, 0, Math.min(strBytes.length, fieldLength));
-                    break;
-                    
-                case NUMERIC:
-                case FLOATING_POINT:
-                    String numStr = String.format("%" + fieldLength + "." + field.getDecimalCount() + "f", 
-                                                ((Number) value).doubleValue());
-                    byte[] numBytes = numStr.getBytes("CP1252");
-                    System.arraycopy(numBytes, 0, bytes, 0, Math.min(numBytes.length, fieldLength));
-                    break;
-                    
-                case DATE:
-                    if (value instanceof java.sql.Date) {
-                        LocalDate date = ((java.sql.Date) value).toLocalDate();
-                        String dateStr = date.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-                        System.arraycopy(dateStr.getBytes("CP1252"), 0, bytes, 0, 8);
-                    }
-                    break;
-                    
-                case LOGICAL:
-                    bytes[0] = (Boolean.TRUE.equals(value)) ? (byte) 'T' : (byte) 'F';
-                    break;
-                    
-                default:
-                    log.warn("Tipo de campo no soportado para escritura: {}", field.getType());
-            }
-        } catch (Exception e) {
-            log.error("Error convirtiendo valor para campo {}: {}", field.getName(), e.getMessage());
-        }
-        
-        return bytes;
     }
 
     /**
@@ -300,187 +211,198 @@ public class OficinaDbfWriterService {
      */
     public void actualizarDesdeOficina(Short codOficOriginal, String entidadOriginal, String unidadOriginal,
             Oficina oficina, String entidadCode, String unidadCode, String usuario) {
-        log.info("Iniciando actualización de oficina CODOFIC={} en OFICINA.DBF", codOficOriginal);
+        log.info("⚡ Actualizando oficina {} in-place", codOficOriginal);
         verificarConexionDBF();
 
         synchronized (oficinaLock) {
-            try {
-                File dbfFile = getOficinaDbfFile();
-                File tempFile = new File(dbfFile.getParent(), "OFICINA_TEMP.DBF");
+            File dbfFile = getOficinaDbfFile();
+            try (RandomAccessFile raf = new RandomAccessFile(dbfFile, "rw");
+                 FileChannel channel = raf.getChannel();
+                 FileLock lock = channel.lock()) {
 
-                List<Object[]> records = new ArrayList<>();
-                DBFField[] originalFields;
-                boolean encontrado = false;
+                // 1. Leer Header
+                raf.seek(4);
+                int numRecords = Integer.reverseBytes(raf.readInt());
+                short headerLen = Short.reverseBytes(raf.readShort());
+                short recordLen = Short.reverseBytes(raf.readShort());
 
-                // Índices de campos clave
-                int codOficIndex = -1, entidadIndex = -1, unidadIndex = -1;
-
-                // Leer archivo original
-                try (InputStream fis = new FileInputStream(dbfFile);
-                        DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
-
-                    originalFields = new DBFField[reader.getFieldCount()];
-                    for (int i = 0; i < reader.getFieldCount(); i++) {
-                        originalFields[i] = reader.getField(i);
-                        String name = originalFields[i].getName().toUpperCase();
-                        if ("CODOFIC".equals(name)) codOficIndex = i;
-                        else if ("ENTIDAD".equals(name)) entidadIndex = i;
-                        else if ("UNIDAD".equals(name)) unidadIndex = i;
+                List<DBFField> fields = leerMetadatosCampos(raf);
+                
+                // Buscar índice del campo CODOFIC para localizar el registro
+                int offsetCodOfic = 1; // +1 por el byte de borrado
+                int lenCodOfic = 0;
+                boolean foundField = false;
+                
+                for (DBFField f : fields) {
+                    if ("CODOFIC".equalsIgnoreCase(f.getName())) {
+                        lenCodOfic = f.getLength();
+                        foundField = true;
+                        break;
                     }
+                    offsetCodOfic += f.getLength();
+                }
 
-                    // Leer todos los registros y actualizar el que coincida
-                    Object[] record;
-                    while (true) {
-                        try{
-                            record = reader.nextRecord();
-                            if (record == null) break;
+                if (!foundField) throw new RuntimeException("Campo CODOFIC no encontrado en estructura DBF");
 
-                            boolean match = true;
-
-                            // Verificar coincidencia
-                            if (codOficIndex >= 0 && record[codOficIndex] != null) {
-                                Short recCodOfic = ((Number) record[codOficIndex]).shortValue();
-                                if (!recCodOfic.equals(codOficOriginal)) {
-                                    match = false;
-                                }
-                            }
-
-                            if (match && entidadIndex >= 0 && record[entidadIndex] != null) {
-                                String recEntidad = record[entidadIndex].toString().trim();
-                                if (!recEntidad.equals(entidadOriginal)) {
-                                    match = false;
-                                }
-                            }
-
-                            if (match && unidadIndex >= 0 && record[unidadIndex] != null) {
-                                String recUnidad = record[unidadIndex].toString().trim();
-                                if (!recUnidad.equals(unidadOriginal)) {
-                                    match = false;
-                                }
-                            }
-
-                            if (match) {
-                                // Encontrado: reemplazar con datos actualizados
-                                record = crearRegistroDesdeOficina(oficina, entidadCode, unidadCode, usuario,
-                                        originalFields);
-                                encontrado = true;
-                            }
-
-                            records.add(record);
-
-                        } catch (Exception ex) {
-                            log.error("🔥 Registro corrupto eliminado al actualizar: {}", ex.getMessage());
+                // 2. Buscar el registro secuencialmente (Leyendo solo el CODOFIC para rapidez)
+                long foundPos = -1;
+                byte[] bufferId = new byte[lenCodOfic];
+                
+                for (int i = 0; i < numRecords; i++) {
+                    long recordPos = headerLen + ((long) i * recordLen);
+                    
+                    // Saltar al campo CODOFIC de este registro
+                    raf.seek(recordPos + offsetCodOfic); 
+                    raf.read(bufferId);
+                    
+                    String idStr = new String(bufferId, "CP1252").trim();
+                    try {
+                        if (!idStr.isEmpty() && Integer.parseInt(idStr) == codOficOriginal.intValue()) {
+                            foundPos = recordPos;
+                            break;
                         }
+                    } catch (NumberFormatException e) { /* Ignorar basura */ }
+                }
+
+                if (foundPos == -1) {
+                    throw new RuntimeException("Registro no encontrado para actualizar.");
+                }
+
+                // 3. Sobrescribir campos (MENOS MEMO)
+                raf.seek(foundPos + 1); // +1 para saltar flag de borrado
+                
+                for (DBFField field : fields) {
+                    // ⚠️ CRÍTICO: NO TOCAR CAMPOS MEMO AL ACTUALIZAR
+                    // Si sobrescribimos el puntero MEMO, rompemos la relación con .DBT
+                    if (field.getType() == DBFDataType.MEMO) {
+                        raf.skipBytes(field.getLength());
+                        continue;
                     }
+
+                    Object valor = obtenerValorCampo(field.getName(), oficina, entidadCode, unidadCode, usuario);
+                    byte[] valorBytes = convertirValorABytes(valor, field);
+                    raf.write(valorBytes);
                 }
 
-                if (!encontrado) {
-                    throw new RuntimeException(
-                            String.format("No se encontró la oficina con CODOFIC=%s en OFICINA.DBF", codOficOriginal));
-                }
-
-                // Filtrar campos MEMO para escritura
-                List<DBFField> writableFieldsList = new ArrayList<>();
-                List<Integer> writableIndexes = new ArrayList<>();
-
-                for (int i = 0; i < originalFields.length; i++) {
-                    DBFField field = originalFields[i];
-                    if (field.getType() != DBFDataType.MEMO) {
-                        writableFieldsList.add(field);
-                        writableIndexes.add(i);
-                    }
-                }
-
-                DBFField[] writableFields = writableFieldsList.toArray(new DBFField[0]);
-
-                // Escribir archivo temporal
-                try (OutputStream fos = new FileOutputStream(tempFile);
-                        DBFWriter writer = new DBFWriter(fos, Charset.forName("CP1252"))) {
-
-                    writer.setFields(writableFields);
-
-                    for (Object[] record : records) {
-                        Object[] writableRecord = new Object[writableIndexes.size()];
-                        for (int i = 0; i < writableIndexes.size(); i++) {
-                            writableRecord[i] = record[writableIndexes.get(i)];
-                        }
-                        writer.addRecord(writableRecord);
-                    }
-                }
-
-                // Crear backup
-                File backupFile = new File(dbfFile.getParent(), "OFICINA_BACKUP.DBF");
-                if (backupFile.exists()) {
-                    backupFile.delete();
-                }
-
-                try (InputStream in = new FileInputStream(dbfFile);
-                        OutputStream out = new FileOutputStream(backupFile)) {
-                    byte[] buffer = new byte[8192];
-                    int bytesRead;
-                    while ((bytesRead = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, bytesRead);
-                    }
-                }
-
-                // Reemplazar archivo
-                if (!dbfFile.delete()) {
-                    throw new IOException("No se pudo eliminar OFICINA.DBF original");
-                }
-
-                if (!tempFile.renameTo(dbfFile)) {
-                    if (backupFile.exists()) {
-                        backupFile.renameTo(dbfFile);
-                    }
-                    throw new IOException("No se pudo renombrar OFICINA_TEMP.DBF a OFICINA.DBF");
-                }
-
-                log.info("Oficina CODOFIC={} actualizada exitosamente en OFICINA.DBF", oficina.getCodOfi());
+                actualizarFechaModificacion(raf);
+                log.info("✅ Registro actualizado in-place en posición {}", foundPos);
 
             } catch (Exception e) {
-                log.error("Error actualizando oficina en DBF: {}", e.getMessage(), e);
-                throw new RuntimeException(
-                        "No se pudo actualizar en OFICINA.DBF: " + e.getMessage(), e);
+                log.error("Error actualizando DBF: {}", e.getMessage(), e);
+                throw new RuntimeException("Error actualizando DBF: " + e.getMessage());
             }
         }
     }
 
-    /**
-     * Crea un arreglo con todos los campos del registro
-     */
-    private Object[] crearRegistroDesdeOficina(Oficina ofi, String entidadCode, String unidadCode,
-            String usuario, DBFField[] fields) {
-        Object[] record = new Object[fields.length];
+    // ================= HELPER METHODS =================
 
-        // Mapeo de valores
-        String ENTIDAD = entidadCode;
-        String UNIDAD = unidadCode;
-        Short CODOFIC = ofi.getCodOfi();
-        String NOMOFIC = ofi.getNombre();
-        LocalDate FEULT = LocalDate.now();
-        String USUAR = (usuario != null ? usuario : "SISTEMA");
-        Short API_ESTADO = (ofi.getApiEstado() != null) ? ofi.getApiEstado() : Short.valueOf("1");
+    private List<DBFField> leerMetadatosCampos(RandomAccessFile raf) throws IOException {
+        List<DBFField> fields = new ArrayList<>();
+        raf.seek(8);
+        short headerLen = Short.reverseBytes(raf.readShort());
+        raf.seek(32); // Primer descriptor de campo empieza en byte 32
 
-        // Llenar el arreglo según el orden de los campos del DBF
-        for (int i = 0; i < fields.length; i++) {
-            String fieldName = fields[i].getName().toUpperCase();
+        while (raf.getFilePointer() < headerLen - 1) {
+            byte[] nameBytes = new byte[11];
+            raf.read(nameBytes);
+            if (nameBytes[0] == 0x0D) break; // Fin del header
 
-            switch (fieldName) {
-                case "ENTIDAD" -> record[i] = ENTIDAD;
-                case "UNIDAD" -> record[i] = UNIDAD;
-                case "CODOFIC" -> record[i] = CODOFIC;
-                case "NOMOFIC" -> record[i] = NOMOFIC;
-                case "OBSERV" -> record[i] = null; // Campo MEMO - se omite
-                case "FEULT" -> record[i] = java.sql.Date.valueOf(FEULT);
-                case "USUAR" -> record[i] = USUAR;
-                case "API_ESTADO" -> record[i] = API_ESTADO;
-                default -> {
-                    record[i] = null;
-                    log.debug("Campo '{}' no mapeado, establecido como null", fieldName);
-                }
-            }
+            String name = new String(nameBytes, "CP1252").trim();
+            byte typeByte = raf.readByte();
+            raf.skipBytes(4); // Displacement
+            int length = raf.readUnsignedByte();
+            int decimals = raf.readUnsignedByte();
+            raf.skipBytes(14); // Reserved
+
+            DBFField field = new DBFField();
+            field.setName(name);
+            field.setType(matchType(typeByte));
+            field.setLength(length);
+            field.setDecimalCount(decimals);
+            fields.add(field);
         }
+        return fields;
+    }
 
-        return record;
+    private DBFDataType matchType(byte b) {
+        return switch ((char) b) {
+            case 'C' -> DBFDataType.CHARACTER;
+            case 'N' -> DBFDataType.NUMERIC;
+            case 'D' -> DBFDataType.DATE;
+            case 'L' -> DBFDataType.LOGICAL;
+            case 'M' -> DBFDataType.MEMO;
+            default -> DBFDataType.CHARACTER;
+        };
+    }
+
+    private Object obtenerValorCampo(String fieldName, Oficina o, String ent, String uni, String usr) {
+        String name = fieldName.toUpperCase();
+        return switch (name) {
+            case "ENTIDAD" -> ent;
+            case "UNIDAD" -> uni;
+            case "CODOFIC" -> o.getCodOfi();
+            case "NOMOFIC" -> o.getNombre();
+            case "FEULT" -> java.sql.Date.valueOf(LocalDate.now());
+            case "USUAR" -> usr;
+            case "API_ESTADO" -> o.getApiEstado() != null ? o.getApiEstado() : 1;
+            default -> null; // OBSERV se ignora aquí si es memo
+        };
+    }
+
+    private byte[] convertirValorABytes(Object value, DBFField field) {
+        int length = field.getLength();
+        byte[] buffer = new byte[length];
+        Arrays.fill(buffer, (byte) 0x20); // Espacios
+
+        if (value == null) return buffer;
+
+        try {
+            byte[] data;
+            if (field.getType() == DBFDataType.NUMERIC || field.getType() == DBFDataType.FLOATING_POINT) {
+                // Números alineados a la derecha
+                String fmt = "%" + length + "." + field.getDecimalCount() + "f";
+                if (field.getDecimalCount() == 0) fmt = "%" + length + "d";
+                
+                String numStr;
+                if (value instanceof Integer || value instanceof Short) {
+                    numStr = String.format("%" + length + "d", ((Number) value).longValue());
+                } else {
+                    numStr = String.format("%" + length + "." + field.getDecimalCount() + "f", ((Number) value).doubleValue());
+                }
+                data = numStr.getBytes("CP1252");
+            } else if (field.getType() == DBFDataType.DATE) {
+                // YYYYMMDD
+                if (value instanceof java.sql.Date d) {
+                    String dateStr = d.toLocalDate().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+                    data = dateStr.getBytes("CP1252");
+                } else {
+                    data = new byte[0];
+                }
+            } else {
+                // Texto alineado a la izquierda
+                String s = value.toString();
+                data = s.getBytes("CP1252");
+            }
+
+            // Copiar al buffer respetando límites
+            if (field.getType() == DBFDataType.NUMERIC) {
+                // Copiar derecha a izquierda o directo si el formato ya rellenó espacios
+                System.arraycopy(data, 0, buffer, 0, Math.min(data.length, length));
+            } else {
+                System.arraycopy(data, 0, buffer, 0, Math.min(data.length, length));
+            }
+
+        } catch (Exception e) {
+            log.error("Error convirtiendo campo {}", field.getName());
+        }
+        return buffer;
+    }
+
+    private void actualizarFechaModificacion(RandomAccessFile raf) throws IOException {
+        raf.seek(1);
+        LocalDate now = LocalDate.now();
+        raf.writeByte(now.getYear() - 1900);
+        raf.writeByte(now.getMonthValue());
+        raf.writeByte(now.getDayOfMonth());
     }
 }
