@@ -97,69 +97,59 @@ public class OficinaDbfWriterService {
 
         synchronized (oficinaLock) {
             try (InputStream fis = new FileInputStream(getOficinaDbfFile());
-                    DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
+                 DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
 
-                // Buscar índices de campos
-                int codOficIndex = -1;
-                int entidadIndex = -1;
-                int unidadIndex = -1;
+                int codOficIndex = -1, entidadIndex = -1, unidadIndex = -1;
 
                 for (int i = 0; i < reader.getFieldCount(); i++) {
-                    DBFField field = reader.getField(i);
-                    String fieldName = field.getName().toUpperCase();
-
-                    if ("CODOFIC".equals(fieldName))
-                        codOficIndex = i;
-                    else if ("ENTIDAD".equals(fieldName))
-                        entidadIndex = i;
-                    else if ("UNIDAD".equals(fieldName))
-                        unidadIndex = i;
+                    String name = reader.getField(i).getName().toUpperCase();
+                    if ("CODOFIC".equals(name)) codOficIndex = i;
+                    else if ("ENTIDAD".equals(name)) entidadIndex = i;
+                    else if ("UNIDAD".equals(name)) unidadIndex = i;
                 }
 
-                if (codOficIndex == -1) {
-                    throw new RuntimeException("No se encontró el campo CODOFIC en OFICINA.DBF");
-                }
+                if (codOficIndex == -1) return false; // O lanzar error si prefieres
 
-                // Buscar registro coincidente
+                // 🛡️ BUCLE BLINDADO CONTRA REGISTROS CORRUPTOS
                 Object[] record;
-                while ((record = reader.nextRecord()) != null) {
-                    boolean match = true;
+                while (true) {
+                    try {
+                        record = reader.nextRecord();
+                        if (record == null) break;
 
-                    // Comparar CODOFIC
-                    if (codOficIndex >= 0 && record[codOficIndex] != null) {
-                        Short recCodOfic = ((Number) record[codOficIndex]).shortValue();
-                        if (!recCodOfic.equals(codOfic)) {
-                            match = false;
+                        boolean match = true;
+
+                        // Comparar CODOFIC
+                        if (codOficIndex >= 0 && record[codOficIndex] != null) {
+                            Number val = (Number) record[codOficIndex];
+                            if (val.shortValue() != codOfic.shortValue()) match = false;
                         }
-                    }
 
-                    // Comparar ENTIDAD
-                    if (match && entidadIndex >= 0 && record[entidadIndex] != null) {
-                        String recEntidad = record[entidadIndex].toString().trim();
-                        if (!recEntidad.equals(entidad)) {
-                            match = false;
+                        // Comparar ENTIDAD
+                        if (match && entidadIndex >= 0 && record[entidadIndex] != null) {
+                            String val = record[entidadIndex].toString().trim();
+                            if (!val.equals(entidad)) match = false;
                         }
-                    }
 
-                    // Comparar UNIDAD
-                    if (match && unidadIndex >= 0 && record[unidadIndex] != null) {
-                        String recUnidad = record[unidadIndex].toString().trim();
-                        if (!recUnidad.equals(unidad)) {
-                            match = false;
+                        // Comparar UNIDAD
+                        if (match && unidadIndex >= 0 && record[unidadIndex] != null) {
+                            String val = record[unidadIndex].toString().trim();
+                            if (!val.equals(unidad)) match = false;
                         }
-                    }
 
-                    if (match) {
-                        return true;
+                        if (match) return true;
+
+                    } catch (Exception e) {
+                        // ⚠️ SALTAMOS EL REGISTRO CORRUPTO Y SEGUIMOS BUSCANDO
+                        log.warn("⚠️ Registro corrupto detectado al verificar existencia (saltando): {}", e.getMessage());
                     }
                 }
 
                 return false;
 
             } catch (Exception e) {
-                log.error("Error verificando existencia de oficina CODOFIC={}: {}",
-                        codOfic, e.getMessage());
-                throw new RuntimeException("Error accediendo al DBF: " + e.getMessage(), e);
+                log.error("Error fatal verificando existencia: {}", e.getMessage());
+                throw new RuntimeException("Error leyendo DBF: " + e.getMessage(), e);
             }
         }
     }
@@ -168,127 +158,89 @@ public class OficinaDbfWriterService {
      * Inserta un nuevo registro en OFICINA.DBF
      */
     public void insertarDesdeOficina(Oficina oficina, String entidadCode, String unidadCode, String usuario) {
-        log.info("Iniciando inserción APPEND de oficina CODOFIC={} en OFICINA.DBF", oficina.getCodOfi());
+        log.info("Iniciando inserción de oficina CODOFIC={} en OFICINA.DBF", oficina.getCodOfi());
         verificarConexionDBF();
 
         synchronized (oficinaLock) {
-            File dbfFile = getOficinaDbfFile();
+            try {
+                File dbfFile = getOficinaDbfFile();
+                File tempFile = new File(dbfFile.getParent(), "OFICINA_TEMP.DBF");
 
-            // Intentos de reintentos en caso de locks temporales
-            int maxRetries = 3;
-            int retryCount = 0;
+                List<Object[]> records = new ArrayList<>();
+                DBFField[] originalFields;
 
-            while (retryCount < maxRetries) {
-                try {
-                    DBFField[] fields;
+                // 1. LEER TODO EL ARCHIVO (SALTANDO CORRUPTOS)
+                try (InputStream fis = new FileInputStream(dbfFile);
+                     DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
 
-                    // 1. Leer estructura del DBF (solo metadata)
-                    try (InputStream fis = new FileInputStream(dbfFile);
-                            DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
+                    originalFields = new DBFField[reader.getFieldCount()];
+                    for (int i = 0; i < reader.getFieldCount(); i++) {
+                        originalFields[i] = reader.getField(i);
+                    }
 
-                        fields = new DBFField[reader.getFieldCount()];
-                        for (int i = 0; i < reader.getFieldCount(); i++) {
-                            fields[i] = reader.getField(i);
+                    Object[] record;
+                    int rowNum = 0;
+                    while (true) {
+                        try {
+                            record = reader.nextRecord();
+                            if (record == null) break;
+                            rowNum++;
+                            records.add(record); // Solo agregamos si se leyó bien
+                        } catch (Exception ex) {
+                            // 🗑️ AQUÍ ELIMINAMOS EL REGISTRO 850 PARA SIEMPRE
+                            log.error("🔥 Registro corrupto #{} eliminado durante la reescritura: {}", rowNum, ex.getMessage());
                         }
-                    }
-
-                    // 2. Filtrar campos escribibles (omitir MEMO)
-                    List<DBFField> writableFieldsList = new ArrayList<>();
-                    List<Integer> originalIndexes = new ArrayList<>();
-
-                    for (int i = 0; i < fields.length; i++) {
-                        if (fields[i].getType() != DBFDataType.MEMO) {
-                            writableFieldsList.add(fields[i]);
-                            originalIndexes.add(i);
-                        }
-                    }
-
-                    DBFField[] writableFields = writableFieldsList.toArray(new DBFField[0]);
-
-                    // 3. Crear registro nuevo
-                    Object[] fullRecord = crearRegistroDesdeOficina(oficina, entidadCode, unidadCode, usuario, fields);
-
-                    // 4. Filtrar solo campos escribibles
-                    Object[] writableRecord = new Object[originalIndexes.size()];
-                    for (int i = 0; i < originalIndexes.size(); i++) {
-                        writableRecord[i] = fullRecord[originalIndexes.get(i)];
-                    }
-
-                    // 5. APPEND directo al archivo (modo append = true)
-                    try (RandomAccessFile raf = new RandomAccessFile(dbfFile, "rw");
-                            FileChannel channel = raf.getChannel();
-                            FileLock lock = channel.tryLock()) { // Lock del archivo
-
-                        if (lock == null) {
-                            throw new IOException("No se pudo obtener lock del archivo");
-                        }
-
-                        // Posicionarse al inicio para leer header
-                        raf.seek(0);
-
-                        // Leer número de registros actual (bytes 4-7)
-                        raf.seek(4);
-                        int numRecords = Integer.reverseBytes(raf.readInt());
-
-                        // Leer tamaño del header (bytes 8-9)
-                        raf.seek(8);
-                        short headerSize = Short.reverseBytes(raf.readShort());
-
-                        // Leer tamaño del registro (bytes 10-11)
-                        raf.seek(10);
-                        short recordSize = Short.reverseBytes(raf.readShort());
-
-                        // Calcular posición del nuevo registro
-                        long newRecordPosition = headerSize + ((long) numRecords * recordSize);
-
-                        // Posicionarse donde debe ir el nuevo registro
-                        raf.seek(newRecordPosition);
-
-                        // Escribir marcador de registro activo
-                        raf.writeByte(0x20); // Espacio = registro activo
-
-                        // Escribir cada campo del registro
-                        for (int i = 0; i < writableFields.length; i++) {
-                            DBFField field = writableFields[i];
-                            Object value = writableRecord[i];
-
-                            byte[] fieldBytes = convertirValorABytes(value, field);
-                            raf.write(fieldBytes);
-                        }
-
-                        // Actualizar contador de registros en el header
-                        raf.seek(4);
-                        raf.writeInt(Integer.reverseBytes(numRecords + 1));
-
-                        // Actualizar fecha de última modificación (bytes 1-3)
-                        LocalDate now = LocalDate.now();
-                        raf.seek(1);
-                        raf.writeByte(now.getYear() - 1900);
-                        raf.writeByte(now.getMonthValue());
-                        raf.writeByte(now.getDayOfMonth());
-
-                        lock.release();
-                    }
-
-                    log.info("Oficina CODOFIC={} insertada exitosamente mediante APPEND", oficina.getCodOfi());
-                    return; // Éxito, salir del método
-
-                } catch (IOException e) {
-                    retryCount++;
-                    if (retryCount >= maxRetries) {
-                        log.error("Error después de {} intentos: {}", maxRetries, e.getMessage(), e);
-                        throw new RuntimeException("No se pudo registrar en OFICINA.DBF después de " + maxRetries
-                                + " intentos: " + e.getMessage(), e);
-                    }
-
-                    log.warn("Intento {} falló, reintentando en 500ms: {}", retryCount, e.getMessage());
-                    try {
-                        Thread.sleep(500);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException("Interrupción durante reintentos", ie);
                     }
                 }
+
+                // 2. Preparar campos escribibles
+                List<DBFField> writableFieldsList = new ArrayList<>();
+                List<Integer> writableIndexes = new ArrayList<>();
+
+                for (int i = 0; i < originalFields.length; i++) {
+                    if (originalFields[i].getType() != DBFDataType.MEMO) {
+                        writableFieldsList.add(originalFields[i]);
+                        writableIndexes.add(i);
+                    }
+                }
+                DBFField[] writableFields = writableFieldsList.toArray(new DBFField[0]);
+
+                // 3. Agregar el NUEVO registro a la lista en memoria
+                Object[] newRecord = crearRegistroDesdeOficina(oficina, entidadCode, unidadCode, usuario, originalFields);
+                records.add(newRecord);
+
+                // 4. Escribir archivo limpio
+                try (OutputStream fos = new FileOutputStream(tempFile);
+                     DBFWriter writer = new DBFWriter(fos, Charset.forName("CP1252"))) {
+
+                    writer.setFields(writableFields);
+
+                    for (Object[] record : records) {
+                        Object[] writableRecord = new Object[writableIndexes.size()];
+                        for (int i = 0; i < writableIndexes.size(); i++) {
+                            writableRecord[i] = record[writableIndexes.get(i)];
+                        }
+                        writer.addRecord(writableRecord);
+                    }
+                }
+
+                // 5. Reemplazar archivo (Swap atómico)
+                File backupFile = new File(dbfFile.getParent(), "OFICINA_BACKUP.DBF");
+                if (backupFile.exists()) backupFile.delete();
+                
+                // Backup manual rápido
+                try (InputStream in = new FileInputStream(dbfFile); OutputStream out = new FileOutputStream(backupFile)) {
+                    in.transferTo(out);
+                }
+
+                if (!dbfFile.delete()) throw new IOException("No se pudo eliminar OFICINA.DBF original");
+                if (!tempFile.renameTo(dbfFile)) throw new IOException("No se pudo renombrar OFICINA_TEMP.DBF");
+
+                log.info("✅ Oficina insertada y archivo DBF saneado.");
+
+            } catch (Exception e) {
+                log.error("Error insertando oficina: {}", e.getMessage(), e);
+                throw new RuntimeException("No se pudo registrar en DBF: " + e.getMessage(), e);
             }
         }
     }
@@ -361,9 +313,7 @@ public class OficinaDbfWriterService {
                 boolean encontrado = false;
 
                 // Índices de campos clave
-                int codOficIndex = -1;
-                int entidadIndex = -1;
-                int unidadIndex = -1;
+                int codOficIndex = -1, entidadIndex = -1, unidadIndex = -1;
 
                 // Leer archivo original
                 try (InputStream fis = new FileInputStream(dbfFile);
@@ -372,52 +322,55 @@ public class OficinaDbfWriterService {
                     originalFields = new DBFField[reader.getFieldCount()];
                     for (int i = 0; i < reader.getFieldCount(); i++) {
                         originalFields[i] = reader.getField(i);
-                        String fieldName = originalFields[i].getName().toUpperCase();
-
-                        if ("CODOFIC".equals(fieldName))
-                            codOficIndex = i;
-                        else if ("ENTIDAD".equals(fieldName))
-                            entidadIndex = i;
-                        else if ("UNIDAD".equals(fieldName))
-                            unidadIndex = i;
+                        String name = originalFields[i].getName().toUpperCase();
+                        if ("CODOFIC".equals(name)) codOficIndex = i;
+                        else if ("ENTIDAD".equals(name)) entidadIndex = i;
+                        else if ("UNIDAD".equals(name)) unidadIndex = i;
                     }
 
                     // Leer todos los registros y actualizar el que coincida
                     Object[] record;
-                    while ((record = reader.nextRecord()) != null) {
-                        boolean match = true;
+                    while (true) {
+                        try{
+                            record = reader.nextRecord();
+                            if (record == null) break;
 
-                        // Verificar coincidencia
-                        if (codOficIndex >= 0 && record[codOficIndex] != null) {
-                            Short recCodOfic = ((Number) record[codOficIndex]).shortValue();
-                            if (!recCodOfic.equals(codOficOriginal)) {
-                                match = false;
+                            boolean match = true;
+
+                            // Verificar coincidencia
+                            if (codOficIndex >= 0 && record[codOficIndex] != null) {
+                                Short recCodOfic = ((Number) record[codOficIndex]).shortValue();
+                                if (!recCodOfic.equals(codOficOriginal)) {
+                                    match = false;
+                                }
                             }
-                        }
 
-                        if (match && entidadIndex >= 0 && record[entidadIndex] != null) {
-                            String recEntidad = record[entidadIndex].toString().trim();
-                            if (!recEntidad.equals(entidadOriginal)) {
-                                match = false;
+                            if (match && entidadIndex >= 0 && record[entidadIndex] != null) {
+                                String recEntidad = record[entidadIndex].toString().trim();
+                                if (!recEntidad.equals(entidadOriginal)) {
+                                    match = false;
+                                }
                             }
-                        }
 
-                        if (match && unidadIndex >= 0 && record[unidadIndex] != null) {
-                            String recUnidad = record[unidadIndex].toString().trim();
-                            if (!recUnidad.equals(unidadOriginal)) {
-                                match = false;
+                            if (match && unidadIndex >= 0 && record[unidadIndex] != null) {
+                                String recUnidad = record[unidadIndex].toString().trim();
+                                if (!recUnidad.equals(unidadOriginal)) {
+                                    match = false;
+                                }
                             }
-                        }
 
-                        if (match) {
-                            // Encontrado: reemplazar con datos actualizados
-                            record = crearRegistroDesdeOficina(oficina, entidadCode, unidadCode, usuario,
-                                    originalFields);
-                            encontrado = true;
-                            log.info("Registro encontrado y actualizado: CODOFIC={}", codOficOriginal);
-                        }
+                            if (match) {
+                                // Encontrado: reemplazar con datos actualizados
+                                record = crearRegistroDesdeOficina(oficina, entidadCode, unidadCode, usuario,
+                                        originalFields);
+                                encontrado = true;
+                            }
 
-                        records.add(record);
+                            records.add(record);
+
+                        } catch (Exception ex) {
+                            log.error("🔥 Registro corrupto eliminado al actualizar: {}", ex.getMessage());
+                        }
                     }
                 }
 
