@@ -39,14 +39,19 @@
                                th:value="${responsable.persona?.nombre}" readonly required style="background-color: #e9ecef;">
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label small">Paterno</label>
+                        <label class="form-label small">Paterno <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm input-persona" id="txtPaterno" name="paterno" 
-                               th:value="${responsable.persona?.paterno}" readonly style="background-color: #e9ecef;">
+                               th:value="${responsable.persona?.paterno}" readonly required style="background-color: #e9ecef;">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label small">Materno</label>
                         <input type="text" class="form-control form-control-sm input-persona" id="txtMaterno" name="materno" 
                                th:value="${responsable.persona?.materno}" readonly style="background-color: #e9ecef;">
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label small">Correo Electrónico</label>
+                        <input type="email" class="form-control form-control-sm input-persona" name="correo" 
+                               th:value="${responsable.persona?.correo}" readonly placeholder="Opcional">
                     </div>
                 </div>
             </div>
@@ -59,19 +64,20 @@
                 </h6>
 
                 <div class="row g-3">
+                    
                     <div class="col-12">
                         <label class="form-label small fw-bold">Oficina <span class="text-danger">*</span></label>
-                        <div class="input-group input-group-sm">
-                            <select class="form-select" id="selectOficinaForm" name="idOficina" required>
-                                <option value="">Buscar oficina...</option>
-                                <option th:each="of : ${oficinas}" 
-                                        th:value="${of.idOficina}" 
-                                        th:text="${of.predio.unidad + ' - ' + of.codOfi + ' | ' + of.nombre}"
-                                        th:selected="${responsable.oficina?.idOficina == of.idOficina}">
-                                </option>
-                            </select>
-                            <button class="btn btn-success" type="button" id="btnNuevaOficina" title="Nueva Oficina">
-                                <i class="fa-solid fa-plus"></i>
+                        <div class="d-flex"> <div class="flex-grow-1">
+                                <select class="form-select" id="selectOficinaForm" name="idOficina" required style="width: 100%;">
+                                    <option value="">Buscar oficina...</option>
+                                    <option th:each="of : ${oficinas}" 
+                                            th:value="${of.idOficina}" 
+                                            th:text="${of.predio.unidad + ' - ' + of.codOfi + ' | ' + of.nombre}"
+                                            th:selected="${responsable.oficina?.idOficina == of.idOficina}">
+                                    </option>
+                                </select>
+                            </div>
+                            <button class="btn btn-success ms-1" type="button" id="btnNuevaOficina" title="Nueva Oficina" style="height: 38px;"> <i class="fa-solid fa-plus"></i>
                             </button>
                         </div>
                     </div>
@@ -80,24 +86,32 @@
                         <label class="form-label small fw-bold">Cod. Funcionario <span class="text-danger">*</span></label>
                         <div class="input-group input-group-sm">
                             <input type="text" class="form-control" id="txtCodFun" name="codigoFuncionario" 
-                                   th:value="${responsable.codigoFuncionario}" required>
-                            <button class="btn btn-outline-secondary" type="button" id="btnSugerir" title="Autogenerar">
+                                   th:value="${responsable.codigoFuncionario}" required placeholder="Correlativo">
+                            <button class="btn btn-outline-secondary" type="button" id="btnSugerir" title="Autogenerar siguiente">
                                 <i class="fa-solid fa-wand-magic-sparkles"></i>
                             </button>
                         </div>
                     </div>
 
                     <div class="col-md-8">
+                        <label class="form-label small">Código API (Opcional)</label>
+                        <input type="text" class="form-control form-control-sm" name="codigoApi" 
+                               th:value="${responsable.codigoApi}" placeholder="Código externo si aplica">
+                    </div>
+
+                    <div class="col-md-12">
                         <label class="form-label small fw-bold">Cargo <span class="text-danger">*</span></label>
-                        <div class="input-group input-group-sm">
-                            <select class="form-select" id="selectCargo" name="cargoApi" required>
-                                <option value="">Seleccione o cree uno...</option>
-                                <option th:if="${responsable.cargo != null}" 
-                                        th:value="${responsable.cargo.nombre}" 
-                                        th:text="${responsable.cargo.nombre}" selected>
-                                </option>
-                            </select>
-                            <button class="btn btn-info text-white" type="button" id="btnNuevoCargo" title="Nuevo Cargo">
+                        <div class="d-flex">
+                            <div class="flex-grow-1">
+                                <select class="form-select" id="selectCargo" name="cargoApi" required style="width: 100%;">
+                                    <option value="">Seleccione o cree uno...</option>
+                                    <option th:if="${responsable.cargo != null}" 
+                                            th:value="${responsable.cargo.nombre}" 
+                                            th:text="${responsable.cargo.nombre}" selected>
+                                    </option>
+                                </select>
+                            </div>
+                            <button class="btn btn-info text-white ms-1" type="button" id="btnNuevoCargo" title="Nuevo Cargo" style="height: 38px;">
                                 <i class="fa-solid fa-plus"></i>
                             </button>
                         </div>
@@ -150,6 +164,8 @@ $(document).ready(function() {
             cache: true
         }
     });
+
+    
 
     // 3. BUSCADOR DE PERSONA
     $('#btnBuscarPersona').click(function() {
@@ -241,13 +257,17 @@ $(document).ready(function() {
     });
 
     // 6. SUGERIR CODIGO
-    $('#btnSugerir').click(function() {
-        let idOficina = $('#selectOficinaForm').val();
-        if(!idOficina) return Swal.fire('Atención', 'Seleccione una oficina primero', 'warning');
-        
-        $.get('/administracion/responsable/obtener-siguiente-codigo-funcionario', { idOficina: idOficina }, function(cod) {
-            $('#txtCodFun').val(cod);
-        });
+    $('#selectOficinaForm').on('change', function() {
+        const idOficina = $(this).val();
+        if(idOficina) {
+            // Llamada AJAX para obtener siguiente correlativo
+            $.get('/administracion/responsable/obtener-siguiente-codigo-funcionario', { idOficina: idOficina }, function(cod) {
+                $('#txtCodFun').val(cod);
+                // Efecto visual para mostrar que cambió
+                $('#txtCodFun').addClass('bg-warning-subtle');
+                setTimeout(() => $('#txtCodFun').removeClass('bg-warning-subtle'), 500);
+            });
+        }
     });
 
     // 7. GUARDAR
