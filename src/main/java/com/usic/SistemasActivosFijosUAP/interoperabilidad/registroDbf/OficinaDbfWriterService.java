@@ -1,13 +1,10 @@
 package com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
-import java.nio.charset.Charset;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -19,9 +16,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import com.linuxense.javadbf.DBFDataType;
-import com.linuxense.javadbf.DBFField;
-import com.linuxense.javadbf.DBFReader;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 
 
@@ -94,52 +88,72 @@ public class OficinaDbfWriterService {
      * Verifica si existe un registro con CODOFIC dado en ENTIDAD y UNIDAD
      */
     public boolean existsByCodOfic(Short codOfic, String entidad, String unidad) {
-        verificarConexionDBF();
-
         synchronized (oficinaLock) {
             try (RandomAccessFile raf = new RandomAccessFile(getOficinaDbfFile(), "r")) {
-
+                
                 raf.seek(4);
                 int numRecords = Integer.reverseBytes(raf.readInt());
                 short headerLen = Short.reverseBytes(raf.readShort());
                 short recordLen = Short.reverseBytes(raf.readShort());
 
                 List<CampoDbf> fields = leerMetadatosCampos(raf);
-
-                int offsetCod = -1, offsetEnt = -1, offsetUni = -1;
+                
+                // Buscar offsets de los 3 campos clave
+                int offCod = -1, offEnt = -1, offUni = -1;
                 int lenCod = 0, lenEnt = 0, lenUni = 0;
-                int currentOffset = 1;
+                int currentOffset = 1; // +1 por el byte de borrado
 
                 for (CampoDbf f : fields) {
-                    if ("CODOFIC".equalsIgnoreCase(f.name)) { offsetCod = currentOffset; lenCod = f.length; }
-                    if ("ENTIDAD".equalsIgnoreCase(f.name)) { offsetEnt = currentOffset; lenEnt = f.length; }
-                    if ("UNIDAD".equalsIgnoreCase(f.name))  { offsetUni = currentOffset; lenUni = f.length; }
+                    if ("CODOFIC".equalsIgnoreCase(f.name)) { offCod = currentOffset; lenCod = f.length; }
+                    if ("ENTIDAD".equalsIgnoreCase(f.name)) { offEnt = currentOffset; lenEnt = f.length; }
+                    if ("UNIDAD".equalsIgnoreCase(f.name))  { offUni = currentOffset; lenUni = f.length; }
                     currentOffset += f.length;
                 }
 
-                if (offsetCod == -1) return false;
+                if (offCod == -1) return false;
 
-                byte[] bufferCod = new byte[lenCod];
+                byte[] bufCod = new byte[lenCod];
+                byte[] bufEnt = (offEnt != -1) ? new byte[lenEnt] : null;
+                byte[] bufUni = (offUni != -1) ? new byte[lenUni] : null;
 
                 for (int i = 0; i < numRecords; i++) {
                     long pos = headerLen + ((long) i * recordLen);
                     
                     // Verificar si está borrado
                     raf.seek(pos);
-                    if (raf.readByte() == 0x2A) continue; // 0x2A (*) es borrado
+                    if (raf.readByte() == 0x2A) continue; 
 
-                    // Leer CODOFIC
-                    raf.seek(pos + offsetCod);
-                    raf.read(bufferCod);
-                    String codStr = new String(bufferCod, "CP1252").trim();
+                    // 1. Verificar CODOFIC (Lo más rápido primero)
+                    raf.seek(pos + offCod);
+                    raf.read(bufCod);
+                    String codStr = new String(bufCod, "CP1252").trim();
 
                     try {
-                        if (!codStr.isEmpty() && Integer.parseInt(codStr) == codOfic.intValue()) {
-                            return true; // Encontrado (simplificado, puedes agregar chequeo de entidad/unidad)
+                        // Si el código NO coincide, pasamos al siguiente
+                        if (codStr.isEmpty() || Integer.parseInt(codStr) != codOfic.intValue()) {
+                            continue;
                         }
-                    } catch (NumberFormatException e) { /* Ignorar basura */ }
-                }
+                    } catch (NumberFormatException e) { continue; }
 
+                    // 2. Verificar ENTIDAD (Si existe la columna)
+                    if (offEnt != -1) {
+                        raf.seek(pos + offEnt);
+                        raf.read(bufEnt);
+                        String entStr = new String(bufEnt, "CP1252").trim();
+                        if (!entStr.equals(entidad.trim())) continue; // No coincide entidad
+                    }
+
+                    // 3. Verificar UNIDAD (Si existe la columna)
+                    if (offUni != -1) {
+                        raf.seek(pos + offUni);
+                        raf.read(bufUni);
+                        String uniStr = new String(bufUni, "CP1252").trim();
+                        if (!uniStr.equals(unidad.trim())) continue; // No coincide unidad
+                    }
+
+                    // ¡Si llegamos aquí, TODO coincide!
+                    return true;
+                }
                 return false;
 
             } catch (Exception e) {
@@ -153,7 +167,7 @@ public class OficinaDbfWriterService {
      * Inserta un nuevo registro en OFICINA.DBF
      */
     public void insertarDesdeOficina(Oficina oficina, String entidadCode, String unidadCode, String usuario) {
-        log.info("⚡ Insertando oficina {} (Modo Byte-a-Byte)", oficina.getCodOfi());
+        log.info("⚡ Insertando oficina {} (Append Seguro)", oficina.getCodOfi());
         
         synchronized (oficinaLock) {
             File dbfFile = getOficinaDbfFile();
@@ -162,7 +176,6 @@ public class OficinaDbfWriterService {
                  FileChannel channel = raf.getChannel();
                  FileLock lock = channel.lock()) {
 
-                // 1. Leer Header
                 raf.seek(4);
                 int numRecords = Integer.reverseBytes(raf.readInt());
                 short headerLen = Short.reverseBytes(raf.readShort());
@@ -170,36 +183,28 @@ public class OficinaDbfWriterService {
 
                 List<CampoDbf> fields = leerMetadatosCampos(raf);
 
-                // 2. Preparar bytes del nuevo registro
                 byte[] nuevoRegistro = new byte[recordLen];
-                Arrays.fill(nuevoRegistro, (byte) 0x20); // Espacios
-                nuevoRegistro[0] = 0x20; // Activo (no borrado)
+                Arrays.fill(nuevoRegistro, (byte) 0x20); 
+                nuevoRegistro[0] = 0x20; 
 
                 int currentOffset = 1;
                 
                 for (CampoDbf field : fields) {
-                    // ⚠️ IMPORTANTE: Si es MEMO ('M'), escribimos espacios y NO tocamos el valor
-                    // Esto evita el error "No support for writing MEMO" y no corrompe el .dbt
                     Object valor = null;
+                    // Ignoramos valor para Memos para no romper .dbt
                     if (field.type != 'M') {
                         valor = obtenerValorCampo(field.name, oficina, entidadCode, unidadCode, usuario);
                     }
-
                     byte[] bytes = convertirValorABytes(valor, field);
                     System.arraycopy(bytes, 0, nuevoRegistro, currentOffset, Math.min(bytes.length, field.length));
-                    
                     currentOffset += field.length;
                 }
 
-                // 3. Escribir al final
                 long posFinal = headerLen + ((long) numRecords * recordLen);
                 raf.seek(posFinal);
                 raf.write(nuevoRegistro);
-                
-                // EOF
-                raf.writeByte(0x1A);
+                raf.writeByte(0x1A); // EOF
 
-                // 4. Actualizar contador
                 raf.seek(4);
                 raf.writeInt(Integer.reverseBytes(numRecords + 1));
 
@@ -221,9 +226,7 @@ public class OficinaDbfWriterService {
         log.info("⚡ Actualizando oficina {} in-place", codOficOriginal);
 
         synchronized (oficinaLock) {
-            File dbfFile = getOficinaDbfFile();
-
-            try (RandomAccessFile raf = new RandomAccessFile(dbfFile, "rw");
+            try (RandomAccessFile raf = new RandomAccessFile(getOficinaDbfFile(), "rw");
                  FileChannel channel = raf.getChannel();
                  FileLock lock = channel.lock()) {
 
@@ -234,45 +237,66 @@ public class OficinaDbfWriterService {
 
                 List<CampoDbf> fields = leerMetadatosCampos(raf);
                 
-                // Ubicar campos clave para buscar
-                int offsetCod = 1, lenCod = 0;
+                // Ubicar offsets
+                int offCod = -1, offEnt = -1, offUni = -1;
+                int lenCod = 0, lenEnt = 0, lenUni = 0;
+                int currentOffset = 1;
+
                 for (CampoDbf f : fields) {
-                    if ("CODOFIC".equalsIgnoreCase(f.name)) { lenCod = f.length; break; }
-                    offsetCod += f.length;
+                    if ("CODOFIC".equalsIgnoreCase(f.name)) { offCod = currentOffset; lenCod = f.length; }
+                    if ("ENTIDAD".equalsIgnoreCase(f.name)) { offEnt = currentOffset; lenEnt = f.length; }
+                    if ("UNIDAD".equalsIgnoreCase(f.name))  { offUni = currentOffset; lenUni = f.length; }
+                    currentOffset += f.length;
                 }
 
-                if (lenCod == 0) throw new RuntimeException("CODOFIC no encontrado");
+                if (offCod == -1) throw new RuntimeException("CODOFIC no encontrado");
 
-                // Buscar posición
                 long foundPos = -1;
-                byte[] bufferCod = new byte[lenCod];
+                byte[] bufCod = new byte[lenCod];
+                byte[] bufEnt = (offEnt != -1) ? new byte[lenEnt] : null;
+                byte[] bufUni = (offUni != -1) ? new byte[lenUni] : null;
 
                 for (int i = 0; i < numRecords; i++) {
                     long pos = headerLen + ((long) i * recordLen);
                     
-                    raf.seek(pos + offsetCod);
-                    raf.read(bufferCod);
-                    String codStr = new String(bufferCod, "CP1252").trim();
-                    
+                    // 1. Validar Código
+                    raf.seek(pos + offCod);
+                    raf.read(bufCod);
+                    String codStr = new String(bufCod, "CP1252").trim();
                     try {
-                        if (!codStr.isEmpty() && Integer.parseInt(codStr) == codOficOriginal.intValue()) {
-                            foundPos = pos;
-                            break;
-                        }
-                    } catch (Exception e) { }
+                        if (codStr.isEmpty() || Integer.parseInt(codStr) != codOficOriginal.intValue()) continue;
+                    } catch (Exception e) { continue; }
+
+                    // 2. Validar Entidad
+                    if (offEnt != -1) {
+                        raf.seek(pos + offEnt);
+                        raf.read(bufEnt);
+                        String entStr = new String(bufEnt, "CP1252").trim();
+                        if (!entStr.equals(entidadOriginal.trim())) continue;
+                    }
+
+                    // 3. Validar Unidad
+                    if (offUni != -1) {
+                        raf.seek(pos + offUni);
+                        raf.read(bufUni);
+                        String uniStr = new String(bufUni, "CP1252").trim();
+                        if (!uniStr.equals(unidadOriginal.trim())) continue;
+                    }
+
+                    foundPos = pos;
+                    break;
                 }
 
-                if (foundPos == -1) throw new RuntimeException("Registro no encontrado para actualizar");
+                if (foundPos == -1) throw new RuntimeException("Registro no encontrado para actualizar (Clave no coincide)");
 
                 // Sobrescribir (Saltando Memos)
-                raf.seek(foundPos + 1); // +1 skip delete flag
+                raf.seek(foundPos + 1); 
                 
                 for (CampoDbf field : fields) {
                     if (field.type == 'M') {
-                        raf.skipBytes(field.length); // ⚠️ NO TOCAR MEMO EXISTENTE
+                        raf.skipBytes(field.length); 
                         continue;
                     }
-
                     Object valor = obtenerValorCampo(field.name, oficina, entidadCode, unidadCode, usuario);
                     byte[] bytes = convertirValorABytes(valor, field);
                     raf.write(bytes);
@@ -291,24 +315,22 @@ public class OficinaDbfWriterService {
 
     private List<CampoDbf> leerMetadatosCampos(RandomAccessFile raf) throws IOException {
         List<CampoDbf> lista = new ArrayList<>();
-        
         raf.seek(8);
         short headerLen = Short.reverseBytes(raf.readShort());
-        raf.seek(32); // Primer campo
+        raf.seek(32); 
 
         while (raf.getFilePointer() < headerLen - 1) {
             byte[] nameBytes = new byte[11];
             raf.read(nameBytes);
-            if (nameBytes[0] == 0x0D) break; // Fin del header
+            if (nameBytes[0] == 0x0D) break; 
 
             CampoDbf c = new CampoDbf();
             c.name = new String(nameBytes, "CP1252").trim();
             c.type = (char) raf.readByte();
-            raf.skipBytes(4); // Address
+            raf.skipBytes(4); 
             c.length = raf.readUnsignedByte();
             c.decimals = raf.readUnsignedByte();
-            raf.skipBytes(14); // Reserved
-
+            raf.skipBytes(14); 
             lista.add(c);
         }
         return lista;
@@ -330,13 +352,13 @@ public class OficinaDbfWriterService {
 
     private byte[] convertirValorABytes(Object value, CampoDbf field) {
         byte[] buffer = new byte[field.length];
-        Arrays.fill(buffer, (byte) 0x20); // Espacios
+        Arrays.fill(buffer, (byte) 0x20); 
 
         if (value == null) return buffer;
 
         try {
             byte[] data;
-            if (field.type == 'N' || field.type == 'F') { // Numérico
+            if (field.type == 'N' || field.type == 'F') { 
                 String fmt = (field.decimals == 0) ? "%" + field.length + "d" 
                                                    : "%" + field.length + "." + field.decimals + "f";
                 String numStr;
@@ -347,20 +369,17 @@ public class OficinaDbfWriterService {
                     numStr = value.toString();
                 }
                 data = numStr.getBytes("CP1252");
-            } else if (field.type == 'D') { // Fecha
+            } else if (field.type == 'D') { 
                 if (value instanceof java.sql.Date d) {
                     data = d.toLocalDate().format(DateTimeFormatter.ofPattern("yyyyMMdd")).getBytes("CP1252");
                 } else {
                     data = new byte[0];
                 }
-            } else { // Caracter, etc.
+            } else { 
                 data = value.toString().toUpperCase().getBytes("CP1252");
             }
 
-            // Copiar al buffer (Numeros derecha, Textos izquierda)
             if (field.type == 'N' || field.type == 'F') {
-                // Si el formateo ya llenó los espacios, copiamos todo. 
-                // Si data es menor (raro con String.format), copiamos a la derecha.
                 int offset = Math.max(0, field.length - data.length);
                 System.arraycopy(data, 0, buffer, offset, Math.min(data.length, field.length));
             } else {
