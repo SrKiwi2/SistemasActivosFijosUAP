@@ -138,6 +138,33 @@
         });
     }
 
+    // Función para abrir el modal en modo EDICIÓN
+    function editarResponsable(idEnc) {
+        // 1. Mostrar Spinner
+        $('#contenidoModalResponsbale').html(`
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted">Cargando datos del responsable...</p>
+            </div>
+        `);
+        
+        $('#modalFormularioResponsable').modal('show');
+
+        // 2. Cargar formulario pasando el ID
+        $.get("/administracion/responsable/formulario", { id: idEnc }, function(data) {
+            $('#contenidoModalResponsbale').html(data);
+            
+            // 3. Inyectar ID en el formulario (si no viene en el HTML) y cambiar título
+            // Esto es opcional si Thymeleaf ya renderiza el input hidden con el ID real
+            // Pero es bueno guardar el idEnc para el envío
+            $('#formResponsable').append(`<input type="hidden" name="idResponsableEnc" value="${idEnc}">`);
+            
+        }).fail(function() {
+            Swal.fire('Error', 'No se pudo cargar el formulario', 'error');
+            $('#modalFormularioResponsable').modal('hide');
+        });
+    }
+
     function initDataTable() {
         const $tbl = $('#data-table');
         if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
@@ -205,18 +232,29 @@
                     orderable: false, 
                     searchable: false,
                     className: 'text-center',
-                    width: '100px',
+                    width: '120px',
                     render: function(data, type, row) { 
-                        let botones = `
-                            <div class="d-inline-flex gap-1">
-                                <button class="btn btn-icon btn-sm btn-outline-danger btn-eliminar-responsable"
-                                        data-id="${row.idEnc}"
-                                        title="Eliminar responsable">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
+                        let botones = `<div class="d-inline-flex gap-1">`;
+
+                        // 1. Botón EDITAR (El que faltaba)
+                        botones += `
+                            <button class="btn btn-icon btn-sm btn-outline-primary btn-editar-responsable"
+                                    onclick="editarResponsable('${row.idEnc}')"
+                                    title="Editar responsable">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
                         `;
 
-                        // Botón de alerta si falta en DBF
+                        // 2. Botón ELIMINAR
+                        botones += `
+                            <button class="btn btn-icon btn-sm btn-outline-danger btn-eliminar-responsable"
+                                    data-id="${row.idEnc}"
+                                    title="Eliminar responsable">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        `;
+
+                        // 3. Botón DBF (Condicional)
                         if (row.existeEnDbf === false) {
                             botones += `
                                 <button class="btn btn-icon btn-sm btn-warning btn-subir-dbf"
@@ -228,7 +266,8 @@
                             `;
                         } else {
                             botones += `
-                                <span class="btn btn-icon btn-sm btn-label-success pe-none" title="Sincronizado">
+                                <span class="btn btn-icon btn-sm btn-label-success pe-none" 
+                                      data-bs-toggle="tooltip" title="Sincronizado con DBF">
                                     <i class="fa-solid fa-check"></i>
                                 </span>
                             `;

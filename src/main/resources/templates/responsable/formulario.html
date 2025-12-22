@@ -291,26 +291,35 @@ $(document).ready(function() {
         }
 
         let data = $('#formResponsable').serialize();
-        showGlobalLoader({ texto: 'Registrando...' });
+        let idVal = $('input[name="idResponsable"]').val(); 
+        let esEdicion = (idVal && idVal !== "");
+        let urlDestino = esEdicion 
+            ? '/administracion/responsable/modificar-responsable' 
+            : '/administracion/responsable/registrar-responsable';
+
+        showGlobalLoader({ texto: esEdicion ? 'Actualizando...' : 'Registrando...' });
 
         $.ajax({
             type: 'POST',
-            url: '/administracion/responsable/registrar-responsable',
+            url: urlDestino,
             data: data,
             success: function(res) {
+                hideGlobalLoader();
                 if(res.ok) {
                     Swal.fire('Éxito', res.msg, 'success').then(() => {
                         $('#modalFormularioResponsable').modal('hide');
                         $('#data-table').DataTable().ajax.reload(null, false);
                     });
                 } else {
-                    Swal.fire('Error', res.msg, 'error');
+                    let icon = res.msg.includes("DBF") ? 'warning' : 'error';
+                    Swal.fire('Atención', res.msg, icon);
                 }
             },
             error: function(xhr) {
-                Swal.fire('Error', 'No se pudo guardar', 'error');
-            },
-            complete: hideGlobalLoader
+                hideGlobalLoader();
+                let msg = xhr.responseJSON ? xhr.responseJSON.msg : 'Error al procesar';
+                Swal.fire('Error', msg, 'error');
+            }
         });
     });
 });

@@ -167,7 +167,20 @@ public class ResponsableController {
 
     @ValidarUsuarioAutenticado
     @RequestMapping("/formulario")
-    public String formularioResponsable(Model model) { 
+    public String formularioResponsable(Model model, @RequestParam(required = false) String id) { 
+        Responsable responsable = new Responsable();
+        
+        if (id != null && !id.isEmpty()) {
+            try {
+                Long idDec = Long.parseLong(Encriptar.decrypt(id));
+                responsable = responsableService.findByIdWithRelations(idDec);
+            } catch (Exception e) {
+                log.error("Error desencriptando ID al cargar formulario", e);
+            }
+        }
+
+        if(responsable.getCodExp() == null) responsable.setCodExp(Short.valueOf("9"));
+
         model.addAttribute("responsable", new Responsable());
         model.addAttribute("oficinas", oficinaService.listarOficinas());
         return "responsable/formulario";
@@ -452,6 +465,125 @@ public class ResponsableController {
                 "ok", false,
                 "msg", "Error al registrar: " + e.getMessage()
             ));
+        }
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/modificar-responsable")
+    @ResponseBody
+    public ResponseEntity<?> modificarResponsable(
+            HttpServletRequest request,
+            @RequestParam String idResponsableEnc, // ID Encriptado
+            @RequestParam String ci,
+            @RequestParam(required = false, defaultValue = "1") Short codExp,
+            @RequestParam String codigoFuncionario,
+            @RequestParam Long idOficina,
+            @RequestParam(required = false) String nombre,
+            @RequestParam(required = false) String paterno,
+            @RequestParam(required = false) String materno,
+            @RequestParam(required = false) String correo,
+            @RequestParam(required = false) String cargoApi,
+            @RequestParam(required = false) String codigoApi) {
+
+        log.info("=== MODIFICANDO RESPONSABLE ===");
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+
+        try {
+            Long id = Long.parseLong(Encriptar.decrypt(idResponsableEnc));
+            Responsable responsable = responsableService.findByIdWithRelations(id);
+            
+            if (responsable == null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Responsable no encontrado"));
+
+            // --- 1. CAPTURAR DATOS ORIGINALES PARA ENCONTRAR EL REGISTRO EN DBF ---
+            // Necesitamos esto porque si cambiamos la oficina o el código, 
+            // el DBF necesita saber "quién era antes" para encontrarlo y sobrescribirlo.
+            
+            Oficina ofiOriginal = responsable.getOficina();
+            String entidadOriginal = ofiOriginal.getPredio().getEntidad().getEntidadCodigo();
+            String unidadOriginal = ofiOriginal.getPredio().getUnidad();
+            Short codOficOriginal = ofiOriginal.getCodOfi();
+            Integer codRespOriginal = null;
+            try {
+                codRespOriginal = Integer.valueOf(responsable.getCodigoFuncionario().replaceAll("\\D+", ""));
+            } catch (Exception e) {}
+
+            // --- 2. ACTUALIZAR EN BASE DE DATOS ---
+            
+            // Actualizar Persona (si cambiaron datos)
+            Persona persona = responsable.getPersona();
+            boolean cambioPersona = false;
+            // Solo actualizamos si vienen datos y son diferentes
+            if (nombre != null && !nombre.trim().isEmpty()) { persona.setNombre(nombre.trim().toUpperCase()); cambioPersona = true; }
+            if (paterno != null) { persona.setPaterno(paterno.trim().toUpperCase()); cambioPersona = true; }
+            if (materno != null) { persona.setMaterno(materno.trim().toUpperCase()); cambioPersona = true; }
+            if (ci != null) { persona.setCi(ci.trim()); cambioPersona = true; }
+            if (correo != null) { persona.setCorreo(correo.trim()); cambioPersona = true; }
+            
+            if (cambioPersona) personaService.save(persona);
+
+            // Actualizar Oficina
+            Oficina nuevaOficina = oficinaService.findById(idOficina);
+            responsable.setOficina(nuevaOficina);
+
+            // Actualizar Cargo
+            if (cargoApi != null && !cargoApi.trim().isEmpty()) {
+                Cargo cargo = cargoService.buscarPorNombre(cargoApi.trim());
+                if (cargo == null) {
+                    cargo = new Cargo();
+                    cargo.setNombre(cargoApi.trim().toUpperCase());
+                    cargo.setEstado("ACTIVO");
+                    cargoService.save(cargo);
+                }
+                responsable.setCargo(cargo);
+            }
+
+            // Actualizar Resto de Campos
+            responsable.setCodigoFuncionario(codigoFuncionario.trim());
+            responsable.setCodigoApi(codigoApi);
+            responsable.setCodExp(codExp);
+            responsable.setFechaUlt(LocalDate.now());
+            responsable.setUsuario(usuarioNombre);
+
+            responsableService.save(responsable);
+            log.info("Responsable actualizado en BD: ID={}", responsable.getIdResponsable());
+
+            // --- 3. ACTUALIZAR EN DBF ---
+            try {
+                String entidadNueva = nuevaOficina.getPredio().getEntidad().getEntidadCodigo();
+                String unidadNueva = nuevaOficina.getPredio().getUnidad();
+
+                if (codRespOriginal != null) {
+                    respDbfWriterService.actualizarDesdeResponsable(
+                        codRespOriginal, 
+                        codOficOriginal, 
+                        entidadOriginal, 
+                        unidadOriginal,
+                        responsable, 
+                        entidadNueva, 
+                        unidadNueva, 
+                        usuarioNombre
+                    );
+                    log.info("Sincronización DBF exitosa (Update)");
+                } else {
+                    // Si no tenía código numérico válido antes, intentamos insertar como nuevo
+                    respDbfWriterService.insertarDesdeResponsable(responsable, entidadNueva, unidadNueva, usuarioNombre);
+                    log.info("Sincronización DBF exitosa (Insert fallback)");
+                }
+
+                return ResponseEntity.ok(Map.of("ok", true, "msg", "Responsable modificado correctamente en BD y DBF"));
+
+            } catch (Exception e) {
+                log.error("Error actualizando DBF: {}", e.getMessage());
+                return ResponseEntity.ok(Map.of(
+                    "ok", true, // Decimos OK porque en BD se guardó
+                    "msg", "Guardado en BD, pero error en DBF: " + e.getMessage()
+                ));
+            }
+
+        } catch (Exception e) {
+            log.error("Error fatal modificando: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
         }
     }
 
