@@ -23,7 +23,7 @@
                             <input type="text" class="form-control" id="txtCi" name="ci" 
                                    th:value="${responsable.persona?.ci}" placeholder="Número de Carnet" required>
                             
-                            <select class="form-select" name="codExp" style="max-width: 130px;" required>
+                            <select class="form-select" name="codExp" style="max-width: 90px;" required>
                                 <option value="1" th:selected="${responsable.codExp == 1}">CHQ (1)</option>
                                 <option value="2" th:selected="${responsable.codExp == 2}">LPZ (2)</option>
                                 <option value="3" th:selected="${responsable.codExp == 3}">CBB (3)</option>
@@ -47,7 +47,7 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label small">Nombre <span class="text-danger">*</span></label>
+                        <label class="form-label small">Nombres <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm input-persona" id="txtNombre" name="nombre" 
                                th:value="${responsable.persona?.nombre}" readonly required style="background-color: #e9ecef;">
                     </div>
