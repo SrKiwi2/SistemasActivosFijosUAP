@@ -48,18 +48,15 @@
 
                     <div class="col-md-4">
                         <label class="form-label small">Nombres <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm input-persona" id="txtNombre" name="nombre" 
-                               th:value="${responsable.persona?.nombre}" readonly required style="background-color: #e9ecef;">
+                        <input type="text" class="form-control form-control-sm input-persona" id="txtNombre" name="nombre" th:value="${responsable.persona?.nombre}" readonly required>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label small">Paterno <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm input-persona" id="txtPaterno" name="paterno" 
-                               th:value="${responsable.persona?.paterno}" readonly required style="background-color: #e9ecef;">
+                        <input type="text" class="form-control form-control-sm input-persona" id="txtPaterno" name="paterno" th:value="${responsable.persona?.paterno}" readonly required>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label small">Materno</label>
-                        <input type="text" class="form-control form-control-sm input-persona" id="txtMaterno" name="materno" 
-                               th:value="${responsable.persona?.materno}" readonly style="background-color: #e9ecef;">
+                        <input type="text" class="form-control form-control-sm input-persona" id="txtMaterno" name="materno" th:value="${responsable.persona?.materno}" readonly>
                     </div>
                     <div class="col-md-12">
                         <label class="form-label small">Correo Electrónico</label>
@@ -144,6 +141,20 @@
 
 <script>
 $(document).ready(function() {
+
+    let idResp = $('input[name="idResponsable"]').val();
+
+    if (idResp && idResp !== "") {
+        // Estamos en MODO EDICIÓN
+        console.log("Modo Edición detectado: Habilitando campos de persona.");
+        $('.input-persona').prop('readonly', false).css('background-color', '#fff');
+        
+        // Opcional: Si también quieres permitir corregir el CI
+        $('#txtCi').prop('readonly', false); 
+    } else {
+        // Estamos en MODO NUEVO (Mantenemos gris por defecto)
+        $('.input-persona').prop('readonly', true).css('background-color', '#e9ecef');
+    }
     
     // 1. SELECT2 para OFICINA
     $('#selectOficinaForm').select2({
