@@ -1,25 +1,86 @@
+<style>
+    /* Estilos para el Modal de Detalle */
+    .detail-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #ebecef;
+        padding: 1rem 1.5rem;
+        border-radius: 0.5rem 0.5rem 0 0;
+    }
+    
+    .detail-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .detail-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #8592a3; /* Gris suave */
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .detail-value {
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: #384551; /* Texto oscuro */
+        word-wrap: break-word;
+    }
+
+    .detail-value.highlight {
+        color: #696cff; /* Color primario */
+    }
+
+    .detail-icon-box {
+        width: 40px;
+        height: 40px;
+        background-color: rgba(105, 108, 255, 0.1);
+        color: #696cff;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        margin-right: 1rem;
+    }
+
+    .status-banner {
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+</style>
+
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Activos pendientes</h4>
 
 <div id="tablaRegistro"></div>
 
 <!-- Modal detalle -->
 <div class="modal fade" id="modalDetalleActivo" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fa-regular fa-rectangle-list me-2"></i>Detalle del activo
+    <div class="modal-dialog modal-lg modal-dialog-centered"> <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-primary">
+                    <i class="fa-solid fa-box-open me-2"></i>Ficha del Activo
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body" id="modalDetalleBody">
-                <!-- se llena por JS -->
+            
+            <div class="modal-body pt-4" id="modalDetalleBody">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
-                <!-- Botón Aprobar dentro del modal (se habilita al cargar el detalle) -->
-                <button type="button" id="btnAprobarModal" class="btn btn-success" disabled>
-                    <i class="fa-regular fa-thumbs-up me-1"></i> Aprobar
+
+            <div class="modal-footer border-0 bg-light rounded-bottom">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" id="btnAprobarModal" class="btn btn-success px-4" disabled>
+                    <i class="fa-solid fa-check-circle me-2"></i> Confirmar y Aprobar
                 </button>
             </div>
         </div>
@@ -30,21 +91,17 @@
     $(document).ready(function () { cargarTabla(); });
 
     function cargarTabla() {
-        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
+        showGlobalLoader({ texto: 'Cargando pendientes...' });
         $.ajax({
             type: 'POST',
             url: "/administracion/activo/tabla-registros_pendientes",
             success: function (response) {
                 $("#tablaRegistro").html(response);
-                initTablaPendientes();
+                // Si tienes una función initTablaPendientes() en el HTML hijo, se ejecutará sola o puedes llamarla aquí
+                if(typeof initTablaPendientes === 'function') initTablaPendientes();
             },
             error: function () {
-                $("#tablaRegistro").html(`
-                <div class="alert alert-danger m-3">
-                Ocurrió un error al cargar la tabla.
-                <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
-                </div>
-            `);
+                $("#tablaRegistro").html(`<div class="alert alert-danger">Error cargando datos.</div>`);
             },
             complete: function () {
                 hideGlobalLoader();
@@ -55,122 +112,166 @@
     // === Todo el JS vive en la vista padre ===
 
     function renderDetalleHtml(d) {
-        const safe = v => (v ?? '—');
-        const estado = (d.estado || '').toUpperCase();
-        const badge =
-            estado === 'PENDIENTE' ? 'text-bg-warning' :
-                (estado === 'ACTIVO' ? 'text-bg-success' : 'text-bg-secondary');
+        // Función auxiliar para valores nulos
+        const safe = v => (v && v !== 'null') ? v : '<span class="text-muted fst-italic">No definido</span>';
+        
+        // Formateador de dinero
+        const fmtMoney = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' });
+        const costo = d.costo ? fmtMoney.format(d.costo) : 'Bs 0.00';
+
+        // Acceso seguro a objetos anidados (CORRECCIÓN IMPORTANTE)
+        const oficina = d.oficina ? d.oficina.nombre : null;
+        const responsable = d.responsable && d.responsable.persona ? d.responsable.persona.nombreCompleto : null;
+        const orgFin = d.organismoFinanciero ? d.organismoFinanciero.descripcion : null;
+        const auxiliar = d.auxiliar ? d.auxiliar.nombre : null;
+        const grupo = d.grupoContable ? d.grupoContable.nombre : null;
+
+        // Banner de estado
+        const estadoClass = d.estado === 'PENDIENTE' ? 'bg-warning-subtle text-warning-emphasis' : 'bg-success-subtle text-success-emphasis';
+        const estadoIcon = d.estado === 'PENDIENTE' ? '<i class="fa-solid fa-clock"></i>' : '<i class="fa-solid fa-check-circle"></i>';
 
         return `
-      <div class="container-fluid">
-        <div class="af-section-title fw-semibold mb-1">Identificación</div>
-        <div class="row g-3">
-          <div class="col-xl-4 col-lg-6"><div class="small text-muted mb-1">Código</div><div class="fw-semibold">${safe(d.codigo)}</div></div>
-          <div class="col-xl-4 col-lg-6"><div class="small text-muted mb-1">Fecha adquisición</div><div>${safe(d.fechaAdquisicion)}</div></div>
-          <div class="col-xl-4 col-lg-6"><div class="small text-muted mb-1">Estado</div><span class="badge ${badge}">${safe(d.estado)}</span></div>
-          <div class="col-12"><div class="small text-muted mb-1 mt-2">Descripción</div><div>${safe(d.descripcion).replace(/\n/g, '<br>')}</div></div>
-        </div>
-        <hr class="my-3">
-        <div class="af-section-title fw-semibold mb-1">Ubicación y responsable</div>
-        <div class="row g-3">
-          <div class="col-xl-6 col-lg-6"><div class="small text-muted mb-1">Oficina</div><div class="fw-semibold">${safe(d.oficinaNombre)}</div></div>
-          <div class="col-xl-6 col-lg-6"><div class="small text-muted mb-1">Responsable</div><div class="fw-semibold">${safe(d.responsableNombre)}</div></div>
-        </div>
-        <hr class="my-3">
-        <div class="af-section-title fw-semibold mb-1">Financiamiento</div>
-        <div class="row g-3">
-          <div class="col-xl-6 col-lg-6"><div class="small text-muted mb-1">Órgano financiador</div><div>${safe(d.organismoFinancieroNombre)}</div></div>
-          <div class="col-xl-6 col-lg-6"><div class="small text-muted mb-1">Auxiliar</div><div>${safe(d.auxiliarNombre)}</div></div>
-        </div>
-        <hr class="my-3">
-        <div class="af-section-title fw-semibold mb-1">Valoración</div>
-        <div class="row g-3">
-          <div class="col-xl-3 col-lg-4"><div class="small text-muted mb-1">Costo</div><div>${safe(d.costoFmt ?? d.costo)}</div></div>
-          <div class="col-xl-2 col-lg-3"><div class="small text-muted mb-1">Vida útil (años)</div><div>${safe(d.vidaUtil)}</div></div>
-        </div>
-      </div>
-    `;
+            <div class="status-banner ${estadoClass}">
+                <div class="fw-bold d-flex align-items-center gap-2">
+                    ${estadoIcon}
+                    <span>ESTADO: ${d.estado || 'DESCONOCIDO'}</span>
+                </div>
+                <small class="text-uppercase fw-semibold tracking-wide">ID: ${d.idActivo}</small>
+            </div>
+
+            <div class="d-flex mb-4">
+                <div class="detail-icon-box">
+                    <i class="fa-solid fa-barcode"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h5 class="mb-1 fw-bold text-dark">${safe(d.codigo)}</h5>
+                    <p class="text-muted mb-0 small">${safe(d.descripcion)}</p>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="detail-group">
+                        <div class="detail-label"><i class="fa-regular fa-calendar me-1"></i> Fecha Adquisición</div>
+                        <div class="detail-value">${safe(d.fechaAdquisicion)}</div>
+                    </div>
+                    
+                    <div class="detail-group">
+                        <div class="detail-label"><i class="fa-solid fa-layer-group me-1"></i> Grupo Contable</div>
+                        <div class="detail-value">${safe(grupo)}</div>
+                    </div>
+
+                    <div class="detail-group">
+                        <div class="detail-label"><i class="fa-solid fa-diagram-project me-1"></i> Auxiliar</div>
+                        <div class="detail-value">${safe(auxiliar)}</div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="detail-group">
+                        <div class="detail-label"><i class="fa-solid fa-coins me-1"></i> Costo Histórico</div>
+                        <div class="detail-value highlight fs-5">${costo}</div>
+                    </div>
+
+                    <div class="detail-group">
+                        <div class="detail-label"><i class="fa-solid fa-hourglass-half me-1"></i> Vida Útil</div>
+                        <div class="detail-value">${safe(d.vidaUtil)} años</div>
+                    </div>
+
+                    <div class="detail-group">
+                        <div class="detail-label"><i class="fa-solid fa-building-columns me-1"></i> Financiamiento</div>
+                        <div class="detail-value">${safe(orgFin)}</div>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-secondary-subtle my-3">
+
+            <div class="bg-light p-3 rounded-3 border border-light-subtle">
+                <div class="row">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <div class="detail-label"><i class="fa-solid fa-building me-1"></i> Oficina Asignada</div>
+                        <div class="detail-value text-dark fw-bold">${safe(oficina)}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label"><i class="fa-solid fa-user-tie me-1"></i> Responsable</div>
+                        <div class="detail-value text-dark fw-bold">${safe(responsable)}</div>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
-    function initTablaPendientes() {
-        // 1) Inicializa DataTables sobre la tabla del fragmento
-        const tableSel = '#tablaRegistro #data-table';
-        if ($.fn.DataTable.isDataTable(tableSel)) {
-            $(tableSel).DataTable().destroy();
-        }
-        const table = $(tableSel).DataTable({
-            responsive: false,
-            pageLength: 10,
-            lengthMenu: [10, 25, 50, 100],
-            columnDefs: [
-                { targets: 0, orderable: false, width: 64 },
-                { targets: 2, createdCell: td => td.style.whiteSpace = 'normal' },
-                { targets: -1, orderable: false }
-            ],
-            language: {
-                sProcessing: "Procesando...",
-                sLengthMenu: "Mostrar _MENU_ registros",
-                sZeroRecords: "No se encontraron resultados",
-                sInfo: "Mostrando _START_ a _END_ de _TOTAL_",
-                sInfoEmpty: "Mostrando 0 a 0 de 0",
-                sInfoFiltered: "(filtrado de _MAX_ registros)",
-                sSearch: "Buscar:",
-                oPaginate: { sFirst: "Primero", sLast: "Último", sNext: "Siguiente", sPrevious: "Anterior" }
-            },
-            deferRender: true,
-            drawCallback: () => {
-                // tooltips para descripción truncada
-                document.querySelectorAll('#tablaRegistro [data-bs-toggle="tooltip"]').forEach(el => {
-                    const t = bootstrap.Tooltip.getInstance(el); if (t) t.dispose();
-                    new bootstrap.Tooltip(el, { container: 'body' });
-                });
-            },
-        });
+    $(document).on('click', '.btn-ver', async function () {
+        const idEnc = $(this).data('id');
+        
+        // Loader suave
+        const $modalBody = $('#modalDetalleBody');
+        $modalBody.html('<div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary"></div></div>');
+        
+        const modalEl = document.getElementById('modalDetalleActivo');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
 
-        // 2) Delegación de eventos sobre el contenedor fijo (#tablaRegistro)
-        $('#tablaRegistro').off('click', '.btn-ver').on('click', '.btn-ver', async function () {
-            const idEnc = this.dataset.id;
-            showGlobalLoader({ 
-                imgUrl: '/assets/img/logo/activofijos.png', 
-                axis: 'y', 
-                speed: 1.2, 
-                texto: 'Cargando detalle...' 
-            });
-            try {
-                const res = await fetch(`/administracion/activo/api/detalle/${encodeURIComponent(idEnc)}`);
-                if (!res.ok) throw new Error('Error al obtener detalle');
-                const d = await res.json();
-                // normaliza estado desde tu _estado
-                if (!('estado' in d)) d.estado = d.estadoActivoNombre || '';
-                // pinta modal
-                document.getElementById('modalDetalleBody').innerHTML = renderDetalleHtml(d);
-                const btnAprobar = document.getElementById('btnAprobarModal');
-                btnAprobar.disabled = false;
-                btnAprobar.onclick = async () => {
+        const $btnAprobar = $('#btnAprobarModal');
+        $btnAprobar.prop('disabled', true);
+
+        try {
+            // Fetch Datos
+            const res = await fetch(`/administracion/activo/api/detalle/${encodeURIComponent(idEnc)}`);
+            if (!res.ok) throw new Error('Error de conexión');
+            
+            const d = await res.json();
+            
+            // Normalizar estado
+            if (!d.estado) d.estado = d.estadoActivo?.nombre || 'PENDIENTE';
+
+            // Renderizar HTML
+            $modalBody.html(renderDetalleHtml(d));
+
+            // Configurar botón Aprobar
+            $btnAprobar.prop('disabled', false).off('click').on('click', async function() {
+                if(!confirm('¿Está seguro de aprobar este activo y registrarlo en el sistema oficial (DBF)?')) return;
+
+                const $btn = $(this);
+                $btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin me-2"></i> Procesando...');
+
                 try {
-                    const resp = await fetch(`/administracion/activo/api/aprobar/${encodeURIComponent(idEnc)}`, { method: 'POST' });
-                    const data = await resp.json();
-                    if (!resp.ok || !data.ok) throw new Error(data.message || 'Error al aprobar');
-                    cargarTabla();
-                    const tr = document.querySelector(`button[data-id="${idEnc}"]`)?.closest('tr');
-                    const badge = tr?.querySelector('td:nth-child(7) .badge');
-                    if (badge) { badge.textContent = 'ACTIVO'; badge.className = 'badge text-bg-success'; }
-                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleActivo')).hide();
-                } catch (e) {
-                    console.error(e);
-                    alert(e.message || 'No se pudo aprobar el activo.');
-                }
-                };
+                    const respApr = await fetch(`/administracion/activo/api/aprobar/${encodeURIComponent(idEnc)}`, { method: 'POST' });
+                    const dataApr = await respApr.json();
 
-                // abre modal
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleActivo')).show();
-            } catch (e) {
-                console.error(e); alert('No se pudo cargar el detalle del activo.');
-            } finally {
-                hideGlobalLoader();
-            }
-        });
-    }
+                    if (dataApr.ok) {
+                        // Éxito
+                        modal.hide();
+                        cargarTabla(); // Recargar lista
+                        Swal.fire({
+                            title: '¡Aprobado!',
+                            text: 'El activo ha sido registrado correctamente.',
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        throw new Error(dataApr.message || 'Error desconocido');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    Swal.fire('Error', err.message, 'error');
+                    $btn.prop('disabled', false).html('<i class="fa-solid fa-check-circle me-2"></i> Confirmar y Aprobar');
+                }
+            });
+
+        } catch (e) {
+            console.error(e);
+            $modalBody.html(`
+                <div class="text-center py-4 text-danger">
+                    <i class="fa-solid fa-triangle-exclamation fa-3x mb-3"></i>
+                    <h5>No se pudo cargar la información</h5>
+                    <p class="small text-muted">${e.message}</p>
+                </div>
+            `);
+        }
+    });
 
     function eliminar(nombre, id) {
         eliminarRegistroAlert(nombre, id, "/administracion/activo/eliminar-pendiente", cargarTabla);
