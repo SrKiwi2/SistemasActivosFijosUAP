@@ -1,285 +1,294 @@
 <div class="modal-header">
-    <h4 class="modal-title">Registrar Responsable</h4>
-    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+    <h5 class="modal-title" id="modalTitle">
+        <i class="fa-solid fa-user-tie me-2"></i>
+        <span th:text="${responsable.idResponsable != null ? 'Editar Responsable' : 'Nuevo Responsable'}"></span>
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
-<form id="formularioResponsable" method="post" th:action="@{/administracion/responsable/registrar-responsable}"
-    novalidate>
-    <input type="hidden" th:if="${edit != null}" name="idResponsable">
-    
-    <div class="modal-body">
-        <div class="row">
-            <div class="col-12 col-md-6 mb-2">
-                <label class="form-label">Código Funcionario (API) - Opcional</label>
-                <input type="text" id="codigoFuncionarioInput" name="codigoApi" class="form-control"
-                    placeholder="Opcional - Si consulta API" />
-                <small class="text-muted">Opcional: Solo si consultas la API</small>
+
+<div class="modal-body">
+    <form id="formResponsable" autocomplete="off">
+        <input type="hidden" id="idResponsable" name="idResponsable" th:value="${responsable.idResponsable}">
+        
+        <div class="card mb-3 border-primary-subtle">
+            <div class="card-header bg-primary-subtle text-primary fw-bold py-2">
+                <i class="fa-solid fa-user me-1"></i> Datos Personales
             </div>
-            
-            <div class="col-12 col-md-6 mb-2">
-                <label class="form-label">C.I. *</label>
-                <div class="input-group">
-                    <input type="text" id="ciInput" name="ci" class="form-control" required />
-                    <button type="button" id="consultarApiBtn" class="btn btn-primary">
-                        <i class="fa-solid fa-search"></i> Consultar API
-                    </button>
+            <div class="card-body py-2">
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">C.I. / Documento <span class="text-danger">*</span></label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control" id="txtCi" name="ci" 
+                                   th:value="${responsable.persona?.ci}" placeholder="Ingrese C.I.">
+                            <button class="btn btn-outline-primary" type="button" id="btnBuscarPersona" title="Buscar Persona">
+                                <i class="fa-solid fa-search"></i>
+                            </button>
+                        </div>
+                        <div id="ciFeedback" class="form-text text-muted small">Pulse la lupa para buscar.</div>
+                    </div>
+                    
+                    <div class="col-md-8">
+                        <div class="alert alert-warning py-1 px-2 mb-0 d-none" id="alertNuevaPersona" style="font-size: 0.8rem;">
+                            <i class="fa-solid fa-info-circle"></i> Persona no encontrada. Complete los datos para crearla.
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label small">Nombre <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm input-persona" id="txtNombre" name="nombre" 
+                               th:value="${responsable.persona?.nombre}" readonly required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Paterno</label>
+                        <input type="text" class="form-control form-control-sm input-persona" id="txtPaterno" name="paterno" 
+                               th:value="${responsable.persona?.paterno}" readonly>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Materno</label>
+                        <input type="text" class="form-control form-control-sm input-persona" id="txtMaterno" name="materno" 
+                               th:value="${responsable.persona?.materno}" readonly>
+                    </div>
                 </div>
             </div>
         </div>
-        
-        <hr>
-        
-        <h6 class="mb-3">Datos de la Persona</h6>
-        <div id="datosResponsableDiv" class="row">
-            <!-- ✅ Campos VISIBLES y editables para capturar datos -->
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label">Nombre *</label>
-                <input type="text" id="nombreInput" name="nombre" class="form-control" 
-                       required placeholder="Ej: JUAN" />
-                <div class="invalid-feedback">Por favor ingrese el nombre.</div>
+
+        <div class="card mb-3 border-secondary-subtle">
+            <div class="card-header bg-secondary-subtle text-secondary fw-bold py-2">
+                <i class="fa-solid fa-briefcase me-1"></i> Asignación Institucional
             </div>
-            
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label">Apellido Paterno *</label>
-                <input type="text" id="paternoInput" name="paterno" class="form-control" 
-                       required placeholder="Ej: PÉREZ" />
-                <div class="invalid-feedback">Por favor ingrese el apellido paterno.</div>
-            </div>
-            
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label">Apellido Materno</label>
-                <input type="text" id="maternoInput" name="materno" class="form-control" 
-                       placeholder="Ej: GÓMEZ (opcional)" />
-            </div>
-            
-            <div class="col-12 col-md-6 mb-2">
-                <label class="form-label">Correo Electrónico</label>
-                <input type="email" id="correoInput" name="correo" class="form-control" 
-                       placeholder="ejemplo@uap.edu.bo (opcional)" />
-            </div>
-            
-            <div class="col-12 col-md-6 mb-2">
-                <label class="form-label">Cargo</label>
-                <input type="text" id="cargoApiInput" name="cargoApi" class="form-control" 
-                       placeholder="Ej: JEFE DE UNIDAD (opcional)" />
-            </div>
-            
-            <div class="col-12 col-md-6 mb-2">
-                <label class="form-label">Oficina *</label>
-                <select id="selectOficina" name="idOficina" class="form-select select2it" required>
-                    <option value="">Seleccione Oficina...</option>
-                    <option th:each="o : ${oficinas}" th:value="${o.idOficina}" th:text="${o.nombre}"></option>
-                </select>
-                <div class="invalid-feedback">Debe seleccionar una oficina.</div>
-            </div>
-            
-            <div class="col-12 col-md-6 mb-2">
-                <label class="form-label">Código Funcionario (Final) *</label>
-                <input type="text" id="codFuncFinalInput" name="codigoFuncionario" 
-                       class="form-control" required readonly />
-                <small class="text-muted">Se genera automáticamente según la oficina</small>
+            <div class="card-body py-2">
+                <div class="row g-2">
+                    
+                    <div class="col-md-12">
+                        <label class="form-label small fw-bold">Oficina Asignada <span class="text-danger">*</span></label>
+                        <div class="input-group input-group-sm">
+                            <select class="form-select" id="selectOficina" name="idOficina" required>
+                                <option value="">Buscar oficina...</option>
+                                <option th:each="of : ${oficinas}" 
+                                        th:value="${of.idOficina}" 
+                                        th:text="${of.predio.unidad + ' - ' + of.codOfi + ' | ' + of.nombre}"
+                                        th:selected="${responsable.oficina?.idOficina == of.idOficina}">
+                                </option>
+                            </select>
+                            <button class="btn btn-outline-success" type="button" id="btnAddOficina" title="Nueva Oficina">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Código Funcionario <span class="text-danger">*</span></label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control" id="txtCodigoFuncionario" name="codigoFuncionario" 
+                                   th:value="${responsable.codigoFuncionario}" required placeholder="Ej: 5">
+                            <button class="btn btn-outline-secondary" type="button" id="btnSugerirCodigo" title="Sugerir siguiente código">
+                                <i class="fa-solid fa-magic"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Cargo <span class="text-danger">*</span></label>
+                        <div class="input-group input-group-sm">
+                            <select class="form-select" id="selectCargo" name="cargoApi">
+                                <option value="">Seleccione o cree...</option>
+                                <option th:if="${responsable.cargo != null}" 
+                                        th:value="${responsable.cargo.nombre}" 
+                                        th:text="${responsable.cargo.nombre}" selected>
+                                </option>
+                            </select>
+                            <button class="btn btn-outline-info" type="button" id="btnAddCargo" title="Crear nuevo cargo">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-            <i class="fa-solid fa-xmark me-1"></i> Cancelar
-        </button>
-        <button type="submit" class="btn btn-success">
-            <i class="fa-solid fa-save me-1"></i> Guardar Registro
-        </button>
-    </div>
-</form>
+    </form>
+</div>
+
+<div class="modal-footer bg-light">
+    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+    <button type="button" class="btn btn-primary btn-sm" id="btnGuardarResponsable">
+        <i class="fa-solid fa-save me-1"></i> Guardar Responsable
+    </button>
+</div>
 
 <script>
-    function inicializarFormularioResponsable() {
-        const $codFuncInput = document.getElementById('codigoFuncionarioInput');
-        const $ciInput = document.getElementById('ciInput');
-        const $consultarBtn = document.getElementById('consultarApiBtn');
-        const $codFuncFinal = document.getElementById('codFuncFinalInput');
-        const $selectOficina = document.getElementById('selectOficina');
-        
-        // ✅ Campos editables
-        const $nombreInput = document.getElementById('nombreInput');
-        const $paternoInput = document.getElementById('paternoInput');
-        const $maternoInput = document.getElementById('maternoInput');
-        const $correoInput = document.getElementById('correoInput');
-        const $cargoApiInput = document.getElementById('cargoApiInput');
-        
-        // Obtener código funcionario correlativo
-        function obtenerCorrelativoCodigoFuncionario() {
-            const idOficina = $selectOficina.value;
-            if (!idOficina) {
-                $codFuncFinal.value = '';
-                return;
+$(document).ready(function() {
+    
+    // 1. INICIALIZAR SELECT2 (Búsqueda potente)
+    $('#selectOficina').select2({
+        theme: 'bootstrap-5',
+        dropdownParent: $('#modalFormularioResponsable'),
+        width: '100%',
+        placeholder: 'Escriba unidad, código o nombre...',
+        allowClear: true
+    });
+
+    // Cargar cargos vía AJAX para no saturar el DOM inicial
+    $('#selectCargo').select2({
+        theme: 'bootstrap-5',
+        dropdownParent: $('#modalFormularioResponsable'),
+        width: '100%',
+        tags: true, // ¡Permite escribir un cargo nuevo y seleccionarlo!
+        placeholder: 'Seleccione cargo',
+        ajax: {
+            url: '/api/cargos/search', // Necesitarás este endpoint simple
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+                return { q: params.term };
+            },
+            processResults: function (data) {
+                return {
+                    results: data.map(c => ({ id: c.nombre, text: c.nombre }))
+                };
             }
-            
-            const url = `[[@{/administracion/responsable/obtener-siguiente-codigo-funcionario}]]?idOficina=${idOficina}`;
-            fetch(url)
-                .then(response => {
-                    if (!response.ok) throw new Error('Error al obtener el correlativo.');
-                    return response.text();
-                })
-                .then(siguienteCodigo => {
-                    $codFuncFinal.value = siguienteCodigo.trim();
-                })
-                .catch(error => {
-                    console.error('Error al obtener el correlativo:', error);
-                    $codFuncFinal.value = '';
-                });
         }
-        
-        // Consultar API
-        function consultarApi() {
-            const codigoFuncionario = $codFuncInput.value.trim();
-            const ci = $ciInput.value.trim();
-            
-            if (!ci) {
-                alert('Por favor, ingrese el C.I. primero');
-                return;
-            }
-            
-            if (!codigoFuncionario) {
-                alert('Por favor, ingrese el Código de Funcionario de la API');
-                return;
-            }
-            
-            const url = `[[@{/administracion/responsable/consultar-api-datos}]]?codigoFuncionario=${codigoFuncionario}&ci=${ci}`;
-            
-            if (typeof showGlobalLoader === 'function') {
-                showGlobalLoader({ texto: 'Consultando API...' });
-            }
-            
-            fetch(url)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('No se encontraron datos en la API');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.yaEsResponsable) {
-                        alert('¡Advertencia! Este Código Funcionario ya está registrado.');
-                        return;
-                    }
-                    
-                    // ✅ Llenar campos editables con datos de la API
-                    $nombreInput.value = data.nombre || '';
-                    $paternoInput.value = data.paterno || '';
-                    $maternoInput.value = data.materno || '';
-                    $correoInput.value = data.correo || '';
-                    $cargoApiInput.value = data.nombreCargoApi || '';
-                    
-                    alert('Datos cargados desde la API. Puede modificarlos antes de guardar.');
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('No se encontraron datos en la API. Puede ingresar los datos manualmente.');
-                })
-                .finally(() => {
-                    if (typeof hideGlobalLoader === 'function') {
-                        hideGlobalLoader();
-                    }
-                });
+    });
+
+    // 2. LÓGICA DE BÚSQUEDA DE PERSONA
+    $('#btnBuscarPersona').on('click', function() {
+        const ci = $('#txtCi').val().trim();
+        if(!ci) {
+            Swal.fire('Atención', 'Ingrese un C.I. para buscar', 'warning');
+            return;
         }
-        
-        $consultarBtn.addEventListener('click', consultarApi);
-        $selectOficina.addEventListener('change', obtenerCorrelativoCodigoFuncionario);
-        
-        // Obtener correlativo inicial si ya hay oficina seleccionada
-        if ($selectOficina.value) {
-            setTimeout(obtenerCorrelativoCodigoFuncionario, 100);
-        }
-        
-        // ===== MANEJO DEL SUBMIT =====
-        const form = document.getElementById('formularioResponsable');
-        
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            if (!form.checkValidity()) {
-                e.stopPropagation();
-                form.classList.add('was-validated');
-                return;
-            }
-            
-            const formData = new FormData(form);
-            
-            // ✅ Log para verificar datos
-            console.log('=== DATOS DEL FORMULARIO ===');
-            for (let [key, value] of formData.entries()) {
-                console.log(`${key}: ${value}`);
-            }
-            
-            showGlobalLoader({ texto: 'Guardando...' });
-            
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                hideGlobalLoader();
-                
-                const data = await response.json();
-                
-                // Manejar conflicto de personas similares
-                if (response.status === 409 && data.requireConfirmacion) {
-                    const confirmar = confirm(data.msg);
-                    
-                    if (confirmar) {
-                        // Usuario confirmó, continuar con registro
-                        showGlobalLoader({ texto: 'Creando nueva persona...' });
-                        
-                        // Agregar flag de confirmación
-                        formData.append('forzarCreacion', 'true');
-                        
-                        const response2 = await fetch(form.action, {
-                            method: 'POST',
-                            body: formData
-                        });
-                        
-                        hideGlobalLoader();
-                        const data2 = await response2.json();
-                        
-                        if (data2.ok) {
-                            alert(data2.msg);
-                            cerrarModalYRecargar();
-                        } else {
-                            throw new Error(data2.msg);
-                        }
-                    }
-                    return;
+
+        // Simular carga
+        const btn = $(this);
+        const originalHtml = btn.html();
+        btn.html('<i class="fa-solid fa-spinner fa-spin"></i>').prop('disabled', true);
+
+        $.ajax({
+            url: '/api/personas/buscar-por-ci', // Ajusta tu endpoint
+            data: { ci: ci },
+            success: function(persona) {
+                if(persona) {
+                    // ENCONTRADO
+                    $('#txtNombre').val(persona.nombre).prop('readonly', true);
+                    $('#txtPaterno').val(persona.paterno).prop('readonly', true);
+                    $('#txtMaterno').val(persona.materno).prop('readonly', true);
+                    $('#alertNuevaPersona').addClass('d-none');
+                    $('#ciFeedback').text('✅ Persona encontrada en el sistema.').removeClass('text-muted text-danger').addClass('text-success');
+                } else {
+                    // NO ENCONTRADO - MODO CREACIÓN
+                    activarModoNuevaPersona();
                 }
-                
-                if (!response.ok || !data.ok) {
-                    throw new Error(data.msg || 'Error al guardar');
-                }
-                
-                alert(data.msg || 'Guardado correctamente');
-                cerrarModalYRecargar();
-                
-            } catch (error) {
-                hideGlobalLoader();
-                console.error('Error:', error);
-                alert('Error al guardar: ' + error.message);
+            },
+            error: function() {
+                // Error o 404
+                activarModoNuevaPersona();
+            },
+            complete: function() {
+                btn.html(originalHtml).prop('disabled', false);
             }
         });
-        
-        function cerrarModalYRecargar() {
-            const modal = bootstrap.Modal.getInstance(document.getElementById('modalResponsable'));
-            if (modal) {
-                modal.hide();
-            }
-            
-            if (window.$ && $('#data-table-responsable').length) {
-                $('#data-table-responsable').DataTable().ajax.reload(null, false);
-            }
-            
-            form.reset();
-            form.classList.remove('was-validated');
-        }
+    });
+
+    function activarModoNuevaPersona() {
+        $('.input-persona').prop('readonly', false).val('');
+        $('#txtNombre').focus();
+        $('#alertNuevaPersona').removeClass('d-none');
+        $('#ciFeedback').text('⚠️ Persona no registrada. Ingrese los datos manualmente.').removeClass('text-muted text-success').addClass('text-danger');
     }
-    
-    inicializarFormularioResponsable();
+
+    // 3. LOGICA PARA AGREGAR NUEVA OFICINA (Abre el otro modal)
+    $('#btnAddOficina').on('click', function() {
+        // Ocultar modal actual temporalmente
+        $('#modalFormularioResponsable').modal('hide');
+        
+        // Cargar modal de oficina
+        // Asumimos que tienes un div #contenedorModalOficina en tu vista principal
+        // y usas cargarFormularioAlert de oficina
+        
+        // TRUCO: Sobrescribir temporalmente la función de recarga de tabla de oficina
+        // para que en lugar de recargar tabla, vuelva a abrir este modal y recargue el select.
+        cargarFormularioOficinaCallback = function() {
+            // Recargar lista de oficinas
+            $.get('/api/oficinas/list-select', function(data) {
+                let options = '<option value="">Buscar oficina...</option>';
+                data.forEach(o => {
+                    options += `<option value="${o.idOficina}">${o.predio.unidad} - ${o.codOfi} | ${o.nombre}</option>`;
+                });
+                $('#selectOficina').html(options).trigger('change');
+                
+                // Reabrir modal responsable
+                $('#modalFormularioResponsable').modal('show');
+            });
+        };
+        
+        // Llamar a tu función existente para cargar form de oficina
+        cargarFormularioAlert("/administracion/oficina/formulario", "#prediocontenidoModalOficina", "#formularioOficina", cargarFormularioOficinaCallback);
+    });
+
+    // 4. LOGICA PARA CREAR CARGO RÁPIDO
+    $('#btnAddCargo').on('click', function() {
+        Swal.fire({
+            title: 'Nuevo Cargo',
+            input: 'text',
+            inputLabel: 'Nombre del Cargo',
+            inputPlaceholder: 'Ej. JEFE DE UNIDAD',
+            showCancelButton: true,
+            confirmButtonText: 'Crear',
+            preConfirm: (nombre) => {
+                if (!nombre) Swal.showValidationMessage('Escriba un nombre');
+                return nombre;
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Agregar al select temporalmente (el backend lo creará al guardar responsable si no existe)
+                const nuevoCargo = new Option(result.value.toUpperCase(), result.value.toUpperCase(), true, true);
+                $('#selectCargo').append(nuevoCargo).trigger('change');
+            }
+        });
+    });
+
+    // 5. SUGERIR CÓDIGO
+    $('#btnSugerirCodigo').on('click', function() {
+        const idOficina = $('#selectOficina').val();
+        if(!idOficina) {
+            Swal.fire('Info', 'Seleccione una oficina primero', 'info');
+            return;
+        }
+        $.get('/administracion/responsable/obtener-siguiente-codigo-funcionario', {idOficina: idOficina}, function(codigo) {
+            $('#txtCodigoFuncionario').val(codigo);
+        });
+    });
+
+    // 6. GUARDAR TODO
+    $('#btnGuardarResponsable').on('click', function() {
+        if(!$('#formResponsable')[0].checkValidity()) {
+            $('#formResponsable')[0].reportValidity();
+            return;
+        }
+
+        const formData = $('#formResponsable').serialize();
+        showGlobalLoader({texto: 'Registrando...'});
+
+        $.ajax({
+            url: '/administracion/responsable/registrar-responsable',
+            type: 'POST',
+            data: formData,
+            success: function(res) {
+                hideGlobalLoader();
+                if(res.ok) {
+                    Swal.fire('Éxito', res.msg, 'success').then(() => {
+                        $('#modalFormularioResponsable').modal('hide');
+                        $('#data-table').DataTable().ajax.reload(null, false);
+                    });
+                } else {
+                    Swal.fire('Error', res.msg, 'error');
+                }
+            },
+            error: function(xhr) {
+                hideGlobalLoader();
+                Swal.fire('Error', 'No se pudo registrar', 'error');
+            }
+        });
+    });
+});
 </script>

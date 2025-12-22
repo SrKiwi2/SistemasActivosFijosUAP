@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 
@@ -19,4 +20,7 @@ public interface ICargoDao extends JpaRepository<Cargo, Long>{
     Optional<Cargo> findFirstByNombreIgnoreCase(String nombre);
 
     Optional<Cargo> findByNombreIgnoreCase(String nombre);
+
+    @Query("SELECT c FROM Cargo c WHERE UPPER(c.nombre) LIKE UPPER(:nombre)")
+    List<Cargo> buscarPorNombreLike(@Param("nombre") String nombre);
 }

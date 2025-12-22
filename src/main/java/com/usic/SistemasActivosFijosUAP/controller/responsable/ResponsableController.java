@@ -98,29 +98,44 @@ public class ResponsableController {
         int page = Math.max(start, 0) / Math.max(size, 1);
         Pageable pageable = PageRequest.of(page, size);
 
+        // 1. Obtener datos de BD
         Page<IResposableDao.ResponsableRow> p = responsableService.datatable(search, oficinaId, pageable);
 
+        // 2. Cargar claves del DBF para comparar
         Set<String> clavesDbf = new HashSet<>();
         try {
-            // Leemos todos los responsables del DBF (blindado)
+            // Leemos el DBF
             var filasDbf = dbfService.listarResponsableAll(null);
             for(var f : filasDbf) {
                 // Clave: ENTIDAD|UNIDAD|CODOFI|CODRESP
-                String k = generarClaveUnica(f.getEntidadCodigo(), f.getUnidad(), f.getCodOfi(), 
-                                             (f.getCodResp() != null ? f.getCodResp() : "0"));
+                String k = generarClaveUnica(
+                    f.getEntidadCodigo(), 
+                    f.getUnidad(), 
+                    f.getCodOfi(), 
+                    (f.getCodResp() != null ? f.getCodResp() : "0")
+                );
                 clavesDbf.add(k);
             }
         } catch (Exception e) {
-            log.error("No se pudo leer RESP.DBF para comparación", e);
+            log.error("Error leyendo RESP.DBF para comparación", e);
         }
 
+        // 3. Armar respuesta
         List<Map<String, Object>> data = new ArrayList<>(p.getNumberOfElements());
 
         for (var row : p.getContent()) {
             String idEnc = "";
             try { idEnc = Encriptar.encrypt(String.valueOf(row.getIdResponsable())); } catch (Exception e) {}
 
-            boolean enDbf = true;
+            // ✅ Generar clave con los datos que AHORA SÍ TRAE EL DAO
+            String claveBd = generarClaveUnica(
+                row.getEntidadCodigo(), 
+                row.getUnidadCodigo(), 
+                row.getCodOfi(), 
+                row.getCodFun() // El helper lo limpia si tiene letras
+            );
+
+            boolean enDbf = clavesDbf.contains(claveBd);
 
             Map<String, Object> m = new HashMap<>();
             m.put("idEnc", idEnc);
@@ -131,13 +146,14 @@ public class ResponsableController {
             m.put("ci", nvl(row.getCi()));
             m.put("oficina", nvl(row.getOficina()));
             m.put("cargo", nvl(row.getCargo()));
-            m.put("idResponsable", row.getIdResponsable());
-
-            m.put("existeEnDbf", true);
+            m.put("idResponsable", row.getIdResponsable()); // ID plano para JS
+            
+            // ⚠️ Bandera correcta para el frontend
+            m.put("existeEnDbf", enDbf); 
 
             data.add(m);
         }
-        
+
         long total = responsableService.countActivos();
         Map<String, Object> res = new HashMap<>();
         res.put("draw", draw);
@@ -145,8 +161,8 @@ public class ResponsableController {
         res.put("recordsFiltered", p.getTotalElements());
         res.put("data", data);
         res.put("source", "db");
+        
         return res;
-
     }
 
     @ValidarUsuarioAutenticado
@@ -695,6 +711,49 @@ public class ResponsableController {
         }
     }
 
+    @GetMapping("/api/personas/buscar-por-ci")
+    @ResponseBody
+    public ResponseEntity<?> buscarPersonaApi(@RequestParam String ci) {
+        Persona p = personaService.buscarPersonaPorCI(ci);
+        if (p != null) {
+            return ResponseEntity.ok(Map.of(
+                "nombre", p.getNombre(),
+                "paterno", p.getPaterno() != null ? p.getPaterno() : "",
+                "materno", p.getMaterno() != null ? p.getMaterno() : ""
+            ));
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    // Endpoint para Select2 de Cargos
+    @GetMapping("/api/cargos/search")
+    @ResponseBody
+    public List<Map<String, String>> buscarCargos(@RequestParam(required = false) String q) {
+        // Implementa un buscarPorNombreLike en CargoService
+        List<Cargo> cargos = (q == null || q.isBlank()) 
+            ? cargoService.findAll() 
+            : cargoService.buscarPorNombreLike("%" + q.toUpperCase() + "%");
+            
+        return cargos.stream()
+            .limit(20) // Limitar resultados
+            .map(c -> Map.of("nombre", c.getNombre()))
+            .collect(Collectors.toList());
+    }
+    
+    // Endpoint para recargar Oficinas en el Select (JSON ligero)
+    @GetMapping("/api/oficinas/list-select")
+    @ResponseBody
+    public List<Map<String, Object>> listarOficinasSelect() {
+        return oficinaService.listarOficinas().stream().map(o -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("idOficina", o.getIdOficina());
+            m.put("codOfi", o.getCodOfi());
+            m.put("nombre", o.getNombre());
+            m.put("predio", Map.of("unidad", o.getPredio().getUnidad()));
+            return m;
+        }).collect(Collectors.toList());
+    }
+
     private Map<String, Oficina> cargarOficinasEnCache() {
         List<Oficina> todas = oficinaService.findAll();
         
@@ -941,24 +1000,5 @@ public class ResponsableController {
 
     private static String nvl(String s) {
         return s == null ? "" : s;
-    }
-
-    private static boolean isBlank(String s) {
-        return s == null || s.trim().isEmpty();
-    }
-
-    private String[] splitNombrePersona(String full) {
-        String n = nvl(full);
-        if (n == null)
-            return new String[] { "DESCONOCIDO", null, null };
-        String[] parts = n.split("\\s+");
-        if (parts.length == 1)
-            return new String[] { parts[0], null, null };
-        if (parts.length == 2)
-            return new String[] { parts[0], parts[1], null };
-        String nombre = String.join(" ", Arrays.copyOf(parts, parts.length - 2));
-        String paterno = parts[parts.length - 2];
-        String materno = parts[parts.length - 1];
-        return new String[] { nombre, paterno, materno };
     }
 }

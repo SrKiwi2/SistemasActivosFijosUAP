@@ -75,4 +75,9 @@ public class CargoServiceImpl implements ICargoService{
 
         return dao.save(nuevoCargo); // Guarda y retorna el nuevo Cargo
     }
+
+    @Override
+    public List<Cargo> buscarPorNombreLike(String nombre) {
+       return dao.buscarPorNombreLike(nombre);
+    }
 }

@@ -45,6 +45,10 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
         String getCi();
         String getOficina();
         String getCargo();
+
+        Short  getCodOfi(); 
+        String getEntidadCodigo();
+        String getUnidadCodigo();
     }
 
     // total sin filtro (ACTIVO)
@@ -60,10 +64,16 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
             p.materno                 as materno,
             p.ci                      as ci,
             (o.cod_ofi)::text         as oficina,
-            c.nombre                  as cargo
+            c.nombre                  as cargo,
+            o.cod_ofi                 as codOfi,
+            e.entidad_codigo          as entidadCodigo,
+            pr.unidad                 as unidadCodigo
+
         FROM responsable r
         LEFT JOIN persona  p ON p.id_persona = r.id_persona
         LEFT JOIN oficina  o ON o.id_oficina = r.id_oficina
+        LEFT JOIN predio   pr ON pr.id_predio = o.id_predio  -- Join extra
+        LEFT JOIN entidad  e ON e.id_entidad = pr.id_entidad -- Join extra
         LEFT JOIN cargo    c ON c.id_cargo   = r.id_cargo
         WHERE r._estado = 'ACTIVO'
             AND ( :oficinaId IS NULL OR o.id_oficina = :oficinaId )
@@ -74,7 +84,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
                 p.paterno                 ILIKE CONCAT('%', :q, '%') OR
                 p.materno                 ILIKE CONCAT('%', :q, '%') OR
                 p.ci                      ILIKE CONCAT('%', :q, '%') OR
-                (o.cod_ofi)::text         ILIKE CONCAT('%', :q, '%') OR
+                CAST(o.cod_ofi AS TEXT)   ILIKE CONCAT('%', :q, '%') OR
                 c.nombre                  ILIKE CONCAT('%', :q, '%')
             )
         ORDER BY r.id_responsable DESC
