@@ -422,7 +422,7 @@ public class OficinaController {
 
             Predio predio = oficina.getPredio();
             String entidadCode = predio.getEntidad().getEntidadCodigo();
-            String unidadCode = (predio.getCodigo() != null) ? predio.getCodigo() : predio.getUnidad();
+            String unidadCode = predio.getUnidad();
             
             Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
             String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
