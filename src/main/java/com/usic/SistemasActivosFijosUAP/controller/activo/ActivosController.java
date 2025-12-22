@@ -70,7 +70,6 @@ import lombok.extern.slf4j.Slf4j;
 public class ActivosController {
     private final IActivoService activoService;
     private final FuncionesActivoRepo funciones;
-    private final IEntidadService entidadService;
     private final IMunicipioService municipioService;
     private final IPredioServicio predioServicio;
     private final IGrupoContableService grupoContableService;
@@ -80,12 +79,9 @@ public class ActivosController {
     private final IAuxiliarService auxiliarService;
     private final IEstadoActivoService estadoActivoService;
     private final ActualDbfWriterService actualDbfWriterService;
-    private final SyncControlService syncControlService;
 
     @PersistenceContext
     private EntityManager entityManager;
-
-    private final JavaDbfService dbfService;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -280,132 +276,128 @@ public class ActivosController {
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = usuario.getUsuario();
 
-        Activo activoOriginal = activoService.findById(activoForm.getIdActivo());
-        if (activoOriginal == null) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "ok", false,
-                    "msg", "No se encontró el activo con ID: " + activoForm.getIdActivo()));
-        }
+        try {
 
-        String codigoOriginal = activoOriginal.getCodigo();
-
-        activoOriginal.setCodigo(activoForm.getCodigo());
-        activoOriginal.setCodigoSec(activoForm.getCodigoSec());
-        activoOriginal.setDescripcion(activoForm.getDescripcion());
-        activoOriginal.setCosto(activoForm.getCosto());
-        activoOriginal.setVidaUtil(activoForm.getVidaUtil());
-        activoOriginal.setFechaAdquisicion(activoForm.getFechaAdquisicion());
-
-        // Actualizar relaciones
-        if (activoForm.getGrupoContable() != null && activoForm.getGrupoContable().getIdGrupoContable() != null) {
-            GrupoContable grupoCompleto = grupoContableService.findById(
-                activoForm.getGrupoContable().getIdGrupoContable()
-            );
-            activoOriginal.setGrupoContable(grupoCompleto);
-        } else {
-            activoOriginal.setGrupoContable(null);
-        }
-
-        if (activoForm.getOficina() != null && activoForm.getOficina().getIdOficina() != null) {
-            Oficina oficinaCompleta = oficinaService.findById(activoForm.getOficina().getIdOficina());
-            activoOriginal.setOficina(oficinaCompleta);
-        } else {
-            activoOriginal.setOficina(null);
-        }
-
-        if (activoForm.getResponsable() != null && activoForm.getResponsable().getIdResponsable() != null) {
-            Responsable responsableCompleto = responsableService.findById(
-                activoForm.getResponsable().getIdResponsable()
-            );
-            activoOriginal.setResponsable(responsableCompleto);
-        } else {
-            activoOriginal.setResponsable(null);
-        }
-
-        if (activoForm.getOrganismoFinanciero() != null && 
-            activoForm.getOrganismoFinanciero().getIdOrganismoFinanciero() != null) {
-            OrganismoFinanciero orgFin = organismoFinancieroService.findById(
-                activoForm.getOrganismoFinanciero().getIdOrganismoFinanciero()
-            );
-            activoOriginal.setOrganismoFinanciero(orgFin);
-            if (orgFin != null) {
-                activoOriginal.setOrgFinCode(orgFin.getCodOf());
-            }
-        } else {
-            activoOriginal.setOrganismoFinanciero(null);
-            activoOriginal.setOrgFinCode(null);
-        }
-
-        if (activoForm.getAuxiliar() != null && activoForm.getAuxiliar().getIdAuxiliar() != null) {
-            Auxiliar auxiliarCompleto = auxiliarService.findById(
-                activoForm.getAuxiliar().getIdAuxiliar()
-            );
-            activoOriginal.setAuxiliar(auxiliarCompleto);
-        } else {
-            activoOriginal.setAuxiliar(null);
-        }
-
-        EstadoActivo estadoActivo = estadoActivoService.findById(1L); //EN UN FURO IMPLEMENTAR PARA COLOCAR SI ESTA BUENO, REGULAR O MALO
-        activoOriginal.setEstadoActivo(estadoActivo);
-
-        activoOriginal.setFecMod(LocalDate.now());
-        activoOriginal.setUsuMod(usuarioNombre);
-        activoOriginal.setEstado("ACTIVO");
-        activoOriginal.setModificacionIdUsuario(usuario.getIdUsuario());
-        activoOriginal.setModificacion(new Date());
-        activoOriginal.setUsuario(usuarioNombre);
-        activoOriginal.setEstadoActivo(activoForm.getEstadoActivo());
-        activoOriginal.setVidaUtilAnterior(0);
-        activoOriginal.setFechaUlt(LocalDate.now());
-        activoOriginal.setFecMod(LocalDate.now());
-        activoOriginal.setCostoAnterior(Double.valueOf(0));
-        activoOriginal.setApiEstado(Short.valueOf("3"));
-
-        activoService.save(activoOriginal);
-
-        if ("ACTIVO".equalsIgnoreCase(activoOriginal.getEstado())) {
-
-            Oficina oficina = activoOriginal.getOficina();
-            Predio predio = (oficina != null) ? oficina.getPredio() : null;
-            Entidad entidad = (predio != null) ? predio.getEntidad() : null;
-
-            if (oficina == null || predio == null || entidad == null) {
-                log.error(
-                        "Activo {} tiene datos incompletos (Oficina/Predio/Entidad) para DBF. Se omitió la sincronización.",
-                        activoOriginal.getCodigo());
-                return ResponseEntity.status(400).body(Map.of(
-                        "ok", true,
-                        "msg",
-                        "Se modificó en PostgreSQL, pero FALTAN datos de relación (Oficina/Predio/Entidad) para actualizar en DBF."));
+            Activo activoOriginal = activoService.findById(activoForm.getIdActivo());
+            if (activoOriginal == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "ok", false,
+                        "msg", "No se encontró el activo con ID: " + activoForm.getIdActivo()));
             }
 
-            try {
-                String entidadCode = entidad.getEntidadCodigo();
-                String unidadCode = predio.getUnidad();
+            String codigoOriginal = activoOriginal.getCodigo();
+            boolean estabaActivo = "ACTIVO".equalsIgnoreCase(activoOriginal.getEstado());
 
-                actualDbfWriterService.actualizarDesdeActivo(
+            activoOriginal.setCodigo(activoForm.getCodigo());
+            activoOriginal.setCodigoSec(activoForm.getCodigoSec());
+            activoOriginal.setDescripcion(activoForm.getDescripcion());
+            activoOriginal.setCosto(activoForm.getCosto());
+            activoOriginal.setVidaUtil(activoForm.getVidaUtil());
+            activoOriginal.setFechaAdquisicion(activoForm.getFechaAdquisicion());
+
+            // Actualizar relaciones
+            if (activoForm.getGrupoContable() != null && activoForm.getGrupoContable().getIdGrupoContable() != null) {
+                GrupoContable grupoCompleto = grupoContableService.findById(
+                    activoForm.getGrupoContable().getIdGrupoContable()
+                );
+                activoOriginal.setGrupoContable(grupoCompleto);
+            } else {
+                activoOriginal.setGrupoContable(null);
+            }
+
+            if (activoForm.getOficina() != null && activoForm.getOficina().getIdOficina() != null) {
+                Oficina oficinaCompleta = oficinaService.findById(activoForm.getOficina().getIdOficina());
+                activoOriginal.setOficina(oficinaCompleta);
+            } else {
+                activoOriginal.setOficina(null);
+            }
+
+            if (activoForm.getResponsable() != null && activoForm.getResponsable().getIdResponsable() != null) {
+                Responsable responsableCompleto = responsableService.findById(
+                    activoForm.getResponsable().getIdResponsable()
+                );
+                activoOriginal.setResponsable(responsableCompleto);
+            } else {
+                activoOriginal.setResponsable(null);
+            }
+
+            if (activoForm.getOrganismoFinanciero() != null && 
+                activoForm.getOrganismoFinanciero().getIdOrganismoFinanciero() != null) {
+                OrganismoFinanciero orgFin = organismoFinancieroService.findById(
+                    activoForm.getOrganismoFinanciero().getIdOrganismoFinanciero()
+                );
+                activoOriginal.setOrganismoFinanciero(orgFin);
+                if (orgFin != null) {
+                    activoOriginal.setOrgFinCode(orgFin.getCodOf());
+                }
+            } else {
+                activoOriginal.setOrganismoFinanciero(null);
+                activoOriginal.setOrgFinCode(null);
+            }
+
+            if (activoForm.getAuxiliar() != null && activoForm.getAuxiliar().getIdAuxiliar() != null) {
+                Auxiliar auxiliarCompleto = auxiliarService.findById(
+                    activoForm.getAuxiliar().getIdAuxiliar()
+                );
+                activoOriginal.setAuxiliar(auxiliarCompleto);
+            } else {
+                activoOriginal.setAuxiliar(null);
+            }
+
+            EstadoActivo estadoActivo = estadoActivoService.findById(1L); //EN UN FURO IMPLEMENTAR PARA COLOCAR SI ESTA BUENO, REGULAR O MALO
+            activoOriginal.setEstadoActivo(estadoActivo);
+
+            activoOriginal.setFecMod(LocalDate.now());
+            activoOriginal.setUsuMod(usuarioNombre);
+            activoOriginal.setEstado("ACTIVO");
+            activoOriginal.setModificacionIdUsuario(usuario.getIdUsuario());
+            activoOriginal.setModificacion(new Date());
+            activoOriginal.setUsuario(usuarioNombre);
+            activoOriginal.setEstadoActivo(activoForm.getEstadoActivo());
+            activoOriginal.setVidaUtilAnterior(0);
+            activoOriginal.setFechaUlt(LocalDate.now());
+            activoOriginal.setFecMod(LocalDate.now());
+            activoOriginal.setCostoAnterior(Double.valueOf(0));
+            activoOriginal.setApiEstado(Short.valueOf("3"));
+
+            activoService.save(activoOriginal);
+            log.info("Activo {} actualizado en BD.", activoOriginal.getCodigo());
+
+            if (estabaActivo) {
+                try {
+
+                    if (activoOriginal.getOficina() == null || 
+                        activoOriginal.getOficina().getPredio() == null ||
+                        activoOriginal.getOficina().getPredio().getEntidad() == null) {
+                        return ResponseEntity.ok(Map.of("ok", true, "msg", "Actualizado en BD. No se sincronizó DBF por falta de datos de Oficina."));
+                    }
+
+                    String entidadCode = activoOriginal.getOficina().getPredio().getEntidad().getEntidadCodigo();
+                    String unidadCode = activoOriginal.getOficina().getPredio().getUnidad();
+
+                    actualDbfWriterService.actualizarDesdeActivo(
                         codigoOriginal,
                         activoOriginal,
                         entidadCode,
                         unidadCode,
-                        usuarioNombre);
+                        usuarioNombre
+                    );
 
-                log.info("Activo {} actualizado en PostgreSQL y DBF", activoOriginal.getCodigo());
+                    return ResponseEntity.ok(Map.of("ok", true, "msg", "Activo actualizado correctamente en BD y DBF"));
 
-            } catch (Exception e) {
-                log.error("Error actualizando DBF para activo {}: {}",
-                        activoOriginal.getCodigo(), e.getMessage(), e);
-
-                return ResponseEntity.status(500).body(Map.of(
-                        "ok", false,
-                        "msg", "Se guardó en la base de datos pero falló la actualización en DBF: " + e.getMessage()));
+                } catch (Exception e) {
+                    log.error("Error sync DBF al modificar: {}", e.getMessage());
+                    // Retornamos OK true porque la BD ya se actualizó, pero avisamos del error
+                    return ResponseEntity.ok(Map.of("ok", true, "msg", "Guardado en BD, pero falló DBF: " + e.getMessage()));
+                }
             }
-        }
 
-        return ResponseEntity.ok(Map.of(
-                "ok", true,
-                "msg", "Se modificó correctamente en PostgreSQL" +
-                        ("ACTIVO".equalsIgnoreCase(activoOriginal.getEstado()) ? " y DBF" : "")));
+            return ResponseEntity.ok(Map.of("ok", true, "msg", "Modificación guardada (Estado: Pendiente)"));
+
+        } catch (Exception e) {
+            log.error("Error fatal modificando activo", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
+        }
     }
 
     @ValidarUsuarioAutenticado
@@ -509,40 +501,48 @@ public class ActivosController {
     @PostMapping("/api/aprobar/{idEnc}")
     @ResponseBody
     public Map<String, Object> aprobarActivo(@PathVariable String idEnc,
-            HttpServletRequest request) throws Exception {
-        Long id = Long.valueOf(Encriptar.decrypt(idEnc));
-        Activo a = activoService.findById(id);
+            HttpServletRequest request) {
+        
+        try{
+            Long id = Long.valueOf(Encriptar.decrypt(idEnc));
+            Activo a = activoService.findById(id);
 
-        Usuario usuarios = (Usuario) request.getSession().getAttribute("usuario");
-        if (!"PENDIENTE".equalsIgnoreCase(a.getEstado())) {
-            return Map.of("ok", false, "message", "El activo no está en estado PENDIENTE.");
-        }
-
-        Entidad entidad = a.getOficina().getPredio().getEntidad();
-        String entidadCode = entidad.getEntidadCodigo();
-        Predio predio = a.getOficina().getPredio();
-        String unidadCode = predio.getUnidad();
-        String usuario = usuarios.getUsuario();
-
-        // 1) Insertar en ACTUAL.DBF (si no existe ya por CODIGO)
-        if (actualDbfWriterService.existsByCodigo(a.getCodigo())) {
-            // Si ya existe, puedes decidir: error, o continuar (idempotente)
-            // Aquí continuamos como idempotente:
-        } else {
-            try {
-                actualDbfWriterService.insertarDesdeActivo(a, entidadCode, unidadCode, usuario);
-            } catch (Exception e) {
-                // Loguea y devuelve error: NO cambiamos estado en Postgres
-                e.printStackTrace();
-                return Map.of("ok", false, "message", "No se pudo registrar en ACTUAL.DBF: " + e.getMessage());
+            if (a == null) return Map.of("ok", false, "message", "Activo no encontrado");
+            if (!"PENDIENTE".equalsIgnoreCase(a.getEstado())) {
+                return Map.of("ok", false, "message", "El activo no está en estado PENDIENTE.");
             }
+
+            Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+            String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+
+            if (a.getOficina() == null || a.getOficina().getPredio() == null) {
+                return Map.of("ok", false, "message", "Faltan datos de Oficina/Predio para sincronizar.");
+            }
+
+            String entidadCode = a.getOficina().getPredio().getEntidad().getEntidadCodigo();
+            String unidadCode = a.getOficina().getPredio().getUnidad();
+
+           if (actualDbfWriterService.existsByCodigo(a.getCodigo())) {
+                log.warn("El activo {} ya existe en DBF. Se asume sincronizado.", a.getCodigo());
+                // No lanzamos error, permitimos que se marque como ACTIVO en BD para arreglar inconsistencia
+            } else {
+                // Insertar (Si falla, lanzará RuntimeException y saltará al catch)
+                actualDbfWriterService.insertarDesdeActivo(a, entidadCode, unidadCode, usuarioNombre);
+            }
+
+            // 2) Si DBF ok → marca ACTIVO en Postgres
+            a.setEstado("ACTIVO");
+            a.setApiEstado(Short.valueOf("1"));
+            activoService.save(a);
+
+            return Map.of("ok", true, "id", id, "message", "Activo aprobado y sincronizado.");
+            
+        } catch (Exception e) {
+            log.error("Error aprobando activo: {}", e.getMessage(), e);
+            // Al capturar la excepción aquí, la BD NO se actualizó a ACTIVO. Correcto.
+            return Map.of("ok", false, "message", "Error al sincronizar con DBF: " + e.getMessage());
         }
-
-        // 2) Si DBF ok → marca ACTIVO en Postgres
-        a.setEstado("ACTIVO");
-        activoService.save(a);
-
-        return Map.of("ok", true, "id", id);
+        
     }
 
     @PostMapping(value = "/generar-correlativo", produces = MediaType.APPLICATION_JSON_VALUE)

@@ -2,24 +2,26 @@ package com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.RandomAccessFile;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.Charset;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import com.linuxense.javadbf.DBFDataType;
 import com.linuxense.javadbf.DBFField;
 import com.linuxense.javadbf.DBFReader;
-import com.linuxense.javadbf.DBFWriter;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 
 @Service
@@ -31,9 +33,15 @@ public class ActualDbfWriterService {
     @Value("${legacy.dbf.path:/mnt/dbfwin}")
     private String dbfPath;
 
-    // Constructor vacío - Spring lo usa automáticamente
+    private static class CampoDbf {
+        String name;
+        char type;
+        int length;
+        int decimals;
+    }
+
     public ActualDbfWriterService() {
-        log.info("Inicializando ActualDbfWriterService con acceso directo a archivos DBF");
+        log.info("Inicializando ActualDbfWriterService (Activos Fijos)");
     }
 
     private File getActualDbfFile() {
@@ -93,28 +101,46 @@ public class ActualDbfWriterService {
      */
     public boolean existsByCodigo(String codigo) {
         verificarConexionDBF();
+
+        if (codigo == null) return false;
         
         synchronized (actualLock) {
-            try (InputStream fis = new FileInputStream(getActualDbfFile());
-                 DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
+            try (RandomAccessFile raf = new RandomAccessFile(getActualDbfFile(), "r")) {
                 
-                int codigoFieldIndex = -1;
-                for (int i = 0; i < reader.getFieldCount(); i++) {
-                    DBFField field = reader.getField(i);
-                    if ("CODIGO".equalsIgnoreCase(field.getName())) {
-                        codigoFieldIndex = i;
-                        break;
+                raf.seek(4);
+                int numRecords = Integer.reverseBytes(raf.readInt());
+                short headerLen = Short.reverseBytes(raf.readShort());
+                short recordLen = Short.reverseBytes(raf.readShort());
+
+                List<CampoDbf> fields = leerMetadatosCampos(raf);
+
+                
+                int offCodigo = -1;
+                int lenCodigo = 0;
+                int currentOffset = 1; // Byte 0 es borrado
+
+                for (CampoDbf f : fields) {
+                    if ("CODIGO".equalsIgnoreCase(f.name)) {
+                        offCodigo = currentOffset;
+                        lenCodigo = f.length;
                     }
+                    currentOffset += f.length;
                 }
+
+                if (offCodigo == -1) return false;
+
+                byte[] bufCodigo = new byte[lenCodigo];
                 
-                if (codigoFieldIndex == -1) {
-                    throw new RuntimeException("No se encontró el campo CODIGO en ACTUAL.DBF");
-                }
-                
-                Object[] record;
-                while ((record = reader.nextRecord()) != null) {
-                    if (record[codigoFieldIndex] != null && 
-                        codigo.equals(record[codigoFieldIndex].toString().trim())) {
+                for (int i = 0; i < numRecords; i++) {
+                    long pos = headerLen + ((long) i * recordLen);
+                    raf.seek(pos);
+                    if (raf.readByte() == 0x2A) continue; // Registro borrado (*)
+
+                    raf.seek(pos + offCodigo);
+                    raf.read(bufCodigo);
+                    String codigoDbf = new String(bufCodigo, "CP1252").trim();
+
+                    if (codigoDbf.equalsIgnoreCase(codigo.trim())) {
                         return true;
                     }
                 }
@@ -122,8 +148,8 @@ public class ActualDbfWriterService {
                 return false;
                 
             } catch (Exception e) {
-                log.error("Error verificando existencia de código {}: {}", codigo, e.getMessage());
-                throw new RuntimeException("Error accediendo al DBF: " + e.getMessage(), e);
+                log.error("Error verificando existencia en DBF", e);
+                return false;
             }
         }
     }
@@ -133,105 +159,53 @@ public class ActualDbfWriterService {
      */
     public void insertarDesdeActivo(Activo a, String entidadCode, String unidadCode, String usuario) {
         log.info("Iniciando inserción de activo {} en ACTUAL.DBF", a.getCodigo());
-        verificarConexionDBF();
-        
+
         synchronized (actualLock) {
-            try {
-                File dbfFile = getActualDbfFile();
-                File tempFile = new File(dbfFile.getParent(), "ACTUAL_TEMP.DBF");
-                
-                List<Object[]> records = new ArrayList<>();
-                DBFField[] originalFields;
-                
-                // Leer todos los registros existentes
-                try (InputStream fis = new FileInputStream(dbfFile);
-                     DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
+            try (RandomAccessFile raf = new RandomAccessFile(getActualDbfFile(), "rw");
+                 FileChannel channel = raf.getChannel();
+                 FileLock lock = channel.lock()) {
+
+                raf.seek(4);
+                int numRecords = Integer.reverseBytes(raf.readInt());
+                short headerLen = Short.reverseBytes(raf.readShort());
+                short recordLen = Short.reverseBytes(raf.readShort());
+
+                List<CampoDbf> fields = leerMetadatosCampos(raf);
+
+                byte[] nuevoRegistro = new byte[recordLen];
+                Arrays.fill(nuevoRegistro, (byte) 0x20);
+                nuevoRegistro[0] = 0x20;
+
+                int currentOffset = 1;
+                for (CampoDbf field : fields) {
+                    // Omitir escritura en campos MEMO para no corromper el .DBT
+                    if (field.type == 'M') {
+                        currentOffset += field.length;
+                        continue;
+                    }
+
+                    Object valor = obtenerValorCampo(field.name, a, entidadCode, unidadCode, usuario);
+                    byte[] bytes = convertirValorABytes(valor, field);
                     
-                    originalFields = new DBFField[reader.getFieldCount()];
-                    for (int i = 0; i < reader.getFieldCount(); i++) {
-                        originalFields[i] = reader.getField(i);
-                    }
-                    
-                    Object[] record;
-                    while ((record = reader.nextRecord()) != null) {
-                        records.add(record);
-                    }
+                    // Escribir en el buffer en la posición correcta
+                    System.arraycopy(bytes, 0, nuevoRegistro, currentOffset, Math.min(bytes.length, field.length));
+                    currentOffset += field.length;
                 }
-                
-                // Separar campos escribibles de los MEMO
-                List<DBFField> writableFieldsList = new ArrayList<>();
-                List<Integer> writableIndexes = new ArrayList<>();
-                
-                for (int i = 0; i < originalFields.length; i++) {
-                    DBFField field = originalFields[i];
-                    
-                    // Omitir solo campos MEMO (como OBSERV)
-                    if (field.getType() != DBFDataType.MEMO) {
-                        writableFieldsList.add(field);
-                        writableIndexes.add(i);
-                    } else {
-                        log.info("Omitiendo campo MEMO '{}' (no soportado para escritura)", field.getName());
-                    }
-                }
-                
-                DBFField[] writableFields = writableFieldsList.toArray(new DBFField[0]);
-                
-                // Crear el nuevo registro completo (con índices originales)
-                Object[] newRecord = crearRegistroDesdeActivo(a, entidadCode, unidadCode, usuario, originalFields);
-                records.add(newRecord);
-                
-                // Escribir archivo temporal (solo con campos soportados)
-                try (OutputStream fos = new FileOutputStream(tempFile);
-                     DBFWriter writer = new DBFWriter(fos, Charset.forName("CP1252"))) {
-                    
-                    writer.setFields(writableFields);
-                    
-                    // Escribir cada registro filtrando solo los índices escribibles
-                    for (Object[] record : records) {
-                        Object[] writableRecord = new Object[writableIndexes.size()];
-                        for (int i = 0; i < writableIndexes.size(); i++) {
-                            writableRecord[i] = record[writableIndexes.get(i)];
-                        }
-                        writer.addRecord(writableRecord);
-                    }
-                }
-                
-                // Crear respaldo del archivo original
-                File backupFile = new File(dbfFile.getParent(), "ACTUAL_BACKUP.DBF");
-                if (backupFile.exists()) {
-                    backupFile.delete();
-                }
-                
-                // Copiar original a backup antes de reemplazar
-                try (InputStream in = new FileInputStream(dbfFile);
-                     OutputStream out = new FileOutputStream(backupFile)) {
-                    byte[] buffer = new byte[8192];
-                    int bytesRead;
-                    while ((bytesRead = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, bytesRead);
-                    }
-                }
-                
-                // Reemplazar archivo original con el temporal
-                if (!dbfFile.delete()) {
-                    throw new IOException("No se pudo eliminar ACTUAL.DBF original");
-                }
-                
-                if (!tempFile.renameTo(dbfFile)) {
-                    // Restaurar backup si falla
-                    if (backupFile.exists()) {
-                        backupFile.renameTo(dbfFile);
-                    }
-                    throw new IOException("No se pudo renombrar ACTUAL_TEMP.DBF a ACTUAL.DBF");
-                }
-                
-                log.info("Activo {} insertado exitosamente en ACTUAL.DBF (campo OBSERV omitido)", a.getCodigo());
+
+                long posFinal = headerLen + ((long) numRecords * recordLen);
+                raf.seek(posFinal);
+                raf.write(nuevoRegistro);
+                raf.writeByte(0x1A);
+
+                raf.seek(4);
+                raf.writeInt(Integer.reverseBytes(numRecords + 1));
+
+                actualizarFechaModificacion(raf);
+                log.info("✅ Activo insertado correctamente en DBF.");
                 
             } catch (Exception e) {
-                log.error("Error insertando activo {} en DBF: {}", a.getCodigo(), e.getMessage(), e);
-                throw new RuntimeException(
-                    "No se pudo registrar en ACTUAL.DBF: " + e.getMessage(), e
-                );
+                log.error("Error crítico escribiendo ACTUAL.DBF", e);
+                throw new RuntimeException("Error IO DBF: " + e.getMessage());
             }
         }
     }
@@ -241,242 +215,251 @@ public class ActualDbfWriterService {
      */
     public void actualizarDesdeActivo(String codigoOriginal, Activo a, String entidadCode, 
                                       String unidadCode, String usuario) {
-        log.info("Iniciando actualización de activo {} (código original: {}) en ACTUAL.DBF", 
-                a.getCodigo(), codigoOriginal);
-        verificarConexionDBF();
-        
+        log.info("⚡ Actualizando Activo {} en ACTUAL.DBF", codigoOriginal);
         synchronized (actualLock) {
-            try {
-                File dbfFile = getActualDbfFile();
-                File tempFile = new File(dbfFile.getParent(), "ACTUAL_TEMP.DBF");
+            try (RandomAccessFile raf = new RandomAccessFile(getActualDbfFile(), "rw");
+                 FileChannel channel = raf.getChannel();
+                 FileLock lock = channel.lock()) {
                 
-                List<Object[]> records = new ArrayList<>();
-                DBFField[] originalFields;
-                boolean encontrado = false;
-                int codigoFieldIndex = -1;
-                
-                // Leer archivo original
-                try (InputStream fis = new FileInputStream(dbfFile);
-                     DBFReader reader = new DBFReader(fis, Charset.forName("CP1252"))) {
+                raf.seek(4);
+                int numRecords = Integer.reverseBytes(raf.readInt());
+                short headerLen = Short.reverseBytes(raf.readShort());
+                short recordLen = Short.reverseBytes(raf.readShort());
+
+                List<CampoDbf> fields = leerMetadatosCampos(raf);
+
+                int offCodigo = -1;
+                int lenCodigo = 0;
+                int currentOffset = 1;
+
+                for (CampoDbf f : fields) {
+                    if ("CODIGO".equalsIgnoreCase(f.name)) {
+                        offCodigo = currentOffset;
+                        lenCodigo = f.length;
+                    }
+                    currentOffset += f.length;
+                }
+
+                if (offCodigo == -1) throw new RuntimeException("Campo CODIGO no encontrado en DBF");
+
+                long foundPos = -1;
+                byte[] bufCodigo = new byte[lenCodigo];
+
+                for (int i = 0; i < numRecords; i++) {
+                    long pos = headerLen + ((long) i * recordLen);
                     
-                    originalFields = new DBFField[reader.getFieldCount()];
-                    for (int i = 0; i < reader.getFieldCount(); i++) {
-                        originalFields[i] = reader.getField(i);
-                        if ("CODIGO".equalsIgnoreCase(originalFields[i].getName())) {
-                            codigoFieldIndex = i;
-                        }
+                    // Verificar si está borrado (0x2A = asterisco = borrado)
+                    raf.seek(pos);
+                    if (raf.readByte() == 0x2A) continue;
+
+                    // Leer código
+                    raf.seek(pos + offCodigo);
+                    raf.read(bufCodigo);
+                    String codigoDbf = new String(bufCodigo, "CP1252").trim();
+
+                    if (codigoDbf.equalsIgnoreCase(codigoOriginal.trim())) {
+                        foundPos = pos;
+                        break;
                     }
+                }
+
+                if (foundPos == -1) {
+                    throw new RuntimeException("Activo con código " + codigoOriginal + " no encontrado en DBF.");
+                }
+
+                currentOffset = 1;
+
+                for (CampoDbf field : fields) {
+                    // Calcular posición exacta de este campo
+                    long fieldPos = foundPos + currentOffset;
                     
-                    if (codigoFieldIndex == -1) {
-                        throw new RuntimeException("No se encontró el campo CODIGO en ACTUAL.DBF");
+                    if (field.type == 'M') {
+                        // Saltamos campo Memo, NO LO TOCAMOS
+                        currentOffset += field.length;
+                        continue;
                     }
-                    
-                    // Leer todos los registros y actualizar el que coincida
-                    Object[] record;
-                    while ((record = reader.nextRecord()) != null) {
-                        if (record[codigoFieldIndex] != null && 
-                            codigoOriginal.equals(record[codigoFieldIndex].toString().trim())) {
-                            
-                            // Encontrado: reemplazar con datos actualizados
-                            record = crearRegistroDesdeActivo(a, entidadCode, unidadCode, usuario, originalFields);
-                            encontrado = true;
-                            log.info("Registro encontrado y actualizado: {}", codigoOriginal);
-                        }
-                        records.add(record);
-                    }
+
+                    Object valor = obtenerValorCampo(field.name, a, entidadCode, unidadCode, usuario);
+                    byte[] bytes = convertirValorABytes(valor, field);
+
+                    raf.seek(fieldPos);
+                    raf.write(bytes); // Sobrescribimos solo los bytes de este campo
+
+                    currentOffset += field.length;
                 }
-                
-                if (!encontrado) {
-                    throw new RuntimeException(
-                        String.format("No se encontró el activo con código '%s' en ACTUAL.DBF", codigoOriginal)
-                    );
-                }
-                
-                // Filtrar campos MEMO para escritura
-                List<DBFField> writableFieldsList = new ArrayList<>();
-                List<Integer> writableIndexes = new ArrayList<>();
-                
-                for (int i = 0; i < originalFields.length; i++) {
-                    DBFField field = originalFields[i];
-                    if (field.getType() != DBFDataType.MEMO) {
-                        writableFieldsList.add(field);
-                        writableIndexes.add(i);
-                    }
-                }
-                
-                DBFField[] writableFields = writableFieldsList.toArray(new DBFField[0]);
-                
-                // Escribir archivo temporal
-                try (OutputStream fos = new FileOutputStream(tempFile);
-                     DBFWriter writer = new DBFWriter(fos, Charset.forName("CP1252"))) {
-                    
-                    writer.setFields(writableFields);
-                    
-                    for (Object[] record : records) {
-                        Object[] writableRecord = new Object[writableIndexes.size()];
-                        for (int i = 0; i < writableIndexes.size(); i++) {
-                            writableRecord[i] = record[writableIndexes.get(i)];
-                        }
-                        writer.addRecord(writableRecord);
-                    }
-                }
-                
-                // Crear backup
-                File backupFile = new File(dbfFile.getParent(), "ACTUAL_BACKUP.DBF");
-                if (backupFile.exists()) {
-                    backupFile.delete();
-                }
-                
-                try (InputStream in = new FileInputStream(dbfFile);
-                     OutputStream out = new FileOutputStream(backupFile)) {
-                    byte[] buffer = new byte[8192];
-                    int bytesRead;
-                    while ((bytesRead = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, bytesRead);
-                    }
-                }
-                
-                // Reemplazar archivo
-                if (!dbfFile.delete()) {
-                    throw new IOException("No se pudo eliminar ACTUAL.DBF original");
-                }
-                
-                if (!tempFile.renameTo(dbfFile)) {
-                    if (backupFile.exists()) {
-                        backupFile.renameTo(dbfFile);
-                    }
-                    throw new IOException("No se pudo renombrar ACTUAL_TEMP.DBF a ACTUAL.DBF");
-                }
-                
-                log.info("Activo {} actualizado exitosamente en ACTUAL.DBF", a.getCodigo());
-                
+
+                actualizarFechaModificacion(raf);
+                log.info("✅ Activo actualizado correctamente en DBF.");
+
             } catch (Exception e) {
-                log.error("Error actualizando activo {} en DBF: {}", a.getCodigo(), e.getMessage(), e);
-                throw new RuntimeException(
-                    "No se pudo actualizar en ACTUAL.DBF: " + e.getMessage(), e
-                );
+                throw new RuntimeException("Error actualizando ACTUAL.DBF: " + e.getMessage());
             }
         }
     }
-    
-    /**
-     * Crea un arreglo de objetos con los valores del registro a partir del Activo
-     */
-    private Object[] crearRegistroDesdeActivo(Activo a, String entidadCode, String unidadCode, 
-                                              String usuario, DBFField[] fields) {
-        Object[] record = new Object[fields.length];
+
+    private Object obtenerValorCampo(String fieldName, Activo a, String ent, String uni, String usr) {
+        String name = fieldName.toUpperCase().trim();
         
-        // Mapeo de valores
-        String ENTIDAD = entidadCode;
-        String UNIDAD = unidadCode;
-        String CODIGO = a.getCodigo();
-        String CODIGOSEC = a.getCodigoSec();
-        String DESCRIP = a.getDescripcion();
-        
-        Integer CODCONT = null;
-        if (a.getGrupoContable() != null && a.getGrupoContable().getCodContable() != null) {
-            try {
-                CODCONT = Integer.valueOf(a.getGrupoContable().getCodContable().toString().trim());
-            } catch (Exception e) {
-                log.warn("No se pudo convertir CODCONT para activo {}", CODIGO);
-            }
-        }
-        
-        Short CODAUX = null;
-        if (a.getAuxiliar() != null && a.getAuxiliar().getCodAux() != null) {
-            try {
-                CODAUX = Short.valueOf(a.getAuxiliar().getCodAux().toString().trim());
-            } catch (Exception e) {
-                log.warn("No se pudo convertir CODAUX para activo {}", CODIGO);
-            }
-        }
-        
-        String ORG_FIN = (a.getOrganismoFinanciero() != null)
-                ? String.valueOf(a.getOrganismoFinanciero().getCodOf())
-                : null;
-        
-        Short CODOFIC = null;
-        if (a.getOficina() != null && a.getOficina().getCodOfi() != null) {
-            try {
-                CODOFIC = Short.valueOf(a.getOficina().getCodOfi().toString().trim());
-            } catch (Exception e) {
-                log.warn("No se pudo convertir CODOFIC para activo {}", CODIGO);
-            }
-        }
-        
-        Integer CODRESP = null;
-        if (a.getResponsable() != null && a.getResponsable().getPersona() != null) {
-            String codresp = a.getResponsable().getCodigoFuncionario();
-            if (codresp != null) {
-                String onlyDigits = codresp.replaceAll("\\D+", "");
-                if (!onlyDigits.isEmpty()) {
-                    try {
-                        CODRESP = Integer.valueOf(onlyDigits);
-                    } catch (Exception e) {
-                        log.warn("No se pudo convertir CODRESP para activo {}", CODIGO);
-                    }
-                }
-            }
-        }
-        
-        Double COSTO = a.getCosto();
-        Double DEPACU = 0.0;
-        
-        Integer VIDAUT = null;
-        if (a.getVidaUtil() != null) {
-            try {
-                VIDAUT = new java.math.BigDecimal(a.getVidaUtil().toString()).intValue();
-            } catch (Exception e) {
-                log.warn("No se pudo convertir VIDAUT para activo {}", CODIGO);
-            }
-        }
-        
-        LocalDate FEC = (a.getFechaAdquisicion() != null) ? a.getFechaAdquisicion() : LocalDate.now();
-        Integer DIA = FEC.getDayOfMonth();
-        Integer MES = FEC.getMonthValue();
-        Integer ANO = FEC.getYear();
-        
-        Short CODESTADO = 1;
-        Short API_ESTADO = 1;
-        String USUAR = usuario;
-        String OBSERV = null;
-        java.util.Date FEULT = java.sql.Date.valueOf(FEC);
-        
-        // Llenar el arreglo según el orden de los campos
-        for (int i = 0; i < fields.length; i++) {
-            String fieldName = fields[i].getName().toUpperCase();
+        return switch (name) {
+            // Identificación
+            case "ENTIDAD" -> ent;
+            case "UNIDAD"  -> uni;
+            case "CODIGO"  -> a.getCodigo();
+            case "CODIGOSEC" -> a.getCodigoSec();
+            case "DESCRIP" -> limpiarTexto(a.getDescripcion(), 250); // Limite seguro
+
+            // Relaciones Numéricas
+            case "CODCONT" -> (a.getGrupoContable() != null) ? a.getGrupoContable().getCodContable() : 0;
+            case "CODAUX"  -> (a.getAuxiliar() != null) ? a.getAuxiliar().getCodAux() : 0;
+            case "CODOFIC" -> (a.getOficina() != null) ? a.getOficina().getCodOfi() : 0;
             
-            switch (fieldName) {
-                case "ENTIDAD" -> record[i] = ENTIDAD;
-                case "UNIDAD" -> record[i] = UNIDAD;
-                case "CODIGO" -> record[i] = CODIGO;
-                case "CODCONT" -> record[i] = CODCONT;
-                case "CODAUX" -> record[i] = CODAUX;
-                case "VIDAUTIL" -> record[i] = VIDAUT;
-                case "DESCRIP" -> record[i] = DESCRIP;
-                case "COSTO" -> record[i] = COSTO;
-                case "DEPACU" -> record[i] = DEPACU;
-                case "MES" -> record[i] = MES;
-                case "ANO" -> record[i] = ANO;
-                case "DIA" -> record[i] = DIA;
-                case "CODOFIC" -> record[i] = CODOFIC;
-                case "CODRESP" -> record[i] = CODRESP;
-                case "DIA_ANT" -> record[i] = 0;
-                case "MES_ANT" -> record[i] = 0;
-                case "ANO_ANT" -> record[i] = 0;
-                case "VUT_ANT" -> record[i] = 0;
-                case "COSTO_ANT" -> record[i] = 0;
-                case "CODESTADO" -> record[i] = CODESTADO;
-                case "ORG_FIN" -> record[i] = ORG_FIN;
-                case "FEULT" -> record[i] = FEULT;
-                case "USUAR" -> record[i] = USUAR;
-                case "API_ESTADO" -> record[i] = API_ESTADO;
-                case "CODIGOSEC" -> record[i] = CODIGOSEC;
-                case "FEC_MOD" -> record[i] = FEULT;
-                case "OBSERV" -> record[i] = OBSERV;
-                default -> record[i] = null; // Campos no mapeados
+            // CODRESP: Extraer solo números
+            case "CODRESP" -> {
+                if (a.getResponsable() != null && a.getResponsable().getCodigoFuncionario() != null) {
+                    try {
+                        String digits = a.getResponsable().getCodigoFuncionario().replaceAll("\\D+", "");
+                        yield digits.isEmpty() ? 0 : Integer.valueOf(digits);
+                    } catch(Exception e) { yield 0; }
+                }
+                yield 0;
             }
+
+            // Valores Monetarios / Numéricos
+            case "VIDAUTIL" -> (a.getVidaUtil() != null) ? a.getVidaUtil().doubleValue() : 0.0;
+            case "COSTO"    -> (a.getCosto() != null) ? a.getCosto() : 0.0;
+            case "DEPACU"   -> (a.getDepreciacionAcum() != null) ? a.getDepreciacionAcum() : 0.0;
+
+            // Fechas desglosadas
+            case "DIA" -> (a.getFechaAdquisicion() != null) ? a.getFechaAdquisicion().getDayOfMonth() : 0;
+            case "MES" -> (a.getFechaAdquisicion() != null) ? a.getFechaAdquisicion().getMonthValue() : 0;
+            case "ANO" -> (a.getFechaAdquisicion() != null) ? a.getFechaAdquisicion().getYear() : 0;
+            
+            // Booleanos (Lógicos)
+            case "B_REV"    -> Boolean.TRUE.equals(a.getRevaluado());
+            case "BAND_UFV" -> Boolean.TRUE.equals(a.getBandUfv());
+
+            // Otros Textos
+            case "USUAR"    -> usr;
+            case "USU_MOD"  -> usr;
+            case "BANDERAS" -> a.getBanderas();
+            case "NRO_CONV" -> a.getNroConv();
+            case "COD_RUBE" -> a.getCodRube();
+            case "ORG_FIN"  -> a.getOrgFinCode(); 
+
+            // Fechas completas
+            case "FEULT"   -> java.sql.Date.valueOf(LocalDate.now());
+            case "FEC_MOD" -> java.sql.Date.valueOf(LocalDate.now());
+
+            // Estados
+            case "CODESTADO"  -> 1; // Por defecto BUENO/ACTIVO
+            case "API_ESTADO" -> (a.getApiEstado() != null) ? a.getApiEstado() : 1;
+
+            // Valores anteriores (Inicializar en 0 para evitar nulls sucios)
+            case "DIA_ANT", "MES_ANT", "ANO_ANT", "VUT_ANT", "COSTO_ANT" -> 0;
+
+            default -> null; 
+        };
+    }
+
+    private byte[] convertirValorABytes(Object value, CampoDbf field) {
+        byte[] buffer = new byte[field.length];
+        Arrays.fill(buffer, (byte) 0x20); // Rellenar con espacios
+
+        if (value == null) return buffer;
+
+        try {
+            byte[] data;
+            
+            // 1. LÓGICOS (Booleanos) - 'T' / 'F'
+            if (field.type == 'L') {
+                boolean b = (Boolean) value;
+                buffer[0] = (byte) (b ? 'T' : 'F');
+                return buffer;
+            }
+
+            // 2. NUMÉRICOS (N, F)
+            if (field.type == 'N' || field.type == 'F') {
+                // Formateo con Locale.US para usar punto decimal (.)
+                String fmt = (field.decimals == 0) 
+                    ? "%" + field.length + "d" 
+                    : "%" + field.length + "." + field.decimals + "f";
+                
+                String numStr;
+                if (value instanceof Number n) {
+                    if (field.decimals == 0) numStr = String.format(fmt, n.longValue());
+                    else numStr = String.format(Locale.US, fmt, n.doubleValue());
+                } else {
+                    numStr = value.toString();
+                }
+                
+                // Alineación derecha para números
+                data = numStr.getBytes("CP1252");
+                int offset = Math.max(0, field.length - data.length);
+                System.arraycopy(data, 0, buffer, offset, Math.min(data.length, field.length));
+                return buffer;
+            }
+
+            // 3. FECHAS (D) - YYYYMMDD
+            if (field.type == 'D') {
+                if (value instanceof java.sql.Date d) {
+                    data = d.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE).getBytes("CP1252");
+                } else {
+                    data = new byte[0];
+                }
+                System.arraycopy(data, 0, buffer, 0, Math.min(data.length, field.length));
+                return buffer;
+            }
+
+            // 4. TEXTO (C)
+            String sVal = value.toString().toUpperCase(); 
+            // Eliminar caracteres raros si se desea
+            data = sVal.getBytes("CP1252");
+            System.arraycopy(data, 0, buffer, 0, Math.min(data.length, field.length));
+            return buffer;
+
+        } catch (Exception e) {
+            log.error("Error convirtiendo campo {} (tipo {}) valor {}", field.name, field.type, value);
         }
-        return record;
+        return buffer;
+    }
+
+    private String limpiarTexto(String input, int maxLen) {
+        if (input == null) return "";
+        String s = input.trim().toUpperCase().replace("\n", " ").replace("\r", "");
+        if (s.length() > maxLen) return s.substring(0, maxLen);
+        return s;
+    }
+
+    private List<CampoDbf> leerMetadatosCampos(RandomAccessFile raf) throws IOException {
+        List<CampoDbf> lista = new ArrayList<>();
+        raf.seek(8);
+        short headerLen = Short.reverseBytes(raf.readShort());
+        raf.seek(32); // Inicio descriptores de campo
+
+        while (raf.getFilePointer() < headerLen - 1) {
+            byte[] nameBytes = new byte[11];
+            raf.read(nameBytes);
+            if (nameBytes[0] == 0x0D) break; // Fin de cabecera
+
+            CampoDbf c = new CampoDbf();
+            c.name = new String(nameBytes, "CP1252").trim();
+            c.type = (char) raf.readByte();
+            raf.skipBytes(4); 
+            c.length = raf.readUnsignedByte();
+            c.decimals = raf.readUnsignedByte();
+            raf.skipBytes(14); 
+            lista.add(c);
+        }
+        return lista;
+    }
+    
+    private void actualizarFechaModificacion(RandomAccessFile raf) throws IOException {
+        long posOriginal = raf.getFilePointer();
+        raf.seek(1);
+        LocalDate now = LocalDate.now();
+        raf.writeByte(now.getYear() - 1900);
+        raf.writeByte(now.getMonthValue());
+        raf.writeByte(now.getDayOfMonth());
+        raf.seek(posOriginal);
     }
 }
