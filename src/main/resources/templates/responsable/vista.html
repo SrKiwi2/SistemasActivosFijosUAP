@@ -39,6 +39,12 @@
                     th:text="${o.predio.unidad + ' - ' + o.codOfi}">
                 </option>
             </select>
+
+            <button type="button" class="btn btn-primary btn-sm" onclick="cargarFormulario()">
+                <i class="fa-solid fa-user-plus me-1"></i> Nuevo Responsable
+            </button>
+
+            <label for="filtroOficina" class="mb-0 fw-semibold ms-2">Filtro:</label>
         </div>
     </div>
 
@@ -117,6 +123,16 @@
             });
         });
     });
+
+    function cargarFormulario() {
+        // Carga el HTML del formulario dentro del modal
+        cargarFormularioAlert(
+            "/administracion/responsable/formulario", // URL del endpoint
+            "#contenidoModalResponsbale",             // ID del div dentro del modal (OJO: revisa si es 'Responsbale' o 'Responsable' en tu HTML)
+            "#modalFormularioResponsable",            // ID del modal completo
+            () => $('#data-table').DataTable().ajax.reload(null, false) // Callback al cerrar (opcional si ya recargas al guardar)
+        );
+    }
 
     function initDataTable() {
         const $tbl = $('#data-table');
