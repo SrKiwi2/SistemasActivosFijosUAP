@@ -166,7 +166,7 @@ public class ResponsableController {
     }
 
     @ValidarUsuarioAutenticado
-    @PostMapping("/formulario")
+    @RequestMapping("/formulario")
     public String formularioResponsable(Model model) { 
         model.addAttribute("responsable", new Responsable());
         model.addAttribute("oficinas", oficinaService.listarOficinas());
