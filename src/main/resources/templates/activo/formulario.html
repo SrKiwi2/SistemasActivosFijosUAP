@@ -387,6 +387,18 @@
                 lbl.textContent = texto;
                 lbl.className = 'badge ' + (badgeClass || 'text-bg-secondary');
             }
+
+            const $btnSubmit = $root.find('input[type="submit"]');
+            if (uiState.modo === 'EDIT') {
+                $btnSubmit.val('Guardar cambios');
+                $btnSubmit.removeClass('btn-success btn-primary').addClass('btn-warning'); // Opcional: cambiar color
+            } else if (uiState.modo === 'NEW') {
+                $btnSubmit.val('Registrar activo nuevo');
+                $btnSubmit.removeClass('btn-warning').addClass('btn-success');
+            } else {
+                // Modo Vista/Lock
+                $btnSubmit.val('Guardar'); 
+            }
         }
 
         function toggleCantidad(mostrar) {
