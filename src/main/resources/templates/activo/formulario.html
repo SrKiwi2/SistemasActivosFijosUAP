@@ -372,14 +372,14 @@
                 }
             });
 
-            $root.find('#btnModificar').prop('disabled', locked || !$root.find('#idActivo').val());
+            const hayId = !!$root.find('#idActivo').val();
+            $root.find('#btnModificar').prop('disabled', !hayId || !locked);
             $root.find('#btnCancelar').prop('disabled', locked);
             $root.find('#btnRegistrar').prop('disabled', !locked);
 
             const f = $form[0];
             f.classList.toggle('locked', locked);
         }
-
 
         function setModo(texto, badgeClass) {
             const lbl = $root.find('#lblModo')[0];
@@ -426,26 +426,22 @@
 
                 if (d.responsableId) {
                     const $resp = $root.find('#responsableId');
-                    // Crear opción si no existe para que Select2 la muestre
                     if ($resp.find(`option[value="${d.responsableId}"]`).length === 0) {
-                        const nombre = d.responsableNombre || '(Responsable)';
-                        $resp.append(new Option(nombre, d.responsableId, true, true));
+                        $resp.append(new Option(d.responsableNombre || '(Responsable)', d.responsableId, true, true));
                     }
-                    $resp.trigger('change');
+                    $resp.val(String(d.responsableId)).trigger('change');
                 }
 
                 if (d.auxiliarId) {
                     const $aux = $root.find('#auxiliarId');
                     if ($aux.find(`option[value="${d.auxiliarId}"]`).length === 0) {
-                        const nombre = d.auxiliarNombre || '(Auxiliar)';
-                        $aux.append(new Option(nombre, d.auxiliarId, true, true));
+                        $aux.append(new Option(d.auxiliarNombre || '(Auxiliar)', d.auxiliarId, true, true));
                     }
-                    $aux.trigger('change');
+                    $aux.val(String(d.auxiliarId)).trigger('change');
                 }
 
                 if (d.costo != null) {
                     $root.find('#costo').val(Number(d.costo).toFixed(2));
-                    // Formatear visualmente
                     const fmt = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 });
                     $root.find('#costoFmt').val(fmt.format(Number(d.costo)));
                 }
@@ -467,6 +463,7 @@
                 dropdownParent: $modal.length ? $modal : $(document.body)
             };
 
+            $root.find('.select2it').select2(commonOpts);
             $root.find('#municipioCode').select2(commonOpts);
             $root.find('#predioCode').select2(commonOpts);
             $root.find('#grupoCode').select2(commonOpts);
@@ -612,7 +609,8 @@
             $root.on('click.activo', '#btnRegistrar', function () {
                 limpiarForm();
                 setModo('REGISTRO NUEVO', 'text-bg-primary');
-                uiState.modo = 'NEW'; uiState.autoCodigo = true;
+                uiState.modo = 'NEW';
+                uiState.autoCodigo = true;
                 lockForm(false);
                 toggleCantidad(true);
                 $root.find('#buscarCodigo').val('');
@@ -625,10 +623,13 @@
                     showGlobalLoader({ texto: 'Buscando...' });
                     const r = await fetch('/administracion/activo/buscar-por-codigo?codigo=' + encodeURIComponent(codigo));
                     hideGlobalLoader();
+
                     if (!r.ok) throw new Error('No encontrado');
+
                     const dto = await r.json();
                     limpiarForm();
                     fillFromDTO(dto);
+
                     setModo('VISTA', 'text-bg-info');
                     uiState.modo = 'VIEW'; uiState.autoCodigo = false;
                     lockForm(true);
@@ -641,23 +642,29 @@
             });
 
             $root.on('click.activo', '#btnModificar', function () {
+                // Solo si hay un ID cargado
                 if (!$root.find('#idActivo').val()) return;
                 
                 setModo('EDICIÓN', 'text-bg-warning');
                 uiState.modo = 'EDIT';
                 uiState.autoCodigo = false;
-                lockForm(false);
-                toggleCantidad(false); // 🔴 OCULTAR CANTIDAD (Solo se edita uno a la vez)
+                
+                lockForm(false); // Desbloquea inputs
+                
+                // Ajuste de botones manual para este estado
+                $root.find('#btnModificar').prop('disabled', true); // Ya estoy editando
+                $root.find('#btnRegistrar').prop('disabled', true);
+                
+                toggleCantidad(false); // Ocultar cantidad
             });
 
             $root.on('click.activo', '#btnCancelar', function () {
-                // Si estábamos creando, limpiamos todo. Si editábamos, volvemos a lock.
                 if (uiState.modo === 'NEW') {
                     limpiarForm();
                     setModo('BLOQUEADO', 'text-bg-secondary');
                     lockForm(true);
                 } else {
-                    // Estábamos editando, solo bloqueamos (revertir cambios visuales requeriría recargar)
+                    // Si estaba editando, vuelvo a bloquear (modo vista)
                     lockForm(true);
                     setModo('VISTA', 'text-bg-info');
                 }
@@ -680,11 +687,15 @@
                     ? '/administracion/activo/modificar-activo' // Endpoint para Modificación
                     : '/administracion/activo/registrar-activo'; // Endpoint para Registro Nuevo
                 const formData = new FormData(this);
+
                 showGlobalLoader({ texto: esEdicion ? 'Guardando cambios...' : 'Registrando activos...' });
+
                 try {
+
                     const r = await fetch(url, { method: 'POST', body: formData });
                     const res = await r.json();
                     hideGlobalLoader();
+
                     if (r.ok && res.ok) {
                         Swal.fire({
                             title: 'Éxito',
@@ -784,25 +795,24 @@
         }
 
         async function cargarParaEdicion(idEnc) {
-            // Simular búsqueda y clic en editar
             showGlobalLoader({ texto: 'Cargando activo...' });
             try {
                 const r = await fetch(`/administracion/activo/api/detalle/${encodeURIComponent(idEnc)}`);
-                if (!r.ok) throw new Error('Error al cargar datos');
+                if (!r.ok) throw new Error('Error al cargar');
                 const dto = await r.json();
                 
                 hideGlobalLoader();
                 limpiarForm();
                 fillFromDTO(dto);
                 
-                // Activar modo edición directamente
+                // Activar modo EDICIÓN directamente
                 setModo('EDICIÓN', 'text-bg-warning');
                 uiState.modo = 'EDIT';
                 uiState.autoCodigo = false;
                 lockForm(false);
-                toggleCantidad(false); // Ocultar cantidad en edición
+                $root.find('#btnModificar').prop('disabled', true); // Ya estamos editando
+                toggleCantidad(false);
                 
-                // Scroll al formulario
                 $('html, body').animate({ scrollTop: $root.offset().top - 70 }, 500);
 
             } catch (e) {
