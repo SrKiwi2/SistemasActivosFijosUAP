@@ -1,47 +1,19 @@
 <style>
-    #data-table {
-        font-size: .85rem;
-    }
-
-    #data-table th,
-    #data-table td {
-        padding: .35rem .5rem;
-    }
-
-    #data-table tbody tr:nth-child(even) {
-        background-color: rgba(0, 0, 0, .02);
-    }
-
-    #data-table tbody tr:hover {
-        background-color: rgba(0, 0, 0, .04);
-    }
-
-    /* Descripción: 2 líneas + elipsis */
+    #data-table { font-size: .85rem; }
+    #data-table th, #data-table td { padding: .35rem .5rem; vertical-align: middle; }
+    #data-table tbody tr:nth-child(even) { background-color: rgba(0, 0, 0, .02); }
+    #data-table tbody tr:hover { background-color: rgba(0, 0, 0, .04); }
+    
     .desc-2lines {
-        max-width: 520px;
+        max-width: 480px;
         white-space: normal;
         overflow: hidden;
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
     }
-
-    @media (max-width:768px) {
-        .desc-2lines {
-            max-width: 280px;
-        }
-    }
-
-    .btn-xxs {
-        padding: .2rem .45rem;
-        font-size: .75rem;
-    }
-
-    .form-check-input.chk-masivo {
-        cursor: pointer;
-        width: 1.1em;
-        height: 1.1em;
-    }
+    .btn-xxs { padding: .2rem .45rem; font-size: .75rem; }
+    .form-check-input.chk-masivo { cursor: pointer; width: 1.1em; height: 1.1em; margin: 0 auto; }
 </style>
 
 <div class="card">
@@ -52,40 +24,50 @@
                     <th style="width: 40px;" class="text-center">
                         <input class="form-check-input chk-masivo" type="checkbox" id="chkTodos" title="Seleccionar todos">
                     </th>
-                    
-                    <th style="min-width:50px;">#</th>
+                    <th style="min-width:40px;">#</th>
                     <th>Código</th>
                     <th>Descripción</th>
                     <th>Responsable</th>
                     <th>Oficina</th>
-                    <th>Fecha Adquisición</th>
+                    <th>Fecha Adq.</th>
                     <th>Estado</th>
-                    <th>OPCIONES</th>
+                    <th class="text-center">Opciones</th>
                 </tr>
             </thead>
             <tbody class="animate__animated animate__bounceInDown">
                 <tr th:each="lisAcP, index: ${listaActivosPendientes}">
+                    
+                    <td class="text-center">
+                        <input class="form-check-input chk-masivo chk-item" type="checkbox" 
+                               th:value="${id_encryptado[__${index.index}__]}">
+                    </td>
+
                     <td th:text="${index.index+1}"></td>
-                    <td th:text="${lisAcP.codigo}"></td>
+
+                    <td class="fw-semibold text-primary" th:text="${lisAcP.codigo}"></td>
+
                     <td>
                         <div class="desc-2lines" th:attr="title=${lisAcP.descripcion}" data-bs-toggle="tooltip"
                             th:text="${lisAcP.descripcion}">...</div>
                     </td>
+
                     <td th:text="${lisAcP.responsable?.persona?.nombre}"></td>
+
                     <td th:text="${lisAcP.oficina?.nombre}"></td>
+
                     <td th:text="${lisAcP.fechaAdquisicion}"></td>
+
                     <td>
                         <span class="badge" th:classappend="${lisAcP.estado}=='PENDIENTE' ? ' text-bg-warning' :
                                   (${lisAcP.estado}=='ACTIVO' ? ' text-bg-success' : ' text-bg-secondary')"
                             th:text="${lisAcP.estado}">—</span>
                     </td>
-                    <td>
-                        <div class="d-flex gap-1">
-                            <button type="button" class="btn btn-xxs btn-outline-primary btn-ver"
-                                th:attr="data-id=${id_encryptado[__${index.index}__]}">
-                                <i class="fa-regular fa-eye me-1"></i> Ver
-                            </button>
-                        </div>
+
+                    <td class="text-center">
+                        <button type="button" class="btn btn-xxs btn-outline-primary btn-ver"
+                            th:attr="data-id=${id_encryptado[__${index.index}__]}">
+                            <i class="fa-regular fa-eye me-1"></i> Ver
+                        </button>
                     </td>
                 </tr>
             </tbody>
