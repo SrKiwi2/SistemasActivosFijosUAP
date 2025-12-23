@@ -337,6 +337,7 @@ public class ActivosController {
             activoOriginal.setCosto(activoForm.getCosto());
             activoOriginal.setVidaUtil(activoForm.getVidaUtil());
             activoOriginal.setFechaAdquisicion(activoForm.getFechaAdquisicion());
+            
 
             // Actualizar relaciones
             if (activoForm.getGrupoContable() != null && activoForm.getGrupoContable().getIdGrupoContable() != null) {
@@ -396,7 +397,7 @@ public class ActivosController {
             activoOriginal.setModificacionIdUsuario(usuario.getIdUsuario());
             activoOriginal.setModificacion(new Date());
             activoOriginal.setUsuario(usuarioNombre);
-            activoOriginal.setEstadoActivo(activoForm.getEstadoActivo());
+            activoOriginal.setEstadoActivo(activoOriginal.getEstadoActivo());
             activoOriginal.setVidaUtilAnterior(0);
             activoOriginal.setFechaUlt(LocalDate.now());
             activoOriginal.setFecMod(LocalDate.now());
