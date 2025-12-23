@@ -179,6 +179,7 @@ public class ActivosController {
     public ResponseEntity<?> registrar_activo(
             HttpServletRequest request,
             @Validated @ModelAttribute Activo activo,
+            @RequestParam(defaultValue = "1") Integer cantidad,
             BindingResult br) {
 
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
@@ -196,66 +197,107 @@ public class ActivosController {
             return ResponseEntity.badRequest().body(err);
         }
 
-        // LOG de lo recibido (parcial para no cargar mucho)
-        log.info("Recibido Activo => codigo={}, fechaAdq={}, descripcion={}, costo={}, vidaUtil={}, " +
-                "grupoContableId={}, oficinaId={}, responsableId={}, orgFinId={}, auxiliarId={}",
-                activo.getCodigo(),
-                activo.getFechaAdquisicion(),
-                activo.getDescripcion(),
-                activo.getCosto(),
-                activo.getVidaUtil(),
-                activo.getGrupoContable() != null ? activo.getGrupoContable().getIdGrupoContable() : null,
-                activo.getOficina() != null ? activo.getOficina().getIdOficina() : null,
-                activo.getResponsable() != null ? activo.getResponsable().getIdResponsable() : null,
-                activo.getOrganismoFinanciero() != null ? activo.getOrganismoFinanciero().getIdOrganismoFinanciero()
-                        : null,
-                activo.getAuxiliar() != null ? activo.getAuxiliar().getIdAuxiliar() : null);
+        if (cantidad < 1) cantidad = 1;
+        if (cantidad > 100) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Máximo 100 activos por lote."));
 
-        // (opcional) lógica de negocio mínima
-        activo.setApiEstado(Short.valueOf("3"));
-        activo.setCostoAnterior(0.0);
-        activo.setDepreciacionAcum(0.0);
+        log.info("Iniciando Registro Masivo: {} activos. Código Base: {}", cantidad, activo.getCodigo());
 
-        activo.setVidaUtilAnterior(0);
-        EstadoActivo estadoActivo = estadoActivoService.findById(1L);
-        activo.setEstadoActivo(estadoActivo);
+        List<String> codigosGenerados = new ArrayList<>();
+        String codigoActualStr = activo.getCodigo(); // Ej: "01-02-03-00020"
 
-        OrganismoFinanciero organismoFinanciero = organismoFinancieroService
-                .findById(activo.getOrganismoFinanciero().getIdOrganismoFinanciero());
-        activo.setOrganismoFinanciero(organismoFinanciero);
+        try {
+            for (int i = 0; i < cantidad; i++) {
+                // 1. CLONAR OBJETO (Crear nueva instancia basada en el formulario)
+                Activo nuevoActivo = new Activo();
+                
+                // Copiar datos simples
+                nuevoActivo.setDescripcion(activo.getDescripcion());
+                nuevoActivo.setCosto(activo.getCosto());
+                nuevoActivo.setVidaUtil(activo.getVidaUtil());
+                nuevoActivo.setFechaAdquisicion(activo.getFechaAdquisicion());
+                nuevoActivo.setObserv(activo.getObserv());
+                
+                // Copiar Relaciones (JPA Entities)
+                nuevoActivo.setGrupoContable(activo.getGrupoContable());
+                nuevoActivo.setOficina(activo.getOficina());
+                nuevoActivo.setResponsable(activo.getResponsable());
+                nuevoActivo.setOrganismoFinanciero(activo.getOrganismoFinanciero());
+                nuevoActivo.setAuxiliar(activo.getAuxiliar());
+                nuevoActivo.setEstadoActivo(activo.getEstadoActivo()); // Asumimos que viene del form o se setea default abajo
 
-        activo.setOrgFinCode(activo.getOrganismoFinanciero().getCodOf());
-        activo.setUsuario(usuario.getUsuario());
-        activo.setFecMod(LocalDate.now());
-        activo.setFechaUlt(activo.getFecMod());
+                // 2. GENERAR CÓDIGO CORRELATIVO
+                // El primero (i=0) usa el código del formulario. Los siguientes se calculan.
+                String codigoParaEste = (i == 0) 
+                    ? codigoActualStr 
+                    : incrementarCodigoString(codigoActualStr, i);
+                
+                nuevoActivo.setCodigo(codigoParaEste);
+                
+                // 3. DATOS DE AUDITORÍA Y ESTADO
+                nuevoActivo.setUsuario(usuario.getUsuario());
+                nuevoActivo.setFecMod(LocalDate.now());
+                nuevoActivo.setFechaUlt(LocalDate.now());
+                
+                // Lógica de negocio default
+                nuevoActivo.setApiEstado(Short.valueOf("3"));
+                nuevoActivo.setCostoAnterior(0.0);
+                nuevoActivo.setDepreciacionAcum(0.0);
+                nuevoActivo.setVidaUtilAnterior(0);
+                
+                // Org Fin Code textual para DBF
+                if(nuevoActivo.getOrganismoFinanciero() != null) {
+                     OrganismoFinanciero of = organismoFinancieroService.findById(nuevoActivo.getOrganismoFinanciero().getIdOrganismoFinanciero());
+                     nuevoActivo.setOrganismoFinanciero(of); // Re-attach para seguridad
+                     nuevoActivo.setOrgFinCode(of.getCodOf());
+                }
+                
+                // Estado Inicial
+                if (nuevoActivo.getEstadoActivo() == null) {
+                    nuevoActivo.setEstadoActivo(estadoActivoService.findById(1L)); // Bueno por defecto
+                }
+                
+                nuevoActivo.setEstado("PENDIENTE"); // Siempre pendiente primero
 
-        activo.setEstado("PENDIENTE");
-        activoService.save(activo);
+                // 4. GUARDAR
+                activoService.save(nuevoActivo);
+                codigosGenerados.add(nuevoActivo.getCodigo());
+            }
 
-        // ECO JSON (útil para probar rápido en el front)
-        Map<String, Object> activoMap = new LinkedHashMap<>();
-        activoMap.put("id", activo.getIdActivo());
-        activoMap.put("codigo", activo.getCodigo());
-        activoMap.put("fechaAdquisicion", activo.getFechaAdquisicion());
-        activoMap.put("descripcion", activo.getDescripcion());
-        activoMap.put("costo", activo.getCosto());
-        activoMap.put("vidaUtil", activo.getVidaUtil());
-        activoMap.put("grupoContableId",
-                activo.getGrupoContable() != null ? activo.getGrupoContable().getIdGrupoContable() : null);
-        activoMap.put("oficinaId", activo.getOficina() != null ? activo.getOficina().getIdOficina() : null);
-        activoMap.put("responsableId",
-                activo.getResponsable() != null ? activo.getResponsable().getIdResponsable() : null);
-        activoMap.put("orgFinId",
-                activo.getOrganismoFinanciero() != null ? activo.getOrganismoFinanciero().getIdOrganismoFinanciero()
-                        : null);
-        activoMap.put("auxiliarId", activo.getAuxiliar() != null ? activo.getAuxiliar().getIdAuxiliar() : null);
+            Map<String, Object> ok = new LinkedHashMap<>();
+            ok.put("ok", true);
+            ok.put("msg", String.format("Se registraron %d activos correctamente (Del %s al %s)", 
+                    cantidad, codigosGenerados.get(0), codigosGenerados.get(codigosGenerados.size()-1)));
+            
+            return ResponseEntity.ok(ok);
+        } catch (Exception e) {
+            log.error("Error en registro masivo", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
+        }
+    }
 
-        Map<String, Object> ok = new LinkedHashMap<>();
-        ok.put("ok", true);
-        ok.put("msg", "Se realizó el registro correctamente");
-        ok.put("activo", activoMap);
+    /**
+     * Helper para incrementar códigos tipo "01-04-15-00022" + 1 -> "01-04-15-00023"
+     */
+    private String incrementarCodigoString(String codigoBase, int incremento) {
+        try {
+            // Asumimos formato XX-XX-XX-NNNNN
+            int lastDash = codigoBase.lastIndexOf('-');
+            if (lastDash == -1) return codigoBase + "-" + incremento; // Fallback
 
-        return ResponseEntity.ok(ok);
+            String prefix = codigoBase.substring(0, lastDash + 1); // "01-04-15-"
+            String numberPart = codigoBase.substring(lastDash + 1); // "00022"
+            
+            long numero = Long.parseLong(numberPart);
+            long nuevoNumero = numero + incremento;
+            
+            // Reconstruir con padding de ceros (mismo largo que el original)
+            String formato = "%0" + numberPart.length() + "d";
+            return prefix + String.format(formato, nuevoNumero);
+            
+        } catch (Exception e) {
+            log.error("No se pudo incrementar código: " + codigoBase);
+            return codigoBase + "-" + incremento; // Fallback de emergencia
+        }
     }
 
     @ValidarUsuarioAutenticado
