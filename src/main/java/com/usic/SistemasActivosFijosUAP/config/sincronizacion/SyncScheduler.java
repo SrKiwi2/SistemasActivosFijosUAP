@@ -30,13 +30,13 @@ public class SyncScheduler {
     @Scheduled(cron = "0 */30 * * * *")
     public void sincronizarAutomaticamente() {
         try {
-            entidadController.syncFromMounted(null, null, false);
-            predioController.syncFromMounted(null, null, false);
-            oficinaController.syncFromMounted(null, null, false);
-            organismoController.syncFromMounted(null, false);
-            grupoContableController.syncFromMounted(null, false);
-            auxiliarController.syncFromMounted(null, null, false);
-            responsableController.syncFromMounted(null, false);
+            // entidadController.syncFromMounted(null, null, false);
+            // predioController.syncFromMounted(null, null, false);
+            // oficinaController.syncFromMounted(null, null, false);
+            // organismoController.syncFromMounted(null, false);
+            // grupoContableController.syncFromMounted(null, false);
+            // auxiliarController.syncFromMounted(null, null, false);
+            // responsableController.syncFromMounted(null, false);
             // Agregar sincronización de otras tablas
         } catch (Exception e) {
             System.err.println("Error en sincronización automática: " + e.getMessage());
