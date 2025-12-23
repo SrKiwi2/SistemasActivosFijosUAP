@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -583,8 +584,64 @@ public class ActivosController {
             log.error("Error aprobando activo: {}", e.getMessage(), e);
             // Al capturar la excepción aquí, la BD NO se actualizó a ACTIVO. Correcto.
             return Map.of("ok", false, "message", "Error al sincronizar con DBF: " + e.getMessage());
-        }
+        }   
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/api/aprobar-masivo")
+    @ResponseBody
+    public ResponseEntity<?> aprobarMasivo(@RequestBody List<String> idsEnc, HttpServletRequest request) {
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
         
+        int exitos = 0;
+        int errores = 0;
+        List<String> detallesError = new ArrayList<>();
+
+        for (String idEnc : idsEnc) {
+            try {
+                Long id = Long.valueOf(Encriptar.decrypt(idEnc));
+                Activo a = activoService.findById(id);
+
+                // Validaciones básicas (igual que en individual)
+                if (a == null || !"PENDIENTE".equalsIgnoreCase(a.getEstado())) {
+                    errores++; continue;
+                }
+                if (a.getOficina() == null || a.getOficina().getPredio() == null) {
+                    errores++; detallesError.add("Activo " + a.getCodigo() + ": Faltan datos de Oficina.");
+                    continue;
+                }
+
+                // Datos para DBF
+                String entidadCode = a.getOficina().getPredio().getEntidad().getEntidadCodigo();
+                String unidadCode = a.getOficina().getPredio().getUnidad();
+
+                // 1. Intentar DBF (Idempotente)
+                if (!actualDbfWriterService.existsByCodigo(a.getCodigo())) {
+                    actualDbfWriterService.insertarDesdeActivo(a, entidadCode, unidadCode, usuarioNombre);
+                }
+
+                // 2. Actualizar BD
+                a.setEstado("ACTIVO");
+                a.setApiEstado(Short.valueOf("1"));
+                activoService.save(a);
+                
+                exitos++;
+
+            } catch (Exception e) {
+                log.error("Error en masivo id {}: {}", idEnc, e.getMessage());
+                errores++;
+                detallesError.add("Error desconocido en un activo.");
+            }
+        }
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("ok", true);
+        resp.put("exitos", exitos);
+        resp.put("errores", errores);
+        resp.put("msg", String.format("Proceso finalizado. Éxitos: %d | Errores: %d", exitos, errores));
+        
+        return ResponseEntity.ok(resp);
     }
 
     @PostMapping(value = "/generar-correlativo", produces = MediaType.APPLICATION_JSON_VALUE)

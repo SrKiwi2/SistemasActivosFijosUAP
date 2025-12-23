@@ -36,6 +36,12 @@
         padding: .2rem .45rem;
         font-size: .75rem;
     }
+
+    .form-check-input.chk-masivo {
+        cursor: pointer;
+        width: 1.1em;
+        height: 1.1em;
+    }
 </style>
 
 <div class="card">
@@ -43,6 +49,10 @@
         <table class="table table-hover nowrap" id="data-table" style="width:100%;">
             <thead>
                 <tr>
+                    <th style="width: 40px;" class="text-center">
+                        <input class="form-check-input chk-masivo" type="checkbox" id="chkTodos" title="Seleccionar todos">
+                    </th>
+                    
                     <th style="min-width:50px;">#</th>
                     <th>Código</th>
                     <th>Descripción</th>
