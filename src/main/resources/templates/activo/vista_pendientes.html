@@ -59,16 +59,6 @@
 
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Activos pendientes</h4>
 
-<div id="barraMasiva" class="alert alert-primary d-none d-flex justify-content-between align-items-center shadow-sm sticky-top" style="z-index: 1020; top: 1rem;">
-    <div>
-        <i class="fa-solid fa-check-double me-2"></i>
-        <span class="fw-bold" id="lblContador">0 seleccionados</span>
-    </div>
-    <button id="btnProcesarMasivo" class="btn btn-success btn-sm fw-bold">
-        <i class="fa-solid fa-cloud-arrow-up me-1"></i> Sincronizar con DBF
-    </button>
-</div>
-
 <div id="tablaRegistro"></div>
 
 <!-- Modal detalle -->
@@ -107,101 +97,14 @@
             url: "/administracion/activo/tabla-registros_pendientes",
             success: function (response) {
                 $("#tablaRegistro").html(response);
-                initTablaPendientes();
-                initLogicaMasiva();
+                // Si tienes una función initTablaPendientes() en el HTML hijo, se ejecutará sola o puedes llamarla aquí
+                if(typeof initTablaPendientes === 'function') initTablaPendientes();
             },
             error: function () {
                 $("#tablaRegistro").html(`<div class="alert alert-danger">Error cargando datos.</div>`);
             },
             complete: function () {
                 hideGlobalLoader();
-                $('#barraMasiva').addClass('d-none');
-            }
-        });
-    }
-
-    function initLogicaMasiva() {
-        const $chkTodos = $('#chkTodos');
-        const $barra = $('#barraMasiva');
-        const $lbl = $('#lblContador');
-        
-        // Evento: Seleccionar Todos
-        $chkTodos.on('change', function() {
-            const checked = $(this).is(':checked');
-            $('.chk-item').prop('checked', checked);
-            actualizarBarra();
-        });
-
-        // Evento: Seleccionar Individual (Delegado por si hay paginación simple)
-        $(document).on('change', '.chk-item', function() {
-            actualizarBarra();
-            // Si desmarco uno, desmarco el "Todos"
-            if (!$(this).is(':checked')) $chkTodos.prop('checked', false);
-        });
-
-        function actualizarBarra() {
-            const total = $('.chk-item:checked').length;
-            if (total > 0) {
-                $lbl.text(total + (total === 1 ? ' seleccionado' : ' seleccionados'));
-                $barra.removeClass('d-none').addClass('animate__animated animate__fadeInDown');
-            } else {
-                $barra.addClass('d-none');
-                $chkTodos.prop('checked', false);
-            }
-        }
-
-        // Evento: Click en Botón Procesar
-        $('#btnProcesarMasivo').off('click').on('click', function() {
-            const ids = [];
-            $('.chk-item:checked').each(function() {
-                ids.push($(this).val());
-            });
-
-            if (ids.length === 0) return;
-
-            Swal.fire({
-                title: '¿Sincronizar ' + ids.length + ' activos?',
-                text: "Se registrarán en el archivo ACTUAL.DBF oficial.",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, sincronizar',
-                confirmButtonColor: '#198754'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    enviarMasivo(ids);
-                }
-            });
-        });
-    }
-
-    function enviarMasivo(ids) {
-        showGlobalLoader({ texto: 'Sincronizando ' + ids.length + ' registros...' });
-        
-        $.ajax({
-            url: '/administracion/activo/api/aprobar-masivo',
-            type: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(ids),
-            success: function(res) {
-                hideGlobalLoader();
-                if (res.ok) {
-                    let msg = `Se registraron <b>${res.exitos}</b> activos correctamente.`;
-                    if (res.errores > 0) {
-                        msg += `<br><span class="text-danger">Hubo <b>${res.errores}</b> errores.</span>`;
-                    }
-                    
-                    Swal.fire({
-                        title: 'Proceso Terminado',
-                        html: msg,
-                        icon: res.errores > 0 ? 'warning' : 'success'
-                    }).then(() => {
-                        cargarTabla(); // Recargar para limpiar la lista
-                    });
-                }
-            },
-            error: function(xhr) {
-                hideGlobalLoader();
-                Swal.fire('Error', 'Fallo en el servidor', 'error');
             }
         });
     }
