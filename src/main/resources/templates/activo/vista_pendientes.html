@@ -1,82 +1,70 @@
 <style>
-    /* Estilos para el Modal de Detalle */
-    .detail-header {
-        background-color: #f8f9fa;
-        border-bottom: 1px solid #ebecef;
-        padding: 1rem 1.5rem;
-        border-radius: 0.5rem 0.5rem 0 0;
-    }
-    
-    .detail-group {
-        margin-bottom: 1.5rem;
-    }
+    /* Estilos para el Modal de Detalle (Ya los tenías, los mantengo) */
+    .detail-header { background-color: #f8f9fa; border-bottom: 1px solid #ebecef; padding: 1rem 1.5rem; border-radius: 0.5rem 0.5rem 0 0; }
+    .detail-group { margin-bottom: 1.5rem; }
+    .detail-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8592a3; font-weight: 600; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.4rem; }
+    .detail-value { font-size: 0.95rem; font-weight: 500; color: #384551; word-wrap: break-word; }
+    .detail-value.highlight { color: #696cff; }
+    .detail-icon-box { width: 40px; height: 40px; background-color: rgba(105, 108, 255, 0.1); color: #696cff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-right: 1rem; }
+    .status-banner { padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
 
-    .detail-label {
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: #8592a3; /* Gris suave */
-        font-weight: 600;
-        margin-bottom: 0.25rem;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
+    /* 🚀 NUEVO: Estilo para la Barra Flotante de Acciones Masivas */
+    #barraMasiva {
+        position: sticky;
+        top: 10px; /* Se queda pegada arriba al hacer scroll */
+        z-index: 1020;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        border-radius: 10px;
+        background: linear-gradient(90deg, #696cff 0%, #8385ff 100%); /* Color Institucional */
+        color: white;
+        transition: all 0.3s ease;
     }
-
-    .detail-value {
-        font-size: 0.95rem;
-        font-weight: 500;
-        color: #384551; /* Texto oscuro */
-        word-wrap: break-word;
-    }
-
-    .detail-value.highlight {
-        color: #696cff; /* Color primario */
-    }
-
-    .detail-icon-box {
-        width: 40px;
-        height: 40px;
-        background-color: rgba(105, 108, 255, 0.1);
+    #barraMasiva .btn-light {
         color: #696cff;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.2rem;
-        margin-right: 1rem;
+        font-weight: 700;
+        border: none;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
-
-    .status-banner {
-        padding: 0.75rem 1rem;
-        border-radius: 0.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1.5rem;
+    #barraMasiva .btn-light:hover {
+        background-color: #f0f0f0;
+        transform: translateY(-1px);
     }
 </style>
 
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Activos pendientes</h4>
 
+<div id="barraMasiva" class="alert d-none d-flex justify-content-between align-items-center animate__animated animate__fadeInDown">
+    <div class="d-flex align-items-center">
+        <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 35px; height: 35px;">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <div>
+            <h6 class="mb-0 text-white fw-bold" id="lblContador">0 seleccionados</h6>
+            <small class="text-white-50">Listos para sincronizar</small>
+        </div>
+    </div>
+    <button id="btnProcesarMasivo" class="btn btn-light btn-sm px-4 py-2 rounded-pill">
+        <i class="fa-solid fa-cloud-arrow-up me-2"></i> SINCRONIZAR A DBF
+    </button>
+</div>
+
 <div id="tablaRegistro"></div>
 
-<!-- Modal detalle -->
 <div class="modal fade" id="modalDetalleActivo" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered"> <div class="modal-content border-0 shadow-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered"> 
+        <div class="modal-content border-0 shadow-lg">
             <div class="modal-header border-0 pb-0">
                 <h5 class="modal-title fw-bold text-primary">
                     <i class="fa-solid fa-box-open me-2"></i>Ficha del Activo
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            
             <div class="modal-body pt-4" id="modalDetalleBody">
                 <div class="text-center py-5">
                     <div class="spinner-border text-primary" role="status"></div>
                 </div>
             </div>
-
             <div class="modal-footer border-0 bg-light rounded-bottom">
                 <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cerrar</button>
                 <button type="button" id="btnAprobarModal" class="btn btn-success px-4" disabled>
@@ -90,6 +78,7 @@
 <script>
     $(document).ready(function () { cargarTabla(); });
 
+    // 1. Cargar Tabla
     function cargarTabla() {
         showGlobalLoader({ texto: 'Cargando pendientes...' });
         $.ajax({
@@ -97,184 +86,216 @@
             url: "/administracion/activo/tabla-registros_pendientes",
             success: function (response) {
                 $("#tablaRegistro").html(response);
-                // Si tienes una función initTablaPendientes() en el HTML hijo, se ejecutará sola o puedes llamarla aquí
-                if(typeof initTablaPendientes === 'function') initTablaPendientes();
+                initTablaPendientes(); // DataTables
+                initLogicaMasiva();    // 🚀 INICIALIZAR LÓGICA DE CHECKBOXES
             },
             error: function () {
-                $("#tablaRegistro").html(`<div class="alert alert-danger">Error cargando datos.</div>`);
+                $("#tablaRegistro").html(`<div class="alert alert-danger m-3">Error cargando datos.</div>`);
             },
             complete: function () {
                 hideGlobalLoader();
+                // Ocultar barra si estaba visible al recargar
+                $('#barraMasiva').addClass('d-none');
             }
         });
     }
 
-    // === Todo el JS vive en la vista padre ===
-
-    function renderDetalleHtml(d) {
-        // Función auxiliar para valores nulos
-        const safe = v => (v && v !== 'null') ? v : '<span class="text-muted fst-italic">No definido</span>';
+    // ==========================================
+    // 🚀 LÓGICA DE SELECCIÓN MASIVA (CHECKBOXES)
+    // ==========================================
+    function initLogicaMasiva() {
+        const $chkTodos = $('#chkTodos');
+        const $barra = $('#barraMasiva');
+        const $lbl = $('#lblContador');
         
-        // Formateador de dinero
+        // A. Seleccionar Todos
+        $chkTodos.on('change', function() {
+            const checked = $(this).is(':checked');
+            $('.chk-item').prop('checked', checked);
+            actualizarBarra();
+        });
+
+        // B. Seleccionar Individual (Delegado al body por si DataTables redibuja)
+        $('body').off('change', '.chk-item').on('change', '.chk-item', function() {
+            actualizarBarra();
+            // Si desmarco uno, desmarco el "Todos" del header
+            if (!$(this).is(':checked')) $chkTodos.prop('checked', false);
+        });
+
+        // C. Actualizar visualización de la barra
+        function actualizarBarra() {
+            const total = $('.chk-item:checked').length;
+            if (total > 0) {
+                $lbl.text(total + (total === 1 ? ' seleccionado' : ' seleccionados'));
+                $barra.removeClass('d-none');
+            } else {
+                $barra.addClass('d-none');
+                $chkTodos.prop('checked', false);
+            }
+        }
+
+        // D. Evento: Click en Botón Procesar
+        $('#btnProcesarMasivo').off('click').on('click', function() {
+            const ids = [];
+            $('.chk-item:checked').each(function() {
+                ids.push($(this).val());
+            });
+
+            if (ids.length === 0) return;
+
+            Swal.fire({
+                title: '¿Sincronizar ' + ids.length + ' activos?',
+                html: "Se registrarán permanentemente en el archivo <b>ACTUAL.DBF</b>.",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, sincronizar',
+                confirmButtonColor: '#696cff',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    enviarMasivo(ids);
+                }
+            });
+        });
+    }
+
+    // E. Enviar al Backend
+    function enviarMasivo(ids) {
+        showGlobalLoader({ texto: 'Escribiendo en DBF (' + ids.length + ' registros)...' });
+        
+        $.ajax({
+            url: '/administracion/activo/api/aprobar-masivo',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(ids), // Enviamos lista de IDs encriptados
+            success: function(res) {
+                hideGlobalLoader();
+                if (res.ok) {
+                    let msg = `Se registraron <b>${res.exitos}</b> activos correctamente.`;
+                    
+                    // Si hubo algún error parcial, lo mostramos
+                    let icon = 'success';
+                    if (res.errores > 0) {
+                        msg += `<br><br><span class="text-danger fw-bold"><i class="fa-solid fa-triangle-exclamation"></i> Hubo ${res.errores} errores.</span>`;
+                        icon = 'warning';
+                    }
+                    
+                    Swal.fire({
+                        title: 'Proceso Finalizado',
+                        html: msg,
+                        icon: icon
+                    }).then(() => {
+                        cargarTabla(); // Recargar tabla limpia
+                    });
+                } else {
+                    Swal.fire('Error', res.msg || 'Error desconocido', 'error');
+                }
+            },
+            error: function(xhr) {
+                hideGlobalLoader();
+                Swal.fire('Error de Servidor', 'No se pudo completar la solicitud.', 'error');
+            }
+        });
+    }
+
+    // ==========================================
+    // 🎨 RENDERIZADOR DE DETALLE (EL BONITO)
+    // ==========================================
+    function renderDetalleHtml(d) {
+        const safe = v => (v && v !== 'null') ? v : '<span class="text-muted fst-italic">No definido</span>';
         const fmtMoney = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' });
         const costo = d.costo ? fmtMoney.format(d.costo) : 'Bs 0.00';
 
-        // Acceso seguro a objetos anidados (CORRECCIÓN IMPORTANTE)
+        // Acceso seguro a objetos
         const oficina = d.oficina ? d.oficina.nombre : null;
         const responsable = d.responsable && d.responsable.persona ? d.responsable.persona.nombreCompleto : null;
         const orgFin = d.organismoFinanciero ? d.organismoFinanciero.descripcion : null;
         const auxiliar = d.auxiliar ? d.auxiliar.nombre : null;
         const grupo = d.grupoContable ? d.grupoContable.nombre : null;
 
-        // Banner de estado
         const estadoClass = d.estado === 'PENDIENTE' ? 'bg-warning-subtle text-warning-emphasis' : 'bg-success-subtle text-success-emphasis';
         const estadoIcon = d.estado === 'PENDIENTE' ? '<i class="fa-solid fa-clock"></i>' : '<i class="fa-solid fa-check-circle"></i>';
 
         return `
             <div class="status-banner ${estadoClass}">
                 <div class="fw-bold d-flex align-items-center gap-2">
-                    ${estadoIcon}
-                    <span>ESTADO: ${d.estado || 'DESCONOCIDO'}</span>
+                    ${estadoIcon} <span>ESTADO: ${d.estado || 'DESCONOCIDO'}</span>
                 </div>
                 <small class="text-uppercase fw-semibold tracking-wide">ID: ${d.idActivo}</small>
             </div>
-
             <div class="d-flex mb-4">
-                <div class="detail-icon-box">
-                    <i class="fa-solid fa-barcode"></i>
-                </div>
+                <div class="detail-icon-box"><i class="fa-solid fa-barcode"></i></div>
                 <div class="flex-grow-1">
                     <h5 class="mb-1 fw-bold text-dark">${safe(d.codigo)}</h5>
                     <p class="text-muted mb-0 small">${safe(d.descripcion)}</p>
                 </div>
             </div>
-
             <div class="row g-4">
                 <div class="col-md-6">
-                    <div class="detail-group">
-                        <div class="detail-label"><i class="fa-regular fa-calendar me-1"></i> Fecha Adquisición</div>
-                        <div class="detail-value">${safe(d.fechaAdquisicion)}</div>
-                    </div>
-                    
-                    <div class="detail-group">
-                        <div class="detail-label"><i class="fa-solid fa-layer-group me-1"></i> Grupo Contable</div>
-                        <div class="detail-value">${safe(grupo)}</div>
-                    </div>
-
-                    <div class="detail-group">
-                        <div class="detail-label"><i class="fa-solid fa-diagram-project me-1"></i> Auxiliar</div>
-                        <div class="detail-value">${safe(auxiliar)}</div>
-                    </div>
+                    <div class="detail-group"><div class="detail-label"><i class="fa-regular fa-calendar me-1"></i> Fecha Adquisición</div><div class="detail-value">${safe(d.fechaAdquisicion)}</div></div>
+                    <div class="detail-group"><div class="detail-label"><i class="fa-solid fa-layer-group me-1"></i> Grupo Contable</div><div class="detail-value">${safe(grupo)}</div></div>
+                    <div class="detail-group"><div class="detail-label"><i class="fa-solid fa-diagram-project me-1"></i> Auxiliar</div><div class="detail-value">${safe(auxiliar)}</div></div>
                 </div>
-
                 <div class="col-md-6">
-                    <div class="detail-group">
-                        <div class="detail-label"><i class="fa-solid fa-coins me-1"></i> Costo Histórico</div>
-                        <div class="detail-value highlight fs-5">${costo}</div>
-                    </div>
-
-                    <div class="detail-group">
-                        <div class="detail-label"><i class="fa-solid fa-hourglass-half me-1"></i> Vida Útil</div>
-                        <div class="detail-value">${safe(d.vidaUtil)} años</div>
-                    </div>
-
-                    <div class="detail-group">
-                        <div class="detail-label"><i class="fa-solid fa-building-columns me-1"></i> Financiamiento</div>
-                        <div class="detail-value">${safe(orgFin)}</div>
-                    </div>
+                    <div class="detail-group"><div class="detail-label"><i class="fa-solid fa-coins me-1"></i> Costo Histórico</div><div class="detail-value highlight fs-5">${costo}</div></div>
+                    <div class="detail-group"><div class="detail-label"><i class="fa-solid fa-hourglass-half me-1"></i> Vida Útil</div><div class="detail-value">${safe(d.vidaUtil)} años</div></div>
+                    <div class="detail-group"><div class="detail-label"><i class="fa-solid fa-building-columns me-1"></i> Financiamiento</div><div class="detail-value">${safe(orgFin)}</div></div>
                 </div>
             </div>
-
             <hr class="border-secondary-subtle my-3">
-
             <div class="bg-light p-3 rounded-3 border border-light-subtle">
                 <div class="row">
-                    <div class="col-md-6 mb-3 mb-md-0">
-                        <div class="detail-label"><i class="fa-solid fa-building me-1"></i> Oficina Asignada</div>
-                        <div class="detail-value text-dark fw-bold">${safe(oficina)}</div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="detail-label"><i class="fa-solid fa-user-tie me-1"></i> Responsable</div>
-                        <div class="detail-value text-dark fw-bold">${safe(responsable)}</div>
-                    </div>
+                    <div class="col-md-6 mb-3 mb-md-0"><div class="detail-label"><i class="fa-solid fa-building me-1"></i> Oficina Asignada</div><div class="detail-value text-dark fw-bold">${safe(oficina)}</div></div>
+                    <div class="col-md-6"><div class="detail-label"><i class="fa-solid fa-user-tie me-1"></i> Responsable</div><div class="detail-value text-dark fw-bold">${safe(responsable)}</div></div>
                 </div>
             </div>
         `;
     }
 
-    $(document).on('click', '.btn-ver', async function () {
-        const idEnc = $(this).data('id');
+    function initTablaPendientes() {
+        const tableSel = '#tablaRegistro #data-table';
+        if ($.fn.DataTable.isDataTable(tableSel)) $(tableSel).DataTable().destroy();
         
-        // Loader suave
-        const $modalBody = $('#modalDetalleBody');
-        $modalBody.html('<div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary"></div></div>');
-        
-        const modalEl = document.getElementById('modalDetalleActivo');
-        const modal = new bootstrap.Modal(modalEl);
-        modal.show();
-
-        const $btnAprobar = $('#btnAprobarModal');
-        $btnAprobar.prop('disabled', true);
-
-        try {
-            // Fetch Datos
-            const res = await fetch(`/administracion/activo/api/detalle/${encodeURIComponent(idEnc)}`);
-            if (!res.ok) throw new Error('Error de conexión');
-            
-            const d = await res.json();
-            
-            // Normalizar estado
-            if (!d.estado) d.estado = d.estadoActivo?.nombre || 'PENDIENTE';
-
-            // Renderizar HTML
-            $modalBody.html(renderDetalleHtml(d));
-
-            // Configurar botón Aprobar
-            $btnAprobar.prop('disabled', false).off('click').on('click', async function() {
-                if(!confirm('¿Está seguro de aprobar este activo y registrarlo en el sistema oficial (DBF)?')) return;
-
-                const $btn = $(this);
-                $btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin me-2"></i> Procesando...');
-
-                try {
-                    const respApr = await fetch(`/administracion/activo/api/aprobar/${encodeURIComponent(idEnc)}`, { method: 'POST' });
-                    const dataApr = await respApr.json();
-
-                    if (dataApr.ok) {
-                        // Éxito
-                        modal.hide();
-                        cargarTabla(); // Recargar lista
-                        Swal.fire({
-                            title: '¡Aprobado!',
-                            text: 'El activo ha sido registrado correctamente.',
-                            icon: 'success',
-                            timer: 2000,
-                            showConfirmButton: false
-                        });
-                    } else {
-                        throw new Error(dataApr.message || 'Error desconocido');
-                    }
-                } catch (err) {
-                    console.error(err);
-                    Swal.fire('Error', err.message, 'error');
-                    $btn.prop('disabled', false).html('<i class="fa-solid fa-check-circle me-2"></i> Confirmar y Aprobar');
-                }
-            });
-
-        } catch (e) {
-            console.error(e);
-            $modalBody.html(`
-                <div class="text-center py-4 text-danger">
-                    <i class="fa-solid fa-triangle-exclamation fa-3x mb-3"></i>
-                    <h5>No se pudo cargar la información</h5>
-                    <p class="small text-muted">${e.message}</p>
-                </div>
-            `);
-        }
-    });
-
-    function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/activo/eliminar-pendiente", cargarTabla);
+        $(tableSel).DataTable({
+            responsive: false,
+            pageLength: 10,
+            columnDefs: [
+                { targets: 0, orderable: false, width: '40px' }, // Checkbox
+                { targets: 1, orderable: false, width: '30px' }, // Numeral
+                { targets: -1, orderable: false } // Opciones
+            ],
+            language: { sProcessing: "Procesando...", sZeroRecords: "No hay pendientes", sSearch: "Buscar:", oPaginate: { sFirst: "Primero", sLast: "Último", sNext: "Sig", sPrevious: "Ant" } }
+        });
     }
 
+    // Modal individual
+    $(document).on('click', '.btn-ver', async function () {
+        const idEnc = $(this).data('id');
+        $('#modalDetalleBody').html('<div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary"></div></div>');
+        const modal = new bootstrap.Modal(document.getElementById('modalDetalleActivo'));
+        modal.show();
+        $('#btnAprobarModal').prop('disabled', true);
+
+        try {
+            const res = await fetch(`/administracion/activo/api/detalle/${encodeURIComponent(idEnc)}`);
+            if (!res.ok) throw new Error('Error de conexión');
+            const d = await res.json();
+            
+            if (!d.estado) d.estado = d.estadoActivo?.nombre || 'PENDIENTE';
+            $('#modalDetalleBody').html(renderDetalleHtml(d));
+
+            $('#btnAprobarModal').prop('disabled', false).off('click').on('click', async function() {
+                if(!confirm('¿Aprobar individualmente?')) return;
+                const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i>');
+                try {
+                    const r = await fetch(`/administracion/activo/api/aprobar/${encodeURIComponent(idEnc)}`, { method: 'POST' });
+                    const j = await r.json();
+                    if(j.ok) { modal.hide(); cargarTabla(); Swal.fire('Éxito', 'Aprobado correctamente', 'success'); }
+                    else throw new Error(j.message);
+                } catch(e) { Swal.fire('Error', e.message, 'error'); $btn.prop('disabled', false).text('Reintentar'); }
+            });
+        } catch (e) {
+            $('#modalDetalleBody').html(`<div class="text-danger text-center py-4">Error: ${e.message}</div>`);
+        }
+    });
 </script>
