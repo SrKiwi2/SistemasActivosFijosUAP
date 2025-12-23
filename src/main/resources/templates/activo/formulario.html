@@ -598,10 +598,19 @@
                 const val = parseMoney(this.value);
                 $root.find('#costo').val(val.toFixed(2));
             });
+
             $root.on('blur.activo', '#costoFmt', function () {
                 const val = parseFloat($root.find('#costo').val() || '0');
                 this.value = fmtMoney.format(isNaN(val) ? 0 : val);
             }).find('#costoFmt').trigger('blur');
+
+            $root.on('change.activo', '#oficinaId', function() {
+                const oficinaId = $(this).val();
+                
+                const $resp = $root.find('#responsableId');
+                $resp.val(null).trigger('change');
+
+            });
 
             // --- Máscara de código ---
             const $codigo = $root.find('#codigo');
