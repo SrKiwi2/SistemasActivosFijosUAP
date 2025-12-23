@@ -367,7 +367,6 @@
 
                 if ($el.is('select')) {
                     $el.prop('disabled', locked);
-                    if ($el.data('select2')) $el.trigger('change.select2');
                 } else {
                     $el.prop('disabled', locked);
                 }
@@ -375,6 +374,7 @@
 
             $root.find('#btnModificar').prop('disabled', locked || !$root.find('#idActivo').val());
             $root.find('#btnCancelar').prop('disabled', locked);
+            $root.find('#btnRegistrar').prop('disabled', !locked);
 
             const f = $form[0];
             f.classList.toggle('locked', locked);
@@ -383,15 +383,27 @@
 
         function setModo(texto, badgeClass) {
             const lbl = $root.find('#lblModo')[0];
-            lbl.textContent = texto;
-            lbl.className = 'badge ' + (badgeClass || 'text-bg-secondary');
+            if(lbl) {
+                lbl.textContent = texto;
+                lbl.className = 'badge ' + (badgeClass || 'text-bg-secondary');
+            }
+        }
+
+        function toggleCantidad(mostrar) {
+            const $divCantidad = $root.find('input[name="cantidad"]').closest('.col-xl-2'); // Ajustar selector al div padre
+            if (mostrar) {
+                $divCantidad.show();
+                $root.find('#cantidad').val(1).prop('disabled', false);
+            } else {
+                $divCantidad.hide();
+                $root.find('#cantidad').prop('disabled', true);
+            }
         }
 
         function limpiarForm() {
             const $form = $root.find('#formularioActivo');
             if ($form.length) $form[0].reset();
-            $root.find('#municipioCode, #predioCode, #grupoCode, #oficinaId, #responsableId, #orgFinId, #auxiliarId')
-                .val(null).trigger('change');
+            $root.find('.form-select').val(null).trigger('change');
             $root.find('#idActivo').val('');
             $root.find('#codigo').val('');
         }
@@ -414,29 +426,31 @@
 
                 if (d.responsableId) {
                     const $resp = $root.find('#responsableId');
+                    // Crear opción si no existe para que Select2 la muestre
                     if ($resp.find(`option[value="${d.responsableId}"]`).length === 0) {
-                        $resp.append(`<option value="${d.responsableId}" selected>${d.responsableNombre ?? '(responsable)'}</option>`);
+                        const nombre = d.responsableNombre || '(Responsable)';
+                        $resp.append(new Option(nombre, d.responsableId, true, true));
                     }
-                    $resp.val(String(d.responsableId)).trigger('change');
-                } else {
-                    $root.find('#responsableId').val(null).trigger('change');
+                    $resp.trigger('change');
                 }
 
                 if (d.auxiliarId) {
                     const $aux = $root.find('#auxiliarId');
                     if ($aux.find(`option[value="${d.auxiliarId}"]`).length === 0) {
-                        $aux.append(`<option value="${d.auxiliarId}" selected>${d.auxiliarNombre ?? '(auxiliar)'}</option>`);
+                        const nombre = d.auxiliarNombre || '(Auxiliar)';
+                        $aux.append(new Option(nombre, d.auxiliarId, true, true));
                     }
-                    $aux.val(String(d.auxiliarId)).trigger('change');
-                } else {
-                    $root.find('#auxiliarId').val(null).trigger('change');
+                    $aux.trigger('change');
                 }
 
                 if (d.costo != null) {
                     $root.find('#costo').val(Number(d.costo).toFixed(2));
+                    // Formatear visualmente
                     const fmt = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 });
                     $root.find('#costoFmt').val(fmt.format(Number(d.costo)));
                 }
+            } catch(e) {
+                console.error("Error llenando formulario", e);
             } finally {
                 uiState.filling = false;
             }
@@ -600,8 +614,8 @@
                 setModo('REGISTRO NUEVO', 'text-bg-primary');
                 uiState.modo = 'NEW'; uiState.autoCodigo = true;
                 lockForm(false);
-                $root.find('#btnModificar').prop('disabled', true);
-                $root.find('#btnCancelar').prop('disabled', false);
+                toggleCantidad(true);
+                $root.find('#buscarCodigo').val('');
             });
 
             $root.on('click.activo', '#btnBuscarCodigo', async function () {
@@ -618,8 +632,7 @@
                     setModo('VISTA', 'text-bg-info');
                     uiState.modo = 'VIEW'; uiState.autoCodigo = false;
                     lockForm(true);
-                    $root.find('#btnModificar').prop('disabled', false);
-                    $root.find('#btnCancelar').prop('disabled', false);
+                    toggleCantidad(false);
                 } catch (e) {
                     hideGlobalLoader();
                     console.error(e);
@@ -628,52 +641,73 @@
             });
 
             $root.on('click.activo', '#btnModificar', function () {
-                if (!$root.find('#idActivo').val()) { alert('Primero busque un activo.'); return; }
+                if (!$root.find('#idActivo').val()) return;
+                
                 setModo('EDICIÓN', 'text-bg-warning');
-                uiState.modo = 'EDIT'; uiState.autoCodigo = false;
+                uiState.modo = 'EDIT';
+                uiState.autoCodigo = false;
                 lockForm(false);
-                $root.find('#btnCancelar').prop('disabled', false);
+                toggleCantidad(false); // 🔴 OCULTAR CANTIDAD (Solo se edita uno a la vez)
             });
 
             $root.on('click.activo', '#btnCancelar', function () {
-                lockForm(true);
-                setModo('BLOQUEADO', 'text-bg-secondary');
-                uiState.modo = 'LOCK'; uiState.autoCodigo = false;
-                $root.find('#btnModificar').prop('disabled', !$root.find('#idActivo').val());
-                $root.find('#btnCancelar').prop('disabled', true);
+                // Si estábamos creando, limpiamos todo. Si editábamos, volvemos a lock.
+                if (uiState.modo === 'NEW') {
+                    limpiarForm();
+                    setModo('BLOQUEADO', 'text-bg-secondary');
+                    lockForm(true);
+                } else {
+                    // Estábamos editando, solo bloqueamos (revertir cambios visuales requeriría recargar)
+                    lockForm(true);
+                    setModo('VISTA', 'text-bg-info');
+                }
             });
 
             // --- Submit ---
             $root.on('submit.activo', '#formularioActivo', async function (e) {
                 e.preventDefault();
+
+                if (!this.checkValidity()) {
+                    e.stopPropagation();
+                    this.classList.add('was-validated');
+                    return;
+                }
+
                 const id = $root.find('#idActivo').val();
-                const esModificacion = id && id.length > 0;
+                const esEdicion = (id && id !== "");
                 // 2. Seleccionar la URL del Controller correcta
-                const url = esModificacion
+                const url = esEdicion
                     ? '/administracion/activo/modificar-activo' // Endpoint para Modificación
                     : '/administracion/activo/registrar-activo'; // Endpoint para Registro Nuevo
                 const formData = new FormData(this);
-                showGlobalLoader({ texto: 'Guardando...' });
+                showGlobalLoader({ texto: esEdicion ? 'Guardando cambios...' : 'Registrando activos...' });
                 try {
                     const r = await fetch(url, { method: 'POST', body: formData });
+                    const res = await r.json();
                     hideGlobalLoader();
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
-                    let payload, msg;
-                    try {
-                        payload = await r.json();
-                        msg = payload.msg || 'Activo registrado correctamente.';
-                        console.log('ECO del servidor (activo):', payload);
-                    } catch {
-                        msg = await r.text();
+                    if (r.ok && res.ok) {
+                        Swal.fire({
+                            title: 'Éxito',
+                            text: res.msg,
+                            icon: 'success'
+                        }).then(() => {
+                            if (esEdicion) {
+                                // Volver a modo vista bloqueado
+                                lockForm(true);
+                                setModo('VISTA', 'text-bg-info');
+                            } else {
+                                // Limpiar para el siguiente
+                                limpiarForm();
+                            }
+                            // Recargar tabla si existe en la página
+                            if (window.$ && $('#data-table').length) $('#data-table').DataTable().ajax.reload(null, false);
+                        });
+                    } else {
+                        throw new Error(res.msg || 'Error desconocido');
                     }
-                    alert(msg || 'Guardado');
-                    lockForm(true);
-                    setModo('BLOQUEADO', 'text-bg-secondary');
-                    if (window.$ && $('#data-table').length) $('#data-table').DataTable().ajax.reload(null, false);
                 } catch (err) {
                     hideGlobalLoader();
-                    console.error(err);
-                    alert('Error al guardar: ' + (err.message || err));
+                    Swal.fire('Error', err.message, 'error');
                 }
             });
 
@@ -745,18 +779,49 @@
             setModo('BLOQUEADO', 'text-bg-secondary');
             initSelect2();
             lockForm(true);
+            toggleCantidad(false);
             bindEvents();
+        }
+
+        async function cargarParaEdicion(idEnc) {
+            // Simular búsqueda y clic en editar
+            showGlobalLoader({ texto: 'Cargando activo...' });
+            try {
+                const r = await fetch(`/administracion/activo/api/detalle/${encodeURIComponent(idEnc)}`);
+                if (!r.ok) throw new Error('Error al cargar datos');
+                const dto = await r.json();
+                
+                hideGlobalLoader();
+                limpiarForm();
+                fillFromDTO(dto);
+                
+                // Activar modo edición directamente
+                setModo('EDICIÓN', 'text-bg-warning');
+                uiState.modo = 'EDIT';
+                uiState.autoCodigo = false;
+                lockForm(false);
+                toggleCantidad(false); // Ocultar cantidad en edición
+                
+                // Scroll al formulario
+                $('html, body').animate({ scrollTop: $root.offset().top - 70 }, 500);
+
+            } catch (e) {
+                hideGlobalLoader();
+                Swal.fire('Error', e.message, 'error');
+            }
         }
 
         function destroy() {
             if (!$root) return;
-            $root.find('#municipioCode, #predioCode, #grupoCode, #oficinaId, #orgFinId, #responsableId, #auxiliarId')
-                .each(function () { if ($(this).data('select2')) $(this).select2('destroy'); });
+            // Destruir select2 para evitar fugas de memoria
+            $root.find('select').each(function () { 
+                if ($(this).data('select2')) $(this).select2('destroy'); 
+            });
             $root.off('.activo');
             $root = null;
         }
 
-        return { init, destroy };
+        return { init, destroy, cargarParaEdicion };
 
     })();
 </script>
