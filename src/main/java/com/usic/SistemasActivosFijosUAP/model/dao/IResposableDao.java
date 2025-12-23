@@ -144,7 +144,10 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
     Optional<Responsable> findByIdWithPersonaAndCargo(@Param("id") Long id);
 
 
-    @Query("SELECT new com.usic.SistemasActivosFijosUAP.model.dto.RespOption(r.idResponsable, r.persona.nombreCompleto) " +
+    @Query("SELECT new com.usic.SistemasActivosFijosUAP.model.dto.RespOption(" +
+       "r.idResponsable, " +
+       "CONCAT(r.persona.nombre, ' ', r.persona.paterno, ' ', COALESCE(r.persona.materno, ''))" + 
+       ") " +
        "FROM Responsable r " +
        "WHERE (:oficinaId IS NULL OR r.oficina.idOficina = :oficinaId) " +
        "AND (LOWER(r.persona.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
