@@ -40,4 +40,6 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     List<Responsable> findByPersonaId(Long idPersona);
 
     Responsable findByIdWithRelations(Long id);
+
+    Page<RespOption> searchByOficina(@Param("oficinaId") Long oficinaId, @Param("q") String q, Pageable pageable);
 }

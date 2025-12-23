@@ -228,4 +228,9 @@ public class ResponsableServiceImpl implements IResponsableService{
         return dao.findByIdWithPersonaAndCargo(id)
                 .orElse(null);
     }
+
+    @Override
+    public Page<RespOption> searchByOficina(Long oficinaId, String q, Pageable pageable) {
+        return dao.searchByOficina(oficinaId, q, pageable);
+    }
 }

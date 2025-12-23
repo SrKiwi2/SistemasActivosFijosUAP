@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.usic.SistemasActivosFijosUAP.model.dto.RespOption;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
@@ -141,4 +142,12 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
            "LEFT JOIN FETCH r.oficina o " +
            "WHERE r.idResponsable = :id")
     Optional<Responsable> findByIdWithPersonaAndCargo(@Param("id") Long id);
+
+
+    @Query("SELECT new com.usic.SistemasActivosFijosUAP.model.dto.RespOption(r.idResponsable, r.persona.nombreCompleto) " +
+       "FROM Responsable r " +
+       "WHERE (:oficinaId IS NULL OR r.oficina.idOficina = :oficinaId) " +
+       "AND (LOWER(r.persona.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+       "     LOWER(r.persona.paterno) LIKE LOWER(CONCAT('%', :q, '%')))")
+    Page<RespOption> searchByOficina(@Param("oficinaId") Long oficinaId, @Param("q") String q, Pageable pageable);
 }

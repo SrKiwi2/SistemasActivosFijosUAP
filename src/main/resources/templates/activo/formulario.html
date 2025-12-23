@@ -483,11 +483,24 @@
             $root.find('#orgFinId').select2(commonOpts);
 
             $root.find('#responsableId').select2({
-                ...commonOpts, minimumInputLength: 2,
+                ...commonOpts,
+                minimumInputLength: 0, // Permitir ver lista al hacer clic sin escribir
                 ajax: {
-                    url: '/api/buscar_responsable', delay: 250,
-                    data: p => ({ q: p.term || '', page: p.page || 1 }),
-                    processResults: (data, p) => ({ results: data.results, pagination: { more: data.pagination?.more === true } })
+                    url: '/api/buscar_responsable',
+                    delay: 250,
+                    dataType: 'json',
+                    data: function (params) {
+                        return {
+                            q: params.term || '', 
+                            page: params.page || 1,
+                            oficinaId: $root.find('#oficinaId').val() // 🟢 ENVIAR ID DE OFICINA
+                        };
+                    },
+                    processResults: (data, params) => ({
+                        results: data.results,
+                        pagination: { more: data.pagination?.more === true }
+                    }),
+                    cache: true
                 }
             });
 

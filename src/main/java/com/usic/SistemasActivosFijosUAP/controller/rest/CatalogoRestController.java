@@ -160,14 +160,16 @@ public class CatalogoRestController {
     @GetMapping("/buscar_responsable")
     public Map<String, Object> search(
             @RequestParam(name = "q", required = false, defaultValue = "") String q,
-            @RequestParam(name = "page", required = false, defaultValue = "1") int page
+            @RequestParam(name = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(name = "oficinaId", required = false) Long oficinaId // 🟢 NUEVO PARÁMETRO
     ) {
         int pageIndex = Math.max(0, page - 1);
-        int pageSize = 20; // 20 resultados por página
-        Page<RespOption> result = responsableService.search(q, PageRequest.of(pageIndex, pageSize));
+        int pageSize = 20;
+        
+        Page<RespOption> result = responsableService.searchByOficina(oficinaId, q, PageRequest.of(pageIndex, pageSize));
 
         Map<String, Object> resp = new HashMap<>();
-        resp.put("results", result.getContent()); // cada item ya tiene {id, text}
+        resp.put("results", result.getContent());
         resp.put("pagination", Map.of("more", result.hasNext()));
         return resp;
     }
