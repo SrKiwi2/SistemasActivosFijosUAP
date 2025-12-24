@@ -210,8 +210,8 @@
                             required>
                             <option value="">Seleccione…</option>
                             <option th:each="g : ${grupos}" th:value="${g.idGrupoContable}"
-                                th:data-code="${g.codContable != null ? #numbers.formatInteger(g.codContable, 2) : ''}"
-                                th:text="${g.nombre + ' (' + g.codContable + ')'}"></option>
+                                th:data-code="${g.codDbf != null ? #numbers.formatInteger(g.codDbf, 2) : ''}"
+                                th:text="${g.nombre + ' (' + g.codDbf + ')'}"></option>
                         </select>
                     </div>
                 </div>
