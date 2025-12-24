@@ -239,87 +239,6 @@
             $('#modalAsignarGestion').modal('show');
         });
 
-        function cargarComboConfiguraciones() {
-            const $sel = $('#selConfigGestion');
-            $sel.html('<option value="">Cargando...</option>');
-            
-            $.ajax({
-                url: '/api/configuracion/listar', // 🟢 AHORA SÍ EXISTIRÁ ESTA RUTA
-                method: 'GET',
-                success: function(data) {
-                    $sel.empty();
-                    if(!data || data.length === 0) {
-                        $sel.append('<option value="">No hay configuraciones registradas</option>');
-                    } else {
-                        data.forEach(c => {
-                            $sel.append(`<option value="${c.idConfig}">${c.prefijoDocumento} (${c.gestion})</option>`);
-                        });
-                    }
-                },
-                error: function() {
-                    $sel.html('<option value="">Error al cargar</option>');
-                }
-            });
-        }
-
-        function guardarNuevaConfig() {
-            const form = document.getElementById('formNuevaConfig');
-            if(!form.checkValidity()) {
-                form.reportValidity();
-                return;
-            }
-
-            // Convertir form a JSON
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData.entries());
-
-            // Botón loading visual (opcional)
-            const btn = $(event.target);
-            const txt = btn.html();
-            btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Guardando...');
-
-            $.ajax({
-                url: '/api/configuracion/crear',
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify(data),
-                success: function(res) {
-                    // Éxito: Recargar combo y volver a la pestaña "Elegir"
-                    cargarComboConfiguraciones();
-                    
-                    // Cambiar a pestaña elegir automáticamente
-                    const tabElegir = new bootstrap.Tab(document.querySelector('#tab-elegir'));
-                    tabElegir.show();
-                    
-                    // Seleccionar el nuevo (pequeño delay para asegurar que cargó el combo)
-                    setTimeout(() => {
-                        $('#selConfigGestion').val(res.idConfig);
-                    }, 500);
-
-                    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Configuración guardada', showConfirmButton: false, timer: 1500 });
-                    btn.prop('disabled', false).html(txt);
-                    form.reset();
-                },
-                error: function(err) {
-                    Swal.fire('Error', err.responseText || 'No se pudo guardar', 'error');
-                    btn.prop('disabled', false).html(txt);
-                }
-            });
-        }
-
-        // C. Actualizar visualización de la barra
-        function actualizarBarra() {
-            const total = $('.chk-item:checked').length;
-            if (total > 0) {
-                $lbl.text(total + (total === 1 ? ' seleccionado' : ' seleccionados'));
-                $barra.removeClass('d-none');
-            } else {
-                $barra.addClass('d-none');
-                $chkTodos.prop('checked', false);
-            }
-        }
-
-        // D. Evento: Click en Botón Procesar
         $('#btnProcesarMasivo').off('click').on('click', function() {
             const ids = [];
             $('.chk-item:checked').each(function() {
@@ -344,10 +263,85 @@
         });
     }
 
-    function confirmarAsignacion() {
-        // Verificar qué pestaña está activa. Si está en "Crear", forzamos elegir la existente o validamos.
-        // Asumimos que el usuario debe elegir del combo siempre.
+    function actualizarBarra() {
+        const total = $('.chk-item:checked').length;
+        const $barra = $('#barraMasiva');
+        const $lbl = $('#lblContador');
         
+        if (total > 0) {
+            $lbl.text(total + (total === 1 ? ' seleccionado' : ' seleccionados'));
+            $barra.removeClass('d-none');
+        } else {
+            $barra.addClass('d-none');
+            $('#chkTodos').prop('checked', false);
+        }
+    }
+
+    function cargarComboConfiguraciones() {
+        const $sel = $('#selConfigGestion');
+        $sel.html('<option value="">Cargando...</option>');
+        
+        $.ajax({
+            url: '/api/configuracion/listar', // 🟢 AHORA SÍ EXISTIRÁ ESTA RUTA
+            method: 'GET',
+            success: function(data) {
+                $sel.empty();
+                if(!data || data.length === 0) {
+                    $sel.append('<option value="">No hay configuraciones registradas</option>');
+                } else {
+                    data.forEach(c => {
+                        $sel.append(`<option value="${c.idConfig}">${c.prefijoDocumento} (${c.gestion})</option>`);
+                    });
+                }
+            },
+            error: function() {
+                $sel.html('<option value="">Error al cargar</option>');
+            }
+        });
+    }
+
+    function guardarNuevaConfig() {
+        const form = document.getElementById('formNuevaConfig');
+        if(!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+        // Convertir form a JSON
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        // Botón loading visual (opcional)
+        const btn = $(event.target);
+        const txt = btn.html();
+        btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Guardando...');
+        $.ajax({
+            url: '/api/configuracion/crear',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function(res) {
+                // Éxito: Recargar combo y volver a la pestaña "Elegir"
+                cargarComboConfiguraciones();
+                
+                // Cambiar a pestaña elegir automáticamente
+                const tabElegir = new bootstrap.Tab(document.querySelector('#tab-elegir'));
+                tabElegir.show();
+                
+                // Seleccionar el nuevo (pequeño delay para asegurar que cargó el combo)
+                setTimeout(() => {
+                    $('#selConfigGestion').val(res.idConfig);
+                }, 500);
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Configuración guardada', showConfirmButton: false, timer: 1500 });
+                btn.prop('disabled', false).html(txt);
+                form.reset();
+            },
+            error: function(err) {
+                Swal.fire('Error', err.responseText || 'No se pudo guardar', 'error');
+                btn.prop('disabled', false).html(txt);
+            }
+        });
+    }
+
+    function confirmarAsignacion() {
         const idConfig = $('#selConfigGestion').val();
         const nro = $('#txtNroDoc').val().trim();
         
@@ -359,13 +353,10 @@
             Swal.fire('Atención', 'Ingrese el número del documento.', 'warning');
             return;
         }
-
         const ids = [];
         $('.chk-item:checked').each(function() { ids.push($(this).val()); });
-
         $('#modalAsignarGestion').modal('hide');
         showGlobalLoader({ texto: 'Actualizando descripciones...' });
-
         $.ajax({
             url: '/administracion/activo/asignar-gestion-masiva',
             type: 'POST',
@@ -376,7 +367,7 @@
                 if(res.ok) {
                     // Si el backend devuelve IDs, generamos reporte
                     if (res.idsParaReporte) {
-                         descargarReporte(res.idsParaReporte, res.nroPreventivo);
+                        descargarReporte(res.idsParaReporte, res.nroPreventivo);
                     }
                     
                     Swal.fire('Procesado', res.msg, 'success').then(() => {
@@ -393,7 +384,20 @@
         });
     }
 
-    // E. Enviar al Backend
+    function descargarReporte(ids, nroPreventivo) {
+        var form = $('<form>', { 'action': '/reportes/generar-asignacion', 'method': 'POST', 'target': '_blank' });
+        form.append($('<input>', { 'type': 'hidden', 'name': 'nroPreventivo', 'value': nroPreventivo }));
+        
+        if (Array.isArray(ids)) {
+            ids.forEach(id => form.append($('<input>', { 'type': 'hidden', 'name': 'ids', 'value': id })));
+        } else {
+            form.append($('<input>', { 'type': 'hidden', 'name': 'ids', 'value': ids }));
+        }
+        $('body').append(form);
+        form.submit();
+        form.remove();
+    }
+
     function enviarMasivo(ids) {
         showGlobalLoader({ texto: 'Escribiendo en DBF (' + ids.length + ' registros)...' });
         
@@ -429,6 +433,22 @@
                 hideGlobalLoader();
                 Swal.fire('Error de Servidor', 'No se pudo completar la solicitud.', 'error');
             }
+        });
+    }
+
+    function initTablaPendientes() {
+        const tableSel = '#tablaRegistro #data-table';
+        if ($.fn.DataTable.isDataTable(tableSel)) $(tableSel).DataTable().destroy();
+        
+        $(tableSel).DataTable({
+            responsive: false,
+            pageLength: 10,
+            columnDefs: [
+                { targets: 0, orderable: false, width: '40px' }, // Checkbox
+                { targets: 1, orderable: false, width: '30px' }, // Numeral
+                { targets: -1, orderable: false } // Opciones
+            ],
+            language: { sProcessing: "Procesando...", sZeroRecords: "No hay pendientes", sSearch: "Buscar:", oPaginate: { sFirst: "Primero", sLast: "Último", sNext: "Sig", sPrevious: "Ant" } }
         });
     }
 
@@ -484,22 +504,6 @@
                 </div>
             </div>
         `;
-    }
-
-    function initTablaPendientes() {
-        const tableSel = '#tablaRegistro #data-table';
-        if ($.fn.DataTable.isDataTable(tableSel)) $(tableSel).DataTable().destroy();
-        
-        $(tableSel).DataTable({
-            responsive: false,
-            pageLength: 10,
-            columnDefs: [
-                { targets: 0, orderable: false, width: '40px' }, // Checkbox
-                { targets: 1, orderable: false, width: '30px' }, // Numeral
-                { targets: -1, orderable: false } // Opciones
-            ],
-            language: { sProcessing: "Procesando...", sZeroRecords: "No hay pendientes", sSearch: "Buscar:", oPaginate: { sFirst: "Primero", sLast: "Último", sNext: "Sig", sPrevious: "Ant" } }
-        });
     }
 
     // Modal individual
