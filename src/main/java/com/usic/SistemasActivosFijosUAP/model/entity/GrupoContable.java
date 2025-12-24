@@ -33,6 +33,7 @@ public class GrupoContable extends AuditoriaConfig {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idGrupoContable;
     private Integer codContable;
+    private Integer codDbf;
     private String nombre;
     private Integer vidaUtil;
     private Boolean depreciar;
