@@ -445,6 +445,60 @@ public class ActivosController {
     }
 
     @ValidarUsuarioAutenticado
+    @PostMapping("/baja-activo")
+    @ResponseBody
+    public ResponseEntity<?> baja_activo(@RequestParam("idActivo") Long idActivo, HttpServletRequest request) {
+        
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+
+        try {
+            Activo activo = activoService.findById(idActivo);
+            if (activo == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Activo no encontrado"));
+            }
+            
+            // Validar que esté ACTIVO para poder darle de baja
+            if (!"ACTIVO".equalsIgnoreCase(activo.getEstado())) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Solo se puede dar de baja activos que estén en estado ACTIVO."));
+            }
+
+            activo.setApiEstado(Short.valueOf("2")); 
+            
+            // Auditoría
+            activo.setFecMod(LocalDate.now());
+            activo.setFechaUlt(LocalDate.now());
+            activo.setUsuMod(usuarioNombre);
+            activo.setModificacion(new Date());
+            if (usuario != null) activo.setModificacionIdUsuario(usuario.getIdUsuario());
+
+            activoService.save(activo);
+            
+            // 2. Actualizar DBF
+            try {
+                // Obtenemos códigos para buscar en DBF
+                String codigo = activo.getCodigo();
+                String entidadCode = activo.getOficina().getPredio().getEntidad().getEntidadCodigo();
+                String unidadCode = activo.getOficina().getPredio().getUnidad();
+                
+                // Usamos el mismo método de actualización, ya que el objeto 'activo' ya tiene el apiEstado=2
+                actualDbfWriterService.actualizarDesdeActivo(codigo, activo, entidadCode, unidadCode, usuarioNombre);
+                
+                log.info("Activo {} dado de baja (API_ESTADO=2) en BD y DBF", codigo);
+                return ResponseEntity.ok(Map.of("ok", true, "msg", "Activo dado de baja correctamente en ambos sistemas."));
+
+            } catch (Exception e) {
+                log.error("Error sync DBF al dar de baja: {}", e.getMessage());
+                return ResponseEntity.ok(Map.of("ok", true, "msg", "Estado actualizado en BD, pero falló DBF: " + e.getMessage()));
+            }
+
+        } catch (Exception e) {
+            log.error("Error en baja activo", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
+        }
+    }
+
+    @ValidarUsuarioAutenticado
     @PostMapping("/eliminar/{id_activo}")
     public ResponseEntity<String> eliminar(Model model, @PathVariable("id_activo") String idActivo) throws Exception {
         Long id = Long.parseLong(Encriptar.decrypt(idActivo));

@@ -160,6 +160,9 @@
                 <button class="btn btn-warning" id="btnModificar" disabled>
                     <i class="fa-solid fa-pen-to-square me-1"></i> Editar
                 </button>
+                <button class="btn btn-danger" id="btnBaja" disabled title="Cambiar estado a 2 en DBF">
+                    <i class="fa-solid fa-arrow-down me-1"></i> Desaprobar
+                </button>
                 <button class="btn btn-light" id="btnCancelar" disabled>
                     <i class="fa-regular fa-circle-xmark me-1"></i> Cancelar
                 </button>
@@ -374,6 +377,7 @@
 
             const hayId = !!$root.find('#idActivo').val();
             $root.find('#btnModificar').prop('disabled', !hayId || !locked);
+            $root.find('#btnBaja').prop('disabled', !hayId || !locked);
             $root.find('#btnCancelar').prop('disabled', locked);
             $root.find('#btnRegistrar').prop('disabled', !locked);
 
@@ -692,6 +696,25 @@
                 toggleCantidad(false); // Ocultar cantidad
             });
 
+            $root.on('click.activo', '#btnBaja', function() {
+                const idActivo = $root.find('#idActivo').val();
+                if(!idActivo) return;
+
+                Swal.fire({
+                    title: '¿Dar de baja?',
+                    text: "Se cambiará el estado del activo a '2' en el archivo DBF y en el sistema.",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Sí, dar de baja'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        ejecutarBaja(idActivo);
+                    }
+                });
+            });
+
             $root.on('click.activo', '#btnCancelar', function () {
                 if (uiState.modo === 'NEW') {
                     limpiarForm();
@@ -817,6 +840,33 @@
                 cargarActivoParaEditar(idActivo);
             });
 
+        }
+
+        function ejecutarBaja(id) {
+            showGlobalLoader({ texto: 'Procesando baja...' });
+            $.ajax({
+                url: '/administracion/activo/baja-activo',
+                type: 'POST',
+                data: { idActivo: id },
+                success: function(res) {
+                    hideGlobalLoader();
+                    if(res.ok) {
+                        Swal.fire('Procesado', res.msg, 'success');
+                        // Recargar datos para ver cambios (opcional) o limpiar
+                        limpiarForm();
+                        lockForm(true);
+                        setModo('BLOQUEADO', 'text-bg-secondary');
+                        // Recargar tabla
+                        if (window.$ && $('#data-table').length) $('#data-table').DataTable().ajax.reload(null, false);
+                    } else {
+                        Swal.fire('Error', res.msg, 'error');
+                    }
+                },
+                error: function(xhr) {
+                    hideGlobalLoader();
+                    Swal.fire('Error', 'No se pudo procesar la solicitud.', 'error');
+                }
+            });
         }
 
         function init(containerSelector) {
