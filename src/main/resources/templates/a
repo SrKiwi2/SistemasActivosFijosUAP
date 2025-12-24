@@ -1841,3 +1841,7 @@ Caused by: org.hibernate.AnnotationException: Collection 'com.usic.SistemasActiv
         at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1859) ~[spring-beans-6.2.5.jar:6.2.5]
         at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1808) ~[spring-beans-6.2.5.jar:6.2.5]
         ... 20 common frames omitted
+
+ERROR 11
+
+WARN 2066211 --- [SistemasActivosFijosUAP] [nio-9696-exec-9] .w.s.m.s.DefaultHandlerExceptionResolver : Resolved [org.springframework.web.method.annotation.MethodArgumentTypeMismatchException: Method parameter 'ids': Failed to convert value of type 'java.lang.String[]' to required type 'java.util.List'; For input string: "ZoemtQmISNNUvsMmWLHUHQ=="]
