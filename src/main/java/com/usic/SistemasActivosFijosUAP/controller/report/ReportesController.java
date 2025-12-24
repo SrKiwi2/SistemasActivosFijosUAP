@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.controller.formularios.PdfAsignacionActivoCompleto;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
@@ -38,11 +39,21 @@ public class ReportesController {
 
     @PostMapping("/generar-asignacion")
     public ResponseEntity<byte[]> generarReporte(
-            @RequestParam("ids") List<Long> ids,
+            @RequestParam("ids") List<String> idsEnc,
             @RequestParam("nroPreventivo") String nroPreventivo) {
 
         try {
             // 1. Validar Activos
+            List<Long> ids = new ArrayList<>();
+            for(String enc : idsEnc) {
+                // Desencriptamos uno por uno y lo convertimos a Long
+                try {
+                    ids.add(Long.parseLong(Encriptar.decrypt(enc)));
+                } catch (Exception e) {
+                    // Si falla uno, lo ignoramos o lanzamos error (opcional)
+                    System.err.println("Error desencriptando ID: " + enc);
+                }
+            }
             List<Activo> activos = activoService.findAllById(ids);
             if(activos.isEmpty()) throw new RuntimeException("Sin activos seleccionados");
             
