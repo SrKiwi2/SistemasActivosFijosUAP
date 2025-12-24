@@ -36,6 +36,6 @@ public class AsignacionActivo extends AuditoriaConfig{
     private Responsable responsable; // A quién se le entrega (Lic. Ruth)
 
     // Relación con los activos involucrados
-    @OneToMany(mappedBy = "asignacion", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "asignacionActivo", cascade = CascadeType.ALL)
     private List<DetalleAsignacionActivo> detalles;
 }
