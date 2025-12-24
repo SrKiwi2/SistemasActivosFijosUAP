@@ -75,9 +75,9 @@ public class PdfAsignacionActivoCompleto {
         
         intro.add(new Chunk("En la ciudad de " + config.getCiudad() + " a los " + fechaLit + ", a horas " + horaLit + 
                 " en los predios de la Universidad Amazónica de Pando en presencia de la ", fontNormal));
-        intro.add(new Chunk(nombreRespActivos, fontNegrita));
+        intro.add(new Chunk("Lic. Verónica Layme Cori", fontNegrita));
         intro.add(new Chunk(" Responsable de Activos Fijos dando el visto bueno a la ", fontNormal));
-        intro.add(new Chunk(nombreReceptor, fontNegrita));
+        intro.add(new Chunk("Lic. Ruth Yoryina Espejo Cartagena", fontNegrita));
         intro.add(new Chunk(", se procedió a la ", fontNormal));
         intro.add(new Chunk("ASIGNACIÓN", fontNegrita));
         intro.add(new Chunk(" de los Activos Fijos de acuerdo a las siguientes características:", fontNormal));

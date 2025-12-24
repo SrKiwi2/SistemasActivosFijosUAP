@@ -66,9 +66,9 @@ public class ReportesController {
                 .orElseGet(() -> {
                     ConfiguracionGestion c = new ConfiguracionGestion();
                     c.setGestion(anio);
-                    c.setPrefijoDocumento("PREV."); // Por defecto
+                    c.setPrefijoDocumento("-"); // Por defecto
                     c.setCiudad("Cobija");
-                    c.setResponsableActivosNombre("Lic. Verónica Layme Cori"); // Por defecto
+                    c.setResponsableActivosNombre(resp.getPersona().getNombreCompleto()); // Por defecto
                     return configuracionGestionService.save(c);
                 });
 
