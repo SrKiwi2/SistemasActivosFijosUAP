@@ -203,23 +203,37 @@ public class PdfAsignacionActivoCompleto {
     // CLASE INTERNA PARA EL MEMBRETE EN ITEXT 5
     class MembreteEvento extends PdfPageEventHelper {
         String imgPath;
-        public MembreteEvento(String imgPath) { this.imgPath = imgPath; }
+        
+        public MembreteEvento(String imgPath) { 
+            this.imgPath = imgPath; 
+        }
 
         @Override
         public void onEndPage(PdfWriter writer, Document document) {
             try {
-                // Dibujar debajo del texto
                 PdfContentByte canvas = writer.getDirectContentUnder();
-                Image image = Image.getInstance(imgPath);
                 
+                // 2. CORRECCIÓN DE CARGA DE IMAGEN
+                // Usamos getClass().getResource() para buscar dentro del JAR/Classpath
+                java.net.URL imageUrl = getClass().getResource(this.imgPath);
+                
+                if (imageUrl == null) {
+                    // Fallback por si acaso no lo encuentra (para depuración)
+                    System.err.println("❌ No se encontró la imagen en: " + this.imgPath);
+                    return;
+                }
+
+                Image image = Image.getInstance(imageUrl);
+
                 // Escalar imagen al tamaño de la hoja (carta)
                 image.scaleAbsolute(document.getPageSize());
-                image.setAbsolutePosition(0, 0); // Desde la esquina inferior izquierda
+                image.setAbsolutePosition(0, 0); 
                 
                 canvas.addImage(image);
+
             } catch (Exception e) {
-                // Si no hay imagen, no pasa nada, sigue sin fondo
-                // e.printStackTrace(); 
+                System.err.println("Error cargando membrete: " + e.getMessage());
+                e.printStackTrace();
             }
         }
     }
