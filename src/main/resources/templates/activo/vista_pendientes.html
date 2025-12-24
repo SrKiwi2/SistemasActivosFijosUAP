@@ -55,31 +55,93 @@
 
 <div id="tablaRegistro"></div>
 
-<div class="modal fade" id="modalAsignarGestion" tabindex="-1">
-    <div class="modal-dialog modal-sm modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-warning text-dark py-2">
-                <h6 class="modal-title fw-bold">Asignar Documento</h6>
+<div class="modal fade" id="modalAsignarGestion" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning text-dark py-3">
+                <h6 class="modal-title fw-bold">
+                    <i class="fa-solid fa-file-signature me-2"></i>Asignar Documento de Gestión
+                </h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <p class="small text-muted mb-3">Se modificará la descripción de los activos seleccionados agregando este prefijo.</p>
-                
-                <div class="mb-2">
-                    <label class="form-label small fw-bold">Tipo Documento</label>
-                    <select id="selConfigGestion" class="form-select form-select-sm">
-                        <option value="">Cargando...</option>
-                    </select>
+            
+            <div class="modal-body p-4">
+                <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+                    <i class="fa-solid fa-triangle-exclamation fs-4 me-3"></i>
+                    <div>
+                        Se modificarán <strong id="lblTotalSeleccionados">0</strong> activos.
+                        <div class="small">Se agregará el prefijo a la descripción.</div>
+                    </div>
                 </div>
-                
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">Número</label>
-                    <input type="text" id="txtNroDoc" class="form-control form-control-sm fw-bold" placeholder="Ej: 5243">
+
+                <ul class="nav nav-tabs nav-fill mb-3" id="tabGestion" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active small fw-bold" id="tab-elegir" data-bs-toggle="tab" data-bs-target="#panel-elegir" type="button">
+                            <i class="fa-solid fa-list me-1"></i> Seleccionar
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link small fw-bold" id="tab-crear" data-bs-toggle="tab" data-bs-target="#panel-crear" type="button">
+                            <i class="fa-solid fa-plus me-1"></i> Crear Nuevo
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="panel-elegir">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">TIPO DE DOCUMENTO</label>
+                            <select id="selConfigGestion" class="form-select">
+                                <option value="">Cargando configuraciones...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="panel-crear">
+                        <form id="formNuevaConfig" autocomplete="off">
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <label class="form-label small fw-bold">Gestión</label>
+                                    <input type="number" class="form-control form-control-sm" name="gestion" value="2025">
+                                </div>
+                                <div class="col-8">
+                                    <label class="form-label small fw-bold">Prefijo (Ej: Prev.)</label>
+                                    <input type="text" class="form-control form-control-sm" name="prefijoDocumento" required placeholder="Ej: NOTA:">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold">Ciudad</label>
+                                    <input type="text" class="form-control form-control-sm" name="ciudad" value="Cobija">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold">Resp. Activos Fijos</label>
+                                    <input type="text" class="form-control form-control-sm" name="responsableActivosNombre" value="Lic. Verónica Layme Cori">
+                                </div>
+                                <div class="col-12 text-end mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-success w-100 fw-bold" onclick="guardarNuevaConfig()">
+                                        <i class="fa-solid fa-save me-1"></i> Guardar y Usar
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <div class="mb-1">
+                    <label class="form-label small fw-bold text-dark">NÚMERO DE DOCUMENTO</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light fw-bold"><i class="fa-solid fa-hashtag"></i></span>
+                        <input type="text" id="txtNroDoc" class="form-control fw-bold" placeholder="Ej: 5243">
+                    </div>
                 </div>
             </div>
-            <div class="modal-footer py-1">
+
+            <div class="modal-footer bg-light py-2">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-dark btn-sm" onclick="confirmarAsignacion()">Guardar Cambios</button>
+                <button type="button" class="btn btn-dark btn-sm px-4 fw-bold" onclick="confirmarAsignacion()">
+                    <i class="fa-solid fa-check me-1"></i> Aplicar Cambios
+                </button>
             </div>
         </div>
     </div>
@@ -157,22 +219,93 @@
         });
 
         $('#btnAsignarPrev').off('click').on('click', function() {
-            // Cargar combo de configuraciones vía AJAX
-            $.get('/api/configuracion/listar', function(data) {
-                const $sel = $('#selConfigGestion');
-                $sel.empty();
-                if(data.length === 0) {
-                    $sel.append('<option value="">Sin configuraciones</option>');
-                } else {
-                    data.forEach(c => {
-                        // Muestra "Prev." o "Nota:"
-                        $sel.append(`<option value="${c.idConfig}">${c.prefijoDocumento} (${c.gestion})</option>`);
-                    });
-                }
-                $('#txtNroDoc').val('');
-                $('#modalAsignarGestion').modal('show');
-            });
+            const total = $('.chk-item:checked').length;
+            if(total === 0) {
+                Swal.fire('Atención', 'Seleccione al menos un activo.', 'warning');
+                return;
+            }
+
+            // Mostrar contador
+            $('#lblTotalSeleccionados').text(total);
+            $('#txtNroDoc').val('');
+            
+            // Resetear tabs
+            const tabElegir = new bootstrap.Tab(document.querySelector('#tab-elegir'));
+            tabElegir.show();
+
+            // Cargar combo
+            cargarComboConfiguraciones();
+            
+            $('#modalAsignarGestion').modal('show');
         });
+
+        function cargarComboConfiguraciones() {
+            const $sel = $('#selConfigGestion');
+            $sel.html('<option value="">Cargando...</option>');
+            
+            $.ajax({
+                url: '/api/configuracion/listar', // 🟢 AHORA SÍ EXISTIRÁ ESTA RUTA
+                method: 'GET',
+                success: function(data) {
+                    $sel.empty();
+                    if(!data || data.length === 0) {
+                        $sel.append('<option value="">No hay configuraciones registradas</option>');
+                    } else {
+                        data.forEach(c => {
+                            $sel.append(`<option value="${c.idConfig}">${c.prefijoDocumento} (${c.gestion})</option>`);
+                        });
+                    }
+                },
+                error: function() {
+                    $sel.html('<option value="">Error al cargar</option>');
+                }
+            });
+        }
+
+        function guardarNuevaConfig() {
+            const form = document.getElementById('formNuevaConfig');
+            if(!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            // Convertir form a JSON
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            // Botón loading visual (opcional)
+            const btn = $(event.target);
+            const txt = btn.html();
+            btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Guardando...');
+
+            $.ajax({
+                url: '/api/configuracion/crear',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function(res) {
+                    // Éxito: Recargar combo y volver a la pestaña "Elegir"
+                    cargarComboConfiguraciones();
+                    
+                    // Cambiar a pestaña elegir automáticamente
+                    const tabElegir = new bootstrap.Tab(document.querySelector('#tab-elegir'));
+                    tabElegir.show();
+                    
+                    // Seleccionar el nuevo (pequeño delay para asegurar que cargó el combo)
+                    setTimeout(() => {
+                        $('#selConfigGestion').val(res.idConfig);
+                    }, 500);
+
+                    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Configuración guardada', showConfirmButton: false, timer: 1500 });
+                    btn.prop('disabled', false).html(txt);
+                    form.reset();
+                },
+                error: function(err) {
+                    Swal.fire('Error', err.responseText || 'No se pudo guardar', 'error');
+                    btn.prop('disabled', false).html(txt);
+                }
+            });
+        }
 
         // C. Actualizar visualización de la barra
         function actualizarBarra() {
@@ -212,39 +345,42 @@
     }
 
     function confirmarAsignacion() {
+        // Verificar qué pestaña está activa. Si está en "Crear", forzamos elegir la existente o validamos.
+        // Asumimos que el usuario debe elegir del combo siempre.
+        
         const idConfig = $('#selConfigGestion').val();
         const nro = $('#txtNroDoc').val().trim();
         
-        if(!idConfig || !nro) {
-            Swal.fire('Error', 'Seleccione el tipo y escriba el número.', 'warning');
+        if(!idConfig) {
+            Swal.fire('Atención', 'Seleccione un Tipo de Documento de la lista.', 'warning');
+            return;
+        }
+        if(!nro) {
+            Swal.fire('Atención', 'Ingrese el número del documento.', 'warning');
             return;
         }
 
-        // Obtener IDs seleccionados
         const ids = [];
         $('.chk-item:checked').each(function() { ids.push($(this).val()); });
 
         $('#modalAsignarGestion').modal('hide');
         showGlobalLoader({ texto: 'Actualizando descripciones...' });
-        
+
         $.ajax({
             url: '/administracion/activo/asignar-gestion-masiva',
             type: 'POST',
-            traditional: true, 
-            data: {
-                ids: ids,
-                idConfig: idConfig,
-                nroDoc: nro
-            },
+            traditional: true, // Importante para listas
+            data: { ids: ids, idConfig: idConfig, nroDoc: nro },
             success: function(res) {
                 hideGlobalLoader();
                 if(res.ok) {
+                    // Si el backend devuelve IDs, generamos reporte
                     if (res.idsParaReporte) {
                          descargarReporte(res.idsParaReporte, res.nroPreventivo);
                     }
                     
-                    Swal.fire('Actualizado', res.msg, 'success').then(() => {
-                        cargarTabla(); 
+                    Swal.fire('Procesado', res.msg, 'success').then(() => {
+                        cargarTabla();
                     });
                 } else {
                     Swal.fire('Error', res.msg, 'error');
