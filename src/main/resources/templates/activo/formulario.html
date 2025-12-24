@@ -739,45 +739,101 @@
 
                 const id = $root.find('#idActivo').val();
                 const esEdicion = (id && id !== "");
-                // 2. Seleccionar la URL del Controller correcta
                 const url = esEdicion
-                    ? '/administracion/activo/modificar-activo' // Endpoint para Modificación
-                    : '/administracion/activo/registrar-activo'; // Endpoint para Registro Nuevo
+                    ? '/administracion/activo/modificar-activo'
+                    : '/administracion/activo/registrar-activo';
+                
                 const formData = new FormData(this);
 
                 showGlobalLoader({ texto: esEdicion ? 'Guardando cambios...' : 'Registrando activos...' });
 
                 try {
-
                     const r = await fetch(url, { method: 'POST', body: formData });
                     const res = await r.json();
                     hideGlobalLoader();
 
                     if (r.ok && res.ok) {
-                        Swal.fire({
-                            title: 'Éxito',
-                            text: res.msg,
-                            icon: 'success'
-                        }).then(() => {
-                            if (esEdicion) {
-                                // Volver a modo vista bloqueado
-                                lockForm(true);
-                                setModo('VISTA', 'text-bg-info');
-                            } else {
-                                // Limpiar para el siguiente
-                                limpiarForm();
-                            }
-                            // Recargar tabla si existe en la página
-                            if (window.$ && $('#data-table').length) $('#data-table').DataTable().ajax.reload(null, false);
-                        });
+                        
+                        // CASO 1: Registro Nuevo con Reporte Automático
+                        if (res.idsParaReporte && res.idsParaReporte.length > 0) {
+                            
+                            Swal.fire({
+                                title: 'Registro Exitoso',
+                                text: 'Generando Acta de Recepción...',
+                                icon: 'success',
+                                timer: 2000,
+                                showConfirmButton: false
+                            }).then(() => {
+                                // Descargar PDF
+                                descargarReporte(res.idsParaReporte, "S/N");
+                                
+                                // Limpiar y recargar
+                                ejecutarLimpiezaPostGuardado(esEdicion);
+                            });
+
+                        } 
+                        // CASO 2: Edición o Registro sin reporte
+                        else {
+                            Swal.fire({
+                                title: 'Éxito',
+                                text: res.msg,
+                                icon: 'success'
+                            }).then(() => {
+                                ejecutarLimpiezaPostGuardado(esEdicion);
+                            });
+                        }
+
                     } else {
                         throw new Error(res.msg || 'Error desconocido');
                     }
                 } catch (err) {
                     hideGlobalLoader();
-                    Swal.fire('Error', err.message, 'error');
+                    Swal.fire('Error', err.message || 'Error de conexión', 'error');
                 }
             });
+
+            // Función auxiliar para no repetir código de limpieza
+            function ejecutarLimpiezaPostGuardado(esEdicion) {
+                if (esEdicion) {
+                    // Volver a modo vista bloqueado
+                    lockForm(true);
+                    setModo('VISTA', 'text-bg-info');
+                } else {
+                    // Limpiar para el siguiente
+                    limpiarForm();
+                    // Mantener en modo nuevo para seguir registrando rápido
+                    // (Opcional: puedes llamar a lockForm(true) si prefieres bloquear)
+                }
+                // Recargar tabla si existe
+                if (window.$ && $('#data-table').length) {
+                    $('#data-table').DataTable().ajax.reload(null, false);
+                }
+            }
+
+            function descargarReporte(ids, nroPreventivo) {
+                // Crea un formulario invisible para hacer POST y descargar el PDF
+                var form = $('<form>', {
+                    'action': '/reportes/generar-asignacion',
+                    'method': 'POST',
+                    'target': '_blank'
+                });
+
+                // Inputs ocultos
+                form.append($('<input>', { 'type': 'hidden', 'name': 'nroPreventivo', 'value': nroPreventivo }));
+                
+                // Spring acepta lista si enviamos varios inputs con el mismo nombre 'ids'
+                if (Array.isArray(ids)) {
+                    ids.forEach(function(id) {
+                        form.append($('<input>', { 'type': 'hidden', 'name': 'ids', 'value': id }));
+                    });
+                } else {
+                    form.append($('<input>', { 'type': 'hidden', 'name': 'ids', 'value': ids }));
+                }
+
+                $('body').append(form);
+                form.submit();
+                form.remove();
+            }
 
             // Función para cargar activo en el formulario para editar
             async function cargarActivoParaEditar(idActivo) {

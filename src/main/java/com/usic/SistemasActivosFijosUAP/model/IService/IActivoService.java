@@ -31,4 +31,6 @@ public interface IActivoService extends IServiceGenerico<Activo, Long>{
     Double sumaCostoPorPersona(@Param("personaId") Long personaId);
     Optional<Activo> findByOficinaAndCodigo(Oficina oficina, String codigo);
     void saveAll(List<Activo> batch);
+
+    List<Activo> findAllById(List<Long> ids);
 }

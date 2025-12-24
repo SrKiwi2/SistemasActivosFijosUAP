@@ -43,13 +43,47 @@
             <h6 class="mb-0 text-white fw-bold" id="lblContador">0 seleccionados</h6>
             <small class="text-white-50">Listos para sincronizar</small>
         </div>
+        
     </div>
+    <button id="btnAsignarPrev" class="btn btn-warning btn-sm fw-bold text-dark">
+            <i class="fa-solid fa-tag me-1"></i> Asignar Prev. / Doc.
+        </button>
     <button id="btnProcesarMasivo" class="btn btn-light btn-sm px-4 py-2 rounded-pill">
         <i class="fa-solid fa-cloud-arrow-up me-2"></i> SINCRONIZAR A DBF
     </button>
 </div>
 
 <div id="tablaRegistro"></div>
+
+<div class="modal fade" id="modalAsignarGestion" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark py-2">
+                <h6 class="modal-title fw-bold">Asignar Documento</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">Se modificará la descripción de los activos seleccionados agregando este prefijo.</p>
+                
+                <div class="mb-2">
+                    <label class="form-label small fw-bold">Tipo Documento</label>
+                    <select id="selConfigGestion" class="form-select form-select-sm">
+                        <option value="">Cargando...</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Número</label>
+                    <input type="text" id="txtNroDoc" class="form-control form-control-sm fw-bold" placeholder="Ej: 5243">
+                </div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-dark btn-sm" onclick="confirmarAsignacion()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="modalDetalleActivo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered"> 
@@ -122,6 +156,24 @@
             if (!$(this).is(':checked')) $chkTodos.prop('checked', false);
         });
 
+        $('#btnAsignarPrev').off('click').on('click', function() {
+            // Cargar combo de configuraciones vía AJAX
+            $.get('/api/configuracion/listar', function(data) {
+                const $sel = $('#selConfigGestion');
+                $sel.empty();
+                if(data.length === 0) {
+                    $sel.append('<option value="">Sin configuraciones</option>');
+                } else {
+                    data.forEach(c => {
+                        // Muestra "Prev." o "Nota:"
+                        $sel.append(`<option value="${c.idConfig}">${c.prefijoDocumento} (${c.gestion})</option>`);
+                    });
+                }
+                $('#txtNroDoc').val('');
+                $('#modalAsignarGestion').modal('show');
+            });
+        });
+
         // C. Actualizar visualización de la barra
         function actualizarBarra() {
             const total = $('.chk-item:checked').length;
@@ -156,6 +208,52 @@
                     enviarMasivo(ids);
                 }
             });
+        });
+    }
+
+    function confirmarAsignacion() {
+        const idConfig = $('#selConfigGestion').val();
+        const nro = $('#txtNroDoc').val().trim();
+        
+        if(!idConfig || !nro) {
+            Swal.fire('Error', 'Seleccione el tipo y escriba el número.', 'warning');
+            return;
+        }
+
+        // Obtener IDs seleccionados
+        const ids = [];
+        $('.chk-item:checked').each(function() { ids.push($(this).val()); });
+
+        $('#modalAsignarGestion').modal('hide');
+        showGlobalLoader({ texto: 'Actualizando descripciones...' });
+        
+        $.ajax({
+            url: '/administracion/activo/asignar-gestion-masiva',
+            type: 'POST',
+            traditional: true, 
+            data: {
+                ids: ids,
+                idConfig: idConfig,
+                nroDoc: nro
+            },
+            success: function(res) {
+                hideGlobalLoader();
+                if(res.ok) {
+                    if (res.idsParaReporte) {
+                         descargarReporte(res.idsParaReporte, res.nroPreventivo);
+                    }
+                    
+                    Swal.fire('Actualizado', res.msg, 'success').then(() => {
+                        cargarTabla(); 
+                    });
+                } else {
+                    Swal.fire('Error', res.msg, 'error');
+                }
+            },
+            error: function(e) {
+                hideGlobalLoader();
+                Swal.fire('Error', 'Fallo en el servidor', 'error');
+            }
         });
     }
 

@@ -160,4 +160,15 @@ public class ActivoServiceImpl implements IActivoService{
         return dao.listarActivosPendientes();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<Activo> findAllById(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // JpaRepository.findAllById acepta cualquier Iterable (como List)
+        return dao.findAllById(ids);
+    }
+
 }

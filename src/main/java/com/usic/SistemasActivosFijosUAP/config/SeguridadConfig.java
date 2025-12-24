@@ -27,6 +27,7 @@ public class SeguridadConfig {
                 "/administracion/**",
                 "/asignacion/**",
                 "/trasnferencia/**",
+                "/reportes/**",
                 "/ingreso/**",
                 "/reporte/**",
                 "/baja/**",

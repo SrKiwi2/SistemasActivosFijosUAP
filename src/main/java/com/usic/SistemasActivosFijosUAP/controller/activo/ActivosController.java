@@ -34,6 +34,7 @@ import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.ActualDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IConfiguracionGestionService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEstadoActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
@@ -47,6 +48,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.ActivoFormDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
+import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
@@ -80,6 +82,7 @@ public class ActivosController {
     private final IAuxiliarService auxiliarService;
     private final IEstadoActivoService estadoActivoService;
     private final ActualDbfWriterService actualDbfWriterService;
+    private final IConfiguracionGestionService configuracionGestionService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -206,6 +209,9 @@ public class ActivosController {
         List<String> codigosGenerados = new ArrayList<>();
         String codigoActualStr = activo.getCodigo(); // Ej: "01-02-03-00020"
 
+        List<String> idsReporte = new ArrayList<>();
+        List<Activo> activosGuardados = new ArrayList<>();
+
         try {
             for (int i = 0; i < cantidad; i++) {
                 // 1. CLONAR OBJETO (Crear nueva instancia basada en el formulario)
@@ -262,12 +268,19 @@ public class ActivosController {
                 // 4. GUARDAR
                 activoService.save(nuevoActivo);
                 codigosGenerados.add(nuevoActivo.getCodigo());
+                activosGuardados.add(nuevoActivo);
+            }
+
+            for (Activo a : activosGuardados) {
+                try {
+                    idsReporte.add(Encriptar.encrypt(String.valueOf(a.getIdActivo())));
+                } catch (Exception e) { /* ignorar */ }
             }
 
             Map<String, Object> ok = new LinkedHashMap<>();
             ok.put("ok", true);
-            ok.put("msg", String.format("Se registraron %d activos correctamente (Del %s al %s)", 
-                    cantidad, codigosGenerados.get(0), codigosGenerados.get(codigosGenerados.size()-1)));
+            ok.put("msg", String.format("Se registraron %d activos correctamente...", cantidad));
+            ok.put("idsParaReporte", idsReporte);
             
             return ResponseEntity.ok(ok);
         } catch (Exception e) {
@@ -495,6 +508,61 @@ public class ActivosController {
         } catch (Exception e) {
             log.error("Error en baja activo", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
+        }
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/asignar-gestion-masiva")
+    @ResponseBody
+    public ResponseEntity<?> asignarGestionMasiva(
+            @RequestParam("ids") List<String> idsEnc,
+            @RequestParam("idConfig") Long idConfig,
+            @RequestParam("nroDoc") String nroDoc) {
+
+        int actualizados = 0;
+        
+        try {
+            // 1. Obtener la Configuración (Ej: "Prev.")
+            ConfiguracionGestion config = configuracionGestionService.findById(idConfig);
+            
+            String prefijo = config.getPrefijoDocumento(); // "Prev."
+
+            // 2. Iterar y Actualizar
+            for (String enc : idsEnc) {
+                Long id = Long.parseLong(Encriptar.decrypt(enc));
+                Activo a = activoService.findById(id);
+
+                if (a != null && "PENDIENTE".equalsIgnoreCase(a.getEstado())) {
+                    
+                    // 🟢 MODIFICAR DESCRIPCIÓN EN BD
+                    // Formato: "Prev. 5243 DESCRIPCION ORIGINAL"
+                    String etiqueta = prefijo + " " + nroDoc;
+                    
+                    // Evitar duplicar si ya se asignó antes
+                    if (!a.getDescripcion().startsWith(etiqueta)) {
+                        String nuevaDesc = etiqueta + " " + a.getDescripcion();
+                        // Recortar si excede 1024 (límite de tu entidad Activo)
+                        if (nuevaDesc.length() > 1024) nuevaDesc = nuevaDesc.substring(0, 1024);
+                        
+                        a.setDescripcion(nuevaDesc);
+                        a.setFecMod(LocalDate.now());
+                        
+                        activoService.save(a); // Solo guarda en PostgreSQL
+                        actualizados++;
+                    }
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "ok", true, 
+                "msg", "Asignación correcta.",
+                "idsParaReporte", idsEnc, // Devolvemos los mismos IDs
+                "nroPreventivo", nroDoc   // Devolvemos el número nuevo
+            ));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
         }
     }
 
