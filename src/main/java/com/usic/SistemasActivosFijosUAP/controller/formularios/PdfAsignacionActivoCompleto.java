@@ -37,7 +37,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.DetalleAsignacionActivo;
 
 @Service
 public class PdfAsignacionActivoCompleto {
-    private static final String LOGO_PATH = "src/main/resources/static/assets/img/fondo/0.png";
+    private static final String LOGO_PATH = "/static/assets/img/fondo/0.jpg";
 
     public byte[] generarActaAsignacion(AsignacionActivo asignacion, ConfiguracionGestion config) throws DocumentException, IOException {
         Document document = new Document(PageSize.LETTER, 50, 50, 100, 50); // Márgenes: Izq, Der, Arr, Abj
