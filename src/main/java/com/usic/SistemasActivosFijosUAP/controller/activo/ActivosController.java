@@ -463,7 +463,7 @@ public class ActivosController {
                 return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Solo se puede dar de baja activos que estén en estado ACTIVO."));
             }
 
-            activo.setApiEstado(Short.valueOf("2")); 
+            activo.setApiEstado(Short.valueOf("1")); 
             
             // Auditoría
             activo.setFecMod(LocalDate.now());
