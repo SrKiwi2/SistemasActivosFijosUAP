@@ -2,28 +2,32 @@ package com.usic.SistemasActivosFijosUAP.model.entity;
 
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
-import jakarta.persistence.Column;
+import groovyjarjarpicocli.CommandLine.Help.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
 @Table(name = "configuracion_gestion")
 @Setter
 @Getter
-public class ConfiguracionGestion extends AuditoriaConfig{
+@NoArgsConstructor 
+public class ConfiguracionGestion{
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idConfig;
-    
-    @Column(unique = true)
+
     private Integer gestion; // 2025
     
     private String prefijoDocumento; // "PREV."
     private String ciudad; // "Cobija"
+
+    @jakarta.persistence.Column(name = "_estado")
+    private String estado;
     private String responsableActivosNombre;
 }

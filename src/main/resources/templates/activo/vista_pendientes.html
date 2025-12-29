@@ -302,41 +302,65 @@
 
     function guardarNuevaConfig() {
         const form = document.getElementById('formNuevaConfig');
-        if(!form.checkValidity()) {
+        
+        if (!form.checkValidity()) {
             form.reportValidity();
             return;
         }
-        // Convertir form a JSON
-        const formData = new FormData(form);
-        const data = Object.fromEntries(formData.entries());
-        // Botón loading visual (opcional)
-        const btn = $(event.target);
-        const txt = btn.html();
-        btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Guardando...');
+
+        const btn = event.target;
+        const txt = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+        const data = {
+            gestion: document.querySelector('input[name="gestion"]').value,
+            prefijoDocumento: document.querySelector('input[name="prefijoDocumento"]').value,
+            ciudad: document.querySelector('input[name="ciudad"]').value,
+            responsableActivosNombre: document.querySelector('input[name="responsableActivosNombre"]').value
+        };
+
+        console.log('📤 Enviando:', data);
+
         $.ajax({
             url: '/api/configuracion/crear',
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(data),
+            type: 'POST',
+            data: data,
+            dataType: 'json',
             success: function(res) {
-                // Éxito: Recargar combo y volver a la pestaña "Elegir"
+                console.log('✅ Éxito:', res);
+                
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: 'Guardado exitosamente',
+                    showConfirmButton: false,
+                    timer: 1500
+                });
+
                 cargarComboConfiguraciones();
                 
-                // Cambiar a pestaña elegir automáticamente
-                const tabElegir = new bootstrap.Tab(document.querySelector('#tab-elegir'));
-                tabElegir.show();
-                
-                // Seleccionar el nuevo (pequeño delay para asegurar que cargó el combo)
                 setTimeout(() => {
+                    const tab = new bootstrap.Tab(document.querySelector('#tab-elegir'));
+                    tab.show();
                     $('#selConfigGestion').val(res.idConfig);
-                }, 500);
-                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Configuración guardada', showConfirmButton: false, timer: 1500 });
-                btn.prop('disabled', false).html(txt);
+                }, 300);
+
                 form.reset();
+                btn.disabled = false;
+                btn.innerHTML = txt;
             },
             error: function(err) {
-                Swal.fire('Error', err.responseText || 'No se pudo guardar', 'error');
-                btn.prop('disabled', false).html(txt);
+                console.error('❌ Error:', err);
+                
+                let msg = 'Error desconocido';
+                if (err.responseJSON?.error) msg = err.responseJSON.error;
+                else if (err.responseText) msg = err.responseText;
+
+                Swal.fire('Error', msg, 'error');
+                btn.disabled = false;
+                btn.innerHTML = txt;
             }
         });
     }

@@ -1,76 +1,220 @@
 <style>
-    #data-table { font-size: .85rem; }
-    #data-table th, #data-table td { padding: .35rem .5rem; vertical-align: middle; }
-    #data-table tbody tr:nth-child(even) { background-color: rgba(0, 0, 0, .02); }
-    #data-table tbody tr:hover { background-color: rgba(0, 0, 0, .04); }
-    
-    .desc-2lines {
-        max-width: 480px;
-        white-space: normal;
-        overflow: hidden;
+    /* Estilos Generales de la Tabla */
+    .table-container {
+        border-radius: 0.75rem;
+        box-shadow: 0 2px 15px rgba(67, 89, 113, 0.06);
+        background: #fff;
+        overflow: hidden; /* Para que los bordes redondeados funcionen */
+    }
+
+    #data-table {
+        font-size: 0.875rem;
+        margin-bottom: 0; /* Quitar margen inferior default de DataTables */
+        width: 100% !important;
+    }
+
+    #data-table thead th {
+        background-color: #f5f7fa;
+        color: #566a7f;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #eceef1;
+        padding: 1rem 0.75rem;
+        white-space: nowrap;
+    }
+
+    #data-table tbody td {
+        padding: 0.85rem 0.75rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #ebecef;
+        color: #697a8d;
+    }
+
+    #data-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    #data-table tbody tr {
+        transition: background-color 0.2s ease;
+    }
+
+    #data-table tbody tr:hover {
+        background-color: #f8f9fa !important; /* Resaltado sutil al pasar el mouse */
+    }
+
+    /* Columna de Checkbox */
+    .col-check { width: 40px; text-align: center; }
+    .chk-masivo { 
+        cursor: pointer; 
+        width: 1.2em; 
+        height: 1.2em; 
+        border-color: #d9dee3;
+    }
+    .chk-masivo:checked {
+        background-color: #696cff;
+        border-color: #696cff;
+    }
+
+    /* Columna ID y Fechas (Monospace para alineación) */
+    .col-id, .col-date { font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif; font-variant-numeric: tabular-nums; }
+    .col-code { font-weight: 700; color: #696cff !important; letter-spacing: 0.3px; }
+
+    /* Columna Descripción Mejorada */
+    .desc-cell {
+        min-width: 250px;
+        max-width: 400px;
+    }
+    .desc-content {
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: normal;
+        line-height: 1.4;
+        color: #566a7f;
     }
-    .btn-xxs { padding: .2rem .45rem; font-size: .75rem; }
-    .form-check-input.chk-masivo { cursor: pointer; width: 1.1em; height: 1.1em; margin: 0 auto; }
+    
+    /* Avatares y Nombres */
+    .user-info { display: flex; align-items: center; gap: 0.5rem; }
+    .user-icon { 
+        width: 32px; height: 32px; 
+        background: rgba(105, 108, 255, 0.1); 
+        color: #696cff; 
+        border-radius: 50%; 
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.8rem;
+    }
+
+    /* Badges de Estado Modernos */
+    .badge-status {
+        padding: 0.4em 0.8em;
+        font-weight: 600;
+        font-size: 0.75rem;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .badge-pending { background-color: #fff2d6; color: #ffab00; }
+    .badge-active { background-color: #e8fadf; color: #71dd37; }
+    .badge-default { background-color: #f2f2f6; color: #8592a3; }
+
+    /* Botones de Acción */
+    .btn-action {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 6px;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    .btn-action:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(105, 108, 255, 0.25);
+    }
 </style>
 
-<div class="card">
-    <div class="card-datatable table-responsive pt-0 px-3" style="width:100%;">
-        <table class="table table-hover nowrap" id="data-table" style="width:100%;">
+<div class="card table-container animate__animated animate__fadeIn">
+    <div class="card-datatable table-responsive pt-0">
+        <table class="table table-hover align-middle" id="data-table">
             <thead>
                 <tr>
-                    <th style="width: 40px;" class="text-center">
-                        <input class="form-check-input chk-masivo" type="checkbox" id="chkTodos" title="Seleccionar todos">
+                    <th class="col-check no-sort">
+                        <input class="form-check-input chk-masivo" type="checkbox" id="chkTodos" title="Seleccionar todos los items visibles">
                     </th>
-                    <th style="min-width:40px;">#</th>
-                    <th>Código</th>
-                    <th>Descripción</th>
-                    <th>Responsable</th>
-                    <th>Oficina</th>
-                    <th>Fecha Adq.</th>
+                    <th class="col-id" style="width: 50px;">#</th>
+                    <th>Activo</th>
+                    <th>Detalle / Descripción</th>
+                    <th>Asignado A</th>
+                    <th>Ubicación</th>
                     <th>Estado</th>
-                    <th class="text-center">Opciones</th>
+                    <th class="text-center no-sort" style="width: 100px;">Acción</th>
                 </tr>
             </thead>
-            <tbody class="animate__animated animate__bounceInDown">
+            <tbody>
                 <tr th:each="lisAcP, index: ${listaActivosPendientes}">
                     
-                    <td class="text-center">
+                    <td class="col-check text-center">
                         <input class="form-check-input chk-masivo chk-item" type="checkbox" 
                                th:value="${id_encryptado[__${index.index}__]}">
                     </td>
 
-                    <td th:text="${index.index+1}"></td>
-
-                    <td class="fw-semibold text-primary" th:text="${lisAcP.codigo}"></td>
+                    <td class="col-id text-muted" th:text="${index.index+1}">1</td>
 
                     <td>
-                        <div class="desc-2lines" th:attr="title=${lisAcP.descripcion}" data-bs-toggle="tooltip"
-                            th:text="${lisAcP.descripcion}">...</div>
+                        <div class="d-flex flex-column">
+                            <span class="col-code" th:text="${lisAcP.codigo}">ACT-001</span>
+                            <small class="text-muted col-date">
+                                <i class="fa-regular fa-calendar me-1" style="font-size: 0.75em;"></i>
+                                <span th:text="${lisAcP.fechaAdquisicion}">2024-01-01</span>
+                            </small>
+                        </div>
                     </td>
 
-                    <td th:text="${lisAcP.responsable?.persona?.nombre}"></td>
-
-                    <td th:text="${lisAcP.oficina?.nombre}"></td>
-
-                    <td th:text="${lisAcP.fechaAdquisicion}"></td>
+                    <td class="desc-cell">
+                        <div class="desc-content" 
+                             data-bs-toggle="tooltip" 
+                             data-bs-placement="top" 
+                             th:attr="title=${lisAcP.descripcion}" 
+                             th:text="${lisAcP.descripcion}">
+                            Descripción larga del activo...
+                        </div>
+                    </td>
 
                     <td>
-                        <span class="badge" th:classappend="${lisAcP.estado}=='PENDIENTE' ? ' text-bg-warning' :
-                                  (${lisAcP.estado}=='ACTIVO' ? ' text-bg-success' : ' text-bg-secondary')"
-                            th:text="${lisAcP.estado}">—</span>
+                        <div class="user-info" th:if="${lisAcP.responsable?.persona?.nombre != null}">
+                            <div class="user-icon">
+                                <i class="fa-solid fa-user"></i>
+                            </div>
+                            <div class="d-flex flex-column" style="max-width: 160px;">
+                                <span class="fw-medium text-truncate" th:text="${lisAcP.responsable?.persona?.nombre}">Nombre</span>
+                                <small class="text-muted" style="font-size: 0.7em;">Responsable</small>
+                            </div>
+                        </div>
+                        <span th:unless="${lisAcP.responsable?.persona?.nombre != null}" class="text-muted fst-italic small">Sin asignar</span>
+                    </td>
+
+                    <td>
+                        <div class="d-flex align-items-center text-truncate" style="max-width: 150px;">
+                            <i class="fa-solid fa-building text-muted me-2 small"></i>
+                            <span th:text="${lisAcP.oficina?.nombre}">Oficina Central</span>
+                        </div>
+                    </td>
+
+                    <td>
+                        <span class="badge badge-status" 
+                              th:classappend="${lisAcP.estado}=='PENDIENTE' ? 'badge-pending' : (${lisAcP.estado}=='ACTIVO' ? 'badge-active' : 'badge-default')">
+                            <i class="fa-solid fa-circle me-1" style="font-size: 0.6em;"></i>
+                            <span th:text="${lisAcP.estado}">ESTADO</span>
+                        </span>
                     </td>
 
                     <td class="text-center">
-                        <button type="button" class="btn btn-xxs btn-outline-primary btn-ver"
-                            th:attr="data-id=${id_encryptado[__${index.index}__]}">
-                            <i class="fa-regular fa-eye me-1"></i> Ver
+                        <button type="button" class="btn btn-outline-primary btn-action btn-ver"
+                                th:attr="data-id=${id_encryptado[__${index.index}__]}">
+                            <i class="fa-regular fa-eye"></i> Ver
                         </button>
                     </td>
                 </tr>
             </tbody>
         </table>
     </div>
+    
+    <div th:if="${#lists.isEmpty(listaActivosPendientes)}" class="text-center py-5">
+        <div class="mb-3">
+            <i class="fa-solid fa-box-open fs-1 text-muted opacity-50"></i>
+        </div>
+        <h6 class="text-muted">No hay activos pendientes por revisar.</h6>
+    </div>
 </div>
+
+<script>
+    // Inicializar tooltips de Bootstrap para las descripciones largas
+    $(function () {
+        $('[data-bs-toggle="tooltip"]').tooltip();
+    });
+</script>

@@ -15,12 +15,14 @@ import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @MappedSuperclass
 @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 @Setter
 @Getter
+@NoArgsConstructor
 public abstract class AuditoriaConfig implements Serializable{
     private static final long serialVersionUID = 2629195288020321924L;
     @Temporal(TemporalType.TIMESTAMP)
