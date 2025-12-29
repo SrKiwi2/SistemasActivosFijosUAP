@@ -40,7 +40,9 @@ public class PdfAsignacionActivoCompleto {
     private static final String LOGO_PATH = "/static/assets/img/fondo/0.jpg";
 
     public byte[] generarActaAsignacion(AsignacionActivo asignacion, ConfiguracionGestion config) throws DocumentException, IOException {
-        Document document = new Document(PageSize.LETTER, 50, 50, 100, 50); // Márgenes: Izq, Der, Arr, Abj
+        
+        Document document = new Document(PageSize.LETTER, 50, 50, 85, 40); // Márgenes: Izq, Der, Arr, Abj
+        
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfWriter writer = PdfWriter.getInstance(document, baos);
 
@@ -50,28 +52,31 @@ public class PdfAsignacionActivoCompleto {
         document.open();
 
         // Fuentes
-        Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14, Font.UNDERLINE);
-        Font fontNegrita = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
-        Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 11);
-        Font fontTablaHeader = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+        Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13, Font.UNDERLINE);
+        Font fontNegrita = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
+        Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 10);
+
+        Font fontCursiva = FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 10);
+
+        Font fontTablaHeader = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
         Font fontTablaBody = FontFactory.getFont(FontFactory.HELVETICA, 8);
-        Font fontPie = FontFactory.getFont(FontFactory.HELVETICA, 7);
+        Font fontPie = FontFactory.getFont(FontFactory.HELVETICA, 6);
 
         // 1. TÍTULO
         Paragraph titulo = new Paragraph("ACTA DE ASIGNACIÓN INDIVIDUAL\nDE BIENES NUEVOS-" + config.getGestion(), fontTitulo);
         titulo.setAlignment(Element.ALIGN_CENTER);
-        titulo.setSpacingAfter(20);
+        titulo.setSpacingAfter(15);
         document.add(titulo);
 
         // 2. PÁRRAFO DE INTRODUCCIÓN
         String fechaLit = obtenerFechaLiteral(asignacion.getFechaAsignacion());
         String horaLit = asignacion.getFechaAsignacion().format(DateTimeFormatter.ofPattern("HH:mm a"));
-        String nombreRespActivos = config.getResponsableActivosNombre();
-        String nombreReceptor = asignacion.getResponsable().getPersona().getNombreCompleto(); // Concatenar en entidad o aquí
+        String nombreReceptor = asignacion.getResponsable().getPersona().getNombreCompleto();
 
         Paragraph intro = new Paragraph();
         intro.setAlignment(Element.ALIGN_JUSTIFIED);
-        intro.setSpacingAfter(10);
+        intro.setLeading(12f);
+        intro.setSpacingAfter(8);
         
         intro.add(new Chunk("En la ciudad de " + config.getCiudad() + " a los " + fechaLit + ", a horas " + horaLit + 
                 " en los predios de la Universidad Amazónica de Pando en presencia de la ", fontNormal));
@@ -84,20 +89,20 @@ public class PdfAsignacionActivoCompleto {
         document.add(intro);
 
         // 3. NÚMERO PREVENTIVO (El que guardamos)
-        // Ejemplo: "PREV. 1234"
         String textoCodigo = (asignacion.getCodigoCompleto() != null && !asignacion.getCodigoCompleto().isBlank()) 
                          ? asignacion.getCodigoCompleto() 
                          : "-"; // O dejar vacío ""
 
         Paragraph pPrev = new Paragraph(textoCodigo, fontNegrita);
-        pPrev.setSpacingAfter(10);
+        pPrev.setSpacingAfter(6);
         document.add(pPrev);
 
         // 4. TABLA DE ACTIVOS
         PdfPTable table = new PdfPTable(5); // 5 Columnas
         table.setWidthPercentage(100);
         // Anchos relativos: Item(5%), Desc(40%), Ubic(20%), Cod(20%), Est(15%)
-        table.setWidths(new float[]{7f, 43f, 20f, 20f, 10f}); 
+        table.setWidths(new float[]{7f, 43f, 22f, 19, 9f}); 
+        table.setSpacingAfter(10);
 
         // Cabeceras
         agregarCeldaHeader(table, "Item", fontTablaHeader);
@@ -123,11 +128,12 @@ public class PdfAsignacionActivoCompleto {
 
         // 5. DATOS DEL RESPONSABLE (AL:)
         Paragraph pAl = new Paragraph("Al:", fontNormal);
-        pAl.setSpacingBefore(10);
+        pAl.setSpacingBefore(5);
         document.add(pAl);
 
         Paragraph pDatosResp = new Paragraph();
         pDatosResp.setAlignment(Element.ALIGN_CENTER);
+        pDatosResp.setLeading(11f);
         pDatosResp.setSpacingAfter(10);
         pDatosResp.add(new Chunk(nombreReceptor + "C.I: " +  asignacion.getResponsable().getPersona().getCi() +"\n", fontTablaBody));
         
@@ -145,7 +151,7 @@ public class PdfAsignacionActivoCompleto {
 
         Paragraph constancia = new Paragraph("Para constancia de la recepción firmamos al pie del presente documento.", fontNormal);
         constancia.setAlignment(Element.ALIGN_JUSTIFIED);
-        constancia.setSpacingAfter(40); // Espacio para firmar
+        constancia.setSpacingAfter(20); // Espacio para firmar
         document.add(constancia);
 
         // 7. FIRMAS (Tabla invisible)
