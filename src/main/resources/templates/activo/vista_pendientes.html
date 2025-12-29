@@ -282,7 +282,7 @@
         $sel.html('<option value="">Cargando...</option>');
         
         $.ajax({
-            url: '/api/configuracion/listar', // 🟢 AHORA SÍ EXISTIRÁ ESTA RUTA
+            url: '/api/configuracion/listar',
             method: 'GET',
             success: function(data) {
                 $sel.empty();

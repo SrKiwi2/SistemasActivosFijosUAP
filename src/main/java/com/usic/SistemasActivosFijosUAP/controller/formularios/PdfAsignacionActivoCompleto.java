@@ -97,7 +97,7 @@ public class PdfAsignacionActivoCompleto {
         PdfPTable table = new PdfPTable(5); // 5 Columnas
         table.setWidthPercentage(100);
         // Anchos relativos: Item(5%), Desc(40%), Ubic(20%), Cod(20%), Est(15%)
-        table.setWidths(new float[]{5f, 40f, 20f, 20f, 15f}); 
+        table.setWidths(new float[]{7f, 43f, 20f, 20f, 10f}); 
 
         // Cabeceras
         agregarCeldaHeader(table, "Item", fontTablaHeader);
@@ -129,11 +129,10 @@ public class PdfAsignacionActivoCompleto {
         Paragraph pDatosResp = new Paragraph();
         pDatosResp.setAlignment(Element.ALIGN_CENTER);
         pDatosResp.setSpacingAfter(10);
-        pDatosResp.add(new Chunk(nombreReceptor + "\n", fontNormal));
-        pDatosResp.add(new Chunk(asignacion.getResponsable().getPersona().getCi() + "\n", fontNormal));
+        pDatosResp.add(new Chunk(nombreReceptor + "C.I: " +  asignacion.getResponsable().getPersona().getCi() +"\n", fontTablaBody));
         
         String cargo = (asignacion.getResponsable().getCargo() != null) ? asignacion.getResponsable().getCargo().getNombre() : "";
-        pDatosResp.add(new Chunk(cargo, fontNegrita));
+        pDatosResp.add(new Chunk(cargo, fontTablaBody));
         document.add(pDatosResp);
 
         // 6. PÁRRAFO LEGAL

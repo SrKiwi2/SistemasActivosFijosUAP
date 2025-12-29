@@ -40,4 +40,9 @@ public class ConfiguracionGestionServiceImpl implements IConfiguracionGestionSer
     public Optional<ConfiguracionGestion> findByGestion(Integer gestion) {
         return dao.findByGestion(gestion);
     }
+
+    @Override
+    public ConfiguracionGestion findByPrefijoDocumento(String PrefijoDocumento) {
+        return dao.findByPrefijoDocumento(PrefijoDocumento);
+    }
 }

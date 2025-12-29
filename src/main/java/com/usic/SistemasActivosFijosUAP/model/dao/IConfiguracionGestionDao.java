@@ -8,4 +8,5 @@ import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
 
 public interface IConfiguracionGestionDao extends JpaRepository<ConfiguracionGestion, Long> {
     Optional<ConfiguracionGestion> findByGestion(Integer gestion);
+    ConfiguracionGestion findByPrefijoDocumento(String PrefijoDocumento);
 }

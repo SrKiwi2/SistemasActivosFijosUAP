@@ -13,7 +13,8 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "configuracion_gestion")
-@Setter @Getter
+@Setter
+@Getter
 public class ConfiguracionGestion extends AuditoriaConfig{
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
