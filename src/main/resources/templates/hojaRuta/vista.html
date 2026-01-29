@@ -653,6 +653,25 @@
             background-color: var(--uap-blue);
             color: white;
         }
+
+        .input-group .btn-outline-primary {
+            border-color: var(--border-color);
+            color: var(--color-primary);
+        }
+
+        .input-group .btn-outline-primary:hover {
+            background-color: var(--color-primary);
+            color: white;
+        }
+
+        .swal-on-top {
+    z-index: 10000 !important;
+}
+
+.swal2-container {
+    z-index: 10000 !important;
+}
+
     </style>
 </head>
 
@@ -733,7 +752,7 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Gestión</label>
-                        <input type="number" id="filtroGestion" class="form-control" placeholder="2025" min="2020"
+                        <input type="number" id="filtroGestion" class="form-control" placeholder="Intorduce un año" min="2020"
                             max="2030" />
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
@@ -844,13 +863,18 @@
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Solicitante <span class="text-danger">*</span></label>
-                                    <select id="hrSolicitante" name="solicitanteId" class="form-select select2"
-                                        required>
-                                        <option value="">Seleccionar</option>
-                                        <option th:each="sol : ${listaSolicitantes}" th:value="${sol.idSolicitante}"
-                                            th:text="${sol.nombre + ' - ' + sol.cargo}"></option>
-                                    </select>
+                                    <div class="input-group">
+                                        <select id="hrSolicitante" name="solicitanteId" class="form-select select2" required>
+                                            <option value="">Seleccionar</option>
+                                            <option th:each="sol : ${listaSolicitantes}" th:value="${sol.idSolicitante}"
+                                                th:text="${sol.nombre + ' - ' + sol.cargo}"></option>
+                                        </select>
+                                        <button type="button" class="btn btn-outline-primary" onclick="abrirModalNuevoSolicitante()" title="Nuevo Solicitante">
+                                            <i class='bx bx-plus'></i>
+                                        </button>
+                                    </div>
                                 </div>
+
                                 <div class="col-md-6">
                                     <label class="form-label">Unidad Origen <span class="text-danger">*</span></label>
                                     <select id="hrUnidadOrigen" name="unidadOrigenId" class="form-select select2"
@@ -895,6 +919,39 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal de registrar nuevo solicitante -->
+        <div class="modal" id="modalNuevoSolicitante">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Nuevo Solicitante</h5>
+                        <button type="button" class="btn-close" onclick="cerrarModal('modalNuevoSolicitante')">&times;</button>
+                    </div>
+                    <form id="formNuevoSolicitante">
+                        <div class="modal-body">
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                                    <input type="text" id="solNombre" name="nombre" class="form-control" required placeholder="Nombre completo del solicitante" />
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">Cargo <span class="text-danger">*</span></label>
+                                    <input type="text" id="solCargo" name="cargo" class="form-control" required placeholder="Cargo o función" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" onclick="cerrarModal('modalNuevoSolicitante')">Cancelar</button>
+                            <button type="submit" class="btn btn-success">
+                                <i class='bx bx-save'></i> Guardar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
 
         <!-- Modal Movimiento -->
         <div class="modal" id="modalMovimiento">
@@ -1288,6 +1345,105 @@
                 error: () => Swal.fire("Error", "Ocurrió un error al guardar", "error")
             });
         });
+
+        // Abrir modal de nuevo solicitante
+function abrirModalNuevoSolicitante() {
+    $("#formNuevoSolicitante")[0].reset();
+    $("#modalNuevoSolicitante").addClass("show");
+}
+
+// Guardar nuevo solicitante
+$("#formNuevoSolicitante").on("submit", function (e) {
+    e.preventDefault();
+    
+    if (!this.checkValidity()) {
+        $(this).addClass("was-validated");
+        return;
+    }
+
+    $.ajax({
+        type: "POST",
+        url: "/administracion/hoja-ruta/solicitante/registrar",
+        data: $(this).serialize(),
+        success: function (response) {
+            if (response.ok) {
+                cerrarModal("modalNuevoSolicitante");
+                Swal.fire({
+                    title: "Éxito",
+                    text: response.msg,
+                    icon: "success",
+                    timer: 1500,
+                    showConfirmButton: false,
+                    customClass: {
+                        container: 'swal-on-top'
+                    }
+                });
+                
+                // Recargar lista de solicitantes y seleccionar el nuevo
+                recargarSolicitantes(response.idSolicitante);
+            } else {
+                cerrarModal("modalNuevoSolicitante");
+                Swal.fire({
+                    title: "Error",
+                    text: response.msg,
+                    icon: "error",
+                    customClass: {
+                        container: 'swal-on-top'
+                    }
+                });
+            }
+        },
+        error: function(xhr) {
+            // Cerrar modal antes de mostrar error
+            cerrarModal("modalNuevoSolicitante");
+            
+            let mensajeError = "Ocurrió un error al guardar el solicitante";
+            
+            // Intentar extraer mensaje del servidor
+            if (xhr.responseJSON && xhr.responseJSON.msg) {
+                mensajeError = xhr.responseJSON.msg;
+            }
+            
+            Swal.fire({
+                title: "Error",
+                text: mensajeError,
+                icon: "error",
+                customClass: {
+                    container: 'swal-on-top'
+                }
+            });
+        }
+    });
+});
+
+// Recargar select de solicitantes
+function recargarSolicitantes(idNuevo) {
+    $.ajax({
+        type: "GET",
+        url: "/administracion/hoja-ruta/solicitante/listar",
+        success: function (response) {
+            if (response.ok) {
+                // Limpiar select
+                $("#hrSolicitante").empty();
+                $("#hrSolicitante").append('<option value="">Seleccionar</option>');
+                
+                // Agregar opciones
+                response.solicitantes.forEach(function(sol) {
+                    $("#hrSolicitante").append(
+                        `<option value="${sol.idSolicitante}">${sol.nombre} - ${sol.cargo}</option>`
+                    );
+                });
+                
+                // Seleccionar el nuevo solicitante
+                if (idNuevo) {
+                    $("#hrSolicitante").val(idNuevo).trigger("change");
+                }
+            }
+        },
+        error: () => console.error("Error al recargar solicitantes")
+    });
+}
+
 
         function cerrarModal(modalId) {
             $("#" + modalId).removeClass("show");

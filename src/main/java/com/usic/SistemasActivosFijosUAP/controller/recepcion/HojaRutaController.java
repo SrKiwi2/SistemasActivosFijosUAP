@@ -443,4 +443,82 @@ public class HojaRutaController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
+
+    // Registrar nuevo solicitante
+    @ValidarUsuarioAutenticado
+    @PostMapping("/solicitante/registrar")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> registrarSolicitante(
+            HttpServletRequest request,
+            @RequestParam("nombre") String nombre,
+            @RequestParam("cargo") String cargo) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            // Validar que no esté vacío
+            if (nombre == null || nombre.trim().isEmpty() || cargo == null || cargo.trim().isEmpty()) {
+                response.put("ok", false);
+                response.put("msg", "Nombre y cargo son obligatorios");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            // Crear solicitante
+            Solicitante solicitante = new Solicitante();
+            solicitante.setNombre(nombre.trim());
+            solicitante.setCargo(cargo.trim());
+            solicitante.setEstado("ACTIVO");
+            
+            // Auditoría
+            Usuario usuarioLogueado = (Usuario) request.getSession().getAttribute("usuario");
+            solicitante.setRegistroIdUsuario(usuarioLogueado.getIdUsuario());
+            
+            // Guardar
+            solicitanteService.save(solicitante);
+            
+            response.put("ok", true);
+            response.put("msg", "Solicitante registrado correctamente");
+            response.put("idSolicitante", solicitante.getIdSolicitante());
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("ok", false);
+            response.put("msg", "Error al registrar: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    // Listar solicitantes (para recargar select)
+    @ValidarUsuarioAutenticado
+    @GetMapping("/solicitante/listar")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> listarSolicitantes() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            List<Solicitante> solicitantes = solicitanteService.findAll();
+            
+            List<Map<String, Object>> solicitantesData = new ArrayList<>();
+            for (Solicitante sol : solicitantes) {
+                Map<String, Object> solData = new HashMap<>();
+                solData.put("idSolicitante", sol.getIdSolicitante());
+                solData.put("nombre", sol.getNombre());
+                solData.put("cargo", sol.getCargo());
+                solicitantesData.add(solData);
+            }
+            
+            response.put("ok", true);
+            response.put("solicitantes", solicitantesData);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            response.put("ok", false);
+            response.put("msg", "Error al listar: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
 }
