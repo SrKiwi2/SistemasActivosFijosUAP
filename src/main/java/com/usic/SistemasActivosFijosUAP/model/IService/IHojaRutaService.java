@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.data.repository.query.Param;
 
+import com.usic.SistemasActivosFijosUAP.model.dto.HojaRutaTablaDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.HojaRuta;
 
 public interface IHojaRutaService extends IServiceGenerico<HojaRuta, Long> {
@@ -15,4 +16,8 @@ public interface IHojaRutaService extends IServiceGenerico<HojaRuta, Long> {
     List<HojaRuta> findByGestionAndTipo(@Param("gestion") Integer gestion, @Param("tipo") String tipo);
     List<HojaRuta> findByDescripcionContaining(@Param("descripcion") String descripcion);
     HojaRuta findByTipoAndCodigoAndGestion(String tipo, String codigo, Integer gestion);
+    List<HojaRutaTablaDTO> listarFiltrados(
+        @Param("gestion") Integer gestion,
+        @Param("unidadOrigenId") Long unidadOrigenId
+    );
 }
