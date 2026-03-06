@@ -144,13 +144,24 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
     Optional<Responsable> findByIdWithPersonaAndCargo(@Param("id") Long id);
 
 
-    @Query("SELECT new com.usic.SistemasActivosFijosUAP.model.dto.RespOption(" +
-       "r.idResponsable, " +
-       "CONCAT(r.persona.nombre, ' ', r.persona.paterno, ' ', COALESCE(r.persona.materno, ''))" + 
-       ") " +
-       "FROM Responsable r " +
-       "WHERE (:oficinaId IS NULL OR r.oficina.idOficina = :oficinaId) " +
-       "AND (LOWER(r.persona.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
-       "     LOWER(r.persona.paterno) LIKE LOWER(CONCAT('%', :q, '%')))")
+   @Query("SELECT new com.usic.SistemasActivosFijosUAP.model.dto.RespOption(" +
+           "r.idResponsable, " +
+           "CONCAT(p.nombre, ' ', p.paterno, ' ', COALESCE(p.materno, ''))" + 
+           ") " +
+           "FROM Responsable r JOIN r.persona p " +
+           "WHERE r.oficina.idOficina = :oficinaId " +
+           "AND (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "     LOWER(p.paterno) LIKE LOWER(CONCAT('%', :q, '%')))")
     Page<RespOption> searchByOficina(@Param("oficinaId") Long oficinaId, @Param("q") String q, Pageable pageable);
+
+    @Query("SELECT new com.usic.SistemasActivosFijosUAP.model.dto.RespOption(" +
+           "r.idResponsable, " +
+           "CONCAT(p.nombre, ' ', p.paterno, ' ', COALESCE(p.materno, ''))" + // Usar nombre completo también aquí
+           ") " +
+           "FROM Responsable r JOIN r.persona p " +
+           "WHERE (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "       LOWER(p.paterno) LIKE LOWER(CONCAT('%', :q, '%')))")
+    Page<RespOption> searchGlobal(@Param("q") String q, Pageable pageable);
+
+    List<Responsable> findByOficinaIdOficina(Long idOficina);
 }

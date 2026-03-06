@@ -32,4 +32,6 @@ public interface IOficinaService extends IServiceGenerico<Oficina, Long>{
                                                    @Param("codOfi") Short codOfi);
 
     Short findNextCodOfiByPredioId(@Param("idPredio") Long idPredio);
+
+    List<Oficina> findByPredioIdPredio(Long idPredio);
 }

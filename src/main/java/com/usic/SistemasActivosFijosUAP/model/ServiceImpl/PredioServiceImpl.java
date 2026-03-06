@@ -65,4 +65,9 @@ public class PredioServiceImpl implements IPredioServicio{
     public List<Predio> buscarPorQ(String q) {
         return dao.buscarPorQ(q);
     }
+
+    @Override
+    public List<Predio> findByMunicipioIdMunicipio(Long idMunicipio) {
+        return dao.findByMunicipioIdMunicipio(idMunicipio);
+    }
 }

@@ -41,8 +41,7 @@ public class PdfAsignacionActivoCompleto {
 
     public byte[] generarActaAsignacion(AsignacionActivo asignacion, ConfiguracionGestion config) throws DocumentException, IOException {
         
-        Document document = new Document(PageSize.LETTER, 50, 50, 85, 40); // Márgenes: Izq, Der, Arr, Abj
-        
+        Document document = new Document(PageSize.LETTER, 50, 50, 85, 40);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfWriter writer = PdfWriter.getInstance(document, baos);
 
@@ -91,16 +90,15 @@ public class PdfAsignacionActivoCompleto {
         // 3. NÚMERO PREVENTIVO (El que guardamos)
         String textoCodigo = (asignacion.getCodigoCompleto() != null && !asignacion.getCodigoCompleto().isBlank()) 
                          ? asignacion.getCodigoCompleto() 
-                         : "-"; // O dejar vacío ""
+                         : "-";
 
         Paragraph pPrev = new Paragraph(textoCodigo, fontNegrita);
         pPrev.setSpacingAfter(6);
         document.add(pPrev);
 
         // 4. TABLA DE ACTIVOS
-        PdfPTable table = new PdfPTable(5); // 5 Columnas
+        PdfPTable table = new PdfPTable(5);
         table.setWidthPercentage(100);
-        // Anchos relativos: Item(5%), Desc(40%), Ubic(20%), Cod(20%), Est(15%)
         table.setWidths(new float[]{7f, 43f, 22f, 19, 9f}); 
         table.setSpacingAfter(10);
 
@@ -115,7 +113,7 @@ public class PdfAsignacionActivoCompleto {
         int item = 1;
         for (DetalleAsignacionActivo det : asignacion.getDetalles()) {
             Activo a = det.getActivo();
-            String codigoVisual = "148-" + a.getCodigo(); // Formato 148-XXXX
+            String codigoVisual = "148-" + a.getCodigo();
             String ubicacion = (a.getOficina() != null) ? a.getOficina().getNombre() : "S/N";
 
             agregarCeldaBody(table, String.valueOf(item++), fontTablaBody, Element.ALIGN_CENTER);
@@ -151,7 +149,7 @@ public class PdfAsignacionActivoCompleto {
 
         Paragraph constancia = new Paragraph("Para constancia de la recepción firmamos al pie del presente documento.", fontNormal);
         constancia.setAlignment(Element.ALIGN_JUSTIFIED);
-        constancia.setSpacingAfter(20); // Espacio para firmar
+        constancia.setSpacingAfter(20);
         document.add(constancia);
 
         // 7. FIRMAS (Tabla invisible)
@@ -218,19 +216,15 @@ public class PdfAsignacionActivoCompleto {
             try {
                 PdfContentByte canvas = writer.getDirectContentUnder();
                 
-                // 2. CORRECCIÓN DE CARGA DE IMAGEN
-                // Usamos getClass().getResource() para buscar dentro del JAR/Classpath
                 java.net.URL imageUrl = getClass().getResource(this.imgPath);
                 
                 if (imageUrl == null) {
-                    // Fallback por si acaso no lo encuentra (para depuración)
                     System.err.println("❌ No se encontró la imagen en: " + this.imgPath);
                     return;
                 }
 
                 Image image = Image.getInstance(imageUrl);
 
-                // Escalar imagen al tamaño de la hoja (carta)
                 image.scaleAbsolute(document.getPageSize());
                 image.setAbsolutePosition(0, 0); 
                 

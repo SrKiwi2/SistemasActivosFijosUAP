@@ -20,6 +20,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoConsultaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoResponsableDTO;
@@ -41,13 +42,15 @@ public class CatalogoRestController {
     private final IActivoService activoService;
     private final IAuxiliarService auxiliarService;
     private final IGrupoContableService grupoContableService;
+    private final IPredioServicio predioServicio;
 
-    public CatalogoRestController(IResponsableService responsableService, IOficinaService oficinaService, IActivoService activoService, IAuxiliarService auxiliarService, IGrupoContableService grupoContableService) {
+    public CatalogoRestController(IResponsableService responsableService, IOficinaService oficinaService, IActivoService activoService, IAuxiliarService auxiliarService, IGrupoContableService grupoContableService, IPredioServicio predioServicio) {
         this.responsableService = responsableService;
         this.oficinaService = oficinaService;
         this.activoService = activoService;
         this.auxiliarService = auxiliarService;
         this.grupoContableService = grupoContableService;
+        this.predioServicio = predioServicio;
     }
 
     @GetMapping("/responsables")
@@ -161,16 +164,29 @@ public class CatalogoRestController {
     public Map<String, Object> search(
             @RequestParam(name = "q", required = false, defaultValue = "") String q,
             @RequestParam(name = "page", required = false, defaultValue = "1") int page,
-            @RequestParam(name = "oficinaId", required = false) Long oficinaId // 🟢 NUEVO PARÁMETRO
+            @RequestParam(name = "oficinaId", required = false) Long oficinaId
     ) {
         int pageIndex = Math.max(0, page - 1);
         int pageSize = 20;
+        PageRequest pageRequest = PageRequest.of(pageIndex, pageSize);
         
-        Page<RespOption> result = responsableService.searchByOficina(oficinaId, q, PageRequest.of(pageIndex, pageSize));
+        Page<RespOption> result;
+
+        if (oficinaId != null && oficinaId > 0) {
+            // MODO SINGLE: Filtrar estrictamente por oficina
+            result = responsableService.searchByOficina(oficinaId, q, pageRequest);
+        } else if (oficinaId != null && oficinaId == -1) {
+             // Caso especial: Modo Single pero sin oficina seleccionada -> Devolver vacío
+             result = Page.empty();
+        } else {
+            // MODO BATCH (oficinaId es null): Búsqueda global
+            result = responsableService.searchGlobal(q, pageRequest); 
+        }
 
         Map<String, Object> resp = new HashMap<>();
         resp.put("results", result.getContent());
         resp.put("pagination", Map.of("more", result.hasNext()));
+        
         return resp;
     }
 
@@ -192,5 +208,48 @@ public class CatalogoRestController {
         return resp;
     }
 
+    //* NUEVA MODALIDAD DE VISTA DE REGISTRO DE ACTIVOS */
 
+
+    @GetMapping("/buscar_predios")
+    public List<Map<String, ?>> buscarPredios(@RequestParam Long municipioId) {
+        return predioServicio.findByMunicipioIdMunicipio(municipioId).stream()
+            .map(p -> Map.of(
+                "id", p.getIdPredio(),
+                "descrip", p.getDescrip() + " (" + p.getUnidad() + ")",
+                "codigo", p.getUnidad()
+            ))
+            .collect(Collectors.toList());
+    }
+
+    @GetMapping("/buscar_oficinas")
+    public List<Map<String, ?>> buscarOficinas(@RequestParam Long predioId) {
+        return oficinaService.findByPredioIdPredio(predioId).stream()
+            .map(o -> Map.of(
+                "id", o.getIdOficina(),
+                "nombre", o.getNombre() + " (" + o.getCodOfi() + ")",
+                "codigo", o.getCodOfi()
+            ))
+            .collect(Collectors.toList());
+    }
+
+    @GetMapping("/buscar_responsables_lista")
+    public List<Map<String, ?>> buscarResponsables(@RequestParam Long oficinaId) {
+        return responsableService.findByOficinaIdOficina(oficinaId).stream()
+            .map(r -> Map.of(
+                "id", r.getIdResponsable(),
+                "text", r.getPersona().getNombreCompleto()
+            ))
+            .collect(Collectors.toList());
+    }
+
+    @GetMapping("/buscar_auxiliar_lista")
+    public List<Map<String, ?>> buscarAuxiliares(@RequestParam Long grupoId) {
+        return auxiliarService.findByGrupoContableIdGrupoContable(grupoId).stream()
+            .map(a -> Map.of(
+                "id", a.getIdAuxiliar(),
+                "text", a.getNombre()
+            ))
+            .collect(Collectors.toList());
+    }
 }

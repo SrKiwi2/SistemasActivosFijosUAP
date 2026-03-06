@@ -233,4 +233,14 @@ public class ResponsableServiceImpl implements IResponsableService{
     public Page<RespOption> searchByOficina(Long oficinaId, String q, Pageable pageable) {
         return dao.searchByOficina(oficinaId, q, pageable);
     }
+
+    @Override
+    public List<Responsable> findByOficinaIdOficina(Long idOficina) {
+        return dao.findByOficinaIdOficina(idOficina);
+    }
+
+    @Override
+    public Page<RespOption> searchGlobal(String q, Pageable pageable) {
+        return dao.searchGlobal(q, pageable);
+    }
 }

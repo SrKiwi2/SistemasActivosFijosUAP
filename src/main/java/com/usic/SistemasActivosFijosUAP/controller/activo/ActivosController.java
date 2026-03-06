@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -30,12 +29,10 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
-import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.ActualDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IConfiguracionGestionService;
-import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEstadoActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IMunicipioService;
@@ -46,19 +43,18 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoFormDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
+import com.usic.SistemasActivosFijosUAP.model.dto.DetalleRegistroItem;
+import com.usic.SistemasActivosFijosUAP.model.dto.RegistroMasivoRequest;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
-import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
-import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
-import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -177,7 +173,6 @@ public class ActivosController {
         return "activo/formulario";
     }
 
-
     @ValidarUsuarioAutenticado
     @PostMapping(value = "/registrar-activo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> registrar_activo(
@@ -207,7 +202,7 @@ public class ActivosController {
         log.info("Iniciando Registro Masivo: {} activos. Código Base: {}", cantidad, activo.getCodigo());
 
         List<String> codigosGenerados = new ArrayList<>();
-        String codigoActualStr = activo.getCodigo(); // Ej: "01-02-03-00020"
+        String codigoActualStr = activo.getCodigo();
 
         List<String> idsReporte = new ArrayList<>();
         List<Activo> activosGuardados = new ArrayList<>();
@@ -230,7 +225,7 @@ public class ActivosController {
                 nuevoActivo.setResponsable(activo.getResponsable());
                 nuevoActivo.setOrganismoFinanciero(activo.getOrganismoFinanciero());
                 nuevoActivo.setAuxiliar(activo.getAuxiliar());
-                nuevoActivo.setEstadoActivo(activo.getEstadoActivo()); // Asumimos que viene del form o se setea default abajo
+                nuevoActivo.setEstadoActivo(activo.getEstadoActivo());
 
                 // 2. GENERAR CÓDIGO CORRELATIVO
                 // El primero (i=0) usa el código del formulario. Los siguientes se calculan.
@@ -254,16 +249,16 @@ public class ActivosController {
                 // Org Fin Code textual para DBF
                 if(nuevoActivo.getOrganismoFinanciero() != null) {
                      OrganismoFinanciero of = organismoFinancieroService.findById(nuevoActivo.getOrganismoFinanciero().getIdOrganismoFinanciero());
-                     nuevoActivo.setOrganismoFinanciero(of); // Re-attach para seguridad
+                     nuevoActivo.setOrganismoFinanciero(of);
                      nuevoActivo.setOrgFinCode(of.getCodOf());
                 }
                 
                 // Estado Inicial
                 if (nuevoActivo.getEstadoActivo() == null) {
-                    nuevoActivo.setEstadoActivo(estadoActivoService.findById(1L)); // Bueno por defecto
+                    nuevoActivo.setEstadoActivo(estadoActivoService.findById(1L));
                 }
                 
-                nuevoActivo.setEstado("PENDIENTE"); // Siempre pendiente primero
+                nuevoActivo.setEstado("PENDIENTE");
 
                 // 4. GUARDAR
                 activoService.save(nuevoActivo);
@@ -289,29 +284,155 @@ public class ActivosController {
         }
     }
 
-    /**
-     * Helper para incrementar códigos tipo "01-04-15-00022" + 1 -> "01-04-15-00023"
-     */
     private String incrementarCodigoString(String codigoBase, int incremento) {
         try {
             // Asumimos formato XX-XX-XX-NNNNN
             int lastDash = codigoBase.lastIndexOf('-');
-            if (lastDash == -1) return codigoBase + "-" + incremento; // Fallback
+            if (lastDash == -1) return codigoBase + "-" + incremento;
 
-            String prefix = codigoBase.substring(0, lastDash + 1); // "01-04-15-"
-            String numberPart = codigoBase.substring(lastDash + 1); // "00022"
+            String prefix = codigoBase.substring(0, lastDash + 1);
+            String numberPart = codigoBase.substring(lastDash + 1);
             
             long numero = Long.parseLong(numberPart);
             long nuevoNumero = numero + incremento;
             
-            // Reconstruir con padding de ceros (mismo largo que el original)
             String formato = "%0" + numberPart.length() + "d";
             return prefix + String.format(formato, nuevoNumero);
             
         } catch (Exception e) {
             log.error("No se pudo incrementar código: " + codigoBase);
-            return codigoBase + "-" + incremento; // Fallback de emergencia
+            return codigoBase + "-" + incremento;
         }
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/registrar-masivo")
+    public ResponseEntity<?> registrarMasivo(@RequestBody RegistroMasivoRequest request, HttpServletRequest httpReq) {
+        Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
+        String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+        
+        try {
+            // Validaciones básicas
+            if (request.getIdResponsable() == null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "El responsable es obligatorio."));
+            if (request.getItems() == null || request.getItems().isEmpty()) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Debe agregar al menos un ítem."));
+
+            Responsable responsable = responsableService.findById(request.getIdResponsable());
+            OrganismoFinanciero orgFinGlobal = (request.getIdOrganismoFinanciero() != null) ? organismoFinancieroService.findById(request.getIdOrganismoFinanciero()) : null;
+
+            List<String> idsReporte = new ArrayList<>();
+            int totalCreados = 0;
+
+            // MAPA DE INCREMENTOS LOCALES: Clave="Mun-Pred-Grup", Valor=ContadorExtra
+            // Esto evita que si guardo 3 activos del mismo grupo, salgan con el mismo código.
+            Map<String, Integer> incrementosLocales = new HashMap<>();
+
+            for (DetalleRegistroItem item : request.getItems()) {
+                
+                // Entidades de la fila
+                GrupoContable grupo = grupoContableService.findById(item.getIdGrupoContable());
+                Oficina oficina = oficinaService.findById(item.getIdOficina());
+                Auxiliar auxiliar = (item.getIdAuxiliar() != null) ? auxiliarService.findById(item.getIdAuxiliar()) : null;
+                
+                // Obtener códigos para la generación (asumiendo que tus entidades tienen estos campos)
+                // Ojo: Ajusta los getters según tus entidades reales si difieren (ej: getCodMun(), etc.)
+                String codMun = oficina.getPredio().getMunicipio().getCodigo();
+                String codPred = oficina.getPredio().getCodigo();
+                // Nota: Asegúrate de formatear el grupo a 2 dígitos si es necesario (ej: "01", "02")
+                String codGrup = String.format("%02d", grupo.getCodDbf()); 
+
+                // Clave única para nuestro mapa de incrementos
+                String keyMap = codMun + "-" + codPred + "-" + codGrup;
+
+                // Obtener el ULTIMO código base desde la BD (tu función actual)
+                // Esto devuelve algo como "01-01-04-00048" (el ÚLTIMO existente o el PRIMERO sugerido)
+                String codigoBaseBd = funciones.previewCodigoPorCodes(codMun, codPred, codGrup);
+                
+                // Parsear el número del código base
+                long correlativoBase = extraerNumeroCorrelativo(codigoBaseBd); 
+
+                // Bucle CANTIDAD
+                for (int i = 0; i < item.getCantidad(); i++) {
+                    Activo a = new Activo();
+                    
+                    // CALCULAR CÓDIGO
+                    // Ver si ya hemos generado alguno para este grupo en este lote
+                    int incrementoAdicional = incrementosLocales.getOrDefault(keyMap, 0);
+                    
+                    // Nuevo número = Base + 1 (porque preview suele dar el último usado) + incremento local
+                    // NOTA: Revisa si 'previewCodigoPorCodes' devuelve el ULTIMO USADO o el PROXIMO DISPONIBLE.
+                    // Si devuelve el PRÓXIMO, usa correlativoBase + incrementoAdicional.
+                    // Si devuelve el ÚLTIMO, usa correlativoBase + 1 + incrementoAdicional.
+                    // ASUMIREMOS que devuelve el PRÓXIMO LIBRE para este ejemplo.
+                    
+                    long nuevoNumero = correlativoBase + incrementoAdicional;
+                    
+                    // Si 'previewCodigoPorCodes' devuelve el mismo código siempre, necesitamos saber si es nuevo o usado
+                    // Para mayor seguridad, si la función devuelve el código a USAR, entonces:
+                    if (incrementoAdicional > 0) {
+                         nuevoNumero = correlativoBase + incrementoAdicional;
+                    }
+                    
+                    String codigoFinal = construirCodigo(codMun, codPred, codGrup, nuevoNumero);
+                    
+                    // Actualizar mapa para la siguiente iteración
+                    incrementosLocales.put(keyMap, incrementoAdicional + 1);
+
+                    // Settear datos
+                    a.setCodigo(codigoFinal);
+                    a.setDescripcion(item.getDescripcion());
+                    a.setFechaAdquisicion(request.getFechaAdquisicion());
+                    a.setVidaUtil(item.getVidaUtil() != null ? BigDecimal.valueOf(item.getVidaUtil()) : BigDecimal.ZERO);
+                    a.setCosto(item.getCosto() != null ? item.getCosto() : 0.0);
+                    
+                    // Relaciones
+                    a.setResponsable(responsable);
+                    a.setOrganismoFinanciero(orgFinGlobal);
+                    if(orgFinGlobal != null) a.setOrgFinCode(orgFinGlobal.getCodOf());
+
+                    a.setGrupoContable(grupo);
+                    a.setOficina(oficina);
+                    a.setAuxiliar(auxiliar);
+                    
+                    // Auditoría
+                    a.setEstado("PENDIENTE");
+                    a.setApiEstado(Short.valueOf("3"));
+                    a.setUsuario(usuarioNombre);
+                    a.setFecMod(LocalDate.now());
+                    a.setFechaUlt(LocalDate.now());
+                    
+                    activoService.save(a);
+                    idsReporte.add(Encriptar.encrypt(String.valueOf(a.getIdActivo())));
+                    totalCreados++;
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "ok", true,
+                "msg", "Se registraron " + totalCreados + " activos correctamente.",
+                "idsParaReporte", idsReporte
+            ));
+
+        } catch (Exception e) {
+            log.error("Error masivo", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+
+    // --- Helpers Privados para el Controller ---
+
+    private long extraerNumeroCorrelativo(String codigoCompleto) {
+        try {
+            // Formato esperado: MM-PP-GG-NNNNN
+            String[] partes = codigoCompleto.split("-");
+            return Long.parseLong(partes[partes.length - 1]);
+        } catch (Exception e) {
+            return 0; // Fallback si el formato es raro
+        }
+    }
+
+    private String construirCodigo(String mun, String pred, String grup, long numero) {
+        // Aseguramos formato 00000 para el número
+        return String.format("%s-%s-%s-%05d", mun, pred, grup, numero);
     }
 
     @ValidarUsuarioAutenticado
@@ -401,7 +522,7 @@ public class ActivosController {
                 activoOriginal.setAuxiliar(null);
             }
 
-            EstadoActivo estadoActivo = estadoActivoService.findById(1L); //EN UN FURO IMPLEMENTAR PARA COLOCAR SI ESTA BUENO, REGULAR O MALO
+            EstadoActivo estadoActivo = estadoActivoService.findById(1L);
             activoOriginal.setEstadoActivo(estadoActivo);
 
             activoOriginal.setFecMod(LocalDate.now());
@@ -444,7 +565,6 @@ public class ActivosController {
 
                 } catch (Exception e) {
                     log.error("Error sync DBF al modificar: {}", e.getMessage());
-                    // Retornamos OK true porque la BD ya se actualizó, pero avisamos del error
                     return ResponseEntity.ok(Map.of("ok", true, "msg", "Guardado en BD, pero falló DBF: " + e.getMessage()));
                 }
             }
@@ -471,30 +591,26 @@ public class ActivosController {
                 return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Activo no encontrado"));
             }
             
-            // Validar que esté ACTIVO para poder darle de baja
             if (!"ACTIVO".equalsIgnoreCase(activo.getEstado())) {
                 return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Solo se puede dar de baja activos que estén en estado ACTIVO."));
             }
 
             activo.setApiEstado(Short.valueOf("1")); 
-            
-            // Auditoría
             activo.setFecMod(LocalDate.now());
             activo.setFechaUlt(LocalDate.now());
             activo.setUsuMod(usuarioNombre);
             activo.setModificacion(new Date());
+
             if (usuario != null) activo.setModificacionIdUsuario(usuario.getIdUsuario());
 
             activoService.save(activo);
             
-            // 2. Actualizar DBF
             try {
-                // Obtenemos códigos para buscar en DBF
+
                 String codigo = activo.getCodigo();
                 String entidadCode = activo.getOficina().getPredio().getEntidad().getEntidadCodigo();
                 String unidadCode = activo.getOficina().getPredio().getUnidad();
                 
-                // Usamos el mismo método de actualización, ya que el objeto 'activo' ya tiene el apiEstado=2
                 actualDbfWriterService.actualizarDesdeActivo(codigo, activo, entidadCode, unidadCode, usuarioNombre);
                 
                 log.info("Activo {} dado de baja (API_ESTADO=2) en BD y DBF", codigo);
@@ -522,32 +638,28 @@ public class ActivosController {
         int actualizados = 0;
         
         try {
-            // 1. Obtener la Configuración (Ej: "Prev.")
+
             ConfiguracionGestion config = configuracionGestionService.findById(idConfig);
             
-            String prefijo = config.getPrefijoDocumento(); // "Prev."
+            String prefijo = config.getPrefijoDocumento();
 
-            // 2. Iterar y Actualizar
             for (String enc : idsEnc) {
                 Long id = Long.parseLong(Encriptar.decrypt(enc));
                 Activo a = activoService.findById(id);
 
                 if (a != null && "PENDIENTE".equalsIgnoreCase(a.getEstado())) {
                     
-                    // 🟢 MODIFICAR DESCRIPCIÓN EN BD
-                    // Formato: "Prev. 5243 DESCRIPCION ORIGINAL"
                     String etiqueta = prefijo + " " + nroDoc;
                     
-                    // Evitar duplicar si ya se asignó antes
                     if (!a.getDescripcion().startsWith(etiqueta)) {
                         String nuevaDesc = etiqueta + " " + a.getDescripcion();
-                        // Recortar si excede 1024 (límite de tu entidad Activo)
+
                         if (nuevaDesc.length() > 1024) nuevaDesc = nuevaDesc.substring(0, 1024);
                         
                         a.setDescripcion(nuevaDesc);
                         a.setFecMod(LocalDate.now());
                         
-                        activoService.save(a); // Solo guarda en PostgreSQL
+                        activoService.save(a);
                         actualizados++;
                     }
                 }
@@ -556,8 +668,8 @@ public class ActivosController {
             return ResponseEntity.ok(Map.of(
                 "ok", true, 
                 "msg", "Asignación correcta.",
-                "idsParaReporte", idsEnc, // Devolvemos los mismos IDs
-                "nroPreventivo", nroDoc   // Devolvemos el número nuevo
+                "idsParaReporte", idsEnc,
+                "nroPreventivo", nroDoc
             ));
 
         } catch (Exception e) {
@@ -690,13 +802,10 @@ public class ActivosController {
 
            if (actualDbfWriterService.existsByCodigo(a.getCodigo())) {
                 log.warn("El activo {} ya existe en DBF. Se asume sincronizado.", a.getCodigo());
-                // No lanzamos error, permitimos que se marque como ACTIVO en BD para arreglar inconsistencia
             } else {
-                // Insertar (Si falla, lanzará RuntimeException y saltará al catch)
                 actualDbfWriterService.insertarDesdeActivo(a, entidadCode, unidadCode, usuarioNombre);
             }
 
-            // 2) Si DBF ok → marca ACTIVO en Postgres
             a.setEstado("ACTIVO");
             a.setApiEstado(Short.valueOf("1"));
             activoService.save(a);
@@ -705,7 +814,6 @@ public class ActivosController {
             
         } catch (Exception e) {
             log.error("Error aprobando activo: {}", e.getMessage(), e);
-            // Al capturar la excepción aquí, la BD NO se actualizó a ACTIVO. Correcto.
             return Map.of("ok", false, "message", "Error al sincronizar con DBF: " + e.getMessage());
         }   
     }
@@ -799,7 +907,7 @@ public class ActivosController {
                 ", aux=" + (a.getAuxiliar() != null) +
                 ", resp=" + (a.getResponsable() != null) +
                 ", persona=" + (a.getResponsable() != null && a.getResponsable().getPersona() != null) +
-                ", orgFin=" + (a.getOrganismoFinanciero() != null));
+                ", orgFin=" + a.getOrgFinCode());
         ActivoFormDTO dto = new ActivoFormDTO();
 
         dto.setId(a.getIdActivo());
@@ -834,9 +942,21 @@ public class ActivosController {
             }
         }
 
-        if (a.getOrganismoFinanciero() != null) {
-            dto.setOrganismoFinancieroId(a.getOrganismoFinanciero().getIdOrganismoFinanciero());
-            dto.setOrganismoFinancieroNombre(a.getOrganismoFinanciero().getSigla());
+        if (a.getOrgFinCode() != null && !a.getOrgFinCode().isEmpty()) {
+            try {
+                OrganismoFinanciero orgFin = organismoFinancieroService.findByCodOf(a.getOrgFinCode())
+                        .orElse(null);
+                
+                if (orgFin != null) {
+                    dto.setOrganismoFinancieroId(orgFin.getIdOrganismoFinanciero());
+                    dto.setOrganismoFinancieroNombre(orgFin.getSigla() != null ? orgFin.getSigla() : orgFin.getDescripcion());
+                    System.out.println("✅ OrganismoFinanciero encontrado: " + orgFin.getSigla());
+                } else {
+                    System.out.println("⚠️ OrganismoFinanciero no encontrado para código: " + a.getOrgFinCode());
+                }
+            } catch (Exception e) {
+                System.err.println("❌ Error buscando OrganismoFinanciero: " + e.getMessage());
+            }
         }
         return dto;
     }

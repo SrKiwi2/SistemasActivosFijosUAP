@@ -11,6 +11,8 @@ import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 
 public interface IOrganismoFinancieroDao extends JpaRepository<OrganismoFinanciero, Long> {
 
+    Optional<OrganismoFinanciero> findByCodOf(String codOf);
+
     Optional<OrganismoFinanciero> findByGestionAndCodOf(Short gestion, String codOf);
 
     Optional<OrganismoFinanciero> findByGestionAndSiglaIgnoreCase(Short gestion, String sigla);

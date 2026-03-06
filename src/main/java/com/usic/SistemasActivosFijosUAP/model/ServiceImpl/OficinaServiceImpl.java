@@ -126,4 +126,9 @@ public class OficinaServiceImpl implements IOficinaService{
     public Short findNextCodOfiByPredioId(Long idPredio) {
         return dao.findNextCodOfiByPredioId(idPredio);
     }
+
+    @Override
+    public List<Oficina> findByPredioIdPredio(Long idPredio) {
+        return dao.findByPredioIdPredio(idPredio);
+    }
 }

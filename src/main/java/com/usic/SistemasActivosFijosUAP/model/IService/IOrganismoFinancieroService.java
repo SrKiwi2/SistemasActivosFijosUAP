@@ -10,6 +10,8 @@ import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 
 @Service
 public interface IOrganismoFinancieroService extends IServiceGenerico<OrganismoFinanciero, Long>{
+
+    Optional<OrganismoFinanciero> findByCodOf(String codOf);
     
     Optional<OrganismoFinanciero> findByGestionAndCodOf(Short gestion, String codOf);
 

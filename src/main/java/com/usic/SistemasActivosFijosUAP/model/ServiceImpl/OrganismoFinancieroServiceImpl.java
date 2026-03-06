@@ -59,5 +59,10 @@ public class OrganismoFinancieroServiceImpl implements IOrganismoFinancieroServi
     public void saveAll(List<OrganismoFinanciero> batch) {
         dao.saveAll(batch);
     }
+
+    @Override
+    public Optional<OrganismoFinanciero> findByCodOf(String codOf) {
+        return dao.findByCodOf(codOf);
+    }
     
 }

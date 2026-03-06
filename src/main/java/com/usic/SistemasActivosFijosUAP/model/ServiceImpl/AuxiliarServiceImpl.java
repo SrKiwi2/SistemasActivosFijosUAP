@@ -98,4 +98,10 @@ public class AuxiliarServiceImpl implements IAuxiliarService {
         return !dao.existsByNombreIgnoreCaseAndIdAuxiliarIsNot(nombre, idAuxiliar);
     }
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Auxiliar> findByGrupoContableIdGrupoContable(Long idGrupoContable) {
+        return dao.findByGrupoContableIdGrupoContable(idGrupoContable);
+    }
 }
