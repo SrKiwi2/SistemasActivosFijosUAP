@@ -665,13 +665,525 @@
         }
 
         .swal-on-top {
-    z-index: 10000 !important;
-}
+            z-index: 10000 !important;
+        }
 
-.swal2-container {
-    z-index: 10000 !important;
-}
+        .swal2-container {
+            z-index: 10000 !important;
+        }
 
+        /* ===================== TABLA HOJAS DE RUTA ===================== */
+        .hr-table-wrapper {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            background: var(--card-bg, #fff);
+            border: 1px solid var(--border-color, #e5e7eb);
+            margin-top: 1.25rem;
+        }
+
+        [data-theme="dark"] .hr-table-wrapper {
+            background: var(--card-bg, #1e2533);
+            border-color: var(--border-color, #2d3748);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Toolbar */
+        .hr-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.85rem 1.1rem;
+            border-bottom: 1px solid var(--border-color, #e5e7eb);
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            background: var(--card-bg, #fff);
+        }
+
+        [data-theme="dark"] .hr-toolbar {
+            border-bottom-color: var(--border-color, #2d3748);
+            background: var(--card-bg, #1e2533);
+        }
+
+        .hr-toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .hr-toolbar h6 {
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-muted, #6b7280);
+            margin: 0;
+        }
+
+        .hr-toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        /* Search box */
+        .hr-search-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .hr-search-box input {
+            padding: 0.38rem 0.75rem 0.38rem 2rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color, #d1d5db);
+            background: var(--input-bg, #f9fafb);
+            color: var(--text-color, #111827);
+            font-size: 0.8rem;
+            width: 190px;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            outline: none;
+        }
+
+        [data-theme="dark"] .hr-search-box input {
+            background: var(--input-bg, #2d3748);
+            border-color: var(--border-color, #4a5568);
+            color: var(--text-color, #e2e8f0);
+        }
+
+        .hr-search-box input:focus {
+            border-color: var(--primary, #C1272D);
+            box-shadow: 0 0 0 3px rgba(193, 39, 45, 0.12);
+        }
+
+        .hr-search-box .search-icon {
+            position: absolute;
+            left: 0.55rem;
+            color: var(--text-muted, #9ca3af);
+            font-size: 0.9rem;
+            pointer-events: none;
+        }
+
+        /* Select2 en toolbar */
+        .hr-toolbar .select2-container {
+            min-width: 130px !important;
+        }
+
+        .hr-toolbar .select2-container--default .select2-selection--single {
+            height: 32px !important;
+            border-radius: 8px !important;
+            border: 1px solid var(--border-color, #d1d5db) !important;
+            background: var(--input-bg, #f9fafb) !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+
+        [data-theme="dark"] .hr-toolbar .select2-container--default .select2-selection--single {
+            background: var(--input-bg, #2d3748) !important;
+            border-color: var(--border-color, #4a5568) !important;
+        }
+
+        .hr-toolbar .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 30px !important;
+            font-size: 0.8rem !important;
+            color: var(--text-color, #374151) !important;
+            padding-left: 10px !important;
+        }
+
+        [data-theme="dark"] .hr-toolbar .select2-container--default .select2-selection--single .select2-selection__rendered {
+            color: var(--text-color, #e2e8f0) !important;
+        }
+
+        .hr-toolbar .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 30px !important;
+        }
+
+        /* Dropdown select2 modo oscuro */
+        [data-theme="dark"] .select2-dropdown {
+            background: #2d3748 !important;
+            border-color: #4a5568 !important;
+            color: #e2e8f0 !important;
+        }
+
+        [data-theme="dark"] .select2-results__option {
+            color: #e2e8f0 !important;
+            background: #2d3748 !important;
+        }
+
+        [data-theme="dark"] .select2-results__option--highlighted {
+            background: #C1272D !important;
+            color: #fff !important;
+        }
+
+        [data-theme="dark"] .select2-search--dropdown .select2-search__field {
+            background: #1e2533 !important;
+            border-color: #4a5568 !important;
+            color: #e2e8f0 !important;
+        }
+
+        /* Tabla principal */
+        #tablaListadoHR {
+            width: 100%;
+            font-size: 0.8rem;
+        }
+
+        #tablaListadoHR thead tr {
+            background: var(--table-head-bg, #f3f4f6);
+            border-bottom: 2px solid var(--border-color, #e5e7eb);
+        }
+
+        [data-theme="dark"] #tablaListadoHR thead tr {
+            background: var(--table-head-bg, #252d3d);
+            border-bottom-color: var(--border-color, #2d3748);
+        }
+
+        #tablaListadoHR thead th {
+            padding: 0.6rem 0.85rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--text-muted, #6b7280);
+            white-space: nowrap;
+            user-select: none;
+            cursor: pointer;
+            transition: color 0.15s;
+        }
+
+        #tablaListadoHR thead th:hover {
+            color: var(--primary, #C1272D);
+        }
+
+        #tablaListadoHR thead th .sort-icon {
+            font-size: 0.65rem;
+            margin-left: 3px;
+            opacity: 0.4;
+            transition: opacity 0.15s;
+        }
+
+        #tablaListadoHR thead th.sorted .sort-icon {
+            opacity: 1;
+            color: var(--primary, #C1272D);
+        }
+
+        /* Filas */
+        #tablaListadoHR tbody tr {
+            border-bottom: 1px solid var(--border-color, #f0f1f3);
+            transition: background 0.1s;
+            cursor: pointer;
+        }
+
+        [data-theme="dark"] #tablaListadoHR tbody tr {
+            border-bottom-color: var(--border-color, #2d3748);
+        }
+
+        #tablaListadoHR tbody tr:hover {
+            background: var(--row-hover, rgba(193, 39, 45, 0.045));
+        }
+
+        [data-theme="dark"] #tablaListadoHR tbody tr:hover {
+            background: rgba(193, 39, 45, 0.09);
+        }
+
+        #tablaListadoHR tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        #tablaListadoHR td {
+            padding: 0.55rem 0.85rem;
+            vertical-align: middle;
+            color: var(--text-color, #374151);
+        }
+
+        [data-theme="dark"] #tablaListadoHR td {
+            color: var(--text-color, #cbd5e0);
+        }
+
+        .hr-codigo {
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            font-size: 0.78rem;
+            color: var(--primary, #C1272D) !important;
+            letter-spacing: 0.03em;
+        }
+
+        .hr-solicitante-nombre {
+            font-weight: 600;
+            font-size: 0.79rem;
+            color: var(--text-color, #1f2937);
+            display: block;
+            line-height: 1.3;
+        }
+
+        [data-theme="dark"] .hr-solicitante-nombre {
+            color: var(--text-color, #f0f4f8);
+        }
+
+        .hr-solicitante-cargo {
+            font-size: 0.7rem;
+            color: var(--text-muted, #9ca3af);
+            display: block;
+            line-height: 1.2;
+        }
+
+        
+
+        /* Estado pill */
+        .estado-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 9px;
+            border-radius: 20px;
+            font-size: 0.67rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+
+        .estado-pill.recibido {
+            background: rgba(34, 197, 94, 0.12);
+            color: #16a34a;
+        }
+
+        .estado-pill.enviado {
+            background: rgba(234, 179, 8, 0.13);
+            color: #b45309;
+        }
+
+        .estado-pill.archivado {
+            background: rgba(107, 114, 128, 0.13);
+            color: #4b5563;
+        }
+
+        .estado-pill.sin-mov {
+            background: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
+        }
+
+        [data-theme="dark"] .estado-pill.recibido {
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+        }
+
+        [data-theme="dark"] .estado-pill.enviado {
+            background: rgba(234, 179, 8, 0.2);
+            color: #fcd34d;
+        }
+
+        [data-theme="dark"] .estado-pill.archivado {
+            background: rgba(148, 163, 184, 0.15);
+            color: #94a3b8;
+        }
+
+        [data-theme="dark"] .estado-pill.sin-mov {
+            background: rgba(239, 68, 68, 0.18);
+            color: #f87171;
+        }
+
+        /* Tipo chip */
+        .tipo-chip {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 4px;
+            font-size: 0.67rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .tipo-chip.rectorado {
+            background: rgba(59, 130, 246, 0.1);
+            color: #1d4ed8;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .tipo-chip.daf {
+            background: rgba(6, 182, 212, 0.1);
+            color: #0e7490;
+            border: 1px solid rgba(6, 182, 212, 0.2);
+        }
+
+        .tipo-chip.pedido {
+            background: rgba(245, 158, 11, 0.1);
+            color: #92400e;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        [data-theme="dark"] .tipo-chip.rectorado {
+            background: rgba(59, 130, 246, 0.18);
+            color: #93c5fd;
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        [data-theme="dark"] .tipo-chip.daf {
+            background: rgba(6, 182, 212, 0.18);
+            color: #67e8f9;
+            border-color: rgba(6, 182, 212, 0.3);
+        }
+
+        [data-theme="dark"] .tipo-chip.pedido {
+            background: rgba(245, 158, 11, 0.18);
+            color: #fcd34d;
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        /* Botón ver */
+        .btn-ver-hr {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 7px;
+            border: 1px solid var(--border-color, #d1d5db);
+            background: transparent;
+            color: var(--text-muted, #6b7280);
+            font-size: 0.73rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+
+        .btn-ver-hr:hover {
+            background: var(--primary, #C1272D);
+            border-color: var(--primary, #C1272D);
+            color: #fff;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(193, 39, 45, 0.25);
+        }
+
+        [data-theme="dark"] .btn-ver-hr {
+            border-color: #4a5568;
+            color: #94a3b8;
+        }
+
+        /* Footer paginación */
+        .hr-table-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.6rem 1.1rem;
+            border-top: 1px solid var(--border-color, #e5e7eb);
+            background: var(--card-bg, #fff);
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        [data-theme="dark"] .hr-table-footer {
+            background: var(--card-bg, #1e2533);
+            border-top-color: var(--border-color, #2d3748);
+        }
+
+        .hr-table-footer .info-text {
+            font-size: 0.75rem;
+            color: var(--text-muted, #6b7280);
+        }
+
+        .hr-paginacion {
+            display: flex;
+            gap: 3px;
+        }
+
+        .hr-paginacion button {
+            min-width: 28px;
+            height: 28px;
+            padding: 0 6px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color, #d1d5db);
+            background: transparent;
+            color: var(--text-color, #374151);
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.12s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        [data-theme="dark"] .hr-paginacion button {
+            border-color: #4a5568;
+            color: #cbd5e0;
+        }
+
+        .hr-paginacion button:hover:not(:disabled) {
+            border-color: var(--primary, #C1272D);
+            color: var(--primary, #C1272D);
+        }
+
+        .hr-paginacion button.active {
+            background: var(--primary, #C1272D);
+            border-color: var(--primary, #C1272D);
+            color: #fff;
+        }
+
+        .hr-paginacion button:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        /* Empty/loading state */
+        .hr-empty-state {
+            padding: 2.5rem 1rem;
+            text-align: center;
+            color: var(--text-muted, #9ca3af);
+        }
+
+        .hr-empty-state i {
+            font-size: 2.2rem;
+            display: block;
+            margin-bottom: 0.5rem;
+            opacity: 0.5;
+        }
+
+        .hr-empty-state p {
+            font-size: 0.82rem;
+            margin: 0;
+        }
+
+        /* Animación de filas al cargar */
+        @keyframes hrRowIn {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #tablaListadoHR tbody tr.animated {
+            animation: hrRowIn 0.18s ease both;
+        }
+
+        /* Indicador de carga en spinner */
+        .hr-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--border-color, #e5e7eb);
+            border-top-color: var(--primary, #C1272D);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 6px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Highlight fila seleccionada */
+        #tablaListadoHR tbody tr.selected-row {
+            background: rgba(193, 39, 45, 0.07) !important;
+            outline: 2px solid rgba(193, 39, 45, 0.35);
+            outline-offset: -1px;
+        }
     </style>
 </head>
 
@@ -752,8 +1264,8 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Gestión</label>
-                        <input type="number" id="filtroGestion" class="form-control" placeholder="Intorduce un año" min="2020"
-                            max="2030" />
+                        <input type="number" id="filtroGestion" class="form-control" placeholder="Intorduce un año"
+                            min="2020" max="2030" />
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
                         <button type="button" class="btn btn-primary w-100" onclick="buscarHojaRuta()" disabled
@@ -831,6 +1343,79 @@
             </div>
         </div>
 
+        <!-- ============ TABLA LISTADO HOJAS DE RUTA ============ -->
+        <div class="hr-table-wrapper">
+
+            <!-- Toolbar -->
+            <div class="hr-toolbar">
+                <div class="hr-toolbar-left">
+                    <h6><i class='bx bx-table' style="margin-right:5px;"></i>Hojas de Ruta</h6>
+                    <span id="hr-badge-total" class="badge bg-label-secondary" style="font-size:0.7rem;">—</span>
+                </div>
+                <div class="hr-toolbar-right">
+                    <!-- Búsqueda libre -->
+                    <div class="hr-search-box">
+                        <i class='bx bx-search search-icon'></i>
+                        <input type="text" id="hrBusquedaLibre" placeholder="Buscar código, solicitante…"
+                            autocomplete="off" />
+                    </div>
+                    <!-- Filtro gestión con Select2 -->
+                    <select id="hrFiltroGestion" style="min-width:120px;">
+                        <option value="">Todas las gestiones</option>
+                    </select>
+                    <!-- Botones -->
+                    <button class="btn btn-sm btn-primary" onclick="cargarTablaHojaRutas()"
+                        style="height:32px; font-size:0.78rem; padding:0 12px; border-radius:8px;">
+                        <i class='bx bx-filter-alt'></i> Filtrar
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="limpiarFiltrosTabla()"
+                        title="Limpiar filtros"
+                        style="height:32px; width:32px; padding:0; border-radius:8px; display:flex; align-items:center; justify-content:center;">
+                        <i class='bx bx-x'></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabla -->
+            <div style="overflow-x:auto;">
+                <table id="tablaListadoHR">
+                    <thead>
+                        <tr>
+                            <th style=" text-align:center;">#</th>
+                            <th onclick="ordenarTablaHR('codigo')" data-col="codigo">
+                                Código <i class='bx bx-sort sort-icon'></i>
+                            </th>
+                            <th onclick="ordenarTablaHR('tipo')" data-col="tipo">
+                                Tipo <i class='bx bx-sort sort-icon'></i>
+                            </th>
+                            <th onclick="ordenarTablaHR('gestion')" data-col="gestion" class="sorted">
+                                Gestión <i class='bx bx-sort-down sort-icon'></i>
+                            </th>
+                            <th>Solicitante</th>
+                            <th>Descripción</th>
+                            <th style="text-align:center;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpoTablaHR">
+                        <tr>
+                            <td colspan="8">
+                                <div class="hr-empty-state">
+                                    <i class='bx bx-spreadsheet'></i>
+                                    <p>Presiona <strong>Filtrar</strong> para cargar los registros</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Footer paginación -->
+            <div class="hr-table-footer" id="hrTableFooter" style="display:none;">
+                <span class="info-text" id="hrInfoPaginacion"></span>
+                <div class="hr-paginacion" id="hrControlesPaginacion"></div>
+            </div>
+        </div>
+
         <!-- Modal Hoja Ruta -->
         <div class="modal" id="modalHojaRuta">
             <div class="modal-dialog modal-dialog-lg">
@@ -864,12 +1449,14 @@
                                 <div class="col-md-6">
                                     <label class="form-label">Solicitante <span class="text-danger">*</span></label>
                                     <div class="input-group">
-                                        <select id="hrSolicitante" name="solicitanteId" class="form-select select2" required>
+                                        <select id="hrSolicitante" name="solicitanteId" class="form-select select2"
+                                            required>
                                             <option value="">Seleccionar</option>
                                             <option th:each="sol : ${listaSolicitantes}" th:value="${sol.idSolicitante}"
                                                 th:text="${sol.nombre + ' - ' + sol.cargo}"></option>
                                         </select>
-                                        <button type="button" class="btn btn-outline-primary" onclick="abrirModalNuevoSolicitante()" title="Nuevo Solicitante">
+                                        <button type="button" class="btn btn-outline-primary"
+                                            onclick="abrirModalNuevoSolicitante()" title="Nuevo Solicitante">
                                             <i class='bx bx-plus'></i>
                                         </button>
                                     </div>
@@ -926,23 +1513,27 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">Nuevo Solicitante</h5>
-                        <button type="button" class="btn-close" onclick="cerrarModal('modalNuevoSolicitante')">&times;</button>
+                        <button type="button" class="btn-close"
+                            onclick="cerrarModal('modalNuevoSolicitante')">&times;</button>
                     </div>
                     <form id="formNuevoSolicitante">
                         <div class="modal-body">
                             <div class="row g-3">
                                 <div class="col-md-12">
                                     <label class="form-label">Nombre <span class="text-danger">*</span></label>
-                                    <input type="text" id="solNombre" name="nombre" class="form-control" required placeholder="Nombre completo del solicitante" />
+                                    <input type="text" id="solNombre" name="nombre" class="form-control" required
+                                        placeholder="Nombre completo del solicitante" />
                                 </div>
                                 <div class="col-md-12">
                                     <label class="form-label">Cargo <span class="text-danger">*</span></label>
-                                    <input type="text" id="solCargo" name="cargo" class="form-control" required placeholder="Cargo o función" />
+                                    <input type="text" id="solCargo" name="cargo" class="form-control" required
+                                        placeholder="Cargo o función" />
                                 </div>
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" onclick="cerrarModal('modalNuevoSolicitante')">Cancelar</button>
+                            <button type="button" class="btn btn-secondary"
+                                onclick="cerrarModal('modalNuevoSolicitante')">Cancelar</button>
                             <button type="submit" class="btn btn-success">
                                 <i class='bx bx-save'></i> Guardar
                             </button>
@@ -1204,20 +1795,20 @@
             $("#formHojaRuta")[0].reset();
             $("#idHojaRuta").val("");
             $("#tituloModalHojaRuta").text("Nueva Hoja de Ruta");
-            
+
             // Mostrar campos y restaurar required
             $("#hrUnidadOrigen").closest(".col-md-6").show();
             $("#hrUnidadOrigen").attr("required", "required");
-            
+
             $("#hrFecha").closest(".col-md-6").show();
             $("#hrFecha").attr("required", "required");
-            
+
             $("#hrHora").closest(".col-md-6").show();
             $("#hrHora").attr("required", "required");
-            
+
             $("#modalHojaRuta").addClass("show");
             setTimeout(() => inicializarSelect2EnModal('modalHojaRuta'), 200);
-            }
+        }
 
 
         function editarHojaRuta() {
@@ -1229,24 +1820,24 @@
             $("#hrDescripcion").val(hojaRutaActual.descripcion);
             $("#hrCertificacion").val(hojaRutaActual.certificacion || "");
             $("#hrMonto").val(hojaRutaActual.monto || "");
-            
+
             // Ocultar campos y remover required
             $("#hrUnidadOrigen").closest(".col-md-6").hide();
             $("#hrUnidadOrigen").removeAttr("required");
-            
+
             $("#hrFecha").closest(".col-md-6").hide();
             $("#hrFecha").removeAttr("required");
-            
+
             $("#hrHora").closest(".col-md-6").hide();
             $("#hrHora").removeAttr("required");
-            
+
             $("#tituloModalHojaRuta").text("Modificar Hoja de Ruta");
             $("#modalHojaRuta").addClass("show");
             setTimeout(() => {
                 inicializarSelect2EnModal('modalHojaRuta');
                 $("#hrSolicitante").val(hojaRutaActual.solicitanteId).trigger("change");
             }, 200);
-            }
+        }
 
 
         $("#formHojaRuta").on("submit", function (e) {
@@ -1347,102 +1938,102 @@
         });
 
         // Abrir modal de nuevo solicitante
-function abrirModalNuevoSolicitante() {
-    $("#formNuevoSolicitante")[0].reset();
-    $("#modalNuevoSolicitante").addClass("show");
-}
+        function abrirModalNuevoSolicitante() {
+            $("#formNuevoSolicitante")[0].reset();
+            $("#modalNuevoSolicitante").addClass("show");
+        }
 
-// Guardar nuevo solicitante
-$("#formNuevoSolicitante").on("submit", function (e) {
-    e.preventDefault();
-    
-    if (!this.checkValidity()) {
-        $(this).addClass("was-validated");
-        return;
-    }
+        // Guardar nuevo solicitante
+        $("#formNuevoSolicitante").on("submit", function (e) {
+            e.preventDefault();
 
-    $.ajax({
-        type: "POST",
-        url: "/administracion/hoja-ruta/solicitante/registrar",
-        data: $(this).serialize(),
-        success: function (response) {
-            if (response.ok) {
-                cerrarModal("modalNuevoSolicitante");
-                Swal.fire({
-                    title: "Éxito",
-                    text: response.msg,
-                    icon: "success",
-                    timer: 1500,
-                    showConfirmButton: false,
-                    customClass: {
-                        container: 'swal-on-top'
-                    }
-                });
-                
-                // Recargar lista de solicitantes y seleccionar el nuevo
-                recargarSolicitantes(response.idSolicitante);
-            } else {
-                cerrarModal("modalNuevoSolicitante");
-                Swal.fire({
-                    title: "Error",
-                    text: response.msg,
-                    icon: "error",
-                    customClass: {
-                        container: 'swal-on-top'
-                    }
-                });
+            if (!this.checkValidity()) {
+                $(this).addClass("was-validated");
+                return;
             }
-        },
-        error: function(xhr) {
-            // Cerrar modal antes de mostrar error
-            cerrarModal("modalNuevoSolicitante");
-            
-            let mensajeError = "Ocurrió un error al guardar el solicitante";
-            
-            // Intentar extraer mensaje del servidor
-            if (xhr.responseJSON && xhr.responseJSON.msg) {
-                mensajeError = xhr.responseJSON.msg;
-            }
-            
-            Swal.fire({
-                title: "Error",
-                text: mensajeError,
-                icon: "error",
-                customClass: {
-                    container: 'swal-on-top'
+
+            $.ajax({
+                type: "POST",
+                url: "/administracion/hoja-ruta/solicitante/registrar",
+                data: $(this).serialize(),
+                success: function (response) {
+                    if (response.ok) {
+                        cerrarModal("modalNuevoSolicitante");
+                        Swal.fire({
+                            title: "Éxito",
+                            text: response.msg,
+                            icon: "success",
+                            timer: 1500,
+                            showConfirmButton: false,
+                            customClass: {
+                                container: 'swal-on-top'
+                            }
+                        });
+
+                        // Recargar lista de solicitantes y seleccionar el nuevo
+                        recargarSolicitantes(response.idSolicitante);
+                    } else {
+                        cerrarModal("modalNuevoSolicitante");
+                        Swal.fire({
+                            title: "Error",
+                            text: response.msg,
+                            icon: "error",
+                            customClass: {
+                                container: 'swal-on-top'
+                            }
+                        });
+                    }
+                },
+                error: function (xhr) {
+                    // Cerrar modal antes de mostrar error
+                    cerrarModal("modalNuevoSolicitante");
+
+                    let mensajeError = "Ocurrió un error al guardar el solicitante";
+
+                    // Intentar extraer mensaje del servidor
+                    if (xhr.responseJSON && xhr.responseJSON.msg) {
+                        mensajeError = xhr.responseJSON.msg;
+                    }
+
+                    Swal.fire({
+                        title: "Error",
+                        text: mensajeError,
+                        icon: "error",
+                        customClass: {
+                            container: 'swal-on-top'
+                        }
+                    });
                 }
             });
-        }
-    });
-});
+        });
 
-// Recargar select de solicitantes
-function recargarSolicitantes(idNuevo) {
-    $.ajax({
-        type: "GET",
-        url: "/administracion/hoja-ruta/solicitante/listar",
-        success: function (response) {
-            if (response.ok) {
-                // Limpiar select
-                $("#hrSolicitante").empty();
-                $("#hrSolicitante").append('<option value="">Seleccionar</option>');
-                
-                // Agregar opciones
-                response.solicitantes.forEach(function(sol) {
-                    $("#hrSolicitante").append(
-                        `<option value="${sol.idSolicitante}">${sol.nombre} - ${sol.cargo}</option>`
-                    );
-                });
-                
-                // Seleccionar el nuevo solicitante
-                if (idNuevo) {
-                    $("#hrSolicitante").val(idNuevo).trigger("change");
-                }
-            }
-        },
-        error: () => console.error("Error al recargar solicitantes")
-    });
-}
+        // Recargar select de solicitantes
+        function recargarSolicitantes(idNuevo) {
+            $.ajax({
+                type: "GET",
+                url: "/administracion/hoja-ruta/solicitante/listar",
+                success: function (response) {
+                    if (response.ok) {
+                        // Limpiar select
+                        $("#hrSolicitante").empty();
+                        $("#hrSolicitante").append('<option value="">Seleccionar</option>');
+
+                        // Agregar opciones
+                        response.solicitantes.forEach(function (sol) {
+                            $("#hrSolicitante").append(
+                                `<option value="${sol.idSolicitante}">${sol.nombre} - ${sol.cargo}</option>`
+                            );
+                        });
+
+                        // Seleccionar el nuevo solicitante
+                        if (idNuevo) {
+                            $("#hrSolicitante").val(idNuevo).trigger("change");
+                        }
+                    }
+                },
+                error: () => console.error("Error al recargar solicitantes")
+            });
+        }
 
 
         function cerrarModal(modalId) {
@@ -1454,12 +2045,327 @@ function recargarSolicitantes(idNuevo) {
             });
         }
 
+        // ================================================================
+        // TABLA HOJAS DE RUTA — Script completo
+        // ================================================================
+        let hrDatosOriginales = [];   // todos los datos del servidor
+        let hrDatosFiltrados = [];   // después de búsqueda libre
+        let hrPaginaActual = 1;
+        const HR_POR_PAGINA = 12;
+        let hrOrdenCol = 'gestion';
+        let hrOrdenAsc = false;   // desc por defecto
+        let hrFilaSeleccionada = null;
+
+        // ----- INIT SELECT2 GESTIÓN EN TOOLBAR -----
+        (function initToolbarSelect2() {
+            const sel = document.getElementById('hrFiltroGestion');
+            const anioActual = new Date().getFullYear();
+            for (let a = anioActual; a >= 2020; a--) {
+                const opt = document.createElement('option');
+                opt.value = a;
+                opt.textContent = a;
+                if (a === anioActual) opt.selected = true;
+                sel.appendChild(opt);
+            }
+        })();
+
+        $(document).ready(function () {
+            // Select2 para el filtro de gestión en toolbar
+            $('#hrFiltroGestion').select2({
+                width: '130px',
+                minimumResultsForSearch: 0,   // siempre muestra búsqueda
+                language: {
+                    noResults: () => "Sin resultados",
+                    searching: () => "Buscando…"
+                },
+                placeholder: 'Todas las gestiones',
+                allowClear: true
+            });
+
+            // Búsqueda libre con debounce
+            let debounceTimer;
+            $('#hrBusquedaLibre').on('input', function () {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    hrPaginaActual = 1;
+                    aplicarBusquedaLibre();
+                }, 220);
+            });
+
+            // Carga inicial automática
+            cargarTablaHojaRutas();
+        });
+
+        // ----- CARGA DESDE SERVIDOR -----
+        function cargarTablaHojaRutas() {
+            const gestion = $('#hrFiltroGestion').val() || '';
+
+            // Estado cargando
+            $('#cuerpoTablaHR').html(`
+        <tr><td colspan="8">
+            <div class="hr-empty-state">
+                <span class="hr-spinner"></span>
+                <p style="display:inline;">Cargando registros…</p>
+            </div>
+        </td></tr>
+    `);
+            $('#hrTableFooter').hide();
+            $('#hr-badge-total').text('—');
+
+            $.ajax({
+                type: 'POST',
+                url: '/administracion/hoja-ruta/listar',
+                data: { gestion },
+                success: function (response) {
+                    if (response.ok) {
+                        hrDatosOriginales = response.hojaRutas || [];
+                        hrPaginaActual = 1;
+                        $('#hrBusquedaLibre').val('');
+                        aplicarBusquedaLibre();
+                    } else {
+                        mostrarEstadoVacioHR('bx-error-circle', response.msg || 'Error al obtener datos');
+                    }
+                },
+                error: () => mostrarEstadoVacioHR('bx-wifi-off', 'No se pudo conectar al servidor')
+            });
+        }
+
+        // ----- FILTRO LOCAL (búsqueda libre) -----
+        function aplicarBusquedaLibre() {
+            const q = ($('#hrBusquedaLibre').val() || '').toLowerCase().trim();
+
+            if (!q) {
+                hrDatosFiltrados = [...hrDatosOriginales];
+            } else {
+                hrDatosFiltrados = hrDatosOriginales.filter(hr => {
+                    return (
+                        (hr.codigo || '').toLowerCase().includes(q) ||
+                        (hr.solicitanteNombre || '').toLowerCase().includes(q) ||
+                        (hr.solicitanteCargo || '').toLowerCase().includes(q) ||
+                        (hr.descripcion || '').toLowerCase().includes(q) ||
+                        (hr.tipo || '').toLowerCase().includes(q) ||
+                        String(hr.gestion || '').includes(q)
+                    );
+                });
+            }
+
+            aplicarOrden();
+            renderizarTablaHR();
+        }
+
+        // ----- ORDENAMIENTO -----
+        function ordenarTablaHR(col) {
+            if (hrOrdenCol === col) {
+                hrOrdenAsc = !hrOrdenAsc;
+            } else {
+                hrOrdenCol = col;
+                hrOrdenAsc = true;
+            }
+
+            // Actualizar iconos de cabecera
+            document.querySelectorAll('#tablaListadoHR thead th').forEach(th => {
+                th.classList.remove('sorted');
+                const icon = th.querySelector('.sort-icon');
+                if (icon) { icon.className = 'bx bx-sort sort-icon'; }
+            });
+            const thActivo = document.querySelector(`#tablaListadoHR thead th[data-col="${col}"]`);
+            if (thActivo) {
+                thActivo.classList.add('sorted');
+                const icon = thActivo.querySelector('.sort-icon');
+                if (icon) icon.className = `bx ${hrOrdenAsc ? 'bx-sort-up' : 'bx-sort-down'} sort-icon`;
+            }
+
+            hrPaginaActual = 1;
+            aplicarOrden();
+            renderizarTablaHR();
+        }
+
+        function aplicarOrden() {
+            hrDatosFiltrados.sort((a, b) => {
+                let va = a[hrOrdenCol] ?? '';
+                let vb = b[hrOrdenCol] ?? '';
+                if (typeof va === 'string') va = va.toLowerCase();
+                if (typeof vb === 'string') vb = vb.toLowerCase();
+                if (va < vb) return hrOrdenAsc ? -1 : 1;
+                if (va > vb) return hrOrdenAsc ? 1 : -1;
+                return 0;
+            });
+        }
+
+        // ----- RENDER -----
+        function renderizarTablaHR() {
+            const total = hrDatosFiltrados.length;
+            const inicio = (hrPaginaActual - 1) * HR_POR_PAGINA;
+            const fin = Math.min(inicio + HR_POR_PAGINA, total);
+
+            $('#hr-badge-total').text(total);
+
+            if (total === 0) {
+                const busqueda = $('#hrBusquedaLibre').val().trim();
+                mostrarEstadoVacioHR(
+                    'bx-search-alt',
+                    busqueda ? `Sin resultados para "<strong>${busqueda}</strong>"` : 'No hay registros con los filtros aplicados'
+                );
+                return;
+            }
+
+            const paginados = hrDatosFiltrados.slice(inicio, fin);
+            let html = '';
+
+            paginados.forEach((hr, idx) => {
+                const numFila = inicio + idx + 1;
+                html += `
+                <tr class="animated" style="animation-delay:${idx * 0.025}s"
+                    onclick="seleccionarDesdeTabla(this, '${escaparJS(hr.tipo)}', '${escaparJS(hr.codigo)}', ${hr.gestion})"
+                    title="Ver detalle de ${escaparAttr(hr.codigo)}">
+                    <td style="text-align:center; color:var(--text-muted,#9ca3af); font-size:0.72rem;">${numFila}</td>
+                    <td><span class="hr-codigo">${hr.codigo || '-'}</span></td>
+                    <td>${renderTipoChip(hr.tipo)}</td>
+                    <td style="font-weight:700; font-size:0.8rem;">${hr.gestion || '-'}</td>
+                    <td>
+                        <span class="hr-solicitante-nombre">${hr.solicitanteNombre || '-'}</span>
+                        <span class="hr-solicitante-cargo">${hr.solicitanteCargo || ''}</span>
+                    </td>
+                    <td>
+                        <span class="hr-descripcion" title="${escaparAttr(hr.descripcion)}">${hr.descripcion || '-'}</span>
+                    </td>
+                    <td style="text-align:center;">
+                        <button class="btn-ver-hr"
+                            onclick="event.stopPropagation(); seleccionarDesdeTabla(this.closest('tr'), '${escaparJS(hr.tipo)}', '${escaparJS(hr.codigo)}', ${hr.gestion})">
+                            <i class='bx bx-show'></i> Ver
+                        </button>
+                    </td>
+                </tr>`;
+            });
+
+            $('#cuerpoTablaHR').html(html);
+
+            // Footer
+            $('#hrInfoPaginacion').text(`${inicio + 1}–${fin} de ${total} registros`);
+            renderPaginacionHR(total);
+            $('#hrTableFooter').show();
+        }
+
+        // ----- PAGINACIÓN -----
+        function renderPaginacionHR(total) {
+            const totalPags = Math.ceil(total / HR_POR_PAGINA);
+            let html = '';
+
+            const btnPrev = `<button ${hrPaginaActual === 1 ? 'disabled' : ''} onclick="cambiarPaginaHR(${hrPaginaActual - 1})">
+        <i class='bx bx-chevron-left'></i>
+    </button>`;
+
+            let inicio = Math.max(1, hrPaginaActual - 2);
+            let fin = Math.min(totalPags, hrPaginaActual + 2);
+            if (fin - inicio < 4) {
+                inicio = Math.max(1, fin - 4);
+                fin = Math.min(totalPags, inicio + 4);
+            }
+
+            let numeroPags = '';
+            if (inicio > 1) numeroPags += `<button onclick="cambiarPaginaHR(1)">1</button>${inicio > 2 ? '<button disabled>…</button>' : ''}`;
+            for (let p = inicio; p <= fin; p++) {
+                numeroPags += `<button class="${p === hrPaginaActual ? 'active' : ''}" onclick="cambiarPaginaHR(${p})">${p}</button>`;
+            }
+            if (fin < totalPags) {
+                numeroPags += `${fin < totalPags - 1 ? '<button disabled>…</button>' : ''}<button onclick="cambiarPaginaHR(${totalPags})">${totalPags}</button>`;
+            }
+
+            const btnNext = `<button ${hrPaginaActual === totalPags ? 'disabled' : ''} onclick="cambiarPaginaHR(${hrPaginaActual + 1})">
+        <i class='bx bx-chevron-right'></i>
+    </button>`;
+
+            $('#hrControlesPaginacion').html(btnPrev + numeroPags + btnNext);
+        }
+
+        function cambiarPaginaHR(p) {
+            hrPaginaActual = p;
+            renderizarTablaHR();
+            // Scroll suave al inicio de la tabla
+            document.querySelector('.hr-table-wrapper').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // ----- SELECCIONAR DESDE TABLA -----
+        function seleccionarDesdeTabla(fila, tipo, codigo, gestion) {
+            // Resaltar fila
+            if (hrFilaSeleccionada) hrFilaSeleccionada.classList.remove('selected-row');
+            fila.classList.add('selected-row');
+            hrFilaSeleccionada = fila;
+
+            // Rellenar filtros del buscador principal
+            $('#filtroTipo').val(tipo).trigger('change');
+            $('#filtroGestion').val(gestion).trigger('change');
+
+            setTimeout(() => {
+                $('#filtroCodigo').val(codigo);
+                buscarHojaRuta();
+                const target = document.getElementById('contenedorResultados');
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 120);
+        }
+
+        // ----- LIMPIAR -----
+        function limpiarFiltrosTabla() {
+            $('#hrFiltroGestion').val(new Date().getFullYear()).trigger('change');
+            $('#hrBusquedaLibre').val('');
+            hrPaginaActual = 1;
+            cargarTablaHojaRutas();
+        }
+
+        // ----- ESTADO VACÍO -----
+        function mostrarEstadoVacioHR(icon, msg) {
+            $('#cuerpoTablaHR').html(`
+        <tr><td colspan="8">
+            <div class="hr-empty-state">
+                <i class='bx ${icon}'></i>
+                <p>${msg}</p>
+            </div>
+        </td></tr>
+    `);
+            $('#hrTableFooter').hide();
+            $('#hr-badge-total').text('0');
+        }
+
+        // ----- HELPERS RENDER -----
+        function renderEstadoPill(estado) {
+            const map = {
+                'RECIBIDO': ['recibido', 'bx-check-circle', 'RECIBIDO'],
+                'ENVIADO': ['enviado', 'bx-send', 'ENVIADO'],
+                'ARCHIVADO': ['archivado', 'bx-archive', 'ARCHIVADO'],
+                'SIN MOVIMIENTO': ['sin-mov', 'bx-minus-circle', 'SIN MOV.'],
+            };
+            const [cls, ico, lbl] = map[estado] || ['sin-mov', 'bx-question-mark', estado || '—'];
+            return `<span class="estado-pill ${cls}"><i class='bx ${ico}'></i>${lbl}</span>`;
+        }
+
+        function renderTipoChip(tipo) {
+            const map = {
+                'RECTORADO': 'rectorado',
+                'DAF': 'daf',
+                'PEDIDO': 'pedido',
+            };
+            const cls = map[tipo] || '';
+            return `<span class="tipo-chip ${cls}">${tipo || '—'}</span>`;
+        }
+
+        // Escapar para usar dentro de atributo onclick="..."
+        function escaparJS(str) {
+            return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+
+        function escaparAttr(str) {
+            return (str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        }
+
         $(document).ready(function () {
             $("#filtroTipo, #filtroGestion").on("change", validarFiltros);
             const hoy = new Date();
             $("#hrFecha, #movFecha").val(hoy.toISOString().split("T")[0]);
             $("#hrHora, #movHora").val(hoy.toTimeString().substring(0, 5));
             $("#hrGestion").val(hoy.getFullYear());
+            cargarTablaHojaRutas()
         });
 
         document.addEventListener('keydown', (e) => {
@@ -1469,6 +2375,8 @@ function recargarSolicitantes(idNuevo) {
                 });
             }
         });
+
+
     </script>
 </body>
 

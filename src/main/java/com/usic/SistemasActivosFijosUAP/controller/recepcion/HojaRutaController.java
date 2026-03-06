@@ -26,6 +26,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IHojaRutaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IMovimientoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.ISolictanteService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUnidadService;
+import com.usic.SistemasActivosFijosUAP.model.dto.HojaRutaTablaDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.HojaRuta;
 import com.usic.SistemasActivosFijosUAP.model.entity.Movimiento;
 import com.usic.SistemasActivosFijosUAP.model.entity.Solicitante;
@@ -50,14 +51,12 @@ public class HojaRutaController {
     @GetMapping("/vista")
     public String inicio(Model model, HttpServletRequest request) {
 
-        // Validar que el usuario tenga permiso
         HttpSession session = request.getSession(false);
         Usuario usuario = (Usuario) (session != null ? session.getAttribute("usuario") : null);
         
         if (usuario != null) {
             String rol = usuario.getRol().getNombre().toUpperCase();
             
-            // Solo RECEPCION y ADMINISTRADOR pueden acceder
             if (!rol.equals("RECEPCION") && !rol.equals("ADMINISTRADOR")) {
                 return "redirect:/acceso-denegado";
             }
@@ -66,6 +65,24 @@ public class HojaRutaController {
         model.addAttribute("listaSolicitantes", solicitanteService.findAll());
         model.addAttribute("listaUnidades", unidadService.findAll());
         return "hojaRuta/vista";
+    }
+
+    @PostMapping("/listar")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> listar(
+            @RequestParam(required = false) Integer gestion,
+            @RequestParam(required = false) Long unidadOrigenId) {
+
+        Map<String, Object> response = new HashMap<>();
+        try {
+            List<HojaRutaTablaDTO> lista = hojaRutaService.listarFiltrados(gestion, unidadOrigenId);
+            response.put("ok", true);
+            response.put("hojaRutas", lista);
+        } catch (Exception e) {
+            response.put("ok", false);
+            response.put("msg", "Error al obtener registros: " + e.getMessage());
+        }
+        return ResponseEntity.ok(response);
     }
 
     // Buscar hoja de ruta por código

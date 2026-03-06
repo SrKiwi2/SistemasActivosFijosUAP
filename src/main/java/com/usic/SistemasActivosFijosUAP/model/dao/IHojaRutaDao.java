@@ -28,4 +28,16 @@ public interface IHojaRutaDao extends JpaRepository<HojaRuta, Long>{
     List<HojaRuta> findByDescripcionContaining(@Param("descripcion") String descripcion);
 
     HojaRuta findByTipoAndCodigoAndGestion(String tipo, String codigo, Integer gestion);
+
+    @Query("""
+        SELECT hr FROM HojaRuta hr
+        LEFT JOIN hr.movimientos m
+        WHERE (:gestion IS NULL OR hr.gestion = :gestion)
+          AND (:unidadOrigenId IS NULL OR m.unidadOrigen.idUnidad = :unidadOrigenId)
+        ORDER BY hr.gestion DESC, hr.idHojaRuta DESC
+        """)
+    List<HojaRuta> filtrarPorGestionYUnidad(
+        @Param("gestion") Integer gestion,
+        @Param("unidadOrigenId") Long unidadOrigenId
+    );
 }
