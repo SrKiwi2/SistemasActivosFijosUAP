@@ -62,5 +62,5 @@ public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
     boolean existsByNombreIgnoreCase(String nombre);
     boolean existsByNombreIgnoreCaseAndIdAuxiliarIsNot(String nombre, Long idAuxiliar);
 
-    List<Auxiliar> findByGrupoContableIdGrupoContable(Long idGrupoContable);
+    List<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContable(Long idPredio, Long idGrupoContable);
 }

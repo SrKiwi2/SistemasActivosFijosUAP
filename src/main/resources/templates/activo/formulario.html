@@ -1,388 +1,1010 @@
 <style>
-    .af-wrap { max-width: 100%; margin-inline: auto; }
-    .form-compact { font-size: 0.85rem; }
-    
-    .form-label { 
-        font-size: 0.7rem; 
-        font-weight: 700; 
-        color: #566a7f; 
-        margin-bottom: 0.1rem; 
-        text-transform: uppercase; 
-        letter-spacing: 0.3px; 
+    /* ═══════════════════════════════════════════════════════════
+       VARIABLES & BASE
+    ═══════════════════════════════════════════════════════════ */
+    :root {
+        --af-primary: #1a56db;
+        --af-primary-light: #e8f0fe;
+        --af-success: #0ea569;
+        --af-success-light: #ecfdf5;
+        --af-warning: #f59e0b;
+        --af-danger: #ef4444;
+        --af-border: #e2e8f0;
+        --af-surface: #f8fafc;
+        --af-text: #1e293b;
+        --af-text-muted: #64748b;
+        --af-radius: 0.5rem;
+        --af-shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+        --af-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+        --af-shadow-lg: 0 10px 30px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.06);
     }
 
-    .form-control, .form-select, .select2-container--bootstrap-5 .select2-selection { 
-        min-height: 2.1rem !important; 
-        height: 2.1rem !important; 
-        padding: 0.25rem 0.6rem; 
-        font-size: 0.85rem; 
-        border-radius: 0.4rem; 
+    /* ═══════════════════════════════════════════════════════════
+       CARD PRINCIPAL
+    ═══════════════════════════════════════════════════════════ */
+    #modalFormularioActivo {
+        border: 1px solid var(--af-border) !important;
+        border-radius: 0.75rem !important;
+        overflow: hidden;
+        box-shadow: var(--af-shadow) !important;
     }
-    
-    .input-group-text { padding: 0.25rem 0.5rem; font-size: 0.85rem; background-color: #f8f9fa; }
-    .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered { line-height: 1.9rem !important; }
-    
-    .is-filled { border-color: #71dd37 !important; background-color: #f0fdf4 !important; }
-    .select2-container.is-filled .select2-selection { border-color: #71dd37 !important; background-color: #f0fdf4 !important; }
 
-    .table-batch th { font-size: 0.75rem; text-transform: uppercase; background: #f5f5f9; padding: 0.5rem; text-align: center; }
-    .table-batch td { padding: 0.3rem; vertical-align: top; }
-    .btn-remove-row { color: #ff3e1d; cursor: pointer; transition: 0.2s; font-size: 1.1rem; }
-    .btn-remove-row:hover { color: #c51c00; transform: scale(1.2); }
-    
-    .mode-single, .mode-batch { display: none; }
+    #modalFormularioActivo .card-header {
+        background: white !important;
+        border-bottom: 2px solid var(--af-border) !important;
+        padding: 0.6rem 1rem !important;
+    }
 
-    /* ✅ LAYOUT BATCH - CARDS REORGANIZADO */
+    /* ═══════════════════════════════════════════════════════════
+       HEADER — BADGE DE MODO
+    ═══════════════════════════════════════════════════════════ */
+    #lblModo {
+        font-size: 0.65rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.8px;
+        padding: 0.3em 0.7em;
+        border-radius: 0.3rem;
+    }
 
-.batch-row-grid {
-    border: none !important;
-    padding: 0 !important;
-}
+    /* ═══════════════════════════════════════════════════════════
+       TIPOGRAFÍA & LABELS
+    ═══════════════════════════════════════════════════════════ */
+    .form-compact {
+        font-size: 0.85rem;
+    }
 
-.batch-row-grid td {
-    padding: 0.5rem !important;
-    border: none !important;
-}
+    .form-label {
+        font-size: 0.75rem !important;
+        font-weight: 800 !important;
+        color: var(--af-text-muted) !important;
+        margin-bottom: 0.25rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
 
-.batch-row-card {
-    background: white;
-    border: 1px solid #dee2e6;
-    border-radius: 0.4rem;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
+    /* ═══════════════════════════════════════════════════════════
+       INPUTS & SELECTS
+    ═══════════════════════════════════════════════════════════ */
+    .form-control,
+    .form-select {
+        min-height: 2.2rem !important;
+        height: 2.2rem !important;
+        padding: 0.3rem 0.65rem !important;
+        font-size: 0.9rem !important;
+        font-weight: 500;
+        border: 1.5px solid var(--af-border) !important;
+        border-radius: var(--af-radius) !important;
+        color: var(--af-text) !important;
+        background-color: white !important;
+        transition: border-color 0.15s, box-shadow 0.15s, background 0.15s !important;
+        text-transform: uppercase;
+    }
 
-/* Línea de campos */
-.batch-row-line {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    align-items: flex-start;
-}
+    .form-control::placeholder {
+        text-transform: none;
+        color: #a0aec0;
+        font-weight: 400;
+    }
 
-/* Field individual */
-.batch-row-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-}
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--af-primary) !important;
+        box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.12) !important;
+        background-color: white !important;
+    }
 
-.batch-row-field label {
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: #566a7f;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-}
+    textarea.form-control {
+        height: auto !important;
+        min-height: 4rem !important;
+        resize: vertical;
+    }
 
-/* Campo ancho completo */
-.batch-row-field.full-width {
-    grid-column: 1 / -1;
-}
+    /* Campos de solo lectura / monospace */
+    .form-control[readonly],
+    .form-control.bg-light {
+        background-color: var(--af-surface) !important;
+        border-color: var(--af-border) !important;
+        color: var(--af-text-muted) !important;
+    }
 
-/* Selectores y inputs */
-.batch-row-field select,
-.batch-row-field input,
-.batch-row-field textarea {
-    width: 100%;
-    font-size: 0.85rem;
-}
+    .font-monospace.text-primary {
+        color: var(--af-primary) !important;
+        background-color: var(--af-primary-light) !important;
+        border-color: #bfdbfe !important;
+        font-size: 0.8rem !important;
+    }
 
-.batch-row-field select.form-select {
-    min-height: 2.1rem;
-    height: auto;
-}
+    /* ═══════════════════════════════════════════════════════════
+       SELECT2 OVERRIDE
+    ═══════════════════════════════════════════════════════════ */
+    .select2-container--bootstrap-5 .select2-selection {
+        min-height: 2.2rem !important;
+        height: 2.2rem !important;
+        border: 1.5px solid var(--af-border) !important;
+        border-radius: var(--af-radius) !important;
+        font-size: 0.9rem !important;
+        font-weight: 500;
+        text-transform: uppercase;
+        transition: border-color 0.15s, box-shadow 0.15s !important;
+    }
 
-/* Fila de acciones (última) */
-.batch-row-actions {
-    grid-template-columns: 1.5fr 1fr 1fr 0.5fr;
-    align-items: flex-end;
-    padding-top: 0.5rem;
-    border-top: 1px solid #e0e0e0;
-}
+    .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+        line-height: 2rem !important;
+        color: var(--af-text) !important;
+        padding-left: 0.65rem !important;
+    }
 
-/* Botón eliminar */
-.batch-row-delete {
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    height: 2.5rem;
-}
+    .select2-container--bootstrap-5.select2-container--focus .select2-selection,
+    .select2-container--bootstrap-5.select2-container--open .select2-selection {
+        border-color: var(--af-primary) !important;
+        box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.12) !important;
+    }
 
-.btn-remove-row {
-    color: #ff3e1d;
-    cursor: pointer;
-    transition: 0.2s;
-    font-size: 1.1rem;
-}
+    .select2-container--bootstrap-5 .select2-dropdown {
+        border: 1.5px solid var(--af-primary) !important;
+        border-radius: var(--af-radius) !important;
+        box-shadow: var(--af-shadow-lg) !important;
+        font-size: 0.85rem;
+    }
 
-.btn-remove-row:hover {
-    color: #c51c00;
-    transform: scale(1.2);
-}
+    .select2-container--bootstrap-5 .select2-results__option--highlighted {
+        background-color: var(--af-primary-light) !important;
+        color: var(--af-primary) !important;
+    }
 
-/* Select2 en cards */
-.batch-row-card .select2-container--bootstrap-5 {
-    width: 100% !important;
-}
+    .is-filled .select2-selection {
+        border-color: var(--af-success) !important;
+        background-color: var(--af-success-light) !important;
+    }
 
-.batch-row-card .select2-selection__rendered {
-    white-space: normal;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-}
+    /* ═══════════════════════════════════════════════════════════
+       SECCIÓN SINGLE — CABECERA DE GRUPOS
+    ═══════════════════════════════════════════════════════════ */
+    #sectionSingle {
+        animation: fadeIn 0.2s ease;
+    }
 
-/* Responsive */
-@media (max-width: 768px) {
+    /* Divisores de grupo dentro del single */
+    .af-section-title {
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--af-border);
+        padding: 0.4rem 0.5rem;
+        background: var(--af-text-muted);
+        border-radius: var(--af-radius);
+        margin-bottom: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       CABECERA BATCH (Financiador + Fecha)
+    ═══════════════════════════════════════════════════════════ */
+    #sectionBatch > .row.bg-light {
+        background: linear-gradient(135deg, #f0f7ff 0%, #e8f4f8 100%) !important;
+        border: 1.5px solid #bfdbfe !important;
+        border-radius: 0.6rem !important;
+        padding: 0.75rem 1rem !important;
+    }
+
+    #sectionBatch > .row.bg-light::before {
+        content: '⚙ DATOS COMUNES DEL LOTE';
+        display: block;
+        font-size: 0.62rem;
+        font-weight: 800;
+        letter-spacing: 1px;
+        color: var(--af-primary);
+        margin-bottom: 0.5rem;
+        grid-column: 1/-1;
+        width: 100%;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       TABLA BATCH
+    ═══════════════════════════════════════════════════════════ */
+    .table-batch {
+        border-collapse: separate !important;
+        border-spacing: 0 0.4rem !important;
+        width: 100%;
+    }
+
+    .table-batch td {
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       BATCH ROW CARD — REDISEÑO COMPLETO
+    ═══════════════════════════════════════════════════════════ */
+    .batch-row-card {
+        background: white;
+        border: 1.5px solid var(--af-border);
+        border-radius: 0.7rem;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        margin-bottom: 0;
+        box-shadow: var(--af-shadow-sm);
+        overflow: hidden;
+        transition: box-shadow 0.2s, border-color 0.2s;
+    }
+
+    .batch-row-card:hover {
+        box-shadow: var(--af-shadow);
+        border-color: #93c5fd;
+    }
+
+    /* Número de fila — indicador lateral */
+    .batch-row-card::before {
+        content: '';
+        display: block;
+        height: 3px;
+        background: linear-gradient(90deg, var(--af-primary) 0%, #60a5fa 100%);
+    }
+
+    /* Error en fila */
+    .table-danger .batch-row-card {
+        border-color: var(--af-danger) !important;
+        background: #fff5f5 !important;
+    }
+
+    .table-danger .batch-row-card::before {
+        background: var(--af-danger) !important;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       LÍNEAS INTERNAS DE LA CARD
+    ═══════════════════════════════════════════════════════════ */
+
+    /* Sección interna con padding */
+    .batch-row-section {
+        padding: 0.65rem 1rem;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem 1.25rem;
+        align-items: flex-start;
+    }
+
+    .batch-row-section + .batch-row-section {
+        border-top: 1px solid var(--af-surface);
+    }
+
+    /* Etiquetas de sección */
+    .batch-row-section-label {
+        grid-column: 1 / -1;
+        font-size: 0.6rem;
+        font-weight: 800;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        color: var(--af-text-muted);
+        padding-bottom: 0.25rem;
+        border-bottom: 1px solid var(--af-border);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .batch-row-section-label i {
+        color: var(--af-primary);
+        font-size: 0.65rem;
+    }
+
+    /* ── COMPATIBILIDAD con clases existentes ── */
     .batch-row-line {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem 1.25rem;
+        align-items: flex-start;
+        padding: 0.65rem 1rem;
     }
-    
+
+    .batch-row-line + .batch-row-line {
+        border-top: 1px solid #f1f5f9;
+        padding-top: 0.65rem;
+    }
+
+    .batch-row-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .batch-row-field label {
+        font-size: 0.73rem;
+        font-weight: 800;
+        color: var(--af-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .batch-row-field.full-width {
+        grid-column: 1 / -1;
+    }
+
+    /* Fila de acciones */
     .batch-row-actions {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1.5fr 0.8fr 0.8fr 0.4fr;
+        align-items: flex-end;
+        background: var(--af-surface);
+        border-top: 1.5px dashed var(--af-border) !important;
+        padding: 0.65rem 1rem !important;
     }
-}
+
+    .batch-row-delete {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 0.15rem;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       PREVIEW CÓDIGO
+    ═══════════════════════════════════════════════════════════ */
+    .txt-codigo-preview {
+        font-family: 'Courier New', monospace !important;
+        font-size: 0.92rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 1.5px !important;
+        height: 2.4rem !important;
+        text-align: center !important;
+        background: var(--af-primary-light) !important;
+        border-color: #bfdbfe !important;
+        color: var(--af-primary) !important;
+        text-transform: uppercase !important;
+    }
+
+    .txt-codigo-preview::placeholder {
+        font-size: 0.7rem;
+        letter-spacing: 0;
+        font-weight: 400;
+        color: #94a3b8;
+        text-transform: none;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       BOTONES "+" nueva oficina / responsable
+    ═══════════════════════════════════════════════════════════ */
+    .btn-nueva-oficina,
+    .btn-nuevo-resp {
+        width: 2.2rem !important;
+        height: 2.2rem !important;
+        padding: 0 !important;
+        border-radius: var(--af-radius) !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s !important;
+        flex-shrink: 0;
+    }
+
+    .btn-nueva-oficina:not(:disabled):hover {
+        background-color: var(--af-success) !important;
+        border-color: var(--af-success) !important;
+        color: white !important;
+        transform: scale(1.08);
+    }
+
+    .btn-nuevo-resp:not(:disabled):hover {
+        background-color: var(--af-primary) !important;
+        border-color: var(--af-primary) !important;
+        color: white !important;
+        transform: scale(1.08);
+    }
+
+    .btn-nueva-oficina:disabled,
+    .btn-nuevo-resp:disabled {
+        opacity: 0.35;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       ALERTA SIN RESPONSABLE
+    ═══════════════════════════════════════════════════════════ */
+    .sel-resp-alerta .badge {
+        font-size: 0.68rem;
+        padding: 0.35em 0.65em;
+        border-radius: 0.35rem;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       BOTÓN ELIMINAR FILA
+    ═══════════════════════════════════════════════════════════ */
+    .btn-remove-row {
+        color: #fca5a5;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.15s;
+        padding: 0.4rem;
+        border-radius: 0.35rem;
+    }
+
+    .btn-remove-row:hover {
+        color: var(--af-danger);
+        background: #fff1f2;
+        transform: scale(1.15);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       BOTÓN AGREGAR FILA
+    ═══════════════════════════════════════════════════════════ */
+    #btnAddRow {
+        border: 1.5px dashed var(--af-primary) !important;
+        color: var(--af-primary) !important;
+        background: transparent !important;
+        font-weight: 600;
+        font-size: 0.8rem;
+        padding: 0.35rem 1rem;
+        border-radius: var(--af-radius) !important;
+        transition: all 0.15s;
+    }
+
+    #btnAddRow:hover {
+        background: var(--af-primary-light) !important;
+        border-style: solid !important;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       BOTÓN GUARDAR
+    ═══════════════════════════════════════════════════════════ */
+    #btnSubmitForm {
+        background: linear-gradient(135deg, #0ea569 0%, #059652 100%) !important;
+        border: none !important;
+        border-radius: var(--af-radius) !important;
+        font-weight: 700 !important;
+        font-size: 0.82rem !important;
+        letter-spacing: 0.5px;
+        padding: 0.45rem 1.8rem !important;
+        box-shadow: 0 2px 8px rgba(14, 165, 105, 0.3) !important;
+        transition: all 0.15s !important;
+    }
+
+    #btnSubmitForm:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 14px rgba(14, 165, 105, 0.4) !important;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       BOTONES DE ACCIÓN (header)
+    ═══════════════════════════════════════════════════════════ */
+    #btnRegistrar {
+        background: linear-gradient(135deg, var(--af-primary) 0%, #1d4ed8 100%) !important;
+        border: none !important;
+        font-weight: 700;
+        font-size: 0.78rem;
+        box-shadow: 0 2px 6px rgba(26, 86, 219, 0.25) !important;
+        transition: all 0.15s !important;
+    }
+
+    #btnRegistrar:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(26, 86, 219, 0.35) !important;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       INPUT BUSCAR CÓDIGO
+    ═══════════════════════════════════════════════════════════ */
+    #buscarCodigo {
+        font-family: 'Courier New', monospace;
+        font-size: 0.82rem !important;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        border-right: none !important;
+    }
+
+    #buscarCodigo:focus {
+        border-color: var(--af-primary) !important;
+        box-shadow: none !important;
+    }
+
+    #btnBuscarCodigo {
+        border-color: var(--af-border) !important;
+        font-size: 0.78rem;
+        transition: all 0.15s;
+    }
+
+    #btnBuscarCodigo:hover {
+        background: var(--af-primary) !important;
+        color: white !important;
+        border-color: var(--af-primary) !important;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       SECCIONES MODO
+    ═══════════════════════════════════════════════════════════ */
+    .mode-single, .mode-batch {
+        display: none;
+        animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       BARRA DE SCROLL — tabla batch
+    ═══════════════════════════════════════════════════════════ */
+    .table-responsive::-webkit-scrollbar {
+        width: 5px;
+        height: 5px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: var(--af-surface);
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 99px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════════════════ */
+    @media (max-width: 768px) {
+        .batch-row-line {
+            grid-template-columns: 1fr;
+        }
+
+        .batch-row-actions {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .batch-row-delete {
+            grid-column: 1 / -1;
+            justify-content: flex-end;
+        }
+
+        #modalFormularioActivo .card-header .d-flex {
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+    }
+
+    /* ═══ SEPARADORES DE SECCIÓN — aspecto de título, NO de input ═══ */
+    .batch-section-divider {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin: 0.1rem 0 0.4rem 0;
+        user-select: none;
+        pointer-events: none;
+    }
+
+    .batch-section-divider .divider-icon {
+        width: 1.6rem;
+        height: 1.6rem;
+        border-radius: 0.35rem;
+        background: var(--af-primary-light);
+        color: var(--af-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        flex-shrink: 0;
+    }
+
+    .batch-section-divider .divider-text {
+        font-size: 0.68rem;
+        font-weight: 900;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+        color: var(--af-text);
+    }
+
+    .batch-section-divider .divider-line {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, var(--af-border) 0%, transparent 100%);
+    }
 
 </style>
-
 <div class="card card-compact shadow-sm" id="modalFormularioActivo">
     <div class="card-header card-header-slim sticky-top z-1 bg-white border-bottom">
         <div class="d-flex justify-content-between align-items-center py-1">
-            <div class="d-flex align-items-center gap-2">
-                <div class="d-flex align-items-center bg-label-primary rounded px-2 py-1">
-                    <i class="fa-solid fa-box-archive me-2"></i>
-                    <span class="fw-bold small">GESTIÓN</span>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+
+                <!-- Título módulo -->
+                <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center bg-label-primary rounded px-2 py-1">
+                        <i class="fa-solid fa-box-archive me-2 text-primary"></i>
+                        <span class="fw-bold small text-primary">ACTIVOS FIJOS</span>
+                    </div>
+                    <span id="lblModo" class="badge bg-secondary" style="font-size: 0.7rem;">BLOQUEADO</span>
                 </div>
-                <span id="lblModo" class="badge bg-secondary" style="font-size: 0.7rem;">BLOQUEADO</span>
-                
-                <div class="input-group input-group-sm ms-2" style="width: 260px;">
-                    <input type="text" id="buscarCodigo" class="form-control font-monospace" placeholder="Buscar código..." autocomplete="off">
-                    <button class="btn btn-outline-primary" id="btnBuscarCodigo">
+
+                <!-- Buscador -->
+                <div class="input-group input-group-sm ms-1" style="width: 240px;">
+                    <span class="input-group-text bg-white border-end-0" style="border: 1.5px solid #e2e8f0; border-right:0; border-radius: 0.5rem 0 0 0.5rem;">
+                        <i class="fa-solid fa-barcode text-muted" style="font-size:0.75rem;"></i>
+                    </span>
+                    <input type="text" id="buscarCodigo"
+                        class="form-control font-monospace"
+                        placeholder="00-00-00-00000"
+                        autocomplete="off"
+                        style="border-left:0; border-radius:0 0.5rem 0.5rem 0;">
+                    <button class="btn btn-outline-primary btn-sm" id="btnBuscarCodigo" title="Buscar por código">
                         <i class="fa-solid fa-search"></i>
                     </button>
                 </div>
             </div>
 
+            <!-- Botones acción -->
             <div class="d-flex gap-1">
-                <button type="button" class="btn btn-primary btn-sm" id="btnRegistrar"><i class="fa-solid fa-plus me-1"></i> Nuevo Lote</button>
-                <button type="button" class="btn btn-warning btn-sm" id="btnModificar" disabled><i class="fa-solid fa-pen me-1"></i> Editar</button>
-                <button type="button" class="btn btn-danger btn-sm" id="btnBaja" disabled><i class="fa-solid fa-arrow-down"></i></button>
-                <button type="button" class="btn btn-secondary btn-sm" id="btnCancelar" disabled><i class="fa-solid fa-xmark"></i></button>
+                <button type="button" class="btn btn-primary btn-sm" id="btnRegistrar">
+                    <i class="fa-solid fa-plus me-1"></i> Nuevo Lote
+                </button>
+                <button type="button" class="btn btn-warning btn-sm" id="btnModificar" disabled title="Editar activo">
+                    <i class="fa-solid fa-pen me-1"></i>
+                    <span class="d-none d-sm-inline">Editar</span>
+                </button>
+                <button type="button" class="btn btn-danger btn-sm" id="btnBaja" disabled title="Dar de baja">
+                    <i class="fa-solid fa-arrow-down me-1"></i>
+                    <span class="d-none d-sm-inline">Baja</span>
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCancelar" disabled title="Cancelar">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
         </div>
     </div>
 
-    <div class="card-body card-body-slim pt-3">
+    <div class="card-body card-body-slim pt-3 px-3">
         <form id="formularioActivo" class="form-compact needs-validation" novalidate autocomplete="off">
             <input type="hidden" id="idActivo" name="idActivo" />
 
+            <!-- ══════════════════════ MODO SINGLE ══════════════════════ -->
             <div id="sectionSingle" class="mode-single">
                 <div class="row g-2">
-                    <div class="col-md-3">
-                        <label class="form-label">Municipio</label>
+
+                    <!-- Grupo: Ubicación -->
+                    <div class="col-12">
+                        <div class="af-section-title">
+                            1. Ubicación
+                        </div>
+                    </div>
+
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-city"></i> Municipio
+                        </label>
                         <select id="municipioCode" class="form-select select2it">
                             <option value="">Seleccione...</option>
-                            <option th:each="m : ${municipios}" th:value="${m.idMunicipio}" th:text="${m.nombre}" th:data-code="${m.codigo}"></option>
+                            <option th:each="m : ${municipios}" th:value="${m.idMunicipio}" th:text="${m.nombre}"
+                                th:data-code="${m.codigo}"></option>
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Predio</label>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-building"></i> Predio
+                        </label>
                         <select id="predioCode" name="predio" class="form-select select2it">
                             <option value="">Seleccione...</option>
-                            <option th:each="p : ${predios}" th:value="${p.idPredio}" th:text="${p.descrip}" th:data-code="${p.codigo}"></option>
+                            <option th:each="p : ${predios}" th:value="${p.idPredio}" th:text="${p.descrip}"
+                                th:data-code="${p.codigo}"></option>
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Oficina</label>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-door-open"></i> Oficina
+                        </label>
                         <select name="oficina.idOficina" id="oficinaId" class="form-select select2it">
                             <option value="">Seleccione...</option>
                             <option th:each="o : ${oficinas}" th:value="${o.idOficina}" th:text="${o.nombre}"></option>
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Responsable</label>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-user-tie"></i> Responsable
+                        </label>
                         <select name="responsable.idResponsable" id="responsableId" class="form-select">
                             <option value="">Buscar...</option>
                         </select>
                     </div>
 
-                    <div class="col-md-3">
-                        <label class="form-label">Grupo Contable</label>
-                        <select id="grupoCode" name="grupoContable.idGrupoContable" class="form-select select2it">
-                            <option value="">Seleccione...</option>
-                            <option th:each="g : ${grupos}" th:value="${g.idGrupoContable}" th:text="${g.nombre}" th:data-code="${g.codDbf}"></option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Auxiliar</label>
-                        <select name="auxiliar.idAuxiliar" id="auxiliarId" class="form-select">
-                            <option value="">Seleccione...</option>
-                            <option th:each="a : ${aux}" th:value="${a.idAuxiliar}" th:text="${a.nombre}" th:data-code="${a.codAux}"></option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Financiador</label>
-                        <select name="organismoFinanciero.idOrganismoFinanciero" id="orgFinId" class="form-select select2it">
-                            <option value="">Seleccione...</option>
-                            <option th:each="f: ${financiadores}" th:value="${f.idOrganismoFinanciero}" th:text="${f.descripcion}"></option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label text-muted">Código Actual</label>
-                        <input type="text" id="codigo" name="codigo" class="form-control font-monospace bg-light" readonly>
+                    <!-- Grupo: Clasificación -->
+                    <div class="col-12 mt-1">
+                        <div class="af-section-title">
+                            2. Clasificación Contable
+                        </div>
                     </div>
 
-                    <div class="col-md-3">
-                        <label class="form-label">Fecha Adq.</label>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-layer-group"></i> Grupo Contable
+                        </label>
+                        <select id="grupoCode" name="grupoContable.idGrupoContable" class="form-select select2it">
+                            <option value="">Seleccione...</option>
+                            <option th:each="g : ${grupos}" th:value="${g.idGrupoContable}" th:text="${g.nombre}"
+                                th:data-code="${g.codDbf}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-bookmark"></i> Auxiliar
+                        </label>
+                        <select name="auxiliar.idAuxiliar" id="auxiliarId" class="form-select">
+                            <option value="">Seleccione...</option>
+                            <option th:each="a : ${aux}" th:value="${a.idAuxiliar}" th:text="${a.nombre}"
+                                th:data-code="${a.codAux}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-hand-holding-dollar"></i> Financiador
+                        </label>
+                        <select name="organismoFinanciero.idOrganismoFinanciero" id="orgFinId"
+                            class="form-select select2it">
+                            <option value="">Seleccione...</option>
+                            <option th:each="f: ${financiadores}" th:value="${f.idOrganismoFinanciero}"
+                                th:text="${f.descripcion}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-barcode"></i> Código Asignado
+                        </label>
+                        <input type="text" id="codigo" name="codigo"
+                            class="form-control font-monospace bg-light text-center fw-bold"
+                            readonly>
+                    </div>
+
+                    <!-- Grupo: Datos del activo -->
+                    <div class="col-12 mt-1">
+                        <div class="af-section-title">
+                            3. Datos del Activo
+                        </div>
+                    </div>
+
+                    <div class="col-md-2 col-sm-4">
+                        <label class="form-label">
+                            <i class="fa-solid fa-calendar"></i> Fecha Adq.
+                        </label>
                         <input type="date" name="fechaAdquisicion" id="fechaAdq" class="form-control">
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Costo (Bs)</label>
+                    <div class="col-md-2 col-sm-4">
+                        <label class="form-label">
+                            <i class="fa-solid fa-coins"></i> Costo (Bs)
+                        </label>
                         <input type="text" id="costoFmt" class="form-control fw-bold text-end">
                         <input type="hidden" name="costo" id="costo">
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Vida Útil</label>
+                    <div class="col-md-2 col-sm-4">
+                        <label class="form-label">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Vida Útil (años)
+                        </label>
                         <input type="number" id="vidaUtil" name="vidaUtil" class="form-control text-center">
                     </div>
-                    <div class="col-md-12">
-                        <label class="form-label">Descripción</label>
-                        <textarea name="descripcion" id="descripcion" class="form-control" rows="2"></textarea>
+                    <div class="col-md-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-align-left"></i> Descripción
+                        </label>
+                        <textarea name="descripcion" id="descripcion" class="form-control" rows="1"
+                            placeholder="Descripción detallada del activo..."></textarea>
                     </div>
                 </div>
             </div>
 
+            <!-- ══════════════════════ MODO BATCH ══════════════════════ -->
             <div id="sectionBatch" class="mode-batch">
-                
+
+                <!-- Cabecera común del lote -->
                 <div class="row g-2 mb-3 p-2 bg-light rounded border align-items-end">
-                    <div class="col-md-5">
-                        <label class="form-label">Responsable (Común)</label>
-                        <select id="batchResponsable" class="form-select select2-header">
-                            <option value="">Buscar responsable...</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Financiador (Común)</label>
+                    <div class="col-md-4 col-sm-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-hand-holding-dollar text-primary"></i> Financiador Común
+                        </label>
                         <select id="batchFinanciador" class="form-select select2-header">
-                            <option value="">Seleccione...</option>
-                             <option th:each="f: ${financiadores}" th:value="${f.idOrganismoFinanciero}" th:text="${f.descripcion}"></option>
+                            <option value="">(Opcional)</option>
+                            <option th:each="f: ${financiadores}" th:value="${f.idOrganismoFinanciero}"
+                                th:text="${f.descripcion}"></option>
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Fecha Adquisición</label>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-calendar-days text-primary"></i> Fecha Adquisición <span class="text-danger">*</span>
+                        </label>
                         <input type="date" id="batchFecha" class="form-control" required>
                     </div>
+                    <div class="col-md-5 d-flex align-items-end pb-1">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size:0.75rem;">
+                            <i class="fa-solid fa-circle-info text-primary"></i>
+                            Los activos quedarán en estado <span class="badge bg-warning text-dark ms-1">PENDIENTE</span>
+                            hasta su aprobación y sincronización con DBF.
+                        </div>
+                    </div>
                 </div>
 
-                <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
-                    <table class="table table-bordered table-batch" id="tblBatch">
-                        
-
-                        <tbody id="batchBody">
-                            </tbody>
+                <!-- Tabla de filas -->
+                <div class="table-responsive" style="max-height: 620px; overflow-y: auto; padding: 0.25rem;">
+                    <table class="table table-batch" id="tblBatch">
+                        <tbody id="batchBody"></tbody>
                     </table>
                 </div>
-                
-                <div class="d-flex justify-content-between mt-2">
-                    <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddRow">
+
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <button type="button" class="btn btn-sm" id="btnAddRow">
                         <i class="fa-solid fa-plus me-1"></i> Agregar Fila
                     </button>
-                    <div class="text-end">
-                        <small class="text-muted d-block mb-1">Se crearán múltiples activos</small>
-                    </div>
+                    <span class="text-muted small">
+                        <i class="fa-solid fa-circle-check text-success me-1"></i>
+                        Cada fila genera uno o más activos según la cantidad indicada
+                    </span>
                 </div>
             </div>
 
-            <div class="mt-3 pt-2 border-top text-end">
-                <button type="submit" id="btnSubmitForm" class="btn btn-success btn-sm px-4 fw-bold shadow-sm">
-                    Guardar Cambios
+            <!-- Footer botón guardar -->
+            <div class="mt-3 pt-2 border-top d-flex justify-content-between align-items-center">
+                <div class="text-muted" style="font-size:0.72rem;">
+                    <i class="fa-solid fa-shield-halved text-success me-1"></i>
+                    Todos los campos marcados con <span class="text-danger fw-bold">*</span> son obligatorios
+                </div>
+                <button type="submit" id="btnSubmitForm" class="btn btn-success btn-sm px-4 fw-bold">
+                    <i class="fa-solid fa-floppy-disk me-2"></i>Guardar Cambios
                 </button>
             </div>
         </form>
     </div>
 </div>
 
+
+<!-- ══════════════════════════════════════════════════════════════
+     TEMPLATE FILA BATCH
+══════════════════════════════════════════════════════════════ -->
 <template id="tplBatchRow">
     <tr class="batch-row-grid">
         <td colspan="7">
             <div class="batch-row-card">
-                
-                <!-- Fila 1: Municipio + Predio -->
+
+                <!-- ─── BLOQUE 1: Ubicación ─── -->
                 <div class="batch-row-line">
+                    <div class="batch-section-divider">
+                        <div class="divider-icon"><i class="fa-solid fa-location-dot"></i></div>
+                        <span class="divider-text">Ubicación</span>
+                        <div class="divider-line"></div>
+                    </div>
                     <div class="batch-row-field">
-                        <label>Municipio</label>
+                        <label><i class="fa-solid fa-city"></i> Municipio</label>
                         <select class="form-select select2-row sel-mun" data-placeholder="Municipio">
                             <option value="">(Seleccione Municipio)</option>
-                            <option th:each="m : ${municipios}" th:value="${m.idMunicipio}" th:text="${m.nombre}"></option>
+                            <option th:each="m : ${municipios}"
+                                th:value="${m.idMunicipio}"
+                                th:text="${m.nombre}"
+                                th:data-code="${m.codigo}"></option>
                         </select>
                     </div>
-                    
                     <div class="batch-row-field">
-                        <label>Predio</label>
+                        <label><i class="fa-solid fa-building"></i> Predio</label>
                         <select class="form-select select2-row sel-pred" data-placeholder="Predio" disabled>
                             <option value="">(Seleccione Predio)</option>
                         </select>
                     </div>
                 </div>
 
-                <!-- Fila 2: Oficina (ancho completo) -->
-                <div class="batch-row-line">
-                    <div class="batch-row-field full-width">
-                        <label>Oficina</label>
-                        <select class="form-select select2-row sel-ofi" data-placeholder="Oficina" disabled>
-                            <option value="">(Seleccione Oficina)</option>
-                        </select>
+                <!-- ─── BLOQUE 2: Oficina + Responsable ─── -->
+                <div class="batch-row-line" style="border-top: 1px solid #f1f5f9;">
+                    <div class="batch-section-divider">
+                        <div class="divider-icon"><i class="fa-solid fa-users"></i></div>
+                        <span class="divider-text">Asignación</span>
+                        <div class="divider-line"></div>
+                    </div>
+                    <div class="batch-row-field">
+                        <label><i class="fa-solid fa-door-open"></i> Oficina</label>
+                        <div class="d-flex gap-1 align-items-center">
+                            <select class="form-select select2-row sel-ofi" disabled style="flex:1; min-width:0;">
+                                <option value="">(Seleccione Predio primero)</option>
+                            </select>
+                            <button type="button"
+                                class="btn btn-outline-success btn-sm btn-nueva-oficina flex-shrink-0"
+                                title="Nueva oficina en este predio" disabled>
+                                <i class="fa-solid fa-plus" style="font-size:0.7rem;"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="batch-row-field">
+                        <label><i class="fa-solid fa-user-tie"></i> Responsable</label>
+                        <div class="d-flex gap-1 align-items-center">
+                            <select class="form-select select2-row sel-resp" disabled style="flex:1; min-width:0;">
+                                <option value="">(Seleccione Oficina primero)</option>
+                            </select>
+                            <button type="button"
+                                class="btn btn-outline-primary btn-sm btn-nuevo-resp flex-shrink-0"
+                                title="Nuevo responsable en esta oficina" disabled>
+                                <i class="fa-solid fa-user-plus" style="font-size:0.7rem;"></i>
+                            </button>
+                        </div>
+                        <div class="sel-resp-alerta d-none mt-1">
+                            <span class="badge bg-warning text-dark small">
+                                <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                                Sin responsables — registre uno con
+                                <i class="fa-solid fa-user-plus"></i>
+                            </span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Fila 3: Grupo + Auxiliar -->
-                <div class="batch-row-line">
+                <!-- ─── BLOQUE 3: Clasificación ─── -->
+                <div class="batch-row-line" style="border-top: 1px solid #f1f5f9;">
+                    <div class="batch-section-divider">
+                        <div class="divider-icon"><i class="fa-solid fa-tags"></i></div>
+                        <span class="divider-text">Clasificación Contable</span>
+                        <div class="divider-line"></div>
+                    </div>
                     <div class="batch-row-field">
-                        <label>Clasificación</label>
+                        <label><i class="fa-solid fa-layer-group"></i> Grupo / Clasificación</label>
                         <select class="form-select select2-row sel-grp" data-placeholder="Grupo">
-                            <option th:each="g : ${grupos}" th:value="${g.idGrupoContable}" th:text="${g.nombre}"></option>
+                            <option value="">(Seleccione Grupo)</option>
+                            <option th:each="g : ${grupos}"
+                                th:value="${g.idGrupoContable}"
+                                th:text="${g.nombre}"
+                                th:data-code="${g.codDbf}"></option>
                         </select>
                     </div>
-                    
                     <div class="batch-row-field">
-                        <label>Auxiliar</label>
+                        <label><i class="fa-solid fa-bookmark"></i> Auxiliar <span class="fw-normal text-muted">(Opcional)</span></label>
                         <select class="form-select select2-row sel-aux" data-placeholder="Auxiliar (Opcional)" disabled>
                             <option value="">(Opcional)</option>
                         </select>
                     </div>
                 </div>
 
-                <!-- Fila 4: Descripción (ancho completo) -->
-                <div class="batch-row-line">
+                <!-- ─── CÓDIGO PREVIEW ─── -->
+                <div class="batch-row-line" style="border-top: 1px solid #f1f5f9; padding-top: 0.5rem;">
                     <div class="batch-row-field full-width">
-                        <label>Descripción</label>
-                        <textarea class="form-control txt-desc" rows="2" placeholder="Descripción detallada..."></textarea>
+                        <label>
+                            <i class="fa-solid fa-barcode text-primary"></i>
+                            Código que se asignará
+                        </label>
+                        <input type="text"
+                            class="form-control txt-codigo-preview font-monospace"
+                            readonly
+                            placeholder="Selecciona Municipio, Predio y Grupo Contable...">
                     </div>
                 </div>
 
-                <!-- Fila 5: Costo + Cantidad + Vida Útil + Eliminar -->
-                <div class="batch-row-line batch-row-actions">
-                    <div class="batch-row-field">
-                        <label>Costo Bs</label>
-                        <input type="text" class="form-control txt-costo" placeholder="Opcional">
+                <!-- ─── DESCRIPCIÓN ─── -->
+                <div class="batch-row-line" style="border-top: 1px solid #f1f5f9;">
+                    <div class="batch-row-field full-width">
+                        <label>
+                            <i class="fa-solid fa-align-left"></i>
+                            Descripción <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control txt-desc" rows="2"
+                            placeholder="Descripción detallada del activo fijo..."></textarea>
                     </div>
-                    
+                </div>
+
+                <!-- ─── DATOS ECONÓMICOS + ELIMINAR ─── -->
+                <div class="batch-row-line batch-row-actions" style="border-top: 1.5px dashed #e2e8f0; background: #f8fafc;">
                     <div class="batch-row-field">
-                        <label>Cantidad</label>
+                        <label><i class="fa-solid fa-coins"></i> Costo (Bs)</label>
+                        <input type="text" class="form-control txt-costo text-end"
+                            placeholder="0.00">
+                    </div>
+                    <div class="batch-row-field">
+                        <label><i class="fa-solid fa-hashtag"></i> Cantidad</label>
                         <input type="number" class="form-control txt-cant text-center" value="1" min="1">
                     </div>
-                    
                     <div class="batch-row-field">
-                        <label>Vida Útil</label>
-                        <input type="number" class="form-control txt-vida text-center" placeholder="Años" value="0">
+                        <label><i class="fa-solid fa-clock-rotate-left"></i> Vida Útil (años)</label>
+                        <input type="number" class="form-control txt-vida text-center" placeholder="0" value="0">
                     </div>
-                    
                     <div class="batch-row-field batch-row-delete">
-                        <i class="fa-solid fa-trash-can btn-remove-row" title="Quitar fila"></i>
+                        <i class="fa-solid fa-trash-can btn-remove-row" title="Quitar esta fila"></i>
                     </div>
                 </div>
 
@@ -391,11 +1013,12 @@
     </tr>
 </template>
 
-
 <script>
     window.ActivoForm = (function () {
         let uiState = { modo: 'LOCK' };
         let $root;
+        let _correlativos = {};
+        let _recalcTimer = null;
 
         function init(containerSelector) {
 
@@ -421,7 +1044,7 @@
 
             var searchTerm = params.term.toUpperCase();
             var text = (data.text || '').toUpperCase();
-            
+
             if (text.indexOf(searchTerm) > -1) {
                 return data;
             }
@@ -431,7 +1054,7 @@
 
         function switchView(modo) {
             uiState.modo = modo;
-            
+
             const $single = $root.find('#sectionSingle');
             const $batch = $root.find('#sectionBatch');
             const $lbl = $root.find('#lblModo');
@@ -441,9 +1064,9 @@
             const $btnBaja = $root.find('#btnBaja');
             const $btnCancelar = $root.find('#btnCancelar');
 
-            $single.hide(); 
+            $single.hide();
             $batch.hide();
-            
+
             $btnRegistrar.prop('disabled', false);
             $btnModificar.prop('disabled', true);
             $btnBaja.prop('disabled', true);
@@ -455,31 +1078,31 @@
                 $btnSubmit.text('Guardar Lote').show();
                 $btnCancelar.prop('disabled', false);
                 $btnRegistrar.prop('disabled', true);
-                
+
                 if ($root.find('#batchBody').children().length === 0) {
                     addBatchRow();
                 }
-            } 
+            }
             else if (modo === 'EDIT_SINGLE' || modo === 'VIEW_SINGLE') {
-                $single.show(); 
-                
+                $single.show();
+
                 if (modo === 'EDIT_SINGLE') {
                     $lbl.text('EDICIÓN').attr('class', 'badge bg-warning');
                     $btnSubmit.text('Guardar Cambios').show();
                     lockSingleForm(false);
                 } else {
                     $lbl.text('VISTA').attr('class', 'badge bg-info');
-                    $btnSubmit.hide(); 
+                    $btnSubmit.hide();
                     lockSingleForm(true);
-                    
+
                     const hayId = !!$root.find('#idActivo').val();
                     $btnModificar.prop('disabled', !hayId);
                     $btnBaja.prop('disabled', !hayId);
                 }
                 $btnCancelar.prop('disabled', false);
-            } 
+            }
             else {
-                $single.show(); 
+                $single.show();
                 $lbl.text('BLOQUEADO').attr('class', 'badge bg-secondary');
                 $btnSubmit.hide();
                 lockSingleForm(true);
@@ -489,37 +1112,53 @@
 
         function cargarSelect(url, params, $targetSelect, placeholder = 'Seleccione...') {
             $targetSelect.prop('disabled', true).empty().append(`<option value="">Cargando...</option>`);
-            
-            return $.get(url, params).then(function(data) {
+
+            return $.get(url, params).then(function (data) {
                 $targetSelect.empty().append(`<option value="">${placeholder}</option>`);
 
                 if (Array.isArray(data)) {
                     data.forEach(item => {
-                        const text = item.nombre || item.descrip || item.text || item.descripcion; 
-                        const codeAttr = item.codigo ? ` data-code="${item.codigo}"` : '';
-                        const val = item.id || item.idPredio || item.idOficina || item.idResponsable || item.idAuxiliar || item.idGrupoContable || item.idAuxiliar;
-                        $targetSelect.append(`<option value="${val}"${codeAttr}>${text}</option>`);
+                        const val = item.id || item.idPredio || item.idOficina ||
+                            item.idResponsable || item.idAuxiliar || item.idGrupoContable;
+                        const txt = item.nombre || item.descrip || item.text || item.descripcion;
+
+                        // ✅ FIX: para predios, priorizar campo numérico sobre 'unidad' textual
+                        // item.codigo = "03" (numérico) | item.unidad = "RECT" (textual DBF)
+                        let codeVal = item.codigo || item.unidad || null;
+
+                        // Si el código no es numérico pero hay un campo numérico alternativo, usarlo
+                        if (codeVal && isNaN(parseInt(codeVal))) {
+                            // codeVal es textual (ej: "RECT"), buscar alternativa numérica
+                            const alternativa = item.codigoNumerico || item.codPredio || item.nroPredio;
+                            if (alternativa) codeVal = alternativa;
+                            // Si no hay alternativa, lo dejamos como está y logeamos
+                            else console.warn('⚠️ Predio sin código numérico:', item);
+                        }
+
+                        const $opt = $('<option>', { value: val, text: txt });
+                        if (codeVal) $opt.attr('data-code', codeVal);
+                        $targetSelect.append($opt);
                     });
                 }
-                
+
                 $targetSelect.prop('disabled', false);
-                
+
                 if ($targetSelect.data('select2')) {
                     $targetSelect.select2('destroy');
                 }
-                
+
                 const selectConfig = {
-                    theme: 'bootstrap-5', 
-                    width: '100%', 
+                    theme: 'bootstrap-5',
+                    width: '100%',
                     dropdownParent: $root,
                     allowClear: true,
                     minimumInputLength: 0,
                     matcher: matchCustom
                 };
-                
+
                 $targetSelect.select2(selectConfig).trigger('change.select2');
-                
-            }).catch(function(err) {
+
+            }).catch(function (err) {
                 console.error('Error cargando opciones:', err);
                 $targetSelect.empty().append(`<option value="">Error al cargar</option>`);
             });
@@ -528,26 +1167,26 @@
 
         function setupCascadaSingle() {
 
-            $root.find('#municipioCode').on('change', function() {
+            $root.find('#municipioCode').on('change', function () {
                 const munId = $(this).val();
                 const $predio = $root.find('#predioCode');
                 const $oficina = $root.find('#oficinaId');
                 const $resp = $root.find('#responsableId');
-                
+
                 $oficina.empty().prop('disabled', true);
                 $resp.empty().prop('disabled', true);
-                
+
                 if (munId) cargarSelect('/api/buscar_predios', { municipioId: munId }, $predio, 'Seleccione Predio');
                 else $predio.empty().prop('disabled', true);
-                
+
                 actualizarCodigoPreviewSingle();
             });
 
-            $root.find('#predioCode').on('change', function() {
+            $root.find('#predioCode').on('change', function () {
                 const predId = $(this).val();
                 const $oficina = $root.find('#oficinaId');
                 const $resp = $root.find('#responsableId');
-                
+
                 $oficina.empty().prop('disabled', true);
                 $resp.val(null).trigger('change').prop('disabled', true);
 
@@ -559,30 +1198,75 @@
                 actualizarCodigoPreviewSingle();
             });
 
-            $root.find('#oficinaId').on('change', function() {
+            $root.find('#oficinaId').on('change', function () {
                 const ofiId = $(this).val();
                 const $resp = $root.find('#responsableId');
-                
+
+                // ✅ Limpiar selección actual y opciones dinámicas previas
                 $resp.val(null).trigger('change');
-                
+                $resp.find('option[value!=""]').remove(); // elimina opciones anteriores
+
                 if (ofiId) {
                     $resp.prop('disabled', false);
-                    console.log("✅ Oficina seleccionada ("+ofiId+"). Responsable habilitado.");
+                    $resp.select2('destroy');
+
+                    // ✅ Re-inicializar select2 con la oficina actual capturada en closure
+                    $resp.select2({
+                        theme: 'bootstrap-5',
+                        width: '100%',
+                        dropdownParent: $root,
+                        placeholder: 'Buscar responsable...',
+                        allowClear: true,
+                        ajax: {
+                            url: '/api/buscar_responsable',
+                            dataType: 'json',
+                            delay: 250,
+                            data: function (params) {
+                                // ✅ Captura el valor de oficina en el momento de la búsqueda
+                                const oficinaActual = $root.find('#oficinaId').val();
+                                console.log('🔍 Buscando responsable para oficina:', oficinaActual);
+                                return {
+                                    q: params.term || '',
+                                    page: params.page || 1,
+                                    oficinaId: oficinaActual || -1
+                                };
+                            },
+                            processResults: function (data) {
+                                return {
+                                    results: data.results,
+                                    pagination: { more: data.pagination.more }
+                                };
+                            }
+                        }
+                    });
                 } else {
                     $resp.prop('disabled', true);
+                    // Reinicializar sin ajax para estado vacío
+                    $resp.select2('destroy');
+                    $resp.select2({
+                        theme: 'bootstrap-5',
+                        width: '100%',
+                        dropdownParent: $root,
+                        placeholder: 'Seleccione oficina primero...'
+                    });
                 }
             });
 
-            $root.find('#grupoCode').on('change', function() {
+            $root.find('#grupoCode').on('change', function () {
                 const grpId = $(this).val();
                 const $vida = $root.find('#vidaUtil');
                 const $aux = $root.find('#auxiliarId');
-                
+                const predId = $root.find('#predioCode').val();
+
                 if (grpId) {
-                    $.get(`/api/${grpId}/meta`, function(meta) {
+                    $.get(`/api/${grpId}/meta`, function (meta) {
                         if (meta && meta.vidaUtil) $vida.val(meta.vidaUtil);
                     });
-                    cargarSelect('/api/buscar_auxiliar_lista', { grupoId: grpId }, $aux, '(Opcional)');
+                    if ( predId && grpId) {
+                        cargarSelect('/api/buscar_auxiliar_lista', { predioId: predId, grupoId: grpId }, $aux, '(Opcional)');
+                    } else {
+                        $aux.empty().prop('disabled', true);
+                    }
                 } else {
                     $vida.val('');
                     $aux.empty().prop('disabled', true);
@@ -591,73 +1275,553 @@
             });
         }
 
-        function cargarSelect(url, params, $targetSelect, placeholder) {
-            $targetSelect.prop('disabled', true).empty().append('<option>Cargando...</option>');
-            return $.get(url, params).then(function(data) {
-                $targetSelect.empty().append('<option value="">'+placeholder+'</option>');
-                if (Array.isArray(data)) {
-                    data.forEach(item => {
-                        const val = item.id || item.idPredio || item.idOficina || item.idResponsable || item.idAuxiliar;
-                        const txt = item.nombre || item.descrip || item.text || item.descripcion;
-                        const code = item.codigo ? ' data-code="'+item.codigo+'"' : '';
-                        $targetSelect.append('<option value="'+val+'"'+code+'>'+txt+'</option>');
-                    });
-                }
-                $targetSelect.prop('disabled', false).trigger('change.select2');
-            });
-        }
-        
         function actualizarCodigoPreviewSingle() {
-           
+
             const m = $root.find('#municipioCode option:selected').data('code');
             const p = $root.find('#predioCode option:selected').data('code');
             const g = $root.find('#grupoCode option:selected').data('code');
-            
+
             const $input = $root.find('#codigo');
             if (m && p && g) {
-                $input.val(`${m}-${p}-${g}-XXXXX`); 
+                $input.val(`${m}-${p}-${g}-XXXXX`);
             } else {
                 $input.val('');
             }
         }
 
         function setupCascadaBatch() {
-            $root.on('change', '.sel-mun', function() {
+
+            // ── Municipio → limpiar predio/oficina/responsable ──────────────────────
+            $root.on('change', '.sel-mun', function () {
                 const $row = $(this).closest('tr');
                 const munId = $(this).val();
                 const $pred = $row.find('.sel-pred');
-                
-                $row.find('.sel-ofi').empty().prop('disabled', true);
-                
-                if(munId) cargarSelect('/api/buscar_predios', { municipioId: munId }, $pred, 'Predio...');
+
+                $row.find('.sel-ofi').empty()
+                    .append('<option value="">(Seleccione Predio primero)</option>')
+                    .prop('disabled', true);
+                $row.find('.btn-nueva-oficina').prop('disabled', true);
+                resetResponsableRow($row);
+                $row.find('.txt-codigo-preview').val('').attr('placeholder', '—');
+
+                if (munId) cargarSelect('/api/buscar_predios', { municipioId: munId }, $pred, 'Predio...');
                 else $pred.empty().prop('disabled', true);
             });
 
-            $root.on('change', '.sel-pred', function() {
+            // ── Predio → cargar oficinas y habilitar botón nueva oficina ─────────────
+            $root.on('change', '.sel-pred', function () {
                 const $row = $(this).closest('tr');
                 const predId = $(this).val();
                 const $ofi = $row.find('.sel-ofi');
-                
-                if(predId) cargarSelect('/api/buscar_oficinas', { predioId: predId }, $ofi, 'Oficina...');
-                else $ofi.empty().prop('disabled', true);
+                const $btnNuevaOfi = $row.find('.btn-nueva-oficina');
+
+                resetResponsableRow($row);
+
+                if (predId) {
+                    cargarSelect('/api/buscar_oficinas', { predioId: predId }, $ofi, 'Seleccione Oficina...')
+                        .then(function () {
+                            // ✅ Habilitar "+" de oficina en cuanto hay un predio seleccionado
+                            $btnNuevaOfi.prop('disabled', false);
+                        });
+                } else {
+                    $ofi.empty()
+                        .append('<option value="">(Seleccione Predio primero)</option>')
+                        .prop('disabled', true);
+                    $btnNuevaOfi.prop('disabled', true);
+                }
+
+                recalcularCodigosBatchDebounced();
             });
 
-            $root.on('change', '.sel-grp', function() {
+            // ── Oficina → cargar responsables de esa oficina ─────────────────────────
+            $root.on('change', '.sel-ofi', function () {
+                const $row = $(this).closest('tr');
+                const ofiId = $(this).val();
+                resetResponsableRow($row);
+
+                if (!ofiId) return;
+
+                cargarResponsablesDeOficina($row, ofiId);
+            });
+
+            // ── Grupo → vida útil + auxiliar + preview código ─────────────────────────
+            $root.on('change', '.sel-grp', function () {
                 const $row = $(this).closest('tr');
                 const grpId = $(this).val();
+                const predId = $row.find('.sel-pred').val();
                 const $vida = $row.find('.txt-vida');
                 const $aux = $row.find('.sel-aux');
-                
+
                 if (grpId) {
-                    $.get(`/api/${grpId}/meta`, function(meta) {
+                    $.get(`/api/${grpId}/meta`, function (meta) {
                         if (meta && meta.vidaUtil) $vida.val(meta.vidaUtil);
                     });
-                    cargarSelect('/api/buscar_auxiliar_lista', { grupoId: grpId }, $aux, '(Opcional)');
+                    if ( predId && grpId) {
+                        cargarSelect('/api/buscar_auxiliar_lista', { predioId: predId , grupoId: grpId }, $aux, '(Opcional)');
+                    } else {
+                        $aux.empty().prop('disabled', true);
+                    }
                 } else {
                     $vida.val('');
                     $aux.empty().prop('disabled', true);
                 }
+
+                recalcularCodigosBatchDebounced();
             });
+
+            // ── Botón "+" Nueva Oficina ───────────────────────────────────────────────
+            $root.on('click', '.btn-nueva-oficina', async function () {
+                const $row = $(this).closest('tr');
+                const predId = $row.find('.sel-pred').val();
+                const predNombre = $row.find('.sel-pred option:selected').text();
+
+                if (!predId) {
+                    Swal.fire('Atención', 'Seleccione un predio primero.', 'warning');
+                    return;
+                }
+
+                // Obtener siguiente codOfi automático
+                let siguienteCod = '';
+                try {
+                    const r = await fetch(`/administracion/oficina/siguiente-codigo/${predId}`);
+                    if (r.ok) siguienteCod = await r.json();
+                } catch (e) { /* no crítico, el usuario puede escribirlo */ }
+
+                const { value: formValues, isConfirmed } = await Swal.fire({
+                    title: 'Nueva Oficina',
+                    html: `
+                <div class="text-start small text-muted mb-3">
+                    Predio: <strong>${predNombre}</strong>
+                </div>
+                <div class="mb-2 text-start">
+                    <label class="form-label" style="font-size:0.75rem;font-weight:700;">
+                        CÓDIGO OFICINA (auto)
+                    </label>
+                    <input id="swal-cod-ofi"
+                           class="swal2-input mt-0"
+                           type="number"
+                           value="${siguienteCod}"
+                           placeholder="Código numérico">
+                </div>
+                <div class="mb-2 text-start">
+                    <label class="form-label" style="font-size:0.75rem;font-weight:700;">
+                        NOMBRE DE LA OFICINA <span class="text-danger">*</span>
+                    </label>
+                    <input id="swal-nombre-ofi"
+                           class="swal2-input mt-0"
+                           placeholder="Ej: Dirección de Postgrado">
+                </div>`,
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> Guardar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#28a745',
+                    focusConfirm: false,
+                    preConfirm: () => {
+                        const cod = document.getElementById('swal-cod-ofi').value.trim();
+                        const nom = document.getElementById('swal-nombre-ofi').value.trim();
+                        if (!nom) {
+                            Swal.showValidationMessage('El nombre es obligatorio');
+                            return false;
+                        }
+                        if (!cod || isNaN(parseInt(cod))) {
+                            Swal.showValidationMessage('El código debe ser un número válido');
+                            return false;
+                        }
+                        return { codOfi: parseInt(cod), nombre: nom, idPredio: predId };
+                    }
+                });
+
+                if (!isConfirmed) return;
+
+                // POST al endpoint existente con modoRapido=true
+                showGlobalLoader({ texto: 'Registrando oficina...' });
+                try {
+                    const fd = new FormData();
+                    fd.append('predio.idPredio', formValues.idPredio);
+                    fd.append('codOfi', formValues.codOfi);
+                    fd.append('nombre', formValues.nombre);
+                    fd.append('modoRapido', 'true');  // ✅ salta sincronización DBF
+
+                    const r = await fetch('/administracion/oficina/registrar-oficina', {
+                        method: 'POST', body: fd
+                    });
+                    const res = await r.json();
+                    hideGlobalLoader();
+
+                    if (!res.ok) throw new Error(res.msg);
+
+                    // ✅ Agregar la nueva oficina al select y seleccionarla
+                    const $ofi = $row.find('.sel-ofi');
+                    if ($ofi.data('select2')) $ofi.select2('destroy');
+
+                    $ofi.append($('<option>', {
+                        value: res.id,
+                        text: formValues.nombre
+                    }));
+                    $ofi.val(res.id).prop('disabled', false);
+
+                    $ofi.select2({
+                        theme: 'bootstrap-5', width: '100%',
+                        dropdownParent: $root, allowClear: true, matcher: matchCustom
+                    });
+
+                    // Disparar cambio para cargar responsables
+                    $ofi.trigger('change');
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Oficina registrada',
+                        text: `"${formValues.nombre}" quedó pendiente de sincronización con DBF.`,
+                        timer: 2500,
+                        showConfirmButton: false
+                    });
+
+                } catch (err) {
+                    hideGlobalLoader();
+                    Swal.fire('Error', err.message, 'error');
+                }
+            });
+
+            // ── Botón "+" Nuevo Responsable ───────────────────────────────────────────
+            $root.on('click', '.btn-nuevo-resp', async function () {
+                const $row = $(this).closest('tr');
+                const ofiId = $row.find('.sel-ofi').val();
+                const ofiNombre = $row.find('.sel-ofi option:selected').text();
+
+                if (!ofiId) {
+                    Swal.fire('Atención', 'Seleccione una oficina primero.', 'warning');
+                    return;
+                }
+
+                // Obtener siguiente código funcionario automático
+                let siguienteCodFunc = '';
+                try {
+                    const r = await fetch(`/administracion/responsable/obtener-siguiente-codigo-funcionario?idOficina=${ofiId}`);
+                    if (r.ok) siguienteCodFunc = await r.json();
+                } catch (e) { /* no crítico */ }
+
+                const { value: formValues, isConfirmed } = await Swal.fire({
+                    title: 'Nuevo Responsable',
+                    width: 520,
+                    html: `
+                <div class="text-start small text-muted mb-3">
+                    Oficina: <strong>${ofiNombre}</strong>
+                </div>
+                <div class="row g-2 text-start">
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:0.72rem;font-weight:700;">C.I. <span class="text-danger">*</span></label>
+                        <input id="swal-resp-ci" class="swal2-input mt-0" placeholder="12345678">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:0.72rem;font-weight:700;">
+                            CÓD. FUNCIONARIO
+                            <span class="text-muted fw-normal">(auto)</span>
+                        </label>
+                        <input id="swal-resp-codfunc" class="swal2-input mt-0 font-monospace"
+                               value="${siguienteCodFunc}" placeholder="Ej: 42">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" style="font-size:0.72rem;font-weight:700;">NOMBRE(S) <span class="text-danger">*</span></label>
+                        <input id="swal-resp-nombre" class="swal2-input mt-0" placeholder="Ej: Juan Carlos">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:0.72rem;font-weight:700;">PATERNO <span class="text-danger">*</span></label>
+                        <input id="swal-resp-paterno" class="swal2-input mt-0" placeholder="Apellido paterno">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:0.72rem;font-weight:700;">MATERNO</label>
+                        <input id="swal-resp-materno" class="swal2-input mt-0" placeholder="(Opcional)">
+                    </div>
+                </div>`,
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> Guardar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#0d6efd',
+                    focusConfirm: false,
+                    didOpen: () => {
+                        // Auto-buscar datos por CI cuando pierde foco
+                        document.getElementById('swal-resp-ci').addEventListener('blur', async function () {
+                            const ci = this.value.trim();
+                            if (!ci) return;
+                            try {
+                                const r = await fetch(`/administracion/responsable/api/personas/buscar-por-ci?ci=${encodeURIComponent(ci)}`);
+                                if (r.ok) {
+                                    const p = await r.json();
+                                    if (p.nombre) document.getElementById('swal-resp-nombre').value = p.nombre;
+                                    if (p.paterno) document.getElementById('swal-resp-paterno').value = p.paterno;
+                                    if (p.materno) document.getElementById('swal-resp-materno').value = p.materno;
+                                }
+                            } catch (e) { /* silencioso */ }
+                        });
+                    },
+                    preConfirm: () => {
+                        const ci = document.getElementById('swal-resp-ci').value.trim();
+                        const nombre = document.getElementById('swal-resp-nombre').value.trim();
+                        const paterno = document.getElementById('swal-resp-paterno').value.trim();
+                        const codFunc = document.getElementById('swal-resp-codfunc').value.trim();
+
+                        if (!ci) { Swal.showValidationMessage('El CI es obligatorio'); return false; }
+                        if (!nombre) { Swal.showValidationMessage('El nombre es obligatorio'); return false; }
+                        if (!paterno) { Swal.showValidationMessage('El paterno es obligatorio'); return false; }
+                        if (!codFunc) { Swal.showValidationMessage('El código de funcionario es obligatorio'); return false; }
+
+                        return {
+                            ci, nombre, paterno,
+                            materno: document.getElementById('swal-resp-materno').value.trim(),
+                            codigoFuncionario: codFunc,
+                            idOficina: ofiId
+                        };
+                    }
+                });
+
+                if (!isConfirmed) return;
+
+                showGlobalLoader({ texto: 'Registrando responsable...' });
+                try {
+                    const fd = new FormData();
+                    fd.append('ci', formValues.ci);
+                    fd.append('nombre', formValues.nombre);
+                    fd.append('paterno', formValues.paterno);
+                    fd.append('materno', formValues.materno || '');
+                    fd.append('codigoFuncionario', formValues.codigoFuncionario);
+                    fd.append('idOficina', formValues.idOficina);
+                    fd.append('modoRapido', 'true');  // ✅ salta sincronización DBF
+
+                    const r = await fetch('/administracion/responsable/registrar-responsable', {
+                        method: 'POST', body: fd
+                    });
+
+                    // Manejar conflicto de persona similar (409)
+                    if (r.status === 409) {
+                        hideGlobalLoader();
+                        const conflicto = await r.json();
+                        const confirmacion = await Swal.fire({
+                            icon: 'warning',
+                            title: 'Persona similar encontrada',
+                            text: conflicto.msg,
+                            showCancelButton: true,
+                            confirmButtonText: 'Crear de todas formas',
+                            cancelButtonText: 'Cancelar'
+                        });
+                        if (!confirmacion.isConfirmed) return;
+
+                        // Reintentar con forzado
+                        showGlobalLoader({ texto: 'Registrando...' });
+                        fd.append('forzarCreacion', 'true');
+                        const r2 = await fetch('/administracion/responsable/registrar-responsable-forzado', {
+                            method: 'POST', body: fd
+                        });
+                        const res2 = await r2.json();
+                        hideGlobalLoader();
+                        if (!res2.ok) throw new Error(res2.msg);
+                        agregarResponsableAlSelect($row, res2.id, `${formValues.nombre} ${formValues.paterno}`);
+                        return;
+                    }
+
+                    const res = await r.json();
+                    hideGlobalLoader();
+                    if (!res.ok) throw new Error(res.msg);
+
+                    agregarResponsableAlSelect($row, res.id, `${formValues.nombre} ${formValues.paterno}`);
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Responsable registrado',
+                        text: `Quedó pendiente de sincronización con DBF.`,
+                        timer: 2500,
+                        showConfirmButton: false
+                    });
+
+                } catch (err) {
+                    hideGlobalLoader();
+                    Swal.fire('Error', err.message, 'error');
+                }
+            });
+        }
+
+        // ── Helpers de fila ──────────────────────────────────────────────────────────
+
+        function resetResponsableRow($row) {
+            const $resp = $row.find('.sel-resp');
+            const $btnNuevoResp = $row.find('.btn-nuevo-resp');
+            const $alerta = $row.find('.sel-resp-alerta');
+
+            if ($resp.data('select2')) $resp.select2('destroy');
+            $resp.empty()
+                .append('<option value="">(Seleccione Oficina primero)</option>')
+                .prop('disabled', true);
+            $btnNuevoResp.prop('disabled', true);
+            $alerta.addClass('d-none');
+        }
+
+        function cargarResponsablesDeOficina($row, ofiId) {
+            const $resp = $row.find('.sel-resp');
+            const $btnNuevoResp = $row.find('.btn-nuevo-resp');
+            const $alerta = $row.find('.sel-resp-alerta');
+
+            $resp.empty()
+                .append('<option value="">Cargando...</option>')
+                .prop('disabled', true);
+
+            $.get('/api/buscar_responsable', { q: '', page: 1, oficinaId: ofiId })
+                .then(function (data) {
+                    const resultados = data.results || [];
+                    $resp.empty();
+
+                    // ✅ Siempre habilitar el botón "+" de responsable cuando hay oficina
+                    $btnNuevoResp.prop('disabled', false);
+
+                    if (resultados.length === 0) {
+                        $resp.append('<option value="">(Sin responsables)</option>');
+                        $alerta.removeClass('d-none');
+                        $resp.prop('disabled', true);
+                    } else {
+                        $alerta.addClass('d-none');
+                        $resp.append('<option value="">Seleccione responsable...</option>');
+                        resultados.forEach(function (r) {
+                            $resp.append($('<option>', { value: r.id, text: r.text }));
+                        });
+                        $resp.prop('disabled', false);
+
+                        if ($resp.data('select2')) $resp.select2('destroy');
+                        $resp.select2({
+                            theme: 'bootstrap-5', width: '100%',
+                            dropdownParent: $root, allowClear: true,
+                            placeholder: 'Seleccione responsable...',
+                            matcher: matchCustom
+                        });
+                    }
+                })
+                .catch(function () {
+                    $resp.empty().append('<option value="">Error al cargar</option>');
+                    $resp.prop('disabled', true);
+                    $btnNuevoResp.prop('disabled', false); // igual permitir crear
+                });
+        }
+
+        function agregarResponsableAlSelect($row, idResp, nombreCompleto) {
+            const $resp = $row.find('.sel-resp');
+            const $alerta = $row.find('.sel-resp-alerta');
+
+            if ($resp.data('select2')) $resp.select2('destroy');
+
+            // Agregar si no existe ya
+            if ($resp.find(`option[value="${idResp}"]`).length === 0) {
+                $resp.append($('<option>', { value: idResp, text: nombreCompleto }));
+            }
+            $resp.val(idResp).prop('disabled', false);
+            $alerta.addClass('d-none');
+
+            $resp.select2({
+                theme: 'bootstrap-5', width: '100%',
+                dropdownParent: $root, allowClear: true
+            });
+        }
+
+        // ✅ NUEVO: Obtiene el siguiente correlativo desde BD con caché por sesión de lote
+        async function fetchCorrelativoBase(munCode, predCode, grpFmt) {
+
+            const cacheKey = `${munCode}||${predCode}||${grpFmt}`;
+
+            console.log('🔍 fetchCorrelativoBase params:', { munCode, predCode, grpFmt, cacheKey });
+
+            if (_correlativos[cacheKey] !== undefined) {
+                console.log('⚡ Desde caché:', _correlativos[cacheKey]);
+                return _correlativos[cacheKey];
+            }
+
+            try {
+                const fd = new URLSearchParams({ mun: munCode, pred: predCode, grp: grpFmt });
+                const r = await fetch('/administracion/activo/generar-correlativo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: fd.toString()
+                });
+
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const data = await r.json();
+
+                console.log('📡 Respuesta BD:', data);
+
+                // data.codigo = "XX-YY-ZZ-NNNNN" → extraer número final
+                const parts = (data.codigo || '').split('-');
+                const num = parseInt(parts[parts.length - 1]) || 1;
+                _correlativos[cacheKey] = num;
+                return num;
+            } catch (e) {
+                console.error('fetchCorrelativoBase error:', e);
+                return null;
+            }
+        }
+
+        // ✅ NUEVO: Recalcula y muestra los códigos de TODAS las filas del lote
+        async function recalcularCodigosBatch() {
+            // 1. Leer datos de cada fila
+            const filas = [];
+            $root.find('#batchBody tr').each(function () {
+                const $tr = $(this);
+                const $card = $tr.find('.batch-row-card');
+                if ($card.length === 0) return;
+
+                const munCode = $tr.find('.sel-mun option:selected').attr('data-code');
+                const predCode = $tr.find('.sel-pred option:selected').attr('data-code');
+                const grpRaw = $tr.find('.sel-grp option:selected').attr('data-code');
+                const $preview = $tr.find('.txt-codigo-preview');
+
+                if (!munCode || !predCode || !grpRaw) {
+                    $preview.val('').attr('placeholder', 'Completar Municipio, Predio y Grupo...');
+                    $preview.removeClass('text-primary text-danger').addClass('text-muted');
+                    return;
+                }
+
+                const grpFmt = String(parseInt(grpRaw)).padStart(2, '0');
+                filas.push({ $tr, munCode, predCode, grpFmt, $preview });
+            });
+
+            if (filas.length === 0) return;
+
+            // 2. Agrupar por combinación para determinar correlativos contiguos
+            const grupos = {}; // cacheKey → { munCode, predCode, grpFmt, filas: [] }
+            filas.forEach(fila => {
+                const key = `${fila.munCode}||${fila.predCode}||${fila.grpFmt}`;
+                if (!grupos[key]) {
+                    grupos[key] = {
+                        munCode: fila.munCode,
+                        predCode: fila.predCode,
+                        grpFmt: fila.grpFmt,
+                        filas: []
+                    };
+                }
+                grupos[key].filas.push(fila);
+            });
+
+            // 3. Para cada grupo, obtener la base (con caché) y asignar correlativos contiguos
+            const promesas = Object.entries(grupos).map(async ([key, grupo]) => {
+                const base = await fetchCorrelativoBase(grupo.munCode, grupo.predCode, grupo.grpFmt);
+
+                grupo.filas.forEach((fila, idx) => {
+                    if (base === null) {
+                        fila.$preview.val('Error al consultar').removeClass('text-primary').addClass('text-danger');
+                        return;
+                    }
+                    const num = base + idx;
+                    const codigo = `${fila.munCode}-${fila.predCode}-${fila.grpFmt}-${String(num).padStart(5, '0')}`;
+                    fila.$preview
+                        .val(codigo)
+                        .attr('placeholder', '')
+                        .removeClass('text-muted text-danger')
+                        .addClass('text-primary');
+                });
+            });
+
+            await Promise.all(promesas);
+        }
+
+        // ✅ NUEVO: Versión con debounce para no saturar el servidor
+        function recalcularCodigosBatchDebounced() {
+            clearTimeout(_recalcTimer);
+            $root.find('.txt-codigo-preview').val('').attr('placeholder', 'Calculando...');
+            _recalcTimer = setTimeout(() => recalcularCodigosBatch(), 350);
         }
 
         function bindEvents() {
@@ -666,11 +1830,16 @@
 
             $root.on('click', '#btnRegistrar', () => { limpiarBatch(); switchView('NEW_BATCH'); });
             $root.on('click', '#btnCancelar', () => { switchView('LOCK'); });
-            $root.on('click', '#btnModificar', () => { if($root.find('#idActivo').val()) switchView('EDIT_SINGLE'); });
+            $root.on('click', '#btnModificar', () => { if ($root.find('#idActivo').val()) switchView('EDIT_SINGLE'); });
             $root.on('click', '#btnAddRow', addBatchRow);
-            $root.on('click', '.btn-remove-row', function() { if ($('#batchBody tr').length > 1) $(this).closest('tr').remove(); });
+            $root.on('click', '.btn-remove-row', function () {
+                if ($root.find('#batchBody tr').length > 1) {
+                    $(this).closest('tr').remove();
+                    recalcularCodigosBatchDebounced(); // ✅ NUEVO: recalcular tras eliminar
+                }
+            });
 
-            $root.on('submit', '#formularioActivo', function(e) {
+            $root.on('submit', '#formularioActivo', function (e) {
                 e.preventDefault();
                 if (uiState.modo === 'NEW_BATCH') guardarMasivo();
                 else if (uiState.modo === 'EDIT_SINGLE') {
@@ -680,16 +1849,16 @@
             });
 
             $root.on('click', '#btnBuscarCodigo', buscarCodigo);
-            
-            $root.on('blur', '#costoFmt', function() {
+
+            $root.on('blur', '#costoFmt', function () {
                 const val = parseFloat(this.value.replace(/[^\d.-]/g, '')) || 0;
                 $root.find('#costo').val(val);
                 this.value = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2 }).format(val);
             });
 
-            $root.on('click', '#btnBaja', function() {
+            $root.on('click', '#btnBaja', function () {
                 const idActivo = $root.find('#idActivo').val();
-                if(!idActivo) return;
+                if (!idActivo) return;
 
                 Swal.fire({
                     title: '¿Dar de baja?',
@@ -707,83 +1876,124 @@
         // ✅ FUNCIÓN CORREGIDA - Clona template correctamente
         function addBatchRow() {
             const tpl = document.getElementById('tplBatchRow');
-            
+
             // ✅ CRÍTICO: Extraer el <tr> del fragment
             const $row = $(tpl.content.cloneNode(true)).find('tr');
-            
+
             $root.find('#batchBody').append($row);
-            
+
             // ✅ CONFIGURACIÓN SELECT2
             const selectConfig = {
-                theme: 'bootstrap-5', 
-                width: '100%', 
+                theme: 'bootstrap-5',
+                width: '100%',
                 dropdownParent: $root,
                 allowClear: true,
                 minimumInputLength: 0,
                 minimumResultsForSearch: 0,
                 matcher: matchCustom,
                 language: {
-                    searching: function() { return 'Buscando...'; },
-                    noResults: function() { return 'Sin resultados'; }
+                    searching: function () { return 'Buscando...'; },
+                    noResults: function () { return 'Sin resultados'; }
                 }
             };
-            
+
             // ✅ Ahora find() encuentra los selectores
-            $row.find('.select2-row').each(function() {
+            $row.find('.select2-row').each(function () {
                 $(this).select2(selectConfig);
             });
-            
+
+             const $container = $root.find('.table-responsive');
+            const $batchBody = $root.find('#batchBody');
+
+            // Scroll del contenedor interno (la tabla scrolleable)
+            $container.animate(
+                { scrollTop: $container.prop('scrollHeight') },
+                { duration: 350, easing: 'swing' }
+            );
+
+            // Scroll de la página hacia la sección batch si está fuera de vista
+            const rowBottom = $row.offset().top + $row.outerHeight();
+            const windowBottom = $(window).scrollTop() + $(window).height();
+            if (rowBottom > windowBottom - 60) {
+                $('html, body').animate(
+                    { scrollTop: $row.offset().top - 120 },
+                    350
+                );
+            }
+
+            // Pulso visual en la nueva fila para indicar dónde apareció
+            $row.find('.batch-row-card').css({
+                'outline': '2px solid #1a56db',
+                'outline-offset': '0px',
+                'transition': 'outline 0.1s'
+            });
+            setTimeout(() => {
+                $row.find('.batch-row-card').css('outline', '2px solid transparent');
+                setTimeout(() => {
+                    $row.find('.batch-row-card').css({ 'outline': '', 'transition': '' });
+                }, 400);
+            }, 600);
+
             console.log('✅ Nueva fila agregada con ' + $row.find('.select2-row').length + ' selectores inicializados');
         }
 
-
-
-        
-
         function limpiarBatch() {
+            _correlativos = {};
+            clearTimeout(_recalcTimer);
             $root.find('#batchBody').empty();
             $root.find('#batchResponsable').val(null).trigger('change');
             $root.find('#batchFinanciador').val(null).trigger('change');
             $root.find('#batchFecha').val('');
-            addBatchRow(); 
+            addBatchRow();
         }
 
         async function guardarMasivo() {
-            const idResp = $root.find('#batchResponsable').val();
-            const fecha = $root.find('#batchFecha').val();
-            
-            if (!idResp || !fecha) { Swal.fire('Falta Cabecera', 'Responsable y Fecha requeridos', 'warning'); return; }
+            const batchFinanciador = $root.find('#batchFinanciador').val();
+            const batchFecha       = $root.find('#batchFecha').val();
+
+            if (!batchFecha) {
+                Swal.fire('Falta Cabecera', 'La fecha de adquisición es requerida', 'warning');
+                return;
+            }
 
             const items = [];
             let error = false;
 
-            $root.find('.batch-row').each(function() {
+            $root.find('#batchBody .batch-row-card').each(function () {
                 const $r = $(this);
                 const item = {
-                    idMunicipio: $r.find('.sel-mun').val(),
-                    idPredio: $r.find('.sel-pred').val(),
-                    idOficina: $r.find('.sel-ofi').val(),
+                    idMunicipio:    $r.find('.sel-mun').val(),
+                    idPredio:       $r.find('.sel-pred').val(),
+                    idOficina:      $r.find('.sel-ofi').val(),
+                    idResponsable:  $r.find('.sel-resp').val(),
                     idGrupoContable: $r.find('.sel-grp').val(),
-                    idAuxiliar: $r.find('.sel-aux').val() || null,
-                    descripcion: $r.find('.txt-desc').val(),
-                    costo: parseFloat($r.find('.txt-costo').val()) || 0,
-                    cantidad: parseInt($r.find('.txt-cant').val()) || 1,
-                    vidaUtil: parseInt($r.find('.txt-vida').val()) || 0
+                    idAuxiliar:     $r.find('.sel-aux').val() || null,
+                    descripcion:    $r.find('.txt-desc').val(),
+                    costo:          parseFloat($r.find('.txt-costo').val()) || 0,
+                    cantidad:       parseInt($r.find('.txt-cant').val()) || 1,
+                    vidaUtil:       parseInt($r.find('.txt-vida').val()) || 0
                 };
-                
-                if (!item.idMunicipio || !item.idPredio || !item.idOficina || !item.idGrupoContable || !item.descripcion) {
-                    error = true; $r.addClass('table-danger');
+
+                const invalido = !item.idMunicipio || !item.idPredio || !item.idOficina ||
+                    !item.idResponsable || !item.idGrupoContable || !item.descripcion;
+
+                if (invalido) {
+                    error = true;  // ✅ BUG 1 CORREGIDO: era "hayError" (variable inexistente)
+                    $r.closest('tr').addClass('table-danger');
                 } else {
-                    $r.removeClass('table-danger'); items.push(item);
+                    $r.closest('tr').removeClass('table-danger');
+                    items.push(item);
                 }
             });
 
-            if (error || items.length === 0) { Swal.fire('Error', 'Revise los datos faltantes en la tabla', 'warning'); return; }
+            if (error || items.length === 0) {
+                Swal.fire('Error', 'Revise los datos faltantes en la tabla', 'warning');
+                return;
+            }
 
             const payload = {
-                idResponsable: idResp,
-                idOrganismoFinanciero: $root.find('#batchFinanciador').val(),
-                fechaAdquisicion: fecha,
+                idOrganismoFinanciero: batchFinanciador || null,
+                fechaAdquisicion: batchFecha,  // ✅ BUG 2 CORREGIDO: era "fecha" (variable inexistente)
                 items: items
             };
 
@@ -809,23 +2019,23 @@
         function initSelectsGlobales() {
             $root.find('.select2-header, .select2it').select2({ theme: 'bootstrap-5', width: '100%', dropdownParent: $root });
             $root.find('#batchResponsable').select2({
-                theme: 'bootstrap-5', 
-                width: '100%', 
+                theme: 'bootstrap-5',
+                width: '100%',
                 dropdownParent: $root,
                 ajax: {
                     url: '/api/buscar_responsable',
-                    dataType: 'json', 
+                    dataType: 'json',
                     delay: 250,
-                    data: function(params) {
-                        return { 
-                            q: params.term || '', 
+                    data: function (params) {
+                        return {
+                            q: params.term || '',
                             page: params.page || 1,
                         };
                     },
-                    processResults: function(data) {
-                        return { 
-                            results: data.results, 
-                            pagination: { more: data.pagination.more } 
+                    processResults: function (data) {
+                        return {
+                            results: data.results,
+                            pagination: { more: data.pagination.more }
                         };
                     }
                 },
@@ -833,38 +2043,11 @@
             });
 
             const $respSingle = $root.find('#responsableId');
-            
-            $respSingle.select2({
-                theme: 'bootstrap-5', 
-                width: '100%', 
+
+            $respSingle.prop('disabled', true).select2({
+                theme: 'bootstrap-5',
+                width: '100%',
                 dropdownParent: $root,
-                ajax: {
-                    url: '/api/buscar_responsable',
-                    dataType: 'json', 
-                    delay: 250,
-                    data: function(params) {
-
-                        var idOficinaSeleccionada = $('#oficinaId').val();
-
-                        console.log("🔍 Buscando Responsable. Oficina ID detectado:", idOficinaSeleccionada);
-
-                        var oficinaFinal = (idOficinaSeleccionada && idOficinaSeleccionada !== "") 
-                                           ? idOficinaSeleccionada 
-                                           : -1;
-
-                        return {
-                            q: params.term || '', 
-                            page: params.page || 1,
-                            oficinaId: oficinaFinal
-                        };
-                    },
-                    processResults: function(data) {
-                        return { 
-                            results: data.results, 
-                            pagination: { more: data.pagination.more } 
-                        };
-                    }
-                },
                 placeholder: 'Seleccione oficina primero...'
             });
         }
@@ -940,16 +2123,16 @@
 
                 console.log('✅ ActivoFormDTO cargado completamente', d);
 
-            } catch(e) { 
+            } catch (e) {
                 console.error('❌ Error en fillFromDTO:', e);
             }
         }
 
 
         async function guardarSingle(formElement) {
-             const formData = new FormData(formElement);
-             showGlobalLoader({ texto: 'Guardando...' });
-             try {
+            const formData = new FormData(formElement);
+            showGlobalLoader({ texto: 'Guardando...' });
+            try {
                 const r = await fetch('/administracion/activo/modificar-activo', { method: 'POST', body: formData });
                 const res = await r.json();
                 hideGlobalLoader();
@@ -959,26 +2142,26 @@
                         if (typeof cargarTabla === 'function') cargarTabla();
                     });
                 } else throw new Error(res.msg);
-             } catch (err) {
-                 hideGlobalLoader(); Swal.fire('Error', err.message, 'error');
-             }
+            } catch (err) {
+                hideGlobalLoader(); Swal.fire('Error', err.message, 'error');
+            }
         }
 
         async function buscarCodigo() {
             const c = $root.find('#buscarCodigo').val().trim();
-            if(!c) return;
-            showGlobalLoader({texto:'Buscando...'});
+            if (!c) return;
+            showGlobalLoader({ texto: 'Buscando...' });
             try {
                 const r = await fetch('/administracion/activo/buscar-por-codigo?codigo=' + encodeURIComponent(c));
                 hideGlobalLoader();
-                if(!r.ok) throw new Error('No encontrado');
+                if (!r.ok) throw new Error('No encontrado');
                 const d = await r.json();
                 await fillFromDTO(d);
                 await new Promise(resolve => setTimeout(resolve, 500));
                 switchView('VIEW_SINGLE');
                 await new Promise(resolve => setTimeout(resolve, 100));
                 lockSingleForm(true);
-            } catch(e) {
+            } catch (e) {
                 hideGlobalLoader(); Swal.fire('Info', 'Activo no encontrado', 'info');
                 Swal.fire('Info', 'Activo no encontrado', 'info');
             }
@@ -994,7 +2177,7 @@
             $.post('/administracion/activo/baja-activo', { idActivo: id })
                 .done(res => {
                     hideGlobalLoader();
-                    if(res.ok) {
+                    if (res.ok) {
                         Swal.fire('Procesado', res.msg, 'success');
                         limpiarSingleForm(); switchView('LOCK');
                         if (typeof cargarTabla === 'function') cargarTabla();
@@ -1019,12 +2202,12 @@
             }
         }
 
-        function descargarReporte(ids, nro) { 
-             var form = $('<form>', { 'action': '/reportes/generar-asignacion', 'method': 'POST', 'target': '_blank' });
-             form.append($('<input>', { 'type': 'hidden', 'name': 'nroPreventivo', 'value': nro }));
-             if (Array.isArray(ids)) ids.forEach(id => form.append($('<input>', { 'type': 'hidden', 'name': 'ids', 'value': id })));
-             else form.append($('<input>', { 'type': 'hidden', 'name': 'ids', 'value': ids }));
-             $('body').append(form); form.submit(); form.remove();
+        function descargarReporte(ids, nro) {
+            var form = $('<form>', { 'action': '/reportes/generar-asignacion', 'method': 'POST', 'target': '_blank' });
+            form.append($('<input>', { 'type': 'hidden', 'name': 'nroPreventivo', 'value': nro }));
+            if (Array.isArray(ids)) ids.forEach(id => form.append($('<input>', { 'type': 'hidden', 'name': 'ids', 'value': id })));
+            else form.append($('<input>', { 'type': 'hidden', 'name': 'ids', 'value': ids }));
+            $('body').append(form); form.submit(); form.remove();
         }
 
         function destroy() {
@@ -1033,11 +2216,11 @@
             $root.off(); $root = null;
         }
 
-        return { 
-            init, 
-            destroy, 
-            cargarParaEdicion, 
-            ejecutarBaja 
+        return {
+            init,
+            destroy,
+            cargarParaEdicion,
+            ejecutarBaja
         };
 
     })();

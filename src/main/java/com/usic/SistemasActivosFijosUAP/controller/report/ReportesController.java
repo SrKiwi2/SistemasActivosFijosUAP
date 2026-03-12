@@ -110,4 +110,47 @@ public class ReportesController {
         }
     }
 
+    // Endpoint NUEVO para Vista Pendientes — recibe idAsignacion ya existente
+    @PostMapping("/regenerar-asignacion")
+    public ResponseEntity<byte[]> regenerarReporte(
+            @RequestParam("idAsignacion")   String idAsignacionEnc,
+            @RequestParam("codigoCompleto") String codigoCompleto) {
+
+        try {
+            Long idAsignacion = Long.parseLong(Encriptar.decrypt(idAsignacionEnc));
+
+            // Solo leer — NUNCA hacer save() aquí
+            AsignacionActivo asignacion = asignacionActivoService
+                    .findByIdConDetalles(idAsignacion)
+                    .orElseThrow(() -> new RuntimeException("Asignación no encontrada"));
+
+            // Obtener config por año de la asignación
+            int anio = asignacion.getFechaAsignacion().getYear();
+            ConfiguracionGestion config = configuracionGestionService
+                    .findByGestion(anio)
+                    .orElseGet(() -> {
+                        // Fallback: config mínima para generar el PDF
+                        ConfiguracionGestion c = new ConfiguracionGestion();
+                        c.setGestion(anio);
+                        c.setPrefijoDocumento("");
+                        c.setCiudad("—");
+                        return c;
+                    });
+
+            byte[] pdfBytes = pdfAsignacionActivoCompleto
+                    .generarActaAsignacion(asignacion, config);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment",
+                    "Acta_" + asignacion.getCodigoDocumento() + ".pdf");
+
+            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
 }

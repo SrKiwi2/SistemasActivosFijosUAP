@@ -7,10 +7,11 @@ public class DetalleRegistroItem {
     private Long idMunicipio;
     private Long idPredio;
     private Long idOficina;
+    private Long idResponsable;
     private Long idGrupoContable;
     private Long idAuxiliar;
     private String descripcion;
-    private Double costo; // Opcional
+    private Double costo;
     private Integer vidaUtil;
-    private Integer cantidad; // Cuántos iguales de este tipo crear
+    private Integer cantidad;
 }

@@ -2,6 +2,7 @@ package com.usic.SistemasActivosFijosUAP.controller.activo;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -11,6 +12,7 @@ import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -31,8 +33,10 @@ import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.ActualDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IConfiguracionGestionService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IDetalleAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEstadoActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IMunicipioService;
@@ -42,12 +46,18 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoFormDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.ActivoPendienteItemDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.AsignacionPendienteDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
 import com.usic.SistemasActivosFijosUAP.model.dto.DetalleRegistroItem;
+import com.usic.SistemasActivosFijosUAP.model.dto.EditarActivoPendienteRequest;
+import com.usic.SistemasActivosFijosUAP.model.dto.EditarLoteRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.RegistroMasivoRequest;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
+import com.usic.SistemasActivosFijosUAP.model.entity.DetalleAsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
@@ -79,6 +89,8 @@ public class ActivosController {
     private final IEstadoActivoService estadoActivoService;
     private final ActualDbfWriterService actualDbfWriterService;
     private final IConfiguracionGestionService configuracionGestionService;
+    private final IAsignacionActivoService asignacionActivoService;
+    private final IDetalleAsignacionActivoService detalleAsignacionActivoService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -209,17 +221,15 @@ public class ActivosController {
 
         try {
             for (int i = 0; i < cantidad; i++) {
-                // 1. CLONAR OBJETO (Crear nueva instancia basada en el formulario)
+                
                 Activo nuevoActivo = new Activo();
                 
-                // Copiar datos simples
                 nuevoActivo.setDescripcion(activo.getDescripcion());
                 nuevoActivo.setCosto(activo.getCosto());
                 nuevoActivo.setVidaUtil(activo.getVidaUtil());
                 nuevoActivo.setFechaAdquisicion(activo.getFechaAdquisicion());
                 nuevoActivo.setObserv(activo.getObserv());
                 
-                // Copiar Relaciones (JPA Entities)
                 nuevoActivo.setGrupoContable(activo.getGrupoContable());
                 nuevoActivo.setOficina(activo.getOficina());
                 nuevoActivo.setResponsable(activo.getResponsable());
@@ -227,40 +237,33 @@ public class ActivosController {
                 nuevoActivo.setAuxiliar(activo.getAuxiliar());
                 nuevoActivo.setEstadoActivo(activo.getEstadoActivo());
 
-                // 2. GENERAR CÓDIGO CORRELATIVO
-                // El primero (i=0) usa el código del formulario. Los siguientes se calculan.
                 String codigoParaEste = (i == 0) 
                     ? codigoActualStr 
                     : incrementarCodigoString(codigoActualStr, i);
                 
                 nuevoActivo.setCodigo(codigoParaEste);
                 
-                // 3. DATOS DE AUDITORÍA Y ESTADO
                 nuevoActivo.setUsuario(usuario.getUsuario());
                 nuevoActivo.setFecMod(LocalDate.now());
                 nuevoActivo.setFechaUlt(LocalDate.now());
                 
-                // Lógica de negocio default
                 nuevoActivo.setApiEstado(Short.valueOf("3"));
                 nuevoActivo.setCostoAnterior(0.0);
                 nuevoActivo.setDepreciacionAcum(0.0);
                 nuevoActivo.setVidaUtilAnterior(0);
                 
-                // Org Fin Code textual para DBF
                 if(nuevoActivo.getOrganismoFinanciero() != null) {
                      OrganismoFinanciero of = organismoFinancieroService.findById(nuevoActivo.getOrganismoFinanciero().getIdOrganismoFinanciero());
                      nuevoActivo.setOrganismoFinanciero(of);
                      nuevoActivo.setOrgFinCode(of.getCodOf());
                 }
                 
-                // Estado Inicial
                 if (nuevoActivo.getEstadoActivo() == null) {
                     nuevoActivo.setEstadoActivo(estadoActivoService.findById(1L));
                 }
-                
+            
                 nuevoActivo.setEstado("PENDIENTE");
 
-                // 4. GUARDAR
                 activoService.save(nuevoActivo);
                 codigosGenerados.add(nuevoActivo.getCodigo());
                 activosGuardados.add(nuevoActivo);
@@ -286,7 +289,7 @@ public class ActivosController {
 
     private String incrementarCodigoString(String codigoBase, int incremento) {
         try {
-            // Asumimos formato XX-XX-XX-NNNNN
+
             int lastDash = codigoBase.lastIndexOf('-');
             if (lastDash == -1) return codigoBase + "-" + incremento;
 
@@ -312,90 +315,66 @@ public class ActivosController {
         String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
         
         try {
-            // Validaciones básicas
-            if (request.getIdResponsable() == null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "El responsable es obligatorio."));
+
             if (request.getItems() == null || request.getItems().isEmpty()) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Debe agregar al menos un ítem."));
 
-            Responsable responsable = responsableService.findById(request.getIdResponsable());
             OrganismoFinanciero orgFinGlobal = (request.getIdOrganismoFinanciero() != null) ? organismoFinancieroService.findById(request.getIdOrganismoFinanciero()) : null;
 
             List<String> idsReporte = new ArrayList<>();
             int totalCreados = 0;
 
-            // MAPA DE INCREMENTOS LOCALES: Clave="Mun-Pred-Grup", Valor=ContadorExtra
-            // Esto evita que si guardo 3 activos del mismo grupo, salgan con el mismo código.
             Map<String, Integer> incrementosLocales = new HashMap<>();
 
             for (DetalleRegistroItem item : request.getItems()) {
+
+                if (item.getIdResponsable() == null) {
+                    return ResponseEntity.badRequest().body(
+                        Map.of("ok", false, "msg", "Falta responsable en uno de los ítems."));
+                }
+                Responsable responsable = responsableService.findById(item.getIdResponsable());
                 
-                // Entidades de la fila
                 GrupoContable grupo = grupoContableService.findById(item.getIdGrupoContable());
                 Oficina oficina = oficinaService.findById(item.getIdOficina());
                 Auxiliar auxiliar = (item.getIdAuxiliar() != null) ? auxiliarService.findById(item.getIdAuxiliar()) : null;
-                
-                // Obtener códigos para la generación (asumiendo que tus entidades tienen estos campos)
-                // Ojo: Ajusta los getters según tus entidades reales si difieren (ej: getCodMun(), etc.)
                 String codMun = oficina.getPredio().getMunicipio().getCodigo();
                 String codPred = oficina.getPredio().getCodigo();
-                // Nota: Asegúrate de formatear el grupo a 2 dígitos si es necesario (ej: "01", "02")
                 String codGrup = String.format("%02d", grupo.getCodDbf()); 
-
-                // Clave única para nuestro mapa de incrementos
                 String keyMap = codMun + "-" + codPred + "-" + codGrup;
-
-                // Obtener el ULTIMO código base desde la BD (tu función actual)
-                // Esto devuelve algo como "01-01-04-00048" (el ÚLTIMO existente o el PRIMERO sugerido)
                 String codigoBaseBd = funciones.previewCodigoPorCodes(codMun, codPred, codGrup);
-                
-                // Parsear el número del código base
                 long correlativoBase = extraerNumeroCorrelativo(codigoBaseBd); 
 
-                // Bucle CANTIDAD
                 for (int i = 0; i < item.getCantidad(); i++) {
                     Activo a = new Activo();
                     
-                    // CALCULAR CÓDIGO
-                    // Ver si ya hemos generado alguno para este grupo en este lote
                     int incrementoAdicional = incrementosLocales.getOrDefault(keyMap, 0);
-                    
-                    // Nuevo número = Base + 1 (porque preview suele dar el último usado) + incremento local
-                    // NOTA: Revisa si 'previewCodigoPorCodes' devuelve el ULTIMO USADO o el PROXIMO DISPONIBLE.
-                    // Si devuelve el PRÓXIMO, usa correlativoBase + incrementoAdicional.
-                    // Si devuelve el ÚLTIMO, usa correlativoBase + 1 + incrementoAdicional.
-                    // ASUMIREMOS que devuelve el PRÓXIMO LIBRE para este ejemplo.
-                    
                     long nuevoNumero = correlativoBase + incrementoAdicional;
-                    
-                    // Si 'previewCodigoPorCodes' devuelve el mismo código siempre, necesitamos saber si es nuevo o usado
-                    // Para mayor seguridad, si la función devuelve el código a USAR, entonces:
+                
                     if (incrementoAdicional > 0) {
                          nuevoNumero = correlativoBase + incrementoAdicional;
                     }
                     
                     String codigoFinal = construirCodigo(codMun, codPred, codGrup, nuevoNumero);
                     
-                    // Actualizar mapa para la siguiente iteración
                     incrementosLocales.put(keyMap, incrementoAdicional + 1);
 
-                    // Settear datos
                     a.setCodigo(codigoFinal);
-                    a.setDescripcion(item.getDescripcion());
+                    a.setDescripcion(item.getDescripcion().toUpperCase());
                     a.setFechaAdquisicion(request.getFechaAdquisicion());
                     a.setVidaUtil(item.getVidaUtil() != null ? BigDecimal.valueOf(item.getVidaUtil()) : BigDecimal.ZERO);
                     a.setCosto(item.getCosto() != null ? item.getCosto() : 0.0);
-                    
-                    // Relaciones
                     a.setResponsable(responsable);
                     a.setOrganismoFinanciero(orgFinGlobal);
                     if(orgFinGlobal != null) a.setOrgFinCode(orgFinGlobal.getCodOf());
-
                     a.setGrupoContable(grupo);
                     a.setOficina(oficina);
                     a.setAuxiliar(auxiliar);
-                    
-                    // Auditoría
                     a.setEstado("PENDIENTE");
                     a.setApiEstado(Short.valueOf("3"));
+                    a.setVidaUtilAnterior(0);
+                    // a.setBandUfv(); no se sabe aun, se guarda en null
+                    a.setEstadoActivo(estadoActivoService.findById(1L));
+                    a.setCostoAnterior(0.0);
+                    a.setDepreciacionAcum(0.0);
                     a.setUsuario(usuarioNombre);
                     a.setFecMod(LocalDate.now());
                     a.setFechaUlt(LocalDate.now());
@@ -418,20 +397,16 @@ public class ActivosController {
         }
     }
 
-    // --- Helpers Privados para el Controller ---
-
     private long extraerNumeroCorrelativo(String codigoCompleto) {
         try {
-            // Formato esperado: MM-PP-GG-NNNNN
             String[] partes = codigoCompleto.split("-");
             return Long.parseLong(partes[partes.length - 1]);
         } catch (Exception e) {
-            return 0; // Fallback si el formato es raro
+            return 0;
         }
     }
 
     private String construirCodigo(String mun, String pred, String grup, long numero) {
-        // Aseguramos formato 00000 para el número
         return String.format("%s-%s-%s-%05d", mun, pred, grup, numero);
     }
 
@@ -472,8 +447,6 @@ public class ActivosController {
             activoOriginal.setVidaUtil(activoForm.getVidaUtil());
             activoOriginal.setFechaAdquisicion(activoForm.getFechaAdquisicion());
             
-
-            // Actualizar relaciones
             if (activoForm.getGrupoContable() != null && activoForm.getGrupoContable().getIdGrupoContable() != null) {
                 GrupoContable grupoCompleto = grupoContableService.findById(
                     activoForm.getGrupoContable().getIdGrupoContable()
@@ -524,7 +497,6 @@ public class ActivosController {
 
             EstadoActivo estadoActivo = estadoActivoService.findById(1L);
             activoOriginal.setEstadoActivo(estadoActivo);
-
             activoOriginal.setFecMod(LocalDate.now());
             activoOriginal.setUsuMod(usuarioNombre);
             activoOriginal.setEstado("ACTIVO");
@@ -537,7 +509,6 @@ public class ActivosController {
             activoOriginal.setFecMod(LocalDate.now());
             activoOriginal.setCostoAnterior(Double.valueOf(0));
             activoOriginal.setApiEstado(Short.valueOf("3"));
-
             activoService.save(activoOriginal);
             log.info("Activo {} actualizado en BD.", activoOriginal.getCodigo());
 
@@ -631,51 +602,199 @@ public class ActivosController {
     @PostMapping("/asignar-gestion-masiva")
     @ResponseBody
     public ResponseEntity<?> asignarGestionMasiva(
-            @RequestParam("ids") List<String> idsEnc,
+            @RequestParam("ids")      List<String> idsEnc,
             @RequestParam("idConfig") Long idConfig,
-            @RequestParam("nroDoc") String nroDoc) {
+            @RequestParam("nroDoc")   String nroDoc) {
 
-        int actualizados = 0;
-        
         try {
-
             ConfiguracionGestion config = configuracionGestionService.findById(idConfig);
-            
-            String prefijo = config.getPrefijoDocumento();
+            String prefijo        = config.getPrefijoDocumento();
+            String codigoCompleto = prefijo + " " + nroDoc; // "Prev. 1234"
 
+            List<Activo> activos = new ArrayList<>();
             for (String enc : idsEnc) {
                 Long id = Long.parseLong(Encriptar.decrypt(enc));
                 Activo a = activoService.findById(id);
-
                 if (a != null && "PENDIENTE".equalsIgnoreCase(a.getEstado())) {
-                    
-                    String etiqueta = prefijo + " " + nroDoc;
-                    
-                    if (!a.getDescripcion().startsWith(etiqueta)) {
-                        String nuevaDesc = etiqueta + " " + a.getDescripcion();
+                    activos.add(a);
+                }
+            }
+            if (activos.isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg", "No hay activos pendientes."));
+            }
 
-                        if (nuevaDesc.length() > 1024) nuevaDesc = nuevaDesc.substring(0, 1024);
-                        
-                        a.setDescripcion(nuevaDesc);
-                        a.setFecMod(LocalDate.now());
-                        
-                        activoService.save(a);
-                        actualizados++;
-                    }
+            for (Activo a : activos) {
+                if (!a.getDescripcion().startsWith(codigoCompleto)) {
+                    String nueva = codigoCompleto + " " + a.getDescripcion();
+                    if (nueva.length() > 1024) nueva = nueva.substring(0, 1024);
+                    a.setDescripcion(nueva);
+                    a.setFecMod(LocalDate.now());
+                    activoService.save(a);
                 }
             }
 
+            AsignacionActivo asignacion = asignacionActivoService
+                    .findByActivo(activos.get(0))
+                    .orElse(null);
+
+            if (asignacion == null) {
+                asignacion = new AsignacionActivo();
+                asignacion.setFechaAsignacion(LocalDateTime.now());
+                asignacion.setResponsable(activos.get(0).getResponsable());
+                asignacion = asignacionActivoService.save(asignacion);
+
+                for (Activo a : activos) {
+                    DetalleAsignacionActivo det = new DetalleAsignacionActivo();
+                    det.setAsignacionActivo(asignacion);
+                    det.setActivo(a);
+                    det.setCodigoActivoSnapshot(a.getCodigo());
+                    detalleAsignacionActivoService.save(det);
+                }
+            }
+
+            asignacion.setCodigoDocumento(nroDoc);
+            asignacion.setCodigoCompleto(codigoCompleto);
+            asignacionActivoService.save(asignacion);
+
+            String idEnc = Encriptar.encrypt(String.valueOf(asignacion.getIdAsignacion()));
+
             return ResponseEntity.ok(Map.of(
-                "ok", true, 
-                "msg", "Asignación correcta.",
-                "idsParaReporte", idsEnc,
-                "nroPreventivo", nroDoc
+                "ok",             true,
+                "msg",            "Documento asignado a " + activos.size() + " activo(s).",
+                "idAsignacion",   idEnc,
+                "codigoCompleto", codigoCompleto
             ));
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+            log.error("Error en asignarGestionMasiva", e);
+            return ResponseEntity.badRequest()
+                .body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
         }
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping(value = "/api/editar-pendiente/{idEnc}",
+                consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<?> editarPendiente(
+            @PathVariable String idEnc,
+            @RequestBody EditarActivoPendienteRequest req,
+            HttpServletRequest httpReq) {
+
+        try {
+            Long id = Long.parseLong(Encriptar.decrypt(idEnc));
+            Activo a = activoService.findById(id);
+
+            if (a == null)
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Activo no encontrado."));
+            if (!"PENDIENTE".equalsIgnoreCase(a.getEstado()))
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Solo se pueden editar activos PENDIENTE."));
+
+            aplicarCambios(a, req);
+            a.setFecMod(LocalDate.now());
+            a.setUsuMod(obtenerUsuario(httpReq));
+            activoService.save(a);
+
+            return ResponseEntity.ok(Map.of("ok", true, "msg", "Activo actualizado."));
+        } catch (Exception e) {
+            log.error("Error editando activo pendiente", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping(value = "/api/editar-lote",
+                consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<?> editarLote(
+            @RequestBody EditarLoteRequest req,
+            HttpServletRequest httpReq) {
+
+        if (req.getActivos() == null || req.getActivos().isEmpty())
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Sin activos."));
+
+        String usuNombre = obtenerUsuario(httpReq);
+        int actualizados = 0;
+        List<String> errores = new ArrayList<>();
+
+        for (EditarActivoPendienteRequest item : req.getActivos()) {
+            try {
+                Long id = Long.parseLong(Encriptar.decrypt(item.getIdEnc()));
+                Activo a = activoService.findById(id);
+
+                if (a == null || !"PENDIENTE".equalsIgnoreCase(a.getEstado())) {
+                    errores.add("Activo no encontrado o no está PENDIENTE: " + item.getIdEnc());
+                    continue;
+                }
+
+                aplicarCambios(a, item);
+                a.setFecMod(LocalDate.now());
+                a.setUsuMod(usuNombre);
+                activoService.save(a);
+                actualizados++;
+
+            } catch (Exception e) {
+                log.error("Error en editar-lote para idEnc {}: {}", item.getIdEnc(), e.getMessage());
+                errores.add("Error en un activo: " + e.getMessage());
+            }
+        }
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("ok", true);
+        resp.put("actualizados", actualizados);
+        resp.put("errores", errores.size());
+        if (!errores.isEmpty())
+            resp.put("detallesError", errores);
+
+        resp.put("msg", String.format("Lote actualizado: %d activo(s). Errores: %d.", actualizados, errores.size()));
+        return ResponseEntity.ok(resp);
+    }
+
+    private void aplicarCambios(Activo a, EditarActivoPendienteRequest req) {
+
+        if (req.getDescripcion() != null && !req.getDescripcion().isBlank()) {
+            String desc = req.getDescripcion().trim();
+            a.setDescripcion(desc.length() > 1024 ? desc.substring(0, 1024) : desc);
+        }
+        if (req.getCosto() != null)
+            a.setCosto(req.getCosto());
+        if (req.getVidaUtil() != null)
+            a.setVidaUtil(BigDecimal.valueOf(req.getVidaUtil()));
+        if (req.getFechaAdquisicion() != null)
+            a.setFechaAdquisicion(req.getFechaAdquisicion());
+        if (req.getObserv() != null)
+            a.setObserv(req.getObserv());
+
+        if (req.getIdGrupoContable() != null)
+            a.setGrupoContable(grupoContableService.findById(req.getIdGrupoContable()));
+
+        if (req.getIdOficina() != null)
+            a.setOficina(oficinaService.findById(req.getIdOficina()));
+
+        if (req.getIdResponsable() != null)
+            a.setResponsable(responsableService.findById(req.getIdResponsable()));
+
+        if (req.getIdAuxiliar() != null) {
+            a.setAuxiliar(auxiliarService.findById(req.getIdAuxiliar()));
+        } else {
+            a.setAuxiliar(null);
+        }
+
+        if (req.getIdOrganismoFinanciero() != null) {
+            OrganismoFinanciero orgFin =
+                organismoFinancieroService.findById(req.getIdOrganismoFinanciero());
+            a.setOrganismoFinanciero(orgFin);
+            a.setOrgFinCode(orgFin != null ? orgFin.getCodOf() : null);
+        } else {
+            a.setOrganismoFinanciero(null);
+            a.setOrgFinCode(null);
+        }
+    }
+
+    private String obtenerUsuario(HttpServletRequest req) {
+        Usuario u = (Usuario) req.getSession().getAttribute("usuario");
+        return u != null ? u.getUsuario() : "SISTEMA";
     }
 
     @ValidarUsuarioAutenticado
@@ -698,80 +817,144 @@ public class ActivosController {
         return "activo/vista_pendientes";
     }
 
-    @ValidarUsuarioAutenticado
     @PostMapping("/tabla-registros_pendientes")
     public String tabla_registro_pendiente(Model model) throws Exception {
-        List<Activo> listaActivosPendientes = activoService.listarActivosPendientes();
-        List<String> encryptedIds = new ArrayList<>();
-        for (Activo oficinas : listaActivosPendientes) {
-            String id_encryptado = Encriptar.encrypt(Long.toString(oficinas.getIdActivo()));
-            encryptedIds.add(id_encryptado);
+
+        List<AsignacionActivo> asignaciones = asignacionActivoService
+            .listarConDetalles();
+
+        List<AsignacionPendienteDTO> dtos = new ArrayList<>();
+        for (AsignacionActivo asig : asignaciones) {
+            AsignacionPendienteDTO dto = new AsignacionPendienteDTO();
+            dto.setAsignacion(asig);
+            dto.setEncryptedAsignacionId(
+                Encriptar.encrypt(String.valueOf(asig.getIdAsignacion())));
+
+            List<ActivoPendienteItemDTO> items = new ArrayList<>();
+            for (DetalleAsignacionActivo det : asig.getDetalles()) {
+                if (!"PENDIENTE".equalsIgnoreCase(det.getActivo().getEstado())) continue;
+                ActivoPendienteItemDTO item = new ActivoPendienteItemDTO();
+                item.setActivo(det.getActivo());
+                item.setEncryptedActivoId(
+                    Encriptar.encrypt(String.valueOf(det.getActivo().getIdActivo())));
+                item.setCodigoSnapshot(det.getCodigoActivoSnapshot());
+                items.add(item);
+            }
+
+            dto.setItems(items);
+            dto.setTotalActivos(asig.getDetalles().size());
+            dto.setTotalPendientes(items.size());
+            dto.setTotalSincronizados(
+                asig.getDetalles().stream()
+                    .filter(d -> "ACTIVO".equalsIgnoreCase(d.getActivo().getEstado()))
+                    .count());
+            dtos.add(dto);
         }
-        model.addAttribute("listaActivosPendientes", listaActivosPendientes);
-        model.addAttribute("id_encryptado", encryptedIds);
+
+        List<Activo> sinAsignacion = activoService.listarActivosPendientes();
+        List<String> sinAsignacionIds = new ArrayList<>();
+        for (Activo a : sinAsignacion) {
+            sinAsignacionIds.add(Encriptar.encrypt(String.valueOf(a.getIdActivo())));
+        }
+
+        model.addAttribute("asignaciones", dtos);
+        model.addAttribute("sinAsignacion", sinAsignacion);
+        model.addAttribute("sinAsignacionIds", sinAsignacionIds);
         return "activo/tabla_registros_pendientes";
     }
 
+    // public ResponseEntity<?> obtenerDetalle(@PathVariable String idEnc) {
+    //     try {
+    //         Long id = Long.valueOf(Encriptar.decrypt(idEnc));
+    
     @ValidarUsuarioAutenticado
     @GetMapping("/api/detalle/{idEnc}")
     @ResponseBody
-    public ResponseEntity<?> obtenerDetalle(@PathVariable String idEnc) {
+    public ResponseEntity<?> detalleActivo(@PathVariable String idEnc) {
         try {
+            // 1. Desencriptación y búsqueda
             Long id = Long.valueOf(Encriptar.decrypt(idEnc));
-            Activo activo = activoService.findById(id);
-
-            if (activo == null) {
+            Activo a = activoService.findById(id);
+            
+            if (a == null) {
                 return ResponseEntity.notFound().build();
             }
 
-            Map<String, Object> response = new LinkedHashMap<>();
-            response.put("idActivo", activo.getIdActivo());
-            response.put("codigo", activo.getCodigo());
-            response.put("codigoSec", activo.getCodigoSec());
-            response.put("descripcion", activo.getDescripcion());
-            response.put("costo", activo.getCosto());
-            response.put("vidaUtil", activo.getVidaUtil());
-            response.put("fechaAdquisicion", activo.getFechaAdquisicion());
-            response.put("estado", activo.getEstado());
+            // Usamos LinkedHashMap para mantener el orden de los campos en el JSON
+            Map<String, Object> r = new LinkedHashMap<>();
 
-            if (activo.getGrupoContable() != null) {
-                response.put("grupoContable", Map.of(
-                        "idGrupoContable", activo.getGrupoContable().getIdGrupoContable(),
-                        "nombre", activo.getGrupoContable().getNombre()));
+            // ── Campos básicos ─────────────────────────────────────
+            r.put("idActivo",         a.getIdActivo());
+            r.put("codigo",           a.getCodigo());
+            r.put("codigoSec",        a.getCodigoSec()); // <-- Agregado
+            r.put("descripcion",      a.getDescripcion());
+            r.put("costo",            a.getCosto());
+            r.put("vidaUtil",         a.getVidaUtil());
+            r.put("fechaAdquisicion", a.getFechaAdquisicion() != null 
+                                    ? a.getFechaAdquisicion().toString() : null);
+            r.put("estado",           a.getEstado());
+            r.put("observ",           a.getObserv());
+
+            // ── Grupo Contable ─────────────────────────────────────
+            if (a.getGrupoContable() != null) {
+                Map<String, Object> grp = new LinkedHashMap<>();
+                grp.put("idGrupoContable", a.getGrupoContable().getIdGrupoContable());
+                grp.put("nombre",          a.getGrupoContable().getNombre());
+                r.put("grupoContable", grp);
             }
 
-            if (activo.getOficina() != null) {
-                response.put("oficina", Map.of(
-                        "idOficina", activo.getOficina().getIdOficina(),
-                        "nombre", activo.getOficina().getNombre()));
+            // ── Auxiliar ───────────────────────────────────────────
+            if (a.getAuxiliar() != null) {
+                Map<String, Object> aux = new LinkedHashMap<>();
+                aux.put("idAuxiliar", a.getAuxiliar().getIdAuxiliar());
+                aux.put("nombre",     a.getAuxiliar().getNombre());
+                r.put("auxiliar", aux);
             }
 
-            if (activo.getResponsable() != null) {
-                response.put("responsable", Map.of(
-                        "idResponsable", activo.getResponsable().getIdResponsable(),
-                        "persona", Map.of(
-                                "nombreCompleto", activo.getResponsable().getPersona().getNombreCompleto())));
+            // ── Organismo Financiero ───────────────────────────────
+            if (a.getOrganismoFinanciero() != null) {
+                Map<String, Object> org = new LinkedHashMap<>();
+                org.put("idOrganismoFinanciero", a.getOrganismoFinanciero().getIdOrganismoFinanciero());
+                org.put("sigla",                 a.getOrganismoFinanciero().getSigla());
+                org.put("descripcion",           a.getOrganismoFinanciero().getDescripcion());
+                r.put("organismoFinanciero", org);
             }
 
-            if (activo.getOrganismoFinanciero() != null) {
-                response.put("organismoFinanciero", Map.of(
-                        "idOrganismoFinanciero", activo.getOrganismoFinanciero().getIdOrganismoFinanciero(),
-                        "descripcion", activo.getOrganismoFinanciero().getDescripcion()));
+            // ── Responsable (EL QUE FALTABA) ───────────────────────
+            if (a.getResponsable() != null) {
+                Map<String, Object> resp = new LinkedHashMap<>();
+                resp.put("idResponsable", a.getResponsable().getIdResponsable());
+                if (a.getResponsable().getPersona() != null) {
+                    Map<String, Object> pers = new LinkedHashMap<>();
+                    pers.put("nombreCompleto", a.getResponsable().getPersona().getNombreCompleto());
+                    resp.put("persona", pers);
+                }
+                r.put("responsable", resp);
             }
 
-            if (activo.getAuxiliar() != null) {
-                response.put("auxiliar", Map.of(
-                        "idAuxiliar", activo.getAuxiliar().getIdAuxiliar(),
-                        "nombre", activo.getAuxiliar().getNombre()));
+            // ── Oficina + Predio + Municipio ───────────────────────
+            if (a.getOficina() != null) {
+                Map<String, Object> ofi = new LinkedHashMap<>();
+                ofi.put("idOficina", a.getOficina().getIdOficina());
+                ofi.put("nombre",    a.getOficina().getNombre());
+                r.put("oficina", ofi);
+
+                // Campos de apoyo para la cascada en el Frontend
+                if (a.getOficina().getPredio() != null) {
+                    r.put("predioId", a.getOficina().getPredio().getIdPredio());
+
+                    if (a.getOficina().getPredio().getMunicipio() != null) {
+                        r.put("municipioId", a.getOficina().getPredio().getMunicipio().getIdMunicipio());
+                    }
+                }
             }
 
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(r);
 
         } catch (Exception e) {
-            log.error("Error obteniendo detalle: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).body(Map.of(
-                    "ok", false,
-                    "message", "Error al obtener detalle: " + e.getMessage()));
+            log.error("Error al obtener detalle: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .body(Map.of("ok", false, "message", "Error: " + e.getMessage()));
         }
     }
 
@@ -834,7 +1017,6 @@ public class ActivosController {
                 Long id = Long.valueOf(Encriptar.decrypt(idEnc));
                 Activo a = activoService.findById(id);
 
-                // Validaciones básicas (igual que en individual)
                 if (a == null || !"PENDIENTE".equalsIgnoreCase(a.getEstado())) {
                     errores++; continue;
                 }
@@ -843,16 +1025,13 @@ public class ActivosController {
                     continue;
                 }
 
-                // Datos para DBF
                 String entidadCode = a.getOficina().getPredio().getEntidad().getEntidadCodigo();
                 String unidadCode = a.getOficina().getPredio().getUnidad();
 
-                // 1. Intentar DBF (Idempotente)
                 if (!actualDbfWriterService.existsByCodigo(a.getCodigo())) {
                     actualDbfWriterService.insertarDesdeActivo(a, entidadCode, unidadCode, usuarioNombre);
                 }
 
-                // 2. Actualizar BD
                 a.setEstado("ACTIVO");
                 a.setApiEstado(Short.valueOf("1"));
                 activoService.save(a);

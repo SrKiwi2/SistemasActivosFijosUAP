@@ -243,4 +243,9 @@ public class ResponsableServiceImpl implements IResponsableService{
     public Page<RespOption> searchGlobal(String q, Pageable pageable) {
         return dao.searchGlobal(q, pageable);
     }
+
+    @Override
+    public boolean existsByOficinaIdOficinaAndPersonaIdPersona(Long idOficina, Long idPersona) {
+        return dao.existsByOficinaIdOficinaAndPersonaIdPersona(idOficina, idPersona);
+    }
 }

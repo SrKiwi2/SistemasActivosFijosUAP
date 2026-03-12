@@ -117,4 +117,9 @@ public class PersonaServiceImpl implements IPersonaService {
         }
     }
 
+    @Override
+    public Optional<Persona> findByCi(String ci) {
+        return personaDao.findByCi(ci);
+    }
+
 }

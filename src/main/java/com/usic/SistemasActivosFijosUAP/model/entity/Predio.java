@@ -37,51 +37,39 @@ public class Predio extends AuditoriaConfig {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idPredio;
 
-    // 🔗 El DBF trae ENTIDAD (código). Lo resolvemos a FK Entidad (por código y
-    // gestión).
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "entidad_id", nullable = false, foreignKey = @ForeignKey(name = "fk_predio_entidad"))
     private Entidad entidad;
 
-    // (Opcional) si más adelante quieres mapear ciudad→municipio, déjalo nullable.
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "id_municipio", foreignKey = @ForeignKey(name = "fk_predio_municipio"))
     private Municipio municipio;
 
-    // DBF: UNIDAD (Text)
     @NotBlank
     @Size(max = 30)
     @Column(name = "unidad", length = 30, nullable = false)
     private String unidad;
 
-    // DBF: DESCRIP (Text)
     @NotBlank
     @Size(max = 255)
     @Column(name = "descrip", length = 255, nullable = false)
     private String descrip;
 
-    // DBF: CIUDAD (Text) — puede venir vacío
     @Size(max = 120)
     @Column(name = "ciudad", length = 120)
     private String ciudad;
 
-    // DBF: ESTADOUNI (SmallInt)
     @Column(name = "estado_uni", columnDefinition = "SMALLINT")
     private Short estadoUni;
 
-    /* Esto no se manda ene l dbf */
     private String codigo;
 
-    // ✅ NUEVO: Campos de control de sincronización
     @Column(name = "fecha_ultima_sync")
     private LocalDateTime fechaUltimaSync;
     
     @Column(name = "hash_datos", length = 32)
     private String hashDatos;
     
-    /**
-     * Calcula hash MD5 de los datos importantes para detectar cambios
-     */
     public String calcularHash() {
         String datos = String.join("|",
             entidad != null ? String.valueOf(entidad.getIdEntidad()) : "",

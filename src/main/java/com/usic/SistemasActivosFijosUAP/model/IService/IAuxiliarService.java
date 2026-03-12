@@ -35,5 +35,5 @@ public interface IAuxiliarService extends IServiceGenerico<Auxiliar, Long> {
     Short getNextCodAux(Long idPredio, Long idGrupoContable);
     boolean isNombreUnique(String nombre, Long idAuxiliar);
 
-    List<Auxiliar> findByGrupoContableIdGrupoContable(Long idGrupoContable);
+    List<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContable(Long idPredio, Long idGrupoContable);
 }

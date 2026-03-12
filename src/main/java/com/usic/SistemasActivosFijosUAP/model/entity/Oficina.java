@@ -43,28 +43,28 @@ public class Oficina extends AuditoriaConfig {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_predio", nullable = false, foreignKey = @ForeignKey(name = "fk_oficina_predio"))
-    private Predio predio; // Resuelto por (ENTIDAD, UNIDAD)
+    private Predio predio;
 
     @Column(name = "cod_ofi", columnDefinition = "SMALLINT", nullable = false)
-    private Short codOfi; // DBF: CODOFI
+    private Short codOfi;
 
     @NotBlank
     @Size(max = 255)
     @Column(name = "nombre", length = 255, nullable = false)
-    private String nombre; // DBF: NOMOFIC
+    private String nombre;
 
     @Column(name = "observ", columnDefinition = "text")
-    private String observ; // DBF: OBSERV (Memo)
+    private String observ;
 
     @Column(name = "fecha_ult")
-    private LocalDate fechaUlt; // DBF: FEULT (Date)
+    private LocalDate fechaUlt;
 
     @Size(max = 60)
     @Column(name = "usuario", length = 60)
-    private String usuario; // DBF: USUAR
+    private String usuario;
 
     @Column(name = "api_estado", columnDefinition = "SMALLINT")
-    private Short apiEstado; // DBF: API_ESTADO
+    private Short apiEstado;
 
     @Column(name = "fecha_ultima_sync")
     private LocalDateTime fechaUltimaSync;
@@ -72,9 +72,6 @@ public class Oficina extends AuditoriaConfig {
     @Column(name = "hash_datos", length = 32)
     private String hashDatos;
     
-    /**
-     * Calcula hash MD5 de los datos importantes para detectar cambios
-     */
     public String calcularHash() {
         String datos = String.join("|",
             predio != null && predio.getIdPredio() != null 
@@ -89,8 +86,8 @@ public class Oficina extends AuditoriaConfig {
         return DigestUtils.md5Hex(datos);
     }
 
-    @Transient // Importante: no crea columna en Postgres
-    private boolean existeEnDbf = true; // Por defecto asumimos que sí está
+    @Transient
+    private boolean existeEnDbf = true;
 
     public boolean isExisteEnDbf() { return existeEnDbf; }
     public void setExisteEnDbf(boolean existeEnDbf) { this.existeEnDbf = existeEnDbf; }

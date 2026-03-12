@@ -101,7 +101,7 @@ public class AuxiliarServiceImpl implements IAuxiliarService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Auxiliar> findByGrupoContableIdGrupoContable(Long idGrupoContable) {
-        return dao.findByGrupoContableIdGrupoContable(idGrupoContable);
+    public List<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContable(Long idPredio, Long idGrupoContable) {
+        return dao.findByPredioIdPredioAndGrupoContableIdGrupoContable(idPredio, idGrupoContable);
     }
 }

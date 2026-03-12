@@ -164,4 +164,6 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
     Page<RespOption> searchGlobal(@Param("q") String q, Pageable pageable);
 
     List<Responsable> findByOficinaIdOficina(Long idOficina);
+
+    boolean existsByOficinaIdOficinaAndPersonaIdPersona(Long idOficina, Long idPersona);
 }

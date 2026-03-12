@@ -57,20 +57,20 @@ public class Responsable extends AuditoriaConfig {
     private Cargo cargo;
 
     @Column(name = "observ", columnDefinition = "text")
-    private String observ; // DBF: OBSERV (Memo)
+    private String observ;
 
     @Column(name = "fecha_ult")
-    private LocalDate fechaUlt; // DBF: FEULT (Date)
+    private LocalDate fechaUlt;
 
     @Size(max = 60)
     @Column(name = "usuario", length = 60)
-    private String usuario; // DBF: USUAR (Text)
+    private String usuario;
 
     @Column(name = "cod_exp", columnDefinition = "SMALLINT")
-    private Short codExp; // DBF: COD_EXP (SmallInt)
+    private Short codExp;
 
     @Column(name = "api_estado", columnDefinition = "SMALLINT")
-    private Short apiEstado; // DBF: API_ESTADO (SmallInt)
+    private Short apiEstado;
 
     @Column(name = "fecha_ultima_sync")
     private LocalDateTime fechaUltimaSync;
@@ -78,9 +78,6 @@ public class Responsable extends AuditoriaConfig {
     @Column(name = "hash_datos", length = 32)
     private String hashDatos;
     
-    /**
-     * Calcula hash MD5 de los datos importantes para detectar cambios
-     */
     public String calcularHash() {
         String datos = String.join("|",
             oficina != null && oficina.getIdOficina() != null 

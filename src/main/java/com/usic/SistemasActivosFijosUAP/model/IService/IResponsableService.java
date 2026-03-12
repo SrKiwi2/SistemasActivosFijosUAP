@@ -46,5 +46,7 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     List<Responsable> findByOficinaIdOficina(Long idOficina);
 
     Page<RespOption> searchGlobal(@Param("q") String q, Pageable pageable);
+
+    boolean existsByOficinaIdOficinaAndPersonaIdPersona(Long idOficina, Long idPersona);
     
 }

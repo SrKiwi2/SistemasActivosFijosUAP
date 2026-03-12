@@ -1,11 +1,13 @@
 package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IAsignacionActivoDao;
+import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 
 import lombok.RequiredArgsConstructor;
@@ -33,5 +35,25 @@ public class AsignacionActivoServiceImpl implements IAsignacionActivoService {
     @Override
     public void deleteById(Long idEntidad) {
         dao.deleteById(idEntidad);
+    }
+
+    @Override
+    public List<AsignacionActivo> listarConDetalles() {
+        return dao.listarConDetalles();
+    }
+
+    @Override
+    public List<Activo> listarPendientesSinAsignacion() {
+        return dao.listarPendientesSinAsignacion();
+    }
+
+    @Override
+    public Optional<AsignacionActivo> findByActivo(Activo activo) {
+        return dao.findByActivo(activo);
+    }
+
+    @Override
+    public Optional<AsignacionActivo> findByIdConDetalles(Long id) {
+        return dao.findByIdConDetalles(id);
     }
 }

@@ -45,9 +45,6 @@ public class GrupoContable extends AuditoriaConfig {
     @Column(name = "hash_datos", length = 32)
     private String hashDatos;
     
-    /**
-     * Calcula hash MD5 de los datos importantes para detectar cambios
-     */
     public String calcularHash() {
         String datos = String.join("|",
             codContable != null ? String.valueOf(codContable) : "",

@@ -93,6 +93,9 @@ public class LoginController {
         switch (rol) {
             case "ADMINISTRADOR":
                 return "Iniciando Session"; // Redirige a /adm/inicio
+
+            case "SUPER USUARIO":
+                return "Iniciando Session";
             
             case "RECEPCION":
                 return "Inicio Recepcion"; // Nueva respuesta para recepción

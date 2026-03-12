@@ -4,15 +4,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -43,7 +39,6 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
-import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ResponsableDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SyncResult;
 import com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableApiDataDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
@@ -97,17 +92,11 @@ public class ResponsableController {
         int size = (length < 0) ? 1000 : length;
         int page = Math.max(start, 0) / Math.max(size, 1);
         Pageable pageable = PageRequest.of(page, size);
-
-        // 1. Obtener datos de BD
         Page<IResposableDao.ResponsableRow> p = responsableService.datatable(search, oficinaId, pageable);
-
-        // 2. Cargar claves del DBF para comparar
         Set<String> clavesDbf = new HashSet<>();
         try {
-            // Leemos el DBF
             var filasDbf = dbfService.listarResponsableAll(null);
             for(var f : filasDbf) {
-                // Clave: ENTIDAD|UNIDAD|CODOFI|CODRESP
                 String k = generarClaveUnica(
                     f.getEntidadCodigo(), 
                     f.getUnidad(), 
@@ -120,19 +109,17 @@ public class ResponsableController {
             log.error("Error leyendo RESP.DBF para comparación", e);
         }
 
-        // 3. Armar respuesta
         List<Map<String, Object>> data = new ArrayList<>(p.getNumberOfElements());
 
         for (var row : p.getContent()) {
             String idEnc = "";
             try { idEnc = Encriptar.encrypt(String.valueOf(row.getIdResponsable())); } catch (Exception e) {}
 
-            // ✅ Generar clave con los datos que AHORA SÍ TRAE EL DAO
             String claveBd = generarClaveUnica(
                 row.getEntidadCodigo(), 
                 row.getUnidadCodigo(), 
                 row.getCodOfi(), 
-                row.getCodFun() // El helper lo limpia si tiene letras
+                row.getCodFun()
             );
 
             boolean enDbf = clavesDbf.contains(claveBd);
@@ -146,11 +133,8 @@ public class ResponsableController {
             m.put("ci", nvl(row.getCi()));
             m.put("oficina", nvl(row.getOficina()));
             m.put("cargo", nvl(row.getCargo()));
-            m.put("idResponsable", row.getIdResponsable()); // ID plano para JS
-            
-            // ⚠️ Bandera correcta para el frontend
+            m.put("idResponsable", row.getIdResponsable());
             m.put("existeEnDbf", enDbf); 
-
             data.add(m);
         }
 
@@ -227,7 +211,8 @@ public class ResponsableController {
             @RequestParam(required = false) String paterno,
             @RequestParam(required = false) String materno,
             @RequestParam(required = false) String correo,
-            @RequestParam(required = false) String cargoApi) {
+            @RequestParam(required = false) String cargoApi,
+            @RequestParam(defaultValue = "false") boolean modoRapido) {
 
         log.info("=== INICIANDO REGISTRO DE RESPONSABLE ===");
         log.info("CI: {}, Código: {}, Nombre: {}, Paterno: {}, Materno: {}", 
@@ -387,7 +372,7 @@ public class ResponsableController {
             
             responsable.setFechaUlt(LocalDate.now());
             responsable.setUsuario(usuarioNombre);
-            responsable.setApiEstado(Short.valueOf("1"));
+            responsable.setApiEstado(modoRapido ? Short.valueOf("3") : Short.valueOf("1"));
             responsable.setCodExp(codExp != null ? codExp : Short.valueOf("9"));
             responsable.setEstado("ACTIVO");
             
@@ -396,8 +381,16 @@ public class ResponsableController {
             }
             
             responsableService.save(responsable);
-            log.info("Responsable creado en PostgreSQL: ID={}, Código={}", 
-                    responsable.getIdResponsable(), responsable.getCodigoFuncionario());
+            if (modoRapido) {
+                log.info("Responsable {} registrado en PostgreSQL (pendiente DBF - modoRapido)", 
+                        responsable.getIdResponsable());
+                return ResponseEntity.ok(Map.of(
+                    "ok", true,
+                    "msg", "Responsable registrado. Pendiente sincronización con DBF.",
+                    "id", responsable.getIdResponsable(),
+                    "personaNueva", personaNueva
+                ));
+            }
 
             Responsable responsableCargado = responsableService.findByIdWithRelations(responsable.getIdResponsable());
 
@@ -476,7 +469,7 @@ public class ResponsableController {
     @ResponseBody
     public ResponseEntity<?> modificarResponsable(
             HttpServletRequest request,
-            @RequestParam String idResponsableEnc, // ID Encriptado
+            @RequestParam String idResponsableEnc,
             @RequestParam String ci,
             @RequestParam(required = false, defaultValue = "1") Short codExp,
             @RequestParam String codigoFuncionario,
@@ -498,10 +491,6 @@ public class ResponsableController {
             
             if (responsable == null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Responsable no encontrado"));
 
-            // --- 1. CAPTURAR DATOS ORIGINALES PARA ENCONTRAR EL REGISTRO EN DBF ---
-            // Necesitamos esto porque si cambiamos la oficina o el código, 
-            // el DBF necesita saber "quién era antes" para encontrarlo y sobrescribirlo.
-            
             Oficina ofiOriginal = responsable.getOficina();
             String entidadOriginal = ofiOriginal.getPredio().getEntidad().getEntidadCodigo();
             String unidadOriginal = ofiOriginal.getPredio().getUnidad();
@@ -511,25 +500,19 @@ public class ResponsableController {
                 codRespOriginal = Integer.valueOf(responsable.getCodigoFuncionario().replaceAll("\\D+", ""));
             } catch (Exception e) {}
 
-            // --- 2. ACTUALIZAR EN BASE DE DATOS ---
-            
-            // Actualizar Persona (si cambiaron datos)
             Persona persona = responsable.getPersona();
             boolean cambioPersona = false;
-            // Solo actualizamos si vienen datos y son diferentes
+
             if (nombre != null && !nombre.trim().isEmpty()) { persona.setNombre(nombre.trim().toUpperCase()); cambioPersona = true; }
             if (paterno != null) { persona.setPaterno(paterno.trim().toUpperCase()); cambioPersona = true; }
             if (materno != null) { persona.setMaterno(materno.trim().toUpperCase()); cambioPersona = true; }
             if (ci != null) { persona.setCi(ci.trim()); cambioPersona = true; }
             if (correo != null) { persona.setCorreo(correo.trim()); cambioPersona = true; }
-            
             if (cambioPersona) personaService.save(persona);
 
-            // Actualizar Oficina
             Oficina nuevaOficina = oficinaService.findById(idOficina);
             responsable.setOficina(nuevaOficina);
 
-            // Actualizar Cargo
             if (cargoApi != null && !cargoApi.trim().isEmpty()) {
                 Cargo cargo = cargoService.buscarPorNombre(cargoApi.trim());
                 if (cargo == null) {
@@ -541,7 +524,6 @@ public class ResponsableController {
                 responsable.setCargo(cargo);
             }
 
-            // Actualizar Resto de Campos
             responsable.setCodigoFuncionario(codigoFuncionario.trim());
             responsable.setCodigoApi(codigoApi);
             responsable.setCodExp(codExp);
@@ -551,7 +533,6 @@ public class ResponsableController {
             responsableService.save(responsable);
             log.info("Responsable actualizado en BD: ID={}", responsable.getIdResponsable());
 
-            // --- 3. ACTUALIZAR EN DBF ---
             try {
                 String entidadNueva = nuevaOficina.getPredio().getEntidad().getEntidadCodigo();
                 String unidadNueva = nuevaOficina.getPredio().getUnidad();
@@ -569,7 +550,6 @@ public class ResponsableController {
                     );
                     log.info("Sincronización DBF exitosa (Update)");
                 } else {
-                    // Si no tenía código numérico válido antes, intentamos insertar como nuevo
                     respDbfWriterService.insertarDesdeResponsable(responsable, entidadNueva, unidadNueva, usuarioNombre);
                     log.info("Sincronización DBF exitosa (Insert fallback)");
                 }
@@ -579,7 +559,7 @@ public class ResponsableController {
             } catch (Exception e) {
                 log.error("Error actualizando DBF: {}", e.getMessage());
                 return ResponseEntity.ok(Map.of(
-                    "ok", true, // Decimos OK porque en BD se guardó
+                    "ok", true,
                     "msg", "Guardado en BD, pero error en DBF: " + e.getMessage()
                 ));
             }
@@ -609,7 +589,7 @@ public class ResponsableController {
             @RequestParam(defaultValue = "false") boolean forzarCreacion) {
         
         return registrarResponsable(request, codigoApi, ci, codExp,codigoFuncionario,
-                                   idOficina, nombre, paterno, materno, correo, nombreCargoApi);
+                                   idOficina, nombre, paterno, materno, correo, nombreCargoApi, forzarCreacion);
     }
 
     private boolean esCiValido(String ci) {
@@ -862,22 +842,20 @@ public class ResponsableController {
         return ResponseEntity.notFound().build();
     }
 
-    // Endpoint para Select2 de Cargos
     @GetMapping("/api/cargos/search")
     @ResponseBody
     public List<Map<String, String>> buscarCargos(@RequestParam(required = false) String q) {
-        // Implementa un buscarPorNombreLike en CargoService
+
         List<Cargo> cargos = (q == null || q.isBlank()) 
             ? cargoService.findAll() 
             : cargoService.buscarPorNombreLike("%" + q.toUpperCase() + "%");
             
         return cargos.stream()
-            .limit(20) // Limitar resultados
+            .limit(20)
             .map(c -> Map.of("nombre", c.getNombre()))
             .collect(Collectors.toList());
     }
     
-    // Endpoint para recargar Oficinas en el Select (JSON ligero)
     @GetMapping("/api/oficinas/list-select")
     @ResponseBody
     public List<Map<String, Object>> listarOficinasSelect() {
@@ -1012,7 +990,7 @@ public class ResponsableController {
     public ResponseEntity<?> subirResponsableADbf(@PathVariable("id") String idEnc, HttpServletRequest request) {
         try {
             Long id = Long.parseLong(Encriptar.decrypt(idEnc));
-            Responsable resp = responsableService.findByIdWithRelations(id); // Asegurar traer oficina/predio
+            Responsable resp = responsableService.findByIdWithRelations(id);
             
             if (resp == null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No encontrado"));
 
@@ -1022,13 +1000,11 @@ public class ResponsableController {
             }
 
             String entidad = ofi.getPredio().getEntidad().getEntidadCodigo();
-            String unidad = ofi.getPredio().getUnidad(); // O getCodigo() según tu lógica normalizada
+            String unidad = ofi.getPredio().getUnidad();
             String usuario = (Usuario) request.getSession().getAttribute("usuario") != null ? 
                              ((Usuario) request.getSession().getAttribute("usuario")).getUsuario() : "SISTEMA";
-
             Integer codResp = Integer.valueOf(resp.getCodigoFuncionario().replaceAll("\\D+", ""));
 
-            // Verificar si existe (usando el servicio blindado)
             if (respDbfWriterService.existsByCodResp(codResp, ofi.getCodOfi(), entidad, unidad)) {
                 // Actualizar
                 respDbfWriterService.actualizarDesdeResponsable(
@@ -1038,7 +1014,6 @@ public class ResponsableController {
                 return ResponseEntity.ok(Map.of("ok", true, "msg", "Responsable actualizado en DBF."));
             }
 
-            // Insertar
             respDbfWriterService.insertarDesdeResponsable(resp, entidad, unidad, usuario);
             return ResponseEntity.ok(Map.of("ok", true, "msg", "Responsable insertado en DBF."));
 
@@ -1053,27 +1028,18 @@ public class ResponsableController {
     // =========================================================================
 
     private String generarClaveUnica(String entidad, String unidad, Short codOfi, String codResp) {
-        // 1. Normalizar Texto (Entidad y Unidad)
-        // Quitamos espacios, pasamos a mayúsculas y eliminamos caracteres ocultos
+
         String e = (entidad == null) ? "" : entidad.trim().toUpperCase().replaceAll("\\p{C}", "");
         String u = (unidad == null) ? "" : unidad.trim().toUpperCase().replaceAll("\\p{C}", "");
-        
-        // 2. Normalizar Código Oficina
         String cOfi = (codOfi == null) ? "0" : String.valueOf(codOfi);
-
-        // 3. Normalizar Código Responsable (CRÍTICO)
-        // El DBF puede tener "005", "5 ", "05". La BD suele tener "5".
-        // Convertimos todo a entero y luego a string para asegurar "5" == "5".
         String cResp = "0";
         if (codResp != null) {
-            // Eliminar todo lo que no sea número
             String soloNumeros = codResp.replaceAll("\\D+", ""); 
             if (!soloNumeros.isEmpty()) {
                 try {
-                    // "005" -> 5 -> "5"
                     cResp = String.valueOf(Integer.parseInt(soloNumeros));
                 } catch (NumberFormatException ex) {
-                    cResp = soloNumeros; // Fallback por si acaso
+                    cResp = soloNumeros;
                 }
             }
         }
@@ -1131,7 +1097,6 @@ public class ResponsableController {
             .replace(".", " ");
 
         limpio = limpio.replaceAll("[^A-Z0-9\\s]", "");
-        
         return limpio.replaceAll("\\s+", " ").trim();
     }
 

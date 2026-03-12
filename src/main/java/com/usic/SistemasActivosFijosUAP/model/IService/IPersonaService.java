@@ -18,6 +18,8 @@ public interface IPersonaService extends IServiceGenerico<Persona, Long> {
 
     Persona buscarPersonaPorCI(String ci);
 
+    Optional<Persona> findByCi(String ci);
+
     List<Persona> buscarPersonaPorNombrePaternoMaterno(String nombre, String paterno, String materno);
 
     Persona buscarPersonaPorNombreCompletoUno(String nombre, String paterno, String materno);

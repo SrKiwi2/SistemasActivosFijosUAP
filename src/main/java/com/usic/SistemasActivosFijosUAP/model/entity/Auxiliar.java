@@ -46,36 +46,29 @@ public class Auxiliar extends AuditoriaConfig{
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idAuxiliar;
 
-    // DBF: ENTIDAD + UNIDAD  -> Predio (ya existente)
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_predio", nullable = false,
             foreignKey = @ForeignKey(name = "fk_aux_predio"))
     private Predio predio;
 
-    // DBF: CODCONT -> GrupoContable (ya importado)
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_grupo_contable", nullable = false,
             foreignKey = @ForeignKey(name = "fk_aux_grupo_contable"))
     private GrupoContable grupoContable;
 
-    // DBF: CODAUX (SmallInt)
     @Column(name = "cod_aux", columnDefinition = "SMALLINT", nullable = false)
     private Short codAux;
 
-    // DBF: NOMAUX (Text)
     @Size(max = 255)
     @Column(name = "nombre", length = 255, nullable = false)
     private String nombre;
 
-    // DBF: OBSERV (Memo)
     @Column(name = "observ", columnDefinition = "text")
     private String observ;
 
-    // DBF: FEULT (Date)
     @Column(name = "fecha_ult")
     private LocalDate fechaUlt;
 
-    // DBF: USUAR (Text)
     @Size(max = 60)
     @Column(name = "usuario", length = 60)
     private String usuario;
@@ -86,9 +79,6 @@ public class Auxiliar extends AuditoriaConfig{
     @Column(name = "hash_datos", length = 32)
     private String hashDatos;
     
-    /**
-     * Calcula hash MD5 de los datos importantes para detectar cambios
-     */
     public String calcularHash() {
         String datos = String.join("|",
             predio != null && predio.getIdPredio() != null 

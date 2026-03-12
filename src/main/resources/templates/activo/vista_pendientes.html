@@ -1,123 +1,453 @@
 <style>
-    /* Estilos para el Modal de Detalle (Ya los tenías, los mantengo) */
-    .detail-header { background-color: #f8f9fa; border-bottom: 1px solid #ebecef; padding: 1rem 1.5rem; border-radius: 0.5rem 0.5rem 0 0; }
-    .detail-group { margin-bottom: 1.5rem; }
-    .detail-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8592a3; font-weight: 600; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.4rem; }
-    .detail-value { font-size: 0.95rem; font-weight: 500; color: #384551; word-wrap: break-word; }
-    .detail-value.highlight { color: #696cff; }
-    .detail-icon-box { width: 40px; height: 40px; background-color: rgba(105, 108, 255, 0.1); color: #696cff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-right: 1rem; }
-    .status-banner { padding: 0.75rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
-
-    /* 🚀 NUEVO: Estilo para la Barra Flotante de Acciones Masivas */
+    /* ============================== */
+    /* BARRA MASIVA FLOTANTE          */
+    /* ============================== */
     #barraMasiva {
         position: sticky;
-        top: 10px; /* Se queda pegada arriba al hacer scroll */
+        top: 10px;
         z-index: 1020;
         border: none;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-        border-radius: 10px;
-        background: linear-gradient(90deg, #696cff 0%, #8385ff 100%); /* Color Institucional */
+        box-shadow: 0 6px 20px rgba(105, 108, 255, 0.35);
+        border-radius: 12px;
+        background: linear-gradient(90deg, #696cff 0%, #7b7eff 100%);
         color: white;
+        padding: 0.75rem 1.1rem;
         transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        flex-wrap: wrap;
     }
-    #barraMasiva .btn-light {
-        color: #696cff;
+
+    #barraMasiva .barra-counter {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    #barraMasiva .barra-counter-icon {
+        width: 34px;
+        height: 34px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+    }
+
+    #barraMasiva .barra-acciones {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-left: auto;
+    }
+
+    #barraMasiva .btn-barra {
+        font-size: 0.78rem;
         font-weight: 700;
+        border-radius: 8px;
+        padding: 0.45rem 1rem;
         border: none;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        cursor: pointer;
+        transition: all 0.15s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
     }
-    #barraMasiva .btn-light:hover {
-        background-color: #f0f0f0;
+
+    #barraMasiva .btn-barra-doc {
+        background: #ffc107;
+        color: #000;
+    }
+
+    #barraMasiva .btn-barra-doc:hover {
+        background: #ffce3a;
         transform: translateY(-1px);
+    }
+
+    #barraMasiva .btn-barra-sync {
+        background: white;
+        color: #696cff;
+    }
+
+    #barraMasiva .btn-barra-sync:hover {
+        background: #f0f0ff;
+        transform: translateY(-1px);
+    }
+
+    #barraMasiva .btn-barra-clear {
+        background: rgba(255, 255, 255, 0.15);
+        color: white;
+        font-size: 0.75rem;
+    }
+
+    #barraMasiva .btn-barra-edit {
+        background: #ff9f43;
+        color: #000;
+        font-weight: 700;
+    }
+
+    #barraMasiva .btn-barra-edit:hover {
+        background: #ffb347;
+        transform: translateY(-1px);
+    }
+
+    #barraMasiva .btn-barra-clear:hover {
+        background: rgba(255, 255, 255, 0.25);
+    }
+
+    /* ============================== */
+    /* MODAL ASIGNAR DOCUMENTO        */
+    /* ============================== */
+    .modal-doc-header {
+        background: linear-gradient(90deg, #ffc107, #ffce3a);
+    }
+
+    .scope-info {
+        background: rgba(255, 171, 0, 0.08);
+        border: 1px solid rgba(255, 171, 0, 0.25);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-size: 0.83rem;
+        color: #664d03;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .scope-info .scope-icon {
+        font-size: 1.1rem;
+        color: #ffc107;
+        flex-shrink: 0;
+        margin-top: 0.05rem;
+    }
+
+    /* ============================== */
+    /* MODAL DETALLE ACTIVO           */
+    /* ============================== */
+    .detail-label {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #8592a3;
+        font-weight: 600;
+        margin-bottom: 0.2rem;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .detail-value {
+        font-size: 0.92rem;
+        font-weight: 500;
+        color: #384551;
+        word-wrap: break-word;
+    }
+
+    .detail-value.highlight {
+        color: #696cff;
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+
+    .detail-group {
+        margin-bottom: 1.2rem;
+    }
+
+    .status-banner {
+        padding: 0.65rem 1rem;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+        font-size: 0.85rem;
+    }
+
+    .detail-icon-box {
+        width: 38px;
+        height: 38px;
+        background: rgba(105, 108, 255, 0.1);
+        color: #696cff;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        margin-right: 0.85rem;
+        flex-shrink: 0;
+    }
+
+    /* ============================== */
+    /* MODAL EDITAR LOTE              */
+    /* ============================== */
+    .campo-lote-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.6rem 0;
+        border-bottom: 1px solid #f0f1f3;
+    }
+
+    .campo-lote-row:last-child {
+        border-bottom: none;
+    }
+
+    .campo-lote-check {
+        margin-top: 0.35rem;
+        flex-shrink: 0;
+        cursor: pointer;
+    }
+
+    .campo-lote-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #566a7f;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 0.3rem;
+    }
+
+    .campo-lote-input {
+        flex: 1;
+    }
+
+    .campo-lote-input .form-control:disabled,
+    .campo-lote-input .form-select:disabled {
+        opacity: 0.4;
+        background: #f8f9fa;
+        cursor: not-allowed;
+    }
+
+    .lote-table {
+        font-size: 0.8rem;
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .lote-table thead th {
+        background: #f0f1ff;
+        color: #484881;
+        font-weight: 700;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        padding: 0.55rem 0.7rem;
+        border-bottom: 2px solid #d9d9f5;
+        white-space: nowrap;
+    }
+
+    .lote-table tbody td {
+        padding: 0.55rem 0.7rem;
+        border-bottom: 1px solid #f0f1f3;
+        vertical-align: middle;
+    }
+
+    .lote-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .lote-table tbody tr:hover {
+        background: #fafbff;
+    }
+
+    .lote-table .form-select {
+        font-size: 0.78rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .lote-table .code-cell {
+        font-family: 'Courier New', monospace;
+        font-weight: 700;
+        color: #696cff;
+        font-size: 0.78rem;
+    }
+
+    .lote-table .desc-cell {
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #566a7f;
+    }
+
+    .lote-section-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #8592a3;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .lote-section-title::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #e7e9ec;
+    }
+
+    .badge-aplicar {
+        font-size: 0.65rem;
+        background: rgba(105, 108, 255, 0.1);
+        color: #696cff;
+        border-radius: 4px;
+        padding: 0.2em 0.5em;
+        font-weight: 700;
+        white-space: nowrap;
     }
 </style>
 
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Activos pendientes</h4>
+<h4 class="py-3 mb-4">
+    <span class="text-muted fw-light">VISTA /</span> ACTIVOS PENDIENTES PARA SU APROBACIÓN
+    <small class="text-muted fs-6 fw-normal ms-2">— AGRUPADOS POR ASIGNACION</small>
+</h4>
 
-<div id="barraMasiva" class="alert d-none d-flex justify-content-between align-items-center animate__animated animate__fadeInDown">
-    <div class="d-flex align-items-center">
-        <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 35px; height: 35px;">
-            <i class="fa-solid fa-check"></i>
-        </div>
+<!-- ================================================ -->
+<!-- BARRA MASIVA FLOTANTE (oculta por defecto)        -->
+<!-- ================================================ -->
+<div id="barraMasiva" class="d-none mb-3 animate__animated animate__fadeInDown">
+    <div class="barra-counter">
+        <div class="barra-counter-icon"><i class="fa-solid fa-check"></i></div>
         <div>
-            <h6 class="mb-0 text-white fw-bold" id="lblContador">0 seleccionados</h6>
-            <small class="text-white-50">Listos para sincronizar</small>
+            <div class="fw-bold" id="lblContador" style="font-size:0.95rem;">0 seleccionados</div>
+            <div style="font-size:0.7rem; opacity:0.8;">activos marcados</div>
         </div>
-        
     </div>
-    <button id="btnAsignarPrev" class="btn btn-warning btn-sm fw-bold text-dark">
-            <i class="fa-solid fa-tag me-1"></i> Asignar Prev. / Doc.
+
+    <div class="barra-acciones">
+        <button id="btnEditarSeleccionados" class="btn-barra btn-barra-edit">
+            <i class="fa-solid fa-pen-to-square"></i> Editar seleccionados
         </button>
-    <button id="btnProcesarMasivo" class="btn btn-light btn-sm px-4 py-2 rounded-pill">
-        <i class="fa-solid fa-cloud-arrow-up me-2"></i> SINCRONIZAR A DBF
-    </button>
+        <button id="btnAsignarPrev" class="btn-barra btn-barra-doc">
+            <i class="fa-solid fa-file-signature"></i> Asignar Doc.
+        </button>
+        <button id="btnProcesarMasivo" class="btn-barra btn-barra-sync">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Sincronizar al DBF
+        </button>
+        <button class="btn-barra btn-barra-clear" onclick="limpiarSeleccion()" title="Desmarcar todos">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
 </div>
 
+<!-- ================================================ -->
+<!-- CONTENEDOR DINÁMICO DE LA TABLA                  -->
+<!-- ================================================ -->
 <div id="tablaRegistro"></div>
 
+
+<!-- ================================================ -->
+<!-- MODAL: ASIGNAR DOCUMENTO DE GESTIÓN              -->
+<!-- ================================================ -->
 <div class="modal fade" id="modalAsignarGestion" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
         <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-warning text-dark py-3">
-                <h6 class="modal-title fw-bold">
-                    <i class="fa-solid fa-file-signature me-2"></i>Asignar Documento de Gestión
+
+            <div class="modal-header modal-doc-header py-3 border-0">
+                <h6 class="modal-title fw-bold text-dark">
+                    <i class="fa-solid fa-file-signature me-2"></i>Documento de Gestión
                 </h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            
+
             <div class="modal-body p-4">
-                <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
-                    <i class="fa-solid fa-triangle-exclamation fs-4 me-3"></i>
+
+                <!-- Scope info -->
+                <div class="scope-info mb-3">
+                    <i class="fa-solid fa-circle-info scope-icon"></i>
                     <div>
-                        Se modificarán <strong id="lblTotalSeleccionados">0</strong> activos.
-                        <div class="small">Se agregará el prefijo a la descripción.</div>
+                        Se modificará la descripción de
+                        <strong id="lblTotalSeleccionados">0</strong> activo(s)
+                        <span id="lblScopeGrupo" class="d-none fw-normal text-muted">de este grupo</span>
+                        <span id="lblScopeManual" class="d-none fw-normal text-muted">seleccionados</span>.
+                        El identificador del documento se agregará al inicio.
                     </div>
                 </div>
 
+                <!-- Tabs -->
                 <ul class="nav nav-tabs nav-fill mb-3" id="tabGestion" role="tablist">
                     <li class="nav-item">
-                        <button class="nav-link active small fw-bold" id="tab-elegir" data-bs-toggle="tab" data-bs-target="#panel-elegir" type="button">
-                            <i class="fa-solid fa-list me-1"></i> Seleccionar
+                        <button class="nav-link active small fw-bold" id="tab-elegir" data-bs-toggle="tab"
+                            data-bs-target="#panel-elegir" type="button">
+                            <i class="fa-solid fa-list me-1"></i> Seleccionar tipo
                         </button>
                     </li>
                     <li class="nav-item">
-                        <button class="nav-link small fw-bold" id="tab-crear" data-bs-toggle="tab" data-bs-target="#panel-crear" type="button">
-                            <i class="fa-solid fa-plus me-1"></i> Crear Nuevo
+                        <button class="nav-link small fw-bold" id="tab-crear" data-bs-toggle="tab"
+                            data-bs-target="#panel-crear" type="button">
+                            <i class="fa-solid fa-plus me-1"></i> Registrar nuevo
                         </button>
                     </li>
                 </ul>
 
                 <div class="tab-content">
+
+                    <!-- Panel: elegir existente -->
                     <div class="tab-pane fade show active" id="panel-elegir">
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-muted">TIPO DE DOCUMENTO</label>
-                            <select id="selConfigGestion" class="form-select">
-                                <option value="">Cargando configuraciones...</option>
-                            </select>
+                        <label class="form-label small fw-bold text-muted">TIPO DE DOCUMENTO</label>
+                        <select id="selConfigGestion" class="form-select form-select-sm mb-2">
+                            <option value="">— Seleccione —</option>
+                        </select>
+                        <!-- Info ciudad del tipo seleccionado -->
+                        <div id="infoConfigSeleccionada" class="d-none"
+                            style="background:#f8f9fb; border:1px solid #e7e9ec; border-radius:7px; padding:0.6rem 0.85rem; font-size:0.8rem;">
+                            <div class="d-flex gap-3 flex-wrap">
+                                <span>
+                                    <i class="fa-solid fa-map-pin text-primary me-1"></i>
+                                    Ciudad: <strong id="infoCiudad">—</strong>
+                                </span>
+                                <span>
+                                    <i class="fa-solid fa-calendar text-primary me-1"></i>
+                                    Gestión: <strong id="infoGestion">—</strong>
+                                </span>
+                                <span>
+                                    <i class="fa-solid fa-tag text-primary me-1"></i>
+                                    Prefijo: <code id="infoPrefijo" class="text-danger fw-bold">—</code>
+                                </span>
+                            </div>
                         </div>
                     </div>
 
+                    <!-- Panel: crear nuevo -->
                     <div class="tab-pane fade" id="panel-crear">
                         <form id="formNuevaConfig" autocomplete="off">
                             <div class="row g-2">
-                                <div class="col-4">
-                                    <label class="form-label small fw-bold">Gestión</label>
-                                    <input type="number" class="form-control form-control-sm" name="gestion" value="2025">
+                                <div class="col-5">
+                                    <label class="form-label small fw-bold">Gestión (año)</label>
+                                    <input type="number" class="form-control form-control-sm" name="gestion"
+                                        value="2025" min="2020" max="2099">
                                 </div>
-                                <div class="col-8">
-                                    <label class="form-label small fw-bold">Prefijo (Ej: Prev.)</label>
-                                    <input type="text" class="form-control form-control-sm" name="prefijoDocumento" required placeholder="Ej: NOTA:">
+                                <div class="col-7">
+                                    <label class="form-label small fw-bold">Prefijo del documento</label>
+                                    <input type="text" class="form-control form-control-sm" name="prefijoDocumento"
+                                        required placeholder="Ej: Prev. / NOTA: / INF.">
                                 </div>
-                                <div class="col-12">
+                                <div class="col-6">
                                     <label class="form-label small fw-bold">Ciudad</label>
-                                    <input type="text" class="form-control form-control-sm" name="ciudad" value="Cobija">
+                                    <input type="text" class="form-control form-control-sm" name="ciudad"
+                                        value="Cobija">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small fw-bold d-flex align-items-center gap-1">
+                                        Estado
+                                    </label>
+                                    <select class="form-select form-select-sm" name="estado">
+                                        <option value="ACTIVO">Activo</option>
+                                        <option value="INACTIVO">Inactivo</option>
+                                    </select>
                                 </div>
                                 <div class="col-12">
-                                    <label class="form-label small fw-bold">Resp. Activos Fijos</label>
-                                    <input type="text" class="form-control form-control-sm" name="responsableActivosNombre" value="Lic. Verónica Layme Cori">
+                                    <label class="form-label small fw-bold">Responsable Activos Fijos</label>
+                                    <input type="text" class="form-control form-control-sm"
+                                        name="responsableActivosNombre" value="Lic. Verónica Layme Cori">
                                 </div>
-                                <div class="col-12 text-end mt-2">
-                                    <button type="button" class="btn btn-sm btn-outline-success w-100 fw-bold" onclick="guardarNuevaConfig()">
+                                <div class="col-12 mt-1">
+                                    <button type="button" class="btn btn-sm btn-outline-success w-100 fw-bold"
+                                        onclick="guardarNuevaConfig()">
                                         <i class="fa-solid fa-save me-1"></i> Guardar y Usar
                                     </button>
                                 </div>
@@ -126,37 +456,139 @@
                     </div>
                 </div>
 
-                <hr class="my-4">
+                <hr class="my-3">
 
-                <div class="mb-1">
-                    <label class="form-label small fw-bold text-dark">NÚMERO DE DOCUMENTO</label>
+                <!-- Número de documento -->
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-dark">
+                        NÚMERO DE DOCUMENTO
+                        <span class="text-muted fw-normal">(identificador único de esta asignación)</span>
+                    </label>
                     <div class="input-group">
-                        <span class="input-group-text bg-light fw-bold"><i class="fa-solid fa-hashtag"></i></span>
-                        <input type="text" id="txtNroDoc" class="form-control fw-bold" placeholder="Ej: 5243">
+                        <span class="input-group-text bg-light">
+                            <i class="fa-solid fa-hashtag text-muted"></i>
+                        </span>
+                        <input type="text" id="txtNroDoc" class="form-control fw-bold fs-5" placeholder="Ej: 5243"
+                            oninput="actualizarPreview()">
                     </div>
                 </div>
-            </div>
 
-            <div class="modal-footer bg-light py-2">
+                <!-- Vista previa de cómo quedará la descripción -->
+                <div id="previewDesc" style="display:none; background:#fffdf0; border:1px dashed #ffc107;
+                            border-radius:8px; padding:0.75rem 1rem; font-size:0.82rem;">
+                    <div class="text-muted mb-1"
+                        style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.4px; font-weight:600;">
+                        <i class="fa-solid fa-eye me-1"></i> Vista previa de la descripción
+                    </div>
+                    <div>
+                        <span id="previewPrefijoBadge" class="badge me-1"
+                            style="background:#ffc107; color:#000; font-size:0.78rem; font-weight:700; border-radius:4px;">
+                            PREV. 1234
+                        </span>
+                        <span class="text-muted fst-italic" style="font-size:0.8rem;">
+                            [descripción original del activo]
+                        </span>
+                    </div>
+                </div>
+
+            </div><!-- /modal-body -->
+
+            <div class="modal-footer bg-light py-2 border-0">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-dark btn-sm px-4 fw-bold" onclick="confirmarAsignacion()">
-                    <i class="fa-solid fa-check me-1"></i> Aplicar Cambios
+                <button type="button" id="btnConfirmarAsignacion" class="btn btn-dark btn-sm px-4 fw-bold"
+                    onclick="confirmarAsignacion()" disabled>
+                    <i class="fa-solid fa-check me-1"></i> Aplicar a
+                    <span id="lblBtnTotal">0</span> activos
                 </button>
             </div>
         </div>
     </div>
 </div>
 
+
+
+
+<!-- ================================================ -->
+<!-- MODAL: EDITAR ACTIVOS PENDIENTES                 -->
+<!-- (unitario o en lote — mismo formulario)          -->
+<!-- ================================================ -->
+<div class="modal fade" id="modalEditarPendientes" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+
+            <!-- Header -->
+            <div class="modal-header border-0 py-2 px-4"
+                style="background:linear-gradient(90deg,rgba(255,159,67,0.08) 0%,transparent 100%); border-bottom:1px solid #f0f1f3 !important;">
+                <div class="d-flex align-items-center gap-2 flex-wrap flex-grow-1">
+                    <div
+                        style="width:34px;height:34px;background:rgba(255,159,67,0.15);color:#ff9f43;
+                                border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </div>
+                    <div>
+                        <h6 class="modal-title fw-bold mb-0" style="color:#384551;" id="editPendModalTitle">
+                            Editar activos pendientes
+                        </h6>
+                        <small class="text-muted" id="editPendModalSub">Cargando...</small>
+                    </div>
+                    <!-- Chips de códigos -->
+                    <div id="editPendCodigoChips" class="d-flex flex-wrap gap-1 ms-2"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <!-- Alert de datos comunes -->
+            <div id="editPendAlertComun" class="d-none mx-4 mt-3">
+                <div class="alert alert-success alert-dismissible py-2 mb-0" style="font-size:0.82rem;">
+                    <i class="fa-solid fa-circle-check me-2"></i>
+                    <strong>Todos los activos tienen datos idénticos.</strong>
+                    El formulario está pre-relleno. Los cambios se aplicarán a todos.
+                    <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>
+                </div>
+            </div>
+            <div id="editPendAlertMixto" class="d-none mx-4 mt-3">
+                <div class="alert alert-warning py-2 mb-0" style="font-size:0.82rem;">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                    Los activos tienen <strong>datos distintos</strong>.
+                    Los campos con diferencias aparecen vacíos — solo se actualizará lo que completes.
+                </div>
+            </div>
+
+            <!-- Cuerpo -->
+            <div class="modal-body px-4 pt-3 pb-2" id="editPendBody">
+                <div class="d-flex justify-content-center align-items-center py-5 gap-3">
+                    <div class="spinner-border spinner-border-sm text-warning"></div>
+                    <span class="text-muted">Cargando datos...</span>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer border-0 bg-light py-2">
+                <small class="text-muted me-auto" id="editPendFooterInfo"></small>
+                <button type="button" class="btn btn-outline-secondary btn-sm px-4"
+                    data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnGuardarEdicionPend" class="btn btn-warning btn-sm px-4 fw-bold text-dark"
+                    disabled onclick="guardarEdicionPendientes()">
+                    <i class="fa-solid fa-floppy-disk me-1"></i> Guardar cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================ -->
+<!-- MODAL: DETALLE / FICHA DEL ACTIVO                -->
+<!-- ================================================ -->
 <div class="modal fade" id="modalDetalleActivo" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered"> 
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header border-0 pb-0">
                 <h5 class="modal-title fw-bold text-primary">
                     <i class="fa-solid fa-box-open me-2"></i>Ficha del Activo
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body pt-4" id="modalDetalleBody">
+            <div class="modal-body pt-3" id="modalDetalleBody">
                 <div class="text-center py-5">
                     <div class="spinner-border text-primary" role="status"></div>
                 </div>
@@ -171,193 +603,274 @@
     </div>
 </div>
 
-<script>
-    $(document).ready(function () { cargarTabla(); });
 
-    // 1. Cargar Tabla
+<!-- ================================================ -->
+<!-- JAVASCRIPT                                       -->
+<!-- ================================================ -->
+<script>
+    $(document).ready(function () {
+        cargarTabla();
+    });
+
+    // ────────────────────────────────────────────────
+    // CARGA DE TABLA
+    // ────────────────────────────────────────────────
     function cargarTabla() {
-        showGlobalLoader({ texto: 'Cargando pendientes...' });
+        showGlobalLoader({ texto: 'Cargando asignaciones...' });
         $.ajax({
             type: 'POST',
-            url: "/administracion/activo/tabla-registros_pendientes",
-            success: function (response) {
-                $("#tablaRegistro").html(response);
-                initTablaPendientes(); // DataTables
-                initLogicaMasiva();    // 🚀 INICIALIZAR LÓGICA DE CHECKBOXES
+            url: '/administracion/activo/tabla-registros_pendientes',
+            success: function (html) {
+                $('#tablaRegistro').html(html);
+                initLogicaMasiva();
             },
             error: function () {
-                $("#tablaRegistro").html(`<div class="alert alert-danger m-3">Error cargando datos.</div>`);
+                $('#tablaRegistro').html(
+                    `<div class="alert alert-danger m-3">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                    Error cargando datos. Recargue la página.
+                </div>`
+                );
             },
             complete: function () {
                 hideGlobalLoader();
-                // Ocultar barra si estaba visible al recargar
                 $('#barraMasiva').addClass('d-none');
             }
         });
     }
 
-    // ==========================================
-    // 🚀 LÓGICA DE SELECCIÓN MASIVA (CHECKBOXES)
-    // ==========================================
+
+    // ────────────────────────────────────────────────
+    // LÓGICA DE SELECCIÓN MASIVA
+    // ────────────────────────────────────────────────
     function initLogicaMasiva() {
-        const $chkTodos = $('#chkTodos');
-        const $barra = $('#barraMasiva');
-        const $lbl = $('#lblContador');
-        
-        // A. Seleccionar Todos
-        $chkTodos.on('change', function() {
+
+        // Checkbox "todos" de un grupo (el de la cabecera interna de la sub-tabla)
+        $('body').off('change', '.chk-grupo-all').on('change', '.chk-grupo-all', function () {
+            const grupo = $(this).data('grupo');
+            $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).prop('checked', $(this).is(':checked'));
+            actualizarBarra();
+        });
+
+        // Checkbox del header principal de la tarjeta (selecciona TODO el grupo)
+        $('body').off('change', '.chk-grupo').on('change', '.chk-grupo', function () {
+            const grupo = $(this).data('grupo');
             const checked = $(this).is(':checked');
-            $('.chk-item').prop('checked', checked);
+            $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).prop('checked', checked);
+            $(`.chk-grupo-all[data-grupo="${grupo}"]`).prop('checked', checked);
             actualizarBarra();
         });
 
-        // B. Seleccionar Individual (Delegado al body por si DataTables redibuja)
-        $('body').off('change', '.chk-item').on('change', '.chk-item', function() {
+        // Checkbox individual
+        $('body').off('change', '.chk-item').on('change', '.chk-item', function () {
             actualizarBarra();
-            // Si desmarco uno, desmarco el "Todos" del header
-            if (!$(this).is(':checked')) $chkTodos.prop('checked', false);
+            const grupo = $(this).data('grupo');
+            const total = $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).length;
+            const checked = $(`.chk-item[data-grupo="${grupo}"]:checked`).length;
+            $(`.chk-grupo[data-grupo="${grupo}"]`).prop('checked', total > 0 && total === checked);
+            $(`.chk-grupo-all[data-grupo="${grupo}"]`).prop('checked', total > 0 && total === checked);
         });
 
-        $('#btnAsignarPrev').off('click').on('click', function() {
-            const total = $('.chk-item:checked').length;
-            if(total === 0) {
-                Swal.fire('Atención', 'Seleccione al menos un activo.', 'warning');
-                return;
+        // Botón barra: Asignar documento (selección manual)
+        $('#btnAsignarPrev').off('click').on('click', function () {
+            const ids = getIdsSeleccionados();
+            if (ids.length === 0) {
+                Swal.fire('Atención', 'Seleccione al menos un activo.', 'warning'); return;
             }
-
-            // Mostrar contador
-            $('#lblTotalSeleccionados').text(total);
-            $('#txtNroDoc').val('');
-            
-            // Resetear tabs
-            const tabElegir = new bootstrap.Tab(document.querySelector('#tab-elegir'));
-            tabElegir.show();
-
-            // Cargar combo
-            cargarComboConfiguraciones();
-            
-            $('#modalAsignarGestion').modal('show');
+            abrirModalAsignarDoc(ids, null);
         });
 
-        $('#btnProcesarMasivo').off('click').on('click', function() {
-            const ids = [];
-            $('.chk-item:checked').each(function() {
-                ids.push($(this).val());
-            });
-
+        // Botón barra: Sincronizar masivo (selección manual)
+        $('#btnProcesarMasivo').off('click').on('click', function () {
+            const ids = getIdsSeleccionados();
             if (ids.length === 0) return;
-
-            Swal.fire({
-                title: '¿Sincronizar ' + ids.length + ' activos?',
-                html: "Se registrarán permanentemente en el archivo <b>ACTUAL.DBF</b>.",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, sincronizar',
-                confirmButtonColor: '#696cff',
-                cancelButtonText: 'Cancelar'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    enviarMasivo(ids);
-                }
-            });
+            confirmarSincronizar(ids);
         });
+    }
+
+
+    // ────────────────────────────────────────────────
+    // HELPERS DE SELECCIÓN
+    // ────────────────────────────────────────────────
+    function getIdsSeleccionados() {
+        const ids = [];
+        $('.chk-item:checked').each(function () { ids.push($(this).val()); });
+        return ids;
+    }
+
+    function limpiarSeleccion() {
+        $('.chk-item, .chk-grupo, .chk-grupo-all').prop('checked', false);
+        actualizarBarra();
     }
 
     function actualizarBarra() {
         const total = $('.chk-item:checked').length;
-        const $barra = $('#barraMasiva');
-        const $lbl = $('#lblContador');
-        
         if (total > 0) {
-            $lbl.text(total + (total === 1 ? ' seleccionado' : ' seleccionados'));
-            $barra.removeClass('d-none');
+            $('#lblContador').text(total + (total === 1 ? ' seleccionado' : ' seleccionados'));
+            $('#barraMasiva').removeClass('d-none');
         } else {
-            $barra.addClass('d-none');
-            $('#chkTodos').prop('checked', false);
+            $('#barraMasiva').addClass('d-none');
         }
+    }
+
+
+    // ────────────────────────────────────────────────
+    // FUNCIONES GLOBALES — llamadas desde onclick del fragmento
+    // ────────────────────────────────────────────────
+
+    /** Abre el modal para todos los PENDIENTES de un grupo (idx numérico o 'sin') */
+    function abrirModalAsignarDocGrupo(idx) {
+        const ids = [];
+        $(`.chk-item[data-grupo="${idx}"][data-estado="PENDIENTE"]`).each(function () {
+            ids.push($(this).val());
+        });
+        if (ids.length === 0) {
+            Swal.fire('Información', 'No hay activos pendientes en este grupo.', 'info');
+            return;
+        }
+        abrirModalAsignarDoc(ids, idx);
+    }
+
+    /** Sincroniza todos los PENDIENTES de un grupo (idx numérico o 'sin') */
+    function sincronizarGrupo(idx) {
+        const ids = [];
+        $(`.chk-item[data-grupo="${idx}"][data-estado="PENDIENTE"]`).each(function () {
+            ids.push($(this).val());
+        });
+        if (ids.length === 0) {
+            Swal.fire('Información', 'No hay activos pendientes en este grupo.', 'info');
+            return;
+        }
+        confirmarSincronizar(ids);
+    }
+
+
+    // ────────────────────────────────────────────────
+    // MODAL: ASIGNAR DOCUMENTO — lógica interna
+    // ────────────────────────────────────────────────
+    let _pendingIds = [];
+    let _pendingGrupo = null;
+    let _configsCache = [];  // caché de configuraciones cargadas
+
+    function abrirModalAsignarDoc(ids, grupo) {
+        _pendingIds = ids;
+        _pendingGrupo = grupo;
+
+        $('#lblTotalSeleccionados').text(ids.length);
+        $('#lblBtnTotal').text(ids.length);
+        $('#btnConfirmarAsignacion').prop('disabled', true);
+
+        if (grupo !== null) {
+            $('#lblScopeGrupo').removeClass('d-none');
+            $('#lblScopeManual').addClass('d-none');
+        } else {
+            $('#lblScopeGrupo').addClass('d-none');
+            $('#lblScopeManual').removeClass('d-none');
+        }
+
+        $('#txtNroDoc').val('');
+        $('#previewDesc').hide();
+        $('#infoConfigSeleccionada').addClass('d-none');
+
+        new bootstrap.Tab(document.querySelector('#tab-elegir')).show();
+        cargarComboConfiguraciones();
+        $('#modalAsignarGestion').modal('show');
     }
 
     function cargarComboConfiguraciones() {
         const $sel = $('#selConfigGestion');
         $sel.html('<option value="">Cargando...</option>');
-        
         $.ajax({
             url: '/api/configuracion/listar',
             method: 'GET',
-            success: function(data) {
-                $sel.empty();
-                if(!data || data.length === 0) {
-                    $sel.append('<option value="">No hay configuraciones registradas</option>');
+            success: function (data) {
+                _configsCache = data || [];
+                $sel.empty().append('<option value="">— Seleccione un tipo —</option>');
+                if (_configsCache.length === 0) {
+                    $sel.append('<option value="" disabled>Sin configuraciones. Registre una nueva.</option>');
                 } else {
-                    data.forEach(c => {
-                        $sel.append(`<option value="${c.idConfig}">${c.prefijoDocumento} (${c.gestion})</option>`);
+                    _configsCache.forEach(c => {
+                        const label = `${c.prefijoDocumento} — ${c.ciudad ?? '?'} (${c.gestion})`;
+                        $sel.append(`<option value="${c.idConfig}">${label}</option>`);
                     });
                 }
             },
-            error: function() {
+            error: function () {
                 $sel.html('<option value="">Error al cargar</option>');
             }
         });
     }
 
+    // Al cambiar el tipo de documento → mostrar info de ciudad + actualizar preview
+    $('#selConfigGestion').on('change', function () {
+        const idConfig = $(this).val();
+        const cfg = _configsCache.find(c => String(c.idConfig) === String(idConfig));
+        if (cfg) {
+            $('#infoCiudad').text(cfg.ciudad ?? '—');
+            $('#infoGestion').text(cfg.gestion ?? '—');
+            $('#infoPrefijo').text(cfg.prefijoDocumento ?? '—');
+            $('#infoConfigSeleccionada').removeClass('d-none');
+        } else {
+            $('#infoConfigSeleccionada').addClass('d-none');
+        }
+        actualizarPreview();
+    });
+
+    // Al escribir el número → actualizar preview
+    function actualizarPreview() {
+        const idConfig = $('#selConfigGestion').val();
+        const nro = $('#txtNroDoc').val().trim();
+        const cfg = _configsCache.find(c => String(c.idConfig) === String(idConfig));
+        const ok = cfg && nro.length > 0;
+
+        $('#btnConfirmarAsignacion').prop('disabled', !ok);
+
+        if (ok) {
+            const etiqueta = `${cfg.prefijoDocumento} ${nro}`;
+            $('#previewPrefijoBadge').text(etiqueta);
+            $('#previewDesc').fadeIn(150);
+        } else {
+            $('#previewDesc').hide();
+        }
+    }
+
     function guardarNuevaConfig() {
         const form = document.getElementById('formNuevaConfig');
-        
-        if (!form.checkValidity()) {
-            form.reportValidity();
-            return;
-        }
+        if (!form.checkValidity()) { form.reportValidity(); return; }
 
         const btn = event.target;
         const txt = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
 
-        const data = {
-            gestion: document.querySelector('input[name="gestion"]').value,
-            prefijoDocumento: document.querySelector('input[name="prefijoDocumento"]').value,
-            ciudad: document.querySelector('input[name="ciudad"]').value,
-            responsableActivosNombre: document.querySelector('input[name="responsableActivosNombre"]').value
-        };
-
-        console.log('📤 Enviando:', data);
-
         $.ajax({
             url: '/api/configuracion/crear',
             type: 'POST',
-            data: data,
+            data: {
+                gestion: form.querySelector('[name="gestion"]').value,
+                prefijoDocumento: form.querySelector('[name="prefijoDocumento"]').value,
+                ciudad: form.querySelector('[name="ciudad"]').value,
+                estado: form.querySelector('[name="estado"]').value,
+                responsableActivosNombre: form.querySelector('[name="responsableActivosNombre"]').value
+            },
             dataType: 'json',
-            success: function(res) {
-                console.log('✅ Éxito:', res);
-                
+            success: function (res) {
                 Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'success',
-                    title: 'Guardado exitosamente',
-                    showConfirmButton: false,
-                    timer: 1500
+                    toast: true, position: 'top-end', icon: 'success',
+                    title: 'Tipo de documento registrado', showConfirmButton: false, timer: 1800
                 });
-
                 cargarComboConfiguraciones();
-                
+                // Esperar a que recargue el combo y seleccionar el nuevo
                 setTimeout(() => {
-                    const tab = new bootstrap.Tab(document.querySelector('#tab-elegir'));
-                    tab.show();
-                    $('#selConfigGestion').val(res.idConfig);
-                }, 300);
-
+                    new bootstrap.Tab(document.querySelector('#tab-elegir')).show();
+                    $('#selConfigGestion').val(res.idConfig).trigger('change');
+                }, 400);
                 form.reset();
                 btn.disabled = false;
                 btn.innerHTML = txt;
             },
-            error: function(err) {
-                console.error('❌ Error:', err);
-                
-                let msg = 'Error desconocido';
-                if (err.responseJSON?.error) msg = err.responseJSON.error;
-                else if (err.responseText) msg = err.responseText;
-
+            error: function (err) {
+                const msg = err.responseJSON?.error || err.responseText || 'Error desconocido';
                 Swal.fire('Error', msg, 'error');
                 btn.disabled = false;
                 btn.innerHTML = txt;
@@ -368,172 +881,188 @@
     function confirmarAsignacion() {
         const idConfig = $('#selConfigGestion').val();
         const nro = $('#txtNroDoc').val().trim();
-        
-        if(!idConfig) {
-            Swal.fire('Atención', 'Seleccione un Tipo de Documento de la lista.', 'warning');
+
+        if (!idConfig) { Swal.fire('Atención', 'Seleccione un tipo de documento.', 'warning'); return; }
+        if (!nro) { Swal.fire('Atención', 'Ingrese el número del documento.', 'warning'); return; }
+        // Guard: sin ids no se puede enviar (jQuery omite arrays vacíos en traditional serialization)
+        if (!_pendingIds || _pendingIds.length === 0) {
+            Swal.fire('Atención', 'No hay activos seleccionados. Seleccione al menos uno en la tabla.', 'warning');
             return;
         }
-        if(!nro) {
-            Swal.fire('Atención', 'Ingrese el número del documento.', 'warning');
-            return;
-        }
-        const ids = [];
-        $('.chk-item:checked').each(function() { ids.push($(this).val()); });
+
         $('#modalAsignarGestion').modal('hide');
         showGlobalLoader({ texto: 'Actualizando descripciones...' });
+
         $.ajax({
             url: '/administracion/activo/asignar-gestion-masiva',
             type: 'POST',
-            traditional: true, // Importante para listas
-            data: { ids: ids, idConfig: idConfig, nroDoc: nro },
-            success: function(res) {
+            traditional: true,
+            data: { ids: _pendingIds, idConfig: idConfig, nroDoc: nro },
+            success: function (res) {
                 hideGlobalLoader();
-                if(res.ok) {
-                    // Si el backend devuelve IDs, generamos reporte
-                    if (res.idsParaReporte) {
-                        descargarReporte(res.idsParaReporte, res.nroPreventivo);
+                if (res.ok) {
+                    // El reporte recibe el idAsignacion ya existente — NO crea registros nuevos
+                    if (res.idAsignacion) {
+                        descargarReporte(res.idAsignacion, res.codigoCompleto);
                     }
-                    
-                    Swal.fire('Procesado', res.msg, 'success').then(() => {
-                        cargarTabla();
-                    });
+                    Swal.fire('Listo', res.msg, 'success').then(() => cargarTabla());
                 } else {
                     Swal.fire('Error', res.msg, 'error');
                 }
             },
-            error: function(e) {
+            error: function () {
                 hideGlobalLoader();
                 Swal.fire('Error', 'Fallo en el servidor', 'error');
             }
         });
     }
 
-    function descargarReporte(ids, nroPreventivo) {
-        var form = $('<form>', { 'action': '/reportes/generar-asignacion', 'method': 'POST', 'target': '_blank' });
-        form.append($('<input>', { 'type': 'hidden', 'name': 'nroPreventivo', 'value': nroPreventivo }));
-        
-        if (Array.isArray(ids)) {
-            ids.forEach(id => form.append($('<input>', { 'type': 'hidden', 'name': 'ids', 'value': id })));
-        } else {
-            form.append($('<input>', { 'type': 'hidden', 'name': 'ids', 'value': ids }));
-        }
-        $('body').append(form);
-        form.submit();
-        form.remove();
+
+    // ────────────────────────────────────────────────
+    // SINCRONIZAR AL DBF
+    // ────────────────────────────────────────────────
+    function confirmarSincronizar(ids) {
+        Swal.fire({
+            title: `¿Sincronizar ${ids.length} activo${ids.length > 1 ? 's' : ''}?`,
+            html: `Se registrarán permanentemente en el archivo <b>ACTUAL.DBF</b>.`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, sincronizar',
+            confirmButtonColor: '#696cff',
+            cancelButtonText: 'Cancelar'
+        }).then(result => {
+            if (result.isConfirmed) enviarMasivo(ids);
+        });
     }
 
     function enviarMasivo(ids) {
-        showGlobalLoader({ texto: 'Escribiendo en DBF (' + ids.length + ' registros)...' });
-        
+        showGlobalLoader({ texto: `Escribiendo en DBF (${ids.length} registros)...` });
         $.ajax({
             url: '/administracion/activo/api/aprobar-masivo',
             type: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify(ids), // Enviamos lista de IDs encriptados
-            success: function(res) {
+            data: JSON.stringify(ids),
+            success: function (res) {
                 hideGlobalLoader();
                 if (res.ok) {
                     let msg = `Se registraron <b>${res.exitos}</b> activos correctamente.`;
-                    
-                    // Si hubo algún error parcial, lo mostramos
                     let icon = 'success';
                     if (res.errores > 0) {
                         msg += `<br><br><span class="text-danger fw-bold"><i class="fa-solid fa-triangle-exclamation"></i> Hubo ${res.errores} errores.</span>`;
                         icon = 'warning';
                     }
-                    
-                    Swal.fire({
-                        title: 'Proceso Finalizado',
-                        html: msg,
-                        icon: icon
-                    }).then(() => {
-                        cargarTabla(); // Recargar tabla limpia
-                    });
+                    Swal.fire({ title: 'Proceso Finalizado', html: msg, icon }).then(() => cargarTabla());
                 } else {
                     Swal.fire('Error', res.msg || 'Error desconocido', 'error');
                 }
             },
-            error: function(xhr) {
+            error: function () {
                 hideGlobalLoader();
                 Swal.fire('Error de Servidor', 'No se pudo completar la solicitud.', 'error');
             }
         });
     }
 
-    function initTablaPendientes() {
-        const tableSel = '#tablaRegistro #data-table';
-        if ($.fn.DataTable.isDataTable(tableSel)) $(tableSel).DataTable().destroy();
-        
-        $(tableSel).DataTable({
-            responsive: false,
-            pageLength: 10,
-            columnDefs: [
-                { targets: 0, orderable: false, width: '40px' }, // Checkbox
-                { targets: 1, orderable: false, width: '30px' }, // Numeral
-                { targets: -1, orderable: false } // Opciones
-            ],
-            language: { sProcessing: "Procesando...", sZeroRecords: "No hay pendientes", sSearch: "Buscar:", oPaginate: { sFirst: "Primero", sLast: "Último", sNext: "Sig", sPrevious: "Ant" } }
-        });
+
+    // ────────────────────────────────────────────────
+    // REPORTE — recibe idAsignacion ya existente, NO crea datos
+    // ────────────────────────────────────────────────
+    function descargarReporte(idAsignacion, codigoCompleto) {
+        const form = $('<form>', { action: '/reportes/generar-asignacion', method: 'POST', target: '_blank' });
+        form.append($('<input>', { type: 'hidden', name: 'idAsignacion', value: idAsignacion }));
+        form.append($('<input>', { type: 'hidden', name: 'codigoCompleto', value: codigoCompleto }));
+        $('body').append(form);
+        form.submit();
+        form.remove();
     }
 
-    // ==========================================
-    // 🎨 RENDERIZADOR DE DETALLE (EL BONITO)
-    // ==========================================
+
+    // ────────────────────────────────────────────────
+    // MODAL DETALLE ACTIVO (render + aprobar individual)
+    // ────────────────────────────────────────────────
     function renderDetalleHtml(d) {
-        const safe = v => (v && v !== 'null') ? v : '<span class="text-muted fst-italic">No definido</span>';
+        const safe = v => (v != null && v !== 'null' && v !== '') ? v : '<span class="text-muted fst-italic small">No definido</span>';
         const fmtMoney = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' });
         const costo = d.costo ? fmtMoney.format(d.costo) : 'Bs 0.00';
 
-        // Acceso seguro a objetos
-        const oficina = d.oficina ? d.oficina.nombre : null;
-        const responsable = d.responsable && d.responsable.persona ? d.responsable.persona.nombreCompleto : null;
-        const orgFin = d.organismoFinanciero ? d.organismoFinanciero.descripcion : null;
-        const auxiliar = d.auxiliar ? d.auxiliar.nombre : null;
-        const grupo = d.grupoContable ? d.grupoContable.nombre : null;
+        const oficina = d.oficina?.nombre ?? null;
+        const responsable = d.responsable?.persona?.nombreCompleto ?? null;
+        const orgFin = d.organismoFinanciero?.descripcion ?? null;
+        const auxiliar = d.auxiliar?.nombre ?? null;
+        const grupo = d.grupoContable?.nombre ?? null;
 
-        const estadoClass = d.estado === 'PENDIENTE' ? 'bg-warning-subtle text-warning-emphasis' : 'bg-success-subtle text-success-emphasis';
-        const estadoIcon = d.estado === 'PENDIENTE' ? '<i class="fa-solid fa-clock"></i>' : '<i class="fa-solid fa-check-circle"></i>';
+        const estadoClass = d.estado === 'PENDIENTE'
+            ? 'bg-warning-subtle text-warning-emphasis'
+            : 'bg-success-subtle text-success-emphasis';
+        const estadoIcon = d.estado === 'PENDIENTE'
+            ? '<i class="fa-solid fa-clock"></i>'
+            : '<i class="fa-solid fa-check-circle"></i>';
 
         return `
-            <div class="status-banner ${estadoClass}">
-                <div class="fw-bold d-flex align-items-center gap-2">
-                    ${estadoIcon} <span>ESTADO: ${d.estado || 'DESCONOCIDO'}</span>
-                </div>
-                <small class="text-uppercase fw-semibold tracking-wide">ID: ${d.idActivo}</small>
+        <div class="status-banner ${estadoClass}">
+            <div class="fw-bold d-flex align-items-center gap-2">
+                ${estadoIcon} <span>ESTADO: ${d.estado ?? 'DESCONOCIDO'}</span>
             </div>
-            <div class="d-flex mb-4">
-                <div class="detail-icon-box"><i class="fa-solid fa-barcode"></i></div>
-                <div class="flex-grow-1">
-                    <h5 class="mb-1 fw-bold text-dark">${safe(d.codigo)}</h5>
-                    <p class="text-muted mb-0 small">${safe(d.descripcion)}</p>
+            <small class="text-uppercase fw-semibold">ID: ${d.idActivo}</small>
+        </div>
+        <div class="d-flex mb-4">
+            <div class="detail-icon-box"><i class="fa-solid fa-barcode"></i></div>
+            <div class="flex-grow-1">
+                <h5 class="mb-1 fw-bold text-dark">${safe(d.codigo)}</h5>
+                <p class="text-muted mb-0 small">${safe(d.descripcion)}</p>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="detail-group">
+                    <div class="detail-label"><i class="fa-regular fa-calendar me-1"></i> Fecha Adquisición</div>
+                    <div class="detail-value">${safe(d.fechaAdquisicion)}</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label"><i class="fa-solid fa-layer-group me-1"></i> Grupo Contable</div>
+                    <div class="detail-value">${safe(grupo)}</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label"><i class="fa-solid fa-diagram-project me-1"></i> Auxiliar</div>
+                    <div class="detail-value">${safe(auxiliar)}</div>
                 </div>
             </div>
-            <div class="row g-4">
+            <div class="col-md-6">
+                <div class="detail-group">
+                    <div class="detail-label"><i class="fa-solid fa-coins me-1"></i> Costo Histórico</div>
+                    <div class="detail-value highlight">${costo}</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label"><i class="fa-solid fa-hourglass-half me-1"></i> Vida Útil</div>
+                    <div class="detail-value">${safe(d.vidaUtil)} años</div>
+                </div>
+                <div class="detail-group">
+                    <div class="detail-label"><i class="fa-solid fa-building-columns me-1"></i> Financiamiento</div>
+                    <div class="detail-value">${safe(orgFin)}</div>
+                </div>
+            </div>
+        </div>
+        <hr class="border-secondary-subtle my-3">
+        <div class="bg-light p-3 rounded-3 border border-light-subtle">
+            <div class="row">
+                <div class="col-md-6 mb-2 mb-md-0">
+                    <div class="detail-label"><i class="fa-solid fa-building me-1"></i> Oficina Asignada</div>
+                    <div class="detail-value fw-bold">${safe(oficina)}</div>
+                </div>
                 <div class="col-md-6">
-                    <div class="detail-group"><div class="detail-label"><i class="fa-regular fa-calendar me-1"></i> Fecha Adquisición</div><div class="detail-value">${safe(d.fechaAdquisicion)}</div></div>
-                    <div class="detail-group"><div class="detail-label"><i class="fa-solid fa-layer-group me-1"></i> Grupo Contable</div><div class="detail-value">${safe(grupo)}</div></div>
-                    <div class="detail-group"><div class="detail-label"><i class="fa-solid fa-diagram-project me-1"></i> Auxiliar</div><div class="detail-value">${safe(auxiliar)}</div></div>
-                </div>
-                <div class="col-md-6">
-                    <div class="detail-group"><div class="detail-label"><i class="fa-solid fa-coins me-1"></i> Costo Histórico</div><div class="detail-value highlight fs-5">${costo}</div></div>
-                    <div class="detail-group"><div class="detail-label"><i class="fa-solid fa-hourglass-half me-1"></i> Vida Útil</div><div class="detail-value">${safe(d.vidaUtil)} años</div></div>
-                    <div class="detail-group"><div class="detail-label"><i class="fa-solid fa-building-columns me-1"></i> Financiamiento</div><div class="detail-value">${safe(orgFin)}</div></div>
+                    <div class="detail-label"><i class="fa-solid fa-user-tie me-1"></i> Responsable</div>
+                    <div class="detail-value fw-bold">${safe(responsable)}</div>
                 </div>
             </div>
-            <hr class="border-secondary-subtle my-3">
-            <div class="bg-light p-3 rounded-3 border border-light-subtle">
-                <div class="row">
-                    <div class="col-md-6 mb-3 mb-md-0"><div class="detail-label"><i class="fa-solid fa-building me-1"></i> Oficina Asignada</div><div class="detail-value text-dark fw-bold">${safe(oficina)}</div></div>
-                    <div class="col-md-6"><div class="detail-label"><i class="fa-solid fa-user-tie me-1"></i> Responsable</div><div class="detail-value text-dark fw-bold">${safe(responsable)}</div></div>
-                </div>
-            </div>
-        `;
+        </div>
+    `;
     }
 
-    // Modal individual
     $(document).on('click', '.btn-ver', async function () {
         const idEnc = $(this).data('id');
-        $('#modalDetalleBody').html('<div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary"></div></div>');
+        $('#modalDetalleBody').html(
+            '<div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary"></div></div>'
+        );
         const modal = new bootstrap.Modal(document.getElementById('modalDetalleActivo'));
         modal.show();
         $('#btnAprobarModal').prop('disabled', true);
@@ -542,22 +1071,604 @@
             const res = await fetch(`/administracion/activo/api/detalle/${encodeURIComponent(idEnc)}`);
             if (!res.ok) throw new Error('Error de conexión');
             const d = await res.json();
-            
-            if (!d.estado) d.estado = d.estadoActivo?.nombre || 'PENDIENTE';
-            $('#modalDetalleBody').html(renderDetalleHtml(d));
+            if (!d.estado) d.estado = d.estadoActivo?.nombre ?? 'PENDIENTE';
 
-            $('#btnAprobarModal').prop('disabled', false).off('click').on('click', async function() {
-                if(!confirm('¿Aprobar individualmente?')) return;
-                const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i>');
+            $('#modalDetalleBody').html(renderDetalleHtml(d));
+            $('#btnAprobarModal').prop('disabled', d.estado !== 'PENDIENTE').off('click').on('click', async function () {
+                if (!confirm('¿Aprobar individualmente este activo?')) return;
+                const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Procesando...');
                 try {
                     const r = await fetch(`/administracion/activo/api/aprobar/${encodeURIComponent(idEnc)}`, { method: 'POST' });
                     const j = await r.json();
-                    if(j.ok) { modal.hide(); cargarTabla(); Swal.fire('Éxito', 'Aprobado correctamente', 'success'); }
-                    else throw new Error(j.message);
-                } catch(e) { Swal.fire('Error', e.message, 'error'); $btn.prop('disabled', false).text('Reintentar'); }
+                    if (j.ok) {
+                        modal.hide();
+                        Swal.fire('Éxito', 'Activo aprobado y sincronizado correctamente.', 'success').then(() => cargarTabla());
+                    } else throw new Error(j.message);
+                } catch (e) {
+                    Swal.fire('Error', e.message, 'error');
+                    $btn.prop('disabled', false).html('<i class="fa-solid fa-check-circle me-2"></i> Confirmar y Aprobar');
+                }
             });
         } catch (e) {
-            $('#modalDetalleBody').html(`<div class="text-danger text-center py-4">Error: ${e.message}</div>`);
+            $('#modalDetalleBody').html(`<div class="text-danger text-center py-4"><i class="fa-solid fa-triangle-exclamation me-2"></i>Error: ${e.message}</div>`);
         }
     });
+
+
+
+
+
+    // ════════════════════════════════════════════════════════════════
+    // MODAL EDITAR ACTIVOS PENDIENTES  (unitario y en lote unificado)
+    // ════════════════════════════════════════════════════════════════
+
+    const _EP = { idsEnc: [], datosActivos: [], catalogos: {} };
+
+    // ── Entrada barra flotante ──────────────────────────────────────────────
+    $('#btnEditarSeleccionados').off('click').on('click', function () {
+        const ids = getIdsSeleccionados();
+        if (ids.length === 0) {
+            Swal.fire('Atención', 'Seleccione al menos un activo PENDIENTE.', 'warning');
+            return;
+        }
+        abrirModalEditarPendientes(ids);
+    });
+
+    // ── Entrada botón ✏ individual ──────────────────────────────────────────
+    $(document).off('click', '.btn-editar').on('click', '.btn-editar:not(:disabled)', function () {
+        const id = $(this).data('id');
+        if (id) abrirModalEditarPendientes([id]);
+    });
+
+    async function abrirModalEditarPendientes(idsEnc) {
+        _EP.idsEnc = idsEnc;
+        _EP.datosActivos = [];
+        _EP.catalogos = {};
+
+        // Resetear UI
+        $('#editPendModalTitle').text('Editar activos pendientes');
+        $('#editPendModalSub').text('Cargando...');
+        $('#editPendCodigoChips').empty();
+        $('#editPendAlertComun,#editPendAlertMixto').addClass('d-none');
+        $('#editPendFooterInfo').text('');
+        $('#btnGuardarEdicionPend').prop('disabled', true);
+        $('#editPendBody').html(
+            `<div class="d-flex justify-content-center align-items-center py-5 gap-3">
+            <div class="spinner-border spinner-border-sm text-warning"></div>
+            <span class="text-muted">Cargando ${idsEnc.length} activo(s)...</span>
+         </div>`
+        );
+        new bootstrap.Modal(document.getElementById('modalEditarPendientes')).show();
+
+        try {
+            // ── 1. Cargar activos en paralelo ──────────────────────────────
+            const activos = await Promise.all(
+                idsEnc.map(id =>
+                    fetch(`/administracion/activo/api/detalle/${encodeURIComponent(id)}`)
+                        .then(r => { if (!r.ok) throw new Error('Error cargando activo'); return r.json(); })
+                        .then(d => ({ idEnc: id, datos: d }))
+                )
+            );
+            _EP.datosActivos = activos;
+
+            const esUnitario = idsEnc.length === 1;
+            const esTodoIgual = esUnitario || comprobarDatosIgualesEP(activos.map(a => a.datos));
+
+            // Valores de referencia para pre-cargar los selects dependientes
+            const ref = esUnitario || esTodoIgual
+                ? activos[0].datos
+                : calcularValoresComuensEP(activos.map(a => a.datos));
+
+            // municipioId y predioId vienen como campos de primer nivel
+            // (ver DetalleEndpoint_fix.java — el backend los extrae de oficina.predio.municipio)
+            const munId = ref.municipioId ?? ref.oficina?.municipioId ?? null;
+            const predId = ref.predioId ?? ref.oficina?.predioId ?? null;
+            const ofiId = ref.oficina?.idOficina ?? null;
+            const grpId = ref.grupoContable?.idGrupoContable ?? null;
+            // auxiliar: el campo puede llamarse idAuxiliar o id según el endpoint
+            const auxIdRef = ref.auxiliar?.idAuxiliar ?? ref.auxiliar?.id ?? null;
+
+            // ── 2. Cargar TODOS los datos necesarios en paralelo ───────────
+            const [
+                rawMunicipios, rawGrupos, rawOrgFin,
+                rawPredios, rawOficinas, rawResponsables, rawAuxiliares
+            ] = await Promise.all([
+                fetch('/api/municipios/listar').then(r => r.json()).catch(() => []),
+                fetch('/api/grupos/listar').then(r => r.json()).catch(() => []),
+                fetch('/api/organismos/listar').then(r => r.json()).catch(() => []),
+                munId ? fetch(`/api/buscar_predios?municipioId=${munId}`).then(r => r.json()).catch(() => []) : Promise.resolve([]),
+                predId ? fetch(`/api/buscar_oficinas?predioId=${predId}`).then(r => r.json()).catch(() => []) : Promise.resolve([]),
+                ofiId ? fetch(`/api/buscar_responsable?q=&page=1&oficinaId=${ofiId}`).then(r => r.json()).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
+                (grpId && predId) ? fetch(`/api/buscar_auxiliar_lista?grupoId=${grpId}&predioId=${predId}`).then(r => r.json()).catch(() => []) : Promise.resolve([])
+            ]);
+
+            const municipios = toArray(rawMunicipios);
+            const grupos = toArray(rawGrupos);
+            const orgFin = toArray(rawOrgFin);
+            const predios = toArray(rawPredios);
+            const oficinas = toArray(rawOficinas);
+            const responsables = toArray(rawResponsables.results ?? rawResponsables);
+            const auxiliares = toArray(rawAuxiliares);
+
+            _EP.catalogos = { municipios, predios, oficinas, responsables, auxiliares, grupos, orgFin };
+
+            // ── 3. Chips de códigos ────────────────────────────────────────
+            $('#editPendCodigoChips').html(
+                activos.map(a =>
+                    `<span class="badge" style="font-family:monospace;font-size:0.7rem;
+                    background:rgba(105,108,255,0.1);color:#696cff;
+                    border:1px solid rgba(105,108,255,0.25);border-radius:5px;padding:0.3em 0.65em;">
+                    ${a.datos.codigo || '—'}
+                </span>`
+                ).join('')
+            );
+
+            // ── 4. Subtítulo y alertas ─────────────────────────────────────
+            $('#editPendModalSub').text(
+                esUnitario
+                    ? `Código: ${activos[0].datos.codigo}`
+                    : `${idsEnc.length} activos · ${esTodoIgual ? 'datos idénticos ✓' : 'datos distintos'}`
+            );
+            if (!esUnitario) {
+                esTodoIgual
+                    ? $('#editPendAlertComun').removeClass('d-none')
+                    : $('#editPendAlertMixto').removeClass('d-none');
+            }
+
+            $('#editPendFooterInfo').text(`${idsEnc.length} activo(s) · El código no se modifica`);
+
+            // ── 5. Pre-rellenar: valores del activo (o comunes si lote) ───
+            const pre = {
+                munId,
+                predId,
+                ofiId,
+                respId: ref.responsable?.idResponsable ?? null,
+                grpId,
+                auxId: ref.auxiliar?.idAuxiliar ?? ref.auxiliar?.id ?? null,
+                orgFinId: ref.organismoFinanciero?.idOrganismoFinanciero || null,
+                descripcion: esTodoIgual ? (ref.descripcion || '') : '',
+                costo: esTodoIgual ? (ref.costo ?? '') : '',
+                vidaUtil: esTodoIgual ? (ref.vidaUtil ?? '') : '',
+                fechaAdquisicion: esTodoIgual ? (ref.fechaAdquisicion || '') : ''
+            };
+
+            // ── 6. Renderizar formulario con TODOS los datos ya cargados ──
+            $('#editPendBody').html(
+                renderFormEditarPend(pre, grupos, orgFin, predios, oficinas, responsables, auxiliares, esTodoIgual, idsEnc.length)
+            );
+            $('#btnGuardarEdicionPend').prop('disabled', false);
+
+            // ── 7. Inicializar Select2 + cascadas ─────────────────────────
+            initSelectsEP();
+            initCascadasEditPend(pre);
+
+        } catch (e) {
+            console.error('Error en abrirModalEditarPendientes:', e);
+            $('#editPendBody').html(
+                `<div class="text-danger text-center py-4">
+                <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                Error: ${e.message}
+             </div>`
+            );
+        }
+    }
+
+    // ── Helper: normaliza cualquier respuesta a array ──────────────────────
+    function toArray(res) {
+        if (!res) return [];
+        if (Array.isArray(res)) return res;
+        if (Array.isArray(res.content)) return res.content;
+        if (Array.isArray(res.data)) return res.data;
+        if (Array.isArray(res.results)) return res.results;
+        return [];
+    }
+
+    // ── Comparación de datos ───────────────────────────────────────────────
+    function comprobarDatosIgualesEP(lista) {
+        if (lista.length <= 1) return true;
+        const b = lista[0];
+        return lista.every(d =>
+            d.descripcion === b.descripcion &&
+            String(d.costo ?? '') === String(b.costo ?? '') &&
+            String(d.vidaUtil ?? '') === String(b.vidaUtil ?? '') &&
+            (d.fechaAdquisicion || '') === (b.fechaAdquisicion || '') &&
+            (d.grupoContable?.idGrupoContable ?? null) === (b.grupoContable?.idGrupoContable ?? null) &&
+            (d.municipioId ?? null) === (b.municipioId ?? null) &&
+            (d.predioId ?? null) === (b.predioId ?? null) &&
+            (d.oficina?.idOficina ?? null) === (b.oficina?.idOficina ?? null) &&
+            (d.responsable?.idResponsable ?? null) === (b.responsable?.idResponsable ?? null) &&
+            (d.auxiliar?.idAuxiliar ?? null) === (b.auxiliar?.idAuxiliar ?? null) &&
+            (d.organismoFinanciero?.idOrganismoFinanciero ?? null) ===
+            (b.organismoFinanciero?.idOrganismoFinanciero ?? null)
+        );
+    }
+
+    function calcularValoresComuensEP(lista) {
+        function comun(fn) {
+            const vals = lista.map(fn);
+            return vals.every(v => String(v ?? '') === String(vals[0] ?? '')) ? vals[0] : null;
+        }
+        const b = lista[0];
+        return {
+            municipioId: comun(d => d.municipioId),
+            predioId: comun(d => d.predioId),
+            oficina: comun(d => d.oficina?.idOficina) !== null ? b.oficina : null,
+            responsable: comun(d => d.responsable?.idResponsable) !== null ? b.responsable : null,
+            grupoContable: comun(d => d.grupoContable?.idGrupoContable) !== null ? b.grupoContable : null,
+            auxiliar: comun(d => d.auxiliar?.idAuxiliar ?? null) !== null ? b.auxiliar : null,
+            organismoFinanciero: comun(d => d.organismoFinanciero?.idOrganismoFinanciero ?? null) !== null ? b.organismoFinanciero : null,
+            descripcion: comun(d => d.descripcion),
+            costo: comun(d => d.costo),
+            vidaUtil: comun(d => d.vidaUtil),
+            fechaAdquisicion: comun(d => d.fechaAdquisicion)
+        };
+    }
+
+    // ── Render del formulario con TODOS los datos ya disponibles ───────────
+    function renderFormEditarPend(pre, grupos, orgFin, predios, oficinas, responsables, auxiliares, esTodoIgual, totalActivos) {
+        const v = x => (x != null && x !== 'null') ? x : '';
+
+        function buildOpts(lista, idFn, txtFn, selectedId, emptyLabel) {
+            let html = `<option value="">${emptyLabel}</option>`;
+            (lista || []).forEach(item => {
+                const id = typeof idFn === 'function' ? idFn(item) : item[idFn];
+                const txt = typeof txtFn === 'function' ? txtFn(item) : item[txtFn];
+                const sel = String(id) === String(selectedId ?? '') ? ' selected' : '';
+                html += `<option value="${id}"${sel}>${txt}</option>`;
+            });
+            return html;
+        }
+
+        const { municipios } = _EP.catalogos;
+
+        const optsGrupo = buildOpts(grupos,
+            'idGrupoContable', g => `${g.nombre}`,
+            pre.grpId, '— Seleccione grupo —');
+        const optsOrg = buildOpts(orgFin,
+            'idOrganismoFinanciero', o => `${o.sigla ? o.sigla + ' - ' : ''}${o.descripcion}`,
+            pre.orgFinId, '— Sin financiamiento —');
+        const optsMun = buildOpts(municipios,
+            'idMunicipio', 'nombre',
+            pre.munId, '— Seleccione municipio —');
+        const optsPred = buildOpts(predios,
+            item => item.id || item.idPredio,
+            item => item.descrip || item.nombre,
+            pre.predId, pre.munId ? '— Seleccione predio —' : '— Seleccione municipio primero —');
+        const optsOfi = buildOpts(oficinas,
+            item => item.id || item.idOficina,
+            item => item.nombre,
+            pre.ofiId, pre.predId ? '— Seleccione oficina —' : '— Seleccione predio primero —');
+        const optsResp = buildOpts(responsables,
+            'id', 'text',
+            pre.respId, pre.ofiId ? '— Seleccione responsable —' : '— Seleccione oficina primero —');
+        const optsAux = buildOpts(auxiliares,
+            item => item.idAuxiliar ?? item.id,
+            item => item.nombre ?? item.text,
+            pre.auxId, '— Sin auxiliar —');
+
+        const badgeLote = totalActivos > 1
+            ? `<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;">aplica a todos</span>`
+            : '';
+
+        const hintDif = !esTodoIgual
+            ? `<div class="col-12">
+               <div class="alert alert-warning py-2 mb-0" style="font-size:0.8rem;">
+                   <i class="fa-solid fa-circle-info me-1"></i>
+                   Los activos tienen <strong>datos distintos</strong>.
+                   Los campos vacíos no se modificarán — completa solo lo que quieras cambiar.
+               </div>
+           </div>` : '';
+
+        return `<div class="row g-3" id="formEditPend">
+        ${hintDif}
+
+        <!-- ── Sección Ubicación ── -->
+        <div class="col-12">
+            <div class="ep-section-title">
+                <i class="fa-solid fa-location-dot text-primary me-1"></i> Ubicación ${badgeLote}
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <label class="ep-label"><i class="fa-solid fa-city me-1"></i>Municipio</label>
+            <select id="epMunicipio" class="form-select form-select-sm ep-select2">${optsMun}</select>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <label class="ep-label"><i class="fa-solid fa-building me-1"></i>Predio</label>
+            <select id="epPredio" class="form-select form-select-sm ep-select2" ${!pre.munId ? 'disabled' : ''}>${optsPred}</select>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <label class="ep-label"><i class="fa-solid fa-door-open me-1"></i>Oficina</label>
+            <select id="epOficina" class="form-select form-select-sm ep-select2" ${!pre.predId ? 'disabled' : ''}>${optsOfi}</select>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <label class="ep-label"><i class="fa-solid fa-user-tie me-1"></i>Responsable</label>
+            <select id="epResponsable" class="form-select form-select-sm ep-select2" ${!pre.ofiId ? 'disabled' : ''}>${optsResp}</select>
+        </div>
+
+        <!-- ── Sección Clasificación ── -->
+        <div class="col-12 mt-1">
+            <div class="ep-section-title">
+                <i class="fa-solid fa-tags text-primary me-1"></i> Clasificación Contable ${badgeLote}
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6">
+            <label class="ep-label"><i class="fa-solid fa-layer-group me-1"></i>Grupo Contable</label>
+            <select id="epGrupo" class="form-select form-select-sm ep-select2">${optsGrupo}</select>
+        </div>
+        <div class="col-md-4 col-sm-6">
+            <label class="ep-label"><i class="fa-solid fa-bookmark me-1"></i>Auxiliar <span class="text-muted fw-normal">(opcional)</span></label>
+            <select id="epAuxiliar" class="form-select form-select-sm ep-select2" ${(!pre.grpId || !pre.predId) ? 'disabled' : ''}>${optsAux}</select>
+        </div>
+        <div class="col-md-4 col-sm-6">
+            <label class="ep-label"><i class="fa-solid fa-hand-holding-dollar me-1"></i>Financiador <span class="text-muted fw-normal">(opcional)</span></label>
+            <select id="epOrgFin" class="form-select form-select-sm ep-select2">${optsOrg}</select>
+        </div>
+
+        <!-- ── Sección Datos del Activo ── -->
+        <div class="col-12 mt-1">
+            <div class="ep-section-title">
+                <i class="fa-solid fa-clipboard-list text-primary me-1"></i> Datos del Activo ${badgeLote}
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4">
+            <label class="ep-label"><i class="fa-regular fa-calendar me-1"></i>Fecha Adq.</label>
+            <input type="date" id="epFecha" class="form-control form-control-sm"
+                   value="${v(pre.fechaAdquisicion)}">
+        </div>
+        <div class="col-md-2 col-sm-4">
+            <label class="ep-label"><i class="fa-solid fa-coins me-1"></i>Costo (Bs.)</label>
+            <input type="number" id="epCosto" class="form-control form-control-sm text-end fw-bold"
+                   step="0.01" min="0"
+                   value="${v(pre.costo)}"
+                   placeholder="${!esTodoIgual && !pre.costo ? '(distintos)' : ''}">
+        </div>
+        <div class="col-md-2 col-sm-4">
+            <label class="ep-label"><i class="fa-solid fa-hourglass-half me-1"></i>Vida Útil (años)</label>
+            <input type="number" id="epVidaUtil" class="form-control form-control-sm text-center"
+                   step="0.5" min="0"
+                   value="${v(pre.vidaUtil)}"
+                   placeholder="${!esTodoIgual && !pre.vidaUtil ? '(distintos)' : ''}">
+        </div>
+        <div class="col-md-6">
+            <label class="ep-label">
+                <i class="fa-solid fa-align-left me-1"></i>Descripción ${badgeLote}
+            </label>
+            <textarea id="epDescripcion" class="form-control form-control-sm" rows="2"
+                      maxlength="1024"
+                      placeholder="${!esTodoIgual && !pre.descripcion ? '(distintas — escribe para uniformizar)' : ''}"
+                      >${v(pre.descripcion)}</textarea>
+            <div class="text-end">
+                <small class="text-muted" id="epDescCount">${v(pre.descripcion).length}/1024</small>
+            </div>
+        </div>
+    </div>`;
+    }
+
+    // ── CSS del formulario EP (inyectado una sola vez) ─────────────────────
+    (function () {
+        if (document.getElementById('epStyles')) return;
+        const s = document.createElement('style');
+        s.id = 'epStyles';
+        s.textContent = `
+        .ep-section-title {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; color: #8592a3;
+            display: flex; align-items: center; gap: 0.4rem;
+            padding-bottom: 0.4rem; border-bottom: 1px solid #f0f1f3; margin-bottom: 0.15rem;
+        }
+        .ep-label { font-size: 0.75rem; font-weight: 600; color: #566a7f; margin-bottom: 0.3rem; display: block; }
+        #modalEditarPendientes .select2-container { width: 100% !important; }
+        #modalEditarPendientes .select2-selection--single {
+            height: 31px !important; border-radius: 0.375rem !important;
+            border-color: #d9dee3 !important;
+        }
+        #modalEditarPendientes .select2-selection__rendered { line-height: 29px !important; font-size: 0.82rem; }
+        #modalEditarPendientes .select2-selection__arrow { height: 29px !important; }
+        #modalEditarPendientes .select2-results__option { font-size: 0.82rem; }
+    `;
+        document.head.appendChild(s);
+    })();
+
+    // ── Inicializar Select2 en todos los selects del modal ─────────────────
+    function initSelectsEP() {
+        const $modal = $('#modalEditarPendientes');
+
+        $modal.find('.ep-select2').each(function () {
+            if ($(this).data('select2')) $(this).select2('destroy');
+            const placeholder = $(this).find('option:first').text();
+            $(this).select2({
+                theme: 'bootstrap-5',
+                width: '100%',
+                dropdownParent: $modal,
+                allowClear: true,
+                placeholder: placeholder,
+                language: {
+                    noResults: () => 'Sin resultados',
+                    searching: () => 'Buscando...'
+                }
+            });
+        });
+    }
+
+    // ── Cascadas: solo para cuando el usuario CAMBIA un select ─────────────
+    function initCascadasEditPend(pre) {
+        const $modal = $('#modalEditarPendientes');
+
+        $('#epDescripcion').off('input.ep').on('input.ep', function () {
+            $('#epDescCount').text($(this).val().length + '/1024');
+        });
+
+        // Municipio → recarga predios
+        $('#epMunicipio').off('change.ep').on('change.ep', async function () {
+            const munId = $(this).val();
+            const $pred = $('#epPredio');
+            const $ofi = $('#epOficina');
+
+            epDestroySelect2AndReset($pred, '— Seleccione predio —', !munId);
+            epDestroySelect2AndReset($ofi, '— Seleccione predio —', true);
+            epDestroySelect2AndReset($('#epResponsable'), '— Seleccione oficina —', true);
+            epDestroySelect2AndReset($('#epAuxiliar'), '— Sin auxiliar —', true);
+
+            if (!munId) { reinitSelectEP($pred, true); return; }
+
+            $pred.html('<option value="">Cargando...</option>').prop('disabled', true);
+            try {
+                const lista = toArray(await fetch(`/api/buscar_predios?municipioId=${munId}`).then(r => r.json()));
+                $pred.html('<option value="">— Seleccione predio —</option>');
+                lista.forEach(p => $pred.append(`<option value="${p.id || p.idPredio}">${p.descrip || p.nombre}</option>`));
+                $pred.prop('disabled', false);
+            } catch { $pred.html('<option value="">Error al cargar</option>'); }
+            reinitSelectEP($pred, false);
+        });
+
+        // Predio → recarga oficinas
+        $('#epPredio').off('change.ep').on('change.ep', async function () {
+            const predId = $(this).val();
+            const $ofi = $('#epOficina');
+
+            epDestroySelect2AndReset($ofi, '— Seleccione oficina —', !predId);
+            epDestroySelect2AndReset($('#epResponsable'), '— Seleccione oficina —', true);
+            epDestroySelect2AndReset($('#epAuxiliar'), '— Sin auxiliar —', true);
+            recargarAuxEP();
+
+            if (!predId) { reinitSelectEP($ofi, true); return; }
+
+            $ofi.html('<option value="">Cargando...</option>').prop('disabled', true);
+            try {
+                const lista = toArray(await fetch(`/api/buscar_oficinas?predioId=${predId}`).then(r => r.json()));
+                $ofi.html('<option value="">— Seleccione oficina —</option>');
+                lista.forEach(o => $ofi.append(`<option value="${o.id || o.idOficina}">${o.nombre}</option>`));
+                $ofi.prop('disabled', false);
+            } catch { $ofi.html('<option value="">Error al cargar</option>'); }
+            reinitSelectEP($ofi, false);
+        });
+
+        // Oficina → recarga responsables
+        $('#epOficina').off('change.ep').on('change.ep', async function () {
+            const ofiId = $(this).val();
+            const $resp = $('#epResponsable');
+
+            epDestroySelect2AndReset($resp, '— Seleccione responsable —', !ofiId);
+            if (!ofiId) { reinitSelectEP($resp, true); return; }
+
+            $resp.html('<option value="">Cargando...</option>').prop('disabled', true);
+            try {
+                const data = await fetch(`/api/buscar_responsable?q=&page=1&oficinaId=${ofiId}`).then(r => r.json());
+                const lista = toArray(data.results ?? data);
+                $resp.html('<option value="">— Seleccione responsable —</option>');
+                lista.forEach(r => $resp.append(`<option value="${r.id}">${r.text}</option>`));
+                $resp.prop('disabled', false);
+            } catch { $resp.html('<option value="">Error al cargar</option>'); }
+            reinitSelectEP($resp, false);
+        });
+
+        // Grupo → recarga auxiliar + vida útil
+        $('#epGrupo').off('change.ep').on('change.ep', function () {
+            const grpId = $(this).val();
+            if (grpId) {
+                $.get(`/api/${grpId}/meta`).done(m => { if (m?.vidaUtil) $('#epVidaUtil').val(m.vidaUtil); });
+            }
+            recargarAuxEP();
+        });
+    }
+
+    async function recargarAuxEP() {
+        const grpId = $('#epGrupo').val();
+        const predId = $('#epPredio').val();
+        const $aux = $('#epAuxiliar');
+        const $modal = $('#modalEditarPendientes');
+
+        epDestroySelect2AndReset($aux, '— Sin auxiliar —', true);
+
+        if (!grpId || !predId) { reinitSelectEP($aux, true); return; }
+
+        $aux.html('<option value="">Cargando...</option>').prop('disabled', true);
+        try {
+            const lista = toArray(
+                await fetch(`/api/buscar_auxiliar_lista?grupoId=${grpId}&predioId=${predId}`).then(r => r.json())
+            );
+            $aux.html('<option value="">— Sin auxiliar —</option>');
+            lista.forEach(a => $aux.append(`<option value="${a.idAuxiliar ?? a.id}">${a.nombre ?? a.text}</option>`));
+            $aux.prop('disabled', lista.length === 0);
+        } catch { $aux.html('<option value="">Error al cargar</option>'); }
+        reinitSelectEP($aux, false);
+    }
+
+    function epDestroySelect2AndReset($sel, placeholder, disabled) {
+        if ($sel.data('select2')) $sel.select2('destroy');
+        $sel.html(`<option value="">${placeholder}</option>`).prop('disabled', !!disabled);
+    }
+
+    function reinitSelectEP($sel, disabled) {
+        const $modal = $('#modalEditarPendientes');
+        if ($sel.data('select2')) $sel.select2('destroy');
+        $sel.select2({
+            theme: 'bootstrap-5', width: '100%',
+            dropdownParent: $modal, allowClear: true,
+            placeholder: $sel.find('option:first').text(),
+            language: { noResults: () => 'Sin resultados', searching: () => 'Buscando...' }
+        });
+        if (disabled) $sel.prop('disabled', true);
+    }
+
+    // ── Guardar ───────────────────────────────────────────────────────────
+    async function guardarEdicionPendientes() {
+        const esUnitario = _EP.idsEnc.length === 1;
+        const idOficina = $('#epOficina').val();
+        const idResp = $('#epResponsable').val();
+
+        if (esUnitario && (!idOficina || !idResp)) {
+            Swal.fire('Atención', 'Oficina y responsable son obligatorios.', 'warning');
+            return;
+        }
+
+        const payload = {
+            activos: _EP.idsEnc.map(idEnc => ({
+                idEnc,
+                descripcion: $('#epDescripcion').val().trim() || null,
+                costo: parseFloat($('#epCosto').val()) || null,
+                vidaUtil: parseFloat($('#epVidaUtil').val()) || null,
+                fechaAdquisicion: $('#epFecha').val() || null,
+                idGrupoContable: $('#epGrupo').val() || null,
+                idAuxiliar: $('#epAuxiliar').val() || null,
+                idOficina: idOficina || null,
+                idResponsable: idResp || null,
+                idOrganismoFinanciero: $('#epOrgFin').val() || null
+            }))
+        };
+
+        $('#btnGuardarEdicionPend').prop('disabled', true)
+            .html('<i class="fa-solid fa-spinner fa-spin me-1"></i> Guardando...');
+
+        try {
+            const res = await fetch('/administracion/activo/api/editar-lote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const j = await res.json();
+
+            if (j.ok) {
+                // Destruir Select2 antes de cerrar para evitar warnings
+                $('#modalEditarPendientes .ep-select2').each(function () {
+                    if ($(this).data('select2')) $(this).select2('destroy');
+                });
+                bootstrap.Modal.getInstance(document.getElementById('modalEditarPendientes')).hide();
+                limpiarSeleccion();
+                Swal.fire({
+                    toast: true, position: 'top-end', icon: 'success',
+                    title: `${j.actualizados} activo(s) actualizado(s)`,
+                    showConfirmButton: false, timer: 2500
+                });
+                cargarTabla();
+            } else {
+                throw new Error(j.msg || 'Error desconocido');
+            }
+        } catch (e) {
+            Swal.fire('Error', e.message, 'error');
+            $('#btnGuardarEdicionPend').prop('disabled', false)
+                .html('<i class="fa-solid fa-floppy-disk me-1"></i> Guardar cambios');
+        }
+    }
+
 </script>

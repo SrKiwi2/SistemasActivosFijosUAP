@@ -226,7 +226,8 @@ public class OficinaController {
     public ResponseEntity<?> registrar_oficina(
             HttpServletRequest request,
             @Validated @ModelAttribute Oficina oficina,
-            BindingResult br) {
+            BindingResult br,
+            @RequestParam(defaultValue = "false") boolean modoRapido) {
 
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         
@@ -244,10 +245,8 @@ public class OficinaController {
         oficina.setEstado("ACTIVO");
         oficina.setFechaUlt(LocalDate.now());
         oficina.setUsuario(usuarioNombre);
-        oficina.setApiEstado(Short.valueOf("1"));
-        if (usuario != null) {
-            oficina.setRegistroIdUsuario(usuario.getIdUsuario());
-        }
+        oficina.setApiEstado(modoRapido ? Short.valueOf("3") : Short.valueOf("1"));
+        if (usuario != null) oficina.setRegistroIdUsuario(usuario.getIdUsuario());
 
         Predio predioOficina = predioServicio.findById(oficina.getPredio().getIdPredio());
         Long idEntidadOficina = predioOficina.getEntidad().getIdEntidad();
@@ -262,7 +261,7 @@ public class OficinaController {
         
         Short codOfic = oficina.getCodOfi();
         
-        if (codOfic != null) {
+        if (!modoRapido && codOfic != null) {
             if (oficinaDbfWriterService.existsByCodOfic(codOfic, entidadCode, unidadCode)) {
                 return ResponseEntity.badRequest().body(Map.of(
                     "ok", false,
@@ -273,24 +272,31 @@ public class OficinaController {
         
         oficinaService.save(oficina);
         
-        try {
-            oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
-            log.info("Oficina {} registrada en PostgreSQL y DBF", oficina.getIdOficina());
-        } catch (Exception e) {
-            log.error("Error insertando oficina en DBF: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).body(Map.of(
-                "ok", false,
-                "msg", "Se guardó en la base de datos pero falló el registro en DBF: " + e.getMessage()
+        if (!modoRapido) {
+            try {
+                oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
+                log.info("Oficina {} registrada en PostgreSQL y DBF", oficina.getIdOficina());
+            } catch (Exception e) {
+                log.error("Error insertando oficina en DBF: {}", e.getMessage(), e);
+                return ResponseEntity.status(500).body(Map.of(
+                    "ok", false,
+                    "msg", "Se guardó en la base de datos pero falló el registro en DBF: " + e.getMessage()
+                ));
+            }
+            return ResponseEntity.ok(Map.of(
+                "ok", true,
+                "msg", "Se realizó el registro correctamente en PostgreSQL y DBF",
+                "id", oficina.getIdOficina()
             ));
         }
-        
+
+        log.info("Oficina {} registrada en PostgreSQL (pendiente DBF)", oficina.getIdOficina());
         return ResponseEntity.ok(Map.of(
             "ok", true,
-            "msg", "Se realizó el registro correctamente en PostgreSQL y DBF",
+            "msg", "Oficina registrada. Pendiente sincronización con DBF.",
             "id", oficina.getIdOficina()
         ));
     }
-
 
     @ValidarUsuarioAutenticado
     @PostMapping("/modificar-oficina")

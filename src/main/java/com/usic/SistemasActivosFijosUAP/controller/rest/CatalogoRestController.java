@@ -1,6 +1,8 @@
 package com.usic.SistemasActivosFijosUAP.controller.rest;
 
+import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -11,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -19,7 +23,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IMunicipioService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IOrganismoFinancieroService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoConsultaDTO;
@@ -31,7 +38,11 @@ import com.usic.SistemasActivosFijosUAP.model.dto.RespOption;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResponsableDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
+import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api")
@@ -43,14 +54,28 @@ public class CatalogoRestController {
     private final IAuxiliarService auxiliarService;
     private final IGrupoContableService grupoContableService;
     private final IPredioServicio predioServicio;
+    private final IPersonaService personaService;
+    private final IMunicipioService municipioService;
+    private final IOrganismoFinancieroService organismoFinancieroService;
 
-    public CatalogoRestController(IResponsableService responsableService, IOficinaService oficinaService, IActivoService activoService, IAuxiliarService auxiliarService, IGrupoContableService grupoContableService, IPredioServicio predioServicio) {
+    public CatalogoRestController(IResponsableService responsableService, 
+        IOficinaService oficinaService, 
+        IActivoService activoService, 
+        IAuxiliarService auxiliarService, 
+        IGrupoContableService grupoContableService, 
+        IPersonaService personaService,
+        IPredioServicio predioServicio,
+        IMunicipioService municipioService,
+        IOrganismoFinancieroService organismoFinancieroService) {
         this.responsableService = responsableService;
         this.oficinaService = oficinaService;
         this.activoService = activoService;
+        this.personaService = personaService;
         this.auxiliarService = auxiliarService;
         this.grupoContableService = grupoContableService;
         this.predioServicio = predioServicio;
+        this.municipioService = municipioService;
+        this.organismoFinancieroService = organismoFinancieroService;
     }
 
     @GetMapping("/responsables")
@@ -72,7 +97,7 @@ public class CatalogoRestController {
                 .stream()
                 .map(o -> {
             OficinaDTO dto = new OficinaDTO(o.getIdOficina(), o.getNombre());
-            dto.setCodigo(o.getCodOfi()); // <-- mapea el código aquí
+            dto.setCodigo(o.getCodOfi());
             return dto;
         })
         .toList();
@@ -148,7 +173,7 @@ public class CatalogoRestController {
 
     @GetMapping("/{id}/meta")
     public ResponseEntity<GrupoMetaDTO> meta(@PathVariable Long id) {
-        GrupoContable g = grupoContableService.findById(id); // puede devolver null
+        GrupoContable g = grupoContableService.findById(id);
         if (g == null) {
             return ResponseEntity.notFound().build();
         }
@@ -159,7 +184,6 @@ public class CatalogoRestController {
         ));
     }
 
-    /* Para cargar de mejor manera los responsbales.. */
     @GetMapping("/buscar_responsable")
     public Map<String, Object> search(
             @RequestParam(name = "q", required = false, defaultValue = "") String q,
@@ -173,13 +197,10 @@ public class CatalogoRestController {
         Page<RespOption> result;
 
         if (oficinaId != null && oficinaId > 0) {
-            // MODO SINGLE: Filtrar estrictamente por oficina
             result = responsableService.searchByOficina(oficinaId, q, pageRequest);
         } else if (oficinaId != null && oficinaId == -1) {
-             // Caso especial: Modo Single pero sin oficina seleccionada -> Devolver vacío
              result = Page.empty();
         } else {
-            // MODO BATCH (oficinaId es null): Búsqueda global
             result = responsableService.searchGlobal(q, pageRequest); 
         }
 
@@ -188,6 +209,63 @@ public class CatalogoRestController {
         resp.put("pagination", Map.of("more", result.hasNext()));
         
         return resp;
+    }
+
+    @PostMapping("/api/responsable/registrar-rapido")
+    @ResponseBody
+    public ResponseEntity<?> registrarRapido(
+            @RequestBody Map<String, String> body,
+            HttpServletRequest request) {
+
+        try {
+            Long idOficina = Long.valueOf(body.get("idOficina"));
+            Oficina oficina = oficinaService.findById(idOficina);
+            if (oficina == null) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg", "Oficina no encontrada"));
+            }
+
+            String ci = body.get("ci");
+            Persona persona = personaService.findByCi(ci)
+            .orElseGet(() -> {
+                Persona p = new Persona();
+                p.setNombre(body.get("nombre"));
+                p.setPaterno(body.get("paterno"));
+                p.setMaterno(body.getOrDefault("materno", null));
+                p.setCi(ci);
+                return personaService.save(p);
+            });
+
+            boolean yaExiste = responsableService
+                .existsByOficinaIdOficinaAndPersonaIdPersona(idOficina, persona.getIdPersona());
+            if (yaExiste) {
+                return ResponseEntity.badRequest().body(
+                    Map.of("ok", false, "msg", "Ya existe un responsable con ese CI en esta oficina."));
+            }
+
+            Responsable resp = new Responsable();
+            resp.setPersona(persona);
+            resp.setOficina(oficina);
+            resp.setCodigoFuncionario(body.getOrDefault("codigoFuncionario", null));
+            resp.setApiEstado(Short.valueOf("1"));
+            resp.setFechaUlt(LocalDate.now());
+
+            Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+            resp.setUsuario(usuario != null ? usuario.getUsuario() : "SISTEMA");
+
+            responsableService.save(resp);
+
+            return ResponseEntity.ok(Map.of(
+                "ok", true,
+                "idResponsable", resp.getIdResponsable(),
+                "nombreCompleto", persona.getNombreCompleto(),
+                "msg", "Responsable registrado correctamente"
+            ));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                .body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
     }
 
     @GetMapping("/buscar_auxiliar")
@@ -203,13 +281,10 @@ public class CatalogoRestController {
         Page<AuxOption> result = auxiliarService.searchByGrupo(grupoId, predioId, q, PageRequest.of(pageIndex, pageSize));
 
         Map<String, Object> resp = new HashMap<>();
-        resp.put("results", result.getContent());                // [{id, text}]
+        resp.put("results", result.getContent());
         resp.put("pagination", Map.of("more", result.hasNext()));
         return resp;
     }
-
-    //* NUEVA MODALIDAD DE VISTA DE REGISTRO DE ACTIVOS */
-
 
     @GetMapping("/buscar_predios")
     public List<Map<String, ?>> buscarPredios(@RequestParam Long municipioId) {
@@ -217,7 +292,7 @@ public class CatalogoRestController {
             .map(p -> Map.of(
                 "id", p.getIdPredio(),
                 "descrip", p.getDescrip() + " (" + p.getUnidad() + ")",
-                "codigo", p.getUnidad()
+                "codigo", p.getCodigo()
             ))
             .collect(Collectors.toList());
     }
@@ -244,12 +319,64 @@ public class CatalogoRestController {
     }
 
     @GetMapping("/buscar_auxiliar_lista")
-    public List<Map<String, ?>> buscarAuxiliares(@RequestParam Long grupoId) {
-        return auxiliarService.findByGrupoContableIdGrupoContable(grupoId).stream()
+    public List<Map<String, ?>> buscarAuxiliares(@RequestParam Long grupoId , @RequestParam Long predioId) {
+        return auxiliarService.findByPredioIdPredioAndGrupoContableIdGrupoContable(predioId, grupoId).stream()
             .map(a -> Map.of(
                 "id", a.getIdAuxiliar(),
                 "text", a.getNombre()
             ))
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Municipios — para el primer select en cascada del modal de edición.
+     * GET /api/municipios/listar
+     */
+    @GetMapping("/municipios/listar")
+    public List<Map<String, Object>> listarMunicipios() {
+        return municipioService.findAll().stream()
+            .map(m -> {
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("idMunicipio", m.getIdMunicipio());
+                r.put("nombre",      m.getNombre());
+                r.put("codigo",      m.getCodigo());   // usado como data-code en el select
+                return r;
+            })
+            .toList();
+    }
+
+    /**
+     * Grupos contables — para el select de clasificación.
+     * El JS lo llama con fetch('/api/grupos/listar').
+     * GET /api/grupos/listar
+     */
+    @GetMapping("/grupos/listar")
+    public List<Map<String, Object>> listarGrupos() {
+        return grupoContableService.findAll().stream()
+            .map(g -> {
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("idGrupoContable", g.getIdGrupoContable());
+                r.put("nombre",          g.getNombre());
+                r.put("codDbf",          g.getCodDbf());   // usado como data-code para preview código
+                return r;
+            })
+            .toList();
+    }
+
+    /**
+     * Organismos financieros — para el select de financiamiento (opcional).
+     * GET /api/organismos/listar
+     */
+    @GetMapping("/organismos/listar")
+    public List<Map<String, Object>> listarOrganismos() {
+        return organismoFinancieroService.findAll().stream()
+            .map(o -> {
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("idOrganismoFinanciero", o.getIdOrganismoFinanciero());
+                r.put("sigla",                 o.getSigla());
+                r.put("descripcion",           o.getDescripcion());
+                return r;
+            })
+            .toList();
     }
 }
