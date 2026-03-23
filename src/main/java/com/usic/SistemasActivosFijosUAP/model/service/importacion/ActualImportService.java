@@ -17,6 +17,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -362,8 +364,24 @@ public class ActualImportService {
 
                     act.setEstado("ACTIVO");
 
-                    em.persist(act);
-                    res.insertados++;
+                    Optional<Activo> existente = activoService.findByCodigo(codigo);
+
+                    if (existente.isEmpty()) {
+                        // No existe → insertar
+                        em.persist(act);
+                        res.insertados++;
+                    } else {
+                        // Ya existe → actualizar solo si hay cambios
+                        Activo existing = existente.get();
+                        if (hasChanges(existing, act)) {
+                            applyChanges(existing, act);
+                            // em.merge NO es necesario si la entidad ya está en contexto JPA
+                            // pero si usas em.clear() en batches, sí hace falta:
+                            em.merge(existing);
+                            res.actualizados++;
+                        }
+                        // Si no hay cambios: no se hace nada (ni insert ni update)
+                    }
 
                     sinceLastFlush++;
                     if (sinceLastFlush >= batchSize) {
@@ -428,6 +446,77 @@ public class ActualImportService {
 
 
     /* ===== Helpers ===== */
+
+    /**
+     * Detecta si algún campo relevante cambió entre el activo del DBF y el que ya está en BD.
+     * Solo compara campos que pueden ser modificados en VSIAF.
+     */
+    private boolean hasChanges(Activo existing, Activo incoming) {
+        return !Objects.equals(existing.getDescripcion(),       incoming.getDescripcion())
+            || !Objects.equals(existing.getCosto(),             incoming.getCosto())
+            || !Objects.equals(existing.getDepreciacionAcum(),  incoming.getDepreciacionAcum())
+            || !Objects.equals(existing.getVidaUtil(),          incoming.getVidaUtil())
+            || !Objects.equals(existing.getFechaAdquisicion(),  incoming.getFechaAdquisicion())
+            || !Objects.equals(existing.getCodigoSec(),         incoming.getCodigoSec())
+            || !Objects.equals(existing.getCostoAnterior(),     incoming.getCostoAnterior())
+            || !Objects.equals(existing.getVidaUtilAnterior(),  incoming.getVidaUtilAnterior())
+            || !Objects.equals(existing.getFechaAnterior(),     incoming.getFechaAnterior())
+            || !Objects.equals(existing.getRevaluado(),         incoming.getRevaluado())
+            || !Objects.equals(existing.getBandUfv(),           incoming.getBandUfv())
+            || !Objects.equals(existing.getBanderas(),          incoming.getBanderas())
+            || !Objects.equals(existing.getObserv(),            incoming.getObserv())
+            || !Objects.equals(existing.getApiEstado(),         incoming.getApiEstado())
+            || !Objects.equals(existing.getFecMod(),            incoming.getFecMod())
+            // Relaciones (comparar por ID para no cargar objetos completos)
+            || !Objects.equals(
+                existing.getEstadoActivo() == null ? null : existing.getEstadoActivo().getIdEstadoActivo(),
+                incoming.getEstadoActivo() == null ? null : incoming.getEstadoActivo().getIdEstadoActivo())
+            || !Objects.equals(
+                existing.getOficina() == null ? null : existing.getOficina().getIdOficina(),
+                incoming.getOficina() == null ? null : incoming.getOficina().getIdOficina())
+            || !Objects.equals(
+                existing.getResponsable() == null ? null : existing.getResponsable().getIdResponsable(),
+                incoming.getResponsable() == null ? null : incoming.getResponsable().getIdResponsable())
+            || !Objects.equals(
+                existing.getGrupoContable() == null ? null : existing.getGrupoContable().getIdGrupoContable(),
+                incoming.getGrupoContable() == null ? null : incoming.getGrupoContable().getIdGrupoContable());
+    }
+
+    /**
+     * Copia los campos modificables del activo entrante al existente.
+     * NO toca el ID ni campos que no debe modificar la sincronización.
+     */
+    private void applyChanges(Activo existing, Activo incoming) {
+        existing.setDescripcion(incoming.getDescripcion());
+        existing.setNombre(incoming.getNombre());
+        existing.setCosto(incoming.getCosto());
+        existing.setDepreciacionAcum(incoming.getDepreciacionAcum());
+        existing.setVidaUtil(incoming.getVidaUtil());
+        existing.setVidaUtilAnterior(incoming.getVidaUtilAnterior());
+        existing.setFechaAdquisicion(incoming.getFechaAdquisicion());
+        existing.setFechaAnterior(incoming.getFechaAnterior());
+        existing.setCostoAnterior(incoming.getCostoAnterior());
+        existing.setCodigoSec(incoming.getCodigoSec());
+        existing.setRevaluado(incoming.getRevaluado());
+        existing.setBandUfv(incoming.getBandUfv());
+        existing.setBanderas(incoming.getBanderas());
+        existing.setObserv(incoming.getObserv());
+        existing.setOficina(incoming.getOficina());
+        existing.setResponsable(incoming.getResponsable());
+        existing.setGrupoContable(incoming.getGrupoContable());
+        existing.setAuxiliar(incoming.getAuxiliar());
+        existing.setEstadoActivo(incoming.getEstadoActivo());
+        existing.setOrganismoFinanciero(incoming.getOrganismoFinanciero());
+        existing.setOrgFinCode(incoming.getOrgFinCode());
+        existing.setCodRube(incoming.getCodRube());
+        existing.setNroConv(incoming.getNroConv());
+        existing.setFechaUlt(incoming.getFechaUlt());
+        existing.setUsuario(incoming.getUsuario());
+        existing.setApiEstado(incoming.getApiEstado());
+        existing.setFecMod(incoming.getFecMod());
+        existing.setUsuMod(incoming.getUsuMod());
+        // estado del sistema lo dejamos como estaba (no lo pisa el DBF)
+    }
 
     private BigDecimal bdToBigDecimal(BigDecimal bd, String nombreCampo, int fila, ImportResult res) {
         if (bd == null) return null;
