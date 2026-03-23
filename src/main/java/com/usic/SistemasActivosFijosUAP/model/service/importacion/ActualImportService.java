@@ -14,11 +14,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -147,6 +149,12 @@ public class ActualImportService {
                         Map<Integer, GrupoContable> cacheGrupo = new HashMap<>();
                         Map<String, EstadoActivo> cacheEstado = new HashMap<>();
                         Map<String, OrganismoFinanciero> cacheOF = new HashMap<>();
+
+            Set<String> codigosExistentes = new HashSet<>(
+                activoService.findAllCodigos()
+            );
+
+            log.info("IMPORT ACTUAL → códigos existentes en BD: {}", codigosExistentes.size());
 
             while ((r = reader.nextRow()) != null) {
                 try {
@@ -364,23 +372,20 @@ public class ActualImportService {
 
                     act.setEstado("ACTIVO");
 
-                    Optional<Activo> existente = activoService.findByCodigo(codigo);
-
-                    if (existente.isEmpty()) {
-                        // No existe → insertar
+                    if (!codigosExistentes.contains(codigo)) {
+                        // Código nuevo → insertar directamente
                         em.persist(act);
                         res.insertados++;
+
                     } else {
-                        // Ya existe → actualizar solo si hay cambios
-                        Activo existing = existente.get();
-                        if (hasChanges(existing, act)) {
+                        // Código ya existe → fetch puntual y comparar
+                        Activo existing = activoService.findByCodigo(codigo).orElse(null);
+                        if (existing != null && hasChanges(existing, act)) {
                             applyChanges(existing, act);
-                            // em.merge NO es necesario si la entidad ya está en contexto JPA
-                            // pero si usas em.clear() en batches, sí hace falta:
                             em.merge(existing);
                             res.actualizados++;
                         }
-                        // Si no hay cambios: no se hace nada (ni insert ni update)
+                        // Sin cambios → no hace nada
                     }
 
                     sinceLastFlush++;

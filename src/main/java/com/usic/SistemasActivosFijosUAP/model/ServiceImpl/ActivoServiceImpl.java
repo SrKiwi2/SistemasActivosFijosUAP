@@ -171,4 +171,8 @@ public class ActivoServiceImpl implements IActivoService{
         return dao.findAllById(ids);
     }
 
+    @Override
+    public List<String> findAllCodigos() {
+        return dao.findAllCodigos();
+    }
 }

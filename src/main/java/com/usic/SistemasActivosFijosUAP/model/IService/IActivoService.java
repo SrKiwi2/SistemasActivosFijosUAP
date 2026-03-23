@@ -33,4 +33,6 @@ public interface IActivoService extends IServiceGenerico<Activo, Long>{
     void saveAll(List<Activo> batch);
 
     List<Activo> findAllById(List<Long> ids);
+
+    List<String> findAllCodigos();
 }

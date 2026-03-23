@@ -89,4 +89,7 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
        OR a.codigo LIKE CONCAT(:base, '-%')
     """)
     List<String> findCodigosByBase(@Param("base") String base);
+
+    @Query("SELECT a.codigo FROM Activo a")
+    List<String> findAllCodigos();
 }
