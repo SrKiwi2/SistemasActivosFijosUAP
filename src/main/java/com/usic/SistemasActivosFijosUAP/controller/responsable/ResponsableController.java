@@ -211,7 +211,7 @@ public class ResponsableController {
             @RequestParam(required = false) String paterno,
             @RequestParam(required = false) String materno,
             @RequestParam(required = false) String correo,
-            @RequestParam(required = false) String cargoApi,
+            @RequestParam(required = false) String cargoNombre,
             @RequestParam(defaultValue = "false") boolean modoRapido) {
 
         log.info("=== INICIANDO REGISTRO DE RESPONSABLE ===");
@@ -350,11 +350,11 @@ public class ResponsableController {
             responsable.setPersona(persona);
             responsable.setOficina(oficina);
 
-            if (cargoApi != null && !cargoApi.trim().isEmpty()) {
-                Cargo cargoEncontrado = cargoService.buscarPorNombre(cargoApi.trim());
+            if (cargoNombre != null && !cargoNombre.trim().isEmpty()) {
+                Cargo cargoEncontrado = cargoService.buscarPorNombre(cargoNombre.trim());
                 if (cargoEncontrado == null) {
                     Cargo nuevoCargo = new Cargo();
-                    nuevoCargo.setNombre(cargoApi.trim().toUpperCase());
+                    nuevoCargo.setNombre(cargoNombre.trim().toUpperCase());
                     nuevoCargo.setDescripcion("Cargo proporcionado de la API");
                     nuevoCargo.setEstado("ACTIVO");
                     nuevoCargo.setRegistro(new Date());

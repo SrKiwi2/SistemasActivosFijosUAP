@@ -398,7 +398,7 @@
                 allowClear: true,
                 language: { noResults: () => 'Sin resultados', searching: () => 'Buscando…' },
                 ajax: {
-                    url: '/administracion/responsable/api/cargos/search',
+                    url: '/api/cargos/search',
                     dataType: 'json',
                     delay: 250,
                     data: params => ({ q: params.term }),

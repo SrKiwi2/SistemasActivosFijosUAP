@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
+import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IMunicipioService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
@@ -36,6 +37,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.GrupoMetaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.OficinaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.RespOption;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResponsableDTO;
+import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
@@ -57,6 +59,7 @@ public class CatalogoRestController {
     private final IPersonaService personaService;
     private final IMunicipioService municipioService;
     private final IOrganismoFinancieroService organismoFinancieroService;
+    private final ICargoService cargoService;
 
     public CatalogoRestController(IResponsableService responsableService, 
         IOficinaService oficinaService, 
@@ -66,7 +69,8 @@ public class CatalogoRestController {
         IPersonaService personaService,
         IPredioServicio predioServicio,
         IMunicipioService municipioService,
-        IOrganismoFinancieroService organismoFinancieroService) {
+        IOrganismoFinancieroService organismoFinancieroService,
+        ICargoService cargoService) {
         this.responsableService = responsableService;
         this.oficinaService = oficinaService;
         this.activoService = activoService;
@@ -76,6 +80,7 @@ public class CatalogoRestController {
         this.predioServicio = predioServicio;
         this.municipioService = municipioService;
         this.organismoFinancieroService = organismoFinancieroService;
+        this.cargoService = cargoService;
     }
 
     @GetMapping("/responsables")
@@ -378,5 +383,19 @@ public class CatalogoRestController {
                 return r;
             })
             .toList();
+    }
+
+    @GetMapping("/cargos/search")
+    @ResponseBody
+    public List<Map<String, String>> buscarCargos(@RequestParam(required = false) String q) {
+
+        List<Cargo> cargos = (q == null || q.isBlank()) 
+            ? cargoService.findAll() 
+            : cargoService.buscarPorNombreLike("%" + q.toUpperCase() + "%");
+            
+        return cargos.stream()
+            .limit(20)
+            .map(c -> Map.of("nombre", c.getNombre()))
+            .collect(Collectors.toList());
     }
 }

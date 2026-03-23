@@ -1579,6 +1579,49 @@
                                     <label class="form-label">Materno</label>
                                     <input id="swal-resp-materno" class="form-control" placeholder="(Opcional)">
                                 </div>
+                                <!-- CARGO — añadir después de la fila col-6 materno -->
+                                <div class="col-12 mb-2">
+                                    <label class="form-label">
+                                        Cargo <span class="text-danger">*</span>
+                                    </label>
+                                    <div style="display:flex; gap:0.4rem; align-items:center;">
+                                        <!-- Select vacío — Select2 lo poblará vía ajax -->
+                                        <select id="swal-resp-cargo" style="width:100%;">
+                                            <option value=""></option>
+                                        </select>
+                                        <button type="button"
+                                                id="swal-btn-nuevo-cargo"
+                                                title="Escribir cargo nuevo"
+                                                style="
+                                                    flex-shrink:0;
+                                                    width:2.1rem; height:2.1rem;
+                                                    border:1.5px solid #e2e8f0;
+                                                    border-radius:0.5rem;
+                                                    background:white; cursor:pointer;
+                                                    display:flex; align-items:center; justify-content:center;
+                                                    font-size:0.85rem; color:#1a56db;
+                                                    transition:all 0.15s;">
+                                            <i class="fa-solid fa-plus"></i>
+                                        </button>
+                                    </div>
+                                    <!-- Campo inline para cargo nuevo — oculto por defecto -->
+                                    <div id="swal-cargo-nuevo-wrap"
+                                        style="display:none; margin-top:0.4rem; gap:0.4rem; align-items:center;">
+                                        <input id="swal-cargo-nuevo-txt"
+                                            class="form-control"
+                                            placeholder="Nombre del nuevo cargo..."
+                                            style="flex:1;">
+                                        <button type="button"
+                                                id="swal-btn-cancelar-cargo"
+                                                style="
+                                                    flex-shrink:0; font-size:0.72rem;
+                                                    padding:0.2rem 0.5rem;
+                                                    border:1px solid #e2e8f0; border-radius:0.4rem;
+                                                    background:white; cursor:pointer; color:#64748b;">
+                                            ✕ cancelar
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>`,
                     showCancelButton: true,
@@ -1601,6 +1644,63 @@
                                 }
                             } catch (e) { /* silencioso */ }
                         });
+
+                        function initCargoSelect2() {
+                            $('#swal-resp-cargo').select2({
+                                theme: 'bootstrap-5',
+                                width: '100%',
+                                placeholder: 'Buscar cargo...',
+                                allowClear: true,
+                                minimumInputLength: 0,
+                                dropdownParent: $(Swal.getPopup()),   // ← clave: queda dentro del modal
+                                language: {
+                                    searching:  () => 'Buscando...',
+                                    noResults:  () => 'Sin resultados',
+                                    inputTooShort: () => 'Escriba para buscar'
+                                },
+                                ajax: {
+                                    url: '/api/cargos/search',
+                                    dataType: 'json',
+                                    delay: 250,
+                                    data: function (params) {
+                                        return { q: params.term || '' };   // envía el texto al endpoint
+                                    },
+                                    processResults: function (data) {
+                                        // data = [{nombre:"..."}, ...]  →  [{id:"...", text:"..."}]
+                                        return {
+                                            results: data.map(c => ({ id: c.nombre, text: c.nombre }))
+                                        };
+                                    },
+                                    cache: true
+                                }
+                            });
+                        }
+
+                        initCargoSelect2();
+
+                        // ── Botón "+" → muestra campo inline ────────────────────────
+                        document.getElementById('swal-btn-nuevo-cargo').addEventListener('click', function () {
+                            // Destruir Select2 para que no interfiera
+                            if ($('#swal-resp-cargo').data('select2')) {
+                                $('#swal-resp-cargo').select2('destroy');
+                            }
+                            $('#swal-resp-cargo').val('').hide();   // ocultar el <select>
+
+                            const wrap = document.getElementById('swal-cargo-nuevo-wrap');
+                            wrap.style.display = 'flex';
+                            this.style.display = 'none';
+                            document.getElementById('swal-cargo-nuevo-txt').focus();
+                        });
+
+                        // ── Cancelar cargo nuevo → vuelve al select ──────────────────
+                        document.getElementById('swal-btn-cancelar-cargo').addEventListener('click', function () {
+                            document.getElementById('swal-cargo-nuevo-wrap').style.display = 'none';
+                            document.getElementById('swal-cargo-nuevo-txt').value = '';
+                            document.getElementById('swal-btn-nuevo-cargo').style.display = 'flex';
+
+                            $('#swal-resp-cargo').show();   // volver a mostrar el <select>
+                            initCargoSelect2();             // re-inicializar Select2
+                        });
                     },
                     preConfirm: () => {
                         const ci = document.getElementById('swal-resp-ci').value.trim();
@@ -1608,15 +1708,23 @@
                         const paterno = document.getElementById('swal-resp-paterno').value.trim();
                         const codFunc = document.getElementById('swal-resp-codfunc').value.trim();
 
+                        const cargoWrapVisible =
+                            document.getElementById('swal-cargo-nuevo-wrap').style.display !== 'none';
+                        const cargo = cargoWrapVisible
+                            ? document.getElementById('swal-cargo-nuevo-txt').value.trim()
+                            : ($('#swal-resp-cargo').val() || '');
+
                         if (!ci) { Swal.showValidationMessage('El CI es obligatorio'); return false; }
                         if (!nombre) { Swal.showValidationMessage('El nombre es obligatorio'); return false; }
                         if (!paterno) { Swal.showValidationMessage('El paterno es obligatorio'); return false; }
                         if (!codFunc) { Swal.showValidationMessage('El código de funcionario es obligatorio'); return false; }
+                        if (!cargo)   { Swal.showValidationMessage('Seleccione o escriba un cargo');         return false; }
 
                         return {
                             ci, nombre, paterno,
                             materno: document.getElementById('swal-resp-materno').value.trim(),
                             codigoFuncionario: codFunc,
+                            cargoNombre:       cargo,
                             idOficina: ofiId
                         };
                     }
@@ -1633,6 +1741,7 @@
                     fd.append('materno', formValues.materno || '');
                     fd.append('codigoFuncionario', formValues.codigoFuncionario);
                     fd.append('idOficina', formValues.idOficina);
+                    fd.append('cargoNombre', formValues.cargoNombre);
                     fd.append('modoRapido', 'true');  // ✅ salta sincronización DBF
 
                     const r = await fetch('/administracion/responsable/registrar-responsable', {
