@@ -1,29 +1,216 @@
-<div class="modal-header bg-primary text-white">
-    <h5 class="modal-title text-white">
-        <i class="fa-solid fa-user-plus me-2"></i>
-        <span th:text="${responsable.idResponsable != null ? 'Editar Responsable' : 'Nuevo Responsable'}"></span>
-    </h5>
-    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+<!-- ═══════════════════════════════════════════════════════
+     FRAGMENTO: formulario_responsable.html
+     Cambios clave:
+       1. Select2 inicializado con setTimeout(100) → fix del "selecciona al abrir"
+       2. Rediseño: layout 2-columnas limpio, jerarquía clara
+       3. Secciones con línea lateral de color para distinguirlas visualmente
+       4. Búsqueda de persona con feedback mejorado
+     ═══════════════════════════════════════════════════════ -->
+
+<style>
+    /* ── Secciones del formulario ─────────────────────── */
+    .frm-section {
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+
+    .frm-section-header {
+        padding: 0.65rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .frm-section-body {
+        padding: 1rem 1rem 0.75rem;
+    }
+
+    .frm-section-header.sh-blue {
+        background: rgba(26, 86, 160, 0.06);
+        color: #1a56a0;
+        border-bottom: 1px solid rgba(26, 86, 160, 0.12);
+    }
+
+    .frm-section-header.sh-green {
+        background: rgba(25, 135, 84, 0.06);
+        color: #157347;
+        border-bottom: 1px solid rgba(25, 135, 84, 0.12);
+    }
+
+    .frm-section-header.sh-purple {
+        background: rgba(105, 108, 255, 0.06);
+        color: #696cff;
+        border-bottom: 1px solid rgba(105, 108, 255, 0.12);
+    }
+
+    /* ── Etiquetas ────────────────────────────────────── */
+    .frm-label {
+        font-size: 0.73rem;
+        font-weight: 700;
+        color: #566a7f;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        margin-bottom: 0.3rem;
+        display: block;
+    }
+
+    /* ── Campo readonly (persona encontrada) ──────────── */
+    .input-persona[readonly] {
+        background: #f8f9fa;
+        color: #8592a3;
+        cursor: not-allowed;
+    }
+
+    /* ── Estado búsqueda persona ──────────────────────── */
+    .persona-status {
+        font-size: 0.78rem;
+        border-radius: 7px;
+        padding: 0.45rem 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        animation: fadeIn .2s ease;
+    }
+
+    .persona-status.found {
+        background: #d1fae5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+    }
+
+    .persona-status.notfound {
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fde68a;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(3px);
+        }
+
+        to {
+            opacity: 1;
+            transform: none;
+        }
+    }
+
+    /* ── Select2 dentro del modal — solución definitiva ── */
+
+    /* Permite que el dropdown desborde el modal visualmente */
+    #modalFormularioResponsable .modal-content,
+    #modalFormularioResponsable .modal-body,
+    #modalFormularioResponsable .modal-dialog {
+        overflow: visible !important;
+    }
+
+    /* El modal-header y modal-footer NO deben ser visible o se rompe el diseño */
+    #modalFormularioResponsable .modal-header,
+    #modalFormularioResponsable .modal-footer {
+        overflow: hidden;
+    }
+
+    /* Select2 dentro del modal */
+    #modalFormularioResponsable .select2-container {
+        width: 100% !important;
+    }
+
+    #modalFormularioResponsable .select2-selection--single {
+        height: 36px !important;
+        border-radius: 0.375rem !important;
+        border-color: #d9dee3 !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+
+    #modalFormularioResponsable .select2-selection__rendered {
+        line-height: 34px !important;
+        font-size: 0.855rem !important;
+        padding-left: 10px !important;
+    }
+
+    #modalFormularioResponsable .select2-selection__arrow {
+        height: 34px !important;
+    }
+
+    #modalFormularioResponsable .select2-results__option {
+        padding: 0.45rem 0.75rem;
+        font-size: 0.845rem;
+    }
+
+    #modalFormularioResponsable .select2-search__field {
+        border-radius: 5px !important;
+    }
+
+    /* Z-index: encima del modal backdrop (1050) pero sin irse a body */
+    #modalFormularioResponsable .select2-dropdown {
+        z-index: 1060 !important;
+        font-size: 0.845rem;
+    }
+
+    /* Fuerza apertura hacia abajo siempre */
+    #modalFormularioResponsable .select2-container--open .select2-dropdown--above {
+        top: calc(100% + 2px) !important;
+        bottom: auto !important;
+        border-radius: 0 0 6px 6px !important;
+        border-top: 1px solid #d9dee3;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+</style>
+
+<!-- ── Header ─────────────────────────────────────────── -->
+<div class="modal-header border-0 py-3 px-4" style="background:linear-gradient(90deg,rgba(26,86,160,0.07) 0%,transparent 100%);
+            border-bottom:2px solid #1a56a0 !important;">
+    <div class="d-flex align-items-center gap-2">
+        <div style="width:34px;height:34px;background:rgba(26,86,160,0.12);
+                    border-radius:8px;display:flex;align-items:center;justify-content:center;
+                    color:#1a56a0;font-size:1rem;flex-shrink:0;">
+            <i class="fa-solid fa-user-tie"></i>
+        </div>
+        <div>
+            <h6 class="modal-title fw-bold mb-0" style="color:#1a56a0;" id="modalTitle">
+                <span th:text="${responsable.idResponsable != null ? 'Editar Responsable' : 'Nuevo Responsable'}">
+                    Responsable
+                </span>
+            </h6>
+            <small class="text-muted" style="font-size:0.7rem;">
+                Complete los datos del funcionario y su asignación institucional
+            </small>
+        </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
 
-<div class="modal-body bg-light">
+<!-- ── Body ───────────────────────────────────────────── -->
+<div class="modal-body px-4 pt-3 pb-2" style="background:#f8f9fb;">
     <form id="formResponsable" autocomplete="off">
         <input type="hidden" name="idResponsable" th:value="${responsable.idResponsable}">
-        
-        <div class="card shadow-sm mb-3">
-            <div class="card-body">
-                <h6 class="card-title text-primary border-bottom pb-2">
-                    <i class="fa-solid fa-id-card me-1"></i> Datos Personales
-                </h6>
-                
+
+        <!-- SECCIÓN 1: Identificación -->
+        <div class="frm-section">
+            <div class="frm-section-header sh-blue">
+                <i class="fa-solid fa-id-card"></i> Identificación de la Persona
+            </div>
+            <div class="frm-section-body">
                 <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold">C.I. / Documento <span class="text-danger">*</span></label>
-                        <div class="input-group input-group-sm">
-                            <input type="text" class="form-control" id="txtCi" name="ci" 
-                                   th:value="${responsable.persona?.ci}" placeholder="Número de Carnet" required>
-                            
-                            <select class="form-select" name="codExp" style="max-width: 100px;" required>
+
+                    <!-- CI + expedición + botón buscar -->
+                    <div class="col-12">
+                        <label class="frm-label">
+                            C.I. / Documento <span class="text-danger">*</span>
+                        </label>
+                        <div class="d-flex gap-2 align-items-start">
+                            <input type="text" class="form-control form-control-sm" id="txtCi" name="ci"
+                                th:value="${responsable.persona?.ci}" placeholder="Número de carnet"
+                                style="max-width:180px;" required>
+                            <select class="form-select form-select-sm" name="codExp" style="max-width:110px;" required>
                                 <option value="1" th:selected="${responsable.codExp == 1}">CHQ (1)</option>
                                 <option value="2" th:selected="${responsable.codExp == 2}">LPZ (2)</option>
                                 <option value="3" th:selected="${responsable.codExp == 3}">CBB (3)</option>
@@ -34,317 +221,398 @@
                                 <option value="8" th:selected="${responsable.codExp == 8}">BEN (8)</option>
                                 <option value="9" th:selected="${responsable.codExp == 9}">PAN (9)</option>
                             </select>
-
-                            <button class="btn btn-outline-primary" type="button" id="btnBuscarPersona" title="Buscar">
-                                <i class="fa-solid fa-search"></i>
+                            <button class="btn btn-primary btn-sm px-3 flex-shrink-0" type="button"
+                                id="btnBuscarPersona">
+                                <i class="fa-solid fa-magnifying-glass me-1"></i> Buscar
                             </button>
                         </div>
-                    </div>
-                    
-                    <div class="col-md-8">
-                        <div class="alert alert-secondary py-1 px-2 mb-0 mt-4 d-none" id="msgPersona" style="font-size: 0.85rem;">
-                            </div>
+                        <!-- Status de búsqueda -->
+                        <div id="personaStatus" class="mt-2 d-none"></div>
                     </div>
 
+                    <!-- Nombres -->
                     <div class="col-md-4">
-                        <label class="form-label small">Nombres <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm input-persona" id="txtNombre" name="nombre" th:value="${responsable.persona?.nombre}" readonly required>
+                        <label class="frm-label">Nombres <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm input-persona" id="txtNombre"
+                            name="nombre" th:value="${responsable.persona?.nombre}" placeholder="Nombres" readonly
+                            required>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label small">Paterno <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm input-persona" id="txtPaterno" name="paterno" th:value="${responsable.persona?.paterno}" readonly required>
+                        <label class="frm-label">Ap. Paterno <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm input-persona" id="txtPaterno"
+                            name="paterno" th:value="${responsable.persona?.paterno}" placeholder="Apellido paterno"
+                            readonly required>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label small">Materno</label>
-                        <input type="text" class="form-control form-control-sm input-persona" id="txtMaterno" name="materno" th:value="${responsable.persona?.materno}" readonly>
+                        <label class="frm-label">Ap. Materno</label>
+                        <input type="text" class="form-control form-control-sm input-persona" id="txtMaterno"
+                            name="materno" th:value="${responsable.persona?.materno}" placeholder="Apellido materno"
+                            readonly>
                     </div>
-                    <div class="col-md-12">
-                        <label class="form-label small">Correo Electrónico</label>
-                        <input type="email" class="form-control form-control-sm input-persona" name="correo" 
-                               th:value="${responsable.persona?.correo}" readonly placeholder="Opcional">
+
+                    <!-- Correo -->
+                    <div class="col-md-8">
+                        <label class="frm-label">Correo Electrónico</label>
+                        <input type="email" class="form-control form-control-sm input-persona" name="correo"
+                            th:value="${responsable.persona?.correo}" placeholder="opcional@correo.com" readonly>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h6 class="card-title text-success border-bottom pb-2">
-                    <i class="fa-solid fa-building-user me-1"></i> Asignación Institucional
-                </h6>
-
+        <!-- SECCIÓN 2: Asignación Institucional -->
+        <div class="frm-section">
+            <div class="frm-section-header sh-green">
+                <i class="fa-solid fa-building-user"></i> Asignación Institucional
+            </div>
+            <div class="frm-section-body">
                 <div class="row g-3">
-                    
+
+                    <!-- Oficina -->
                     <div class="col-12">
-                        <label class="form-label small fw-bold">Oficina <span class="text-danger">*</span></label>
-                        <div class="d-flex"> <div class="flex-grow-1">
-                                <select class="form-select" id="selectOficinaForm" name="idOficina" required style="width: 100%;">
-                                    <option value="">Buscar oficina...</option>
-                                    <option th:each="of : ${oficinas}" 
-                                            th:value="${of.idOficina}" 
-                                            th:text="${of.predio.unidad + ' - ' + of.codOfi + ' | ' + of.nombre}"
-                                            th:selected="${responsable.oficina?.idOficina == of.idOficina}">
-                                    </option>
-                                </select>
-                            </div>
-                            <button class="btn btn-success ms-1" type="button" id="btnNuevaOficina" title="Nueva Oficina" style="height: 38px;"> <i class="fa-solid fa-plus"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold">Cod. Funcionario <span class="text-danger">*</span></label>
-                        <div class="input-group input-group-sm">
-                            <input type="text" class="form-control" id="txtCodFun" name="codigoFuncionario" 
-                                   th:value="${responsable.codigoFuncionario}" required placeholder="Correlativo">
-                            <button class="btn btn-outline-secondary" type="button" id="btnSugerir" title="Autogenerar siguiente">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="col-md-8">
-                        <label class="form-label small">Código API (Opcional)</label>
-                        <input type="text" class="form-control form-control-sm" name="codigoApi" 
-                               th:value="${responsable.codigoApi}" placeholder="Código externo si aplica">
-                    </div>
-
-                    <div class="col-md-12">
-                        <label class="form-label small fw-bold">Cargo <span class="text-danger">*</span></label>
-                        <div class="d-flex">
+                        <label class="frm-label">Oficina <span class="text-danger">*</span></label>
+                        <div class="d-flex gap-1">
                             <div class="flex-grow-1">
-                                <select class="form-select" id="selectCargo" name="cargoApi" required style="width: 100%;">
-                                    <option value="">Seleccione o cree uno...</option>
-                                    <option th:if="${responsable.cargo != null}" 
-                                            th:value="${responsable.cargo.nombre}" 
-                                            th:text="${responsable.cargo.nombre}" selected>
+                                <select id="selectOficinaForm" name="idOficina" required>
+                                    <option value="">Buscar oficina…</option>
+                                    <option th:each="of : ${oficinas}" th:value="${of.idOficina}"
+                                        th:text="${of.predio.unidad + ' — ' + of.codOfi + ' | ' + of.nombre}"
+                                        th:selected="${responsable.oficina?.idOficina == of.idOficina}">
                                     </option>
                                 </select>
                             </div>
-                            <button class="btn btn-info text-white ms-1" type="button" id="btnNuevoCargo" title="Nuevo Cargo" style="height: 38px;">
+                            <button class="btn btn-success btn-sm flex-shrink-0" type="button" id="btnNuevaOficina"
+                                title="Registrar nueva oficina"
+                                style="height:36px;width:36px;padding:0;display:flex;align-items:center;justify-content:center;">
                                 <i class="fa-solid fa-plus"></i>
                             </button>
                         </div>
                     </div>
+
+                    <!-- Cargo -->
+                    <div class="col-12">
+                        <label class="frm-label">Cargo <span class="text-danger">*</span></label>
+                        <div class="d-flex gap-1">
+                            <div class="flex-grow-1">
+                                <select id="selectCargo" name="cargoApi" required>
+                                    <option value="">Seleccione o escriba un cargo…</option>
+                                    <option th:if="${responsable.cargo != null}" th:value="${responsable.cargo.nombre}"
+                                        th:text="${responsable.cargo.nombre}" selected>
+                                    </option>
+                                </select>
+                            </div>
+                            <button class="btn btn-info text-white btn-sm flex-shrink-0" type="button"
+                                id="btnNuevoCargo" title="Agregar cargo nuevo"
+                                style="height:36px;white-space:nowrap;padding:0 10px;">
+                                <i class="fa-solid fa-plus me-1"></i> Nuevo
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Código funcionario -->
+                    <div class="col-md-5">
+                        <label class="frm-label">
+                            Cód. Funcionario <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control" id="txtCodFun" name="codigoFuncionario"
+                                th:value="${responsable.codigoFuncionario}" placeholder="Correlativo" required>
+                            <button class="btn btn-outline-secondary" type="button" id="btnSugerir"
+                                title="Autogenerar siguiente código">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted" style="font-size:0.7rem;">
+                            Número correlativo dentro de la oficina
+                        </small>
+                    </div>
+
+                    <!-- Código API -->
+                    <div class="col-md-7">
+                        <label class="frm-label">Código API <span class="text-muted fw-normal">(opcional)</span></label>
+                        <input type="text" class="form-control form-control-sm" name="codigoApi"
+                            th:value="${responsable.codigoApi}" placeholder="Código externo si aplica">
+                    </div>
+
                 </div>
             </div>
         </div>
-    </form>
-</div>
 
-<div class="modal-footer bg-light">
-    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-    <button type="button" class="btn btn-primary px-4" id="btnGuardar">
-        <i class="fa-solid fa-check me-1"></i> Guardar
+    </form>
+</div><!-- /modal-body -->
+
+<!-- ── Footer ─────────────────────────────────────────── -->
+<div class="modal-footer border-0 bg-light py-2 px-4">
+    <small class="text-muted me-auto" style="font-size:0.72rem;">
+        <i class="fa-solid fa-circle-info me-1"></i>
+        Los campos marcados con <span class="text-danger">*</span> son obligatorios
+    </small>
+    <button type="button" class="btn btn-outline-secondary btn-sm px-4" data-bs-dismiss="modal">Cancelar</button>
+    <button type="button" class="btn btn-primary btn-sm px-4 fw-bold" id="btnGuardar">
+        <i class="fa-solid fa-floppy-disk me-1"></i> Guardar
     </button>
 </div>
 
 <script>
-$(document).ready(function() {
+    /* ── Formulario de responsable ─────────────────────────
+       Select2 se inicializa con setTimeout(100) para evitar
+       que el evento de apertura del modal sea captado como
+       una selección inmediata (bug Bootstrap5 + Select2).
+       ────────────────────────────────────────────────────── */
+    (function () {
 
-    let idResp = $('input[name="idResponsable"]').val();
+        const $modal = $('#modalFormularioResponsable');
+        const esEdicion = !!(+$('input[name="idResponsable"]').val());
 
-    if (idResp && idResp !== "") {
-        // Estamos en MODO EDICIÓN
-        console.log("Modo Edición detectado: Habilitando campos de persona.");
-        $('.input-persona').prop('readonly', false).css('background-color', '#fff');
-        
-        // Opcional: Si también quieres permitir corregir el CI
-        $('#txtCi').prop('readonly', false); 
-    } else {
-        // Estamos en MODO NUEVO (Mantenemos gris por defecto)
-        $('.input-persona').prop('readonly', true).css('background-color', '#e9ecef');
-    }
-    
-    // 1. SELECT2 para OFICINA
-    $('#selectOficinaForm').select2({
-        theme: 'bootstrap-5',
-        dropdownParent: $('#modalFormularioResponsable'), // Importante para que funcione en modal
-        width: '100%',
-        placeholder: 'Buscar oficina...'
-    });
-
-    // 2. SELECT2 para CARGO (Con AJAX y Tags)
-    $('#selectCargo').select2({
-        theme: 'bootstrap-5',
-        dropdownParent: $('#modalFormularioResponsable'),
-        width: '100%',
-        tags: true, // Permite escribir texto nuevo
-        placeholder: 'Busque o escriba un cargo nuevo...',
-        ajax: {
-            url: '/administracion/responsable/api/cargos/search',
-            dataType: 'json',
-            delay: 250,
-            data: function (params) {
-                return { q: params.term };
-            },
-            processResults: function (data) {
-                return {
-                    results: data.map(function(c) {
-                        return { id: c.nombre, text: c.nombre };
-                    })
-                };
-            },
-            cache: true
+        /* ── Modo edición: habilitar campos persona ──────── */
+        if (esEdicion) {
+            $('.input-persona').prop('readonly', false).css('background-color', '#fff');
+            $('#txtCi').prop('readonly', false);
         }
-    });
 
-    
+        setTimeout(function () {
 
-    // 3. BUSCADOR DE PERSONA
-    $('#btnBuscarPersona').click(function() {
-        let ci = $('#txtCi').val();
-        if(!ci) return Swal.fire('Error', 'Ingrese un CI', 'error');
+            // ── NO se necesita el handler focusin ──────────────────
+            // Con dropdownParent: $modal el dropdown está dentro del 
+            // modal → Bootstrap no roba el foco → se puede escribir.
+            // Limpiamos cualquier handler anterior por si quedó uno.
+            $(document).off('focusin.select2ModalFix');
 
-        $('#btnBuscarPersona').html('<i class="fa-solid fa-spinner fa-spin"></i>');
-
-        $.ajax({
-            url: '/administracion/responsable/api/personas/buscar-por-ci',
-            data: { ci: ci },
-            success: function(p) {
-                // Encontrado -> Bloquear campos
-                $('#txtNombre').val(p.nombre).prop('readonly', true).css('background-color', '#e9ecef');
-                $('#txtPaterno').val(p.paterno).prop('readonly', true).css('background-color', '#e9ecef');
-                $('#txtMaterno').val(p.materno).prop('readonly', true).css('background-color', '#e9ecef');
-                
-                $('#msgPersona').removeClass('d-none alert-warning').addClass('alert-success')
-                    .html('<i class="fa-solid fa-check-circle"></i> Persona encontrada en el sistema.');
-            },
-            error: function() {
-                // No encontrado -> Desbloquear para registro
-                $('.input-persona').val('').prop('readonly', false).css('background-color', '#fff');
-                $('#txtNombre').focus();
-                
-                $('#msgPersona').removeClass('d-none alert-success').addClass('alert-warning')
-                    .html('<i class="fa-solid fa-pen"></i> Persona nueva. Ingrese los datos manualmente.');
-            },
-            complete: function() {
-                $('#btnBuscarPersona').html('<i class="fa-solid fa-search"></i>');
-                $('#msgPersona').removeClass('d-none');
-            }
-        });
-    });
-
-    // 4. NUEVA OFICINA (Llamada al otro modal)
-    $('#btnNuevaOficina').click(function() {
-        // Ocultar este modal
-        $('#modalFormularioResponsable').modal('hide');
-        
-        // Llamar a cargarFormulario de oficina (asegúrate de tener esta función global)
-        if(typeof cargarFormularioOficinaAlert === 'function') {
-             // Si tienes un helper global
-             cargarFormularioOficinaAlert(); 
-        } else {
-             // Carga manual
-             $('#prediocontenidoModalOficina').load('/administracion/oficina/formulario', function() {
-                 $('#modalFormularioOficina').modal('show');
-             });
-        }
-        
-        // Cuando se cierre el modal de oficina, reabrir este y recargar select
-        $('#modalFormularioOficina').one('hidden.bs.modal', function () {
-            $('#modalFormularioResponsable').modal('show');
-            // Recargar select de oficinas (Implementa un endpoint simple o recarga todo)
-            recargarSelectOficinas(); 
-        });
-    });
-
-    function recargarSelectOficinas() {
-        $.get('/administracion/responsable/api/oficinas/list-select', function(data) {
-            let opts = '<option value="">Buscar oficina...</option>';
-            data.forEach(o => {
-                opts += `<option value="${o.idOficina}">${o.predio.unidad} - ${o.codOfi} | ${o.nombre}</option>`;
+            // ── Select2 Oficina ─────────────────────────────────────
+            $('#selectOficinaForm').select2({
+                theme: 'bootstrap-5',
+                dropdownParent: $modal,          // ← de vuelta al modal
+                width: '100%',
+                placeholder: 'Buscar oficina…',
+                allowClear: true,
+                language: { noResults: () => 'Sin resultados', searching: () => 'Buscando…' }
             });
-            $('#selectOficinaForm').html(opts);
-        });
-    }
 
-    // 5. NUEVO CARGO (SweetAlert)
-    $('#btnNuevoCargo').click(function() {
-        Swal.fire({
-            title: 'Nuevo Cargo',
-            input: 'text',
-            inputLabel: 'Nombre del cargo',
-            showCancelButton: true,
-            confirmButtonText: 'Usar',
-            preConfirm: (val) => {
-                if (!val) Swal.showValidationMessage('Escriba algo');
-                return val.toUpperCase();
-            }
-        }).then((res) => {
-            if(res.isConfirmed) {
-                // Crear opción en el select y seleccionarla
-                let newOption = new Option(res.value, res.value, true, true);
-                $('#selectCargo').append(newOption).trigger('change');
-            }
-        });
-    });
-
-    // 6. SUGERIR CODIGO
-    $('#selectOficinaForm').on('select2:select', function(e) {
-        const idOficina = $(this).val();
-        if(idOficina) {
-            // Solo autogenerar si estamos creando O si el usuario cambió la oficina a propósito
-            // Para edición, no queremos perder el código original al abrir el modal
-            sugerirCodigo(idOficina);
-        }
-    });
-
-    $('#btnSugerir').click(function() {
-        let idOficina = $('#selectOficinaForm').val();
-        if(idOficina) sugerirCodigo(idOficina);
-        else Swal.fire('Atención', 'Seleccione una oficina', 'warning');
-    });
-
-    function sugerirCodigo(idOficina) {
-        $.get('/administracion/responsable/obtener-siguiente-codigo-funcionario', { idOficina: idOficina }, function(cod) {
-            $('#txtCodFun').val(cod).addClass('bg-warning-subtle');
-            setTimeout(() => $('#txtCodFun').removeClass('bg-warning-subtle'), 500);
-        });
-    }
-
-
-
-    // 7. GUARDAR
-    $('#btnGuardar').click(function() {
-        if(!$('#formResponsable')[0].checkValidity()) {
-            $('#formResponsable')[0].reportValidity();
-            return;
-        }
-
-        let data = $('#formResponsable').serialize();
-        
-        // Detectar si es edición buscando el input hidden que inyectamos
-        let idEnc = $('input[name="idResponsableEnc"]').val();
-        
-        // Definir URL y mensaje
-        let url = idEnc ? '/administracion/responsable/modificar-responsable' : '/administracion/responsable/registrar-responsable';
-        let texto = idEnc ? 'Actualizando...' : 'Registrando...';
-
-        showGlobalLoader({ texto: texto });
-
-        $.ajax({
-            type: 'POST',
-            url: url,
-            data: data,
-            success: function(res) {
-                hideGlobalLoader();
-                if(res.ok) {
-                    Swal.fire('Éxito', res.msg, 'success').then(() => {
-                        $('#modalFormularioResponsable').modal('hide');
-                        $('#data-table').DataTable().ajax.reload(null, false);
-                    });
-                } else {
-                    let icon = (res.msg && res.msg.includes("DBF")) ? 'warning' : 'error';
-                    Swal.fire('Atención', res.msg, icon);
+            // ── Select2 Cargo ───────────────────────────────────────
+            $('#selectCargo').select2({
+                theme: 'bootstrap-5',
+                dropdownParent: $modal,          // ← de vuelta al modal
+                width: '100%',
+                tags: true,
+                placeholder: 'Busque o escriba un cargo…',
+                allowClear: true,
+                language: { noResults: () => 'Sin resultados', searching: () => 'Buscando…' },
+                ajax: {
+                    url: '/administracion/responsable/api/cargos/search',
+                    dataType: 'json',
+                    delay: 250,
+                    data: params => ({ q: params.term }),
+                    processResults: data => ({
+                        results: data.map(c => ({ id: c.nombre, text: c.nombre }))
+                    }),
+                    cache: true
                 }
-            },
-            error: function(xhr) {
-                hideGlobalLoader();
-                let msg = xhr.responseJSON ? xhr.responseJSON.msg : 'Error desconocido';
-                Swal.fire('Error', msg, 'error');
-            }
+            });
+
+            $modal.on('mousedown', '.select2-selection__clear', function (e) {
+                e.stopPropagation();
+            });
+
+        }, 100);
+
+        /* ── Buscar persona por CI ───────────────────────── */
+        $('#btnBuscarPersona').on('click', function () {
+            const ci = $('#txtCi').val().trim();
+            if (!ci) { Swal.fire('Atención', 'Ingrese el número de CI primero.', 'warning'); return; }
+
+            $(this).html('<i class="fa-solid fa-spinner fa-spin"></i>').prop('disabled', true);
+
+            $.ajax({
+                url: '/administracion/responsable/api/personas/buscar-por-ci',
+                data: { ci },
+                success: function (p) {
+                    $('#txtNombre').val(p.nombre);
+                    $('#txtPaterno').val(p.paterno);
+                    $('#txtMaterno').val(p.materno);
+                    $('.input-persona').prop('readonly', true).css('background-color', '#f8f9fa');
+                    $('#personaStatus')
+                        .removeClass('d-none')
+                        .html(`<div class="persona-status found">
+                               <i class="fa-solid fa-circle-check"></i>
+                               Persona encontrada — campos completados automáticamente.
+                           </div>`);
+                },
+                error: function () {
+                    $('.input-persona').val('').prop('readonly', false).css('background-color', '#fff');
+                    $('#txtNombre').focus();
+                    $('#personaStatus')
+                        .removeClass('d-none')
+                        .html(`<div class="persona-status notfound">
+                               <i class="fa-solid fa-pen"></i>
+                               Persona nueva — complete los datos manualmente.
+                           </div>`);
+                },
+                complete: function () {
+                    $('#btnBuscarPersona')
+                        .html('<i class="fa-solid fa-magnifying-glass me-1"></i> Buscar')
+                        .prop('disabled', false);
+                }
+            });
         });
-    });
-});
+
+        /* ── Nueva oficina ───────────────────────────────── */
+        $('#btnNuevaOficina').on('click', function () {
+
+            showGlobalLoader({ texto: 'Cargando formulario de oficina…' });
+
+            $('#prediocontenidoModalOficina').load('/administracion/oficina/formulario', function (response, status) {
+                hideGlobalLoader();
+
+                if (status === 'error') {
+                    Swal.fire('Error', 'No se pudo cargar el formulario de oficina.', 'error');
+                    return;
+                }
+
+                const $modal2 = $('#modalFormularioOficina');
+
+                // ← shown.bs.modal (con N): dispara cuando la animación YA terminó
+                //   y el backdrop ya está en el DOM → z-index seguro
+                $modal2.one('shown.bs.modal', function () {
+                    $('.modal-backdrop').last().css('z-index', '1065');
+                    $modal2.css('z-index', '1075');
+                });
+
+                $modal2.modal('show');
+
+                $modal2.one('hidden.bs.modal', function () {
+                    recargarSelectOficinas();
+                });
+            });
+        });
+
+        function recargarSelectOficinas() {
+            showGlobalLoader({ texto: 'Actualizando lista de oficinas…' });
+
+            $.get('/administracion/responsable/api/oficinas/list-select', function (data) {
+                hideGlobalLoader();
+
+                const currentVal = $('#selectOficinaForm').val();
+
+                // 1) Destruir Select2 antes de tocar el DOM del <select>
+                if ($('#selectOficinaForm').hasClass('select2-hidden-accessible')) {
+                    $('#selectOficinaForm').select2('destroy');
+                }
+
+                // 2) Reconstruir opciones
+                let opts = '<option value="">Buscar oficina…</option>';
+                data.forEach(function (o) {
+                    const label = o.predio.unidad + ' — ' + o.codOfi + ' | ' + o.nombre;
+                    const sel   = String(o.idOficina) === String(currentVal) ? ' selected' : '';
+                    opts += `<option value="${o.idOficina}"${sel}>${label}</option>`;
+                });
+                $('#selectOficinaForm').html(opts);
+
+                // 3) Reinicializar Select2 con la misma config del setTimeout original
+                $('#selectOficinaForm').select2({
+                    theme: 'bootstrap-5',
+                    dropdownParent: $modal,       // $modal = modal principal (ya definido arriba en el IIFE)
+                    width: '100%',
+                    placeholder: 'Buscar oficina…',
+                    allowClear: true,
+                    language: {
+                        noResults: () => 'Sin resultados',
+                        searching: () => 'Buscando…'
+                    }
+                });
+
+                // 4) Si la oficina recién creada llegó como última del array, preseleccionarla
+                if (data.length > 0) {
+                    const ultimaOficina = data[data.length - 1];
+                    $('#selectOficinaForm')
+                        .val(String(ultimaOficina.idOficina))
+                        .trigger('change');
+                }
+
+            }).fail(function () {
+                hideGlobalLoader();
+                Swal.fire('Error', 'No se pudieron actualizar las oficinas.', 'error');
+            });
+        }
+
+        /* ── Nuevo cargo (SweetAlert) ────────────────────── */
+        $('#btnNuevoCargo').on('click', function () {
+            Swal.fire({
+                title: 'Nuevo Cargo',
+                input: 'text',
+                inputLabel: 'Nombre del cargo',
+                inputPlaceholder: 'Ej: DIRECTOR DE SISTEMAS',
+                showCancelButton: true,
+                confirmButtonText: 'Usar',
+                cancelButtonText: 'Cancelar',
+                preConfirm: val => {
+                    if (!val?.trim()) { Swal.showValidationMessage('Escriba un nombre de cargo'); }
+                    return val.trim().toUpperCase();
+                }
+            }).then(res => {
+                if (res.isConfirmed) {
+                    const opt = new Option(res.value, res.value, true, true);
+                    $('#selectCargo').append(opt).trigger('change');
+                }
+            });
+        });
+
+        /* ── Autogenerar código funcionario ─────────────── */
+        $('#selectOficinaForm').on('select2:select', function () {
+            sugerirCodigo($(this).val());
+        });
+        $('#btnSugerir').on('click', function () {
+            const id = $('#selectOficinaForm').val();
+            if (id) sugerirCodigo(id);
+            else Swal.fire('Atención', 'Seleccione una oficina primero.', 'warning');
+        });
+
+        function sugerirCodigo(idOficina) {
+            $.get('/administracion/responsable/obtener-siguiente-codigo-funcionario',
+                { idOficina }, function (cod) {
+                    $('#txtCodFun').val(cod)
+                        .addClass('bg-warning-subtle');
+                    setTimeout(() => $('#txtCodFun').removeClass('bg-warning-subtle'), 600);
+                });
+        }
+
+        /* ── Guardar ─────────────────────────────────────── */
+        $('#btnGuardar').on('click', function () {
+            if (!$('#formResponsable')[0].checkValidity()) {
+                $('#formResponsable')[0].reportValidity();
+                return;
+            }
+
+            const idEnc = $('input[name="idResponsableEnc"]').val();
+            const url = idEnc
+                ? '/administracion/responsable/modificar-responsable'
+                : '/administracion/responsable/registrar-responsable';
+
+            showGlobalLoader({ texto: idEnc ? 'Actualizando responsable…' : 'Registrando responsable…' });
+
+            $.ajax({
+                type: 'POST',
+                url,
+                data: $('#formResponsable').serialize(),
+                success: function (res) {
+                    hideGlobalLoader();
+                    if (res.ok) {
+                        Swal.fire({
+                            toast: true, position: 'top-end', icon: 'success',
+                            title: res.msg, showConfirmButton: false, timer: 2400
+                        });
+                        $modal.modal('hide');
+                        $('#data-table').DataTable().ajax.reload(null, false);
+                    } else {
+                        const icon = res.msg?.includes('DBF') ? 'warning' : 'error';
+                        Swal.fire('Atención', res.msg, icon);
+                    }
+                },
+                error: function (xhr) {
+                    hideGlobalLoader();
+                    Swal.fire('Error', xhr.responseJSON?.msg || 'Error desconocido', 'error');
+                }
+            });
+        });
+
+    })();
 </script>

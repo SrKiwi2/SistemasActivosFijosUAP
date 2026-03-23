@@ -4,14 +4,14 @@
     data-theme="theme-default" data-assets-path="../../assets/" data-template="vertical-menu-template">
 
 <head th:replace="~{layout/head :: head}"></head>
-<link rel="stylesheet" href="../../assets/css/config_general_publico.css">
-<link rel="preload" as="image" href="/assets/img/logo/activofijos.png" imagesrcset="/assets/img/logo/activofijos.png" fetchpriority="high">
+<link rel="stylesheet" href="../../assets/css/config_general_publico.css" />
+<link rel="preload" as="image" href="/assets/img/logo/activofijos.png" imagesrcset="/assets/img/logo/activofijos.png"
+    fetchpriority="high" />
 
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
 <!-- VISTA PARA FUNCIONARIOS CON USUARIO -->
 
 <body>
-
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
             <aside th:replace="~{layout/sidebar :: sidebar}"></aside>
@@ -24,7 +24,15 @@
                                 <div class="container">
                                     <div class="content-wrapper">
                                         <div class="card animated-card position-relative p-0 mb-4 overflow-hidden shadow-sm border-0"
-                                            style="min-height: 200px; border-radius: 14px; background: linear-gradient(135deg, rgba(30,58,138,0.06), rgba(185,28,28,0.06));">
+                                            style="
+                          min-height: 200px;
+                          border-radius: 14px;
+                          background: linear-gradient(
+                            135deg,
+                            rgba(30, 58, 138, 0.06),
+                            rgba(185, 28, 28, 0.06)
+                          );
+                        ">
                                             <div class="position-absolute top-0 start-0 p-4 d-none d-sm-block">
                                                 <img src="../../assets/img/logo/activofijos.png" alt="UAP" height="90"
                                                     class="logo-hover" />
@@ -42,7 +50,7 @@
                                                         class="logo-hover mx-1" />
                                                 </div>
                                                 <h1 class="titulo-sistema mb-2 text-uppercase">
-                                                    SAYOVE he iniciado como super amdins <span class="version">2.0</span>
+                                                    SAYOVE <span class="version">2.0</span>
                                                 </h1>
                                                 <p class="slogan mb-0 fst-italic d-sm-block">
                                                     Escribiendo una nueva historia con vos...
@@ -53,17 +61,18 @@
                                         <div class="btn-section">
                                             <button class="btn btn-lg-custom btn-asignar" data-bs-toggle="modal"
                                                 data-bs-target="#formularioModalAsignacionActivo">
-                                                <i class="bi bi-plus-circle-fill"></i> Registrar Asignación
+                                                <i class="bi bi-plus-circle-fill"></i> Registrar
+                                                Asignación
                                             </button>
                                             <button class="btn btn-lg-custom btn-reporte" data-bs-toggle="modal"
                                                 data-bs-target="#formularioModalTranferenciaActivo">
-                                                <i class="bi bi-file-earmark-bar-graph-fill"></i> Transferencia de
-                                                Activos
+                                                <i class="bi bi-file-earmark-bar-graph-fill"></i>
+                                                Transferencia de Activos
                                             </button>
                                             <button class="btn btn-lg-custom btn-importar" data-bs-toggle="modal"
                                                 data-bs-target="#formularioModalIngresoActivoAjeno">
-                                                <i class="bi bi-file-earmark-arrow-up-fill"></i> Ingreso de Bienes
-                                                Ajenos
+                                                <i class="bi bi-file-earmark-arrow-up-fill"></i>
+                                                Ingreso de Bienes Ajenos
                                             </button>
                                             <button class="btn btn-lg-custom btn-visualizar" data-bs-toggle="modal"
                                                 data-bs-target="#formularioModalBajaActivo">
@@ -72,23 +81,29 @@
                                             <button id="btnScanPhoto" class="btn btn-lg-custom btn-secondary">
                                                 <i class="bi bi-camera"></i> Escanear QR (foto)
                                             </button>
-                                            <input id="qrFile" type="file" accept="image/*" capture="environment" class="d-none">
+                                            <input id="qrFile" type="file" accept="image/*" capture="environment"
+                                                class="d-none" />
                                         </div>
 
                                         <div class="card shadow-sm p-4" th:if="${session.nombre_rol == 'RESPONSABLE'}">
                                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                                <h5 class="text-primary fw-bold mb-0">Activos asignados a su nombre</h5>
-                                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse"
-                                                    data-bs-target="#tablaActivosResponsable" aria-expanded="false">
+                                                <h5 class="text-primary fw-bold mb-0">
+                                                    Activos asignados a su nombre
+                                                </h5>
+                                                <button class="btn btn-sm btn-outline-primary" type="button"
+                                                    data-bs-toggle="collapse" data-bs-target="#tablaActivosResponsable"
+                                                    aria-expanded="false">
                                                     Mostrar / Ocultar
                                                 </button>
                                             </div>
-                                        
+
                                             <div id="tablaActivosResponsable" class="collapse show">
                                                 <div class="table-responsive">
-                                                    <table id="tablaActivos" class="table table-sm align-middle table-bordered table-hover"
-                                                        style="font-size: 0.875rem;">
-                                                        <thead class="table-primary text-center" style="font-size: 0.85rem;">
+                                                    <table id="tablaActivos"
+                                                        class="table table-sm align-middle table-bordered table-hover"
+                                                        style="font-size: 0.875rem">
+                                                        <thead class="table-primary text-center"
+                                                            style="font-size: 0.85rem">
                                                             <tr>
                                                                 <th>Código</th>
                                                                 <th>Nombre</th>
@@ -101,22 +116,25 @@
                                                         </thead>
                                                         <tbody>
                                                             <tr th:each="activo : ${activos}">
-                                                                <td th:text="${activo.codigo}" class="text-truncate" style="max-width: 140px;"></td>
-                                                                <td th:text="${activo.nombre}" th:attr="data-bs-toggle='tooltip', title=${activo.nombre}"
-                                                                    class="text-truncate" style="max-width: 140px;"></td>
+                                                                <td th:text="${activo.codigo}" class="text-truncate"
+                                                                    style="max-width: 140px"></td>
+                                                                <td th:text="${activo.nombre}"
+                                                                    th:attr="data-bs-toggle='tooltip', title=${activo.nombre}"
+                                                                    class="text-truncate" style="max-width: 140px"></td>
                                                                 <td th:text="${activo.descripcion}"
-                                                                    th:attr="data-bs-toggle='tooltip', title=${activo.descripcion}" class="text-truncate"
-                                                                    style="max-width: 200px;"></td>
+                                                                    th:attr="data-bs-toggle='tooltip', title=${activo.descripcion}"
+                                                                    class="text-truncate" style="max-width: 200px"></td>
                                                                 <td th:text="${activo.oficina.nombre}"
-                                                                    th:attr="data-bs-toggle='tooltip', title=${activo.oficina.nombre}" class="text-truncate"
-                                                                    style="max-width: 120px;"></td>
+                                                                    th:attr="data-bs-toggle='tooltip', title=${activo.oficina.nombre}"
+                                                                    class="text-truncate" style="max-width: 120px"></td>
                                                                 <td th:text="${activo.grupoContable.nombre}"
                                                                     th:attr="data-bs-toggle='tooltip', title=${activo.grupoContable.nombre}"
-                                                                    class="text-truncate" style="max-width: 140px;"></td>
-                                                                <td th:text="${activo.estadoActivo.nombre}" class="text-center text-truncate"
-                                                                    style="max-width: 100px;"></td>
-                                                                <td th:text="${#temporals.format(activo.fecha_adquisición, 'dd/MM/yyyy')}" class="text-center">
-                                                                </td>
+                                                                    class="text-truncate" style="max-width: 140px"></td>
+                                                                <td th:text="${activo.estadoActivo.nombre}"
+                                                                    class="text-center text-truncate"
+                                                                    style="max-width: 100px"></td>
+                                                                <td th:text="${#temporals.format(activo.fecha_adquisición, 'dd/MM/yyyy')}"
+                                                                    class="text-center"></td>
                                                             </tr>
                                                         </tbody>
                                                     </table>
@@ -146,8 +164,10 @@
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-dark text-white">
-                    
-                    <h5 class="modal-title" style="color: #fff;"><i class="bi bi-qr-code me-2" style="color: #fff;"></i> Resultado del QR</h5>
+                    <h5 class="modal-title" style="color: #fff">
+                        <i class="bi bi-qr-code me-2" style="color: #fff"></i> Resultado
+                        del QR
+                    </h5>
 
                     <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal"
                         aria-label="Cerrar"></button>
@@ -155,8 +175,11 @@
 
                 <div class="modal-body">
                     <label class="fw-semibold small text-muted">Contenido crudo</label>
-                    <pre id="qrRawModal" class="p-2 bg-light rounded border"
-                        style="white-space: pre-wrap; word-break: break-word; font-size:.95rem;"></pre>
+                    <pre id="qrRawModal" class="p-2 bg-light rounded border" style="
+                white-space: pre-wrap;
+                word-break: break-word;
+                font-size: 0.95rem;
+              "></pre>
 
                     <label class="fw-semibold small text-muted mt-3 d-block">Responsable</label>
                     <div id="qrParsedModal" class="small"></div>
@@ -178,13 +201,16 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-warning text-white">
-                    <h5 class="modal-title" style="color: #fff;">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i> No se pudo leer el QR
+                    <h5 class="modal-title" style="color: #fff">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> No se pudo
+                        leer el QR
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p id="qrErrorMsg" class="mb-2">El QR está borroso o no es válido.</p>
+                    <p id="qrErrorMsg" class="mb-2">
+                        El QR está borroso o no es válido.
+                    </p>
                     <ul class="small text-muted mb-0">
                         <li>Mejora la luz y evita reflejos.</li>
                         <li>Acerca/aleja un poco la cámara.</li>
@@ -208,8 +234,8 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title" id="modalConfirmLogoutLabel" style="color: aliceblue;">
-                        <i class="ti ti-alert-triangle me-2" style="color: aliceblue;"></i>Confirmar cierre de sesión
+                    <h5 class="modal-title" id="modalConfirmLogoutLabel" style="color: aliceblue">
+                        <i class="ti ti-alert-triangle me-2" style="color: aliceblue"></i>Confirmar cierre de sesión
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                         aria-label="Cerrar"></button>
@@ -217,7 +243,7 @@
 
                 <div class="modal-body text-center">
                     <p class="mb-3">¿Estás seguro de que deseas cerrar sesión?</p>
-                    <i class="ti ti-logout" style="font-size: 3rem; color: #dc3545;"></i>
+                    <i class="ti ti-logout" style="font-size: 3rem; color: #dc3545"></i>
                 </div>
 
                 <div class="modal-footer justify-content-center">
@@ -233,15 +259,16 @@
     </div>
 
     <!-- Modal FORMULAROS -->
-     
+
     <div class="modal fade" id="formularioModalAsignacionActivo" tabindex="-1" aria-labelledby="formularioModalLabel"
         data-bs-focus="false">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <form id="formResponsable" autocomplete="off">
                 <div class="modal-content border-0 shadow-lg rounded-3">
                     <div class="modal-header bg-gradient-primary text-white">
-                        <h5 class="modal-title fw-bold" style="color: #fff;">
-                            <i class="bi bi-box-arrow-in-down me-2" style="color: #fff;"></i> Asignar Activo
+                        <h5 class="modal-title fw-bold" style="color: #fff">
+                            <i class="bi bi-box-arrow-in-down me-2" style="color: #fff"></i>
+                            Asignar Activo
                         </h5>
                         <button type="button" class="btn-close btn-close-white shadow-none"
                             data-bs-dismiss="modal"></button>
@@ -250,69 +277,76 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
-                                    <i class="bi bi-building me-1 text-primary"></i> Dirección, Unidad y/o Sección
+                                    <i class="bi bi-building me-1 text-primary"></i> Dirección,
+                                    Unidad y/o Sección
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-building"></i></span>
-                                    <input type="text" class="form-control" style="text-transform: uppercase;"
-                                        name="unidad" placeholder="Ej: Unidad de Sistemas..." required>
+                                    <input type="text" class="form-control" style="text-transform: uppercase"
+                                        name="unidad" placeholder="Ej: Unidad de Sistemas..." required />
                                 </div>
-                                <small class="text-muted">Indique el nombre de la unidad o sección responsable.</small>
+                                <small class="text-muted">Indique el nombre de la unidad o sección
+                                    responsable.</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
-                                    <i class="bi bi-person-badge me-1 text-primary"></i> Código Funcionario
+                                    <i class="bi bi-person-badge me-1 text-primary"></i> Código
+                                    Funcionario
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
                                     <input type="text" class="form-control" name="codigoFuncionario"
-                                        placeholder="Ej: 1234" required>
+                                        placeholder="Ej: 1234" required />
                                 </div>
                                 <small class="text-muted">Ingrese el código único asignado al funcionario.</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
-                                    <i class="bi bi-card-text me-1 text-primary"></i> Cédula de Identidad
+                                    <i class="bi bi-card-text me-1 text-primary"></i> Cédula de
+                                    Identidad
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i
                                             class="bi bi-credit-card-2-front"></i></span>
                                     <input type="text" class="form-control" name="ci" placeholder="Ej: 12345678"
-                                        required>
+                                        required />
                                 </div>
                                 <small class="text-muted">Ingrese el número de cédula con extensión.</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
-                                    <i class="bi bi-file-earmark-text me-1 text-primary"></i> Nº H.R.
+                                    <i class="bi bi-file-earmark-text me-1 text-primary"></i> Nº
+                                    H.R.
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i
                                             class="bi bi-file-earmark-text"></i></span>
-                                    <input type="text" class="form-control" name="hr" placeholder="Ej: 1234" required>
+                                    <input type="text" class="form-control" name="hr" placeholder="Ej: 1234" required />
                                 </div>
                                 <small class="text-muted">Número del Hoja de Ruta correspondiente.</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
-                                    <i class="bi bi-geo-alt me-1 text-primary"></i> Ubicación del Activo
+                                    <i class="bi bi-geo-alt me-1 text-primary"></i> Ubicación
+                                    del Activo
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-geo-alt"></i></span>
-                                    <input type="text" class="form-control" style="text-transform: uppercase;"
-                                        name="ubicacionActivo" placeholder="Ej: SISU - ADMINISTRACIÓN" required>
+                                    <input type="text" class="form-control" style="text-transform: uppercase"
+                                        name="ubicacionActivo" placeholder="Ej: SISU - ADMINISTRACIÓN" required />
                                 </div>
                                 <small class="text-muted">Indique la ubicación física exacta del activo.</small>
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold">
-                                    <i class="bi bi-info-circle me-1 text-primary"></i> Descripción del Activo
+                                    <i class="bi bi-info-circle me-1 text-primary"></i>
+                                    Descripción del Activo
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="bi bi-info-circle"></i></span>
-                                    <input type="text" class="form-control" style="text-transform: uppercase;"
+                                    <input type="text" class="form-control" style="text-transform: uppercase"
                                         name="descripcionActivo"
-                                        placeholder="Ej: Computadora portátil Dell Latitude 3420" required>
+                                        placeholder="Ej: Computadora portátil Dell Latitude 3420" required />
                                 </div>
                                 <small class="text-muted">Proporcione una breve descripción del activo.</small>
                             </div>
@@ -336,8 +370,9 @@
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title fw-bold" id="modalConfirmacionDatosLabel" style="color: #fff;">
-                        <i class="bi bi-person-lines-fill me-2" style="color: #fff;"></i> CONFIRMAR DATOS
+                    <h5 class="modal-title fw-bold" id="modalConfirmacionDatosLabel" style="color: #fff">
+                        <i class="bi bi-person-lines-fill me-2" style="color: #fff"></i>
+                        CONFIRMAR DATOS
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
@@ -348,16 +383,19 @@
                     </div>
                     <h6 class="fw-bold text-danger bg-light p-3 rounded-2 text-center border border-danger">
                         <i class="bi bi-exclamation-octagon-fill me-2"></i>
-                        Verifique cuidadosamente los datos ingresados antes de confirmar.  
-                        Una vez aprobados, la asignación será enviada a la Seccion de Activos Fijos para su registro y seguimiento, 
-                        contando con la conformidad del responsable asignado y la aprobación de su inmediato superior.
-                    </h6>                    
+                        Verifique cuidadosamente los datos ingresados antes de confirmar.
+                        Una vez aprobados, la asignación será enviada a la Seccion de
+                        Activos Fijos para su registro y seguimiento, contando con la
+                        conformidad del responsable asignado y la aprobación de su
+                        inmediato superior.
+                    </h6>
                     <div id="contenidoConfirmacion" class="fs-6 d-none">
                         <div class="row g-3">
                             <div class="col-12 col-lg-6">
                                 <div class="card h-100 border-0 shadow-sm">
                                     <div class="card-header bg-light fw-semibold">
-                                        <i class="bi bi-person-badge me-1"></i> Datos del responsable
+                                        <i class="bi bi-person-badge me-1"></i> Datos del
+                                        responsable
                                     </div>
                                     <div class="card-body">
                                         <ul class="list-group list-group-flush small" id="listaResponsable"></ul>
@@ -389,7 +427,8 @@
                     <button id="btnConfirmarGuardar" class="btn btn-success">
                         <span class="spinner-border spinner-border-sm me-2 d-none" id="spinnerConfirmar" role="status"
                             aria-hidden="true"></span>
-                        <i class="bi bi-check-circle-fill me-1"></i> Confirmar y generar PDF
+                        <i class="bi bi-check-circle-fill me-1"></i> Confirmar y generar
+                        PDF
                     </button>
                 </div>
             </div>
@@ -405,7 +444,8 @@
                 <div class="modal-content border-0 shadow-lg rounded-3">
                     <div class="modal-header bg-primary text-white">
                         <h5 class="modal-title fw-bold" id="formularioModalTransferenciaLabel">
-                            <i class="bi bi-arrow-left-right me-2"></i> Transferencia de Activos
+                            <i class="bi bi-arrow-left-right me-2"></i> Transferencia de
+                            Activos
                         </h5>
                         <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"
                             aria-label="Cerrar"></button>
@@ -413,57 +453,62 @@
                     <div class="modal-body">
                         <div class="card border-0 shadow-sm mb-4">
                             <div class="card-header bg-light fw-semibold">
-                                <i class="bi bi-person-fill-up me-1 text-primary"></i> Transfiere
+                                <i class="bi bi-person-fill-up me-1 text-primary"></i>
+                                Transfiere
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
-                                            <i class="bi bi-building me-1 text-primary"></i> Dirección, Unidad y/o
-                                            Sección
+                                            <i class="bi bi-building me-1 text-primary"></i>
+                                            Dirección, Unidad y/o Sección
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-building"></i></span>
-                                            <input type="text" class="form-control" style="text-transform: uppercase;"
-                                                name="unidadOrigen" placeholder="Ej: Dirección Administrativa" required>
+                                            <input type="text" class="form-control" style="text-transform: uppercase"
+                                                name="unidadOrigen" placeholder="Ej: Dirección Administrativa"
+                                                required />
                                         </div>
                                         <small class="text-muted">Unidad responsable que transfiere el/los
                                             activo(s).</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
-                                            <i class="bi bi-person-badge me-1 text-primary"></i> Código Funcionario
+                                            <i class="bi bi-person-badge me-1 text-primary"></i>
+                                            Código Funcionario
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-person-badge"></i></span>
                                             <input type="number" class="form-control" name="codigoFuncionarioOrigen"
-                                                placeholder="Ej: 1234" required>
+                                                placeholder="Ej: 1234" required />
                                         </div>
                                         <small class="text-muted">Código del funcionario que entrega.</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
-                                            <i class="bi bi-card-text me-1 text-primary"></i> Cédula de Identidad
+                                            <i class="bi bi-card-text me-1 text-primary"></i> Cédula
+                                            de Identidad
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-credit-card-2-front"></i></span>
                                             <input type="number" class="form-control" name="ciOrigen"
-                                                placeholder="Ej: 12345678" required>
+                                                placeholder="Ej: 12345678" required />
                                         </div>
                                         <small class="text-muted">Número de CI del responsable que entrega.</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
-                                            <i class="bi bi-calendar me-1 text-primary"></i> Fecha de la transferencia
+                                            <i class="bi bi-calendar me-1 text-primary"></i> Fecha
+                                            de la transferencia
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-calendar"></i></span>
                                             <input type="date" class="form-control" name="fechaTransferencia"
-                                                id="fechaTransferencia" readonly>
+                                                id="fechaTransferencia" readonly />
                                         </div>
                                         <small class="text-muted">Fecha en la que se efectúa la entrega.</small>
                                     </div>
@@ -472,56 +517,60 @@
                         </div>
                         <div class="card border-0 shadow-sm mb-4">
                             <div class="card-header bg-light fw-semibold">
-                                <i class="bi bi-person-fill-down me-1 text-success"></i> Recibe y Resguarda
+                                <i class="bi bi-person-fill-down me-1 text-success"></i>
+                                Recibe y Resguarda
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
-                                            <i class="bi bi-building me-1 text-success"></i> Dirección, Unidad y/o
-                                            Sección
+                                            <i class="bi bi-building me-1 text-success"></i>
+                                            Dirección, Unidad y/o Sección
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-building"></i></span>
-                                            <input type="text" class="form-control" style="text-transform: uppercase;"
-                                                name="unidadDestino" placeholder="Ej: Unidad de Sistemas" required>
+                                            <input type="text" class="form-control" style="text-transform: uppercase"
+                                                name="unidadDestino" placeholder="Ej: Unidad de Sistemas" required />
                                         </div>
                                         <small class="text-muted">Unidad recepcionista y responsable actual.</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
-                                            <i class="bi bi-person-badge me-1 text-success"></i> Código Funcionario
+                                            <i class="bi bi-person-badge me-1 text-success"></i>
+                                            Código Funcionario
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-person-badge"></i></span>
                                             <input type="number" class="form-control" name="codigoFuncionarioDestino"
-                                                placeholder="Ej: 12345" required>
+                                                placeholder="Ej: 12345" required />
                                         </div>
                                         <small class="text-muted">Código del funcionario que recibe.</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
-                                            <i class="bi bi-card-text me-1 text-success"></i> Cédula de Identidad
+                                            <i class="bi bi-card-text me-1 text-success"></i> Cédula
+                                            de Identidad
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-credit-card-2-front"></i></span>
                                             <input type="number" class="form-control" name="ciDestino"
-                                                placeholder="Ej: 12345678" required>
+                                                placeholder="Ej: 12345678" required />
                                         </div>
                                         <small class="text-muted">Número de CI del responsable que recibe.</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">
-                                            <i class="bi bi-calendar-check me-1 text-success"></i> Fecha de la recepción
+                                            <i class="bi bi-calendar-check me-1 text-success"></i>
+                                            Fecha de la recepción
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-calendar-check"></i></span>
                                             <input type="date" class="form-control" name="fechaRecepcion"
-                                                id="fechaRecepcion" readonly>
+                                                id="fechaRecepcion" readonly />
                                         </div>
                                         <small class="text-muted">Fecha en la que se confirma la recepción.</small>
                                     </div>
@@ -531,7 +580,8 @@
                         <div class="card border-0 shadow-sm">
                             <div
                                 class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-                                <span><i class="bi bi-box-seam me-1"></i> Activos a transferir</span>
+                                <span><i class="bi bi-box-seam me-1"></i> Activos a
+                                    transferir</span>
                                 <span class="badge text-bg-primary" id="badgeTotalActivos">0 seleccionados</span>
                             </div>
                             <div class="card-body">
@@ -551,7 +601,7 @@
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-upc-scan"></i></span>
                                             <input type="text" class="form-control" name="codigosActivos[]"
-                                                placeholder="Ingrese código del activo (ej: xx-xx-xx-xxxxx)" required>
+                                                placeholder="Ingrese código del activo (ej: xx-xx-xx-xxxxx)" required />
                                             <button type="button" class="btn btn-outline-danger removeCodigoBtn">
                                                 <i class="bi bi-trash"></i>
                                             </button>
@@ -559,8 +609,8 @@
                                     </div>
                                 </template>
                                 <small class="text-muted d-block mt-2">
-                                    Puedes agregar múltiples códigos. Verifica que correspondan a los activos a
-                                    transferir.
+                                    Puedes agregar múltiples códigos. Verifica que correspondan
+                                    a los activos a transferir.
                                 </small>
                             </div>
                         </div>
@@ -585,7 +635,8 @@
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-warning text-dark">
                     <h5 class="modal-title fw-bold" id="modalConfirmacionTransferenciaLabel">
-                        <i class="bi bi-clipboard-check me-2"></i> Confirmar datos de la transferencia
+                        <i class="bi bi-clipboard-check me-2"></i> Confirmar datos de la
+                        transferencia
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
@@ -596,16 +647,18 @@
                     </div>
                     <h6 class="fw-bold text-danger bg-light p-3 rounded-2 text-center border border-danger">
                         <i class="bi bi-exclamation-octagon-fill me-2"></i>
-                        Verifique cuidadosamente los datos ingresados antes de confirmar.  
-                        Una vez aprobados, la informacion será enviada al personal del sistema para su seguimiento, 
-                        contando con la conformidad del inmediato superior y responsable.
+                        Verifique cuidadosamente los datos ingresados antes de confirmar.
+                        Una vez aprobados, la informacion será enviada al personal del
+                        sistema para su seguimiento, contando con la conformidad del
+                        inmediato superior y responsable.
                     </h6>
                     <div id="contenidoConfirmacionTransfer" class="d-none">
                         <div class="row g-3">
                             <div class="col-12 col-lg-6">
                                 <div class="card border-0 shadow-sm mb-3">
                                     <div class="card-header bg-light fw-semibold">
-                                        <i class="bi bi-person-fill-up me-1"></i> Transfiere (Origen)
+                                        <i class="bi bi-person-fill-up me-1"></i> Transfiere
+                                        (Origen)
                                     </div>
                                     <div class="card-body">
                                         <ul class="list-group list-group-flush small" id="listaOrigenTransfer"></ul>
@@ -623,7 +676,8 @@
                             <div class="col-12 col-lg-6">
                                 <div class="card border-0 shadow-sm mb-3">
                                     <div class="card-header bg-light fw-semibold">
-                                        <i class="bi bi-person-fill-down me-1"></i> Recibe y Resguarda (Destino)
+                                        <i class="bi bi-person-fill-down me-1"></i> Recibe y
+                                        Resguarda (Destino)
                                     </div>
                                     <div class="card-body">
                                         <ul class="list-group list-group-flush small" id="listaDestinoTransfer"></ul>
@@ -634,7 +688,8 @@
                                 <div class="card border-0 shadow-sm">
                                     <div
                                         class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-                                        <span><i class="bi bi-box-seam me-1"></i> Activos a transferir</span>
+                                        <span><i class="bi bi-box-seam me-1"></i> Activos a
+                                            transferir</span>
                                         <span class="badge text-bg-primary" id="badgeTotalActivosResumen">0
                                             seleccionados</span>
                                     </div>
@@ -661,8 +716,8 @@
 
                         <div id="alertaTransfer" class="alert alert-warning mt-3 d-none" role="alert">
                             <i class="bi bi-exclamation-triangle me-1"></i>
-                            Faltan datos obligatorios o hubo un problema consultando la información. Aún puedes revisar
-                            lo ingresado.
+                            Faltan datos obligatorios o hubo un problema consultando la
+                            información. Aún puedes revisar lo ingresado.
                         </div>
                     </div>
                 </div>
@@ -689,7 +744,8 @@
                 <div class="modal-content border-0 shadow-lg rounded-4">
                     <div class="modal-header bg-primary text-white rounded-top-4">
                         <h5 class="modal-title mb-0 fw-bold" id="formularioModalIngresoActivoAjenoLabel">
-                            <i class="bi bi-box-arrow-in-down me-2"></i> Ingreso de bienes ajenos
+                            <i class="bi bi-box-arrow-in-down me-2"></i> Ingreso de bienes
+                            ajenos
                         </h5>
                         <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"
                             aria-label="Cerrar"></button>
@@ -697,7 +753,8 @@
                     <div class="modal-body">
                         <div class="card border-0 shadow-sm mb-4">
                             <div class="card-header bg-light fw-semibold">
-                                <i class="bi bi-calendar-date me-1 text-primary"></i> Fecha de incorporación y retiro
+                                <i class="bi bi-calendar-date me-1 text-primary"></i> Fecha de
+                                incorporación y retiro
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
@@ -707,7 +764,7 @@
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-calendar3"></i></span>
                                             <input type="date" class="form-control" id="fechaIncorporacion"
-                                                name="fechaIncorporacion" required>
+                                                name="fechaIncorporacion" required />
                                         </div>
                                         <small class="text-muted">Día en que el bien ingresa a la unidad.</small>
                                     </div>
@@ -717,7 +774,7 @@
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-calendar3"></i></span>
                                             <input type="date" class="form-control" id="fechaRetiro" name="fechaRetiro"
-                                                required readonly>
+                                                required readonly />
                                         </div>
                                         <small class="text-muted">Se definirá al devolver el bien.</small>
                                     </div>
@@ -727,8 +784,8 @@
                         <div class="card border-0 shadow-sm mb-4">
                             <div
                                 class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-                                <span><i class="bi bi-box-arrow-in-down me-1 text-danger"></i> Activos ajenos a
-                                    registrar</span>
+                                <span><i class="bi bi-box-arrow-in-down me-1 text-danger"></i>
+                                    Activos ajenos a registrar</span>
                                 <span class="badge text-bg-primary" id="badgeTotalAjenos">0 items</span>
                             </div>
                             <div class="card-body">
@@ -744,12 +801,14 @@
                                     </button>
                                 </div>
                                 <small class="text-muted d-block mt-2">Agrega tantos bienes como sea necesario. Verifica
-                                    la información antes de continuar.</small>
+                                    la
+                                    información antes de continuar.</small>
                             </div>
                         </div>
                         <div class="card border-0 shadow-sm mb-4">
                             <div class="card-header bg-light fw-semibold">
-                                <i class="bi bi-person-fill-down me-1 text-success"></i> Propietario del activo
+                                <i class="bi bi-person-fill-down me-1 text-success"></i>
+                                Propietario del activo
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
@@ -759,7 +818,7 @@
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-person-vcard"></i></span>
                                             <input type="text" class="form-control" name="codigoFuncionarioPropietario"
-                                                placeholder="Ej: 12345" required>
+                                                placeholder="Ej: 12345" required />
                                         </div>
                                         <small class="text-muted">Código único del propietario.</small>
                                     </div>
@@ -769,7 +828,7 @@
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-person-badge"></i></span>
                                             <input type="text" class="form-control" name="ciPropietario"
-                                                placeholder="Ej: 12345678" required>
+                                                placeholder="Ej: 12345678" required />
                                         </div>
                                         <small class="text-muted">Número de CI con extensión.</small>
                                     </div>
@@ -779,7 +838,7 @@
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-person-badge"></i></span>
                                             <input type="text" class="form-control" name="unidadIncorpora"
-                                                placeholder="Ej: Unidad de Sistemas..." required>
+                                                placeholder="Ej: Unidad de Sistemas..." required />
                                         </div>
                                         <small class="text-muted">Oficina del propietario y destino del activo</small>
                                     </div>
@@ -788,8 +847,8 @@
                                     <div class="col-12">
                                         <div class="alert alert-info py-2 mb-0" role="alert">
                                             <i class="bi bi-info-circle me-1"></i>
-                                            Puedes validar estos datos contra tu directorio institucional antes de
-                                            guardar.
+                                            Puedes validar estos datos contra tu directorio
+                                            institucional antes de guardar.
                                         </div>
                                     </div>
                                 </div>
@@ -797,7 +856,8 @@
                         </div>
                         <div class="card border-0 shadow-sm mb-4">
                             <div class="card-header bg-light fw-semibold">
-                                <i class="bi bi-building me-1 text-info"></i> Responsbale de la unidad
+                                <i class="bi bi-building me-1 text-info"></i> Responsbale de
+                                la unidad
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
@@ -807,7 +867,7 @@
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-person-vcard"></i></span>
                                             <input type="text" class="form-control" name="codigoFuncionarioAutorizador"
-                                                placeholder="Ej: 12345" required>
+                                                placeholder="Ej: 12345" required />
                                         </div>
                                         <small class="text-muted">Código único del propietario.</small>
                                     </div>
@@ -817,7 +877,7 @@
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-person-badge"></i></span>
                                             <input type="text" class="form-control" name="ciAutorizador"
-                                                placeholder="Ej: 12345678" required>
+                                                placeholder="Ej: 12345678" required />
                                         </div>
                                         <small class="text-muted">Número de CI con extensión.</small>
                                     </div>
@@ -826,7 +886,8 @@
                         </div>
                         <div class="card border-0 shadow-sm">
                             <div class="card-header bg-light fw-semibold">
-                                <i class="bi bi-tag me-1 text-warning"></i> Identificación en Activos Fijos
+                                <i class="bi bi-tag me-1 text-warning"></i> Identificación en
+                                Activos Fijos
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
@@ -835,7 +896,7 @@
                                         <div class="input-group">
                                             <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
                                             <input type="text" class="form-control" name="nombreIdentificacion"
-                                                value="LIC. VERONICA LAYME CORI" readonly>
+                                                value="LIC. VERONICA LAYME CORI" readonly />
                                         </div>
                                     </div>
                                     <div class="col-md-6">
@@ -844,7 +905,7 @@
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-briefcase"></i></span>
                                             <input type="text" class="form-control" name="cargoIdentificacion"
-                                                value="RESPONSABLE DE ACTIVOS FIJOS" readonly>
+                                                value="RESPONSABLE DE ACTIVOS FIJOS" readonly />
                                         </div>
                                     </div>
                                     <div class="col-md-6">
@@ -853,7 +914,7 @@
                                             <span class="input-group-text bg-light"><i
                                                     class="bi bi-diagram-3"></i></span>
                                             <input type="text" class="form-control" name="unidadIdentificacion"
-                                                value="SECCIÓN DE ACTIVOS FIJOS" readonly>
+                                                value="SECCIÓN DE ACTIVOS FIJOS" readonly />
                                         </div>
                                     </div>
                                 </div>
@@ -882,7 +943,8 @@
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-warning text-dark">
                     <h5 class="modal-title fw-bold" id="modalConfirmacionIngresoLabel">
-                        <i class="bi bi-clipboard-check me-2"></i> Confirmar datos del ingreso
+                        <i class="bi bi-clipboard-check me-2"></i> Confirmar datos del
+                        ingreso
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
@@ -893,16 +955,18 @@
                     </div>
                     <h6 class="fw-bold text-danger bg-light p-3 rounded-2 text-center border border-danger">
                         <i class="bi bi-exclamation-octagon-fill me-2"></i>
-                        Verifique cuidadosamente los datos ingresados antes de confirmar.  
-                        Una vez aprobados, la información será enviada al personal del sistema para su seguimiento, 
-                        contando con la conformidad y la aprobación del inmediato superior y responsable.
+                        Verifique cuidadosamente los datos ingresados antes de confirmar.
+                        Una vez aprobados, la información será enviada al personal del
+                        sistema para su seguimiento, contando con la conformidad y la
+                        aprobación del inmediato superior y responsable.
                     </h6>
                     <div id="contenidoConfirmacionIngreso" class="d-none">
                         <div class="row g-3">
                             <div class="col-12 col-lg-6">
                                 <div class="card border-0 shadow-sm mb-3">
                                     <div class="card-header bg-light fw-semibold">
-                                        <i class="bi bi-person-badge me-1"></i> Propietario del bien
+                                        <i class="bi bi-person-badge me-1"></i> Propietario del
+                                        bien
                                     </div>
                                     <div class="card-body">
                                         <ul class="list-group list-group-flush small" id="listaPropietarioIngreso"></ul>
@@ -912,7 +976,8 @@
                             <div class="col-12 col-lg-6">
                                 <div class="card border-0 shadow-sm mb-3">
                                     <div class="card-header bg-light fw-semibold">
-                                        <i class="bi bi-person-check me-1"></i> Autorizador (unidad de ingreso)
+                                        <i class="bi bi-person-check me-1"></i> Autorizador
+                                        (unidad de ingreso)
                                     </div>
                                     <div class="card-body">
                                         <ul class="list-group list-group-flush small" id="listaAutorizadorIngreso"></ul>
@@ -933,7 +998,8 @@
                                 <div class="card border-0 shadow-sm">
                                     <div
                                         class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-                                        <span><i class="bi bi-box-arrow-in-down me-1"></i> Bienes listados</span>
+                                        <span><i class="bi bi-box-arrow-in-down me-1"></i> Bienes
+                                            listados</span>
                                         <span class="badge text-bg-primary" id="badgeTotalAjenosResumen">0 items</span>
                                     </div>
                                     <div class="card-body">
@@ -956,7 +1022,8 @@
                         </div>
                         <div id="confirmacionAlertaIngreso" class="alert alert-warning mt-3 d-none" role="alert">
                             <i class="bi bi-exclamation-triangle me-1"></i>
-                            Hay campos vacíos o con formato incorrecto. Corrige antes de continuar.
+                            Hay campos vacíos o con formato incorrecto. Corrige antes de
+                            continuar.
                         </div>
                     </div>
                 </div>
@@ -989,7 +1056,7 @@
                             aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <fieldset class="border p-3 mb-4 rounded-3 shadow-sm ">
+                        <fieldset class="border p-3 mb-4 rounded-3 shadow-sm">
                             <legend class="w-auto px-3 text-primary fw-semibold">
                                 <i class="bi bi-calendar-date me-1"></i> DATOS ADMINISTRATIVOS
                             </legend>
@@ -1000,7 +1067,9 @@
                                     <div class="input-group has-validation">
                                         <span class="input-group-text bg-light"><i class="bi bi-calendar3"></i></span>
                                         <input type="date" class="form-control" name="fechaBaja" required />
-                                        <div class="invalid-feedback"> Por favor ingrese la fecha de baja.</div>
+                                        <div class="invalid-feedback">
+                                            Por favor ingrese la fecha de baja.
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -1009,14 +1078,17 @@
                                     <div class="input-group has-validation">
                                         <span class="input-group-text bg-light"><i class="bi bi-123"></i></span>
                                         <input type="text" class="form-control" name="numeroDocumento" required />
-                                        <div class="invalid-feedback">Por favor ingrese el número de documento.</div>
+                                        <div class="invalid-feedback">
+                                            Por favor ingrese el número de documento.
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </fieldset>
-                        <fieldset class="border p-3 mb-4 rounded-3 shadow-sm  animate__delay-1s">
+                        <fieldset class="border p-3 mb-4 rounded-3 shadow-sm animate__delay-1s">
                             <legend class="w-auto px-3 text-success fw-semibold">
-                                <i class="bi bi-person-fill-down me-1"></i> RESPONSABLE DEL ACTIVO
+                                <i class="bi bi-person-fill-down me-1"></i> RESPONSABLE DEL
+                                ACTIVO
                             </legend>
                             <div class="row g-3">
                                 <div class="col-md-6">
@@ -1047,12 +1119,12 @@
                                 </div>
                             </div>
                         </fieldset>
-                        <fieldset class="border p-3 rounded-3 shadow-sm  animate__delay-2s">
+                        <fieldset class="border p-3 rounded-3 shadow-sm animate__delay-2s">
                             <legend class="w-auto px-3 text-info fw-semibold">
                                 <i class="bi bi-pc-display me-1"></i> DATOS DEL ACTIVO
                             </legend>
                             <div class="row g-3">
-                                <div class="col-md-6">  
+                                <div class="col-md-6">
                                     <label class="form-label fw-semibold">Código del activo
                                         <span class="text-danger">*</span></label>
                                     <div class="input-group has-validation">
@@ -1060,7 +1132,9 @@
                                         <input type="text" class="form-control" name="codigoActivoBaja" required
                                             placeholder="Ejemplo: xxx-xx-xx-xx-xxxx" data-bs-toggle="tooltip"
                                             data-bs-placement="top" title="Ingrese código del activo" />
-                                        <div class="invalid-feedback"> Por favor ingrese el código del activo.</div>
+                                        <div class="invalid-feedback">
+                                            Por favor ingrese el código del activo.
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -1069,8 +1143,12 @@
                                     <div class="input-group has-validation">
                                         <span class="input-group-text"><i class="bi bi-exclamation-triangle"></i></span>
                                         <select class="form-select" name="causa" required>
-                                            <option value="" selected disabled> Seleccione una causa...</option>
-                                            <option value="DETERIORO">Deterioro o obsolescencia</option>
+                                            <option value="" selected disabled>
+                                                Seleccione una causa...
+                                            </option>
+                                            <option value="DETERIORO">
+                                                Deterioro o obsolescencia
+                                            </option>
                                             <option value="PERDIDA">Pérdida</option>
                                             <option value="ROBO">Robo</option>
                                         </select>
@@ -1112,7 +1190,8 @@
             <div class="modal-content border-0 shadow-lg rounded-3">
                 <div class="modal-header bg-warning text-dark">
                     <h5 class="modal-title fw-bold" id="modalConfirmacionBajaLabel">
-                        <i class="bi bi-clipboard-check me-2"></i> Confirmar datos de la baja
+                        <i class="bi bi-clipboard-check me-2"></i> Confirmar datos de la
+                        baja
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
@@ -1126,7 +1205,8 @@
                             <div class="col-12 col-lg-6">
                                 <div class="card border-0 shadow-sm mb-3">
                                     <div class="card-header bg-light fw-semibold">
-                                        <i class="bi bi-calendar-date me-1"></i> Datos administrativos
+                                        <i class="bi bi-calendar-date me-1"></i> Datos
+                                        administrativos
                                     </div>
                                     <div class="card-body">
                                         <ul class="list-group list-group-flush small" id="listaAdminBaja"></ul>
@@ -1134,7 +1214,8 @@
                                 </div>
                                 <div class="card border-0 shadow-sm mb-3">
                                     <div class="card-header bg-light fw-semibold">
-                                        <i class="bi bi-person-badge me-1"></i> Funcionario (propietario)
+                                        <i class="bi bi-person-badge me-1"></i> Funcionario
+                                        (propietario)
                                     </div>
                                     <div class="card-body">
                                         <ul class="list-group list-group-flush small" id="listaFuncionarioBaja"></ul>
@@ -1152,7 +1233,8 @@
                                 </div>
                                 <div class="card border-0 shadow-sm">
                                     <div class="card-header bg-light fw-semibold">
-                                        <i class="bi bi-exclamation-triangle me-1"></i> Causa y descripción
+                                        <i class="bi bi-exclamation-triangle me-1"></i> Causa y
+                                        descripción
                                     </div>
                                     <div class="card-body">
                                         <ul class="list-group list-group-flush small" id="listaCausaBaja"></ul>
@@ -1161,8 +1243,8 @@
                             </div>
                         </div>
                         <div id="confirmacionAlertaBaja" class="alert alert-warning mt-3 d-none" role="alert">
-                            <i class="bi bi-exclamation-triangle me-1"></i> Faltan datos obligatorios o hay formato
-                            inválido.
+                            <i class="bi bi-exclamation-triangle me-1"></i> Faltan datos
+                            obligatorios o hay formato inválido.
                         </div>
                     </div>
                 </div>
@@ -1200,132 +1282,257 @@
 
     <div th:replace="~{layout/script :: script}"></div>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
-    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" />
     <script>
-        // Tu spinner 3D, reutilizable
-        function spinnerHTML({ svg='/assets/img/logo/activofijos.png', texto='Cargando...', axis='y', speed=1.2 } = {}) {
-            const axisClass = axis === 'x' ? 'spin-x' : 'spin-y';
-            return `
-            <div class="loader-3d d-flex flex-column align-items-center my-4" role="status">
-                <img src="${svg}" alt="Cargando" width="64" height="64"
-                    fetchpriority="high" decoding="async"
-                    class="${axisClass} origin-center gpu backface-visible opacity-75"
-                    style="animation-duration:${speed}s"
-                    onerror="this.outerHTML='<div class=&quot;spinner-border text-secondary&quot; role=&quot;status&quot;></div>'" />
-                <div class="mt-2 small text-muted">${texto}</div>
-            </div>`;
-        }
+        (function () {
+            /* ─────────────────────────────────────────────────────────
+               1. INYECTAR CSS de animaciones directamente en el <head>
+                  → ya no depende de que config_general_publico.css cargue
+               ───────────────────────────────────────────────────────── */
+            if (!document.getElementById("_loaderStyles")) {
+                const s = document.createElement("style");
+                s.id = "_loaderStyles";
+                s.textContent = `
+            @keyframes _spinY {
+                from { transform: perspective(600px) rotateY(0deg); }
+                to   { transform: perspective(600px) rotateY(360deg); }
+            }
+            @keyframes _spinX {
+                from { transform: perspective(600px) rotateX(0deg); }
+                to   { transform: perspective(600px) rotateX(360deg); }
+            }
+            @keyframes _fadeInMsg {
+                from { opacity: 0; transform: translateY(4px); }
+                to   { opacity: 1; transform: translateY(0); }
+            }
+ 
+            #globalLoader {
+                position: fixed;
+                inset: 0;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                z-index: 99999;
+                background: rgba(255,255,255,0.55);
+                backdrop-filter: blur(3px);
+                -webkit-backdrop-filter: blur(3px);
+            }
+            html[data-theme="dark"] #globalLoader {
+                background: rgba(10,18,35,0.62);
+            }
+            #globalLoader.show { display: flex; }
+ 
+            #_loaderCard {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 14px;
+                background: #ffffff;
+                border: 1px solid rgba(26,86,160,0.12);
+                border-radius: 16px;
+                padding: 28px 36px;
+                box-shadow: 0 8px 32px rgba(26,86,160,0.14), 0 1px 4px rgba(0,0,0,0.06);
+                min-width: 180px;
+            }
+            html[data-theme="dark"] #_loaderCard {
+                background: #0d1a2e;
+                border-color: rgba(74,144,217,0.18);
+                box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            }
+ 
+            #_loaderImg {
+                width: 62px;
+                height: 62px;
+                object-fit: contain;
+                will-change: transform;
+                animation: _spinY 1.4s linear infinite;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #_loaderImg { animation: none; opacity: 0.6; }
+            }
+ 
+            #_loaderBar {
+                width: 120px;
+                height: 3px;
+                background: rgba(26,86,160,0.1);
+                border-radius: 4px;
+                overflow: hidden;
+            }
+            #_loaderBar::after {
+                content: '';
+                display: block;
+                width: 40%;
+                height: 100%;
+                background: linear-gradient(90deg, #1a56a0, #4a90d9);
+                border-radius: 4px;
+                animation: _barSlide 1.4s ease-in-out infinite;
+            }
+            @keyframes _barSlide {
+                0%   { margin-left: -40%; }
+                60%  { margin-left: 100%; }
+                100% { margin-left: 100%; }
+            }
+            html[data-theme="dark"] #_loaderBar::after {
+                background: linear-gradient(90deg, #2563b0, #7ab3f0);
+            }
+ 
+            #_loaderMsg {
+                font-size: 0.8rem;
+                font-weight: 500;
+                color: #374151;
+                letter-spacing: 0.2px;
+                transition: opacity 0.3s ease;
+                white-space: nowrap;
+            }
+            html[data-theme="dark"] #_loaderMsg {
+                color: #c9d4e8;
+            }
+            #_loaderMsg.fading { opacity: 0; }
+        `;
+                document.head.appendChild(s);
+            }
 
+            /* ─────────────────────────────────────────────────────────
+               2. HELPERS
+               ───────────────────────────────────────────────────────── */
+            const _shuffle = (arr) =>
+                arr
+                    .map((v) => [Math.random(), v])
+                    .sort((a, b) => a[0] - b[0])
+                    .map((x) => x[1]);
 
-        // Utilidad
-        const shuffle = (arr) => arr.map(v => [Math.random(), v]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
-
-        // === NUEVO: ciclado simple + “conexión inestable” sólo si tarda demasiado ===
-        function startMessageCycler({ container, baseMessages = [], everyMs = 3200, slowAfterMs = 12000 }) {
-            stopMessageCycler(container); // evita duplicados
-
-            const label = container.querySelector('.loader-3d .mt-2');
-            if (!label) return;
-
-            // Mensajes del usuario (sin diagnósticos de red)
-            let pool = baseMessages.length ? baseMessages : [
-            'Cargando…',
-            'Procesando datos…',
-            'Kiwi estuvo aquí',
-            'SAYOVE 2.0',
-            'Preparando interfaz…',
-            'Optimizando recursos…'
+            const _defaultMessages = [
+                "Cargando datos…",
+                "Un momento…",
+                "Procesando…",
+                "SAYOVE 2.0",
+                "Kiwi estuvo aquí",
+                "Preparando vista…",
+                "Optimizando…",
             ];
-            pool = shuffle(pool);
 
-            // Rotación
-            let i = 0;
-            label.textContent = pool[i];
+            let _msgPool = [];
+            let _msgIdx = 0;
+            let _rotateTimer = null;
+            let _slowTimer = null;
+            let _fadeTimer = null;
 
-            const rotateId = setInterval(() => {
-            i = (i + 1) % pool.length;
-            label.textContent = pool[i];
-            }, everyMs);
-            container.dataset.msgInterval = String(rotateId);
-
-            // “Conexión inestable…” SÓLO si tarda demasiado
-            const slowId = setTimeout(() => {
-            // Fija el mensaje y detiene la rotación
-            clearInterval(rotateId);
-            delete container.dataset.msgInterval;
-            label.textContent = 'Conexión inestable…';
-            // opcional: efectos visuales leves
-            label.classList.add('text-danger');
-            container.dataset.slowTimeout = ''; // marca activado
-            }, slowAfterMs);
-            container.dataset.slowTimer = String(slowId);
-        }
-
-        function stopMessageCycler(container) {
-            const rotateId = container?.dataset?.msgInterval;
-            if (rotateId) {
-            clearInterval(Number(rotateId));
-            delete container.dataset.msgInterval;
+            function _stopCycler() {
+                clearInterval(_rotateTimer);
+                clearTimeout(_slowTimer);
+                clearTimeout(_fadeTimer);
+                _rotateTimer = _slowTimer = _fadeTimer = null;
             }
-            const slowId = container?.dataset?.slowTimer;
-            if (slowId) {
-            clearTimeout(Number(slowId));
-            delete container.dataset.slowTimer;
+
+            function _setMsg(text) {
+                const el = document.getElementById("_loaderMsg");
+                if (!el) return;
+                el.classList.add("fading");
+                _fadeTimer = setTimeout(() => {
+                    el.textContent = text;
+                    el.classList.remove("fading");
+                }, 280);
             }
-            // limpia estilos del mensaje si quedaron
-            const label = container?.querySelector?.('.loader-3d .mt-2');
-            if (label) label.classList.remove('text-danger');
-        }
 
-        // === Tus funciones con soporte de mensajes rotativos ===
-        function ensureGlobalLoader() {
-            if (!document.getElementById('globalLoader')) {
-            document.body.insertAdjacentHTML('beforeend', '<div id="globalLoader" aria-live="polite" aria-busy="true"></div>');
+            function _startCycler(messages, everyMs, slowAfterMs) {
+                _stopCycler();
+                _msgPool = _shuffle(messages.length ? messages : _defaultMessages);
+                _msgIdx = 0;
+                _setMsg(_msgPool[0]);
+
+                _rotateTimer = setInterval(() => {
+                    _msgIdx = (_msgIdx + 1) % _msgPool.length;
+                    _setMsg(_msgPool[_msgIdx]);
+                }, everyMs);
+
+                _slowTimer = setTimeout(() => {
+                    clearInterval(_rotateTimer);
+                    _rotateTimer = null;
+                    _setMsg("Conexión lenta…");
+                    const el = document.getElementById("_loaderMsg");
+                    if (el) el.style.color = "#b91c1c";
+                }, slowAfterMs);
             }
-        }
 
-        // === Mostrar / ocultar con opciones ===
-        function showGlobalLoader(opts = {}) {
-            // asegúrate de tener ensureGlobalLoader() y spinnerHTML() como ya lo tienes
-            ensureGlobalLoader();
-            const el = document.getElementById('globalLoader');
+            /* ─────────────────────────────────────────────────────────
+               3. API PÚBLICA — igual que antes, mismos nombres
+               ───────────────────────────────────────────────────────── */
 
-            el.innerHTML = spinnerHTML({
-            texto: opts.texto ?? 'Cargando…',
-            svg: opts.svg,
-            axis: opts.axis,     // 'x' o 'y'
-            speed: opts.speed    // segundos por vuelta
-            });
-            el.classList.add('show');
-            document.documentElement.style.overflow = 'hidden';
-            el.setAttribute('aria-busy', 'true');
+            /** Garantiza que el contenedor exista en el DOM */
+            function ensureGlobalLoader() {
+                if (!document.getElementById("globalLoader")) {
+                    const div = document.createElement("div");
+                    div.id = "globalLoader";
+                    div.setAttribute("aria-live", "polite");
+                    div.setAttribute("aria-busy", "true");
+                    document.body.appendChild(div);
+                }
+            }
 
-            startMessageCycler({
-            container: el,
-            baseMessages: opts.messages || [
-                'Cargando…',
-                'Kiwi estuvo aquí',
-                'SAYOVE 2.0',
-                'Procesando datos…',
-                'Preparando interfaz…',
-                'Optimizando recursos…'
-            ],
-            everyMs: opts.rotateEvery || 3400, // rotación un poco más lenta
-            slowAfterMs: opts.slowAfter || 12000 // “inestable” sólo si >12s
-            });
-        }
+            /**
+             * showGlobalLoader(opts)
+             * opts.texto      — mensaje inicial
+             * opts.axis       — 'x' | 'y'  (por defecto 'y' = gira horizontal)
+             * opts.speed      — segundos por vuelta (por defecto 1.4)
+             * opts.messages   — array de mensajes rotativos
+             * opts.rotateEvery — ms entre mensajes (por defecto 3200)
+             * opts.slowAfter  — ms para marcar "conexión lenta" (por defecto 12000)
+             */
+            function showGlobalLoader(opts = {}) {
+                ensureGlobalLoader();
+                const el = document.getElementById("globalLoader");
 
-        function hideGlobalLoader() {
-            const el = document.getElementById('globalLoader');
-            if (!el) return;
-            stopMessageCycler(el);
-            el.classList.remove('show');
-            el.innerHTML = '';
-            el.setAttribute('aria-busy', 'false');
-            document.documentElement.style.overflow = '';
-        }
+                const axis = opts.axis === "x" ? "_spinX" : "_spinY";
+                const speed = opts.speed ?? 1.4;
+                const texto = opts.texto ?? "Cargando…";
+
+                el.innerHTML = `
+            <div id="_loaderCard">
+                <img id="_loaderImg"
+                     src="${opts.svg || "/assets/img/logo/activofijos.png"}"
+                     alt="Cargando"
+                     style="animation-name:${axis};animation-duration:${speed}s;"
+                     onerror="this.style.display='none'" />
+                <div id="_loaderBar"></div>
+                <span id="_loaderMsg">${texto}</span>
+            </div>`;
+
+                el.classList.add("show");
+                el.setAttribute("aria-busy", "true");
+                document.documentElement.style.overflow = "hidden";
+
+                _startCycler(
+                    opts.messages || _defaultMessages,
+                    opts.rotateEvery ?? 3200,
+                    opts.slowAfter ?? 12000,
+                );
+            }
+
+            function hideGlobalLoader() {
+                _stopCycler();
+                const el = document.getElementById("globalLoader");
+                if (!el) return;
+                el.classList.remove("show");
+                el.innerHTML = "";
+                el.setAttribute("aria-busy", "false");
+                document.documentElement.style.overflow = "";
+                // Limpia color de "lenta" por si quedó
+                const msg = document.getElementById("_loaderMsg");
+                if (msg) msg.style.color = "";
+            }
+
+            /* ── Exposición global (igual que antes) ───────────── */
+            window.ensureGlobalLoader = ensureGlobalLoader;
+            window.showGlobalLoader = showGlobalLoader;
+            window.hideGlobalLoader = hideGlobalLoader;
+
+            /* Compatibilidad: spinnerHTML ya no es necesario pero
+               se mantiene por si algún fragmento lo usa directamente */
+            window.spinnerHTML = function ({ texto = "Cargando…" } = {}) {
+                return `<span id="_loaderMsg">${texto}</span>`;
+            };
+        })();
     </script>
-
 </body>
 
 </html>

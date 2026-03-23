@@ -1,11 +1,243 @@
-<!-- Menu -->
 <aside th:fragment="sidebar" id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+    <style>
+/*
+  SAYOVE 2.0 — Sidebar institucional UAP
+  Modo oscuro: html[data-theme="dark"]  ←  lo activa el topbar Sneat
+  Fondo: blanco en light / navy en dark
+  Acento: azul UAP #1a56a0
+*/
+
+/* ── Reset de listas para eliminar puntos/círculos no deseados ── */
+#layout-menu ul, 
+#layout-menu li {
+    list-style: none !important;
+    padding: 0;
+    margin: 0;
+}
+#layout-menu .menu-item::before,
+#layout-menu .menu-link::before {
+    display: none !important;
+    content: none !important;
+}
+
+/* Línea azul institucional en el borde izquierdo */
+#layout-menu::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, #1a56a0 0%, rgba(26,86,160,0.25) 65%, transparent 100%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* ── Brand ──────────────────────────────────────────── */
+#layout-menu .app-brand-text {
+    color: #1a56a0 !important;
+    font-weight: 800 !important;
+    letter-spacing: 2px !important;
+    -webkit-text-fill-color: #1a56a0 !important;
+    background: none !important;
+    font-size: 1.3rem !important; /* Marca un poco más visible */
+}
+#layout-menu .layout-menu-toggle { color: #6b7280 !important; }
+#layout-menu .layout-menu-toggle:hover { color: #1a56a0 !important; }
+
+/* ── Scrollbar ───────────────────────────────────────── */
+#layout-menu .ps__thumb-y { background: rgba(26,86,160,0.3) !important; }
+
+/* ── Section headers ─────────────────────────────────── */
+#layout-menu .menu-header { padding: 1.5rem 1.3rem 0.5rem !important; }
+#layout-menu .menu-header-text {
+    font-size: 0.75rem !important; /* Más legible */
+    font-weight: 800 !important;
+    letter-spacing: 1.5px !important;
+    color: rgba(26,86,160,0.5) !important;
+}
+
+/* ── Items primer nivel ──────────────────────────────── */
+#layout-menu .menu-inner > .menu-item { margin: 2px 0.8rem !important; border-radius: 9px !important; }
+
+#layout-menu .menu-link {
+    padding: 0.7rem 1rem !important; /* Mejor área táctil para celulares */
+    border-radius: 9px !important;
+    color: #374151 !important;
+    transition: background .16s, color .16s, transform .14s !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.8rem !important; /* Mayor separación entre icono y texto */
+    text-decoration: none !important;
+}
+#layout-menu .menu-link:hover {
+    background: rgba(26,86,160,0.07) !important;
+    color: #1a56a0 !important;
+    transform: translateX(3px) !important;
+}
+#layout-menu .menu-item.open > .menu-link {
+    background: rgba(26,86,160,0.07) !important;
+    color: #1a56a0 !important;
+}
+#layout-menu .menu-item.active > .menu-link {
+    background: rgba(26,86,160,0.11) !important;
+    color: #1a56a0 !important;
+    box-shadow: inset 4px 0 0 #1a56a0 !important;
+    border-radius: 0 9px 9px 0 !important;
+}
+#layout-menu .menu-link > div { font-size: 0.95rem !important; font-weight: 500 !important; }
+
+/* Flecha toggle */
+#layout-menu .menu-toggle::after  { color: #9ca3af !important; font-size: 0.8rem !important; margin-left: auto; }
+#layout-menu .menu-item.open > .menu-toggle::after { color: #1a56a0 !important; }
+
+/* ── Sub-menú ────────────────────────────────────────── */
+#layout-menu .menu-sub {
+    background: rgba(26,86,160,0.025) !important;
+    margin: 4px 0 6px 2.8rem !important;
+    padding: 5px 0 !important;
+    border-left: 2px solid rgba(26,86,160,0.14) !important;
+    border-radius: 0 0 7px 7px !important;
+}
+#layout-menu .menu-sub .menu-item { margin: 2px 0.5rem !important; border-radius: 7px !important; }
+#layout-menu .menu-sub .menu-link {
+    padding: 0.5rem 0.8rem !important;
+    border-radius: 7px !important;
+    color: #4b5563 !important;
+    font-size: 0.88rem !important;
+    gap: 0.6rem !important;
+    transform: none !important;
+}
+#layout-menu .menu-sub .menu-link:hover {
+    background: rgba(26,86,160,0.07) !important;
+    color: #1a56a0 !important;
+    transform: none !important;
+}
+#layout-menu .menu-sub .menu-item.active > .menu-link {
+    background: rgba(26,86,160,0.1) !important;
+    color: #1a56a0 !important;
+}
+
+/* ─────────────────────────────────────────────────────
+   MODO OSCURO — activado por html[data-theme="dark"]
+   ───────────────────────────────────────────────────── */
+html[data-theme="dark"] #layout-menu.layout-menu,
+html[data-theme="dark"] #layout-menu {
+    background-color: #0d1a2e !important;
+    border-right-color: rgba(74,144,217,0.18) !important;
+}
+html[data-theme="dark"] #layout-menu::before {
+    background: linear-gradient(180deg, #4a90d9 0%, rgba(74,144,217,0.2) 65%, transparent 100%);
+}
+html[data-theme="dark"] #layout-menu .app-brand {
+    background: #091220 !important;
+    border-bottom-color: #2563b0 !important;
+}
+html[data-theme="dark"] #layout-menu .app-brand-text {
+    color: #7ab3f0 !important;
+    -webkit-text-fill-color: #7ab3f0 !important;
+}
+html[data-theme="dark"] #layout-menu .layout-menu-toggle { color: #4a5f7a !important; }
+html[data-theme="dark"] #layout-menu .layout-menu-toggle:hover { color: #7ab3f0 !important; }
+html[data-theme="dark"] #layout-menu .ps__thumb-y { background: rgba(74,144,217,0.35) !important; }
+html[data-theme="dark"] #layout-menu .menu-header-text { color: rgba(96,150,220,0.5) !important; }
+
+html[data-theme="dark"] #layout-menu .menu-link {
+    color: #c9d4e8 !important;
+}
+html[data-theme="dark"] #layout-menu .menu-link:hover {
+    background: rgba(37,99,176,0.14) !important;
+    color: #7ab3f0 !important;
+}
+html[data-theme="dark"] #layout-menu .menu-item.open > .menu-link {
+    background: rgba(37,99,176,0.14) !important;
+    color: #7ab3f0 !important;
+}
+html[data-theme="dark"] #layout-menu .menu-item.active > .menu-link {
+    background: rgba(37,99,176,0.22) !important;
+    color: #7ab3f0 !important;
+    box-shadow: inset 4px 0 0 #4a90d9 !important;
+}
+html[data-theme="dark"] #layout-menu .menu-toggle::after { color: #4a5f7a !important; }
+html[data-theme="dark"] #layout-menu .menu-item.open > .menu-toggle::after { color: #7ab3f0 !important; }
+
+html[data-theme="dark"] #layout-menu .menu-sub {
+    background: rgba(0,0,0,0.25) !important;
+    border-left-color: rgba(74,144,217,0.18) !important;
+}
+html[data-theme="dark"] #layout-menu .menu-sub .menu-link { color: #8295ab !important; }
+html[data-theme="dark"] #layout-menu .menu-sub .menu-link:hover {
+    background: rgba(37,99,176,0.12) !important;
+    color: #7ab3f0 !important;
+}
+html[data-theme="dark"] #layout-menu .menu-sub .menu-item.active > .menu-link {
+    background: rgba(37,99,176,0.18) !important;
+    color: #7ab3f0 !important;
+}
+
+/* ── Iconos de grupo (primer nivel) — Escala aumentada ── */
+.sm-gi {
+    width: 34px !important; height: 34px !important; border-radius: 8px;
+    display: inline-flex !important; align-items: center; justify-content: center;
+    font-size: 1.15rem !important; flex-shrink: 0;
+    transition: transform .17s ease !important;
+}
+#layout-menu .menu-link:hover .sm-gi,
+#layout-menu .menu-item.open .sm-gi { transform: rotate(-5deg) scale(1.1) !important; }
+
+.sm-gi.gi-purple { background: rgba(105,108,255,0.12); color: #7b7eff !important; }
+.sm-gi.gi-teal   { background: rgba(3,195,166,0.12);   color: #03c3a6 !important; }
+.sm-gi.gi-orange { background: rgba(255,159,67,0.12);  color: #ff9f43 !important; }
+.sm-gi.gi-green  { background: rgba(80,180,40,0.12);   color: #3d9e14 !important; }
+.sm-gi.gi-blue   { background: rgba(26,86,160,0.12);   color: #1a56a0 !important; }
+
+html[data-theme="dark"] .sm-gi.gi-green { color: #71dd37 !important; background: rgba(113,221,55,0.12); }
+html[data-theme="dark"] .sm-gi.gi-blue  { color: #56caff !important; background: rgba(86,202,255,0.14); }
+
+/* ── Iconos de sub-item — Escala aumentada ─────── */
+.sm-si {
+    width: 28px; height: 28px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.95rem; flex-shrink: 0;
+    transition: transform .15s ease;
+}
+#layout-menu .menu-sub .menu-link:hover .sm-si { transform: scale(1.12); }
+
+.sm-si.si-purple { background: rgba(105,108,255,0.1);  color: #7b7eff !important; }
+.sm-si.si-teal   { background: rgba(3,195,166,0.1);    color: #03c3a6 !important; }
+.sm-si.si-orange { background: rgba(255,159,67,0.1);   color: #ff9f43 !important; }
+.sm-si.si-green  { background: rgba(80,180,40,0.1);    color: #3d9e14 !important; }
+.sm-si.si-blue   { background: rgba(26,86,160,0.1);    color: #1a56a0 !important; }
+.sm-si.si-cyan   { background: rgba(0,180,230,0.1);    color: #009fc4 !important; }
+.sm-si.si-amber  { background: rgba(180,110,0,0.1);    color: #9a6400 !important; }
+.sm-si.si-red    { background: rgba(185,28,28,0.1);    color: #b91c1c !important; }
+
+html[data-theme="dark"] .sm-si.si-green  { color: #71dd37 !important; background: rgba(113,221,55,0.1); }
+html[data-theme="dark"] .sm-si.si-blue   { color: #56caff !important; background: rgba(86,202,255,0.1); }
+html[data-theme="dark"] .sm-si.si-cyan   { color: #00e5ff !important; background: rgba(0,229,255,0.1); }
+html[data-theme="dark"] .sm-si.si-amber  { color: #ffc107 !important; background: rgba(255,193,7,0.1); }
+html[data-theme="dark"] .sm-si.si-red    { color: #ff6b6b !important; background: rgba(255,75,75,0.1); }
+
+/* ── Badge PEND. ─────────────────────────────────────── */
+.sm-badge {
+    font-size: 0.65rem; font-weight: 800; padding: 0.25em 0.55em;
+    border-radius: 5px; letter-spacing: 0.5px; flex-shrink: 0; margin-left: auto;
+}
+.sm-bd-warn {
+    background: rgba(180,110,0,0.1);
+    color: #9a6400;
+    border: 1px solid rgba(180,110,0,0.22);
+}
+html[data-theme="dark"] .sm-bd-warn {
+    background: rgba(255,193,7,0.12);
+    color: #ffc107;
+    border-color: rgba(255,193,7,0.22);
+}
+</style>
     <div class="app-brand demo">
         <a href="/adm/inicio" class="app-brand-link">
             <span class="app-brand-logo demo">
                 <img th:src="@{/assets/img/logo/activofijos.png}"
                     alt="SAYOVE"
-                    style="height:25px; width:60px; display:block;" />
+                    style="height:25px; width:35px;" />
             </span>
             <span class="app-brand-text demo menu-text fw-bold">SAYOVE</span>
         </a>
@@ -17,168 +249,188 @@
     </div>
 
     <ul class="menu-inner py-1">
-        <!-- VISTA ADMINISTRADOR Y SUPER USUARIO -->
-        <li class="menu-header small text-uppercase" th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
-            <span class="menu-header-text">ADMINISTARCIÓN</span>
+
+        <li class="menu-header small text-uppercase"
+            th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
+            <span class="menu-header-text">Administración</span>
         </li>
-        <li class="menu-item" id="opcion_admin" th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
+
+        <li class="menu-item" id="opcion_admin"
+            th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
             <a href="#" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons ti ti-users"></i>
-                <div>Administrar usuarios</div>
+                <span class="sm-gi gi-purple menu-icon"><i class="ti ti-users-group"></i></span>
+                <div>Usuarios y Accesos</div>
             </a>
             <ul class="menu-sub">
                 <li class="menu-item" id="opcion_rol">
                     <a class="menu-link">
-                        <i class="ti ti-shield-lock me-2"></i>
+                        <span class="sm-si si-purple"><i class="ti ti-shield-lock"></i></span>
                         <div>Rol</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_persona">
                     <a class="menu-link">
-                        <i class="ti ti-id me-2"></i>
+                        <span class="sm-si si-blue"><i class="ti ti-id-badge-2"></i></span>
                         <div>Persona</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_usuario">
                     <a class="menu-link">
-                        <i class="ti ti-user-cog me-2"></i>
+                        <span class="sm-si si-cyan"><i class="ti ti-user-cog"></i></span>
                         <div>Usuario</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_responsable">
                     <a class="menu-link">
-                        <i class="ti ti-user-check me-2"></i>
+                        <span class="sm-si si-teal"><i class="ti ti-user-check"></i></span>
                         <div>Responsables</div>
                     </a>
                 </li>
             </ul>
         </li>
-        <!-- COMPLEMENTOS -->
-        <li class="menu-header small text-uppercase" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
-            <span class="menu-header-text">COMPLEMENTOS</span>
+
+
+        <li class="menu-header small text-uppercase"
+            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+            <span class="menu-header-text">Catálogos</span>
         </li>
-        <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+
+        <li class="menu-item"
+            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
             <a href="#" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons ti ti-adjustments"></i>
-                <div>Administrar complementos</div>
+                <span class="sm-gi gi-teal menu-icon"><i class="ti ti-adjustments-horizontal"></i></span>
+                <div>Clasificación Contable</div>
             </a>
             <ul class="menu-sub">
                 <li class="menu-item" id="opcion_contable">
                     <a class="menu-link">
-                        <i class="ti ti-category-2 me-2"></i>
-                        <div>Grupo contable</div>
+                        <span class="sm-si si-teal"><i class="ti ti-category-2"></i></span>
+                        <div>Grupo Contable</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_auxiliar">
                     <a class="menu-link">
-                        <i class="ti ti-folders me-2"></i>
+                        <span class="sm-si si-blue"><i class="ti ti-folders"></i></span>
                         <div>Auxiliar</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_of">
                     <a class="menu-link">
-                        <i class="ti ti-building-bank me-2"></i>
-                        <div>Organismo financiador</div>
+                        <span class="sm-si si-amber"><i class="ti ti-building-bank"></i></span>
+                        <div>Organismo Financiador</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_estadoA">
                     <a class="menu-link">
-                        <i class="ti ti-badge me-2"></i>
-                        <div>Estado del activo</div>
+                        <span class="sm-si si-green"><i class="ti ti-badge"></i></span>
+                        <div>Estado del Activo</div>
                     </a>
                 </li>
             </ul>
         </li>
-        <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+
+        <li class="menu-item"
+            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
             <a href="#" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons ti ti-map"></i>
-                <div>Ambito geografico</div>
+                <span class="sm-gi gi-blue menu-icon"><i class="ti ti-map-2"></i></span>
+                <div>Ámbito Geográfico</div>
             </a>
             <ul class="menu-sub">
                 <li class="menu-item" id="opcion_entidad">
                     <a class="menu-link">
-                        <i class="ti ti-building me-2"></i>
+                        <span class="sm-si si-blue"><i class="ti ti-building-community"></i></span>
                         <div>Entidad</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_municipio">
                     <a class="menu-link">
-                        <i class="ti ti-map-pin me-2"></i>
+                        <span class="sm-si si-cyan"><i class="ti ti-map-pin"></i></span>
                         <div>Municipio</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_predio">
                     <a class="menu-link">
-                        <i class="ti ti-home-2 me-2"></i>
+                        <span class="sm-si si-teal"><i class="ti ti-home-2"></i></span>
                         <div>Predio</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_oficina">
                     <a class="menu-link">
-                        <i class="ti ti-door me-2"></i>
-                        <div>Oficinas </div>
+                        <span class="sm-si si-purple"><i class="ti ti-door"></i></span>
+                        <div>Oficinas</div>
                     </a>
                 </li>
             </ul>
         </li>
-        <li class="menu-header small text-uppercase" th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
-            <span class="menu-header-text">GESTION</span>
+
+
+        <li class="menu-header small text-uppercase"
+            th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
+            <span class="menu-header-text">Seguimiento</span>
         </li>
-        <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
+
+        <li class="menu-item"
+            th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
             <a href="#" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons ti ti-report-analytics"></i>
-                <div>Seguimientos</div>
+                <span class="sm-gi gi-orange menu-icon"><i class="ti ti-route"></i></span>
+                <div>Movimientos</div>
             </a>
             <ul class="menu-sub">
                 <li class="menu-item" id="opcion_aan">
                     <a class="menu-link">
-                        <i class="ti ti-clipboard-check me-2"></i>
+                        <span class="sm-si si-green"><i class="ti ti-clipboard-check"></i></span>
                         <div>Asignaciones</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_ta">
                     <a class="menu-link">
-                        <i class="ti ti-arrows-exchange-2 me-2"></i>
+                        <span class="sm-si si-blue"><i class="ti ti-arrows-exchange-2"></i></span>
                         <div>Transferencias</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_iaa">
                     <a class="menu-link">
-                        <i class="ti ti-arrow-down-circle me-2"></i>
+                        <span class="sm-si si-orange"><i class="ti ti-arrow-down-circle"></i></span>
                         <div>Ingresos</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_ba">
                     <a class="menu-link">
-                        <i class="ti ti-arrow-up-circle me-2"></i>
+                        <span class="sm-si si-red"><i class="ti ti-trash"></i></span>
                         <div>Bajas</div>
                     </a>
                 </li>
             </ul>
         </li>
-        <li class="menu-header small text-uppercase" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
-            <span class="menu-header-text">Gestion Activos</span>
+
+
+        <li class="menu-header small text-uppercase"
+            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+            <span class="menu-header-text">Gestión de Activos</span>
         </li>
-        <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+
+        <li class="menu-item"
+            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
             <a href="#" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons ti ti-packages"></i>
-                <div>Administración activos</div>
+                <span class="sm-gi gi-green menu-icon"><i class="ti ti-packages"></i></span>
+                <div>Administración de Activos</div>
             </a>
             <ul class="menu-sub">
                 <li class="menu-item" id="opcion_activo">
                     <a class="menu-link">
-                        <i class="ti ti-clipboard-text me-2"></i>
-                        <div>Registro activos</div>
+                        <span class="sm-si si-green"><i class="ti ti-clipboard-list"></i></span>
+                        <div>Registro Activos</div>
                     </a>
                 </li>
                 <li class="menu-item" id="opcion_activop">
                     <a class="menu-link">
-                        <i class="ti ti-clipboard-text me-2"></i>
-                        <div>Registro activos pendientes</div>
+                        <span class="sm-si si-amber"><i class="ti ti-clock-exclamation"></i></span>
+                        <div>Registro Activos Pendientes</div>
+                        <span class="sm-badge sm-bd-warn">PEND.</span>
                     </a>
                 </li>
             </ul>
         </li>
+
     </ul>
 </aside>
-<!-- / Menu -->

@@ -1504,35 +1504,83 @@
                     title: 'Nuevo Responsable',
                     width: 520,
                     html: `
-                <div class="text-start small text-muted mb-3">
-                    Oficina: <strong>${ofiNombre}</strong>
-                </div>
-                <div class="row g-2 text-start">
-                    <div class="col-6">
-                        <label class="form-label" style="font-size:0.72rem;font-weight:700;">C.I. <span class="text-danger">*</span></label>
-                        <input id="swal-resp-ci" class="swal2-input mt-0" placeholder="12345678">
-                    </div>
-                    <div class="col-6">
-                        <label class="form-label" style="font-size:0.72rem;font-weight:700;">
-                            CÓD. FUNCIONARIO
-                            <span class="text-muted fw-normal">(auto)</span>
-                        </label>
-                        <input id="swal-resp-codfunc" class="swal2-input mt-0 font-monospace"
-                               value="${siguienteCodFunc}" placeholder="Ej: 42">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label" style="font-size:0.72rem;font-weight:700;">NOMBRE(S) <span class="text-danger">*</span></label>
-                        <input id="swal-resp-nombre" class="swal2-input mt-0" placeholder="Ej: Juan Carlos">
-                    </div>
-                    <div class="col-6">
-                        <label class="form-label" style="font-size:0.72rem;font-weight:700;">PATERNO <span class="text-danger">*</span></label>
-                        <input id="swal-resp-paterno" class="swal2-input mt-0" placeholder="Apellido paterno">
-                    </div>
-                    <div class="col-6">
-                        <label class="form-label" style="font-size:0.72rem;font-weight:700;">MATERNO</label>
-                        <input id="swal-resp-materno" class="swal2-input mt-0" placeholder="(Opcional)">
-                    </div>
-                </div>`,
+                        <style>
+                            .swal-resp-form .form-control {
+                                display: block;
+                                width: 100%;
+                                padding: 0.35rem 0.65rem;
+                                font-size: 0.88rem;
+                                font-weight: 500;
+                                line-height: 1.5;
+                                color: #1e293b;
+                                background-color: #fff;
+                                border: 1.5px solid #e2e8f0;
+                                border-radius: 0.5rem;
+                                transition: border-color .15s, box-shadow .15s;
+                                margin: 0 !important;
+                                box-sizing: border-box;
+                            }
+                            .swal-resp-form .form-control:focus {
+                                border-color: #1a56db;
+                                box-shadow: 0 0 0 3px rgba(26,86,219,0.12);
+                                outline: none;
+                            }
+                            .swal-resp-form .form-label {
+                                display: block;
+                                font-size: 0.72rem;
+                                font-weight: 700;
+                                color: #64748b;
+                                text-transform: uppercase;
+                                letter-spacing: 0.4px;
+                                margin-bottom: 0.25rem;
+                                text-align: left;
+                            }
+                            .swal-resp-form .row {
+                                display: flex;
+                                flex-wrap: wrap;
+                                margin: 0 -0.375rem;
+                            }
+                            .swal-resp-form .col-6 {
+                                width: 50%;
+                                padding: 0 0.375rem;
+                                box-sizing: border-box;
+                            }
+                            .swal-resp-form .col-12 {
+                                width: 100%;
+                                padding: 0 0.375rem;
+                                box-sizing: border-box;
+                            }
+                            .swal-resp-form .mb-2 { margin-bottom: 0.6rem !important; }
+                            .swal-resp-form .mb-3 { margin-bottom: 0.85rem !important; }
+                        </style>
+                        <div class="swal-resp-form">
+                            <div class="mb-3 text-start small text-muted">
+                                Oficina: <strong>${ofiNombre}</strong>
+                            </div>
+                            <div class="row">
+                                <div class="col-6 mb-2">
+                                    <label class="form-label">C.I. <span class="text-danger">*</span></label>
+                                    <input id="swal-resp-ci" class="form-control" placeholder="Ej: 12345678">
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <label class="form-label">Cód. Funcionario <span class="text-muted fw-normal">(auto)</span></label>
+                                    <input id="swal-resp-codfunc" class="form-control font-monospace"
+                                        value="${siguienteCodFunc}" placeholder="Ej: 42">
+                                </div>
+                                <div class="col-12 mb-2">
+                                    <label class="form-label">Nombre(s) <span class="text-danger">*</span></label>
+                                    <input id="swal-resp-nombre" class="form-control" placeholder="Ej: Juan Carlos">
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <label class="form-label">Paterno <span class="text-danger">*</span></label>
+                                    <input id="swal-resp-paterno" class="form-control" placeholder="Apellido paterno">
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <label class="form-label">Materno</label>
+                                    <input id="swal-resp-materno" class="form-control" placeholder="(Opcional)">
+                                </div>
+                            </div>
+                        </div>`,
                     showCancelButton: true,
                     confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> Guardar',
                     cancelButtonText: 'Cancelar',

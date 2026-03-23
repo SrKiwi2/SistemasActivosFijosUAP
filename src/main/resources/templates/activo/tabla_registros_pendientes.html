@@ -383,6 +383,25 @@
         opacity: 0.35;
         cursor: not-allowed;
     }
+
+    /* Botón seleccionar similares */
+    .btn-row-similar {
+        color: #20c997;
+        border-color: #20c997;
+    }
+    .btn-row-similar:hover {
+        background: #20c997;
+        color: white;
+    }
+    .btn-row-similar:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+
+    /* Cursor hint en checkboxes para shift+click */
+    .chk-item:not(:disabled) {
+        cursor: pointer;
+    }
 </style>
 
 <div id="lista-asignaciones" class="d-flex flex-column gap-3 animate__animated animate__fadeIn">
@@ -472,7 +491,7 @@
                             <td>
                                 <input class="form-check-input chk-masivo chk-item" type="checkbox"
                                     th:value="${item.encryptedActivoId}"
-                                    th:attr="data-grupo=${idx.index}, data-estado=${item.activo.estado}"
+                                    th:attr="data-grupo=${idx.index}, data-estado=${item.activo.estado}, data-desc=${item.activo?.descripcion}"
                                     th:disabled="${item.activo.estado != 'PENDIENTE'}">
                             </td>
                             <td class="text-muted" th:text="${iIdx.index + 1}">1</td>
@@ -515,6 +534,14 @@
                                         th:disabled="${item.activo.estado != 'PENDIENTE'}" title="Editar este activo">
                                         <i class="fa-solid fa-pen-to-square"></i>
                                     </button>
+                                    <!-- En la tabla de asignaciones (dentro de <td class="text-center">) -->
+                                    <button type="button" class="btn-row-action btn-row-similar btn-similar"
+                                        th:attr="data-grupo=${idx.index}, data-desc=${item.activo.descripcion}"
+                                        th:disabled="${item.activo.estado != 'PENDIENTE'}"
+                                        title="Seleccionar todos con esta misma descripción">
+                                        <i class="fa-solid fa-layer-group"></i>
+                                    </button>
+
                                 </div>
                             </td>
                         </tr>
@@ -578,8 +605,8 @@
                             <td>
                                 <input class="form-check-input chk-masivo chk-item" type="checkbox"
                                     th:value="${sinAsignacionIds[__${iIdx.index}__]}" data-grupo="sin"
-                                    th:attr="data-estado=${activo.estado}"
-                                    th:disabled="${activo.estado != 'PENDIENTE'}">
+                                    th:attr="data-estado=${activo.estado}, data-desc=${activo?.descripcion}"
+                                    th:disabled="${activo?.estado != 'PENDIENTE'}">
                             </td>
                             <td class="text-muted" th:text="${iIdx.index + 1}">1</td>
                             <td><span class="sub-code" th:text="${activo.codigo}">CÓD</span></td>
@@ -601,8 +628,8 @@
                             </td>
                             <td>
                                 <span class="estado-chip"
-                                    th:classappend="${activo.estado == 'PENDIENTE'} ? ' estado-pendiente'
-                                                       : (${activo.estado == 'ACTIVO'} ? ' estado-activo' : ' estado-otros')">
+                                    th:classappend="${activo?.estado == 'PENDIENTE'} ? ' estado-pendiente'
+                                                       : (${activo?.estado == 'ACTIVO'} ? ' estado-activo' : ' estado-otros')">
                                     <i class="fa-solid fa-circle me-1" style="font-size:0.55em;"></i>
                                     <span th:text="${activo.estado}">PENDIENTE</span>
                                 </span>
@@ -615,8 +642,16 @@
                                     </button>
                                     <button type="button" class="btn-row-action btn-row-edit btn-editar"
                                         th:attr="data-id=${sinAsignacionIds[__${iIdx.index}__]}"
-                                        th:disabled="${activo.estado != 'PENDIENTE'}" title="Editar activo">
+                                        th:disabled="${activo?.estado != 'PENDIENTE'}" title="Editar activo">
                                         <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+
+                                    <!-- En la tabla de asignaciones (dentro de <td class="text-center">) -->
+                                    <button type="button" class="btn-row-action btn-row-similar btn-similar"
+                                        th:attr="data-grupo=${idx.index}, data-desc=${item.activo?.descripcion}"
+                                        th:disabled="${item.activo.estado != 'PENDIENTE'}"
+                                        title="Seleccionar todos con esta misma descripción">
+                                        <i class="fa-solid fa-layer-group"></i>
                                     </button>
                                 </div>
                             </td>
@@ -625,7 +660,7 @@
                 </table>
             </div>
         </div>
-    </div><!-- /sin asignación -->
+    </div>
 
 </div>
 

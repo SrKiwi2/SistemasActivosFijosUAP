@@ -608,1067 +608,1144 @@
 <!-- JAVASCRIPT                                       -->
 <!-- ================================================ -->
 <script>
-    $(document).ready(function () {
-        cargarTabla();
-    });
 
-    // ────────────────────────────────────────────────
-    // CARGA DE TABLA
-    // ────────────────────────────────────────────────
-    function cargarTabla() {
-        showGlobalLoader({ texto: 'Cargando asignaciones...' });
-        $.ajax({
-            type: 'POST',
-            url: '/administracion/activo/tabla-registros_pendientes',
-            success: function (html) {
-                $('#tablaRegistro').html(html);
-                initLogicaMasiva();
-            },
-            error: function () {
-                $('#tablaRegistro').html(
-                    `<div class="alert alert-danger m-3">
-                    <i class="fa-solid fa-triangle-exclamation me-2"></i>
-                    Error cargando datos. Recargue la página.
-                </div>`
-                );
-            },
-            complete: function () {
-                hideGlobalLoader();
+    (function () {
+        $(document).ready(function () {
+            cargarTabla();
+        });
+
+        // ────────────────────────────────────────────────
+        // CARGA DE TABLA
+        // ────────────────────────────────────────────────
+        function cargarTabla() {
+            showGlobalLoader({ texto: 'Cargando asignaciones...' });
+            $.ajax({
+                type: 'POST',
+                url: '/administracion/activo/tabla-registros_pendientes',
+                success: function (html) {
+                    $('#tablaRegistro').html(html);
+                    initLogicaMasiva();
+                },
+                error: function () {
+                    $('#tablaRegistro').html(
+                        `<div class="alert alert-danger m-3">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                        Error cargando datos. Recargue la página.
+                    </div>`
+                    );
+                },
+                complete: function () {
+                    hideGlobalLoader();
+                    $('#barraMasiva').addClass('d-none');
+                }
+            });
+        }
+
+        const _anclaSeleccion = {};
+
+        function initSeleccionRapida() {
+
+            // ── ① Shift+Click: selección por rango ──────────────────────────────
+            // Se une a 'click' (no 'change') para leer el nuevo estado DESPUÉS del toggle
+            $('body').off('click.shiftsel', '.chk-item').on('click.shiftsel', '.chk-item', function (e) {
+                const grupo = $(this).data('grupo');
+                const anclaKey = 'g_' + grupo;
+
+                if (e.shiftKey && _anclaSeleccion[anclaKey]) {
+                    const nuevoEstado = this.checked; // estado tras el clic
+                    const $todos = $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`);
+                    const arrayItems = $todos.toArray();
+                    const idxActual = arrayItems.indexOf(this);
+                    const idxAncla = arrayItems.indexOf(_anclaSeleccion[anclaKey]);
+
+                    if (idxActual !== -1 && idxAncla !== -1) {
+                        const desde = Math.min(idxActual, idxAncla);
+                        const hasta = Math.max(idxActual, idxAncla);
+                        arrayItems.slice(desde, hasta + 1).forEach(el => $(el).prop('checked', nuevoEstado));
+
+                        actualizarBarra();
+                        // Sincronizar checkboxes de cabecera
+                        const total = $todos.length;
+                        const marcados = $(`.chk-item[data-grupo="${grupo}"]:checked`).length;
+                        const todosMarcados = total > 0 && total === marcados;
+                        $(`.chk-grupo[data-grupo="${grupo}"]`).prop('checked', todosMarcados);
+                        $(`.chk-grupo-all[data-grupo="${grupo}"]`).prop('checked', todosMarcados);
+                    }
+                }
+                // Siempre actualizar el ancla al checkbox clickeado
+                _anclaSeleccion[anclaKey] = this;
+            });
+
+
+            // ── ② Botón "Seleccionar similares": misma descripción en el grupo ──
+            $('body').off('click.similar', '.btn-similar').on('click.similar', '.btn-similar', function (e) {
+                e.stopPropagation();
+                const grupo = $(this).data('grupo');
+                const descRef = normalizeDesc($(this).data('desc'));
+
+                let contadorSeleccionados = 0;
+                $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).each(function () {
+                    if (normalizeDesc($(this).data('desc')) === descRef) {
+                        $(this).prop('checked', true);
+                        contadorSeleccionados++;
+                    }
+                });
+
+                actualizarBarra();
+
+                // Sincronizar checkboxes de cabecera
+                const total = $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).length;
+                const marcados = $(`.chk-item[data-grupo="${grupo}"]:checked`).length;
+                const todosMarcados = total > 0 && total === marcados;
+                $(`.chk-grupo[data-grupo="${grupo}"]`).prop('checked', todosMarcados);
+                $(`.chk-grupo-all[data-grupo="${grupo}"]`).prop('checked', todosMarcados);
+
+                Swal.fire({
+                    toast: true, position: 'top-end', icon: 'success',
+                    title: `${contadorSeleccionados} activo${contadorSeleccionados !== 1 ? 's' : ''} con la misma descripción seleccionados`,
+                    showConfirmButton: false, timer: 2200
+                });
+            });
+        }
+
+        // Normaliza texto para comparación: sin espacios dobles, sin mayúsculas
+        function normalizeDesc(desc) {
+            if (!desc) return '';
+            return String(desc).trim().toLowerCase().replace(/\s+/g, ' ');
+        }
+
+
+        // ────────────────────────────────────────────────
+        // LÓGICA DE SELECCIÓN MASIVA
+        // ────────────────────────────────────────────────
+        function initLogicaMasiva() {
+
+            // Checkbox "todos" de un grupo (el de la cabecera interna de la sub-tabla)
+            $('body').off('change', '.chk-grupo-all').on('change', '.chk-grupo-all', function () {
+                const grupo = $(this).data('grupo');
+                $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).prop('checked', $(this).is(':checked'));
+                actualizarBarra();
+            });
+
+            // Checkbox del header principal de la tarjeta (selecciona TODO el grupo)
+            $('body').off('change', '.chk-grupo').on('change', '.chk-grupo', function () {
+                const grupo = $(this).data('grupo');
+                const checked = $(this).is(':checked');
+                $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).prop('checked', checked);
+                $(`.chk-grupo-all[data-grupo="${grupo}"]`).prop('checked', checked);
+                actualizarBarra();
+            });
+
+            // Checkbox individual
+            $('body').off('change', '.chk-item').on('change', '.chk-item', function () {
+                actualizarBarra();
+                const grupo = $(this).data('grupo');
+                const total = $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).length;
+                const checked = $(`.chk-item[data-grupo="${grupo}"]:checked`).length;
+                $(`.chk-grupo[data-grupo="${grupo}"]`).prop('checked', total > 0 && total === checked);
+                $(`.chk-grupo-all[data-grupo="${grupo}"]`).prop('checked', total > 0 && total === checked);
+            });
+
+            // Botón barra: Asignar documento (selección manual)
+            $('#btnAsignarPrev').off('click').on('click', function () {
+                const ids = getIdsSeleccionados();
+                if (ids.length === 0) {
+                    Swal.fire('Atención', 'Seleccione al menos un activo.', 'warning'); return;
+                }
+                abrirModalAsignarDoc(ids, null);
+            });
+
+            // Botón barra: Sincronizar masivo (selección manual)
+            $('#btnProcesarMasivo').off('click').on('click', function () {
+                const ids = getIdsSeleccionados();
+                if (ids.length === 0) return;
+                confirmarSincronizar(ids);
+            });
+
+            initSeleccionRapida();
+        }
+
+
+        // ────────────────────────────────────────────────
+        // HELPERS DE SELECCIÓN
+        // ────────────────────────────────────────────────
+        function getIdsSeleccionados() {
+            const ids = [];
+            $('.chk-item:checked').each(function () { ids.push($(this).val()); });
+            return ids;
+        }
+
+        function limpiarSeleccion() {
+            $('.chk-item, .chk-grupo, .chk-grupo-all').prop('checked', false);
+            actualizarBarra();
+        }
+
+        function actualizarBarra() {
+            const total = $('.chk-item:checked').length;
+            if (total > 0) {
+                $('#lblContador').text(total + (total === 1 ? ' seleccionado' : ' seleccionados'));
+                $('#barraMasiva').removeClass('d-none');
+            } else {
                 $('#barraMasiva').addClass('d-none');
             }
-        });
-    }
+        }
 
 
-    // ────────────────────────────────────────────────
-    // LÓGICA DE SELECCIÓN MASIVA
-    // ────────────────────────────────────────────────
-    function initLogicaMasiva() {
+        // ────────────────────────────────────────────────
+        // FUNCIONES GLOBALES — llamadas desde onclick del fragmento
+        // ────────────────────────────────────────────────
 
-        // Checkbox "todos" de un grupo (el de la cabecera interna de la sub-tabla)
-        $('body').off('change', '.chk-grupo-all').on('change', '.chk-grupo-all', function () {
-            const grupo = $(this).data('grupo');
-            $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).prop('checked', $(this).is(':checked'));
-            actualizarBarra();
-        });
-
-        // Checkbox del header principal de la tarjeta (selecciona TODO el grupo)
-        $('body').off('change', '.chk-grupo').on('change', '.chk-grupo', function () {
-            const grupo = $(this).data('grupo');
-            const checked = $(this).is(':checked');
-            $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).prop('checked', checked);
-            $(`.chk-grupo-all[data-grupo="${grupo}"]`).prop('checked', checked);
-            actualizarBarra();
-        });
-
-        // Checkbox individual
-        $('body').off('change', '.chk-item').on('change', '.chk-item', function () {
-            actualizarBarra();
-            const grupo = $(this).data('grupo');
-            const total = $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).length;
-            const checked = $(`.chk-item[data-grupo="${grupo}"]:checked`).length;
-            $(`.chk-grupo[data-grupo="${grupo}"]`).prop('checked', total > 0 && total === checked);
-            $(`.chk-grupo-all[data-grupo="${grupo}"]`).prop('checked', total > 0 && total === checked);
-        });
-
-        // Botón barra: Asignar documento (selección manual)
-        $('#btnAsignarPrev').off('click').on('click', function () {
-            const ids = getIdsSeleccionados();
+        /** Abre el modal para todos los PENDIENTES de un grupo (idx numérico o 'sin') */
+        function abrirModalAsignarDocGrupo(idx) {
+            const ids = [];
+            $(`.chk-item[data-grupo="${idx}"][data-estado="PENDIENTE"]`).each(function () {
+                ids.push($(this).val());
+            });
             if (ids.length === 0) {
-                Swal.fire('Atención', 'Seleccione al menos un activo.', 'warning'); return;
+                Swal.fire('Información', 'No hay activos pendientes en este grupo.', 'info');
+                return;
             }
-            abrirModalAsignarDoc(ids, null);
-        });
+            abrirModalAsignarDoc(ids, idx);
+        }
 
-        // Botón barra: Sincronizar masivo (selección manual)
-        $('#btnProcesarMasivo').off('click').on('click', function () {
-            const ids = getIdsSeleccionados();
-            if (ids.length === 0) return;
+        /** Sincroniza todos los PENDIENTES de un grupo (idx numérico o 'sin') */
+        function sincronizarGrupo(idx) {
+            const ids = [];
+            $(`.chk-item[data-grupo="${idx}"][data-estado="PENDIENTE"]`).each(function () {
+                ids.push($(this).val());
+            });
+            if (ids.length === 0) {
+                Swal.fire('Información', 'No hay activos pendientes en este grupo.', 'info');
+                return;
+            }
             confirmarSincronizar(ids);
-        });
-    }
-
-
-    // ────────────────────────────────────────────────
-    // HELPERS DE SELECCIÓN
-    // ────────────────────────────────────────────────
-    function getIdsSeleccionados() {
-        const ids = [];
-        $('.chk-item:checked').each(function () { ids.push($(this).val()); });
-        return ids;
-    }
-
-    function limpiarSeleccion() {
-        $('.chk-item, .chk-grupo, .chk-grupo-all').prop('checked', false);
-        actualizarBarra();
-    }
-
-    function actualizarBarra() {
-        const total = $('.chk-item:checked').length;
-        if (total > 0) {
-            $('#lblContador').text(total + (total === 1 ? ' seleccionado' : ' seleccionados'));
-            $('#barraMasiva').removeClass('d-none');
-        } else {
-            $('#barraMasiva').addClass('d-none');
-        }
-    }
-
-
-    // ────────────────────────────────────────────────
-    // FUNCIONES GLOBALES — llamadas desde onclick del fragmento
-    // ────────────────────────────────────────────────
-
-    /** Abre el modal para todos los PENDIENTES de un grupo (idx numérico o 'sin') */
-    function abrirModalAsignarDocGrupo(idx) {
-        const ids = [];
-        $(`.chk-item[data-grupo="${idx}"][data-estado="PENDIENTE"]`).each(function () {
-            ids.push($(this).val());
-        });
-        if (ids.length === 0) {
-            Swal.fire('Información', 'No hay activos pendientes en este grupo.', 'info');
-            return;
-        }
-        abrirModalAsignarDoc(ids, idx);
-    }
-
-    /** Sincroniza todos los PENDIENTES de un grupo (idx numérico o 'sin') */
-    function sincronizarGrupo(idx) {
-        const ids = [];
-        $(`.chk-item[data-grupo="${idx}"][data-estado="PENDIENTE"]`).each(function () {
-            ids.push($(this).val());
-        });
-        if (ids.length === 0) {
-            Swal.fire('Información', 'No hay activos pendientes en este grupo.', 'info');
-            return;
-        }
-        confirmarSincronizar(ids);
-    }
-
-
-    // ────────────────────────────────────────────────
-    // MODAL: ASIGNAR DOCUMENTO — lógica interna
-    // ────────────────────────────────────────────────
-    let _pendingIds = [];
-    let _pendingGrupo = null;
-    let _configsCache = [];  // caché de configuraciones cargadas
-
-    function abrirModalAsignarDoc(ids, grupo) {
-        _pendingIds = ids;
-        _pendingGrupo = grupo;
-
-        $('#lblTotalSeleccionados').text(ids.length);
-        $('#lblBtnTotal').text(ids.length);
-        $('#btnConfirmarAsignacion').prop('disabled', true);
-
-        if (grupo !== null) {
-            $('#lblScopeGrupo').removeClass('d-none');
-            $('#lblScopeManual').addClass('d-none');
-        } else {
-            $('#lblScopeGrupo').addClass('d-none');
-            $('#lblScopeManual').removeClass('d-none');
         }
 
-        $('#txtNroDoc').val('');
-        $('#previewDesc').hide();
-        $('#infoConfigSeleccionada').addClass('d-none');
 
-        new bootstrap.Tab(document.querySelector('#tab-elegir')).show();
-        cargarComboConfiguraciones();
-        $('#modalAsignarGestion').modal('show');
-    }
+        // ────────────────────────────────────────────────
+        // MODAL: ASIGNAR DOCUMENTO — lógica interna
+        // ────────────────────────────────────────────────
+        let _pendingIds = [];
+        let _pendingGrupo = null;
+        let _configsCache = [];  // caché de configuraciones cargadas
 
-    function cargarComboConfiguraciones() {
-        const $sel = $('#selConfigGestion');
-        $sel.html('<option value="">Cargando...</option>');
-        $.ajax({
-            url: '/api/configuracion/listar',
-            method: 'GET',
-            success: function (data) {
-                _configsCache = data || [];
-                $sel.empty().append('<option value="">— Seleccione un tipo —</option>');
-                if (_configsCache.length === 0) {
-                    $sel.append('<option value="" disabled>Sin configuraciones. Registre una nueva.</option>');
-                } else {
-                    _configsCache.forEach(c => {
-                        const label = `${c.prefijoDocumento} — ${c.ciudad ?? '?'} (${c.gestion})`;
-                        $sel.append(`<option value="${c.idConfig}">${label}</option>`);
-                    });
-                }
-            },
-            error: function () {
-                $sel.html('<option value="">Error al cargar</option>');
+        function abrirModalAsignarDoc(ids, grupo) {
+            _pendingIds = ids;
+            _pendingGrupo = grupo;
+
+            $('#lblTotalSeleccionados').text(ids.length);
+            $('#lblBtnTotal').text(ids.length);
+            $('#btnConfirmarAsignacion').prop('disabled', true);
+
+            if (grupo !== null) {
+                $('#lblScopeGrupo').removeClass('d-none');
+                $('#lblScopeManual').addClass('d-none');
+            } else {
+                $('#lblScopeGrupo').addClass('d-none');
+                $('#lblScopeManual').removeClass('d-none');
             }
-        });
-    }
 
-    // Al cambiar el tipo de documento → mostrar info de ciudad + actualizar preview
-    $('#selConfigGestion').on('change', function () {
-        const idConfig = $(this).val();
-        const cfg = _configsCache.find(c => String(c.idConfig) === String(idConfig));
-        if (cfg) {
-            $('#infoCiudad').text(cfg.ciudad ?? '—');
-            $('#infoGestion').text(cfg.gestion ?? '—');
-            $('#infoPrefijo').text(cfg.prefijoDocumento ?? '—');
-            $('#infoConfigSeleccionada').removeClass('d-none');
-        } else {
-            $('#infoConfigSeleccionada').addClass('d-none');
-        }
-        actualizarPreview();
-    });
-
-    // Al escribir el número → actualizar preview
-    function actualizarPreview() {
-        const idConfig = $('#selConfigGestion').val();
-        const nro = $('#txtNroDoc').val().trim();
-        const cfg = _configsCache.find(c => String(c.idConfig) === String(idConfig));
-        const ok = cfg && nro.length > 0;
-
-        $('#btnConfirmarAsignacion').prop('disabled', !ok);
-
-        if (ok) {
-            const etiqueta = `${cfg.prefijoDocumento} ${nro}`;
-            $('#previewPrefijoBadge').text(etiqueta);
-            $('#previewDesc').fadeIn(150);
-        } else {
+            $('#txtNroDoc').val('');
             $('#previewDesc').hide();
-        }
-    }
+            $('#infoConfigSeleccionada').addClass('d-none');
 
-    function guardarNuevaConfig() {
-        const form = document.getElementById('formNuevaConfig');
-        if (!form.checkValidity()) { form.reportValidity(); return; }
-
-        const btn = event.target;
-        const txt = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
-
-        $.ajax({
-            url: '/api/configuracion/crear',
-            type: 'POST',
-            data: {
-                gestion: form.querySelector('[name="gestion"]').value,
-                prefijoDocumento: form.querySelector('[name="prefijoDocumento"]').value,
-                ciudad: form.querySelector('[name="ciudad"]').value,
-                estado: form.querySelector('[name="estado"]').value,
-                responsableActivosNombre: form.querySelector('[name="responsableActivosNombre"]').value
-            },
-            dataType: 'json',
-            success: function (res) {
-                Swal.fire({
-                    toast: true, position: 'top-end', icon: 'success',
-                    title: 'Tipo de documento registrado', showConfirmButton: false, timer: 1800
-                });
-                cargarComboConfiguraciones();
-                // Esperar a que recargue el combo y seleccionar el nuevo
-                setTimeout(() => {
-                    new bootstrap.Tab(document.querySelector('#tab-elegir')).show();
-                    $('#selConfigGestion').val(res.idConfig).trigger('change');
-                }, 400);
-                form.reset();
-                btn.disabled = false;
-                btn.innerHTML = txt;
-            },
-            error: function (err) {
-                const msg = err.responseJSON?.error || err.responseText || 'Error desconocido';
-                Swal.fire('Error', msg, 'error');
-                btn.disabled = false;
-                btn.innerHTML = txt;
-            }
-        });
-    }
-
-    function confirmarAsignacion() {
-        const idConfig = $('#selConfigGestion').val();
-        const nro = $('#txtNroDoc').val().trim();
-
-        if (!idConfig) { Swal.fire('Atención', 'Seleccione un tipo de documento.', 'warning'); return; }
-        if (!nro) { Swal.fire('Atención', 'Ingrese el número del documento.', 'warning'); return; }
-        // Guard: sin ids no se puede enviar (jQuery omite arrays vacíos en traditional serialization)
-        if (!_pendingIds || _pendingIds.length === 0) {
-            Swal.fire('Atención', 'No hay activos seleccionados. Seleccione al menos uno en la tabla.', 'warning');
-            return;
+            new bootstrap.Tab(document.querySelector('#tab-elegir')).show();
+            cargarComboConfiguraciones();
+            $('#modalAsignarGestion').modal('show');
         }
 
-        $('#modalAsignarGestion').modal('hide');
-        showGlobalLoader({ texto: 'Actualizando descripciones...' });
-
-        $.ajax({
-            url: '/administracion/activo/asignar-gestion-masiva',
-            type: 'POST',
-            traditional: true,
-            data: { ids: _pendingIds, idConfig: idConfig, nroDoc: nro },
-            success: function (res) {
-                hideGlobalLoader();
-                if (res.ok) {
-                    // El reporte recibe el idAsignacion ya existente — NO crea registros nuevos
-                    if (res.idAsignacion) {
-                        descargarReporte(res.idAsignacion, res.codigoCompleto);
+        function cargarComboConfiguraciones() {
+            const $sel = $('#selConfigGestion');
+            $sel.html('<option value="">Cargando...</option>');
+            $.ajax({
+                url: '/api/configuracion/listar',
+                method: 'GET',
+                success: function (data) {
+                    _configsCache = data || [];
+                    $sel.empty().append('<option value="">— Seleccione un tipo —</option>');
+                    if (_configsCache.length === 0) {
+                        $sel.append('<option value="" disabled>Sin configuraciones. Registre una nueva.</option>');
+                    } else {
+                        _configsCache.forEach(c => {
+                            const label = `${c.prefijoDocumento} — ${c.ciudad ?? '?'} (${c.gestion})`;
+                            $sel.append(`<option value="${c.idConfig}">${label}</option>`);
+                        });
                     }
-                    Swal.fire('Listo', res.msg, 'success').then(() => cargarTabla());
-                } else {
-                    Swal.fire('Error', res.msg, 'error');
+                },
+                error: function () {
+                    $sel.html('<option value="">Error al cargar</option>');
                 }
-            },
-            error: function () {
-                hideGlobalLoader();
-                Swal.fire('Error', 'Fallo en el servidor', 'error');
+            });
+        }
+
+        // Al cambiar el tipo de documento → mostrar info de ciudad + actualizar preview
+        $('#selConfigGestion').on('change', function () {
+            const idConfig = $(this).val();
+            const cfg = _configsCache.find(c => String(c.idConfig) === String(idConfig));
+            if (cfg) {
+                $('#infoCiudad').text(cfg.ciudad ?? '—');
+                $('#infoGestion').text(cfg.gestion ?? '—');
+                $('#infoPrefijo').text(cfg.prefijoDocumento ?? '—');
+                $('#infoConfigSeleccionada').removeClass('d-none');
+            } else {
+                $('#infoConfigSeleccionada').addClass('d-none');
             }
+            actualizarPreview();
         });
-    }
 
+        // Al escribir el número → actualizar preview
+        function actualizarPreview() {
+            const idConfig = $('#selConfigGestion').val();
+            const nro = $('#txtNroDoc').val().trim();
+            const cfg = _configsCache.find(c => String(c.idConfig) === String(idConfig));
+            const ok = cfg && nro.length > 0;
 
-    // ────────────────────────────────────────────────
-    // SINCRONIZAR AL DBF
-    // ────────────────────────────────────────────────
-    function confirmarSincronizar(ids) {
-        Swal.fire({
-            title: `¿Sincronizar ${ids.length} activo${ids.length > 1 ? 's' : ''}?`,
-            html: `Se registrarán permanentemente en el archivo <b>ACTUAL.DBF</b>.`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, sincronizar',
-            confirmButtonColor: '#696cff',
-            cancelButtonText: 'Cancelar'
-        }).then(result => {
-            if (result.isConfirmed) enviarMasivo(ids);
-        });
-    }
+            $('#btnConfirmarAsignacion').prop('disabled', !ok);
 
-    function enviarMasivo(ids) {
-        showGlobalLoader({ texto: `Escribiendo en DBF (${ids.length} registros)...` });
-        $.ajax({
-            url: '/administracion/activo/api/aprobar-masivo',
-            type: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(ids),
-            success: function (res) {
-                hideGlobalLoader();
-                if (res.ok) {
-                    let msg = `Se registraron <b>${res.exitos}</b> activos correctamente.`;
-                    let icon = 'success';
-                    if (res.errores > 0) {
-                        msg += `<br><br><span class="text-danger fw-bold"><i class="fa-solid fa-triangle-exclamation"></i> Hubo ${res.errores} errores.</span>`;
-                        icon = 'warning';
+            if (ok) {
+                const etiqueta = `${cfg.prefijoDocumento} ${nro}`;
+                $('#previewPrefijoBadge').text(etiqueta);
+                $('#previewDesc').fadeIn(150);
+            } else {
+                $('#previewDesc').hide();
+            }
+        }
+
+        function guardarNuevaConfig() {
+            const form = document.getElementById('formNuevaConfig');
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+
+            const btn = event.target;
+            const txt = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+            $.ajax({
+                url: '/api/configuracion/crear',
+                type: 'POST',
+                data: {
+                    gestion: form.querySelector('[name="gestion"]').value,
+                    prefijoDocumento: form.querySelector('[name="prefijoDocumento"]').value,
+                    ciudad: form.querySelector('[name="ciudad"]').value,
+                    estado: form.querySelector('[name="estado"]').value,
+                    responsableActivosNombre: form.querySelector('[name="responsableActivosNombre"]').value
+                },
+                dataType: 'json',
+                success: function (res) {
+                    Swal.fire({
+                        toast: true, position: 'top-end', icon: 'success',
+                        title: 'Tipo de documento registrado', showConfirmButton: false, timer: 1800
+                    });
+                    cargarComboConfiguraciones();
+                    // Esperar a que recargue el combo y seleccionar el nuevo
+                    setTimeout(() => {
+                        new bootstrap.Tab(document.querySelector('#tab-elegir')).show();
+                        $('#selConfigGestion').val(res.idConfig).trigger('change');
+                    }, 400);
+                    form.reset();
+                    btn.disabled = false;
+                    btn.innerHTML = txt;
+                },
+                error: function (err) {
+                    const msg = err.responseJSON?.error || err.responseText || 'Error desconocido';
+                    Swal.fire('Error', msg, 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = txt;
+                }
+            });
+        }
+
+        function confirmarAsignacion() {
+            const idConfig = $('#selConfigGestion').val();
+            const nro = $('#txtNroDoc').val().trim();
+
+            if (!idConfig) { Swal.fire('Atención', 'Seleccione un tipo de documento.', 'warning'); return; }
+            if (!nro) { Swal.fire('Atención', 'Ingrese el número del documento.', 'warning'); return; }
+            // Guard: sin ids no se puede enviar (jQuery omite arrays vacíos en traditional serialization)
+            if (!_pendingIds || _pendingIds.length === 0) {
+                Swal.fire('Atención', 'No hay activos seleccionados. Seleccione al menos uno en la tabla.', 'warning');
+                return;
+            }
+
+            $('#modalAsignarGestion').modal('hide');
+            showGlobalLoader({ texto: 'Actualizando descripciones...' });
+
+            $.ajax({
+                url: '/administracion/activo/asignar-gestion-masiva',
+                type: 'POST',
+                traditional: true,
+                data: { ids: _pendingIds, idConfig: idConfig, nroDoc: nro },
+                success: function (res) {
+                    hideGlobalLoader();
+                    if (res.ok) {
+                        // El reporte recibe el idAsignacion ya existente — NO crea registros nuevos
+                        if (res.idAsignacion) {
+                            descargarReporte(res.idAsignacion, res.codigoCompleto);
+                        }
+                        Swal.fire('Listo', res.msg, 'success').then(() => cargarTabla());
+                    } else {
+                        Swal.fire('Error', res.msg, 'error');
                     }
-                    Swal.fire({ title: 'Proceso Finalizado', html: msg, icon }).then(() => cargarTabla());
-                } else {
-                    Swal.fire('Error', res.msg || 'Error desconocido', 'error');
+                },
+                error: function () {
+                    hideGlobalLoader();
+                    Swal.fire('Error', 'Fallo en el servidor', 'error');
                 }
-            },
-            error: function () {
-                hideGlobalLoader();
-                Swal.fire('Error de Servidor', 'No se pudo completar la solicitud.', 'error');
-            }
-        });
-    }
+            });
+        }
 
 
-    // ────────────────────────────────────────────────
-    // REPORTE — recibe idAsignacion ya existente, NO crea datos
-    // ────────────────────────────────────────────────
-    function descargarReporte(idAsignacion, codigoCompleto) {
-        const form = $('<form>', { action: '/reportes/generar-asignacion', method: 'POST', target: '_blank' });
-        form.append($('<input>', { type: 'hidden', name: 'idAsignacion', value: idAsignacion }));
-        form.append($('<input>', { type: 'hidden', name: 'codigoCompleto', value: codigoCompleto }));
-        $('body').append(form);
-        form.submit();
-        form.remove();
-    }
+        // ────────────────────────────────────────────────
+        // SINCRONIZAR AL DBF
+        // ────────────────────────────────────────────────
+        function confirmarSincronizar(ids) {
+            Swal.fire({
+                title: `¿Sincronizar ${ids.length} activo${ids.length > 1 ? 's' : ''}?`,
+                html: `Se registrarán permanentemente en el archivo <b>ACTUAL.DBF</b>.`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, sincronizar',
+                confirmButtonColor: '#696cff',
+                cancelButtonText: 'Cancelar'
+            }).then(result => {
+                if (result.isConfirmed) enviarMasivo(ids);
+            });
+        }
+
+        function enviarMasivo(ids) {
+            showGlobalLoader({ texto: `Escribiendo en DBF (${ids.length} registros)...` });
+            $.ajax({
+                url: '/administracion/activo/api/aprobar-masivo',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(ids),
+                success: function (res) {
+                    hideGlobalLoader();
+                    if (res.ok) {
+                        let msg = `Se registraron <b>${res.exitos}</b> activos correctamente.`;
+                        let icon = 'success';
+                        if (res.errores > 0) {
+                            msg += `<br><br><span class="text-danger fw-bold"><i class="fa-solid fa-triangle-exclamation"></i> Hubo ${res.errores} errores.</span>`;
+                            icon = 'warning';
+                        }
+                        Swal.fire({ title: 'Proceso Finalizado', html: msg, icon }).then(() => cargarTabla());
+                    } else {
+                        Swal.fire('Error', res.msg || 'Error desconocido', 'error');
+                    }
+                },
+                error: function () {
+                    hideGlobalLoader();
+                    Swal.fire('Error de Servidor', 'No se pudo completar la solicitud.', 'error');
+                }
+            });
+        }
 
 
-    // ────────────────────────────────────────────────
-    // MODAL DETALLE ACTIVO (render + aprobar individual)
-    // ────────────────────────────────────────────────
-    function renderDetalleHtml(d) {
-        const safe = v => (v != null && v !== 'null' && v !== '') ? v : '<span class="text-muted fst-italic small">No definido</span>';
-        const fmtMoney = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' });
-        const costo = d.costo ? fmtMoney.format(d.costo) : 'Bs 0.00';
+        // ────────────────────────────────────────────────
+        // REPORTE — recibe idAsignacion ya existente, NO crea datos
+        // ────────────────────────────────────────────────
+        function descargarReporte(idAsignacion, codigoCompleto) {
+            const form = $('<form>', { action: '/reportes/generar-asignacion', method: 'POST', target: '_blank' });
+            form.append($('<input>', { type: 'hidden', name: 'idAsignacion', value: idAsignacion }));
+            form.append($('<input>', { type: 'hidden', name: 'codigoCompleto', value: codigoCompleto }));
+            $('body').append(form);
+            form.submit();
+            form.remove();
+        }
 
-        const oficina = d.oficina?.nombre ?? null;
-        const responsable = d.responsable?.persona?.nombreCompleto ?? null;
-        const orgFin = d.organismoFinanciero?.descripcion ?? null;
-        const auxiliar = d.auxiliar?.nombre ?? null;
-        const grupo = d.grupoContable?.nombre ?? null;
 
-        const estadoClass = d.estado === 'PENDIENTE'
-            ? 'bg-warning-subtle text-warning-emphasis'
-            : 'bg-success-subtle text-success-emphasis';
-        const estadoIcon = d.estado === 'PENDIENTE'
-            ? '<i class="fa-solid fa-clock"></i>'
-            : '<i class="fa-solid fa-check-circle"></i>';
+        // ────────────────────────────────────────────────
+        // MODAL DETALLE ACTIVO (render + aprobar individual)
+        // ────────────────────────────────────────────────
+        function renderDetalleHtml(d) {
+            const safe = v => (v != null && v !== 'null' && v !== '') ? v : '<span class="text-muted fst-italic small">No definido</span>';
+            const fmtMoney = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' });
+            const costo = d.costo ? fmtMoney.format(d.costo) : 'Bs 0.00';
 
-        return `
-        <div class="status-banner ${estadoClass}">
-            <div class="fw-bold d-flex align-items-center gap-2">
-                ${estadoIcon} <span>ESTADO: ${d.estado ?? 'DESCONOCIDO'}</span>
+            const oficina = d.oficina?.nombre ?? null;
+            const responsable = d.responsable?.persona?.nombreCompleto ?? null;
+            const orgFin = d.organismoFinanciero?.descripcion ?? null;
+            const auxiliar = d.auxiliar?.nombre ?? null;
+            const grupo = d.grupoContable?.nombre ?? null;
+
+            const estadoClass = d.estado === 'PENDIENTE'
+                ? 'bg-warning-subtle text-warning-emphasis'
+                : 'bg-success-subtle text-success-emphasis';
+            const estadoIcon = d.estado === 'PENDIENTE'
+                ? '<i class="fa-solid fa-clock"></i>'
+                : '<i class="fa-solid fa-check-circle"></i>';
+
+            return `
+            <div class="status-banner ${estadoClass}">
+                <div class="fw-bold d-flex align-items-center gap-2">
+                    ${estadoIcon} <span>ESTADO: ${d.estado ?? 'DESCONOCIDO'}</span>
+                </div>
+                <small class="text-uppercase fw-semibold">ID: ${d.idActivo}</small>
             </div>
-            <small class="text-uppercase fw-semibold">ID: ${d.idActivo}</small>
-        </div>
-        <div class="d-flex mb-4">
-            <div class="detail-icon-box"><i class="fa-solid fa-barcode"></i></div>
-            <div class="flex-grow-1">
-                <h5 class="mb-1 fw-bold text-dark">${safe(d.codigo)}</h5>
-                <p class="text-muted mb-0 small">${safe(d.descripcion)}</p>
-            </div>
-        </div>
-        <div class="row g-3">
-            <div class="col-md-6">
-                <div class="detail-group">
-                    <div class="detail-label"><i class="fa-regular fa-calendar me-1"></i> Fecha Adquisición</div>
-                    <div class="detail-value">${safe(d.fechaAdquisicion)}</div>
-                </div>
-                <div class="detail-group">
-                    <div class="detail-label"><i class="fa-solid fa-layer-group me-1"></i> Grupo Contable</div>
-                    <div class="detail-value">${safe(grupo)}</div>
-                </div>
-                <div class="detail-group">
-                    <div class="detail-label"><i class="fa-solid fa-diagram-project me-1"></i> Auxiliar</div>
-                    <div class="detail-value">${safe(auxiliar)}</div>
+            <div class="d-flex mb-4">
+                <div class="detail-icon-box"><i class="fa-solid fa-barcode"></i></div>
+                <div class="flex-grow-1">
+                    <h5 class="mb-1 fw-bold text-dark">${safe(d.codigo)}</h5>
+                    <p class="text-muted mb-0 small">${safe(d.descripcion)}</p>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="detail-group">
-                    <div class="detail-label"><i class="fa-solid fa-coins me-1"></i> Costo Histórico</div>
-                    <div class="detail-value highlight">${costo}</div>
-                </div>
-                <div class="detail-group">
-                    <div class="detail-label"><i class="fa-solid fa-hourglass-half me-1"></i> Vida Útil</div>
-                    <div class="detail-value">${safe(d.vidaUtil)} años</div>
-                </div>
-                <div class="detail-group">
-                    <div class="detail-label"><i class="fa-solid fa-building-columns me-1"></i> Financiamiento</div>
-                    <div class="detail-value">${safe(orgFin)}</div>
-                </div>
-            </div>
-        </div>
-        <hr class="border-secondary-subtle my-3">
-        <div class="bg-light p-3 rounded-3 border border-light-subtle">
-            <div class="row">
-                <div class="col-md-6 mb-2 mb-md-0">
-                    <div class="detail-label"><i class="fa-solid fa-building me-1"></i> Oficina Asignada</div>
-                    <div class="detail-value fw-bold">${safe(oficina)}</div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="detail-group">
+                        <div class="detail-label"><i class="fa-regular fa-calendar me-1"></i> Fecha Adquisición</div>
+                        <div class="detail-value">${safe(d.fechaAdquisicion)}</div>
+                    </div>
+                    <div class="detail-group">
+                        <div class="detail-label"><i class="fa-solid fa-layer-group me-1"></i> Grupo Contable</div>
+                        <div class="detail-value">${safe(grupo)}</div>
+                    </div>
+                    <div class="detail-group">
+                        <div class="detail-label"><i class="fa-solid fa-diagram-project me-1"></i> Auxiliar</div>
+                        <div class="detail-value">${safe(auxiliar)}</div>
+                    </div>
                 </div>
                 <div class="col-md-6">
-                    <div class="detail-label"><i class="fa-solid fa-user-tie me-1"></i> Responsable</div>
-                    <div class="detail-value fw-bold">${safe(responsable)}</div>
+                    <div class="detail-group">
+                        <div class="detail-label"><i class="fa-solid fa-coins me-1"></i> Costo Histórico</div>
+                        <div class="detail-value highlight">${costo}</div>
+                    </div>
+                    <div class="detail-group">
+                        <div class="detail-label"><i class="fa-solid fa-hourglass-half me-1"></i> Vida Útil</div>
+                        <div class="detail-value">${safe(d.vidaUtil)} años</div>
+                    </div>
+                    <div class="detail-group">
+                        <div class="detail-label"><i class="fa-solid fa-building-columns me-1"></i> Financiamiento</div>
+                        <div class="detail-value">${safe(orgFin)}</div>
+                    </div>
                 </div>
             </div>
-        </div>
-    `;
-    }
+            <hr class="border-secondary-subtle my-3">
+            <div class="bg-light p-3 rounded-3 border border-light-subtle">
+                <div class="row">
+                    <div class="col-md-6 mb-2 mb-md-0">
+                        <div class="detail-label"><i class="fa-solid fa-building me-1"></i> Oficina Asignada</div>
+                        <div class="detail-value fw-bold">${safe(oficina)}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label"><i class="fa-solid fa-user-tie me-1"></i> Responsable</div>
+                        <div class="detail-value fw-bold">${safe(responsable)}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        }
 
-    $(document).on('click', '.btn-ver', async function () {
-        const idEnc = $(this).data('id');
-        $('#modalDetalleBody').html(
-            '<div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary"></div></div>'
-        );
-        const modal = new bootstrap.Modal(document.getElementById('modalDetalleActivo'));
-        modal.show();
-        $('#btnAprobarModal').prop('disabled', true);
+        $(document).on('click', '.btn-ver', async function () {
+            const idEnc = $(this).data('id');
+            $('#modalDetalleBody').html(
+                '<div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary"></div></div>'
+            );
+            const modal = new bootstrap.Modal(document.getElementById('modalDetalleActivo'));
+            modal.show();
+            $('#btnAprobarModal').prop('disabled', true);
 
-        try {
-            const res = await fetch(`/administracion/activo/api/detalle/${encodeURIComponent(idEnc)}`);
-            if (!res.ok) throw new Error('Error de conexión');
-            const d = await res.json();
-            if (!d.estado) d.estado = d.estadoActivo?.nombre ?? 'PENDIENTE';
+            try {
+                const res = await fetch(`/administracion/activo/api/detalle/${encodeURIComponent(idEnc)}`);
+                if (!res.ok) throw new Error('Error de conexión');
+                const d = await res.json();
+                if (!d.estado) d.estado = d.estadoActivo?.nombre ?? 'PENDIENTE';
 
-            $('#modalDetalleBody').html(renderDetalleHtml(d));
-            $('#btnAprobarModal').prop('disabled', d.estado !== 'PENDIENTE').off('click').on('click', async function () {
-                if (!confirm('¿Aprobar individualmente este activo?')) return;
-                const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Procesando...');
-                try {
-                    const r = await fetch(`/administracion/activo/api/aprobar/${encodeURIComponent(idEnc)}`, { method: 'POST' });
-                    const j = await r.json();
-                    if (j.ok) {
-                        modal.hide();
-                        Swal.fire('Éxito', 'Activo aprobado y sincronizado correctamente.', 'success').then(() => cargarTabla());
-                    } else throw new Error(j.message);
-                } catch (e) {
-                    Swal.fire('Error', e.message, 'error');
-                    $btn.prop('disabled', false).html('<i class="fa-solid fa-check-circle me-2"></i> Confirmar y Aprobar');
+                $('#modalDetalleBody').html(renderDetalleHtml(d));
+                $('#btnAprobarModal').prop('disabled', d.estado !== 'PENDIENTE').off('click').on('click', async function () {
+                    if (!confirm('¿Aprobar individualmente este activo?')) return;
+                    const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Procesando...');
+                    try {
+                        const r = await fetch(`/administracion/activo/api/aprobar/${encodeURIComponent(idEnc)}`, { method: 'POST' });
+                        const j = await r.json();
+                        if (j.ok) {
+                            modal.hide();
+                            Swal.fire('Éxito', 'Activo aprobado y sincronizado correctamente.', 'success').then(() => cargarTabla());
+                        } else throw new Error(j.message);
+                    } catch (e) {
+                        Swal.fire('Error', e.message, 'error');
+                        $btn.prop('disabled', false).html('<i class="fa-solid fa-check-circle me-2"></i> Confirmar y Aprobar');
+                    }
+                });
+            } catch (e) {
+                $('#modalDetalleBody').html(`<div class="text-danger text-center py-4"><i class="fa-solid fa-triangle-exclamation me-2"></i>Error: ${e.message}</div>`);
+            }
+        });
+
+
+
+
+
+        // ════════════════════════════════════════════════════════════════
+        // MODAL EDITAR ACTIVOS PENDIENTES  (unitario y en lote unificado)
+        // ════════════════════════════════════════════════════════════════
+
+        const _EP = { idsEnc: [], datosActivos: [], catalogos: {} };
+
+        // ── Entrada barra flotante ──────────────────────────────────────────────
+        $('#btnEditarSeleccionados').off('click').on('click', function () {
+            const ids = getIdsSeleccionados();
+            if (ids.length === 0) {
+                Swal.fire('Atención', 'Seleccione al menos un activo PENDIENTE.', 'warning');
+                return;
+            }
+            abrirModalEditarPendientes(ids);
+        });
+
+        // ── Entrada botón ✏ individual ──────────────────────────────────────────
+        $(document).off('click', '.btn-editar').on('click', '.btn-editar:not(:disabled)', function () {
+            const id = $(this).data('id');
+            if (id) abrirModalEditarPendientes([id]);
+        });
+
+        async function abrirModalEditarPendientes(idsEnc) {
+            _EP.idsEnc = idsEnc;
+            _EP.datosActivos = [];
+            _EP.catalogos = {};
+
+            // Resetear UI
+            $('#editPendModalTitle').text('Editar activos pendientes');
+            $('#editPendModalSub').text('Cargando...');
+            $('#editPendCodigoChips').empty();
+            $('#editPendAlertComun,#editPendAlertMixto').addClass('d-none');
+            $('#editPendFooterInfo').text('');
+            $('#btnGuardarEdicionPend').prop('disabled', true);
+            $('#editPendBody').html(
+                `<div class="d-flex justify-content-center align-items-center py-5 gap-3">
+                <div class="spinner-border spinner-border-sm text-warning"></div>
+                <span class="text-muted">Cargando ${idsEnc.length} activo(s)...</span>
+            </div>`
+            );
+            new bootstrap.Modal(document.getElementById('modalEditarPendientes')).show();
+
+            try {
+                // ── 1. Cargar activos en paralelo ──────────────────────────────
+                const activos = await Promise.all(
+                    idsEnc.map(id =>
+                        fetch(`/administracion/activo/api/detalle/${encodeURIComponent(id)}`)
+                            .then(r => { if (!r.ok) throw new Error('Error cargando activo'); return r.json(); })
+                            .then(d => ({ idEnc: id, datos: d }))
+                    )
+                );
+                _EP.datosActivos = activos;
+
+                const esUnitario = idsEnc.length === 1;
+                const esTodoIgual = esUnitario || comprobarDatosIgualesEP(activos.map(a => a.datos));
+
+                // Valores de referencia para pre-cargar los selects dependientes
+                const ref = esUnitario || esTodoIgual
+                    ? activos[0].datos
+                    : calcularValoresComuensEP(activos.map(a => a.datos));
+
+                // municipioId y predioId vienen como campos de primer nivel
+                // (ver DetalleEndpoint_fix.java — el backend los extrae de oficina.predio.municipio)
+                const munId = ref.municipioId ?? ref.oficina?.municipioId ?? null;
+                const predId = ref.predioId ?? ref.oficina?.predioId ?? null;
+                const ofiId = ref.oficina?.idOficina ?? null;
+                const grpId = ref.grupoContable?.idGrupoContable ?? null;
+                // auxiliar: el campo puede llamarse idAuxiliar o id según el endpoint
+                const auxIdRef = ref.auxiliar?.idAuxiliar ?? ref.auxiliar?.id ?? null;
+
+                // ── 2. Cargar TODOS los datos necesarios en paralelo ───────────
+                const [
+                    rawMunicipios, rawGrupos, rawOrgFin,
+                    rawPredios, rawOficinas, rawResponsables, rawAuxiliares
+                ] = await Promise.all([
+                    fetch('/api/municipios/listar').then(r => r.json()).catch(() => []),
+                    fetch('/api/grupos/listar').then(r => r.json()).catch(() => []),
+                    fetch('/api/organismos/listar').then(r => r.json()).catch(() => []),
+                    munId ? fetch(`/api/buscar_predios?municipioId=${munId}`).then(r => r.json()).catch(() => []) : Promise.resolve([]),
+                    predId ? fetch(`/api/buscar_oficinas?predioId=${predId}`).then(r => r.json()).catch(() => []) : Promise.resolve([]),
+                    ofiId ? fetch(`/api/buscar_responsable?q=&page=1&oficinaId=${ofiId}`).then(r => r.json()).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
+                    (grpId && predId) ? fetch(`/api/buscar_auxiliar_lista?grupoId=${grpId}&predioId=${predId}`).then(r => r.json()).catch(() => []) : Promise.resolve([])
+                ]);
+
+                const municipios = toArray(rawMunicipios);
+                const grupos = toArray(rawGrupos);
+                const orgFin = toArray(rawOrgFin);
+                const predios = toArray(rawPredios);
+                const oficinas = toArray(rawOficinas);
+                const responsables = toArray(rawResponsables.results ?? rawResponsables);
+                const auxiliares = toArray(rawAuxiliares);
+
+                _EP.catalogos = { municipios, predios, oficinas, responsables, auxiliares, grupos, orgFin };
+
+                // ── 3. Chips de códigos ────────────────────────────────────────
+                $('#editPendCodigoChips').html(
+                    activos.map(a =>
+                        `<span class="badge" style="font-family:monospace;font-size:0.7rem;
+                        background:rgba(105,108,255,0.1);color:#696cff;
+                        border:1px solid rgba(105,108,255,0.25);border-radius:5px;padding:0.3em 0.65em;">
+                        ${a.datos.codigo || '—'}
+                    </span>`
+                    ).join('')
+                );
+
+                // ── 4. Subtítulo y alertas ─────────────────────────────────────
+                $('#editPendModalSub').text(
+                    esUnitario
+                        ? `Código: ${activos[0].datos.codigo}`
+                        : `${idsEnc.length} activos · ${esTodoIgual ? 'datos idénticos ✓' : 'datos distintos'}`
+                );
+                if (!esUnitario) {
+                    esTodoIgual
+                        ? $('#editPendAlertComun').removeClass('d-none')
+                        : $('#editPendAlertMixto').removeClass('d-none');
                 }
-            });
-        } catch (e) {
-            $('#modalDetalleBody').html(`<div class="text-danger text-center py-4"><i class="fa-solid fa-triangle-exclamation me-2"></i>Error: ${e.message}</div>`);
+
+                $('#editPendFooterInfo').text(`${idsEnc.length} activo(s) · El código no se modifica`);
+
+                // ── 5. Pre-rellenar: valores del activo (o comunes si lote) ───
+                const pre = {
+                    munId,
+                    predId,
+                    ofiId,
+                    respId: ref.responsable?.idResponsable ?? null,
+                    grpId,
+                    auxId: ref.auxiliar?.idAuxiliar ?? ref.auxiliar?.id ?? null,
+                    orgFinId: ref.organismoFinanciero?.idOrganismoFinanciero || null,
+                    descripcion: esTodoIgual ? (ref.descripcion || '') : '',
+                    costo: esTodoIgual ? (ref.costo ?? '') : '',
+                    vidaUtil: esTodoIgual ? (ref.vidaUtil ?? '') : '',
+                    fechaAdquisicion: esTodoIgual ? (ref.fechaAdquisicion || '') : ''
+                };
+
+                // ── 6. Renderizar formulario con TODOS los datos ya cargados ──
+                $('#editPendBody').html(
+                    renderFormEditarPend(pre, grupos, orgFin, predios, oficinas, responsables, auxiliares, esTodoIgual, idsEnc.length)
+                );
+                $('#btnGuardarEdicionPend').prop('disabled', false);
+
+                // ── 7. Inicializar Select2 + cascadas ─────────────────────────
+                initSelectsEP();
+                initCascadasEditPend(pre);
+
+            } catch (e) {
+                console.error('Error en abrirModalEditarPendientes:', e);
+                $('#editPendBody').html(
+                    `<div class="text-danger text-center py-4">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                    Error: ${e.message}
+                </div>`
+                );
+            }
         }
-    });
 
-
-
-
-
-    // ════════════════════════════════════════════════════════════════
-    // MODAL EDITAR ACTIVOS PENDIENTES  (unitario y en lote unificado)
-    // ════════════════════════════════════════════════════════════════
-
-    const _EP = { idsEnc: [], datosActivos: [], catalogos: {} };
-
-    // ── Entrada barra flotante ──────────────────────────────────────────────
-    $('#btnEditarSeleccionados').off('click').on('click', function () {
-        const ids = getIdsSeleccionados();
-        if (ids.length === 0) {
-            Swal.fire('Atención', 'Seleccione al menos un activo PENDIENTE.', 'warning');
-            return;
+        // ── Helper: normaliza cualquier respuesta a array ──────────────────────
+        function toArray(res) {
+            if (!res) return [];
+            if (Array.isArray(res)) return res;
+            if (Array.isArray(res.content)) return res.content;
+            if (Array.isArray(res.data)) return res.data;
+            if (Array.isArray(res.results)) return res.results;
+            return [];
         }
-        abrirModalEditarPendientes(ids);
-    });
 
-    // ── Entrada botón ✏ individual ──────────────────────────────────────────
-    $(document).off('click', '.btn-editar').on('click', '.btn-editar:not(:disabled)', function () {
-        const id = $(this).data('id');
-        if (id) abrirModalEditarPendientes([id]);
-    });
-
-    async function abrirModalEditarPendientes(idsEnc) {
-        _EP.idsEnc = idsEnc;
-        _EP.datosActivos = [];
-        _EP.catalogos = {};
-
-        // Resetear UI
-        $('#editPendModalTitle').text('Editar activos pendientes');
-        $('#editPendModalSub').text('Cargando...');
-        $('#editPendCodigoChips').empty();
-        $('#editPendAlertComun,#editPendAlertMixto').addClass('d-none');
-        $('#editPendFooterInfo').text('');
-        $('#btnGuardarEdicionPend').prop('disabled', true);
-        $('#editPendBody').html(
-            `<div class="d-flex justify-content-center align-items-center py-5 gap-3">
-            <div class="spinner-border spinner-border-sm text-warning"></div>
-            <span class="text-muted">Cargando ${idsEnc.length} activo(s)...</span>
-         </div>`
-        );
-        new bootstrap.Modal(document.getElementById('modalEditarPendientes')).show();
-
-        try {
-            // ── 1. Cargar activos en paralelo ──────────────────────────────
-            const activos = await Promise.all(
-                idsEnc.map(id =>
-                    fetch(`/administracion/activo/api/detalle/${encodeURIComponent(id)}`)
-                        .then(r => { if (!r.ok) throw new Error('Error cargando activo'); return r.json(); })
-                        .then(d => ({ idEnc: id, datos: d }))
-                )
+        // ── Comparación de datos ───────────────────────────────────────────────
+        function comprobarDatosIgualesEP(lista) {
+            if (lista.length <= 1) return true;
+            const b = lista[0];
+            return lista.every(d =>
+                d.descripcion === b.descripcion &&
+                String(d.costo ?? '') === String(b.costo ?? '') &&
+                String(d.vidaUtil ?? '') === String(b.vidaUtil ?? '') &&
+                (d.fechaAdquisicion || '') === (b.fechaAdquisicion || '') &&
+                (d.grupoContable?.idGrupoContable ?? null) === (b.grupoContable?.idGrupoContable ?? null) &&
+                (d.municipioId ?? null) === (b.municipioId ?? null) &&
+                (d.predioId ?? null) === (b.predioId ?? null) &&
+                (d.oficina?.idOficina ?? null) === (b.oficina?.idOficina ?? null) &&
+                (d.responsable?.idResponsable ?? null) === (b.responsable?.idResponsable ?? null) &&
+                (d.auxiliar?.idAuxiliar ?? null) === (b.auxiliar?.idAuxiliar ?? null) &&
+                (d.organismoFinanciero?.idOrganismoFinanciero ?? null) ===
+                (b.organismoFinanciero?.idOrganismoFinanciero ?? null)
             );
-            _EP.datosActivos = activos;
+        }
 
-            const esUnitario = idsEnc.length === 1;
-            const esTodoIgual = esUnitario || comprobarDatosIgualesEP(activos.map(a => a.datos));
+        function calcularValoresComuensEP(lista) {
+            function comun(fn) {
+                const vals = lista.map(fn);
+                return vals.every(v => String(v ?? '') === String(vals[0] ?? '')) ? vals[0] : null;
+            }
+            const b = lista[0];
+            return {
+                municipioId: comun(d => d.municipioId),
+                predioId: comun(d => d.predioId),
+                oficina: comun(d => d.oficina?.idOficina) !== null ? b.oficina : null,
+                responsable: comun(d => d.responsable?.idResponsable) !== null ? b.responsable : null,
+                grupoContable: comun(d => d.grupoContable?.idGrupoContable) !== null ? b.grupoContable : null,
+                auxiliar: comun(d => d.auxiliar?.idAuxiliar ?? null) !== null ? b.auxiliar : null,
+                organismoFinanciero: comun(d => d.organismoFinanciero?.idOrganismoFinanciero ?? null) !== null ? b.organismoFinanciero : null,
+                descripcion: comun(d => d.descripcion),
+                costo: comun(d => d.costo),
+                vidaUtil: comun(d => d.vidaUtil),
+                fechaAdquisicion: comun(d => d.fechaAdquisicion)
+            };
+        }
 
-            // Valores de referencia para pre-cargar los selects dependientes
-            const ref = esUnitario || esTodoIgual
-                ? activos[0].datos
-                : calcularValoresComuensEP(activos.map(a => a.datos));
+        // ── Render del formulario con TODOS los datos ya disponibles ───────────
+        function renderFormEditarPend(pre, grupos, orgFin, predios, oficinas, responsables, auxiliares, esTodoIgual, totalActivos) {
+            const v = x => (x != null && x !== 'null') ? x : '';
 
-            // municipioId y predioId vienen como campos de primer nivel
-            // (ver DetalleEndpoint_fix.java — el backend los extrae de oficina.predio.municipio)
-            const munId = ref.municipioId ?? ref.oficina?.municipioId ?? null;
-            const predId = ref.predioId ?? ref.oficina?.predioId ?? null;
-            const ofiId = ref.oficina?.idOficina ?? null;
-            const grpId = ref.grupoContable?.idGrupoContable ?? null;
-            // auxiliar: el campo puede llamarse idAuxiliar o id según el endpoint
-            const auxIdRef = ref.auxiliar?.idAuxiliar ?? ref.auxiliar?.id ?? null;
-
-            // ── 2. Cargar TODOS los datos necesarios en paralelo ───────────
-            const [
-                rawMunicipios, rawGrupos, rawOrgFin,
-                rawPredios, rawOficinas, rawResponsables, rawAuxiliares
-            ] = await Promise.all([
-                fetch('/api/municipios/listar').then(r => r.json()).catch(() => []),
-                fetch('/api/grupos/listar').then(r => r.json()).catch(() => []),
-                fetch('/api/organismos/listar').then(r => r.json()).catch(() => []),
-                munId ? fetch(`/api/buscar_predios?municipioId=${munId}`).then(r => r.json()).catch(() => []) : Promise.resolve([]),
-                predId ? fetch(`/api/buscar_oficinas?predioId=${predId}`).then(r => r.json()).catch(() => []) : Promise.resolve([]),
-                ofiId ? fetch(`/api/buscar_responsable?q=&page=1&oficinaId=${ofiId}`).then(r => r.json()).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
-                (grpId && predId) ? fetch(`/api/buscar_auxiliar_lista?grupoId=${grpId}&predioId=${predId}`).then(r => r.json()).catch(() => []) : Promise.resolve([])
-            ]);
-
-            const municipios = toArray(rawMunicipios);
-            const grupos = toArray(rawGrupos);
-            const orgFin = toArray(rawOrgFin);
-            const predios = toArray(rawPredios);
-            const oficinas = toArray(rawOficinas);
-            const responsables = toArray(rawResponsables.results ?? rawResponsables);
-            const auxiliares = toArray(rawAuxiliares);
-
-            _EP.catalogos = { municipios, predios, oficinas, responsables, auxiliares, grupos, orgFin };
-
-            // ── 3. Chips de códigos ────────────────────────────────────────
-            $('#editPendCodigoChips').html(
-                activos.map(a =>
-                    `<span class="badge" style="font-family:monospace;font-size:0.7rem;
-                    background:rgba(105,108,255,0.1);color:#696cff;
-                    border:1px solid rgba(105,108,255,0.25);border-radius:5px;padding:0.3em 0.65em;">
-                    ${a.datos.codigo || '—'}
-                </span>`
-                ).join('')
-            );
-
-            // ── 4. Subtítulo y alertas ─────────────────────────────────────
-            $('#editPendModalSub').text(
-                esUnitario
-                    ? `Código: ${activos[0].datos.codigo}`
-                    : `${idsEnc.length} activos · ${esTodoIgual ? 'datos idénticos ✓' : 'datos distintos'}`
-            );
-            if (!esUnitario) {
-                esTodoIgual
-                    ? $('#editPendAlertComun').removeClass('d-none')
-                    : $('#editPendAlertMixto').removeClass('d-none');
+            function buildOpts(lista, idFn, txtFn, selectedId, emptyLabel) {
+                let html = `<option value="">${emptyLabel}</option>`;
+                (lista || []).forEach(item => {
+                    const id = typeof idFn === 'function' ? idFn(item) : item[idFn];
+                    const txt = typeof txtFn === 'function' ? txtFn(item) : item[txtFn];
+                    const sel = String(id) === String(selectedId ?? '') ? ' selected' : '';
+                    html += `<option value="${id}"${sel}>${txt}</option>`;
+                });
+                return html;
             }
 
-            $('#editPendFooterInfo').text(`${idsEnc.length} activo(s) · El código no se modifica`);
+            const { municipios } = _EP.catalogos;
 
-            // ── 5. Pre-rellenar: valores del activo (o comunes si lote) ───
-            const pre = {
-                munId,
-                predId,
-                ofiId,
-                respId: ref.responsable?.idResponsable ?? null,
-                grpId,
-                auxId: ref.auxiliar?.idAuxiliar ?? ref.auxiliar?.id ?? null,
-                orgFinId: ref.organismoFinanciero?.idOrganismoFinanciero || null,
-                descripcion: esTodoIgual ? (ref.descripcion || '') : '',
-                costo: esTodoIgual ? (ref.costo ?? '') : '',
-                vidaUtil: esTodoIgual ? (ref.vidaUtil ?? '') : '',
-                fechaAdquisicion: esTodoIgual ? (ref.fechaAdquisicion || '') : ''
+            const optsGrupo = buildOpts(grupos,
+                'idGrupoContable', g => `${g.nombre}`,
+                pre.grpId, '— Seleccione grupo —');
+            const optsOrg = buildOpts(orgFin,
+                'idOrganismoFinanciero', o => `${o.sigla ? o.sigla + ' - ' : ''}${o.descripcion}`,
+                pre.orgFinId, '— Sin financiamiento —');
+            const optsMun = buildOpts(municipios,
+                'idMunicipio', 'nombre',
+                pre.munId, '— Seleccione municipio —');
+            const optsPred = buildOpts(predios,
+                item => item.id || item.idPredio,
+                item => item.descrip || item.nombre,
+                pre.predId, pre.munId ? '— Seleccione predio —' : '— Seleccione municipio primero —');
+            const optsOfi = buildOpts(oficinas,
+                item => item.id || item.idOficina,
+                item => item.nombre,
+                pre.ofiId, pre.predId ? '— Seleccione oficina —' : '— Seleccione predio primero —');
+            const optsResp = buildOpts(responsables,
+                'id', 'text',
+                pre.respId, pre.ofiId ? '— Seleccione responsable —' : '— Seleccione oficina primero —');
+            const optsAux = buildOpts(auxiliares,
+                item => item.idAuxiliar ?? item.id,
+                item => item.nombre ?? item.text,
+                pre.auxId, '— Sin auxiliar —');
+
+            const badgeLote = totalActivos > 1
+                ? `<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;">aplica a todos</span>`
+                : '';
+
+            const hintDif = !esTodoIgual
+                ? `<div class="col-12">
+                <div class="alert alert-warning py-2 mb-0" style="font-size:0.8rem;">
+                    <i class="fa-solid fa-circle-info me-1"></i>
+                    Los activos tienen <strong>datos distintos</strong>.
+                    Los campos vacíos no se modificarán — completa solo lo que quieras cambiar.
+                </div>
+            </div>` : '';
+
+            return `<div class="row g-3" id="formEditPend">
+            ${hintDif}
+
+            <!-- ── Sección Ubicación ── -->
+            <div class="col-12">
+                <div class="ep-section-title">
+                    <i class="fa-solid fa-location-dot text-primary me-1"></i> Ubicación ${badgeLote}
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <label class="ep-label"><i class="fa-solid fa-city me-1"></i>Municipio</label>
+                <select id="epMunicipio" class="form-select form-select-sm ep-select2">${optsMun}</select>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <label class="ep-label"><i class="fa-solid fa-building me-1"></i>Predio</label>
+                <select id="epPredio" class="form-select form-select-sm ep-select2" ${!pre.munId ? 'disabled' : ''}>${optsPred}</select>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <label class="ep-label"><i class="fa-solid fa-door-open me-1"></i>Oficina</label>
+                <select id="epOficina" class="form-select form-select-sm ep-select2" ${!pre.predId ? 'disabled' : ''}>${optsOfi}</select>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <label class="ep-label"><i class="fa-solid fa-user-tie me-1"></i>Responsable</label>
+                <select id="epResponsable" class="form-select form-select-sm ep-select2" ${!pre.ofiId ? 'disabled' : ''}>${optsResp}</select>
+            </div>
+
+            <!-- ── Sección Clasificación ── -->
+            <div class="col-12 mt-1">
+                <div class="ep-section-title">
+                    <i class="fa-solid fa-tags text-primary me-1"></i> Clasificación Contable ${badgeLote}
+                </div>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <label class="ep-label"><i class="fa-solid fa-layer-group me-1"></i>Grupo Contable</label>
+                <select id="epGrupo" class="form-select form-select-sm ep-select2">${optsGrupo}</select>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <label class="ep-label"><i class="fa-solid fa-bookmark me-1"></i>Auxiliar <span class="text-muted fw-normal">(opcional)</span></label>
+                <select id="epAuxiliar" class="form-select form-select-sm ep-select2" ${(!pre.grpId || !pre.predId) ? 'disabled' : ''}>${optsAux}</select>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <label class="ep-label"><i class="fa-solid fa-hand-holding-dollar me-1"></i>Financiador <span class="text-muted fw-normal">(opcional)</span></label>
+                <select id="epOrgFin" class="form-select form-select-sm ep-select2">${optsOrg}</select>
+            </div>
+
+            <!-- ── Sección Datos del Activo ── -->
+            <div class="col-12 mt-1">
+                <div class="ep-section-title">
+                    <i class="fa-solid fa-clipboard-list text-primary me-1"></i> Datos del Activo ${badgeLote}
+                </div>
+            </div>
+            <div class="col-md-2 col-sm-4">
+                <label class="ep-label"><i class="fa-regular fa-calendar me-1"></i>Fecha Adq.</label>
+                <input type="date" id="epFecha" class="form-control form-control-sm"
+                    value="${v(pre.fechaAdquisicion)}">
+            </div>
+            <div class="col-md-2 col-sm-4">
+                <label class="ep-label"><i class="fa-solid fa-coins me-1"></i>Costo (Bs.)</label>
+                <input type="number" id="epCosto" class="form-control form-control-sm text-end fw-bold"
+                    step="0.01" min="0"
+                    value="${v(pre.costo)}"
+                    placeholder="${!esTodoIgual && !pre.costo ? '(distintos)' : ''}">
+            </div>
+            <div class="col-md-2 col-sm-4">
+                <label class="ep-label"><i class="fa-solid fa-hourglass-half me-1"></i>Vida Útil (años)</label>
+                <input type="number" id="epVidaUtil" class="form-control form-control-sm text-center"
+                    step="0.5" min="0"
+                    value="${v(pre.vidaUtil)}"
+                    placeholder="${!esTodoIgual && !pre.vidaUtil ? '(distintos)' : ''}">
+            </div>
+            <div class="col-md-6">
+                <label class="ep-label">
+                    <i class="fa-solid fa-align-left me-1"></i>Descripción ${badgeLote}
+                </label>
+                <textarea id="epDescripcion" class="form-control form-control-sm" rows="2"
+                        maxlength="1024"
+                        placeholder="${!esTodoIgual && !pre.descripcion ? '(distintas — escribe para uniformizar)' : ''}"
+                        >${v(pre.descripcion)}</textarea>
+                <div class="text-end">
+                    <small class="text-muted" id="epDescCount">${v(pre.descripcion).length}/1024</small>
+                </div>
+            </div>
+        </div>`;
+        }
+
+        // ── CSS del formulario EP (inyectado una sola vez) ─────────────────────
+        (function () {
+            if (document.getElementById('epStyles')) return;
+            const s = document.createElement('style');
+            s.id = 'epStyles';
+            s.textContent = `
+            .ep-section-title {
+                font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+                letter-spacing: 0.5px; color: #8592a3;
+                display: flex; align-items: center; gap: 0.4rem;
+                padding-bottom: 0.4rem; border-bottom: 1px solid #f0f1f3; margin-bottom: 0.15rem;
+            }
+            .ep-label { font-size: 0.75rem; font-weight: 600; color: #566a7f; margin-bottom: 0.3rem; display: block; }
+            #modalEditarPendientes .select2-container { width: 100% !important; }
+            #modalEditarPendientes .select2-selection--single {
+                height: 31px !important; border-radius: 0.375rem !important;
+                border-color: #d9dee3 !important;
+            }
+            #modalEditarPendientes .select2-selection__rendered { line-height: 29px !important; font-size: 0.82rem; }
+            #modalEditarPendientes .select2-selection__arrow { height: 29px !important; }
+            #modalEditarPendientes .select2-results__option { font-size: 0.82rem; }
+        `;
+            document.head.appendChild(s);
+        })();
+
+        // ── Inicializar Select2 en todos los selects del modal ─────────────────
+        function initSelectsEP() {
+            const $modal = $('#modalEditarPendientes');
+
+            $modal.find('.ep-select2').each(function () {
+                if ($(this).data('select2')) $(this).select2('destroy');
+                const placeholder = $(this).find('option:first').text();
+                $(this).select2({
+                    theme: 'bootstrap-5',
+                    width: '100%',
+                    dropdownParent: $modal,
+                    allowClear: true,
+                    placeholder: placeholder,
+                    language: {
+                        noResults: () => 'Sin resultados',
+                        searching: () => 'Buscando...'
+                    }
+                });
+            });
+        }
+
+        // ── Cascadas: solo para cuando el usuario CAMBIA un select ─────────────
+        function initCascadasEditPend(pre) {
+            const $modal = $('#modalEditarPendientes');
+
+            $('#epDescripcion').off('input.ep').on('input.ep', function () {
+                $('#epDescCount').text($(this).val().length + '/1024');
+            });
+
+            // Municipio → recarga predios
+            $('#epMunicipio').off('change.ep').on('change.ep', async function () {
+                const munId = $(this).val();
+                const $pred = $('#epPredio');
+                const $ofi = $('#epOficina');
+
+                epDestroySelect2AndReset($pred, '— Seleccione predio —', !munId);
+                epDestroySelect2AndReset($ofi, '— Seleccione predio —', true);
+                epDestroySelect2AndReset($('#epResponsable'), '— Seleccione oficina —', true);
+                epDestroySelect2AndReset($('#epAuxiliar'), '— Sin auxiliar —', true);
+
+                if (!munId) { reinitSelectEP($pred, true); return; }
+
+                $pred.html('<option value="">Cargando...</option>').prop('disabled', true);
+                try {
+                    const lista = toArray(await fetch(`/api/buscar_predios?municipioId=${munId}`).then(r => r.json()));
+                    $pred.html('<option value="">— Seleccione predio —</option>');
+                    lista.forEach(p => $pred.append(`<option value="${p.id || p.idPredio}">${p.descrip || p.nombre}</option>`));
+                    $pred.prop('disabled', false);
+                } catch { $pred.html('<option value="">Error al cargar</option>'); }
+                reinitSelectEP($pred, false);
+            });
+
+            // Predio → recarga oficinas
+            $('#epPredio').off('change.ep').on('change.ep', async function () {
+                const predId = $(this).val();
+                const $ofi = $('#epOficina');
+
+                epDestroySelect2AndReset($ofi, '— Seleccione oficina —', !predId);
+                epDestroySelect2AndReset($('#epResponsable'), '— Seleccione oficina —', true);
+                epDestroySelect2AndReset($('#epAuxiliar'), '— Sin auxiliar —', true);
+                recargarAuxEP();
+
+                if (!predId) { reinitSelectEP($ofi, true); return; }
+
+                $ofi.html('<option value="">Cargando...</option>').prop('disabled', true);
+                try {
+                    const lista = toArray(await fetch(`/api/buscar_oficinas?predioId=${predId}`).then(r => r.json()));
+                    $ofi.html('<option value="">— Seleccione oficina —</option>');
+                    lista.forEach(o => $ofi.append(`<option value="${o.id || o.idOficina}">${o.nombre}</option>`));
+                    $ofi.prop('disabled', false);
+                } catch { $ofi.html('<option value="">Error al cargar</option>'); }
+                reinitSelectEP($ofi, false);
+            });
+
+            // Oficina → recarga responsables
+            $('#epOficina').off('change.ep').on('change.ep', async function () {
+                const ofiId = $(this).val();
+                const $resp = $('#epResponsable');
+
+                epDestroySelect2AndReset($resp, '— Seleccione responsable —', !ofiId);
+                if (!ofiId) { reinitSelectEP($resp, true); return; }
+
+                $resp.html('<option value="">Cargando...</option>').prop('disabled', true);
+                try {
+                    const data = await fetch(`/api/buscar_responsable?q=&page=1&oficinaId=${ofiId}`).then(r => r.json());
+                    const lista = toArray(data.results ?? data);
+                    $resp.html('<option value="">— Seleccione responsable —</option>');
+                    lista.forEach(r => $resp.append(`<option value="${r.id}">${r.text}</option>`));
+                    $resp.prop('disabled', false);
+                } catch { $resp.html('<option value="">Error al cargar</option>'); }
+                reinitSelectEP($resp, false);
+            });
+
+            // Grupo → recarga auxiliar + vida útil
+            $('#epGrupo').off('change.ep').on('change.ep', function () {
+                const grpId = $(this).val();
+                if (grpId) {
+                    $.get(`/api/${grpId}/meta`).done(m => { if (m?.vidaUtil) $('#epVidaUtil').val(m.vidaUtil); });
+                }
+                recargarAuxEP();
+            });
+        }
+
+        async function recargarAuxEP() {
+            const grpId = $('#epGrupo').val();
+            const predId = $('#epPredio').val();
+            const $aux = $('#epAuxiliar');
+            const $modal = $('#modalEditarPendientes');
+
+            epDestroySelect2AndReset($aux, '— Sin auxiliar —', true);
+
+            if (!grpId || !predId) { reinitSelectEP($aux, true); return; }
+
+            $aux.html('<option value="">Cargando...</option>').prop('disabled', true);
+            try {
+                const lista = toArray(
+                    await fetch(`/api/buscar_auxiliar_lista?grupoId=${grpId}&predioId=${predId}`).then(r => r.json())
+                );
+                $aux.html('<option value="">— Sin auxiliar —</option>');
+                lista.forEach(a => $aux.append(`<option value="${a.idAuxiliar ?? a.id}">${a.nombre ?? a.text}</option>`));
+                $aux.prop('disabled', lista.length === 0);
+            } catch { $aux.html('<option value="">Error al cargar</option>'); }
+            reinitSelectEP($aux, false);
+        }
+
+        function epDestroySelect2AndReset($sel, placeholder, disabled) {
+            if ($sel.data('select2')) $sel.select2('destroy');
+            $sel.html(`<option value="">${placeholder}</option>`).prop('disabled', !!disabled);
+        }
+
+        function reinitSelectEP($sel, disabled) {
+            const $modal = $('#modalEditarPendientes');
+            if ($sel.data('select2')) $sel.select2('destroy');
+            $sel.select2({
+                theme: 'bootstrap-5', width: '100%',
+                dropdownParent: $modal, allowClear: true,
+                placeholder: $sel.find('option:first').text(),
+                language: { noResults: () => 'Sin resultados', searching: () => 'Buscando...' }
+            });
+            if (disabled) $sel.prop('disabled', true);
+        }
+
+        // ── Guardar ───────────────────────────────────────────────────────────
+        async function guardarEdicionPendientes() {
+            const esUnitario = _EP.idsEnc.length === 1;
+            const idOficina = $('#epOficina').val();
+            const idResp = $('#epResponsable').val();
+
+            if (esUnitario && (!idOficina || !idResp)) {
+                Swal.fire('Atención', 'Oficina y responsable son obligatorios.', 'warning');
+                return;
+            }
+
+            const payload = {
+                activos: _EP.idsEnc.map(idEnc => ({
+                    idEnc,
+                    descripcion: $('#epDescripcion').val().trim() || null,
+                    costo: parseFloat($('#epCosto').val()) || null,
+                    vidaUtil: parseFloat($('#epVidaUtil').val()) || null,
+                    fechaAdquisicion: $('#epFecha').val() || null,
+                    idGrupoContable: $('#epGrupo').val() || null,
+                    idAuxiliar: $('#epAuxiliar').val() || null,
+                    idOficina: idOficina || null,
+                    idResponsable: idResp || null,
+                    idOrganismoFinanciero: $('#epOrgFin').val() || null
+                }))
             };
 
-            // ── 6. Renderizar formulario con TODOS los datos ya cargados ──
-            $('#editPendBody').html(
-                renderFormEditarPend(pre, grupos, orgFin, predios, oficinas, responsables, auxiliares, esTodoIgual, idsEnc.length)
-            );
-            $('#btnGuardarEdicionPend').prop('disabled', false);
+            $('#btnGuardarEdicionPend').prop('disabled', true)
+                .html('<i class="fa-solid fa-spinner fa-spin me-1"></i> Guardando...');
 
-            // ── 7. Inicializar Select2 + cascadas ─────────────────────────
-            initSelectsEP();
-            initCascadasEditPend(pre);
+            try {
+                const res = await fetch('/administracion/activo/api/editar-lote', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const j = await res.json();
 
-        } catch (e) {
-            console.error('Error en abrirModalEditarPendientes:', e);
-            $('#editPendBody').html(
-                `<div class="text-danger text-center py-4">
-                <i class="fa-solid fa-triangle-exclamation me-2"></i>
-                Error: ${e.message}
-             </div>`
-            );
-        }
-    }
-
-    // ── Helper: normaliza cualquier respuesta a array ──────────────────────
-    function toArray(res) {
-        if (!res) return [];
-        if (Array.isArray(res)) return res;
-        if (Array.isArray(res.content)) return res.content;
-        if (Array.isArray(res.data)) return res.data;
-        if (Array.isArray(res.results)) return res.results;
-        return [];
-    }
-
-    // ── Comparación de datos ───────────────────────────────────────────────
-    function comprobarDatosIgualesEP(lista) {
-        if (lista.length <= 1) return true;
-        const b = lista[0];
-        return lista.every(d =>
-            d.descripcion === b.descripcion &&
-            String(d.costo ?? '') === String(b.costo ?? '') &&
-            String(d.vidaUtil ?? '') === String(b.vidaUtil ?? '') &&
-            (d.fechaAdquisicion || '') === (b.fechaAdquisicion || '') &&
-            (d.grupoContable?.idGrupoContable ?? null) === (b.grupoContable?.idGrupoContable ?? null) &&
-            (d.municipioId ?? null) === (b.municipioId ?? null) &&
-            (d.predioId ?? null) === (b.predioId ?? null) &&
-            (d.oficina?.idOficina ?? null) === (b.oficina?.idOficina ?? null) &&
-            (d.responsable?.idResponsable ?? null) === (b.responsable?.idResponsable ?? null) &&
-            (d.auxiliar?.idAuxiliar ?? null) === (b.auxiliar?.idAuxiliar ?? null) &&
-            (d.organismoFinanciero?.idOrganismoFinanciero ?? null) ===
-            (b.organismoFinanciero?.idOrganismoFinanciero ?? null)
-        );
-    }
-
-    function calcularValoresComuensEP(lista) {
-        function comun(fn) {
-            const vals = lista.map(fn);
-            return vals.every(v => String(v ?? '') === String(vals[0] ?? '')) ? vals[0] : null;
-        }
-        const b = lista[0];
-        return {
-            municipioId: comun(d => d.municipioId),
-            predioId: comun(d => d.predioId),
-            oficina: comun(d => d.oficina?.idOficina) !== null ? b.oficina : null,
-            responsable: comun(d => d.responsable?.idResponsable) !== null ? b.responsable : null,
-            grupoContable: comun(d => d.grupoContable?.idGrupoContable) !== null ? b.grupoContable : null,
-            auxiliar: comun(d => d.auxiliar?.idAuxiliar ?? null) !== null ? b.auxiliar : null,
-            organismoFinanciero: comun(d => d.organismoFinanciero?.idOrganismoFinanciero ?? null) !== null ? b.organismoFinanciero : null,
-            descripcion: comun(d => d.descripcion),
-            costo: comun(d => d.costo),
-            vidaUtil: comun(d => d.vidaUtil),
-            fechaAdquisicion: comun(d => d.fechaAdquisicion)
-        };
-    }
-
-    // ── Render del formulario con TODOS los datos ya disponibles ───────────
-    function renderFormEditarPend(pre, grupos, orgFin, predios, oficinas, responsables, auxiliares, esTodoIgual, totalActivos) {
-        const v = x => (x != null && x !== 'null') ? x : '';
-
-        function buildOpts(lista, idFn, txtFn, selectedId, emptyLabel) {
-            let html = `<option value="">${emptyLabel}</option>`;
-            (lista || []).forEach(item => {
-                const id = typeof idFn === 'function' ? idFn(item) : item[idFn];
-                const txt = typeof txtFn === 'function' ? txtFn(item) : item[txtFn];
-                const sel = String(id) === String(selectedId ?? '') ? ' selected' : '';
-                html += `<option value="${id}"${sel}>${txt}</option>`;
-            });
-            return html;
-        }
-
-        const { municipios } = _EP.catalogos;
-
-        const optsGrupo = buildOpts(grupos,
-            'idGrupoContable', g => `${g.nombre}`,
-            pre.grpId, '— Seleccione grupo —');
-        const optsOrg = buildOpts(orgFin,
-            'idOrganismoFinanciero', o => `${o.sigla ? o.sigla + ' - ' : ''}${o.descripcion}`,
-            pre.orgFinId, '— Sin financiamiento —');
-        const optsMun = buildOpts(municipios,
-            'idMunicipio', 'nombre',
-            pre.munId, '— Seleccione municipio —');
-        const optsPred = buildOpts(predios,
-            item => item.id || item.idPredio,
-            item => item.descrip || item.nombre,
-            pre.predId, pre.munId ? '— Seleccione predio —' : '— Seleccione municipio primero —');
-        const optsOfi = buildOpts(oficinas,
-            item => item.id || item.idOficina,
-            item => item.nombre,
-            pre.ofiId, pre.predId ? '— Seleccione oficina —' : '— Seleccione predio primero —');
-        const optsResp = buildOpts(responsables,
-            'id', 'text',
-            pre.respId, pre.ofiId ? '— Seleccione responsable —' : '— Seleccione oficina primero —');
-        const optsAux = buildOpts(auxiliares,
-            item => item.idAuxiliar ?? item.id,
-            item => item.nombre ?? item.text,
-            pre.auxId, '— Sin auxiliar —');
-
-        const badgeLote = totalActivos > 1
-            ? `<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;">aplica a todos</span>`
-            : '';
-
-        const hintDif = !esTodoIgual
-            ? `<div class="col-12">
-               <div class="alert alert-warning py-2 mb-0" style="font-size:0.8rem;">
-                   <i class="fa-solid fa-circle-info me-1"></i>
-                   Los activos tienen <strong>datos distintos</strong>.
-                   Los campos vacíos no se modificarán — completa solo lo que quieras cambiar.
-               </div>
-           </div>` : '';
-
-        return `<div class="row g-3" id="formEditPend">
-        ${hintDif}
-
-        <!-- ── Sección Ubicación ── -->
-        <div class="col-12">
-            <div class="ep-section-title">
-                <i class="fa-solid fa-location-dot text-primary me-1"></i> Ubicación ${badgeLote}
-            </div>
-        </div>
-        <div class="col-md-3 col-sm-6">
-            <label class="ep-label"><i class="fa-solid fa-city me-1"></i>Municipio</label>
-            <select id="epMunicipio" class="form-select form-select-sm ep-select2">${optsMun}</select>
-        </div>
-        <div class="col-md-3 col-sm-6">
-            <label class="ep-label"><i class="fa-solid fa-building me-1"></i>Predio</label>
-            <select id="epPredio" class="form-select form-select-sm ep-select2" ${!pre.munId ? 'disabled' : ''}>${optsPred}</select>
-        </div>
-        <div class="col-md-3 col-sm-6">
-            <label class="ep-label"><i class="fa-solid fa-door-open me-1"></i>Oficina</label>
-            <select id="epOficina" class="form-select form-select-sm ep-select2" ${!pre.predId ? 'disabled' : ''}>${optsOfi}</select>
-        </div>
-        <div class="col-md-3 col-sm-6">
-            <label class="ep-label"><i class="fa-solid fa-user-tie me-1"></i>Responsable</label>
-            <select id="epResponsable" class="form-select form-select-sm ep-select2" ${!pre.ofiId ? 'disabled' : ''}>${optsResp}</select>
-        </div>
-
-        <!-- ── Sección Clasificación ── -->
-        <div class="col-12 mt-1">
-            <div class="ep-section-title">
-                <i class="fa-solid fa-tags text-primary me-1"></i> Clasificación Contable ${badgeLote}
-            </div>
-        </div>
-        <div class="col-md-4 col-sm-6">
-            <label class="ep-label"><i class="fa-solid fa-layer-group me-1"></i>Grupo Contable</label>
-            <select id="epGrupo" class="form-select form-select-sm ep-select2">${optsGrupo}</select>
-        </div>
-        <div class="col-md-4 col-sm-6">
-            <label class="ep-label"><i class="fa-solid fa-bookmark me-1"></i>Auxiliar <span class="text-muted fw-normal">(opcional)</span></label>
-            <select id="epAuxiliar" class="form-select form-select-sm ep-select2" ${(!pre.grpId || !pre.predId) ? 'disabled' : ''}>${optsAux}</select>
-        </div>
-        <div class="col-md-4 col-sm-6">
-            <label class="ep-label"><i class="fa-solid fa-hand-holding-dollar me-1"></i>Financiador <span class="text-muted fw-normal">(opcional)</span></label>
-            <select id="epOrgFin" class="form-select form-select-sm ep-select2">${optsOrg}</select>
-        </div>
-
-        <!-- ── Sección Datos del Activo ── -->
-        <div class="col-12 mt-1">
-            <div class="ep-section-title">
-                <i class="fa-solid fa-clipboard-list text-primary me-1"></i> Datos del Activo ${badgeLote}
-            </div>
-        </div>
-        <div class="col-md-2 col-sm-4">
-            <label class="ep-label"><i class="fa-regular fa-calendar me-1"></i>Fecha Adq.</label>
-            <input type="date" id="epFecha" class="form-control form-control-sm"
-                   value="${v(pre.fechaAdquisicion)}">
-        </div>
-        <div class="col-md-2 col-sm-4">
-            <label class="ep-label"><i class="fa-solid fa-coins me-1"></i>Costo (Bs.)</label>
-            <input type="number" id="epCosto" class="form-control form-control-sm text-end fw-bold"
-                   step="0.01" min="0"
-                   value="${v(pre.costo)}"
-                   placeholder="${!esTodoIgual && !pre.costo ? '(distintos)' : ''}">
-        </div>
-        <div class="col-md-2 col-sm-4">
-            <label class="ep-label"><i class="fa-solid fa-hourglass-half me-1"></i>Vida Útil (años)</label>
-            <input type="number" id="epVidaUtil" class="form-control form-control-sm text-center"
-                   step="0.5" min="0"
-                   value="${v(pre.vidaUtil)}"
-                   placeholder="${!esTodoIgual && !pre.vidaUtil ? '(distintos)' : ''}">
-        </div>
-        <div class="col-md-6">
-            <label class="ep-label">
-                <i class="fa-solid fa-align-left me-1"></i>Descripción ${badgeLote}
-            </label>
-            <textarea id="epDescripcion" class="form-control form-control-sm" rows="2"
-                      maxlength="1024"
-                      placeholder="${!esTodoIgual && !pre.descripcion ? '(distintas — escribe para uniformizar)' : ''}"
-                      >${v(pre.descripcion)}</textarea>
-            <div class="text-end">
-                <small class="text-muted" id="epDescCount">${v(pre.descripcion).length}/1024</small>
-            </div>
-        </div>
-    </div>`;
-    }
-
-    // ── CSS del formulario EP (inyectado una sola vez) ─────────────────────
-    (function () {
-        if (document.getElementById('epStyles')) return;
-        const s = document.createElement('style');
-        s.id = 'epStyles';
-        s.textContent = `
-        .ep-section-title {
-            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
-            letter-spacing: 0.5px; color: #8592a3;
-            display: flex; align-items: center; gap: 0.4rem;
-            padding-bottom: 0.4rem; border-bottom: 1px solid #f0f1f3; margin-bottom: 0.15rem;
-        }
-        .ep-label { font-size: 0.75rem; font-weight: 600; color: #566a7f; margin-bottom: 0.3rem; display: block; }
-        #modalEditarPendientes .select2-container { width: 100% !important; }
-        #modalEditarPendientes .select2-selection--single {
-            height: 31px !important; border-radius: 0.375rem !important;
-            border-color: #d9dee3 !important;
-        }
-        #modalEditarPendientes .select2-selection__rendered { line-height: 29px !important; font-size: 0.82rem; }
-        #modalEditarPendientes .select2-selection__arrow { height: 29px !important; }
-        #modalEditarPendientes .select2-results__option { font-size: 0.82rem; }
-    `;
-        document.head.appendChild(s);
-    })();
-
-    // ── Inicializar Select2 en todos los selects del modal ─────────────────
-    function initSelectsEP() {
-        const $modal = $('#modalEditarPendientes');
-
-        $modal.find('.ep-select2').each(function () {
-            if ($(this).data('select2')) $(this).select2('destroy');
-            const placeholder = $(this).find('option:first').text();
-            $(this).select2({
-                theme: 'bootstrap-5',
-                width: '100%',
-                dropdownParent: $modal,
-                allowClear: true,
-                placeholder: placeholder,
-                language: {
-                    noResults: () => 'Sin resultados',
-                    searching: () => 'Buscando...'
+                if (j.ok) {
+                    // Destruir Select2 antes de cerrar para evitar warnings
+                    $('#modalEditarPendientes .ep-select2').each(function () {
+                        if ($(this).data('select2')) $(this).select2('destroy');
+                    });
+                    bootstrap.Modal.getInstance(document.getElementById('modalEditarPendientes')).hide();
+                    limpiarSeleccion();
+                    Swal.fire({
+                        toast: true, position: 'top-end', icon: 'success',
+                        title: `${j.actualizados} activo(s) actualizado(s)`,
+                        showConfirmButton: false, timer: 2500
+                    });
+                    cargarTabla();
+                } else {
+                    throw new Error(j.msg || 'Error desconocido');
                 }
-            });
-        });
-    }
-
-    // ── Cascadas: solo para cuando el usuario CAMBIA un select ─────────────
-    function initCascadasEditPend(pre) {
-        const $modal = $('#modalEditarPendientes');
-
-        $('#epDescripcion').off('input.ep').on('input.ep', function () {
-            $('#epDescCount').text($(this).val().length + '/1024');
-        });
-
-        // Municipio → recarga predios
-        $('#epMunicipio').off('change.ep').on('change.ep', async function () {
-            const munId = $(this).val();
-            const $pred = $('#epPredio');
-            const $ofi = $('#epOficina');
-
-            epDestroySelect2AndReset($pred, '— Seleccione predio —', !munId);
-            epDestroySelect2AndReset($ofi, '— Seleccione predio —', true);
-            epDestroySelect2AndReset($('#epResponsable'), '— Seleccione oficina —', true);
-            epDestroySelect2AndReset($('#epAuxiliar'), '— Sin auxiliar —', true);
-
-            if (!munId) { reinitSelectEP($pred, true); return; }
-
-            $pred.html('<option value="">Cargando...</option>').prop('disabled', true);
-            try {
-                const lista = toArray(await fetch(`/api/buscar_predios?municipioId=${munId}`).then(r => r.json()));
-                $pred.html('<option value="">— Seleccione predio —</option>');
-                lista.forEach(p => $pred.append(`<option value="${p.id || p.idPredio}">${p.descrip || p.nombre}</option>`));
-                $pred.prop('disabled', false);
-            } catch { $pred.html('<option value="">Error al cargar</option>'); }
-            reinitSelectEP($pred, false);
-        });
-
-        // Predio → recarga oficinas
-        $('#epPredio').off('change.ep').on('change.ep', async function () {
-            const predId = $(this).val();
-            const $ofi = $('#epOficina');
-
-            epDestroySelect2AndReset($ofi, '— Seleccione oficina —', !predId);
-            epDestroySelect2AndReset($('#epResponsable'), '— Seleccione oficina —', true);
-            epDestroySelect2AndReset($('#epAuxiliar'), '— Sin auxiliar —', true);
-            recargarAuxEP();
-
-            if (!predId) { reinitSelectEP($ofi, true); return; }
-
-            $ofi.html('<option value="">Cargando...</option>').prop('disabled', true);
-            try {
-                const lista = toArray(await fetch(`/api/buscar_oficinas?predioId=${predId}`).then(r => r.json()));
-                $ofi.html('<option value="">— Seleccione oficina —</option>');
-                lista.forEach(o => $ofi.append(`<option value="${o.id || o.idOficina}">${o.nombre}</option>`));
-                $ofi.prop('disabled', false);
-            } catch { $ofi.html('<option value="">Error al cargar</option>'); }
-            reinitSelectEP($ofi, false);
-        });
-
-        // Oficina → recarga responsables
-        $('#epOficina').off('change.ep').on('change.ep', async function () {
-            const ofiId = $(this).val();
-            const $resp = $('#epResponsable');
-
-            epDestroySelect2AndReset($resp, '— Seleccione responsable —', !ofiId);
-            if (!ofiId) { reinitSelectEP($resp, true); return; }
-
-            $resp.html('<option value="">Cargando...</option>').prop('disabled', true);
-            try {
-                const data = await fetch(`/api/buscar_responsable?q=&page=1&oficinaId=${ofiId}`).then(r => r.json());
-                const lista = toArray(data.results ?? data);
-                $resp.html('<option value="">— Seleccione responsable —</option>');
-                lista.forEach(r => $resp.append(`<option value="${r.id}">${r.text}</option>`));
-                $resp.prop('disabled', false);
-            } catch { $resp.html('<option value="">Error al cargar</option>'); }
-            reinitSelectEP($resp, false);
-        });
-
-        // Grupo → recarga auxiliar + vida útil
-        $('#epGrupo').off('change.ep').on('change.ep', function () {
-            const grpId = $(this).val();
-            if (grpId) {
-                $.get(`/api/${grpId}/meta`).done(m => { if (m?.vidaUtil) $('#epVidaUtil').val(m.vidaUtil); });
+            } catch (e) {
+                Swal.fire('Error', e.message, 'error');
+                $('#btnGuardarEdicionPend').prop('disabled', false)
+                    .html('<i class="fa-solid fa-floppy-disk me-1"></i> Guardar cambios');
             }
-            recargarAuxEP();
-        });
-    }
-
-    async function recargarAuxEP() {
-        const grpId = $('#epGrupo').val();
-        const predId = $('#epPredio').val();
-        const $aux = $('#epAuxiliar');
-        const $modal = $('#modalEditarPendientes');
-
-        epDestroySelect2AndReset($aux, '— Sin auxiliar —', true);
-
-        if (!grpId || !predId) { reinitSelectEP($aux, true); return; }
-
-        $aux.html('<option value="">Cargando...</option>').prop('disabled', true);
-        try {
-            const lista = toArray(
-                await fetch(`/api/buscar_auxiliar_lista?grupoId=${grpId}&predioId=${predId}`).then(r => r.json())
-            );
-            $aux.html('<option value="">— Sin auxiliar —</option>');
-            lista.forEach(a => $aux.append(`<option value="${a.idAuxiliar ?? a.id}">${a.nombre ?? a.text}</option>`));
-            $aux.prop('disabled', lista.length === 0);
-        } catch { $aux.html('<option value="">Error al cargar</option>'); }
-        reinitSelectEP($aux, false);
-    }
-
-    function epDestroySelect2AndReset($sel, placeholder, disabled) {
-        if ($sel.data('select2')) $sel.select2('destroy');
-        $sel.html(`<option value="">${placeholder}</option>`).prop('disabled', !!disabled);
-    }
-
-    function reinitSelectEP($sel, disabled) {
-        const $modal = $('#modalEditarPendientes');
-        if ($sel.data('select2')) $sel.select2('destroy');
-        $sel.select2({
-            theme: 'bootstrap-5', width: '100%',
-            dropdownParent: $modal, allowClear: true,
-            placeholder: $sel.find('option:first').text(),
-            language: { noResults: () => 'Sin resultados', searching: () => 'Buscando...' }
-        });
-        if (disabled) $sel.prop('disabled', true);
-    }
-
-    // ── Guardar ───────────────────────────────────────────────────────────
-    async function guardarEdicionPendientes() {
-        const esUnitario = _EP.idsEnc.length === 1;
-        const idOficina = $('#epOficina').val();
-        const idResp = $('#epResponsable').val();
-
-        if (esUnitario && (!idOficina || !idResp)) {
-            Swal.fire('Atención', 'Oficina y responsable son obligatorios.', 'warning');
-            return;
         }
-
-        const payload = {
-            activos: _EP.idsEnc.map(idEnc => ({
-                idEnc,
-                descripcion: $('#epDescripcion').val().trim() || null,
-                costo: parseFloat($('#epCosto').val()) || null,
-                vidaUtil: parseFloat($('#epVidaUtil').val()) || null,
-                fechaAdquisicion: $('#epFecha').val() || null,
-                idGrupoContable: $('#epGrupo').val() || null,
-                idAuxiliar: $('#epAuxiliar').val() || null,
-                idOficina: idOficina || null,
-                idResponsable: idResp || null,
-                idOrganismoFinanciero: $('#epOrgFin').val() || null
-            }))
-        };
-
-        $('#btnGuardarEdicionPend').prop('disabled', true)
-            .html('<i class="fa-solid fa-spinner fa-spin me-1"></i> Guardando...');
-
-        try {
-            const res = await fetch('/administracion/activo/api/editar-lote', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const j = await res.json();
-
-            if (j.ok) {
-                // Destruir Select2 antes de cerrar para evitar warnings
-                $('#modalEditarPendientes .ep-select2').each(function () {
-                    if ($(this).data('select2')) $(this).select2('destroy');
-                });
-                bootstrap.Modal.getInstance(document.getElementById('modalEditarPendientes')).hide();
-                limpiarSeleccion();
-                Swal.fire({
-                    toast: true, position: 'top-end', icon: 'success',
-                    title: `${j.actualizados} activo(s) actualizado(s)`,
-                    showConfirmButton: false, timer: 2500
-                });
-                cargarTabla();
-            } else {
-                throw new Error(j.msg || 'Error desconocido');
-            }
-        } catch (e) {
-            Swal.fire('Error', e.message, 'error');
-            $('#btnGuardarEdicionPend').prop('disabled', false)
-                .html('<i class="fa-solid fa-floppy-disk me-1"></i> Guardar cambios');
-        }
-    }
-
+    })();
 </script>

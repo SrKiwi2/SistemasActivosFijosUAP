@@ -1,44 +1,63 @@
+<!-- ═══════════════════════════════════════════════════════
+     VISTA: tabla_responsables.html  (fragmento que se carga en #contenido)
+     Cambios clave:
+       1. processing: false  → suprime los "dots" de DataTable
+       2. preDrawCallback / drawCallback → usa globalLoader
+       3. Overlay CSS del DataTable processing eliminado
+     ═══════════════════════════════════════════════════════ -->
+
+<style>
+    /* Suprime el div .dataTables_processing que DataTable inyecta */
+    #data-table_processing { display: none !important; }
+</style>
+
 <div class="container-xxl flex-grow-1 container-p-y">
-    
+
     <div class="d-flex justify-content-between align-items-center py-3 mb-2">
-        <h4 class="fw-bold py-1 mb-0"><span class="text-muted fw-light">Administración /</span> Responsables</h4>
-        
+        <h4 class="fw-bold py-1 mb-0">
+            <span class="text-muted fw-light">Administración /</span> Responsables
+        </h4>
         <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-label-primary" id="ultimaSync" data-bs-toggle="tooltip" title="Estado de la última sincronización con DBF">
+            <span class="badge bg-label-primary" id="ultimaSync"
+                  data-bs-toggle="tooltip" title="Última sincronización con DBF">
                 <i class="fa-solid fa-clock me-1"></i>
                 <span th:text="${ultimaSincronizacion ?: 'Nunca'}">--</span>
             </span>
-            <span class="badge" id="estadoSyncBadge" 
-                  th:classappend="${estadoSync == 'COMPLETADO'} ? 'bg-success' : (${estadoSync == 'ERROR'} ? 'bg-danger' : 'bg-warning')"
+            <span class="badge" id="estadoSyncBadge"
+                  th:classappend="${estadoSync == 'COMPLETADO'} ? 'bg-success' :
+                                  (${estadoSync == 'ERROR'} ? 'bg-danger' : 'bg-warning')"
                   th:text="${estadoSync ?: 'PENDIENTE'}">
             </span>
         </div>
     </div>
 
+    <!-- Barra de herramientas -->
     <div class="card mb-4 border-0 shadow-sm">
         <div class="card-body p-3">
             <div class="row g-3 align-items-center">
                 <div class="col-md-4 col-lg-3">
-                    <label class="form-label small fw-bold text-muted mb-1">Filtrar por Oficina:</label>
+                    <label class="form-label small fw-bold text-muted mb-1">Filtrar por Oficina</label>
                     <select id="filtroOficina" class="form-select form-select-sm">
                         <option value="">Todas las oficinas</option>
-                        <option th:each="o : ${oficinas}" th:value="${o.idOficina}"
-                                th:text="${o.predio.unidad + ' - ' + o.codOfi + ' | ' + o.nombre}">
+                        <option th:each="o : ${oficinas}"
+                                th:value="${o.idOficina}"
+                                th:text="${o.predio.unidad + ' — ' + o.codOfi + ' | ' + o.nombre}">
                         </option>
                     </select>
                 </div>
-
-                <div class="col-md-8 col-lg-9 text-md-end mt-4 mt-md-0">
-                    <div class="btn-group" role="group">
-                        <button id="btnSyncResp" class="btn btn-outline-secondary btn-sm" title="Sincronización Rápida">
+                <div class="col-md-8 col-lg-9 text-md-end mt-3 mt-md-0">
+                    <div class="btn-group me-2" role="group">
+                        <button id="btnSyncResp" class="btn btn-outline-secondary btn-sm"
+                                title="Sincronización rápida">
                             <i class="fa-solid fa-rotate me-1"></i> Sync
                         </button>
-                        <button id="btnSyncCompleto" class="btn btn-outline-warning btn-sm" title="Forzar sincronización completa (lento)">
+                        <button id="btnSyncCompleto" class="btn btn-outline-warning btn-sm"
+                                title="Forzar sincronización completa">
                             <i class="fa-solid fa-database"></i>
                         </button>
                     </div>
-                    
-                    <button type="button" class="btn btn-primary btn-sm ms-2 px-3" onclick="cargarFormulario()">
+                    <button type="button" class="btn btn-primary btn-sm px-3"
+                            onclick="cargarFormulario()">
                         <i class="fa-solid fa-user-plus me-1"></i> Nuevo Responsable
                     </button>
                 </div>
@@ -46,18 +65,19 @@
         </div>
     </div>
 
+    <!-- Tabla -->
     <div class="card shadow-sm">
         <div class="card-datatable table-responsive">
             <table class="datatables-basic table table-hover border-top" id="data-table">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 50px;">#</th>
-                        <th>Cód.</th>
+                        <th style="width:44px">#</th>
+                        <th style="width:90px">Cód.</th>
                         <th>Nombre Completo</th>
-                        <th>C.I.</th>
+                        <th style="width:110px">C.I.</th>
                         <th>Oficina</th>
                         <th>Cargo</th>
-                        <th class="text-center" style="width: 100px;">Acciones</th>
+                        <th class="text-center" style="width:110px">Acciones</th>
                     </tr>
                 </thead>
             </table>
@@ -65,304 +85,235 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalFormularioResponsable" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" id="contenidoModalResponsbale"> </div>
+<!-- Modal formulario responsable -->
+<div class="modal fade" id="modalFormularioResponsable" tabindex="-1"
+     aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" id="contenidoModalResponsbale"></div>
     </div>
 </div>
 
-<div class="modal fade" id="modalFormularioOficina" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" id="prediocontenidoModalOficina"></div>
+<!-- Modal formulario oficina (secundario) -->
+<div class="modal fade" id="modalFormularioOficina" tabindex="-1"
+     aria-hidden="true" style="z-index:1070;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" id="prediocontenidoModalOficina"></div>
     </div>
 </div>
 
 <script th:inline="javascript">
+(function () {   /* ← IIFE: evita conflictos al recargar la vista */
+
+    /* ── Init ───────────────────────────────────────────── */
     $(document).ready(function () {
-        // Inicializar Select2 para filtro
+
         $('#filtroOficina').select2({
             placeholder: 'Todas las oficinas',
             allowClear: true,
             width: '100%',
-            dropdownParent: $('body') // Asegura que el dropdown funcione bien
+            dropdownParent: $('body')
         });
 
         initDataTable();
 
-        // Recargar tabla al cambiar filtro
         $('#filtroOficina').on('change', function () {
             $('#data-table').DataTable().ajax.reload();
         });
 
-        // Eventos Sincronización
-        $(document).on('click', '#btnSyncResp', () => sincronizar(false));
+        $(document).on('click', '#btnSyncResp',    () => sincronizar(false));
         $(document).on('click', '#btnSyncCompleto', function () {
             Swal.fire({
                 title: '¿Sincronización Completa?',
-                text: "Se revisarán todos los registros. Puede tardar unos segundos.",
+                text: 'Se revisarán todos los registros. Puede tardar unos segundos.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Sí, continuar'
-            }).then((result) => { if (result.isConfirmed) sincronizar(true); });
+            }).then(r => { if (r.isConfirmed) sincronizar(true); });
+        });
+
+        $(document).on('click', '.btn-subir-dbf', function () {
+            const idEnc = $(this).data('id');
+            Swal.fire({
+                title: 'Subir a DBF',
+                text: 'Este registro existe en BD pero falta en el DBF. ¿Registrar ahora?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, subir',
+                confirmButtonColor: '#ffc107'
+            }).then(res => {
+                if (!res.isConfirmed) return;
+                showGlobalLoader({ texto: 'Escribiendo en DBF…' });
+                $.post('/administracion/responsable/subir-dbf/' + idEnc, function (resp) {
+                    hideGlobalLoader();
+                    Swal.fire(resp.ok ? 'Éxito' : 'Error', resp.msg, resp.ok ? 'success' : 'error');
+                    if (resp.ok) $('#data-table').DataTable().ajax.reload(null, false);
+                }).fail(() => { hideGlobalLoader(); Swal.fire('Error', 'Fallo de conexión', 'error'); });
+            });
+        });
+
+        $(document).on('click', '.btn-eliminar-responsable', function () {
+            const idEnc = $(this).data('id');
+            Swal.fire({
+                title: '¿Eliminar responsable?',
+                text: 'Esta acción no se puede deshacer.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar',
+                confirmButtonColor: '#dc3545'
+            }).then(res => {
+                if (!res.isConfirmed) return;
+                showGlobalLoader({ texto: 'Eliminando…' });
+                $.post('/administracion/responsable/eliminar/' + idEnc, function (resp) {
+                    hideGlobalLoader();
+                    Swal.fire(resp.ok ? 'Eliminado' : 'Error', resp.msg, resp.ok ? 'success' : 'error');
+                    if (resp.ok) $('#data-table').DataTable().ajax.reload(null, false);
+                }).fail(() => { hideGlobalLoader(); Swal.fire('Error', 'Fallo de conexión', 'error'); });
+            });
         });
     });
 
-    // ✅ FUNCIÓN CORREGIDA PARA ABRIR MODAL
-    function cargarFormulario() {
-        // Limpiar contenido previo
-        $('#contenidoModalResponsbale').html(`
-            <div class="modal-body text-center py-5">
-                <div class="spinner-border text-primary" role="status"></div>
-                <p class="mt-2 text-muted">Cargando formulario...</p>
-            </div>
-        `);
-        
-        $('#modalFormularioResponsable').modal('show');
-
-        // Cargar HTML
-        $.get("/administracion/responsable/formulario", function(data) {
-            $('#contenidoModalResponsbale').html(data);
-        }).fail(function() {
-            $('#contenidoModalResponsbale').html(`
-                <div class="modal-body text-center text-danger py-4">
-                    <i class="fa-solid fa-triangle-exclamation fa-2x mb-2"></i>
-                    <p>Error al cargar el formulario.</p>
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
-                </div>
-            `);
-        });
-    }
-
-    function abrirModalResponsable(idEnc = null) {
-        // 1. Limpiar y mostrar spinner
-        $('#contenidoModalResponsbale').html(`
-            <div class="modal-body text-center py-5">
-                <div class="spinner-border text-primary" role="status"></div>
-                <p class="mt-2 text-muted">Cargando formulario...</p>
-            </div>
-        `);
-        
-        $('#modalFormularioResponsable').modal('show');
-
-        // 2. Preparar datos
-        let params = {};
-        if (idEnc) params.id = idEnc;
-
-        // 3. Cargar HTML
-        $.get("/administracion/responsable/formulario", params, function(data) {
-            $('#contenidoModalResponsbale').html(data);
-            
-            // 4. Si es edición, inyectamos el ID encriptado para que el controlador sepa a quién actualizar
-            if (idEnc) {
-
-                if ($('#formResponsable input[name="idResponsableEnc"]').length === 0) {
-                    $('#formResponsable').prepend(`<input type="hidden" name="idResponsableEnc" value="${idEnc}">`);
-                }
-                
-                $('#modalTitle span').text('Editar Responsable');
-            }
-            
-        }).fail(function(xhr) {
-            console.error("Error cargando formulario:", xhr);
-            $('#contenidoModalResponsable').html(`
-                <div class="modal-body text-center text-danger py-4">
-                    <i class="fa-solid fa-circle-exclamation fa-2x mb-2"></i>
-                    <p>No se pudo cargar el formulario.</p>
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
-                </div>
-            `);
-        });
-    }
-
-    // Wrappers para los botones
-    function cargarFormulario() {
-        abrirModalResponsable(null); // Modo Crear
-    }
-
-    function editarResponsable(idEnc) {
-        abrirModalResponsable(idEnc); // Modo Editar
-    }
-
+    /* ── DataTable ──────────────────────────────────────── */
     function initDataTable() {
         const $tbl = $('#data-table');
         if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
 
-        const table = $tbl.DataTable({
-            processing: true,
+        $tbl.DataTable({
+            processing: false,          /* ← OFF: suprime los dots "Procesando…" */
             serverSide: true,
             deferRender: true,
             pageLength: 25,
             lengthMenu: [10, 25, 50, 100],
+
+            /* ── Reemplaza el indicator de DataTable por globalLoader ── */
+            preDrawCallback: function () {
+                showGlobalLoader({ texto: 'Cargando responsables…' });
+            },
+            drawCallback: function () {
+                hideGlobalLoader();
+                /* Reactivar tooltips */
+                document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+                    bootstrap.Tooltip.getOrCreateInstance(el);
+                });
+            },
+
             ajax: {
                 url: '/administracion/responsable/api/datatables',
                 type: 'POST',
-                data: function (d) {
-                    d.oficinaId = $('#filtroOficina').val();
+                data: function (d) { d.oficinaId = $('#filtroOficina').val(); },
+                error: function () {
+                    hideGlobalLoader();
+                    Swal.fire('Error', 'No se pudieron cargar los datos.', 'error');
                 }
             },
-            // ⚠️ CORRECCIÓN: Definimos EXACTAMENTE 7 columnas para coincidir con el HTML
-            columns: [
-                // 1. Contador (#)
-                { 
-                    data: null, 
-                    orderable: false, 
-                    searchable: false,
-                    width: '30px',
-                    render: (d, t, r, m) => m.row + m.settings._iDisplayStart + 1 
-                },
-                // 2. Código (Con badge bonito)
-                { 
-                    data: 'codFun',
-                    width: '80px',
-                    render: (data) => `<span class="badge bg-label-primary">${data || '--'}</span>`
-                },
-                // 3. Nombre Completo (Combinamos Nombre + Paterno + Materno aquí)
-                { 
-                    data: null,
-                    render: function(d, t, row) {
-                        // Construimos el nombre completo en una sola celda
-                        const completo = `${row.nombre || ''} ${row.paterno || ''} ${row.materno || ''}`.trim();
-                        // Mostramos apellidos en negrita para resaltar
-                        return `<div class="d-flex flex-column">
-                                    <span class="fw-bold text-dark">${row.paterno || ''} ${row.materno || ''}</span>
-                                    <span class="text-muted small">${row.nombre || ''}</span>
-                                </div>`;
-                    }
-                },
-                // 4. C.I.
-                { 
-                    data: 'ci',
-                    width: '100px'
-                },
-                // 5. Oficina (Texto pequeño para ahorrar espacio)
-                { 
-                    data: 'oficina',
-                    render: (data) => `<div class="text-wrap small text-muted" style="max-width: 250px;">${data || ''}</div>`
-                },
-                // 6. Cargo
-                { 
-                    data: 'cargo',
-                    render: (data) => `<span class="fw-semibold text-primary" style="font-size: 0.85rem;">${data || ''}</span>`
-                },
-                // 7. Opciones (Botones)
-                {
-                    data: 'idResponsable', 
-                    orderable: false, 
-                    searchable: false,
-                    className: 'text-center',
-                    width: '120px',
-                    render: function(data, type, row) { 
-                        let botones = `<div class="d-inline-flex gap-1">`;
 
-                        // 1. Botón EDITAR (El que faltaba)
-                        botones += `
-                            <button class="btn btn-icon btn-sm btn-outline-primary btn-editar-responsable"
+            columns: [
+                {
+                    data: null, orderable: false, searchable: false, width: '30px',
+                    render: (d, t, r, m) => m.row + m.settings._iDisplayStart + 1
+                },
+                {
+                    data: 'codFun', width: '80px',
+                    render: d => `<span class="badge bg-label-primary fw-bold">${d || '—'}</span>`
+                },
+                {
+                    data: null,
+                    render: (d, t, row) =>
+                        `<div class="lh-sm">
+                            <div class="fw-semibold text-dark">${row.paterno || ''} ${row.materno || ''}</div>
+                            <small class="text-muted">${row.nombre || ''}</small>
+                         </div>`
+                },
+                { data: 'ci', width: '110px' },
+                {
+                    data: 'oficina',
+                    render: d => `<span class="small text-muted">${d || '—'}</span>`
+                },
+                {
+                    data: 'cargo',
+                    render: d => `<span class="fw-semibold text-primary small">${d || '—'}</span>`
+                },
+                {
+                    data: 'idResponsable', orderable: false, searchable: false,
+                    className: 'text-center', width: '110px',
+                    render: (data, type, row) => {
+                        const sincBadge = row.existeEnDbf === false
+                            ? `<button class="btn btn-icon btn-sm btn-warning btn-subir-dbf"
+                                       data-id="${row.idEnc}"
+                                       data-bs-toggle="tooltip" title="No está en DBF — click para subir">
+                                   <i class="fa-solid fa-cloud-arrow-up"></i>
+                               </button>`
+                            : `<span class="btn btn-icon btn-sm btn-label-success pe-none"
+                                     data-bs-toggle="tooltip" title="Sincronizado con DBF">
+                                   <i class="fa-solid fa-check"></i>
+                               </span>`;
+                        return `<div class="d-inline-flex gap-1">
+                            <button class="btn btn-icon btn-sm btn-outline-primary"
                                     onclick="editarResponsable('${row.idEnc}')"
-                                    title="Editar responsable">
+                                    title="Editar">
                                 <i class="fa-solid fa-pen"></i>
                             </button>
-                        `;
-
-                        // 2. Botón ELIMINAR
-                        botones += `
                             <button class="btn btn-icon btn-sm btn-outline-danger btn-eliminar-responsable"
-                                    data-id="${row.idEnc}"
-                                    title="Eliminar responsable">
+                                    data-id="${row.idEnc}" title="Eliminar">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
-                        `;
-
-                        // 3. Botón DBF (Condicional)
-                        if (row.existeEnDbf === false) {
-                            botones += `
-                                <button class="btn btn-icon btn-sm btn-warning btn-subir-dbf"
-                                        data-id="${row.idEnc}"
-                                        data-bs-toggle="tooltip"
-                                        title="⚠️ No encontrado en DBF. Click para subir.">
-                                    <i class="fa-solid fa-cloud-arrow-up"></i>
-                                </button>
-                            `;
-                        } else {
-                            botones += `
-                                <span class="btn btn-icon btn-sm btn-label-success pe-none" 
-                                      data-bs-toggle="tooltip" title="Sincronizado con DBF">
-                                    <i class="fa-solid fa-check"></i>
-                                </span>
-                            `;
-                        }
-                        
-                        botones += `</div>`;
-                        return botones;
+                            ${sincBadge}
+                        </div>`;
                     }
                 }
             ],
-            // Traducción incrustada para evitar error CORS
+
             language: {
-                "decimal": "",
-                "emptyTable": "No hay información",
-                "info": "Mostrando _START_ a _END_ de _TOTAL_ registros",
-                "infoEmpty": "Mostrando 0 a 0 de 0 registros",
-                "infoFiltered": "(Filtrado de _MAX_ total registros)",
-                "infoPostFix": "",
-                "thousands": ",",
-                "lengthMenu": "Mostrar _MENU_ registros",
-                "loadingRecords": "Cargando...",
-                "processing": "Procesando...",
-                "search": "Buscar:",
-                "zeroRecords": "Sin resultados encontrados",
-                "paginate": {
-                    "first": "Primero",
-                    "last": "Último",
-                    "next": "Siguiente",
-                    "previous": "Anterior"
-                }
-            },
-            drawCallback: function() {
-                // Reactivar tooltips después de cada redibujado de tabla
-                var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-                tooltipTriggerList.map(function (tooltipTriggerEl) {
-                    return new bootstrap.Tooltip(tooltipTriggerEl);
-                });
+                emptyTable: 'No hay responsables registrados',
+                info: 'Mostrando _START_ a _END_ de _TOTAL_ registros',
+                infoEmpty: 'Sin registros',
+                infoFiltered: '(filtrado de _MAX_ total)',
+                lengthMenu: 'Mostrar _MENU_',
+                loadingRecords: '',
+                processing: '',
+                search: 'Buscar:',
+                zeroRecords: 'Sin resultados',
+                paginate: { first: 'Primero', last: 'Último', next: 'Sig.', previous: 'Ant.' }
             }
         });
     }
 
+    /* ── Formulario ─────────────────────────────────────── */
+    function abrirModalResponsable(idEnc = null) {
+        showGlobalLoader({ texto: idEnc ? 'Cargando datos…' : 'Preparando formulario…' });
+        $('#contenidoModalResponsbale').html('');
+        $('#modalFormularioResponsable').modal('show');
 
-    $(document).on('click', '.btn-subir-dbf', function() {
-        const idEnc = $(this).data('id');
-        Swal.fire({
-            title: 'Subir a DBF',
-            text: "Este registro existe en BD pero falta en el archivo DBF. ¿Registrar ahora?",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, subir',
-            confirmButtonColor: '#ffc107'
-        }).then((res) => {
-            if (res.isConfirmed) {
-                showGlobalLoader({ texto: 'Escribiendo en DBF...' });
-                $.post('/administracion/responsable/subir-dbf/' + idEnc, function(resp) {
-                    hideGlobalLoader();
-                    if(resp.ok) {
-                        Swal.fire('Éxito', resp.msg, 'success');
-                        $('#data-table').DataTable().ajax.reload(null, false);
-                    } else {
-                        Swal.fire('Error', resp.msg, 'error');
-                    }
-                }).fail(() => {
-                    hideGlobalLoader();
-                    Swal.fire('Error', 'Fallo de conexión', 'error');
-                });
+        $.get('/administracion/responsable/formulario', idEnc ? { id: idEnc } : {}, function (data) {
+            hideGlobalLoader();
+            $('#contenidoModalResponsbale').html(data);
+            if (idEnc && !$('#formResponsable input[name="idResponsableEnc"]').length) {
+                $('#formResponsable').prepend(`<input type="hidden" name="idResponsableEnc" value="${idEnc}">`);
             }
+        }).fail(function () {
+            hideGlobalLoader();
+            $('#contenidoModalResponsbale').html(`
+                <div class="modal-body text-center py-5 text-danger">
+                    <i class="fa-solid fa-circle-exclamation fa-2x mb-2 d-block"></i>
+                    <p class="mb-3">No se pudo cargar el formulario.</p>
+                    <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                </div>`);
         });
-    });
+    }
 
+    /* Exportados al scope global para los onclick del HTML */
+    window.cargarFormulario  = () => abrirModalResponsable(null);
+    window.editarResponsable = (id) => abrirModalResponsable(id);
+
+    /* ── Sincronizar ────────────────────────────────────── */
     function sincronizar(completo) {
-        showGlobalLoader({ texto: 'Sincronizando...' });
-        $.post('/administracion/responsable/sync-from-mounted', { forzarCompleto: completo }, function(res) {
+        showGlobalLoader({ texto: completo ? 'Sincronización completa…' : 'Sincronizando…' });
+        $.post('/administracion/responsable/sync-from-mounted', { forzarCompleto: completo }, function (res) {
             hideGlobalLoader();
             Swal.fire({
                 title: 'Sincronización Finalizada',
-                html: `Procesados: ${res.totalLeidas}<br>Nuevos: ${res.insertados}<br>Actualizados: ${res.actualizados}`,
+                html: `Procesados: <b>${res.totalLeidas}</b> &nbsp;|&nbsp;
+                       Nuevos: <b>${res.insertados}</b> &nbsp;|&nbsp;
+                       Actualizados: <b>${res.actualizados}</b>`,
                 icon: 'success'
             });
             actualizarInfoSync();
@@ -374,15 +325,14 @@
     }
 
     function actualizarInfoSync() {
-        $.get('/administracion/responsable/sync-info', function(info) {
+        $.get('/administracion/responsable/sync-info', function (info) {
             $('#ultimaSync span').text(info.ultimaSincronizacion);
             $('#estadoSyncBadge').text(info.estado)
                 .removeClass('bg-success bg-danger bg-warning')
-                .addClass(info.estado === 'COMPLETADO' ? 'bg-success' : (info.estado === 'ERROR' ? 'bg-danger' : 'bg-warning'));
+                .addClass(info.estado === 'COMPLETADO' ? 'bg-success'
+                        : info.estado === 'ERROR'      ? 'bg-danger' : 'bg-warning');
         });
     }
-    
-    function eliminar(tipo, id) {
-        // Tu lógica de eliminar existente...
-    }
+
+})();
 </script>
