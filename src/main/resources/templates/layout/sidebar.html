@@ -432,5 +432,27 @@ html[data-theme="dark"] .sm-bd-warn {
             </ul>
         </li>
 
+        <li class="menu-item"
+            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+            <a href="#" class="menu-link menu-toggle">
+                <span class="sm-gi gi-green menu-icon"><i class="ti ti-packages"></i></span>
+                <div>Transferencia de activos Activos</div>
+            </a>
+            <ul class="menu-sub">
+                <li class="menu-item" id="opcion_trInterna">
+                    <a class="menu-link">
+                        <span class="sm-si si-green"><i class="ti ti-clipboard-list"></i></span>
+                        <div>Tranferencia interna</div>
+                    </a>
+                </li>
+                <li class="menu-item" id="opcion_trExterna">
+                    <a class="menu-link">
+                        <span class="sm-si si-amber"><i class="ti ti-clock-exclamation"></i></span>
+                        <div>Transferencia externa</div>
+                    </a>
+                </li>
+            </ul>
+        </li>
+
     </ul>
 </aside>

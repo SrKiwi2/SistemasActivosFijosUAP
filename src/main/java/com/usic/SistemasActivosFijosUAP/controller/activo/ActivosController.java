@@ -548,6 +548,77 @@ public class ActivosController {
         }
     }
 
+    public static class TransferenciaMasivaRequest {
+        public Long idOficina;
+        public Long idResponsable;
+        public List<String> codigos;
+    }
+
+    @PostMapping("/transferencia-masiva")
+    @ResponseBody
+    public ResponseEntity<?> transferenciaMasiva(
+            HttpServletRequest request,
+            @RequestBody TransferenciaMasivaRequest payload) {
+
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+
+        try {
+            Oficina oficinaDestino = oficinaService.findById(payload.idOficina);
+            Responsable respDestino = responsableService.findById(payload.idResponsable);
+
+            if (oficinaDestino == null || respDestino == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Oficina o Responsable no válidos."));
+            }
+
+            // 1. Buscar todos los activos en BD
+            List<Activo> activosATransferir = new ArrayList<>();
+            for (String codigo : payload.codigos) {
+                activoService.findByCodigo(codigo).ifPresent(activosATransferir::add);
+            }
+
+            if (activosATransferir.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados."));
+            }
+
+            // 2. Modificar memoria
+            LocalDate hoy = LocalDate.now();
+            for (Activo a : activosATransferir) {
+                a.setOficina(oficinaDestino);
+                a.setResponsable(respDestino);
+                a.setFecMod(hoy);
+                a.setUsuMod(usuarioNombre);
+                a.setFechaUlt(hoy);
+                a.setUsuario(usuarioNombre);
+                if (usuario != null) a.setModificacionIdUsuario(usuario.getIdUsuario());
+                a.setModificacion(new Date());
+            }
+
+            // 3. Guardado masivo en BD (Si tu servicio tiene saveAll, úsalo. Si no, iteramos save)
+            for (Activo a : activosATransferir) {
+                activoService.save(a);
+            }
+            log.info("Transferidos {} activos a Oficina ID: {}", activosATransferir.size(), payload.idOficina);
+
+            // 4. Guardado masivo en DBF
+            try {
+                String entidadCode = oficinaDestino.getPredio().getEntidad().getEntidadCodigo();
+                String unidadCode = oficinaDestino.getPredio().getUnidad();
+                
+                actualDbfWriterService.actualizarLoteTransferencias(activosATransferir, entidadCode, unidadCode, usuarioNombre);
+                
+                return ResponseEntity.ok(Map.of("ok", true, "msg", "Se transfirieron " + activosATransferir.size() + " activos en BD y DBF."));
+            } catch (Exception e) {
+                log.error("Error sincronizando lote DBF: {}", e.getMessage());
+                return ResponseEntity.ok(Map.of("ok", true, "msg", "Guardado en BD (" + activosATransferir.size() + "), pero DBF falló: " + e.getMessage()));
+            }
+
+        } catch (Exception e) {
+            log.error("Error fatal en transferencia masiva", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
+        }
+    }
+
     @ValidarUsuarioAutenticado
     @PostMapping("/baja-activo")
     @ResponseBody

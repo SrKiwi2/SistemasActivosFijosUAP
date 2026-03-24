@@ -12,8 +12,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -293,6 +295,100 @@ public class ActualDbfWriterService {
 
             } catch (Exception e) {
                 throw new RuntimeException("Error actualizando ACTUAL.DBF: " + e.getMessage());
+            }
+        }
+    }
+
+    public void actualizarLoteTransferencias(List<Activo> activos, String entidadCode, String unidadCode, String usuario) {
+        if (activos == null || activos.isEmpty()) return;
+
+        // 1. Crear un diccionario para búsqueda ultra rápida O(1)
+        Map<String, Activo> mapaActivos = new HashMap<>();
+        for (Activo a : activos) {
+            mapaActivos.put(a.getCodigo().toUpperCase().trim(), a);
+        }
+
+        log.info("⚡ Iniciando actualización masiva en DBF para {} activos", mapaActivos.size());
+
+        synchronized (actualLock) {
+            try (RandomAccessFile raf = new RandomAccessFile(getActualDbfFile(), "rw");
+                 FileChannel channel = raf.getChannel();
+                 FileLock lock = channel.lock()) {
+
+                raf.seek(4);
+                int numRecords = Integer.reverseBytes(raf.readInt());
+                short headerLen = Short.reverseBytes(raf.readShort());
+                short recordLen = Short.reverseBytes(raf.readShort());
+
+                List<CampoDbf> fields = leerMetadatosCampos(raf);
+
+                // Ubicar rápidamente los campos clave para no procesar el resto
+                int offCodigo = -1, lenCodigo = 0;
+                int currentOffset = 1;
+
+                // Para sobrescribir, calcularemos el offset de cada campo
+                Map<String, Integer> fieldOffsets = new HashMap<>();
+
+                for (CampoDbf f : fields) {
+                    if ("CODIGO".equalsIgnoreCase(f.name)) {
+                        offCodigo = currentOffset;
+                        lenCodigo = f.length;
+                    }
+                    fieldOffsets.put(f.name.toUpperCase(), currentOffset);
+                    currentOffset += f.length;
+                }
+
+                if (offCodigo == -1) throw new RuntimeException("Campo CODIGO no encontrado en DBF");
+
+                byte[] bufCodigo = new byte[lenCodigo];
+                int actualizados = 0;
+
+                // 2. Escaneo secuencial (O(N) - muy rápido en disco local/red optimizada)
+                for (int i = 0; i < numRecords; i++) {
+                    if (mapaActivos.isEmpty()) break; // Optimización: si ya encontramos todos, paramos
+
+                    long pos = headerLen + ((long) i * recordLen);
+                    raf.seek(pos);
+                    if (raf.readByte() == 0x2A) continue; // Ignorar borrados
+
+                    // Leer código
+                    raf.seek(pos + offCodigo);
+                    raf.read(bufCodigo);
+                    String codigoDbf = new String(bufCodigo, "CP1252").trim().toUpperCase();
+
+                    // Si el código está en nuestro lote
+                    if (mapaActivos.containsKey(codigoDbf)) {
+                        Activo activoModificado = mapaActivos.get(codigoDbf);
+                        
+                        // Campos de transferencia que cambian: CODOFIC, CODRESP, ENTIDAD, UNIDAD, BANDERAS, USU_MOD, FEC_MOD, FEULT
+                        String[] camposAActualizar = {"CODOFIC", "CODRESP", "ENTIDAD", "UNIDAD", "USU_MOD", "FEC_MOD", "FEULT"};
+
+                        for (String nombreCampo : camposAActualizar) {
+                            if (!fieldOffsets.containsKey(nombreCampo)) continue;
+                            
+                            CampoDbf fieldToUpdate = fields.stream().filter(f -> f.name.equalsIgnoreCase(nombreCampo)).findFirst().orElse(null);
+                            if (fieldToUpdate == null || fieldToUpdate.type == 'M') continue;
+
+                            long exactPos = pos + fieldOffsets.get(nombreCampo);
+                            Object valor = obtenerValorCampo(fieldToUpdate.name, activoModificado, entidadCode, unidadCode, usuario);
+                            byte[] bytes = convertirValorABytes(valor, fieldToUpdate);
+
+                            raf.seek(exactPos);
+                            raf.write(bytes);
+                        }
+
+                        // Remover del mapa para ir vaciándolo y terminar antes si es posible
+                        mapaActivos.remove(codigoDbf);
+                        actualizados++;
+                    }
+                }
+
+                // 3. Actualizar cabecera del DBF
+                actualizarFechaModificacion(raf);
+                log.info("✅ Lote DBF finalizado. Activos actualizados en archivo: {}", actualizados);
+
+            } catch (Exception e) {
+                throw new RuntimeException("Error en actualización por lotes DBF: " + e.getMessage());
             }
         }
     }

@@ -970,28 +970,34 @@
             $('#modalAsignarGestion').modal('hide');
             showGlobalLoader({ texto: 'Actualizando descripciones...' });
 
-            $.ajax({
-                url: '/administracion/activo/asignar-gestion-masiva',
-                type: 'POST',
-                traditional: true,
-                data: { ids: _pendingIds, idConfig: idConfig, nroDoc: nro },
-                success: function (res) {
-                    hideGlobalLoader();
-                    if (res.ok) {
-                        // El reporte recibe el idAsignacion ya existente — NO crea registros nuevos
-                        if (res.idAsignacion) {
-                            descargarReporte(res.idAsignacion, res.codigoCompleto);
-                        }
-                        Swal.fire('Listo', res.msg, 'success').then(() => cargarTabla());
-                    } else {
-                        Swal.fire('Error', res.msg, 'error');
+            const params = new URLSearchParams();
+            _pendingIds.forEach(id => params.append('ids', id));  // un append por ID
+            params.append('idConfig', idConfig);
+            params.append('nroDoc', nro);
+
+            fetch('/administracion/activo/asignar-gestion-masiva', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            })
+            .then(r => r.json())
+            .then(res => {
+                hideGlobalLoader();
+                if (res.ok) {
+                    if (res.idAsignacion) {
+                        descargarReporte(res.idAsignacion, res.codigoCompleto);
                     }
-                },
-                error: function () {
-                    hideGlobalLoader();
-                    Swal.fire('Error', 'Fallo en el servidor', 'error');
+                    Swal.fire('Listo', res.msg, 'success').then(() => cargarTabla());
+                } else {
+                    Swal.fire('Error', res.msg, 'error');
                 }
+            })
+            .catch(() => {
+                hideGlobalLoader();
+                Swal.fire('Error', 'Fallo en el servidor', 'error');
             });
+
+
         }
 
 
@@ -1747,5 +1753,13 @@
                     .html('<i class="fa-solid fa-floppy-disk me-1"></i> Guardar cambios');
             }
         }
+
+         window.guardarEdicionPendientes  = guardarEdicionPendientes;
+        window.limpiarSeleccion          = limpiarSeleccion;
+        window.abrirModalAsignarDocGrupo = abrirModalAsignarDocGrupo;
+        window.sincronizarGrupo          = sincronizarGrupo;
+        window.guardarNuevaConfig        = guardarNuevaConfig;
+        window.confirmarAsignacion       = confirmarAsignacion;
+        window.actualizarPreview         = actualizarPreview;
     })();
 </script>

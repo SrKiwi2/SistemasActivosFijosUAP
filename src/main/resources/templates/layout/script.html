@@ -343,6 +343,34 @@
 
             });
 
+            $("#opcion_trInterna").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/administracion/trasnferencia/trasnferenciaInterna");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_trInterna");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
+            $("#opcion_trExterna").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/administracion/trasnferencia/trasnferenciaExterna");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_trExterna");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
             function cargarContenido(url) {
                 $.ajax({
                     url: "/adm/cargar-datos",

@@ -1,6 +1,8 @@
 package com.usic.SistemasActivosFijosUAP.controller.rest;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -397,5 +399,110 @@ public class CatalogoRestController {
             .limit(20)
             .map(c -> Map.of("nombre", c.getNombre()))
             .collect(Collectors.toList());
+    }
+
+    @GetMapping("/oficinas/por-predio")
+    public List<Map<String, Object>> listarOficinasPorPredioTF(@RequestParam Long predioId) {
+        return oficinaService.findByPredioIdPredio(predioId).stream()
+            .map(o -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("idOficina", o.getIdOficina());
+                map.put("codOfi", o.getCodOfi() != null ? o.getCodOfi() : "");
+                map.put("nombre", o.getNombre());
+                return map;
+            })
+            .toList();
+    }
+
+    @GetMapping("/responsables/por-oficina")
+    public List<Map<String, Object>> listarResponsablesPorOficinaTF(@RequestParam Long oficinaId) {
+        return responsableService.findByOficinaIdOficina(oficinaId).stream()
+            .map(r -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("idResponsable", r.getIdResponsable());
+                map.put("codigoFuncionario", r.getCodigoFuncionario() != null ? r.getCodigoFuncionario() : "S/C");
+                // Aseguramos que no haya NullPointerException si la persona no existe (aunque debería)
+                map.put("nombre", r.getPersona() != null ? r.getPersona().getNombreCompleto() : "Desconocido");
+                return map;
+            })
+            .toList();
+    }
+
+    @PostMapping("/activos/por-codigos")
+    public ResponseEntity<List<Map<String, Object>>> buscarActivosPorCodigosMasivo(@RequestBody Map<String, List<String>> payload) {
+        List<String> codigos = payload.get("codigos");
+        if (codigos == null || codigos.isEmpty()) {
+            return ResponseEntity.badRequest().body(Collections.emptyList());
+        }
+
+        List<Map<String, Object>> resultados = new ArrayList<>();
+
+        for (String cod : codigos) {
+            // Buscamos cada activo. (Si tu IActivoService tiene un método findByCodigoIn(List<String>), 
+            // sería más óptimo, pero iterar sobre findByCodigo funciona bien para lotes pequeños/medianos).
+            activoService.findByCodigo(cod).ifPresentOrElse(
+                a -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("idActivo", a.getIdActivo());
+                    map.put("codigo", a.getCodigo());
+                    map.put("descripcion", a.getDescripcion());
+                    
+                    // Extraer relaciones de forma segura
+                    if (a.getGrupoContable() != null) {
+                        map.put("grupoContable", Map.of(
+                            "idGrupoContable", a.getGrupoContable().getIdGrupoContable(),
+                            "nombre", a.getGrupoContable().getNombre() != null ? a.getGrupoContable().getNombre() : ""
+                        ));
+                    }
+                    if (a.getOficina() != null) {
+                        map.put("oficina", Map.of(
+                            "idOficina", a.getOficina().getIdOficina(),
+                            "nombre", a.getOficina().getNombre()
+                        ));
+                    }
+                    if (a.getResponsable() != null && a.getResponsable().getPersona() != null) {
+                        map.put("responsable", Map.of(
+                            "idResponsable", a.getResponsable().getIdResponsable(),
+                            "nombre", a.getResponsable().getPersona().getNombreCompleto()
+                        ));
+                    }
+                    
+                    resultados.add(map);
+                },
+                () -> {
+                    // Si no se encuentra, devolvemos un objeto indicando el código que falló (como lo espera tu JS)
+                    Map<String, Object> errorMap = new HashMap<>();
+                    errorMap.put("codigoBuscado", cod);
+                    resultados.add(errorMap);
+                }
+            );
+        }
+
+        return ResponseEntity.ok(resultados);
+    }
+
+    @GetMapping("/activos/por-codigo")
+    public ResponseEntity<Map<String, Object>> buscarActivoPorCodigoTF(@RequestParam String codigo) {
+        return activoService.findByCodigo(codigo)
+            .map(a -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("idActivo", a.getIdActivo());
+                map.put("codigo", a.getCodigo());
+                map.put("descripcion", a.getDescripcion());
+                
+                // Extraer relaciones de forma segura para la tabla
+                if (a.getGrupoContable() != null) {
+                    map.put("grupoContable", Map.of("nombre", a.getGrupoContable().getNombre()));
+                }
+                if (a.getOficina() != null) {
+                    map.put("oficina", Map.of("nombre", a.getOficina().getNombre()));
+                }
+                if (a.getResponsable() != null && a.getResponsable().getPersona() != null) {
+                    map.put("responsable", Map.of("nombre", a.getResponsable().getPersona().getNombreCompleto()));
+                }
+                
+                return ResponseEntity.ok(map);
+            })
+            .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

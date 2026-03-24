@@ -1,0 +1,1125 @@
+<!-- =====================================================================
+     TRANSFERENCIA INTERNA DE ACTIVOS FIJOS — v3
+     Fragmento Thymeleaf | Select2 | Sin scroll para ver el botón principal
+====================================================================== -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+/* ── 1. TOKENS ─────────────────────────────────────────────────────── */
+:root {
+    --bg-page     : #f0f2f5;
+    --bg-panel    : #ffffff;
+    --bg-input    : #f4f6fa;
+    --bg-hover    : #f0f4ff;
+    --border-soft : #e4e8f0;
+    --border-med  : #c9d0e0;
+    --border-focus: #3b5bdb;
+    --txt-primary : #1a2340;
+    --txt-sub     : #5a6a8a;
+    --txt-muted   : #9aa3b8;
+    --accent      : #3b5bdb;
+    --accent-lt   : rgba(59,91,219,.09);
+    --accent-hov  : #2f4ac7;
+    --green       : #12b76a;
+    --green-lt    : rgba(18,183,106,.10);
+    --red         : #f04438;
+    --red-lt      : rgba(240,68,56,.10);
+    --amber       : #f79009;
+    --font-ui     : 'Inter', system-ui, sans-serif;
+    --font-mono   : 'JetBrains Mono','Fira Mono',monospace;
+    --r-sm        : 5px;
+    --r-md        : 7px;
+    --sh-sm       : 0 1px 3px rgba(0,0,0,.06);
+    --sh-md       : 0 4px 14px rgba(0,0,0,.10);
+    --t           : .16s ease;
+}
+
+/* @media (prefers-color-scheme: dark) {
+    :root {
+        --bg-page    : #0f1623;
+        --bg-panel   : #1a2235;
+        --bg-input   : #222d42;
+        --bg-hover   : #1e2a40;
+        --border-soft: #2a3550;
+        --border-med : #3a4a68;
+        --border-focus: #5c7cf0;
+        --txt-primary: #e8edf8;
+        --txt-sub    : #8a99bb;
+        --txt-muted  : #5a6a8a;
+        --accent     : #5c7cf0;
+        --accent-lt  : rgba(92,124,240,.12);
+        --accent-hov : #7090f5;
+        --green      : #2dd4a0;
+        --green-lt   : rgba(45,212,160,.12);
+        --red        : #f87171;
+        --red-lt     : rgba(248,113,113,.12);
+        --amber      : #fbbf24;
+        --sh-sm      : 0 1px 3px rgba(0,0,0,.25);
+        --sh-md      : 0 4px 14px rgba(0,0,0,.35);
+    }
+} */
+
+.tf-wrap, .tf-wrap * { box-sizing: border-box; margin: 0; padding: 0; }
+.tf-wrap { font-family: var(--font-ui); color: var(--txt-primary); }
+
+.tf-wrap {
+    --topbar-h: 56px;
+    --inner-h : 48px;
+    display: contents;
+    flex-direction: column;
+    height: calc(100vh - var(--topbar-h));
+    overflow: hidden;
+    background: var(--bg-page);
+}
+
+/* Barra interna */
+.tf-bar {
+    height: var(--inner-h);
+    flex-shrink: 0;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-soft);
+    box-shadow: var(--sh-sm);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 22px;
+    z-index: 10;
+}
+
+.tf-bar-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.tf-bar-icon svg { width: 14px; height: 14px; color: #fff; }
+
+.tf-bar-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--txt-primary);
+    letter-spacing: .15px;
+}
+
+.tf-bar-clock {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--txt-muted);
+    letter-spacing: .4px;
+}
+
+.tf-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    flex: 1;
+    overflow: hidden;
+    height: calc(100% - var(--inner-h));
+}
+
+.tf-sidebar {
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border-soft);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    height: 100%;
+}
+
+.tf-sidebar-scroll {
+    flex: 1;
+    overflow-y: hidden;
+    overflow-x: hidden;
+    min-height: 0;
+}
+.tf-sidebar-scroll::-webkit-scrollbar { width: 1px; }
+.tf-sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border-med); border-radius: 3px; }
+
+/* Secciones */
+.tf-sec {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.tf-sec-label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: var(--txt-muted);
+    margin-bottom: 9px;
+}
+
+.tf-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tf-field { margin-bottom: 8px; }
+.tf-field:last-child { margin-bottom: 0; }
+
+.tf-lbl {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--txt-sub);
+    margin-bottom: 4px;
+}
+
+.tf-input, .tf-sel {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border-med);
+    border-radius: var(--r-sm);
+    color: var(--txt-primary);
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    padding: 6px 10px;
+    outline: none;
+    transition: border-color var(--t), box-shadow var(--t);
+    appearance: none;
+}
+
+.tf-input:focus, .tf-sel:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px var(--accent-lt);
+}
+
+.tf-sel {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239aa3b8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    padding-right: 26px;
+    cursor: pointer;
+}
+
+.tf-sel:disabled { opacity: .4; cursor: not-allowed; }
+
+.tf-row { display: flex; gap: 7px; }
+.tf-row .tf-input { flex: 1; min-width: 0; }
+
+.tf-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: none;
+    border-radius: var(--r-sm);
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0 12px;
+    height: 33px;
+    white-space: nowrap;
+    transition: all var(--t);
+    outline: none;
+    flex-shrink: 0;
+}
+
+.tf-btn:focus-visible { box-shadow: 0 0 0 3px var(--accent-lt); }
+
+.tf-btn-accent { background: var(--accent); color: #fff; }
+.tf-btn-accent:hover:not(:disabled) { background: var(--accent-hov); }
+
+.tf-btn-ghost {
+    background: var(--bg-input);
+    color: var(--txt-sub);
+    border: 1px solid var(--border-med);
+}
+.tf-btn-ghost:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-lt);
+}
+
+.tf-btn-go {
+    background: var(--green);
+    color: #fff;
+    height: 38px;
+    width: 100%;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: var(--r-md);
+    letter-spacing: .1px;
+}
+.tf-btn-go:hover:not(:disabled) { filter: brightness(1.06); }
+.tf-btn-go:disabled { opacity: .38; cursor: not-allowed; }
+
+.tf-drop {
+    border: 1.5px dashed var(--border-med);
+    border-radius: var(--r-md);
+    padding: 10px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--t), background var(--t);
+    position: relative;
+}
+.tf-drop:hover, .tf-drop.dragover {
+    border-color: var(--accent);
+    background: var(--accent-lt);
+}
+.tf-drop input[type="file"] {
+    position: absolute; inset: 0; opacity: 0;
+    cursor: pointer; width: 100%; height: 100%;
+}
+.tf-drop-icon { font-size: 17px; line-height: 1; margin-bottom: 3px; }
+.tf-drop-txt  { font-size: 11px; color: var(--txt-muted); line-height: 1.4; }
+.tf-drop-txt strong { color: var(--accent); font-weight: 600; }
+
+.tf-upload-ok {
+    margin-top: 6px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--green);
+    display: none;
+}
+
+.tf-prog { height: 2px; background: var(--border-soft); border-radius: 2px; margin-top: 6px; overflow: hidden; display: none; }
+.tf-prog-bar { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+
+.tf-footer {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-soft);
+    background: var(--bg-panel);
+}
+
+.tf-summary {
+    background: var(--bg-page);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-md);
+    padding: 9px 12px;
+    margin-bottom: 10px;
+}
+
+.tf-sum-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11.5px;
+    color: var(--txt-sub);
+    padding: 2px 0;
+}
+
+.tf-sum-val {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--txt-primary);
+    font-weight: 500;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+}
+
+.tf-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px; height: 20px;
+    padding: 0 6px;
+    border-radius: 100px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    background: var(--accent-lt);
+    color: var(--accent);
+}
+
+.tf-badge-neu {
+    background: var(--bg-input);
+    color: var(--txt-sub);
+}
+
+.tf-main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    background: var(--bg-page);
+}
+
+.tf-tbar {
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-soft);
+    padding: 9px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    box-shadow: var(--sh-sm);
+}
+
+.tf-tbar-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--txt-primary);
+}
+.tf-tbar-title svg { color: var(--txt-muted); }
+
+.tf-tscroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    padding: 14px 20px;
+    min-height: 0;
+}
+.tf-tscroll::-webkit-scrollbar { width: 4px; height: 4px; }
+.tf-tscroll::-webkit-scrollbar-thumb { background: var(--border-med); border-radius: 4px; }
+
+.tf-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+.tf-table thead th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: var(--txt-muted);
+    padding: 0 9px 8px 9px;
+    border-bottom: 1px solid var(--border-soft);
+    font-weight: 500;
+    white-space: nowrap;
+}
+.tf-table thead th:first-child { padding-left: 0; }
+
+.tf-table tbody tr {
+    border-bottom: 1px solid var(--border-soft);
+    transition: background var(--t);
+}
+
+@keyframes tf-in {
+    from { opacity:0; transform:translateY(4px); }
+    to   { opacity:1; transform:translateY(0);   }
+}
+.tf-table tbody tr { animation: tf-in .18s ease both; }
+.tf-table tbody tr:hover { background: var(--bg-hover); }
+
+.tf-table tbody td {
+    padding: 8px 9px;
+    vertical-align: middle;
+    color: var(--txt-primary);
+}
+.tf-table tbody td:first-child { padding-left: 0; }
+
+.tf-td-code {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+}
+.tf-td-desc {
+    max-width: 230px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tf-td-meta {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--txt-sub);
+    white-space: nowrap;
+}
+.tf-td-num {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.tf-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    border-radius: 100px;
+    padding: 2px 8px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.tf-pill-g { background: var(--green-lt); color: var(--green); }
+.tf-pill-r { background: var(--red-lt);   color: var(--red);   }
+
+.tf-rm {
+    background: none; border: none;
+    color: var(--txt-muted);
+    cursor: pointer; padding: 3px 4px;
+    border-radius: 4px;
+    display: flex; align-items: center;
+    transition: color var(--t), background var(--t);
+}
+.tf-rm:hover { color: var(--red); background: var(--red-lt); }
+
+.tf-empty {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%; gap: 10px;
+    color: var(--txt-muted); padding: 40px 20px; text-align: center;
+}
+.tf-empty-ico {
+    width: 48px; height: 48px;
+    border: 1.5px dashed var(--border-med);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+}
+.tf-empty-t { font-size: 13px; font-weight: 600; color: var(--txt-sub); }
+.tf-empty-s { font-size: 11.5px; line-height: 1.6; }
+
+.tf-overlay {
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,.75);
+    backdrop-filter: blur(3px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 60; opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+@media (prefers-color-scheme: dark) {
+    .tf-overlay { background: rgba(15,22,35,.78); }
+}
+.tf-overlay.on { opacity: 1; pointer-events: all; }
+
+.tf-overlay-box {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-md);
+    padding: 20px 28px;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 10px;
+    box-shadow: var(--sh-md);
+}
+.tf-overlay-txt { font-size: 11.5px; color: var(--txt-sub); font-family: var(--font-mono); }
+
+.tf-spin {
+    width: 18px; height: 18px;
+    border: 2.5px solid var(--border-soft);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: tf-rot .55s linear infinite;
+    display: inline-block; vertical-align: middle; flex-shrink: 0;
+}
+@keyframes tf-rot { to { transform: rotate(360deg); } }
+
+.tf-toasts {
+    position: fixed; bottom: 18px; right: 18px;
+    z-index: 9999; display: flex; flex-direction: column; gap: 7px;
+    pointer-events: none;
+}
+.tf-toast {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-md);
+    padding: 10px 14px;
+    min-width: 260px; max-width: 330px;
+    box-shadow: var(--sh-md);
+    display: flex; align-items: flex-start; gap: 9px;
+    pointer-events: all;
+    animation: tf-tIn .22s ease both;
+}
+@keyframes tf-tIn { from { opacity:0; transform:translateX(14px); } to { opacity:1; transform:none; } }
+.tf-toast-s { border-left: 3px solid var(--green); }
+.tf-toast-e { border-left: 3px solid var(--red);   }
+.tf-toast-w { border-left: 3px solid var(--amber);  }
+.tf-toast-i { border-left: 3px solid var(--accent); }
+.tf-toast-ti { font-size: 12px; font-weight: 600; color: var(--txt-primary); margin-bottom: 2px; }
+.tf-toast-ms { font-size: 11px; color: var(--txt-sub); line-height: 1.5; }
+
+.select2-container { width: 100% !important; }
+
+.select2-container--default .select2-selection--single {
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-med);
+    border-radius: var(--r-sm);
+    height: 33px;
+    display: flex; align-items: center;
+    transition: border-color var(--t), box-shadow var(--t);
+}
+.select2-container--default.select2-container--open .select2-selection--single,
+.select2-container--default.select2-container--focus .select2-selection--single {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px var(--accent-lt);
+    outline: none;
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: var(--txt-primary) !important;
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    line-height: 31px !important;
+    padding-left: 10px !important;
+    padding-right: 26px !important;
+}
+.select2-container--default .select2-selection--single .select2-selection__placeholder {
+    color: var(--txt-muted) !important;
+}
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 31px; right: 7px;
+}
+.select2-container--default .select2-selection--single .select2-selection__arrow b {
+    border-color: var(--txt-muted) transparent transparent transparent;
+}
+.select2-container--default.select2-container--open
+    .select2-selection--single .select2-selection__arrow b {
+    border-color: transparent transparent var(--txt-muted) transparent;
+}
+.select2-dropdown {
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-focus);
+    border-radius: var(--r-md);
+    box-shadow: var(--sh-md);
+    margin-top: 2px;
+}
+.select2-search--dropdown { padding: 7px 7px 5px; }
+.select2-search--dropdown .select2-search__field {
+    border: 1px solid var(--border-med);
+    border-radius: var(--r-sm);
+    background: var(--bg-input);
+    color: var(--txt-primary);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    padding: 5px 8px;
+    width: 100%; outline: none;
+    transition: border-color var(--t);
+}
+.select2-search--dropdown .select2-search__field:focus { border-color: var(--border-focus); }
+.select2-results__option {
+    font-family: var(--font-ui); font-size: 12.5px;
+    color: var(--txt-primary) !important;
+    padding: 7px 11px;
+    transition: background var(--t);
+}
+.select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+    background-color: var(--accent-lt) !important;
+    color: var(--accent) !important;
+}
+.select2-container--default .select2-results__option--selected {
+    background-color: var(--bg-page) !important;
+    font-weight: 600;
+}
+.select2-container--default .select2-results__option.select2-results__option--disabled {
+    color: var(--txt-muted) !important;
+}
+.select2-container--default.select2-container--disabled .select2-selection--single {
+    opacity: .4; cursor: not-allowed;
+}
+
+@media (max-width: 820px) {
+    .tf-wrap { height: auto; overflow: visible; }
+    .tf-grid { grid-template-columns: 1fr; grid-template-rows: auto 1fr; overflow: visible; height: auto; }
+    .tf-sidebar { height: auto; overflow: visible; }
+    .tf-sidebar-scroll { overflow: visible; height: auto; }
+    .tf-main { min-height: 55vh; }
+    .tf-bar-clock { display: none; }
+}
+</style>
+
+<div class="tf-wrap">
+
+    <header class="tf-bar">
+        <div class="tf-bar-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                 stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+            </svg>
+        </div>
+        <span class="tf-bar-title">Transferencia Interna de Activos Fijos</span>
+    </header>
+
+    <div class="tf-grid">
+        <aside class="tf-sidebar">
+            <div class="tf-sidebar-scroll">
+                <div class="tf-sec">
+                    <div class="tf-sec-label">
+                        <span class="tf-dot" style="background:var(--accent)"></span>
+                        Predio de origen
+                    </div>
+                    <div class="tf-field">
+                        <label class="tf-lbl">Seleccione el predio</label>
+                        <select id="tf-predio" class="tf-sel">
+                            <option value="">— Seleccione predio —</option>
+                            <th:block th:each="p : ${predios}">
+                                <option th:value="${p.idPredio}"
+                                        th:text="${p.descrip} + ' - ' + ${p.codigo}"></option>
+                            </th:block>
+                        </select>
+                    </div>
+                </div>
+                <div class="tf-sec">
+                    <div class="tf-sec-label">
+                        <span class="tf-dot" style="background:var(--green)"></span>
+                        Buscar activo por código
+                    </div>
+                    <div class="tf-row">
+                        <input class="tf-input" type="text" id="tf-cod"
+                               placeholder="Ej: ACT-00123"
+                               onkeydown="if(event.key==='Enter') tfBuscar()"/>
+                        <button class="tf-btn tf-btn-accent" onclick="tfBuscar()" title="Buscar">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13"
+                                 fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <circle cx="11" cy="11" r="8"/>
+                                <path d="m21 21-4.35-4.35"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="tf-sec">
+                    <div class="tf-sec-label">
+                        <span class="tf-dot" style="background:var(--amber)"></span>
+                        Carga masiva por Excel
+                    </div>
+                    <div class="tf-drop" id="tf-drop"
+                         ondragover="event.preventDefault();this.classList.add('dragover')"
+                         ondragleave="this.classList.remove('dragover')"
+                         ondrop="tfDrop(event)">
+                        <input type="file" id="tf-file" accept=".xlsx,.xls,.csv"
+                               onchange="tfExcelChange(event)"/>
+                        <div class="tf-drop-icon">📄</div>
+                        <div class="tf-drop-txt">
+                            <strong>Arrastra</strong> un Excel o haz clic
+                        </div>
+                    </div>
+                    <div class="tf-prog" id="tf-prog">
+                        <div class="tf-prog-bar" id="tf-prog-bar"></div>
+                    </div>
+                    <div class="tf-upload-ok" id="tf-upload-ok"></div>
+                </div>
+                <div class="tf-sec">
+                    <div class="tf-sec-label">
+                        <span class="tf-dot" style="background:var(--red)"></span>
+                        Destino de transferencia
+                    </div>
+                    <div class="tf-field">
+                        <label class="tf-lbl">Oficina destino</label>
+                        <select id="tf-oficina" class="tf-sel" disabled>
+                            <option value="">— Seleccione predio primero —</option>
+                        </select>
+                    </div>
+                    <div class="tf-field">
+                        <label class="tf-lbl">Responsable destino</label>
+                        <select id="tf-resp" class="tf-sel" disabled>
+                            <option value="">— Seleccione oficina primero —</option>
+                        </select>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+        <main class="tf-main">
+            <div class="tf-overlay" id="tf-overlay">
+                <div class="tf-overlay-box">
+                    <div class="tf-spin" style="width:24px;height:24px;border-width:3px;"></div>
+                    <span class="tf-overlay-txt" id="tf-overlay-txt">Procesando…</span>
+                </div>
+            </div>
+            <div class="tf-tbar">
+                <div class="tf-tbar-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2"/>
+                        <path d="M8 21h8M12 17v4"/>
+                    </svg>
+                    Activos para transferir
+                    <span class="tf-badge tf-badge-neu" id="tf-cnt-2">0</span>
+                </div>
+                <button class="tf-btn tf-btn-ghost" onclick="tfLimpiar()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+                    </svg>
+                    Limpiar lista
+                </button>
+            </div>
+
+            <div class="tf-footer">
+                <div class="tf-summary">
+                    <div class="tf-sum-row">
+                        <span>Activos en lista</span>
+                        <span class="tf-badge" id="tf-cnt">0</span>
+                    </div>
+                    <div class="tf-sum-row" style="margin-top:3px;">
+                        <span>Oficina destino</span>
+                        <span class="tf-sum-val" id="tf-lbl-of">—</span>
+                    </div>
+                    <div class="tf-sum-row">
+                        <span>Responsable</span>
+                        <span class="tf-sum-val" id="tf-lbl-re">—</span>
+                    </div>
+                </div>
+                <button class="tf-btn tf-btn-go" id="tf-btn-go"
+                        disabled onclick="tfTransferir()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.3">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                    </svg>
+                    Transferir Activos
+                </button>
+            </div>
+            <div class="tf-tscroll">
+                <div class="tf-empty" id="tf-empty">
+                    <div class="tf-empty-ico">📦</div>
+                    <div class="tf-empty-t">Sin activos cargados</div>
+                    <div class="tf-empty-s">
+                        Busca un activo por código o carga<br>un Excel con los códigos a transferir.
+                    </div>
+                </div>
+
+                <table class="tf-table" id="tf-table" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th>Grupo Contable</th>
+                            <th>Oficina Actual</th>
+                            <th>Responsable Actual</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tf-tbody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+</div>
+
+<div class="tf-toasts" id="tf-toasts"></div>
+
+<script>
+(function () {
+    'use strict';
+
+    const S = { list: [], codes: new Set() };
+
+    window.tfInitSelect2 = function () {
+        if (typeof $ === 'undefined' || !$.fn || !$.fn.select2) {
+            return setTimeout(window.tfInitSelect2, 80);
+        }
+        ['#tf-predio', '#tf-oficina', '#tf-resp'].forEach(id => {
+            try {
+                const $el = $(id);
+                if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+                $el.off('change.tf');
+            } catch (_) {}
+        });
+
+        const base = { width: '100%', allowClear: true, minimumResultsForSearch: 6 };
+
+        $('#tf-predio').select2({ ...base, placeholder: '— Seleccione predio —' });
+        $('#tf-oficina').select2({ ...base, placeholder: '— Seleccione oficina —' });
+        $('#tf-resp').select2({ ...base, placeholder: '— Seleccione responsable —' });
+
+        $('#tf-predio').on('change.tf',  window.tfPredioChange);
+        $('#tf-oficina').on('change.tf', window.tfOficinaChange);
+        $('#tf-resp').on('change.tf',    tfLabels);
+    };
+
+    window.tfPredioChange = async function () {
+        const id   = $('#tf-predio').val();
+        const $of  = $('#tf-oficina');
+        const $re  = $('#tf-resp');
+
+        $re.empty().append('<option value="">— Seleccione oficina primero —</option>')
+           .prop('disabled', true).trigger('change.select2');
+        tfLabels();
+
+        if (!id) {
+            $of.empty().append('<option value="">— Seleccione predio primero —</option>')
+               .prop('disabled', true).trigger('change.select2');
+            return;
+        }
+
+        $of.empty().append('<option value="">— Cargando… —</option>')
+           .prop('disabled', true).trigger('change.select2');
+
+        try {
+            const data = await fetch(`/api/oficinas/por-predio?predioId=${id}`).then(r => r.json());
+            $of.empty().append('<option value="">— Seleccione oficina —</option>');
+            data.forEach(o => {
+                $of.append($('<option>').val(o.idOficina).text(`${o.codOfi} — ${o.nombre}`)
+                           .attr('data-nombre', o.nombre));
+            });
+            $of.prop('disabled', false).trigger('change.select2');
+        } catch (_) {
+            tfToast('e', 'Error', 'No se pudieron cargar las oficinas.');
+            $of.empty().append('<option value="">— Error —</option>').trigger('change.select2');
+        }
+    };
+
+    /* ── OFICINA ──────────────────────────────────────────────────── */
+    window.tfOficinaChange = async function () {
+        const id  = $('#tf-oficina').val();
+        const $re = $('#tf-resp');
+        tfLabels();
+
+        if (!id) {
+            $re.empty().append('<option value="">— Seleccione oficina primero —</option>')
+               .prop('disabled', true).trigger('change.select2');
+            return;
+        }
+
+        $re.empty().append('<option value="">— Cargando… —</option>')
+           .prop('disabled', true).trigger('change.select2');
+
+        try {
+            const data = await fetch(`/api/responsables/por-oficina?oficinaId=${id}`).then(r => r.json());
+            $re.empty().append('<option value="">— Seleccione responsable —</option>');
+            data.forEach(r => {
+                $re.append($('<option>').val(r.idResponsable)
+                           .text(`${r.codigoFuncionario} — ${r.nombre}`)
+                           .attr('data-nombre', r.nombre));
+            });
+            $re.prop('disabled', false).trigger('change.select2');
+        } catch (_) {
+            tfToast('e', 'Error', 'No se pudieron cargar los responsables.');
+            $re.empty().append('<option value="">— Error —</option>').trigger('change.select2');
+        }
+    };
+
+    /* ── LABELS + BOTÓN ───────────────────────────────────────────── */
+    function tfLabels() {
+        const $of = $('#tf-oficina option:selected');
+        const $re = $('#tf-resp option:selected');
+        set('tf-lbl-of', $of.val() ? ($of.attr('data-nombre') || $of.text()) : '—');
+        set('tf-lbl-re', $re.val() ? ($re.attr('data-nombre') || $re.text()) : '—');
+        tfCheckBtn();
+    }
+
+    function tfCheckBtn() {
+        const ok = $('#tf-oficina').val() && $('#tf-resp').val() && S.list.length > 0;
+        document.getElementById('tf-btn-go').disabled = !ok;
+        tfLabels._skip = true; // evitar loop
+    }
+
+    /* ── BUSCAR POR CÓDIGO ────────────────────────────────────────── */
+    window.tfBuscar = async function () {
+        const cod = document.getElementById('tf-cod').value.trim();
+        if (!cod) { tfToast('w', 'Campo vacío', 'Ingrese un código.'); return; }
+        if (S.codes.has(cod.toUpperCase())) { tfToast('w', 'Duplicado', `"${cod}" ya está en la lista.`); return; }
+
+        tfOverlay(`Buscando ${cod}…`);
+        try {
+            const d = await fetch(`/api/activos/por-codigo?codigo=${encodeURIComponent(cod)}`).then(r => r.json());
+            if (!d || !d.idActivo) { tfToast('e', 'No encontrado', `No existe activo con código "${cod}".`); return; }
+            tfAdd(d);
+            document.getElementById('tf-cod').value = '';
+            tfToast('s', 'Activo encontrado', `${d.codigo} — ${d.descripcion}`);
+        } catch (e) { tfToast('e', 'Error', e.message); }
+        finally { tfOverlayOff(); }
+    };
+
+    /* ── EXCEL ────────────────────────────────────────────────────── */
+    window.tfDrop = function (e) {
+        e.preventDefault();
+        document.getElementById('tf-drop').classList.remove('dragover');
+        const f = e.dataTransfer.files[0];
+        if (f) tfExcel(f);
+    };
+
+    window.tfExcelChange = function (e) {
+        const f = e.target.files[0];
+        if (f) tfExcel(f);
+        e.target.value = '';
+    };
+
+    async function tfExcel(file) {
+        const $ok  = document.getElementById('tf-upload-ok');
+        const $pg  = document.getElementById('tf-prog');
+        const $bar = document.getElementById('tf-prog-bar');
+
+        $ok.style.display = 'none';
+        $pg.style.display = 'block'; $bar.style.width = '10%';
+
+        try {
+            const buf = await file.arrayBuffer(); $bar.style.width = '30%';
+            const wb  = XLSX.read(buf, { type: 'array' });
+            const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+
+            let cods = rows.map(r => String(r[0] || '').trim()).filter(c => c);
+            if (cods.length && isNaN(cods[0]) && /cod/i.test(cods[0])) cods.shift();
+
+            const nuevos = cods.filter(c => !S.codes.has(c.toUpperCase()));
+            const dups   = cods.length - nuevos.length;
+
+            if (!nuevos.length) {
+                tfToast('w', 'Sin nuevos', `Todos los ${cods.length} código(s) ya están en lista.`);
+                $pg.style.display = 'none'; return;
+            }
+
+            $bar.style.width = '50%';
+            tfOverlay(`Cargando ${nuevos.length} activo(s) desde Excel…`);
+
+            const data = await fetch('/api/activos/por-codigos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codigos: nuevos }),
+            }).then(r => r.json());
+
+            $bar.style.width = '90%';
+
+            let ok = 0, no = [];
+            data.forEach(a => { if (a?.idActivo) { tfAdd(a); ok++; } else if (a.codigoBuscado) no.push(a.codigoBuscado); });
+
+            $bar.style.width = '100%';
+            $ok.style.display = 'block';
+            $ok.textContent = `✓ ${ok} activo(s) cargados de "${file.name}"`;
+
+            const m = [`${ok} activo(s) cargados.`];
+            if (dups) m.push(`${dups} ya estaban.`);
+            if (no.length) m.push(`${no.length} no encontrados.`);
+            tfToast('s', 'Excel procesado', m.join(' '));
+
+        } catch (e) { tfToast('e', 'Error al leer Excel', e.message); }
+        finally { tfOverlayOff(); setTimeout(() => { $pg.style.display = 'none'; $bar.style.width = '0'; }, 1300); }
+    }
+
+    /* ── AGREGAR / QUITAR ─────────────────────────────────────────── */
+    function tfAdd(a) {
+        if (S.codes.has(a.codigo.toUpperCase())) return;
+        S.list.push(a); S.codes.add(a.codigo.toUpperCase());
+        tfRow(a); tfCounts(); tfCheckBtn();
+        document.getElementById('tf-empty').style.display = 'none';
+        document.getElementById('tf-table').style.display = 'table';
+    }
+
+    function tfRow(a) {
+        const tb = document.getElementById('tf-tbody');
+        const tr = document.createElement('tr');
+        const sid = a.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+        tr.id = `tf-r-${sid}`;
+        tr.style.animationDelay = `${Math.min(tb.rows.length * 0.035, .35)}s`;
+        const act = (a.estado || '').toUpperCase() === 'ACTIVO';
+        tr.innerHTML = `
+            <td class="tf-td-code">${x(a.codigo)}</td>
+            <td class="tf-td-desc" title="${x(a.descripcion||'')}">${x(a.descripcion||'—')}</td>
+            <td class="tf-td-meta">${x(a.grupoContable?.nombre||'—')}</td>
+            <td class="tf-td-meta">${x(a.oficina?.nombre||'—')}</td>
+            <td class="tf-td-meta">${x(a.responsable?.nombre||'—')}</td>
+            <td><button class="tf-rm" onclick="tfQuitar('${x(a.codigo)}')" title="Quitar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none"
+                     viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path d="M18 6 6 18M6 6l12 12"/>
+                </svg></button></td>`;
+        tb.appendChild(tr);
+    }
+
+    window.tfQuitar = function (cod) {
+        const sid = cod.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+        const tr  = document.getElementById(`tf-r-${sid}`);
+        if (tr) { tr.style.cssText += 'opacity:0;transform:translateX(-8px);transition:.2s'; setTimeout(() => tr.remove(), 220); }
+        S.list  = S.list.filter(a => a.codigo.toUpperCase() !== cod.toUpperCase());
+        S.codes.delete(cod.toUpperCase());
+        tfCounts(); tfCheckBtn();
+        if (!S.list.length) {
+            document.getElementById('tf-empty').style.display = 'flex';
+            document.getElementById('tf-table').style.display = 'none';
+        }
+    };
+
+    window.tfLimpiar = function () {
+        S.list = []; S.codes.clear();
+        document.getElementById('tf-tbody').innerHTML = '';
+        document.getElementById('tf-empty').style.display = 'flex';
+        document.getElementById('tf-table').style.display = 'none';
+        document.getElementById('tf-upload-ok').style.display = 'none';
+        tfCounts(); tfCheckBtn();
+    };
+
+    window.tfTransferir = async function () {
+        const ofId   = document.getElementById('tf-oficina').value;
+        const respId = document.getElementById('tf-resp').value;
+        
+        if (!ofId || !respId) { tfToast('w', 'Incompleto', 'Seleccione oficina y responsable destino.'); return; }
+        if (!S.list.length)   { tfToast('w', 'Sin activos', 'No hay activos en la lista.'); return; }
+        if (!confirm(`¿Confirma la transferencia masiva de ${S.list.length} activo(s)?`)) return;
+
+        const btn = document.getElementById('tf-btn-go');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="tf-spin"></span>&ensp;Transfiriendo…';
+        tfOverlay(`Transfiriendo ${S.list.length} activo(s)…`);
+
+        try {
+            const payload = {
+                idOficina: parseInt(ofId),
+                idResponsable: parseInt(respId),
+                codigos: S.list.map(a => a.codigo)
+            };
+
+            const res = await fetch('/administracion/activo/transferencia-masiva', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (data.ok) {
+                tfToast('s', '¡Transferencia exitosa!', data.msg);
+                tfLimpiar();
+            } else {
+                tfToast('e', 'Error en transferencia', data.msg || 'Verifique la consola.');
+                console.error('[TF] Error del servidor:', data);
+            }
+
+        } catch (e) { 
+            tfToast('e', 'Error de red', e.message); 
+            console.error(e);
+        } finally { 
+            tfOverlayOff(); 
+            btn.disabled = false;
+            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.3"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg> Transferir Activos`;
+            tfCheckBtn(); 
+        }
+    };
+
+    function tfCounts() {
+        const n = S.list.length;
+        set('tf-cnt',   n);
+        set('tf-cnt-2', n);
+    }
+
+    function tfOverlay(msg) {
+        document.getElementById('tf-overlay-txt').textContent = msg || 'Procesando…';
+        document.getElementById('tf-overlay').classList.add('on');
+    }
+
+    function tfOverlayOff() { document.getElementById('tf-overlay').classList.remove('on'); }
+
+    function tfToast(type, title, msg) {
+        const icons = { s: '✅', e: '❌', w: '⚠️', i: 'ℹ️' };
+        const cls   = { s: 'tf-toast-s', e: 'tf-toast-e', w: 'tf-toast-w', i: 'tf-toast-i' };
+        const c = document.getElementById('tf-toasts');
+        const d = document.createElement('div');
+        d.className = `tf-toast ${cls[type]||'tf-toast-i'}`;
+        d.innerHTML = `<span style="font-size:14px;flex-shrink:0;margin-top:1px;">${icons[type]||'ℹ️'}</span>
+            <div><div class="tf-toast-ti">${x(title)}</div><div class="tf-toast-ms">${x(msg)}</div></div>`;
+        c.appendChild(d);
+        setTimeout(() => { d.style.cssText += 'opacity:0;transform:translateX(12px);transition:.3s'; setTimeout(() => d.remove(), 330); }, 4500);
+    }
+
+    function set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+    function x(s) { return s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function money(v) {
+        if (v == null || v === '') return `<span style="color:var(--txt-muted)">—</span>`;
+        return new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 }).format(v);
+    }
+
+    /* Arranque */
+    (function boot() {
+        if (typeof $ !== 'undefined' && $.fn && $.fn.select2) window.tfInitSelect2();
+        else setTimeout(boot, 80);
+    })();
+
+})();
+</script>
