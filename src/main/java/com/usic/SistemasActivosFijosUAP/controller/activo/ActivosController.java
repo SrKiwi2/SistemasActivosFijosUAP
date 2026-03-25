@@ -330,6 +330,8 @@ public class ActivosController {
             List<String> idsReporte = new ArrayList<>();
             int totalCreados = 0;
 
+            Map<String, Long> correlativosActuales = new HashMap<>();
+
             Map<String, Integer> incrementosLocales = new HashMap<>();
 
             for (DetalleRegistroItem item : request.getItems()) {
@@ -347,22 +349,20 @@ public class ActivosController {
                 String codPred = oficina.getPredio().getCodigo();
                 String codGrup = String.format("%02d", grupo.getCodDbf()); 
                 String keyMap = codMun + "-" + codPred + "-" + codGrup;
-                String codigoBaseBd = funciones.previewCodigoPorCodes(codMun, codPred, codGrup);
-                long correlativoBase = extraerNumeroCorrelativo(codigoBaseBd); 
+
+                if (!correlativosActuales.containsKey(keyMap)) {
+                    String codigoBaseBd = funciones.previewCodigoPorCodes(codMun, codPred, codGrup);
+                    long baseInicial = extraerNumeroCorrelativo(codigoBaseBd);
+                    correlativosActuales.put(keyMap, baseInicial);
+                }
+                
+                long correlativoActual = correlativosActuales.get(keyMap); 
 
                 for (int i = 0; i < item.getCantidad(); i++) {
                     Activo a = new Activo();
                     
-                    int incrementoAdicional = incrementosLocales.getOrDefault(keyMap, 0);
-                    long nuevoNumero = correlativoBase + incrementoAdicional;
-                
-                    if (incrementoAdicional > 0) {
-                         nuevoNumero = correlativoBase + incrementoAdicional;
-                    }
-                    
-                    String codigoFinal = construirCodigo(codMun, codPred, codGrup, nuevoNumero);
-                    
-                    incrementosLocales.put(keyMap, incrementoAdicional + 1);
+                    String codigoFinal = construirCodigo(codMun, codPred, codGrup, correlativoActual);
+                    correlativoActual++;
 
                     a.setCodigo(codigoFinal);
                     a.setDescripcion(item.getDescripcion().toUpperCase());
@@ -390,6 +390,8 @@ public class ActivosController {
                     idsReporte.add(Encriptar.encrypt(String.valueOf(a.getIdActivo())));
                     totalCreados++;
                 }
+
+                correlativosActuales.put(keyMap, correlativoActual);
             }
 
             return ResponseEntity.ok(Map.of(

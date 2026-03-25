@@ -1957,6 +1957,8 @@
                     Swal.fire('Error', err.message, 'error');
                 }
             });
+
+            $root.on('input', '.txt-cant', recalcularCodigosBatchDebounced);
         }
 
         // ── Helpers de fila ──────────────────────────────────────────────────────────
@@ -2076,14 +2078,18 @@
 
         // ✅ NUEVO: Recalcula y muestra los códigos de TODAS las filas del lote
         async function recalcularCodigosBatch() {
-            // 1. Leer datos de cada fila
             const filas = [];
+            
+            // 1. Leer datos de cada fila
             $root.find('#batchTrack .batch-slide').each(function () {
                 const $slide = $(this);
                 const munCode = $slide.find('.sel-mun option:selected').attr('data-code');
                 const predCode = $slide.find('.sel-pred option:selected').attr('data-code');
                 const grpRaw = $slide.find('.sel-grp option:selected').attr('data-code');
                 const $preview = $slide.find('.txt-codigo-preview');
+                
+                // 🔹 NUEVO: Obtener la cantidad escrita en esta fila (por defecto 1)
+                const cantidad = parseInt($slide.find('.txt-cant').val()) || 1;
 
                 if (!munCode || !predCode || !grpRaw) {
                     $preview.val('').attr('placeholder', 'Completar Municipio, Predio y Grupo...');
@@ -2092,13 +2098,14 @@
                 }
 
                 const grpFmt = String(parseInt(grpRaw)).padStart(2, '0');
-                filas.push({ $slide, munCode, predCode, grpFmt, $preview });
+                // Agregamos la cantidad al objeto fila
+                filas.push({ $slide, munCode, predCode, grpFmt, $preview, cantidad });
             });
 
             if (filas.length === 0) return;
 
             // 2. Agrupar por combinación para determinar correlativos contiguos
-            const grupos = {}; // cacheKey → { munCode, predCode, grpFmt, filas: [] }
+            const grupos = {}; 
             filas.forEach(fila => {
                 const key = `${fila.munCode}||${fila.predCode}||${fila.grpFmt}`;
                 if (!grupos[key]) {
@@ -2112,22 +2119,38 @@
                 grupos[key].filas.push(fila);
             });
 
-            // 3. Para cada grupo, obtener la base (con caché) y asignar correlativos contiguos
+            // 3. Para cada grupo, obtener la base (con caché) y asignar correlativos
             const promesas = Object.entries(grupos).map(async ([key, grupo]) => {
                 const base = await fetchCorrelativoBase(grupo.munCode, grupo.predCode, grupo.grpFmt);
 
-                grupo.filas.forEach((fila, idx) => {
+                // 🔹 NUEVO: Variable para acumular el correlativo a lo largo de las filas del mismo grupo
+                let currentNum = base;
+
+                grupo.filas.forEach((fila) => {
                     if (base === null) {
                         fila.$preview.val('Error al consultar').removeClass('text-primary').addClass('text-danger');
                         return;
                     }
-                    const num = base + idx;
-                    const codigo = `${fila.munCode}-${fila.predCode}-${fila.grpFmt}-${String(num).padStart(5, '0')}`;
+
+                    // 🔹 NUEVO: Generar array con TODOS los códigos de esta fila
+                    let codigosGenerados = [];
+                    for (let i = 0; i < fila.cantidad; i++) {
+                        const codigo = `${fila.munCode}-${fila.predCode}-${fila.grpFmt}-${String(currentNum + i).padStart(5, '0')}`;
+                        codigosGenerados.push(codigo);
+                    }
+
+                    // 🔹 NUEVO: Actualizar el contador global del grupo para la siguiente fila
+                    currentNum += fila.cantidad;
+
+                    // 🔹 NUEVO: Mostrar todos los códigos separados por coma en el input
                     fila.$preview
-                        .val(codigo)
+                        .val(codigosGenerados.join(', '))
                         .attr('placeholder', '')
                         .removeClass('text-muted text-danger')
                         .addClass('text-primary');
+                        
+                    // Opcional: Poner los códigos en el atributo 'title' para que se vean al dejar el mouse encima (útil si son muchos)
+                    fila.$preview.attr('title', codigosGenerados.join('\n'));
                 });
             });
 
