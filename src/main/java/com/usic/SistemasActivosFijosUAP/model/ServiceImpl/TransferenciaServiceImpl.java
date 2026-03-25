@@ -1,18 +1,21 @@
 package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 
 import java.util.List;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaService;
+import com.usic.SistemasActivosFijosUAP.model.dao.IHistorialActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class TransferenciaServiceImpl implements ITransferenciaService{
 
-    @Autowired private ITransferenciaDao dao;
+    private final ITransferenciaDao dao;
+    private final IHistorialActivoDao historialActivoDao;
 
     @Override
     public List<Transferencia> findAll() {
@@ -38,5 +41,4 @@ public class TransferenciaServiceImpl implements ITransferenciaService{
     public List<Transferencia> findAllConTodo() {
         return dao.findAllConTodo();
     }
-    
 }

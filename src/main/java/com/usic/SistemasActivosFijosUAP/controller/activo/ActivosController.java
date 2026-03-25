@@ -12,6 +12,7 @@ import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -44,6 +45,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOrganismoFinancieroService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
+import com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoFormDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoPendienteItemDTO;
@@ -63,8 +65,10 @@ import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
+import com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -91,6 +95,9 @@ public class ActivosController {
     private final IConfiguracionGestionService configuracionGestionService;
     private final IAsignacionActivoService asignacionActivoService;
     private final IDetalleAsignacionActivoService detalleAsignacionActivoService;
+
+    private final TransferenciaService transferenciaService;
+    private final ITransferenciaDao transferenciaDao;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -549,9 +556,13 @@ public class ActivosController {
     }
 
     public static class TransferenciaMasivaRequest {
-        public Long idOficina;
-        public Long idResponsable;
+        public Long         idOficina;
+        public Long         idResponsable;
         public List<String> codigos;
+        public String       tipo;          // "INTERNA" (default) | "EXTERNA"
+        public String       observacion;
+        public String       documentoReferencia;
+        public String       institucionDestino; // solo para EXTERNA
     }
 
     @PostMapping("/transferencia-masiva")
@@ -559,63 +570,120 @@ public class ActivosController {
     public ResponseEntity<?> transferenciaMasiva(
             HttpServletRequest request,
             @RequestBody TransferenciaMasivaRequest payload) {
-
-        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-        String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
-
+    
+        Usuario usuario    = (Usuario) request.getSession().getAttribute("usuario");
+        String  usuNombre  = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+        Long    usuId      = (usuario != null) ? usuario.getIdUsuario() : null;
+        String  tipo       = (payload.tipo != null) ? payload.tipo.toUpperCase() : "INTERNA";
+    
         try {
-            Oficina oficinaDestino = oficinaService.findById(payload.idOficina);
+            Oficina     ofDestino   = oficinaService.findById(payload.idOficina);
             Responsable respDestino = responsableService.findById(payload.idResponsable);
-
-            if (oficinaDestino == null || respDestino == null) {
-                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Oficina o Responsable no válidos."));
+    
+            if (ofDestino == null || respDestino == null) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg", "Oficina o Responsable no válidos."));
             }
-
-            // 1. Buscar todos los activos en BD
-            List<Activo> activosATransferir = new ArrayList<>();
+    
+            // 1. Buscar activos y capturar estado ANTES del cambio
+            List<TransferenciaService.ActivoConOrigen> acos = new ArrayList<>();
             for (String codigo : payload.codigos) {
-                activoService.findByCodigo(codigo).ifPresent(activosATransferir::add);
+                activoService.findByCodigo(codigo).ifPresent(a ->
+                    acos.add(new TransferenciaService.ActivoConOrigen(a))
+                );
             }
-
-            if (activosATransferir.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados."));
+    
+            if (acos.isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados."));
             }
-
-            // 2. Modificar memoria
+    
+            // 2. Modificar los activos en memoria (DESPUÉS de capturar el origen)
             LocalDate hoy = LocalDate.now();
-            for (Activo a : activosATransferir) {
-                a.setOficina(oficinaDestino);
+            for (TransferenciaService.ActivoConOrigen ac : acos) {
+                Activo a = ac.activo;
+                a.setOficina(ofDestino);
                 a.setResponsable(respDestino);
                 a.setFecMod(hoy);
-                a.setUsuMod(usuarioNombre);
+                a.setUsuMod(usuNombre);
                 a.setFechaUlt(hoy);
-                a.setUsuario(usuarioNombre);
-                if (usuario != null) a.setModificacionIdUsuario(usuario.getIdUsuario());
-                a.setModificacion(new Date());
+                a.setUsuario(usuNombre);
+                a.setApiEstado(Short.valueOf("3"));
+                if (usuario != null) a.setModificacionIdUsuario(usuId);
+                a.setModificacion(new java.util.Date());
             }
-
-            // 3. Guardado masivo en BD (Si tu servicio tiene saveAll, úsalo. Si no, iteramos save)
-            for (Activo a : activosATransferir) {
-                activoService.save(a);
+    
+            // 3. Guardar en BD
+            for (TransferenciaService.ActivoConOrigen ac : acos) {
+                activoService.save(ac.activo);
             }
-            log.info("Transferidos {} activos a Oficina ID: {}", activosATransferir.size(), payload.idOficina);
-
-            // 4. Guardado masivo en DBF
+            log.info("Transferidos {} activos → Oficina ID: {}", acos.size(), payload.idOficina);
+    
+            // 4. Registrar transferencia + historial automáticamente
+            Transferencia trf = transferenciaService.registrarTransferencia(
+                acos, tipo, ofDestino, respDestino, usuId, usuNombre
+            );
+            // Campos adicionales opcionales
+            if (payload.observacion != null)        trf.setObservacion(payload.observacion);
+            if (payload.documentoReferencia != null) trf.setDocumentoReferencia(payload.documentoReferencia);
+            if (payload.institucionDestino != null)  trf.setInstitucionDestino(payload.institucionDestino);
+            transferenciaDao.save(trf); // update con los campos extra
+    
+            // 5. Sincronizar DBF
             try {
-                String entidadCode = oficinaDestino.getPredio().getEntidad().getEntidadCodigo();
-                String unidadCode = oficinaDestino.getPredio().getUnidad();
-                
-                actualDbfWriterService.actualizarLoteTransferencias(activosATransferir, entidadCode, unidadCode, usuarioNombre);
-                
-                return ResponseEntity.ok(Map.of("ok", true, "msg", "Se transfirieron " + activosATransferir.size() + " activos en BD y DBF."));
+                String entidadCode = ofDestino.getPredio().getEntidad().getEntidadCodigo();
+                String unidadCode  = ofDestino.getPredio().getUnidad();
+                List<Activo> activos = acos.stream().map(ac -> ac.activo).toList();
+                actualDbfWriterService.actualizarLoteTransferencias(activos, entidadCode, unidadCode, usuNombre);
+    
+                return ResponseEntity.ok(Map.of(
+                    "ok",  true,
+                    "msg", String.format("Se transfirieron %d activos (BD + DBF). Ref: %s",
+                                        acos.size(), trf.getNumeroTransferencia()),
+                    "numeroTransferencia", trf.getNumeroTransferencia()
+                ));
             } catch (Exception e) {
                 log.error("Error sincronizando lote DBF: {}", e.getMessage());
-                return ResponseEntity.ok(Map.of("ok", true, "msg", "Guardado en BD (" + activosATransferir.size() + "), pero DBF falló: " + e.getMessage()));
+                return ResponseEntity.ok(Map.of(
+                    "ok",  true,
+                    "msg", String.format("Guardado en BD (%d activos). DBF falló: %s. Ref: %s",
+                                        acos.size(), e.getMessage(), trf.getNumeroTransferencia()),
+                    "numeroTransferencia", trf.getNumeroTransferencia()
+                ));
             }
-
+    
         } catch (Exception e) {
             log.error("Error fatal en transferencia masiva", e);
-            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
+            return ResponseEntity.status(500)
+                .body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/transferencias")
+    @ResponseBody
+    public ResponseEntity<?> listarTransferencias(
+            @RequestParam(required = false) String tipo,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        try {
+            List<Transferencia> lista = transferenciaDao.buscarFiltrado(tipo, desde, hasta);
+            List<Map<String, Object>> result = lista.stream().map(t -> {
+                Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("id",              t.getIdTransferencia());
+                m.put("numero",          t.getNumeroTransferencia());
+                m.put("tipo",            t.getTipo());
+                m.put("fecha",           t.getFechaTransferencia().toString());
+                m.put("estadoProceso",   t.getEstadoProceso());
+                m.put("ofDestino",       t.getOficinaDestino() != null ? t.getOficinaDestino().getNombre() : null);
+                m.put("ofOrigen",        t.getOficinaOrigen()  != null ? t.getOficinaOrigen().getNombre()  : null);
+                m.put("respDestino",     t.getResponsableDestino() != null ? t.getResponsableDestino().getPersona().getNombreCompleto() : null);
+                m.put("cantidadActivos", t.getDetalles().size());
+                m.put("usuario",         t.getRegistro() != null ? t.getRegistro().toString() : null);
+                return m;
+            }).toList();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", e.getMessage()));
         }
     }
 

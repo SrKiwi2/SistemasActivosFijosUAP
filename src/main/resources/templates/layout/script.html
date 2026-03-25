@@ -371,6 +371,20 @@
 
             });
 
+            $("#opcion_historialA").click(function (e) {
+                e.preventDefault();
+                cargarContenido("/administracion/historial/vista");
+
+                if (botonPulsado.classList.contains("active")) {
+                    botonPulsado.classList.remove("active");
+                }
+
+                botonPulsado = document.getElementById("opcion_historialA");;
+
+                botonPulsado.classList.add("active");
+
+            });
+
             function cargarContenido(url) {
                 $.ajax({
                     url: "/adm/cargar-datos",
