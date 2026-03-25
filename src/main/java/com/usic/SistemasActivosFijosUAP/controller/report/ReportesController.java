@@ -19,12 +19,18 @@ import com.usic.SistemasActivosFijosUAP.controller.formularios.PdfAsignacionActi
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IConfiguracionGestionService;
+import com.usic.SistemasActivosFijosUAP.model.dao.IHistorialActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
 import com.usic.SistemasActivosFijosUAP.model.entity.DetalleAsignacionActivo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService;
 
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -36,51 +42,53 @@ public class ReportesController {
     private final IAsignacionActivoService asignacionActivoService;
     private final IConfiguracionGestionService configuracionGestionService;
     private final PdfAsignacionActivoCompleto pdfAsignacionActivoCompleto;
+    private final TransferenciaService transferenciaService;
 
     @PostMapping("/generar-asignacion")
     public ResponseEntity<byte[]> generarReporte(
             @RequestParam("ids") List<String> idsEnc,
-            @RequestParam("nroPreventivo") String nroPreventivo) {
-
+            @RequestParam("nroPreventivo") String nroPreventivo,
+            HttpServletRequest request) {                          // ← quitamos @RequestBody
+ 
+        Usuario usuario  = (Usuario) request.getSession().getAttribute("usuario");
+        String usuNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+        Long   usuId     = (usuario != null) ? usuario.getIdUsuario() : null;
+ 
         try {
-            // 1. Validar Activos
+            // 1. Desencriptar IDs y cargar activos
             List<Long> ids = new ArrayList<>();
-            for(String enc : idsEnc) {
-                // Desencriptamos uno por uno y lo convertimos a Long
+            for (String enc : idsEnc) {
                 try {
                     ids.add(Long.parseLong(Encriptar.decrypt(enc)));
                 } catch (Exception e) {
-                    // Si falla uno, lo ignoramos o lanzamos error (opcional)
                     System.err.println("Error desencriptando ID: " + enc);
                 }
             }
+ 
             List<Activo> activos = activoService.findAllById(ids);
-            if(activos.isEmpty()) throw new RuntimeException("Sin activos seleccionados");
-            
-            // Asumimos que todos van al mismo responsable (tomamos el del primero)
+            if (activos.isEmpty()) throw new RuntimeException("Sin activos seleccionados");
+ 
             Responsable resp = activos.get(0).getResponsable();
-
-            // 2. Obtener/Crear Configuración del Año
+ 
+            // 2. Obtener o crear configuración de gestión
             int anio = LocalDate.now().getYear();
             ConfiguracionGestion config = configuracionGestionService.findByGestion(anio)
                 .orElseGet(() -> {
                     ConfiguracionGestion c = new ConfiguracionGestion();
                     c.setGestion(anio);
-                    c.setPrefijoDocumento("-"); // Por defecto
+                    c.setPrefijoDocumento("-");
                     c.setCiudad("Cobija");
-                    c.setResponsableActivosNombre(resp.getPersona().getNombreCompleto()); // Por defecto
+                    c.setResponsableActivosNombre(resp.getPersona().getNombreCompleto());
                     return configuracionGestionService.save(c);
                 });
-
-            // 3. Crear Registro Histórico (Asignación)
+ 
+            // 3. Crear la asignación con sus detalles
             AsignacionActivo asignacion = new AsignacionActivo();
             asignacion.setCodigoDocumento(nroPreventivo);
-            // Concatenar distintivo + número (Ej: "PREV. 1234")
             asignacion.setCodigoCompleto(config.getPrefijoDocumento() + " " + nroPreventivo);
             asignacion.setFechaAsignacion(LocalDateTime.now());
             asignacion.setResponsable(resp);
-            
-            // Crear detalles
+ 
             List<DetalleAsignacionActivo> detalles = new ArrayList<>();
             for (Activo a : activos) {
                 DetalleAsignacionActivo d = new DetalleAsignacionActivo();
@@ -90,20 +98,52 @@ public class ReportesController {
                 detalles.add(d);
             }
             asignacion.setDetalles(detalles);
-
-            asignacionActivoService.save(asignacion); // Guardar en BD
-
-            // 4. Generar PDF con iText 5
+ 
+            // 4. Guardar asignación en BD
+            asignacionActivoService.save(asignacion);
+ 
+            // 5. Registrar en historial cada activo asignado
+            //    Usamos directamente la lista "activos" que ya tenemos — sin @RequestBody
+            for (Activo activo : activos) {
+ 
+                // Capturar estado ANTES (ya están cargados, no han cambiado todavía)
+                Oficina     ofAnterior   = activo.getOficina();
+                Responsable respAnterior = activo.getResponsable();
+ 
+                // Actualizar responsable en el activo si cambió
+                if (respAnterior == null || !respAnterior.getIdResponsable().equals(resp.getIdResponsable())) {
+                    activo.setResponsable(resp);
+                    activoService.save(activo);
+                }
+ 
+                // Descripción del evento
+                String desc = String.format(
+                    "Activo asignado a '%s' | Doc: %s | Por: %s",
+                    resp.getPersona().getNombreCompleto(),
+                    nroPreventivo,
+                    usuNombre
+                );
+ 
+                // Registrar en historial
+                transferenciaService.registrarHistorial(
+                    activo,
+                    "ASIGNACION",
+                    ofAnterior,          respAnterior,    // estado anterior
+                    activo.getOficina(), resp,            // estado nuevo
+                    desc,
+                    usuId, usuNombre
+                );
+            }
+ 
+            // 6. Generar y devolver el PDF
             byte[] pdfBytes = pdfAsignacionActivoCompleto.generarActaAsignacion(asignacion, config);
-
-            // 5. Descargar
+ 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
-            String filename = "Acta_" + nroPreventivo + ".pdf";
-            headers.setContentDispositionFormData("attachment", filename);
-
+            headers.setContentDispositionFormData("attachment", "Acta_" + nroPreventivo + ".pdf");
+ 
             return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
-
+ 
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().build();

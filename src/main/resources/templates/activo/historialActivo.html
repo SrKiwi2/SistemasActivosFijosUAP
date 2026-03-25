@@ -1,12 +1,14 @@
 <!-- =====================================================================
-     HISTORIAL DE ACTIVOS — Módulo de trayectoria y auditoría
-     Fragmento Thymeleaf | sin <head>, <body> ni <html>
-     Mismo sistema de estilos tf- que la vista de transferencia
+     HISTORIAL DE ACTIVOS FIJOS — v2
+     Fragmento Thymeleaf | sin <head><body><html>
+     Filtros en barra superior · Multi-código · Timeline por activo
+     Endpoints:
+       GET  /administracion/historial/historial?codigo=X         (un código)
+       POST /administracion/historial/historial/por-codigos      (varios)
 ====================================================================== -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-/* ── TOKENS (mismo sistema que transferencia, prefijo hx-) ─────────── */
+/* ── TOKENS ─────────────────────────────────────────────────────────── */
 :root {
     --bg-page    : #f0f2f5;
     --bg-panel   : #ffffff;
@@ -14,7 +16,7 @@
     --bg-hover   : #f0f4ff;
     --border-soft: #e4e8f0;
     --border-med : #c9d0e0;
-    --border-focus:#3b5bdb;
+    --border-focus: #3b5bdb;
     --txt-primary: #1a2340;
     --txt-sub    : #5a6a8a;
     --txt-muted  : #9aa3b8;
@@ -29,9 +31,11 @@
     --amber-lt   : rgba(247,144,9,.10);
     --violet     : #7c3aed;
     --violet-lt  : rgba(124,58,237,.10);
+    --cyan       : #0891b2;
+    --cyan-lt    : rgba(8,145,178,.10);
     --font-ui    : 'Inter', system-ui, sans-serif;
     --font-mono  : 'JetBrains Mono','Fira Mono',monospace;
-    --r-sm: 5px; --r-md: 7px;
+    --r-sm: 5px; --r-md: 7px; --r-lg: 10px;
     --sh-sm: 0 1px 3px rgba(0,0,0,.06);
     --sh-md: 0 4px 14px rgba(0,0,0,.10);
     --t: .16s ease;
@@ -47,18 +51,18 @@
         --red: #f87171; --red-lt: rgba(248,113,113,.12);
         --amber: #fbbf24; --amber-lt: rgba(251,191,36,.12);
         --violet: #a78bfa; --violet-lt: rgba(167,139,250,.12);
+        --cyan: #22d3ee; --cyan-lt: rgba(34,211,238,.12);
         --sh-sm: 0 1px 3px rgba(0,0,0,.25); --sh-md: 0 4px 14px rgba(0,0,0,.35);
     }
 } */
 
-/* ── RESET SCOPED ──────────────────────────────────────────────────── */
+/* ── RESET SCOPED ────────────────────────────────────────────────────── */
 .hx-wrap, .hx-wrap * { box-sizing: border-box; margin: 0; padding: 0; }
 .hx-wrap { font-family: var(--font-ui); color: var(--txt-primary); }
 
-/* ── SHELL ─────────────────────────────────────────────────────────── */
+/* ── SHELL ───────────────────────────────────────────────────────────── */
 .hx-wrap {
-    --topbar-h: 56px;
-    --inner-h : 48px;
+    --topbar-h: 56px;      /* Alto de la barra de navegación global */
     display: flex;
     flex-direction: column;
     height: calc(100vh - var(--topbar-h));
@@ -66,318 +70,372 @@
     background: var(--bg-page);
 }
 
-/* Barra interna */
-.hx-bar {
-    height: var(--inner-h); flex-shrink: 0;
+/* ─────────────────────────────────────────────────────────────────────
+   BARRA SUPERIOR INTERNA (título + reloj)
+───────────────────────────────────────────────────────────────────── */
+.hx-topbar {
+    height: 46px; flex-shrink: 0;
     background: var(--bg-panel);
     border-bottom: 1px solid var(--border-soft);
     box-shadow: var(--sh-sm);
-    display: flex; align-items: center; gap: 12px;
-    padding: 0 22px; z-index: 10;
+    display: flex; align-items: center; gap: 11px;
+    padding: 0 20px; z-index: 20;
 }
-.hx-bar-icon {
-    width: 28px; height: 28px; background: var(--violet);
+.hx-topbar-icon {
+    width: 26px; height: 26px; background: var(--violet);
     border-radius: 5px; display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
 }
-.hx-bar-icon svg { width: 14px; height: 14px; color: #fff; }
-.hx-bar-title { font-size: 13.5px; font-weight: 600; color: var(--txt-primary); }
-.hx-bar-clock { margin-left: auto; font-family: var(--font-mono); font-size: 10.5px; color: var(--txt-muted); }
-
-/* ── GRID: sidebar filtros | contenido ─────────────────────────────── */
-.hx-grid {
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    flex: 1; overflow: hidden;
-    height: calc(100% - var(--inner-h));
+.hx-topbar-icon svg { width: 13px; height: 13px; color: #fff; }
+.hx-topbar-title { font-size: 13px; font-weight: 600; color: var(--txt-primary); }
+.hx-topbar-clock {
+    margin-left: auto; font-family: var(--font-mono);
+    font-size: 10px; color: var(--txt-muted); letter-spacing: .4px;
 }
 
-/* ── SIDEBAR FILTROS ─────────────────────────────────────────────── */
-.hx-sidebar {
+/* ─────────────────────────────────────────────────────────────────────
+   ZONA DE BÚSQUEDA Y FILTROS (panel blanco bajo la topbar)
+───────────────────────────────────────────────────────────────────── */
+.hx-filters {
+    flex-shrink: 0;
     background: var(--bg-panel);
-    border-right: 1px solid var(--border-soft);
-    display: flex; flex-direction: column;
-    overflow: hidden; height: 100%;
+    border-bottom: 1px solid var(--border-soft);
+    padding: 12px 20px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.hx-sidebar-scroll {
-    flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0;
-}
-.hx-sidebar-scroll::-webkit-scrollbar { width: 3px; }
-.hx-sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border-med); border-radius: 3px; }
-
-.hx-sec { padding: 12px 16px; border-bottom: 1px solid var(--border-soft); }
-
-.hx-sec-label {
-    display: flex; align-items: center; gap: 7px;
-    font-size: 9.5px; font-weight: 700; letter-spacing: 1.1px;
-    text-transform: uppercase; color: var(--txt-muted); margin-bottom: 9px;
-}
-.hx-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-
-/* Controles */
-.hx-field { margin-bottom: 8px; }
-.hx-field:last-child { margin-bottom: 0; }
-.hx-lbl { display: block; font-size: 10.5px; font-weight: 500; color: var(--txt-sub); margin-bottom: 4px; }
-
-.hx-input, .hx-sel {
-    width: 100%; background: var(--bg-input);
-    border: 1px solid var(--border-med); border-radius: var(--r-sm);
-    color: var(--txt-primary); font-family: var(--font-ui);
-    font-size: 12.5px; padding: 6px 10px; outline: none;
-    transition: border-color var(--t), box-shadow var(--t); appearance: none;
-}
-.hx-input:focus, .hx-sel:focus {
-    border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-lt);
-}
-.hx-sel {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239aa3b8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 9px center;
-    padding-right: 26px; cursor: pointer;
+/* Fila 1: entrada de códigos */
+.hx-search-area {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
 }
 
-/* Botones */
-.hx-btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-    border: none; border-radius: var(--r-sm); font-family: var(--font-ui);
-    font-size: 12.5px; font-weight: 500; cursor: pointer;
-    padding: 0 12px; height: 33px; white-space: nowrap;
-    transition: all var(--t); outline: none; flex-shrink: 0;
+.hx-codes-box {
+    flex: 1;
+    min-width: 0;
 }
-.hx-btn:focus-visible { box-shadow: 0 0 0 3px var(--accent-lt); }
-.hx-btn-primary { background: var(--accent); color: #fff; width: 100%; }
-.hx-btn-primary:hover:not(:disabled) { background: var(--accent-hov); }
-.hx-btn-ghost {
-    background: var(--bg-input); color: var(--txt-sub);
+
+.hx-codes-label {
+    font-size: 10px; font-weight: 600; letter-spacing: .8px;
+    text-transform: uppercase; color: var(--txt-muted); margin-bottom: 5px;
+    display: flex; align-items: center; gap: 6px;
+}
+
+/* Caja de tags de códigos */
+.hx-tag-input-wrap {
+    display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+    background: var(--bg-input);
     border: 1px solid var(--border-med);
+    border-radius: var(--r-md);
+    padding: 5px 9px;
+    cursor: text;
+    min-height: 38px;
+    transition: border-color var(--t), box-shadow var(--t);
 }
-.hx-btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--accent-lt); }
-.hx-btn-export { background: var(--green); color: #fff; }
-.hx-btn-export:hover:not(:disabled) { filter: brightness(1.07); }
+.hx-tag-input-wrap:focus-within {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px var(--accent-lt);
+}
+
+.hx-code-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--accent-lt); color: var(--accent);
+    border: 1px solid rgba(59,91,219,.2);
+    border-radius: 4px; padding: 2px 8px;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    white-space: nowrap; animation: hxTagIn .15s ease both;
+}
+@keyframes hxTagIn { from{opacity:0;transform:scale(.85)} to{opacity:1;transform:scale(1)} }
+
+.hx-code-tag-rm {
+    background: none; border: none; cursor: pointer; padding: 0;
+    color: var(--accent); opacity: .6; font-size: 12px; line-height: 1;
+    display: flex; align-items: center;
+}
+.hx-code-tag-rm:hover { opacity: 1; }
+
+.hx-tag-input {
+    border: none; outline: none; background: none;
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--txt-primary); min-width: 120px; flex: 1;
+    padding: 1px 0;
+}
+.hx-tag-input::placeholder { color: var(--txt-muted); }
+
+.hx-search-hint {
+    font-size: 10px; color: var(--txt-muted); margin-top: 3px;
+    display: flex; align-items: center; gap: 4px;
+}
+
+/* Botones de acción principales */
+.hx-search-actions {
+    display: flex; flex-direction: column; gap: 5px; flex-shrink: 0;
+    padding-top: 18px; /* alinea con la caja de tags */
+}
+
+/* Fila 2: filtros secundarios */
+.hx-filter-row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+
+.hx-filter-group {
+    display: flex; align-items: center; gap: 6px;
+}
+
+.hx-filter-label {
+    font-size: 10px; font-weight: 600; letter-spacing: .6px;
+    text-transform: uppercase; color: var(--txt-muted);
+    white-space: nowrap;
+}
+
+.hx-input-sm, .hx-sel-sm {
+    background: var(--bg-input);
+    border: 1px solid var(--border-med);
+    border-radius: var(--r-sm);
+    color: var(--txt-primary);
+    font-family: var(--font-ui); font-size: 11.5px;
+    padding: 5px 9px; outline: none;
+    transition: border-color var(--t), box-shadow var(--t);
+    appearance: none; height: 30px;
+}
+.hx-input-sm:focus, .hx-sel-sm:focus {
+    border-color: var(--border-focus); box-shadow: 0 0 0 2px var(--accent-lt);
+}
+input[type="date"].hx-input-sm { width: 132px; }
+
+.hx-divider { width: 1px; height: 22px; background: var(--border-soft); margin: 0 2px; }
 
 /* Chips de tipo de evento */
-.hx-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.hx-chips { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+
 .hx-chip {
     padding: 3px 10px; border-radius: 100px; font-size: 10.5px; font-weight: 600;
     cursor: pointer; border: 1.5px solid var(--border-med);
     background: var(--bg-input); color: var(--txt-sub);
-    transition: all var(--t); user-select: none;
+    transition: all var(--t); user-select: none; white-space: nowrap;
 }
-.hx-chip.active { border-color: var(--accent); background: var(--accent-lt); color: var(--accent); }
-.hx-chip[data-tipo="TRANSFERENCIA_INT"].active { border-color: var(--green); background: var(--green-lt); color: var(--green); }
-.hx-chip[data-tipo="TRANSFERENCIA_EXT"].active { border-color: var(--amber); background: var(--amber-lt); color: var(--amber); }
-.hx-chip[data-tipo="MODIFICACION"].active      { border-color: var(--violet); background: var(--violet-lt); color: var(--violet); }
-.hx-chip[data-tipo="ASIGNACION"].active        { border-color: var(--accent); background: var(--accent-lt); color: var(--accent); }
-.hx-chip[data-tipo="BAJA"].active              { border-color: var(--red); background: var(--red-lt); color: var(--red); }
+.hx-chip:hover { border-color: var(--border-focus); color: var(--accent); }
+.hx-chip.on { border-color: currentColor; }
 
-/* Búsqueda de código individual */
-.hx-search-row { display: flex; gap: 7px; }
-.hx-search-row .hx-input { flex: 1; min-width: 0; }
+.hx-chip[data-t="TODOS"].on         { background: var(--bg-input);    color: var(--txt-primary); border-color: var(--border-med); }
+.hx-chip[data-t="TRANSFERENCIA_INT"].on { background: var(--green-lt);  color: var(--green);  border-color: var(--green); }
+.hx-chip[data-t="TRANSFERENCIA_EXT"].on { background: var(--amber-lt);  color: var(--amber);  border-color: var(--amber); }
+.hx-chip[data-t="MODIFICACION"].on  { background: var(--violet-lt); color: var(--violet); border-color: var(--violet); }
+.hx-chip[data-t="ASIGNACION"].on    { background: var(--cyan-lt);   color: var(--cyan);   border-color: var(--cyan); }
+.hx-chip[data-t="DESASIGNACION"].on { background: var(--red-lt);    color: var(--red);    border-color: var(--red); }
+.hx-chip[data-t="BAJA"].on          { background: var(--red-lt);    color: var(--red);    border-color: var(--red); }
+.hx-chip[data-t="REGISTRO"].on      { background: var(--accent-lt); color: var(--accent); border-color: var(--accent); }
 
-/* Footer del sidebar */
-.hx-footer {
-    flex-shrink: 0; padding: 12px 16px;
-    border-top: 1px solid var(--border-soft);
-    background: var(--bg-panel);
-    display: flex; flex-direction: column; gap: 7px;
+/* ── BOTONES ─────────────────────────────────────────────────────────── */
+.hx-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    border: none; border-radius: var(--r-sm);
+    font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+    cursor: pointer; padding: 0 12px; height: 32px;
+    white-space: nowrap; transition: all var(--t); outline: none; flex-shrink: 0;
 }
+.hx-btn:focus-visible { box-shadow: 0 0 0 3px var(--accent-lt); }
+.hx-btn-search  { background: var(--accent); color: #fff; height: 36px; padding: 0 16px; font-size: 12.5px; }
+.hx-btn-search:hover:not(:disabled) { background: var(--accent-hov); }
+.hx-btn-export  { background: var(--green); color: #fff; }
+.hx-btn-export:hover:not(:disabled) { filter: brightness(1.07); }
+.hx-btn-ghost   { background: var(--bg-input); color: var(--txt-sub); border: 1px solid var(--border-med); }
+.hx-btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--accent-lt); }
+.hx-btn:disabled { opacity: .4; cursor: not-allowed; }
 
-/* ── PANEL DERECHO ─────────────────────────────────────────────────── */
-.hx-main {
-    display: flex; flex-direction: column;
-    overflow: hidden; position: relative; background: var(--bg-page);
+/* ─────────────────────────────────────────────────────────────────────
+   BARRA DE ESTADO (resultados cargados)
+───────────────────────────────────────────────────────────────────── */
+.hx-status-bar {
+    flex-shrink: 0;
+    padding: 7px 20px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: var(--bg-page);
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 11px; color: var(--txt-muted);
 }
+.hx-status-bar.hidden { display: none; }
 
-.hx-tbar {
-    background: var(--bg-panel); border-bottom: 1px solid var(--border-soft);
-    padding: 9px 20px; display: flex; align-items: center;
-    justify-content: space-between; flex-shrink: 0; box-shadow: var(--sh-sm);
-}
-.hx-tbar-title {
-    display: flex; align-items: center; gap: 9px;
-    font-size: 12.5px; font-weight: 600; color: var(--txt-primary);
-}
-.hx-tbar-title svg { color: var(--txt-muted); }
-.hx-tbar-actions { display: flex; gap: 7px; align-items: center; }
+.hx-status-info { display: flex; align-items: center; gap: 10px; }
+.hx-status-actions { display: flex; gap: 6px; }
 
-/* Badge */
 .hx-badge {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 20px; height: 20px; padding: 0 6px; border-radius: 100px;
     font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
-    background: var(--accent-lt); color: var(--accent);
 }
-.hx-badge-neu { background: var(--bg-input); color: var(--txt-sub); }
+.hx-badge-blue { background: var(--accent-lt); color: var(--accent); }
+.hx-badge-gray { background: var(--bg-input); color: var(--txt-sub); }
 
-/* ── TIMELINE / TABLA ─────────────────────────────────────────────── */
-.hx-scroll {
+/* ─────────────────────────────────────────────────────────────────────
+   ÁREA PRINCIPAL — TIMELINE
+───────────────────────────────────────────────────────────────────── */
+.hx-main {
     flex: 1; overflow-y: auto; overflow-x: hidden;
     padding: 16px 20px; min-height: 0;
+    position: relative;
 }
-.hx-scroll::-webkit-scrollbar { width: 4px; }
-.hx-scroll::-webkit-scrollbar-thumb { background: var(--border-med); border-radius: 4px; }
+.hx-main::-webkit-scrollbar { width: 4px; }
+.hx-main::-webkit-scrollbar-thumb { background: var(--border-med); border-radius: 4px; }
 
-/* Agrupación por activo */
-.hx-activo-group { margin-bottom: 20px; }
+/* Empty state */
+.hx-empty {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 60vh; gap: 10px;
+    color: var(--txt-muted); text-align: center;
+}
+.hx-empty-ico {
+    width: 54px; height: 54px; border: 1.5px dashed var(--border-med);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+}
+.hx-empty-t { font-size: 13px; font-weight: 600; color: var(--txt-sub); }
+.hx-empty-s { font-size: 11.5px; line-height: 1.65; }
 
-.hx-activo-header {
+/* ── Grupo por activo ─────────────────────────────────────────────── */
+.hx-group { margin-bottom: 16px; border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--sh-sm); }
+
+.hx-group-head {
     display: flex; align-items: center; gap: 10px;
-    padding: 8px 12px;
+    padding: 10px 14px;
     background: var(--bg-panel);
     border: 1px solid var(--border-soft);
-    border-radius: var(--r-md) var(--r-md) 0 0;
-    cursor: pointer;
-    user-select: none;
+    cursor: pointer; user-select: none;
+    transition: background var(--t);
 }
-.hx-activo-header:hover { background: var(--bg-hover); }
+.hx-group-head:hover { background: var(--bg-hover); }
 
-.hx-activo-codigo {
-    font-family: var(--font-mono); font-size: 12px; font-weight: 700;
-    color: var(--accent);
+.hx-group-code {
+    font-family: var(--font-mono); font-size: 12.5px;
+    font-weight: 700; color: var(--accent); flex-shrink: 0;
 }
-.hx-activo-desc {
-    font-size: 12px; color: var(--txt-sub);
-    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.hx-group-sep { width: 1px; height: 14px; background: var(--border-soft); flex-shrink: 0; }
+.hx-group-desc {
+    font-size: 12px; color: var(--txt-sub); flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.hx-activo-cnt {
-    font-family: var(--font-mono); font-size: 10.5px; color: var(--txt-muted);
-    flex-shrink: 0;
-}
-.hx-chevron {
+.hx-group-cnt { font-size: 10.5px; color: var(--txt-muted); flex-shrink: 0; }
+.hx-group-chevron {
     width: 14px; height: 14px; color: var(--txt-muted);
     transition: transform var(--t); flex-shrink: 0;
 }
-.hx-activo-header.collapsed .hx-chevron { transform: rotate(-90deg); }
+.hx-group-head.collapsed .hx-group-chevron { transform: rotate(-90deg); }
 
-/* Timeline de eventos */
-.hx-timeline {
+/* ── Timeline de eventos ──────────────────────────────────────────── */
+.hx-tl {
     border: 1px solid var(--border-soft); border-top: none;
-    border-radius: 0 0 var(--r-md) var(--r-md);
     background: var(--bg-panel);
-    overflow: hidden;
 }
 
 .hx-event {
     display: grid;
-    grid-template-columns: 42px 1fr;
+    grid-template-columns: 52px 1fr;
     border-bottom: 1px solid var(--border-soft);
     transition: background var(--t);
+    animation: hxRowIn .18s ease both;
 }
 .hx-event:last-child { border-bottom: none; }
 .hx-event:hover { background: var(--bg-hover); }
+@keyframes hxRowIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
 
-/* Columna izquierda: icono del tipo */
-.hx-ev-ico {
-    display: flex; flex-direction: column;
-    align-items: center; padding: 12px 0 12px;
+/* Columna izquierda: icono */
+.hx-ev-left {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 13px 0; gap: 4px;
     border-right: 1px solid var(--border-soft);
-    gap: 4px;
 }
-
 .hx-ev-dot {
-    width: 28px; height: 28px; border-radius: 50%;
+    width: 30px; height: 30px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 12px; flex-shrink: 0;
+    font-size: 13px; flex-shrink: 0;
 }
+/* Colores dot por tipo */
+.hx-ev-dot[data-t="REGISTRO"]          { background: var(--accent-lt); }
+.hx-ev-dot[data-t="MODIFICACION"]      { background: var(--violet-lt); }
+.hx-ev-dot[data-t="TRANSFERENCIA_INT"] { background: var(--green-lt);  }
+.hx-ev-dot[data-t="TRANSFERENCIA_EXT"] { background: var(--amber-lt);  }
+.hx-ev-dot[data-t="ASIGNACION"]        { background: var(--cyan-lt);   }
+.hx-ev-dot[data-t="DESASIGNACION"]     { background: var(--red-lt);    }
+.hx-ev-dot[data-t="BAJA"]              { background: var(--red-lt);    }
+.hx-ev-dot[data-t="REACTIVACION"]      { background: var(--green-lt);  }
 
-/* Colores por tipo de evento */
-.hx-ev-dot[data-tipo="REGISTRO"]          { background: var(--accent-lt); color: var(--accent); }
-.hx-ev-dot[data-tipo="MODIFICACION"]      { background: var(--violet-lt); color: var(--violet); }
-.hx-ev-dot[data-tipo="TRANSFERENCIA_INT"] { background: var(--green-lt);  color: var(--green);  }
-.hx-ev-dot[data-tipo="TRANSFERENCIA_EXT"] { background: var(--amber-lt);  color: var(--amber);  }
-.hx-ev-dot[data-tipo="ASIGNACION"]        { background: var(--accent-lt); color: var(--accent); }
-.hx-ev-dot[data-tipo="DESASIGNACION"]     { background: var(--red-lt);    color: var(--red);    }
-.hx-ev-dot[data-tipo="BAJA"]              { background: var(--red-lt);    color: var(--red);    }
-.hx-ev-dot[data-tipo="REACTIVACION"]      { background: var(--green-lt);  color: var(--green);  }
-
-/* Columna derecha: datos */
+/* Columna derecha: contenido */
 .hx-ev-body { padding: 10px 14px; }
 
-.hx-ev-top {
-    display: flex; align-items: flex-start;
-    justify-content: space-between; gap: 12px; margin-bottom: 5px;
+.hx-ev-row1 {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-bottom: 5px;
 }
 
-.hx-ev-tipo-pill {
+.hx-ev-pill {
     font-size: 9.5px; font-weight: 700; letter-spacing: .4px;
-    border-radius: 100px; padding: 2px 8px; text-transform: uppercase;
+    border-radius: 100px; padding: 2px 9px; text-transform: uppercase;
     white-space: nowrap; flex-shrink: 0;
 }
+.hx-ev-pill[data-t="REGISTRO"]          { background: var(--accent-lt); color: var(--accent); }
+.hx-ev-pill[data-t="MODIFICACION"]      { background: var(--violet-lt); color: var(--violet); }
+.hx-ev-pill[data-t="TRANSFERENCIA_INT"] { background: var(--green-lt);  color: var(--green);  }
+.hx-ev-pill[data-t="TRANSFERENCIA_EXT"] { background: var(--amber-lt);  color: var(--amber);  }
+.hx-ev-pill[data-t="ASIGNACION"]        { background: var(--cyan-lt);   color: var(--cyan);   }
+.hx-ev-pill[data-t="DESASIGNACION"]     { background: var(--red-lt);    color: var(--red);    }
+.hx-ev-pill[data-t="BAJA"]              { background: var(--red-lt);    color: var(--red);    }
+.hx-ev-pill[data-t="REACTIVACION"]      { background: var(--green-lt);  color: var(--green);  }
 
-.hx-ev-tipo-pill[data-tipo="REGISTRO"]          { background: var(--accent-lt); color: var(--accent); }
-.hx-ev-tipo-pill[data-tipo="MODIFICACION"]      { background: var(--violet-lt); color: var(--violet); }
-.hx-ev-tipo-pill[data-tipo="TRANSFERENCIA_INT"] { background: var(--green-lt);  color: var(--green);  }
-.hx-ev-tipo-pill[data-tipo="TRANSFERENCIA_EXT"] { background: var(--amber-lt);  color: var(--amber);  }
-.hx-ev-tipo-pill[data-tipo="ASIGNACION"]        { background: var(--accent-lt); color: var(--accent); }
-.hx-ev-tipo-pill[data-tipo="DESASIGNACION"]     { background: var(--red-lt);    color: var(--red);    }
-.hx-ev-tipo-pill[data-tipo="BAJA"]              { background: var(--red-lt);    color: var(--red);    }
-.hx-ev-tipo-pill[data-tipo="REACTIVACION"]      { background: var(--green-lt);  color: var(--green);  }
-
-.hx-ev-meta {
-    font-family: var(--font-mono); font-size: 10px; color: var(--txt-muted);
-    white-space: nowrap; flex-shrink: 0;
+.hx-ev-fecha {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--txt-muted); white-space: nowrap; flex-shrink: 0;
 }
 
-.hx-ev-desc { font-size: 11.5px; color: var(--txt-sub); line-height: 1.5; margin-bottom: 5px; }
+.hx-ev-desc { font-size: 11.5px; color: var(--txt-sub); line-height: 1.5; margin-bottom: 6px; }
 
-.hx-ev-flow {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 11px; color: var(--txt-muted); flex-wrap: wrap;
+/* Flecha origen → destino */
+.hx-flow {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 5px;
 }
-.hx-ev-flow-item {
+.hx-flow-chip {
     background: var(--bg-input); border: 1px solid var(--border-soft);
-    border-radius: 4px; padding: 2px 7px;
+    border-radius: 4px; padding: 2px 8px;
     font-family: var(--font-mono); font-size: 10.5px; color: var(--txt-primary);
-    white-space: nowrap;
+    white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis;
 }
-.hx-ev-arrow { color: var(--border-med); flex-shrink: 0; }
+.hx-flow-arrow { color: var(--border-med); flex-shrink: 0; font-size: 12px; }
 
 .hx-ev-footer {
-    margin-top: 5px; display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center; gap: 8px;
     font-size: 10.5px; color: var(--txt-muted);
 }
 .hx-ev-nro {
-    font-family: var(--font-mono); color: var(--accent);
-    font-size: 10px; font-weight: 600; background: var(--accent-lt);
-    padding: 1px 6px; border-radius: 3px;
+    font-family: var(--font-mono); color: var(--accent); font-size: 10px;
+    font-weight: 600; background: var(--accent-lt); padding: 1px 7px; border-radius: 3px;
 }
 
-/* Empty state */
-.hx-empty {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    height: 100%; gap: 10px; color: var(--txt-muted); padding: 40px; text-align: center;
-}
-.hx-empty-ico {
-    width: 52px; height: 52px; border: 1.5px dashed var(--border-med);
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
-}
-.hx-empty-t { font-size: 13px; font-weight: 600; color: var(--txt-sub); }
-.hx-empty-s { font-size: 11.5px; line-height: 1.6; }
-
-/* Overlay y spinner (reutiliza lógica de tf-) */
+/* ── Overlay ─────────────────────────────────────────────────────── */
 .hx-overlay {
-    position: absolute; inset: 0; background: rgba(255,255,255,.75);
+    position: fixed; inset: 0; background: rgba(255,255,255,.72);
     backdrop-filter: blur(3px); display: flex; align-items: center;
-    justify-content: center; z-index: 60; opacity: 0; pointer-events: none; transition: opacity .2s;
+    justify-content: center; z-index: 200; opacity: 0; pointer-events: none;
+    transition: opacity .2s;
 }
 @media (prefers-color-scheme: dark) { .hx-overlay { background: rgba(15,22,35,.78); } }
 .hx-overlay.on { opacity: 1; pointer-events: all; }
 .hx-overlay-box {
     background: var(--bg-panel); border: 1px solid var(--border-soft);
     border-radius: var(--r-md); padding: 20px 28px;
-    display: flex; flex-direction: column; align-items: center; gap: 10px; box-shadow: var(--sh-md);
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    box-shadow: var(--sh-md);
 }
 .hx-overlay-txt { font-size: 11.5px; color: var(--txt-sub); font-family: var(--font-mono); }
-
 .hx-spin {
-    width: 18px; height: 18px; border: 2.5px solid var(--border-soft);
-    border-top-color: var(--violet); border-radius: 50%;
-    animation: hx-rot .55s linear infinite; display: inline-block; vertical-align: middle;
+    border: 2.5px solid var(--border-soft); border-top-color: var(--violet);
+    border-radius: 50%; animation: hxRot .55s linear infinite;
+    display: inline-block;
 }
-@keyframes hx-rot { to { transform: rotate(360deg); } }
+@keyframes hxRot { to { transform: rotate(360deg); } }
 
-/* Toast */
+/* ── Toasts ──────────────────────────────────────────────────────── */
 .hx-toasts {
     position: fixed; bottom: 18px; right: 18px; z-index: 9999;
     display: flex; flex-direction: column; gap: 7px; pointer-events: none;
@@ -387,203 +445,203 @@
     border-radius: var(--r-md); padding: 10px 14px;
     min-width: 260px; max-width: 330px; box-shadow: var(--sh-md);
     display: flex; align-items: flex-start; gap: 9px; pointer-events: all;
-    animation: hx-tIn .22s ease both;
+    animation: hxTIn .22s ease both;
 }
-@keyframes hx-tIn { from { opacity:0; transform:translateX(14px); } to { opacity:1; transform:none; } }
+@keyframes hxTIn { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:none} }
 .hx-toast-s { border-left: 3px solid var(--green); }
-.hx-toast-e { border-left: 3px solid var(--red);   }
-.hx-toast-w { border-left: 3px solid var(--amber);  }
+.hx-toast-e { border-left: 3px solid var(--red); }
+.hx-toast-w { border-left: 3px solid var(--amber); }
 .hx-toast-ti { font-size: 12px; font-weight: 600; color: var(--txt-primary); margin-bottom: 2px; }
 .hx-toast-ms { font-size: 11px; color: var(--txt-sub); line-height: 1.5; }
 
-/* Responsive */
-@media (max-width: 820px) {
-    .hx-wrap { height: auto; overflow: visible; }
-    .hx-grid { grid-template-columns: 1fr; height: auto; overflow: visible; }
-    .hx-sidebar { height: auto; }
-    .hx-main { min-height: 60vh; }
-    .hx-bar-clock { display: none; }
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+    .hx-filter-row { flex-direction: column; align-items: flex-start; }
+    .hx-search-area { flex-direction: column; }
+    .hx-search-actions { flex-direction: row; padding-top: 0; }
+    .hx-topbar-clock { display: none; }
+    .hx-divider { display: none; }
 }
 </style>
 
-<!-- ── MARKUP ─────────────────────────────────────────────────────── -->
+<!-- ── MARKUP ──────────────────────────────────────────────────────────── -->
 <div class="hx-wrap">
 
-    <!-- Barra -->
-    <header class="hx-bar">
-        <div class="hx-bar-icon">
+    <!-- Topbar interna -->
+    <header class="hx-topbar">
+        <div class="hx-topbar-icon">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                  stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round"
                       d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
         </div>
-        <span class="hx-bar-title">Historial de Activos Fijos</span>
-        <span class="hx-bar-clock" id="hx-clock">—</span>
+        <span class="hx-topbar-title">Historial de Activos Fijos</span>
+        <span class="hx-topbar-clock" id="hx-clock">—</span>
     </header>
 
-    <div class="hx-grid">
+    <!-- ── PANEL DE BÚSQUEDA Y FILTROS ── -->
+    <div class="hx-filters">
 
-        <!-- ═══ SIDEBAR FILTROS ═══ -->
-        <aside class="hx-sidebar">
-            <div class="hx-sidebar-scroll">
+        <!-- Fila 1: entrada de códigos + botón buscar -->
+        <div class="hx-search-area">
 
-                <!-- Buscar por código -->
-                <div class="hx-sec">
-                    <div class="hx-sec-label">
-                        <span class="hx-dot" style="background:var(--accent)"></span>
-                        Buscar activo
-                    </div>
-                    <div class="hx-field">
-                        <label class="hx-lbl">Código del activo</label>
-                        <div class="hx-search-row">
-                            <input class="hx-input" type="text" id="hx-cod"
-                                   placeholder="Ej: ACT-00123"
-                                   onkeydown="if(event.key==='Enter') hxBuscarCodigo()"/>
-                            <button class="hx-btn hx-btn-primary" style="width:36px;padding:0"
-                                    onclick="hxBuscarCodigo()">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13"
-                                     fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Filtro por tipo de evento -->
-                <div class="hx-sec">
-                    <div class="hx-sec-label">
-                        <span class="hx-dot" style="background:var(--violet)"></span>
-                        Tipo de evento
-                    </div>
-                    <div class="hx-chips" id="hx-chips">
-                        <span class="hx-chip active" data-tipo="TODOS">Todos</span>
-                        <span class="hx-chip" data-tipo="TRANSFERENCIA_INT">Transf. Interna</span>
-                        <span class="hx-chip" data-tipo="TRANSFERENCIA_EXT">Transf. Externa</span>
-                        <span class="hx-chip" data-tipo="MODIFICACION">Modificación</span>
-                        <span class="hx-chip" data-tipo="ASIGNACION">Asignación</span>
-                        <span class="hx-chip" data-tipo="BAJA">Baja</span>
-                    </div>
-                </div>
-
-                <!-- Filtro por rango de fechas -->
-                <div class="hx-sec">
-                    <div class="hx-sec-label">
-                        <span class="hx-dot" style="background:var(--green)"></span>
-                        Rango de fechas
-                    </div>
-                    <div class="hx-field">
-                        <label class="hx-lbl">Desde</label>
-                        <input class="hx-input" type="date" id="hx-desde"/>
-                    </div>
-                    <div class="hx-field">
-                        <label class="hx-lbl">Hasta</label>
-                        <input class="hx-input" type="date" id="hx-hasta"/>
-                    </div>
-                </div>
-
-                <!-- Buscar por usuario -->
-                <div class="hx-sec">
-                    <div class="hx-sec-label">
-                        <span class="hx-dot" style="background:var(--amber)"></span>
-                        Usuario responsable
-                    </div>
-                    <div class="hx-field">
-                        <label class="hx-lbl">Nombre de usuario</label>
-                        <input class="hx-input" type="text" id="hx-usuario" placeholder="Ej: jperez"/>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Footer: acciones -->
-            <div class="hx-footer">
-                <button class="hx-btn hx-btn-primary" onclick="hxAplicarFiltros()">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13"
-                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <div class="hx-codes-box">
+                <div class="hx-codes-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="none"
+                         viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                     </svg>
-                    Buscar / Filtrar
-                </button>
-                <button class="hx-btn hx-btn-ghost" onclick="hxLimpiarFiltros()">
-                    Limpiar filtros
-                </button>
-                <button class="hx-btn hx-btn-export" onclick="hxExportar()">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
-                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.3">
-                        <path d="M12 3v13M5 10l7 7 7-7M3 21h18"/>
+                    Códigos de activos a consultar
+                </div>
+                <div class="hx-tag-input-wrap" id="hx-tags-wrap" onclick="document.getElementById('hx-cod-raw').focus()">
+                    <!-- Los tags se insertan aquí dinámicamente -->
+                    <input class="hx-tag-input" type="text" id="hx-cod-raw"
+                           placeholder="Escribe un código y presiona Enter…"
+                           onkeydown="hxTagKeydown(event)"
+                           onpaste="hxHandlePaste(event)"/>
+                </div>
+                <div class="hx-search-hint">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none"
+                         viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
                     </svg>
-                    Exportar Excel
+                    Presiona <strong>Enter</strong> o <strong>coma</strong> para añadir un código.
+                    Puedes pegar varios separados por coma.
+                </div>
+            </div>
+
+            <div class="hx-search-actions">
+                <button class="hx-btn hx-btn-search" onclick="hxBuscar()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none"
+                         viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                    </svg>
+                    Buscar historial
+                </button>
+                <button class="hx-btn hx-btn-ghost" onclick="hxLimpiarBusqueda()" style="font-size:11px;">
+                    Limpiar
                 </button>
             </div>
+        </div>
 
-        </aside>
+        <!-- Fila 2: filtros de tipo, fecha, usuario -->
+        <div class="hx-filter-row">
 
-        <!-- ═══ PANEL DERECHO ═══ -->
-        <main class="hx-main">
-
-            <div class="hx-overlay" id="hx-overlay">
-                <div class="hx-overlay-box">
-                    <div class="hx-spin" style="width:24px;height:24px;border-width:3px;"></div>
-                    <span class="hx-overlay-txt" id="hx-overlay-txt">Cargando historial…</span>
+            <!-- Chips de tipo de evento -->
+            <div class="hx-filter-group">
+                <span class="hx-filter-label">Tipo:</span>
+                <div class="hx-chips" id="hx-chips">
+                    <span class="hx-chip on"  data-t="TODOS">Todos</span>
+                    <span class="hx-chip"     data-t="ASIGNACION">🔗 Asignación</span>
+                    <span class="hx-chip"     data-t="TRANSFERENCIA_INT">↔ Transf. Interna</span>
+                    <span class="hx-chip"     data-t="TRANSFERENCIA_EXT">🏢 Transf. Externa</span>
+                    <span class="hx-chip"     data-t="MODIFICACION">✏️ Modificación</span>
+                    <span class="hx-chip"     data-t="REGISTRO">🆕 Registro</span>
+                    <span class="hx-chip"     data-t="BAJA">📦 Baja</span>
                 </div>
             </div>
 
-            <!-- Cabecera tabla -->
-            <div class="hx-tbar">
-                <div class="hx-tbar-title">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    Trayectoria de activos
-                    <span class="hx-badge hx-badge-neu" id="hx-cnt">0 eventos</span>
-                </div>
-                <div class="hx-tbar-actions">
-                    <button class="hx-btn hx-btn-ghost" onclick="hxLimpiarVista()">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
-                             fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
-                        </svg>
-                        Limpiar vista
-                    </button>
-                </div>
+            <div class="hx-divider"></div>
+
+            <!-- Rango fechas -->
+            <div class="hx-filter-group">
+                <span class="hx-filter-label">Desde:</span>
+                <input class="hx-input-sm" type="date" id="hx-desde"/>
+                <span class="hx-filter-label">Hasta:</span>
+                <input class="hx-input-sm" type="date" id="hx-hasta"/>
             </div>
 
-            <!-- Zona scrollable con timeline -->
-            <div class="hx-scroll" id="hx-scroll">
+            <div class="hx-divider"></div>
 
-                <!-- Empty state inicial -->
-                <div class="hx-empty" id="hx-empty">
-                    <div class="hx-empty-ico">🕐</div>
-                    <div class="hx-empty-t">Sin historial cargado</div>
-                    <div class="hx-empty-s">
-                        Busca un activo por código<br>o aplica filtros para ver la trayectoria.
-                    </div>
-                </div>
-
-                <!-- Timeline — se llena dinámicamente -->
-                <div id="hx-timeline" style="display:none;"></div>
-
+            <!-- Usuario -->
+            <div class="hx-filter-group">
+                <span class="hx-filter-label">Usuario:</span>
+                <input class="hx-input-sm" type="text" id="hx-usuario"
+                       placeholder="Ej: jperez" style="width:110px;"/>
             </div>
-        </main>
+
+            <div class="hx-divider"></div>
+
+            <!-- Exportar -->
+            <button class="hx-btn hx-btn-export" onclick="hxExportar()" id="hx-btn-export" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none"
+                     viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.3">
+                    <path d="M12 3v13M5 10l7 7 7-7M3 21h18"/>
+                </svg>
+                Exportar
+            </button>
+
+        </div>
+    </div>
+
+    <!-- Barra de estado (aparece luego de buscar) -->
+    <div class="hx-status-bar hidden" id="hx-status-bar">
+        <div class="hx-status-info">
+            <span id="hx-status-txt">—</span>
+            <span class="hx-badge hx-badge-blue" id="hx-cnt-ev">0</span>
+            <span style="color:var(--txt-muted)">eventos</span>
+            <span class="hx-badge hx-badge-gray" id="hx-cnt-act">0</span>
+            <span style="color:var(--txt-muted)">activos</span>
+        </div>
+        <div class="hx-status-actions">
+            <button class="hx-btn hx-btn-ghost" onclick="hxExpandirTodo()" style="font-size:11px;">
+                Expandir todo
+            </button>
+            <button class="hx-btn hx-btn-ghost" onclick="hxColapsarTodo()" style="font-size:11px;">
+                Colapsar todo
+            </button>
+        </div>
+    </div>
+
+    <!-- Timeline principal -->
+    <div class="hx-main" id="hx-main">
+
+        <!-- Estado vacío inicial -->
+        <div class="hx-empty" id="hx-empty">
+            <div class="hx-empty-ico">🕐</div>
+            <div class="hx-empty-t">Sin historial cargado</div>
+            <div class="hx-empty-s">
+                Ingresa uno o varios códigos de activos arriba<br>
+                y presiona <strong>Buscar historial</strong> para ver su trayectoria.
+            </div>
+        </div>
+
+        <!-- Timeline — se llena dinámicamente -->
+        <div id="hx-tl" style="display:none;"></div>
+
     </div>
 </div>
 
+<!-- Overlay de carga -->
+<div class="hx-overlay" id="hx-overlay">
+    <div class="hx-overlay-box">
+        <div class="hx-spin" style="width:26px;height:26px;border-width:3px;"></div>
+        <span class="hx-overlay-txt" id="hx-overlay-txt">Cargando historial…</span>
+    </div>
+</div>
+
+<!-- Toasts -->
 <div class="hx-toasts" id="hx-toasts"></div>
 
-<!-- ── JAVASCRIPT ─────────────────────────────────────────────────── -->
+<!-- ── JAVASCRIPT ─────────────────────────────────────────────────────── -->
 <script>
 (function () {
     'use strict';
 
-    /* ── Estado ── */
-    let hxData     = [];   // todos los eventos cargados
-    let hxTipoFiltro = 'TODOS';
+    /* ──────────────────────────────────────────────────────────────────
+       ESTADO GLOBAL
+    ────────────────────────────────────────────────────────────────── */
+    const HX = {
+        rawData  : [],       // todos los eventos cargados desde la API
+        filtered : [],       // eventos después de aplicar filtros
+        codigos  : [],       // tags de códigos activos en la caja de entrada
+        tipoActivo: 'TODOS', // chip seleccionado actualmente
+    };
 
-    /* ── Reloj ── */
+    /* ──────────────────────────────────────────────────────────────────
+       RELOJ
+    ────────────────────────────────────────────────────────────────── */
     clearInterval(window._hxClock);
     window._hxClock = setInterval(() => {
         const el = document.getElementById('hx-clock');
@@ -591,151 +649,243 @@
             { dateStyle: 'short', timeStyle: 'medium' });
     }, 1000);
 
-    /* ── Chips de tipo ─────────────────────────────────────────────── */
+    /* ──────────────────────────────────────────────────────────────────
+       GESTIÓN DE TAGS DE CÓDIGOS
+    ────────────────────────────────────────────────────────────────── */
+    window.hxTagKeydown = function (e) {
+        const input = e.target;
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            hxAddTag(input.value);
+            input.value = '';
+        } else if (e.key === 'Backspace' && input.value === '' && HX.codigos.length) {
+            hxRemoveTag(HX.codigos[HX.codigos.length - 1]);
+        }
+    };
+
+    window.hxHandlePaste = function (e) {
+        e.preventDefault();
+        const texto = (e.clipboardData || window.clipboardData).getData('text');
+        texto.split(/[,\n\r\t;]+/).forEach(c => hxAddTag(c));
+        e.target.value = '';
+    };
+
+    function hxAddTag(raw) {
+        const cod = raw.trim().toUpperCase();
+        if (!cod || HX.codigos.includes(cod)) return;
+        HX.codigos.push(cod);
+        hxRenderTags();
+    }
+
+    window.hxRemoveTag = function (cod) {
+        HX.codigos = HX.codigos.filter(c => c !== cod);
+        hxRenderTags();
+    };
+
+    function hxRenderTags() {
+        const wrap = document.getElementById('hx-tags-wrap');
+        const input = document.getElementById('hx-cod-raw');
+        // Quitar tags existentes (no el input)
+        wrap.querySelectorAll('.hx-code-tag').forEach(t => t.remove());
+        // Reinsertar antes del input
+        HX.codigos.forEach(cod => {
+            const tag = document.createElement('span');
+            tag.className = 'hx-code-tag';
+            tag.innerHTML = `${hx(cod)}
+                <button class="hx-code-tag-rm" onclick="hxRemoveTag('${hx(cod)}')" title="Quitar">×</button>`;
+            wrap.insertBefore(tag, input);
+        });
+        // Placeholder dinámico
+        input.placeholder = HX.codigos.length
+            ? 'Añadir otro código…'
+            : 'Escribe un código y presiona Enter…';
+    }
+
+    /* ──────────────────────────────────────────────────────────────────
+       CHIPS DE TIPO — filtran los datos ya cargados
+    ────────────────────────────────────────────────────────────────── */
     document.getElementById('hx-chips')?.addEventListener('click', e => {
         const chip = e.target.closest('.hx-chip');
         if (!chip) return;
-        document.querySelectorAll('.hx-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        hxTipoFiltro = chip.dataset.tipo;
+        document.querySelectorAll('#hx-chips .hx-chip').forEach(c => c.classList.remove('on'));
+        chip.classList.add('on');
+        HX.tipoActivo = chip.dataset.t;
+        hxAplicarFiltrosLocales();
         hxRenderTimeline();
     });
 
-    /* ── Buscar por código individual ─────────────────────────────── */
-    window.hxBuscarCodigo = async function () {
-        const cod = document.getElementById('hx-cod').value.trim();
-        if (!cod) { hxToast('w', 'Campo vacío', 'Ingrese un código.'); return; }
+    /* ──────────────────────────────────────────────────────────────────
+       BÚSQUEDA PRINCIPAL — llama a la API
+    ────────────────────────────────────────────────────────────────── */
+    window.hxBuscar = async function () {
+        // Añadir lo que haya escrito en el input si no se ha presionado Enter
+        const inputRaw = document.getElementById('hx-cod-raw').value.trim();
+        if (inputRaw) { hxAddTag(inputRaw); document.getElementById('hx-cod-raw').value = ''; }
 
-        hxOverlay('Buscando historial…');
-        try {
-            const data = await fetch(`/administracion/historial/historial?codigo=${encodeURIComponent(cod)}`)
-                           .then(r => r.json());
-
-            if (!data.length) {
-                hxToast('w', 'Sin resultados', `No hay historial para el código "${cod}".`);
-                return;
-            }
-            // Merge sin duplicados
-            const existentes = new Set(hxData.map(e => e.id));
-            data.forEach(e => { if (!existentes.has(e.id)) hxData.push(e); });
-            hxRenderTimeline();
-            hxToast('s', 'Historial cargado', `${data.length} evento(s) para ${cod}.`);
-        } catch (err) { hxToast('e', 'Error', err.message); }
-        finally { hxOverlayOff(); }
-    };
-
-    /* ── Aplicar filtros (fecha, usuario, tipo) ────────────────────── */
-    window.hxAplicarFiltros = async function () {
-        const desde   = document.getElementById('hx-desde').value;
-        const hasta   = document.getElementById('hx-hasta').value;
-        const usuario = document.getElementById('hx-usuario').value.trim();
-        const cod     = document.getElementById('hx-cod').value.trim();
-
-        const params = new URLSearchParams();
-        if (desde)   params.append('desde', desde);
-        if (hasta)   params.append('hasta', hasta);
-        if (cod)     params.append('codigo', cod);
-
-        hxOverlay('Aplicando filtros…');
-        try {
-            // Si hay código, usamos el endpoint por código, si no el general
-            const url = cod
-                ? `/administracion/historial/historial?codigo=${encodeURIComponent(cod)}`
-                : `/administracion/historial/historial/general?${params.toString()}`;
-
-            const data = await fetch(url).then(r => r.json());
-
-            // Filtrar por usuario y tipo en frontend (rápido)
-            let filtrado = data;
-            if (usuario) {
-                filtrado = filtrado.filter(e =>
-                    (e.usuario || '').toLowerCase().includes(usuario.toLowerCase()));
-            }
-
-            hxData = filtrado;
-            hxRenderTimeline();
-            hxToast('s', 'Filtros aplicados', `${filtrado.length} evento(s) encontrados.`);
-        } catch (err) { hxToast('e', 'Error', err.message); }
-        finally { hxOverlayOff(); }
-    };
-
-    /* ── Render del timeline ───────────────────────────────────────── */
-    function hxRenderTimeline() {
-        const container = document.getElementById('hx-timeline');
-        const empty     = document.getElementById('hx-empty');
-        const cntEl     = document.getElementById('hx-cnt');
-
-        // Aplicar filtro de tipo
-        let datos = hxData;
-        if (hxTipoFiltro !== 'TODOS') {
-            datos = datos.filter(e => e.tipoEvento === hxTipoFiltro);
+        if (!HX.codigos.length) {
+            hxToast('w', 'Sin códigos', 'Añade al menos un código de activo.'); return;
         }
 
+        hxOverlay('Consultando historial…');
+        try {
+            let data;
+
+            if (HX.codigos.length === 1) {
+                // Búsqueda por un solo código
+                const res = await fetch(
+                    `/administracion/historial/historial?codigo=${encodeURIComponent(HX.codigos[0])}`
+                );
+                data = await res.json();
+                // Normalizar: el endpoint individual puede no incluir codigoActivo
+                data = data.map(e => ({ ...e, codigoActivo: e.codigoActivo || HX.codigos[0] }));
+            } else {
+                // Búsqueda masiva
+                const res = await fetch('/administracion/historial/historial/por-codigos', {
+                    method : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body   : JSON.stringify({ codigos: HX.codigos }),
+                });
+                data = await res.json();
+            }
+
+            if (!Array.isArray(data) || data.length === 0) {
+                hxToast('w', 'Sin resultados',
+                    'No se encontraron eventos de historial para los códigos indicados.');
+                hxShowEmpty('No hay eventos registrados para los códigos buscados.');
+                return;
+            }
+
+            HX.rawData = data;
+            hxAplicarFiltrosLocales();
+            hxRenderTimeline();
+            hxToast('s', 'Historial cargado',
+                `${data.length} evento(s) para ${HX.codigos.length} activo(s).`);
+            document.getElementById('hx-btn-export').disabled = false;
+
+        } catch (err) {
+            hxToast('e', 'Error de conexión', err.message);
+        } finally {
+            hxOverlayOff();
+        }
+    };
+
+    /* ──────────────────────────────────────────────────────────────────
+       FILTROS LOCALES (tipo, fecha, usuario) — solo filtran rawData
+    ────────────────────────────────────────────────────────────────── */
+    function hxAplicarFiltrosLocales() {
+        const desde   = document.getElementById('hx-desde').value;
+        const hasta   = document.getElementById('hx-hasta').value;
+        const usuario = document.getElementById('hx-usuario').value.trim().toLowerCase();
+
+        HX.filtered = HX.rawData.filter(e => {
+            // Tipo
+            if (HX.tipoActivo !== 'TODOS' && e.tipoEvento !== HX.tipoActivo) return false;
+            // Fecha desde
+            if (desde && e.fechaEvento && e.fechaEvento.slice(0, 10) < desde) return false;
+            // Fecha hasta
+            if (hasta && e.fechaEvento && e.fechaEvento.slice(0, 10) > hasta) return false;
+            // Usuario
+            if (usuario && !(e.usuario || '').toLowerCase().includes(usuario)) return false;
+            return true;
+        });
+    }
+
+    // Llamar hxAplicarFiltrosLocales + render cuando cambien fecha/usuario
+    ['hx-desde', 'hx-hasta', 'hx-usuario'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => {
+            if (!HX.rawData.length) return;
+            hxAplicarFiltrosLocales();
+            hxRenderTimeline();
+        });
+    });
+
+    /* ──────────────────────────────────────────────────────────────────
+       RENDER DEL TIMELINE
+    ────────────────────────────────────────────────────────────────── */
+    function hxRenderTimeline() {
+        const container = document.getElementById('hx-tl');
+        const empty     = document.getElementById('hx-empty');
+        const statusBar = document.getElementById('hx-status-bar');
+
+        const datos = HX.filtered;
+
         if (!datos.length) {
-            container.style.display = 'none';
-            empty.style.display     = 'flex';
-            cntEl.textContent       = '0 eventos';
+            hxShowEmpty('No hay eventos que coincidan con los filtros aplicados.');
+            statusBar.classList.add('hidden');
             return;
         }
 
-        // Agrupar por codigoActivo
+        // Agrupar por codigoActivo, ordenado por primer evento
         const grupos = {};
         datos.forEach(e => {
-            if (!grupos[e.codigoActivo]) grupos[e.codigoActivo] = [];
-            grupos[e.codigoActivo].push(e);
+            const key = e.codigoActivo || '—';
+            if (!grupos[key]) grupos[key] = [];
+            grupos[key].push(e);
         });
 
         container.innerHTML = '';
-        let totalEventos = 0;
 
-        Object.entries(grupos).forEach(([codigo, eventos]) => {
-            totalEventos += eventos.length;
-            const primerDesc = eventos[0]?.descripcion || '';
+        Object.entries(grupos).forEach(([codigo, eventos], idx) => {
+            // Ordenar eventos del más reciente al más antiguo
+            eventos.sort((a, b) => (b.fechaEvento || '').localeCompare(a.fechaEvento || ''));
 
-            const group = document.createElement('div');
-            group.className = 'hx-activo-group';
-            group.innerHTML = `
-                <div class="hx-activo-header" onclick="hxToggleGroup(this)">
-                    <span class="hx-activo-codigo">${hx(codigo)}</span>
-                    <span class="hx-activo-desc">${hx(primerDesc.substring(0, 60))}…</span>
-                    <span class="hx-activo-cnt">${eventos.length} evento(s)</span>
-                    <svg class="hx-chevron" xmlns="http://www.w3.org/2000/svg" fill="none"
+            const groupEl = document.createElement('div');
+            groupEl.className = 'hx-group';
+            groupEl.dataset.codigo = codigo;
+
+            const headId = `hx-tl-${codigo.replace(/[^A-Z0-9]/gi,'_')}`;
+            const primerDesc = eventos[0]?.descripcion || 'Sin descripción';
+
+            groupEl.innerHTML = `
+                <div class="hx-group-head" onclick="hxToggleGroup(this,'${headId}')">
+                    <span class="hx-group-code">${hx(codigo)}</span>
+                    <span class="hx-group-sep"></span>
+                    <span class="hx-group-desc" title="${hx(primerDesc)}">${hx(primerDesc.substring(0,70))}…</span>
+                    <span class="hx-group-cnt">${eventos.length} evento(s)</span>
+                    <svg class="hx-group-chevron" xmlns="http://www.w3.org/2000/svg" fill="none"
                          viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </div>
-                <div class="hx-timeline" id="hx-tl-${hx(codigo).replace(/[^A-Z0-9]/gi,'_')}">
-                    ${eventos.map(hxEventoHTML).join('')}
+                <div class="hx-tl" id="${headId}">
+                    ${eventos.map((e, i) => hxEventoHTML(e, i)).join('')}
                 </div>`;
-            container.appendChild(group);
+            container.appendChild(groupEl);
         });
+
+        // Status bar
+        const totalEventos  = datos.length;
+        const totalActivos  = Object.keys(grupos).length;
+        document.getElementById('hx-cnt-ev').textContent  = totalEventos;
+        document.getElementById('hx-cnt-act').textContent = totalActivos;
+        document.getElementById('hx-status-txt').textContent =
+            `Mostrando historial de`;
+        statusBar.classList.remove('hidden');
 
         container.style.display = 'block';
         empty.style.display     = 'none';
-        cntEl.textContent       = `${totalEventos} evento(s)`;
     }
 
-    function hxEventoHTML(e) {
-        const ico  = hxIcoParaTipo(e.tipoEvento);
-        const tipo = hxLabelTipo(e.tipoEvento);
+    function hxEventoHTML(e, idx) {
+        const ico  = hxIcono(e.tipoEvento);
+        const tipo = hxLabel(e.tipoEvento);
         const fecha = hxFecha(e.fechaEvento);
 
+        // Flecha origen → destino
         let flow = '';
-        const tieneFlow = e.ofAnterior || e.ofNueva || e.respAnterior || e.respNuevo;
-        if (tieneFlow) {
-            const origen = e.ofAnterior || e.respAnterior
-                ? `<span class="hx-ev-flow-item">${hx(e.ofAnterior || e.respAnterior || '—')}</span>` : '';
-            const destino = e.ofNueva || e.respNuevo
-                ? `<span class="hx-ev-flow-item">${hx(e.ofNueva || e.respNuevo || '—')}</span>` : '';
+        const hayOrigen  = e.ofAnterior  || e.respAnterior;
+        const hayDestino = e.ofNueva     || e.respNuevo;
+        if (hayOrigen || hayDestino) {
+            const origen  = hayOrigen  ? `<span class="hx-flow-chip" title="${hx(e.ofAnterior||e.respAnterior||'')}">${hx(e.ofAnterior || e.respAnterior || '—')}</span>` : '';
+            const destino = hayDestino ? `<span class="hx-flow-chip" title="${hx(e.ofNueva||e.respNuevo||'')}">${hx(e.ofNueva   || e.respNuevo   || '—')}</span>` : '';
             if (origen && destino) {
-                flow = `<div class="hx-ev-flow">
+                flow = `<div class="hx-flow">
                     ${origen}
-                    <svg class="hx-ev-arrow" xmlns="http://www.w3.org/2000/svg" width="12" height="12"
-                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5-5 5M6 12h12"/>
-                    </svg>
+                    <span class="hx-flow-arrow">→</span>
                     ${destino}
                 </div>`;
+            } else {
+                flow = `<div class="hx-flow">${origen || destino}</div>`;
             }
         }
 
@@ -743,16 +893,16 @@
             ? `<span class="hx-ev-nro">${hx(e.nroTrf)}</span>` : '';
 
         return `
-        <div class="hx-event">
-            <div class="hx-ev-ico">
-                <div class="hx-ev-dot" data-tipo="${hx(e.tipoEvento)}">${ico}</div>
+        <div class="hx-event" style="animation-delay:${Math.min(idx*.03,.3)}s">
+            <div class="hx-ev-left">
+                <div class="hx-ev-dot" data-t="${hx(e.tipoEvento)}">${ico}</div>
             </div>
             <div class="hx-ev-body">
-                <div class="hx-ev-top">
-                    <span class="hx-ev-tipo-pill" data-tipo="${hx(e.tipoEvento)}">${tipo}</span>
-                    <span class="hx-ev-meta">${fecha}</span>
+                <div class="hx-ev-row1">
+                    <span class="hx-ev-pill" data-t="${hx(e.tipoEvento)}">${tipo}</span>
+                    <span class="hx-ev-fecha">${fecha}</span>
                 </div>
-                <div class="hx-ev-desc">${hx(e.descripcion || '—')}</div>
+                <div class="hx-ev-desc">${hx(e.descripcion || 'Sin descripción.')}</div>
                 ${flow}
                 <div class="hx-ev-footer">
                     ${nroTrf}
@@ -762,59 +912,96 @@
         </div>`;
     }
 
-    /* ── Toggle grupo ─────────────────────────────────────────────── */
-    window.hxToggleGroup = function (header) {
-        const tlId = header.nextElementSibling.id;
-        const tl   = document.getElementById(tlId);
+    /* ──────────────────────────────────────────────────────────────────
+       TOGGLE COLAPSO DE GRUPOS
+    ────────────────────────────────────────────────────────────────── */
+    window.hxToggleGroup = function (header, tlId) {
+        const tl = document.getElementById(tlId);
         if (!tl) return;
-        const isOpen = tl.style.display !== 'none';
-        tl.style.display = isOpen ? 'none' : 'block';
-        header.classList.toggle('collapsed', isOpen);
+        const open = tl.style.display !== 'none';
+        tl.style.display = open ? 'none' : 'block';
+        header.classList.toggle('collapsed', open);
     };
 
-    /* ── Exportar a Excel ──────────────────────────────────────────── */
+    window.hxExpandirTodo = function () {
+        document.querySelectorAll('.hx-group .hx-tl').forEach(tl => tl.style.display = 'block');
+        document.querySelectorAll('.hx-group-head').forEach(h => h.classList.remove('collapsed'));
+    };
+
+    window.hxColapsarTodo = function () {
+        document.querySelectorAll('.hx-group .hx-tl').forEach(tl => tl.style.display = 'none');
+        document.querySelectorAll('.hx-group-head').forEach(h => h.classList.add('collapsed'));
+    };
+
+    /* ──────────────────────────────────────────────────────────────────
+       EXPORTAR A EXCEL
+    ────────────────────────────────────────────────────────────────── */
     window.hxExportar = function () {
-        if (!hxData.length) { hxToast('w', 'Sin datos', 'No hay eventos para exportar.'); return; }
-        if (typeof XLSX === 'undefined') { hxToast('e', 'Error', 'SheetJS no disponible.'); return; }
+        if (!HX.filtered.length) { hxToast('w', 'Sin datos', 'No hay eventos para exportar.'); return; }
+        if (typeof XLSX === 'undefined') {
+            // Cargar SheetJS dinámicamente si no está disponible
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+            s.onload = () => hxExportarReal();
+            document.head.appendChild(s);
+            return;
+        }
+        hxExportarReal();
+    };
 
-        const rows = hxData.map(e => ({
-            'Código Activo' : e.codigoActivo,
-            'Tipo Evento'   : hxLabelTipo(e.tipoEvento),
-            'Descripción'   : e.descripcion,
-            'Oficina Origen': e.ofAnterior,
-            'Oficina Destino': e.ofNueva,
-            'Resp. Anterior': e.respAnterior,
-            'Resp. Nuevo'   : e.respNuevo,
-            'Usuario'       : e.usuario,
-            'Nro Transferencia': e.nroTrf,
-            'Fecha'         : e.fechaEvento,
+    function hxExportarReal() {
+        const rows = HX.filtered.map(e => ({
+            'Código Activo'      : e.codigoActivo,
+            'Tipo de Evento'     : hxLabel(e.tipoEvento),
+            'Descripción'        : e.descripcion,
+            'Oficina Anterior'   : e.ofAnterior  || '',
+            'Oficina Nueva'      : e.ofNueva     || '',
+            'Responsable Anterior': e.respAnterior || '',
+            'Responsable Nuevo'  : e.respNuevo   || '',
+            'Usuario'            : e.usuario     || '',
+            'Nro Transferencia'  : e.nroTrf      || '',
+            'Fecha Evento'       : hxFecha(e.fechaEvento),
         }));
-
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Historial');
-        XLSX.writeFile(wb, `historial_activos_${new Date().toISOString().slice(0,10)}.xlsx`);
-        hxToast('s', 'Exportado', `${rows.length} filas exportadas.`);
-    };
+        XLSX.writeFile(wb, `historial_${new Date().toISOString().slice(0,10)}.xlsx`);
+        hxToast('s', 'Exportado', `${rows.length} filas guardadas en Excel.`);
+    }
 
-    /* ── Limpiar ──────────────────────────────────────────────────── */
-    window.hxLimpiarVista = function () {
-        hxData = [];
-        hxRenderTimeline();
-    };
-
-    window.hxLimpiarFiltros = function () {
-        document.getElementById('hx-cod').value     = '';
+    /* ──────────────────────────────────────────────────────────────────
+       LIMPIAR
+    ────────────────────────────────────────────────────────────────── */
+    window.hxLimpiarBusqueda = function () {
+        HX.codigos  = [];
+        HX.rawData  = [];
+        HX.filtered = [];
+        hxRenderTags();
         document.getElementById('hx-desde').value   = '';
         document.getElementById('hx-hasta').value   = '';
         document.getElementById('hx-usuario').value = '';
-        document.querySelectorAll('.hx-chip').forEach(c => c.classList.remove('active'));
-        document.querySelector('.hx-chip[data-tipo="TODOS"]')?.classList.add('active');
-        hxTipoFiltro = 'TODOS';
-        hxRenderTimeline();
+        document.querySelectorAll('#hx-chips .hx-chip').forEach(c => c.classList.remove('on'));
+        document.querySelector('#hx-chips .hx-chip[data-t="TODOS"]')?.classList.add('on');
+        HX.tipoActivo = 'TODOS';
+        document.getElementById('hx-tl').style.display = 'none';
+        document.getElementById('hx-tl').innerHTML = '';
+        document.getElementById('hx-empty').style.display = 'flex';
+        document.getElementById('hx-empty').querySelector('.hx-empty-s').innerHTML =
+            'Ingresa uno o varios códigos de activos arriba<br>y presiona <strong>Buscar historial</strong>.';
+        document.getElementById('hx-status-bar').classList.add('hidden');
+        document.getElementById('hx-btn-export').disabled = true;
     };
 
-    /* ── Helpers ──────────────────────────────────────────────────── */
+    /* ──────────────────────────────────────────────────────────────────
+       HELPERS
+    ────────────────────────────────────────────────────────────────── */
+    function hxShowEmpty(msg) {
+        document.getElementById('hx-tl').style.display = 'none';
+        const empty = document.getElementById('hx-empty');
+        empty.style.display = 'flex';
+        empty.querySelector('.hx-empty-s').innerHTML = msg;
+    }
+
     function hxOverlay(msg) {
         document.getElementById('hx-overlay-txt').textContent = msg;
         document.getElementById('hx-overlay').classList.add('on');
@@ -826,46 +1013,45 @@
         const cls   = { s:'hx-toast-s', e:'hx-toast-e', w:'hx-toast-w' };
         const c = document.getElementById('hx-toasts');
         const d = document.createElement('div');
-        d.className = `hx-toast ${cls[type]||'hx-toast-s'}`;
-        d.innerHTML = `<span style="font-size:14px;flex-shrink:0;margin-top:1px;">${icons[type]}</span>
+        d.className = `hx-toast ${cls[type] || 'hx-toast-s'}`;
+        d.innerHTML = `<span style="font-size:14px;flex-shrink:0;margin-top:1px;">${icons[type]||'ℹ️'}</span>
             <div><div class="hx-toast-ti">${hx(title)}</div><div class="hx-toast-ms">${hx(msg)}</div></div>`;
         c.appendChild(d);
         setTimeout(() => {
             d.style.cssText += 'opacity:0;transform:translateX(12px);transition:.3s';
             setTimeout(() => d.remove(), 330);
-        }, 4500);
+        }, 5000);
     }
 
     function hx(s) {
         if (s == null) return '';
-        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return String(s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
     function hxFecha(str) {
         if (!str) return '—';
-        try {
-            return new Date(str).toLocaleString('es-BO',
-                { dateStyle: 'short', timeStyle: 'short' });
-        } catch (_) { return str; }
+        try { return new Date(str).toLocaleString('es-BO', { dateStyle:'short', timeStyle:'short' }); }
+        catch (_) { return str; }
     }
 
-    function hxIcoParaTipo(tipo) {
-        const map = {
+    function hxIcono(tipo) {
+        return {
             REGISTRO         : '🆕',
             MODIFICACION     : '✏️',
             TRANSFERENCIA_INT: '↔️',
             TRANSFERENCIA_EXT: '🏢',
-            ASIGNACION       : '👤',
+            ASIGNACION       : '🔗',
             DESASIGNACION    : '🚫',
             BAJA             : '📦',
             REACTIVACION     : '♻️',
             DEPRECIACION     : '📉',
-        };
-        return map[tipo] || '•';
+        }[tipo] || '•';
     }
 
-    function hxLabelTipo(tipo) {
-        const map = {
+    function hxLabel(tipo) {
+        return {
             REGISTRO         : 'Registro',
             MODIFICACION     : 'Modificación',
             TRANSFERENCIA_INT: 'Transf. Interna',
@@ -875,8 +1061,7 @@
             BAJA             : 'Baja',
             REACTIVACION     : 'Reactivación',
             DEPRECIACION     : 'Depreciación',
-        };
-        return map[tipo] || tipo;
+        }[tipo] || tipo;
     }
 
 })();
