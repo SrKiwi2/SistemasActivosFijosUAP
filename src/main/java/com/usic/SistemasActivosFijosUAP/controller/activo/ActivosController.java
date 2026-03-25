@@ -626,31 +626,45 @@ public class ActivosController {
                 acos, tipo, ofDestino, respDestino, usuId, usuNombre
             );
             // Campos adicionales opcionales
-            if (payload.observacion != null)        trf.setObservacion(payload.observacion);
-            if (payload.documentoReferencia != null) trf.setDocumentoReferencia(payload.documentoReferencia);
-            if (payload.institucionDestino != null)  trf.setInstitucionDestino(payload.institucionDestino);
-            transferenciaDao.save(trf); // update con los campos extra
+            String numeroTrf = "S/N";
+            if (trf != null) {
+                if (payload.observacion != null)        trf.setObservacion(payload.observacion);
+                if (payload.documentoReferencia != null) trf.setDocumentoReferencia(payload.documentoReferencia);
+                if (payload.institucionDestino != null)  trf.setInstitucionDestino(payload.institucionDestino);
+                transferenciaDao.save(trf); // update con los campos extra
+                
+                if (trf.getNumeroTransferencia() != null) {
+                    numeroTrf = trf.getNumeroTransferencia();
+                }
+            }
     
             // 5. Sincronizar DBF
             try {
-                String entidadCode = ofDestino.getPredio().getEntidad().getEntidadCodigo();
-                String unidadCode  = ofDestino.getPredio().getUnidad();
+                String entidadCode = "";
+                String unidadCode = "";
+                if (ofDestino.getPredio() != null) {
+                    unidadCode = ofDestino.getPredio().getUnidad() != null ? ofDestino.getPredio().getUnidad() : "";
+                    if (ofDestino.getPredio().getEntidad() != null) {
+                        entidadCode = ofDestino.getPredio().getEntidad().getEntidadCodigo() != null 
+                                      ? ofDestino.getPredio().getEntidad().getEntidadCodigo() : "";
+                    }
+                }
                 List<Activo> activos = acos.stream().map(ac -> ac.activo).toList();
                 actualDbfWriterService.actualizarLoteTransferencias(activos, entidadCode, unidadCode, usuNombre);
     
                 return ResponseEntity.ok(Map.of(
                     "ok",  true,
                     "msg", String.format("Se transfirieron %d activos (BD + DBF). Ref: %s",
-                                        acos.size(), trf.getNumeroTransferencia()),
-                    "numeroTransferencia", trf.getNumeroTransferencia()
+                                        acos.size(), numeroTrf),
+                    "numeroTransferencia", numeroTrf
                 ));
             } catch (Exception e) {
                 log.error("Error sincronizando lote DBF: {}", e.getMessage());
                 return ResponseEntity.ok(Map.of(
                     "ok",  true,
                     "msg", String.format("Guardado en BD (%d activos). DBF falló: %s. Ref: %s",
-                                        acos.size(), e.getMessage(), trf.getNumeroTransferencia()),
-                    "numeroTransferencia", trf.getNumeroTransferencia()
+                                        acos.size(), e.getMessage() != null ? e.getMessage() : "Desconocido", numeroTrf),
+                    "numeroTransferencia", numeroTrf
                 ));
             }
     
