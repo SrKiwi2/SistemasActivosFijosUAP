@@ -106,13 +106,13 @@ public class AuxiliarServiceImpl implements IAuxiliarService {
     }
 
     @Override
-    public Optional<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(Long idPredio,
-            Long idGrupo, String nombre) {
-        return dao.findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(idPredio, idGrupo, nombre);
+    public Integer findMaxCodAux(Long idPredio, Long idGrupo) {
+        return dao.findMaxCodAux(idPredio, idGrupo);
     }
 
     @Override
-    public Short findMaxCodAux(Long idPredio, Long idGrupo) {
-        return dao.findMaxCodAux(idPredio, idGrupo);
+    public Optional<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(Long idPredio,
+            Long idGrupo, String nombre) {
+        return dao.findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(idPredio, idGrupo, nombre);
     }
 }

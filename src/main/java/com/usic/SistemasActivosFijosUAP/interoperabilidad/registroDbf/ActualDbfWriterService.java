@@ -340,7 +340,7 @@ public class ActualDbfWriterService {
                 if (offCodigo == -1) throw new RuntimeException("Campo CODIGO no encontrado en DBF");
 
                 // PRE-CALCULAR los campos que vamos a actualizar para no usar .stream() en el bucle
-                String[] nombresCamposObjetivo = {"CODOFIC", "CODRESP", "ENTIDAD", "UNIDAD", "USU_MOD", "FEC_MOD", "FEULT"};
+                String[] nombresCamposObjetivo = {"CODOFIC", "CODRESP", "CODAUX", "ENTIDAD", "UNIDAD", "USU_MOD", "FEC_MOD", "FEULT", "API_ESTADO"};
                 List<CampoDbf> camposAActualizar = new ArrayList<>();
                 for (String nc : nombresCamposObjetivo) {
                     for (CampoDbf f : fields) {

@@ -37,8 +37,12 @@ public interface IAuxiliarService extends IServiceGenerico<Auxiliar, Long> {
 
     List<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContable(Long idPredio, Long idGrupoContable);
 
+    Integer findMaxCodAux(
+        @Param("idPredio") Long idPredio,
+        @Param("idGrupo")  Long idGrupo
+    );
+ 
     Optional<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(
-        Long idPredio, Long idGrupo, String nombre);
-
-    Short findMaxCodAux(@Param("idPredio") Long idPredio, @Param("idGrupo") Long idGrupo);        
+        Long idPredio, Long idGrupo, String nombre
+    );     
 }

@@ -573,49 +573,83 @@ public class ActivosController {
         public String       institucionDestino; // solo para EXTERNA
     }
 
-    private Auxiliar resolverAuxiliarDestino(Auxiliar auxOrigen, Predio predioDestino, String usuNombre) {
+    private Auxiliar resolverAuxiliarDestino(
+        Auxiliar auxOrigen,
+        Predio predioDestino,
+        String usuNombre) {
+ 
         if (auxOrigen == null) return null;
-
-        Long idPredioDest = predioDestino.getIdPredio();
-        Long idGrupo = auxOrigen.getGrupoContable().getIdGrupoContable();
-        String nombreAux = auxOrigen.getNombre().trim();
-
-        // 1. Buscar coincidencia exacta por nombre en el nuevo predio
-        Optional<Auxiliar> auxExistente = auxiliarService.findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(
-                idPredioDest, idGrupo, nombreAux);
-
-        if (auxExistente.isPresent()) {
-            return auxExistente.get(); // Ya existe, lo reutilizamos
+        if (predioDestino == null) {
+            log.warn("[AUX] resolverAuxiliarDestino: predioDestino es null, sin cambio.");
+            return auxOrigen;
         }
-
-        // 2. Si no existe en el destino, lo creamos
+        if (auxOrigen.getGrupoContable() == null) {
+            log.warn("[AUX] El auxiliar '{}' no tiene grupoContable asignado.", auxOrigen.getNombre());
+            return null;
+        }
+    
+        Long idPredioDest = predioDestino.getIdPredio();
+        Long idGrupo      = auxOrigen.getGrupoContable().getIdGrupoContable();
+        String nombreAux  = auxOrigen.getNombre().trim().toUpperCase();
+    
+        log.info("[AUX] Resolviendo auxiliar '{}' | GrupoID={} | PredioDestID={}",
+            nombreAux, idGrupo, idPredioDest);
+    
+        // 1. Buscar coincidencia exacta por nombre en el predio destino
+        Optional<Auxiliar> auxExistente = auxiliarService
+            .findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(
+                idPredioDest, idGrupo, nombreAux);
+    
+        if (auxExistente.isPresent()) {
+            Auxiliar encontrado = auxExistente.get();
+            log.info("[AUX] Auxiliar ya existe en destino: '{}' CodAux={} (ID={})",
+                nombreAux, encontrado.getCodAux(), encontrado.getIdAuxiliar());
+            return encontrado;
+        }
+    
+        // 2. No existe → crear en BD con el siguiente codAux correlativo
+        // ✅ Fix de tipo: Integer, no Short
+        Integer maxCodAux = auxiliarService.findMaxCodAux(idPredioDest, idGrupo);
+        if (maxCodAux == null) maxCodAux = 0; // seguridad extra
+        short nextCod = (short) (maxCodAux + 1);
+    
+        log.info("[AUX] Creando nuevo auxiliar '{}' para predio '{}': CodAux={}",
+            nombreAux, predioDestino.getDescrip(), nextCod);
+    
         Auxiliar nuevoAux = new Auxiliar();
-        nuevoAux.setNombre(nombreAux.toUpperCase()); // Mantener mayúsculas por convención DBF
+        nuevoAux.setNombre(nombreAux);
         nuevoAux.setGrupoContable(auxOrigen.getGrupoContable());
         nuevoAux.setPredio(predioDestino);
         nuevoAux.setObserv(auxOrigen.getObserv());
         nuevoAux.setUsuario(usuNombre);
         nuevoAux.setFechaUlt(LocalDate.now());
-
-        // 3. Asignar el siguiente código correlativo (ej: si el max es 10, le toca el 11)
-        Short maxCodAux = auxiliarService.findMaxCodAux(idPredioDest, idGrupo);
-        short nextCod = (short) (maxCodAux + 1);
         nuevoAux.setCodAux(nextCod);
-
-        // 4. Guardar en Base de Datos PostgreSQL/MySQL
+    
         nuevoAux = auxiliarService.save(nuevoAux);
-        log.info("CREADO NUEVO AUXILIAR para externa: {} (CodAux: {}) en Predio: {}", nombreAux, nextCod, predioDestino.getDescrip());
-
-        // 5. Sincronizar Inmediatamente con auxiliar.DBF
+        log.info("[AUX] Nuevo auxiliar guardado en BD: ID={} '{}' CodAux={}",
+            nuevoAux.getIdAuxiliar(), nombreAux, nextCod);
+    
+        // 3. Sincronizar con auxiliar.DBF
         try {
-            String entidadCode = predioDestino.getEntidad() != null ? predioDestino.getEntidad().getEntidadCodigo() : "";
-            String unidadCode = predioDestino.getUnidad();
-            auxiliarDbfWriterService.insertarDesdeAuxiliar(nuevoAux, entidadCode, unidadCode, usuNombre);
-            log.info("Auxiliar {} insertado en DBF correctamente.", nombreAux);
+            String entidadCode = predioDestino.getEntidad() != null
+                ? predioDestino.getEntidad().getEntidadCodigo() : "";
+            String unidadCode  = predioDestino.getUnidad() != null
+                ? predioDestino.getUnidad() : "";
+    
+            if (entidadCode.isBlank() || unidadCode.isBlank()) {
+                log.warn("[AUX-DBF] Predio '{}' sin entidad/unidad — auxiliar creado en BD pero NO en DBF.",
+                    predioDestino.getDescrip());
+            } else {
+                auxiliarDbfWriterService.insertarDesdeAuxiliar(
+                    nuevoAux, entidadCode, unidadCode, usuNombre);
+                log.info("[AUX-DBF] Auxiliar '{}' insertado en auxiliar.DBF (unidad='{}')",
+                    nombreAux, unidadCode);
+            }
         } catch (Exception e) {
-            log.error("Auxiliar creado en BD, pero falló inserción en DBF: {}", e.getMessage());
+            // No revertir: el auxiliar ya está en BD, el DBF se puede re-sincronizar después
+            log.error("[AUX-DBF] Auxiliar creado en BD pero falló DBF: {}", e.getMessage());
         }
-
+    
         return nuevoAux;
     }
 
@@ -659,20 +693,27 @@ public class ActivosController {
             LocalDate hoy = LocalDate.now();
             for (TransferenciaService.ActivoConOrigen ac : acos) {
                 Activo a = ac.activo;
-                if ("EXTERNA".equalsIgnoreCase(tipo) && a.getAuxiliar() != null) {
-                    Long idAuxOriginal = a.getAuxiliar().getIdAuxiliar();
-                    
-                    // Buscar en caché primero
-                    Auxiliar auxDestino = cacheAuxiliaresDestino.get(idAuxOriginal);
-                    
-                    if (auxDestino == null) {
-                        // Si no está en caché, resolverlo (buscarlo o crearlo)
-                        auxDestino = resolverAuxiliarDestino(a.getAuxiliar(), ofDestino.getPredio(), usuNombre);
-                        cacheAuxiliaresDestino.put(idAuxOriginal, auxDestino);
+                if ("EXTERNA".equalsIgnoreCase(tipo)) {
+ 
+                    // Paso A: Resolver el auxiliar del predio destino PRIMERO
+                    if (a.getAuxiliar() != null) {
+                        Long idAuxOriginal = a.getAuxiliar().getIdAuxiliar();
+                        Auxiliar auxDestino = cacheAuxiliaresDestino.computeIfAbsent(
+                            idAuxOriginal,
+                            id -> resolverAuxiliarDestino(
+                                a.getAuxiliar(),
+                                ofDestino.getPredio(),
+                                usuNombre
+                            )
+                        );
+                        // Asigna el auxiliar correcto ANTES de modificar otros campos
+                        a.setAuxiliar(auxDestino);
+            
+                        log.info("[TRANSF-EXT] Activo '{}': CODAUX {} → {}",
+                            a.getCodigo(),
+                            ac.activo.getAuxiliar() != null ? ac.activo.getAuxiliar().getCodAux() : "null",
+                            auxDestino != null ? auxDestino.getCodAux() : "null");
                     }
-                    
-                    // Asignar el auxiliar correspondiente al nuevo predio
-                    a.setAuxiliar(auxDestino);
                 }
                 a.setOficina(ofDestino);
                 a.setResponsable(respDestino);
