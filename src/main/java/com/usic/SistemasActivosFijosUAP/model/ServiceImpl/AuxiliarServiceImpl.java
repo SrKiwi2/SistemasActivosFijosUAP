@@ -104,4 +104,15 @@ public class AuxiliarServiceImpl implements IAuxiliarService {
     public List<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContable(Long idPredio, Long idGrupoContable) {
         return dao.findByPredioIdPredioAndGrupoContableIdGrupoContable(idPredio, idGrupoContable);
     }
+
+    @Override
+    public Optional<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(Long idPredio,
+            Long idGrupo, String nombre) {
+        return dao.findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(idPredio, idGrupo, nombre);
+    }
+
+    @Override
+    public Short findMaxCodAuxByPredioAndGrupo(Long idPredio, Long idGrupo) {
+        return dao.findMaxCodAuxByPredioAndGrupo(idPredio, idGrupo);
+    }
 }

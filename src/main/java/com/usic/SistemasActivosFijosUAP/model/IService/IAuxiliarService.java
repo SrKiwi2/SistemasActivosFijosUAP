@@ -36,4 +36,9 @@ public interface IAuxiliarService extends IServiceGenerico<Auxiliar, Long> {
     boolean isNombreUnique(String nombre, Long idAuxiliar);
 
     List<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContable(Long idPredio, Long idGrupoContable);
+
+    Optional<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(Long idPredio,
+            Long idGrupo, String nombre);
+
+    Short findMaxCodAuxByPredioAndGrupo(@Param("idPredio") Long idPredio, @Param("idGrupo") Long idGrupo);        
 }

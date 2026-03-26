@@ -60,7 +60,14 @@ public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
     Short findNextCodAux(@Param("idPredio") Long idPredio, @Param("idGrupoContable") Long idGrupoContable);
 
     boolean existsByNombreIgnoreCase(String nombre);
+
     boolean existsByNombreIgnoreCaseAndIdAuxiliarIsNot(String nombre, Long idAuxiliar);
 
     List<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContable(Long idPredio, Long idGrupoContable);
+
+    Optional<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(Long idPredio,
+            Long idGrupo, String nombre);
+
+    @Query("SELECT MAX(a.codAux) FROM Auxiliar a WHERE a.predio.idPredio = :idPredio AND a.grupoContable.idGrupoContable = :idGrupo")
+    Short findMaxCodAuxByPredioAndGrupo(@Param("idPredio") Long idPredio, @Param("idGrupo") Long idGrupo);
 }
