@@ -112,7 +112,7 @@ public class AuxiliarServiceImpl implements IAuxiliarService {
     }
 
     @Override
-    public Short findMaxCodAuxByPredioAndGrupo(Long idPredio, Long idGrupo) {
-        return dao.findMaxCodAuxByPredioAndGrupo(idPredio, idGrupo);
+    public Short findMaxCodAux(Long idPredio, Long idGrupo) {
+        return dao.findMaxCodAux(idPredio, idGrupo);
     }
 }

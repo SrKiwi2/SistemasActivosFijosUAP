@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.ActualDbfWriterService;
+import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.AuxiliarDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
@@ -64,6 +66,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
+import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
@@ -91,7 +94,10 @@ public class ActivosController {
     private final IOrganismoFinancieroService organismoFinancieroService;
     private final IAuxiliarService auxiliarService;
     private final IEstadoActivoService estadoActivoService;
+
     private final ActualDbfWriterService actualDbfWriterService;
+    private final AuxiliarDbfWriterService auxiliarDbfWriterService;
+
     private final IConfiguracionGestionService configuracionGestionService;
     private final IAsignacionActivoService asignacionActivoService;
     private final IDetalleAsignacionActivoService detalleAsignacionActivoService;
@@ -567,6 +573,52 @@ public class ActivosController {
         public String       institucionDestino; // solo para EXTERNA
     }
 
+    private Auxiliar resolverAuxiliarDestino(Auxiliar auxOrigen, Predio predioDestino, String usuNombre) {
+        if (auxOrigen == null) return null;
+
+        Long idPredioDest = predioDestino.getIdPredio();
+        Long idGrupo = auxOrigen.getGrupoContable().getIdGrupoContable();
+        String nombreAux = auxOrigen.getNombre().trim();
+
+        // 1. Buscar coincidencia exacta por nombre en el nuevo predio
+        Optional<Auxiliar> auxExistente = auxiliarService.findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(
+                idPredioDest, idGrupo, nombreAux);
+
+        if (auxExistente.isPresent()) {
+            return auxExistente.get(); // Ya existe, lo reutilizamos
+        }
+
+        // 2. Si no existe en el destino, lo creamos
+        Auxiliar nuevoAux = new Auxiliar();
+        nuevoAux.setNombre(nombreAux.toUpperCase()); // Mantener mayúsculas por convención DBF
+        nuevoAux.setGrupoContable(auxOrigen.getGrupoContable());
+        nuevoAux.setPredio(predioDestino);
+        nuevoAux.setObserv(auxOrigen.getObserv());
+        nuevoAux.setUsuario(usuNombre);
+        nuevoAux.setFechaUlt(LocalDate.now());
+
+        // 3. Asignar el siguiente código correlativo (ej: si el max es 10, le toca el 11)
+        Short maxCodAux = auxiliarService.findMaxCodAux(idPredioDest, idGrupo);
+        short nextCod = (short) (maxCodAux + 1);
+        nuevoAux.setCodAux(nextCod);
+
+        // 4. Guardar en Base de Datos PostgreSQL/MySQL
+        nuevoAux = auxiliarService.save(nuevoAux);
+        log.info("CREADO NUEVO AUXILIAR para externa: {} (CodAux: {}) en Predio: {}", nombreAux, nextCod, predioDestino.getDescrip());
+
+        // 5. Sincronizar Inmediatamente con auxiliar.DBF
+        try {
+            String entidadCode = predioDestino.getEntidad() != null ? predioDestino.getEntidad().getEntidadCodigo() : "";
+            String unidadCode = predioDestino.getUnidad();
+            auxiliarDbfWriterService.insertarDesdeAuxiliar(nuevoAux, entidadCode, unidadCode, usuNombre);
+            log.info("Auxiliar {} insertado en DBF correctamente.", nombreAux);
+        } catch (Exception e) {
+            log.error("Auxiliar creado en BD, pero falló inserción en DBF: {}", e.getMessage());
+        }
+
+        return nuevoAux;
+    }
+
     @PostMapping("/transferencia-masiva")
     @ResponseBody
     public ResponseEntity<?> transferenciaMasiva(
@@ -600,11 +652,28 @@ public class ActivosController {
                 return ResponseEntity.badRequest()
                     .body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados."));
             }
+
+            Map<Long, Auxiliar> cacheAuxiliaresDestino = new HashMap<>();
     
             // 2. Modificar los activos en memoria (DESPUÉS de capturar el origen)
             LocalDate hoy = LocalDate.now();
             for (TransferenciaService.ActivoConOrigen ac : acos) {
                 Activo a = ac.activo;
+                if ("EXTERNA".equalsIgnoreCase(tipo) && a.getAuxiliar() != null) {
+                    Long idAuxOriginal = a.getAuxiliar().getIdAuxiliar();
+                    
+                    // Buscar en caché primero
+                    Auxiliar auxDestino = cacheAuxiliaresDestino.get(idAuxOriginal);
+                    
+                    if (auxDestino == null) {
+                        // Si no está en caché, resolverlo (buscarlo o crearlo)
+                        auxDestino = resolverAuxiliarDestino(a.getAuxiliar(), ofDestino.getPredio(), usuNombre);
+                        cacheAuxiliaresDestino.put(idAuxOriginal, auxDestino);
+                    }
+                    
+                    // Asignar el auxiliar correspondiente al nuevo predio
+                    a.setAuxiliar(auxDestino);
+                }
                 a.setOficina(ofDestino);
                 a.setResponsable(respDestino);
                 a.setFecMod(hoy);

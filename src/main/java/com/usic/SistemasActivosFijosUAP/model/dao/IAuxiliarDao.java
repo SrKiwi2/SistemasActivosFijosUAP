@@ -65,9 +65,11 @@ public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
 
     List<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContable(Long idPredio, Long idGrupoContable);
 
-    Optional<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(Long idPredio,
-            Long idGrupo, String nombre);
+    // Buscar auxiliar exacto por Predio, Grupo y Nombre
+    Optional<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(
+        Long idPredio, Long idGrupo, String nombre);
 
-    @Query("SELECT MAX(a.codAux) FROM Auxiliar a WHERE a.predio.idPredio = :idPredio AND a.grupoContable.idGrupoContable = :idGrupo")
-    Short findMaxCodAuxByPredioAndGrupo(@Param("idPredio") Long idPredio, @Param("idGrupo") Long idGrupo);
+    // Obtener el código máximo actual para generar el siguiente
+    @Query("SELECT COALESCE(MAX(a.codAux), 0) FROM Auxiliar a WHERE a.predio.idPredio = :idPredio AND a.grupoContable.idGrupoContable = :idGrupo")
+    Short findMaxCodAux(@Param("idPredio") Long idPredio, @Param("idGrupo") Long idGrupo);
 }
