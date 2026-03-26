@@ -543,6 +543,7 @@
         color: var(--red);
     }
 
+
     .ti-rm {
         background: none;
         border: none;
@@ -1080,20 +1081,45 @@
         }
 
         function tiRow(a) {
-            const tb = document.getElementById('ti-tbody'), tr = document.createElement('tr');
+            const tb = document.getElementById('ti-tbody');
+            const tr = document.createElement('tr');
+            
+            // Genera un ID único para la fila
             const sid = a.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '_');
-            tr.id = `ti-r-${sid}`; tr.style.animationDelay = `${Math.min(tb.rows.length * .035, .35)}s`;
-            const act = (a.estado || '').toUpperCase() === 'ACTIVO';
+            tr.id = `ti-r-${sid}`; 
+            tr.style.animationDelay = `${Math.min(tb.rows.length * .035, .35)}s`;
+            
+            // 1. LECTURA SEGURA (Ojo al signo de interrogación '?')
+            // Si estadoActivo es null, no se rompe, simplemente toma 'SIN ESTADO'
+            const nombreEstado = (a.estadoActivo?.nombre || 'SIN ESTADO').toUpperCase();
+            
+            // 2. LÓGICA DE COLORES SEGÚN TU BASE DE DATOS
+            // Asignamos la clase CSS dependiendo del nombre que venga de la tabla estado_activo
+            let claseColor = 'g'; // Clase por defecto (gris/amarillo)
+            if (nombreEstado === 'BUENO' || nombreEstado === 'NUEVO') {
+                claseColor = 'g'; // Asumiendo que tienes una clase ti-pill-Bueno (verde)
+            } else if (nombreEstado === 'MALO' || nombreEstado === 'OBSOLETO') {
+                claseColor = 'r';  // Asumiendo que tienes una clase ti-pill-Malo (rojo)
+            }
+
+            // 3. CONSTRUCCIÓN DE LA FILA
             tr.innerHTML = `
             <td class="ti-td-code">${x(a.codigo)}</td>
             <td class="ti-td-desc" title="${x(a.descripcion || '')}">${x(a.descripcion || '—')}</td>
             <td class="ti-td-meta">${x(a.grupoContable?.descripcion || '—')}</td>
             <td class="ti-td-meta">${x(a.oficina?.nombre || '—')}</td>
             <td class="ti-td-meta">${x(a.responsable?.nombre || '—')}</td>
-            <td><span class="ti-pill-${act ? 'g' : 'r'}">${act ? '● Activo' : '○ Inactivo'}</span></td>
-            <td><button class="ti-rm" onclick="tiQuitar('${x(a.codigo)}')" title="Quitar">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            </button></td>`;
+            
+            <td><span class="ti-pill-${claseColor}">● ${nombreEstado}</span></td>
+            
+            <td>
+                <button class="ti-rm" onclick="tiQuitar('${x(a.codigo)}')" title="Quitar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </td>`;
+            
             tb.appendChild(tr);
         }
 

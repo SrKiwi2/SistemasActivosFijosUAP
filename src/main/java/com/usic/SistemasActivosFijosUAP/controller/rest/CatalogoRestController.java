@@ -466,6 +466,12 @@ public class CatalogoRestController {
                             "nombre", a.getResponsable().getPersona().getNombreCompleto()
                         ));
                     }
+                    if (a.getEstadoActivo() != null) {
+                        map.put("estadoActivo", Map.of(
+                            "idEstadoActivo", a.getEstadoActivo().getIdEstadoActivo(),
+                            "nombre", a.getEstadoActivo().getNombre()
+                        ));
+                    }
                     
                     resultados.add(map);
                 },
