@@ -1845,3 +1845,24 @@ Caused by: org.hibernate.AnnotationException: Collection 'com.usic.SistemasActiv
 ERROR 11
 
 WARN 2066211 --- [SistemasActivosFijosUAP] [nio-9696-exec-9] .w.s.m.s.DefaultHandlerExceptionResolver : Resolved [org.springframework.web.method.annotation.MethodArgumentTypeMismatchException: Method parameter 'ids': Failed to convert value of type 'java.lang.String[]' to required type 'java.util.List'; For input string: "ZoemtQmISNNUvsMmWLHUHQ=="]
+
+
+
+
+
+
+2026 - kiwi
+
+INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.controller.login.LoginController   : Usuario inició sesión: PERSONA1 - Rol: APOYO
+2026-03-26T10:54:40.383-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-8] c.u.S.controller.IndexController         : Usuario en sesión: PERSONA1
+2026-03-26T10:55:56.165-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.activo.ActivosController         : Transferidos 1 activos → Oficina ID: 490
+2026-03-26T10:55:56.188-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.m.service.TransferenciaService     : Transferencia null registrada — 1 activos
+2026-03-26T10:55:56.243-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.activo.ActivosController         : [DBF-DIAG] tipo=EXTERNA | entidad='entidadCode' | unidad='unidadCode' | activos=1
+2026-03-26T10:55:56.243-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.activo.ActivosController         : [DBF-DIAG] código='01-04-08-03164' oficinaNueva='SISU - ADMINISTRACION'
+2026-03-26T10:55:56.248-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.activo.ActivosController         : [DBF-DIAG] Tipo transferencia: EXTERNA
+2026-03-26T10:55:56.248-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.activo.ActivosController         : [DBF-DIAG] entidadCode = '148' (vacío=false)
+2026-03-26T10:55:56.248-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.activo.ActivosController         : [DBF-DIAG] unidadCode  = 'CUSP' (vacío=false)
+2026-03-26T10:55:56.248-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.activo.ActivosController         : [DBF-DIAG] Activos a sincronizar: 1
+2026-03-26T10:55:56.248-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.activo.ActivosController         : [DBF-DIAG]   código='01-04-08-03164' | oficina='SISU - ADMINISTRACION'
+2026-03-26T10:55:56.248-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.i.r.ActualDbfWriterService         : ⚡ Iniciando actualización masiva OPTIMIZADA en DBF para 1 activos
+2026-03-26T10:55:56.301-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.i.r.ActualDbfWriterService         : ✅ Lote DBF finalizado. Activos actualizados: 1
