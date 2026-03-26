@@ -1,0 +1,1250 @@
+<!-- =====================================================================
+     TRANSFERENCIA EXTERNA DE ACTIVOS FIJOS
+     Fragmento Thymeleaf | sin <head><body><html>
+     Endpoint: POST /administracion/activo/transferencia-masiva  (tipo=EXTERNA)
+====================================================================== -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+    /* Reutiliza los tokens del sistema — prefijo te- para evitar colisiones */
+    :root {
+        --bg-page: #f0f2f5;
+        --bg-panel: #ffffff;
+        --bg-input: #f4f6fa;
+        --bg-hover: #f0f4ff;
+        --border-soft: #e4e8f0;
+        --border-med: #c9d0e0;
+        --border-focus: #3b5bdb;
+        --txt-primary: #1a2340;
+        --txt-sub: #5a6a8a;
+        --txt-muted: #9aa3b8;
+        --accent: #3b5bdb;
+        --accent-lt: rgba(59, 91, 219, .09);
+        --accent-hov: #2f4ac7;
+        --green: #12b76a;
+        --green-lt: rgba(18, 183, 106, .10);
+        --red: #f04438;
+        --red-lt: rgba(240, 68, 56, .10);
+        --amber: #f79009;
+        --amber-lt: rgba(247, 144, 9, .10);
+        --orange: #ea580c;
+        --orange-lt: rgba(234, 88, 12, .10);
+        --font-ui: 'Inter', system-ui, sans-serif;
+        --font-mono: 'JetBrains Mono', 'Fira Mono', monospace;
+        --r-sm: 5px;
+        --r-md: 7px;
+        --r-lg: 10px;
+        --sh-sm: 0 1px 3px rgba(0, 0, 0, .06);
+        --sh-md: 0 4px 14px rgba(0, 0, 0, .10);
+        --t: .16s ease;
+    }
+
+    /* @media (prefers-color-scheme:dark) {
+        :root {
+            --bg-page: #0f1623;
+            --bg-panel: #1a2235;
+            --bg-input: #222d42;
+            --bg-hover: #1e2a40;
+            --border-soft: #2a3550;
+            --border-med: #3a4a68;
+            --border-focus: #5c7cf0;
+            --txt-primary: #e8edf8;
+            --txt-sub: #8a99bb;
+            --txt-muted: #5a6a8a;
+            --accent: #5c7cf0;
+            --accent-lt: rgba(92, 124, 240, .12);
+            --accent-hov: #7090f5;
+            --green: #2dd4a0;
+            --green-lt: rgba(45, 212, 160, .12);
+            --red: #f87171;
+            --red-lt: rgba(248, 113, 113, .12);
+            --amber: #fbbf24;
+            --amber-lt: rgba(251, 191, 36, .12);
+            --orange: #fb923c;
+            --orange-lt: rgba(251, 146, 60, .12);
+            --sh-sm: 0 1px 3px rgba(0, 0, 0, .25);
+            --sh-md: 0 4px 14px rgba(0, 0, 0, .35);
+        }
+    } */
+
+    .te-wrap,
+    .te-wrap * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    .te-wrap {
+        font-family: var(--font-ui);
+        color: var(--txt-primary);
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 56px);
+        overflow: hidden;
+        background: var(--bg-page);
+    }
+
+    /* Topbar */
+    .te-topbar {
+        height: 46px;
+        flex-shrink: 0;
+        background: var(--bg-panel);
+        border-bottom: 1px solid var(--border-soft);
+        box-shadow: var(--sh-sm);
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 0 20px;
+        z-index: 20;
+    }
+
+    .te-topbar-icon {
+        width: 26px;
+        height: 26px;
+        background: var(--orange);
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .te-topbar-icon svg {
+        width: 13px;
+        height: 13px;
+        color: #fff;
+    }
+
+    .te-topbar-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--txt-primary);
+    }
+
+    .te-topbar-badge {
+        margin-left: 8px;
+        display: inline-flex;
+        align-items: center;
+        padding: 1px 8px;
+        border-radius: 100px;
+        background: var(--orange-lt);
+        color: var(--orange);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: .5px;
+        text-transform: uppercase;
+    }
+
+    .te-topbar-clock {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--txt-muted);
+    }
+
+    /* Panel controles */
+    .te-controls {
+        flex-shrink: 0;
+        background: var(--bg-panel);
+        border-bottom: 1px solid var(--border-soft);
+        padding: 11px 20px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+    }
+
+    .te-ctrl-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .te-ctrl-row+.te-ctrl-row {
+        padding-top: 8px;
+        border-top: 1px solid var(--border-soft);
+    }
+
+    /* Separador visual ORIGEN / DESTINO */
+    .te-section-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 10px;
+        border-radius: 100px;
+        font-size: 9.5px;
+        font-weight: 700;
+        letter-spacing: .8px;
+        text-transform: uppercase;
+        white-space: nowrap;
+        align-self: flex-end;
+        margin-bottom: 2px;
+    }
+
+    .te-tag-origen {
+        background: var(--accent-lt);
+        color: var(--accent);
+    }
+
+    .te-tag-destino {
+        background: var(--orange-lt);
+        color: var(--orange);
+    }
+
+    .te-ctrl-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .te-ctrl-group.grow {
+        flex: 1;
+        min-width: 160px;
+    }
+
+    .te-ctrl-lbl {
+        font-size: 9.5px;
+        font-weight: 700;
+        letter-spacing: .8px;
+        text-transform: uppercase;
+        color: var(--txt-muted);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .te-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .te-input,
+    .te-sel {
+        width: 100%;
+        background: var(--bg-input);
+        border: 1px solid var(--border-med);
+        border-radius: var(--r-sm);
+        color: var(--txt-primary);
+        font-family: var(--font-ui);
+        font-size: 12.5px;
+        padding: 6px 10px;
+        outline: none;
+        height: 34px;
+        transition: border-color var(--t), box-shadow var(--t);
+        appearance: none;
+    }
+
+    .te-input:focus,
+    .te-sel:focus {
+        border-color: var(--border-focus);
+        box-shadow: 0 0 0 3px var(--accent-lt);
+    }
+
+    .te-sel {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239aa3b8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 9px center;
+        padding-right: 26px;
+        cursor: pointer;
+    }
+
+    .te-sel:disabled {
+        opacity: .4;
+        cursor: not-allowed;
+    }
+
+    .te-search-inline {
+        display: flex;
+        gap: 6px;
+    }
+
+    .te-search-inline .te-input {
+        flex: 1;
+        min-width: 120px;
+    }
+
+    .te-drop-sm {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        background: var(--bg-input);
+        border: 1.5px dashed var(--border-med);
+        border-radius: var(--r-sm);
+        padding: 5px 10px;
+        height: 34px;
+        cursor: pointer;
+        position: relative;
+        white-space: nowrap;
+        transition: border-color var(--t), background var(--t);
+        font-size: 11.5px;
+        color: var(--txt-sub);
+    }
+
+    .te-drop-sm:hover,
+    .te-drop-sm.dragover {
+        border-color: var(--orange);
+        background: var(--orange-lt);
+        color: var(--orange);
+    }
+
+    .te-drop-sm input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    /* Campo de texto para doc. referencia y observación */
+    .te-textarea {
+        width: 100%;
+        background: var(--bg-input);
+        border: 1px solid var(--border-med);
+        border-radius: var(--r-sm);
+        color: var(--txt-primary);
+        font-family: var(--font-ui);
+        font-size: 12px;
+        padding: 5px 10px;
+        outline: none;
+        resize: none;
+        transition: border-color var(--t), box-shadow var(--t);
+    }
+
+    .te-textarea:focus {
+        border-color: var(--border-focus);
+        box-shadow: 0 0 0 3px var(--accent-lt);
+    }
+
+    .te-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        border: none;
+        border-radius: var(--r-sm);
+        font-family: var(--font-ui);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        padding: 0 13px;
+        height: 34px;
+        white-space: nowrap;
+        transition: all var(--t);
+        outline: none;
+        flex-shrink: 0;
+    }
+
+    .te-btn:focus-visible {
+        box-shadow: 0 0 0 3px var(--accent-lt);
+    }
+
+    .te-btn-accent {
+        background: var(--accent);
+        color: #fff;
+    }
+
+    .te-btn-accent:hover:not(:disabled) {
+        background: var(--accent-hov);
+    }
+
+    .te-btn-ghost {
+        background: var(--bg-input);
+        color: var(--txt-sub);
+        border: 1px solid var(--border-med);
+    }
+
+    .te-btn-ghost:hover:not(:disabled) {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-lt);
+    }
+
+    .te-btn-go {
+        background: var(--orange);
+        color: #fff;
+        font-weight: 600;
+        font-size: 13px;
+        padding: 0 20px;
+        height: 36px;
+    }
+
+    .te-btn-go:hover:not(:disabled) {
+        filter: brightness(1.07);
+    }
+
+    .te-btn-go:disabled {
+        opacity: .38;
+        cursor: not-allowed;
+    }
+
+    .te-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 6px;
+        border-radius: 100px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        font-weight: 700;
+        background: var(--accent-lt);
+        color: var(--accent);
+    }
+
+    .te-badge-neu {
+        background: var(--bg-input);
+        color: var(--txt-sub);
+    }
+
+    .te-prog {
+        height: 2px;
+        background: var(--border-soft);
+        border-radius: 2px;
+        margin-top: 4px;
+        overflow: hidden;
+        display: none;
+    }
+
+    .te-prog-bar {
+        height: 100%;
+        background: var(--orange);
+        width: 0;
+        transition: width .3s;
+    }
+
+    /* Resumen origen→destino */
+    .te-flow-banner {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        background: var(--bg-page);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--r-md);
+        font-size: 11px;
+        color: var(--txt-sub);
+        flex-wrap: wrap;
+    }
+
+    .te-flow-chip {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: 4px;
+        padding: 2px 8px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--txt-primary);
+    }
+
+    .te-flow-arrow {
+        color: var(--orange);
+        font-size: 14px;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    /* Tabla */
+    .te-main {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: auto;
+        padding: 14px 20px;
+        min-height: 0;
+        position: relative;
+    }
+
+    .te-main::-webkit-scrollbar {
+        width: 4px;
+        height: 4px
+    }
+
+    .te-main::-webkit-scrollbar-thumb {
+        background: var(--border-med);
+        border-radius: 4px;
+    }
+
+    .te-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 55vh;
+        gap: 10px;
+        color: var(--txt-muted);
+        text-align: center;
+    }
+
+    .te-empty-ico {
+        width: 52px;
+        height: 52px;
+        border: 1.5px dashed var(--border-med);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+
+    .te-empty-t {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--txt-sub);
+    }
+
+    .te-empty-s {
+        font-size: 11.5px;
+        line-height: 1.65;
+    }
+
+    .te-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+
+    .te-table thead th {
+        text-align: left;
+        font-family: var(--font-mono);
+        font-size: 9.5px;
+        letter-spacing: .8px;
+        text-transform: uppercase;
+        color: var(--txt-muted);
+        padding: 0 9px 8px;
+        border-bottom: 1px solid var(--border-soft);
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .te-table thead th:first-child {
+        padding-left: 0;
+    }
+
+    .te-table tbody tr {
+        border-bottom: 1px solid var(--border-soft);
+        transition: background var(--t);
+        animation: teIn .18s ease both;
+    }
+
+    @keyframes teIn {
+        from {
+            opacity: 0;
+            transform: translateY(4px)
+        }
+
+        to {
+            opacity: 1;
+            transform: none
+        }
+    }
+
+    .te-table tbody tr:hover {
+        background: var(--bg-hover);
+    }
+
+    .te-table tbody td {
+        padding: 8px 9px;
+        vertical-align: middle;
+        color: var(--txt-primary);
+    }
+
+    .te-table tbody td:first-child {
+        padding-left: 0;
+    }
+
+    .te-td-code {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--accent);
+        white-space: nowrap;
+    }
+
+    .te-td-desc {
+        max-width: 240px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .te-td-meta {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--txt-sub);
+        white-space: nowrap;
+    }
+
+    .te-pill-g {
+        display: inline-flex;
+        align-items: center;
+        font-size: 9.5px;
+        font-weight: 700;
+        border-radius: 100px;
+        padding: 2px 8px;
+        text-transform: uppercase;
+        background: var(--green-lt);
+        color: var(--green);
+    }
+
+    .te-pill-r {
+        display: inline-flex;
+        align-items: center;
+        font-size: 9.5px;
+        font-weight: 700;
+        border-radius: 100px;
+        padding: 2px 8px;
+        text-transform: uppercase;
+        background: var(--red-lt);
+        color: var(--red);
+    }
+
+    .te-rm {
+        background: none;
+        border: none;
+        color: var(--txt-muted);
+        cursor: pointer;
+        padding: 3px 4px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        transition: color var(--t), background var(--t);
+    }
+
+    .te-rm:hover {
+        color: var(--red);
+        background: var(--red-lt);
+    }
+
+    /* Overlay / spinner / toasts */
+    .te-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255, 255, 255, .75);
+        backdrop-filter: blur(3px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .2s;
+    }
+
+    @media (prefers-color-scheme:dark) {
+        .te-overlay {
+            background: rgba(15, 22, 35, .78);
+        }
+    }
+
+    .te-overlay.on {
+        opacity: 1;
+        pointer-events: all;
+    }
+
+    .te-overlay-box {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--r-md);
+        padding: 20px 28px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        box-shadow: var(--sh-md);
+    }
+
+    .te-overlay-txt {
+        font-size: 11.5px;
+        color: var(--txt-sub);
+        font-family: var(--font-mono);
+    }
+
+    .te-spin {
+        border: 2.5px solid var(--border-soft);
+        border-top-color: var(--orange);
+        border-radius: 50%;
+        animation: teRot .55s linear infinite;
+        display: inline-block;
+    }
+
+    @keyframes teRot {
+        to {
+            transform: rotate(360deg)
+        }
+    }
+
+    .te-toasts {
+        position: fixed;
+        bottom: 18px;
+        right: 18px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        pointer-events: none;
+    }
+
+    .te-toast {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--r-md);
+        padding: 10px 14px;
+        min-width: 260px;
+        max-width: 330px;
+        box-shadow: var(--sh-md);
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        pointer-events: all;
+        animation: teTIn .22s ease both;
+    }
+
+    @keyframes teTIn {
+        from {
+            opacity: 0;
+            transform: translateX(14px)
+        }
+
+        to {
+            opacity: 1;
+            transform: none
+        }
+    }
+
+    .te-toast-s {
+        border-left: 3px solid var(--green)
+    }
+
+    .te-toast-e {
+        border-left: 3px solid var(--red)
+    }
+
+    .te-toast-w {
+        border-left: 3px solid var(--amber)
+    }
+
+    .te-toast-ti {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--txt-primary);
+        margin-bottom: 2px
+    }
+
+    .te-toast-ms {
+        font-size: 11px;
+        color: var(--txt-sub);
+        line-height: 1.5
+    }
+
+    /* Select2 override naranja para este módulo */
+    .te-wrap .select2-container {
+        width: 100% !important
+    }
+
+    .te-wrap .select2-container--default .select2-selection--single {
+        background-color: var(--bg-input);
+        border: 1px solid var(--border-med);
+        border-radius: var(--r-sm);
+        height: 34px;
+        display: flex;
+        align-items: center;
+        transition: border-color var(--t), box-shadow var(--t)
+    }
+
+    .te-wrap .select2-container--default.select2-container--open .select2-selection--single,
+    .te-wrap .select2-container--default.select2-container--focus .select2-selection--single {
+        border-color: var(--orange);
+        box-shadow: 0 0 0 3px var(--orange-lt);
+    }
+
+    .te-wrap .select2-container--default .select2-selection--single .select2-selection__rendered {
+        color: var(--txt-primary) !important;
+        font-family: var(--font-ui);
+        font-size: 12.5px;
+        line-height: 32px !important;
+        padding-left: 10px !important;
+        padding-right: 26px !important
+    }
+
+    .te-wrap .select2-container--default .select2-selection--single .select2-selection__placeholder {
+        color: var(--txt-muted) !important
+    }
+
+    .te-wrap .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 32px;
+        right: 7px
+    }
+
+    .te-wrap .select2-dropdown {
+        background-color: var(--bg-panel);
+        border: 1px solid var(--orange);
+        border-radius: var(--r-md);
+        box-shadow: var(--sh-md);
+        margin-top: 2px
+    }
+
+    .te-wrap .select2-search--dropdown {
+        padding: 7px 7px 5px
+    }
+
+    .te-wrap .select2-search--dropdown .select2-search__field {
+        border: 1px solid var(--border-med);
+        border-radius: var(--r-sm);
+        background: var(--bg-input);
+        color: var(--txt-primary);
+        font-family: var(--font-ui);
+        font-size: 12px;
+        padding: 5px 8px;
+        width: 100%;
+        outline: none;
+    }
+
+    .te-wrap .select2-results__option {
+        font-family: var(--font-ui);
+        font-size: 12.5px;
+        color: var(--txt-primary) !important;
+        padding: 7px 11px;
+    }
+
+    .te-wrap .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+        background-color: var(--orange-lt) !important;
+        color: var(--orange) !important
+    }
+
+    .te-wrap .select2-container--default .select2-results__option--selected {
+        background-color: var(--bg-page) !important;
+        font-weight: 600
+    }
+
+    .te-wrap .select2-container--default.select2-container--disabled .select2-selection--single {
+        opacity: .4;
+        cursor: not-allowed
+    }
+
+    @media (max-width:900px) {
+        .te-wrap {
+            height: auto;
+            overflow: visible
+        }
+
+        .te-ctrl-row {
+            flex-direction: column;
+            align-items: stretch
+        }
+
+        .te-topbar-clock {
+            display: none
+        }
+    }
+</style>
+
+<div class="te-wrap">
+
+    <!-- Topbar -->
+    <header class="te-topbar">
+        <div class="te-topbar-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+        </div>
+        <span class="te-topbar-title">Transferencia Externa de Activos Fijos</span>
+        <span class="te-topbar-badge">Externa</span>
+        <span class="te-topbar-clock" id="te-clock">—</span>
+    </header>
+
+    <!-- CONTROLES -->
+    <div class="te-controls">
+
+        <!-- Fila 1: Activos a transferir -->
+        <div class="te-ctrl-row">
+
+            <!-- Buscar por código -->
+            <div class="te-ctrl-group grow">
+                <span class="te-ctrl-lbl"><span class="te-dot" style="background:var(--green)"></span>Buscar activo por
+                    código</span>
+                <div class="te-search-inline">
+                    <input class="te-input" type="text" id="te-cod" placeholder="Ej: ACT-00123"
+                        onkeydown="if(event.key==='Enter') teBuscar()" />
+                    <button class="te-btn te-btn-accent" onclick="teBuscar()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="m21 21-4.35-4.35" />
+                        </svg>
+                        Buscar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Excel -->
+            <div class="te-ctrl-group">
+                <span class="te-ctrl-lbl"><span class="te-dot" style="background:var(--amber)"></span>Carga
+                    masiva</span>
+                <div class="te-drop-sm" id="te-drop" ondragover="event.preventDefault();this.classList.add('dragover')"
+                    ondragleave="this.classList.remove('dragover')" ondrop="teDrop(event)">
+                    <input type="file" id="te-file" accept=".xlsx,.xls,.csv" onchange="teExcelChange(event)" />
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    Subir Excel
+                </div>
+                <div class="te-prog" id="te-prog">
+                    <div class="te-prog-bar" id="te-prog-bar"></div>
+                </div>
+            </div>
+
+            <!-- Limpiar -->
+            <div class="te-ctrl-group" style="justify-content:flex-end">
+                <span class="te-ctrl-lbl" style="opacity:0">—</span>
+                <button class="te-btn te-btn-ghost" onclick="teLimpiar()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+                    </svg>
+                    Limpiar
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Fila 2: Destino externo -->
+        <div class="te-ctrl-row">
+            <span class="te-section-tag te-tag-destino">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2.5">
+                    <path d="M17 16l4-4m0 0l-4-4m4 4H7" />
+                </svg>
+                Destino externo
+            </span>
+
+            <!-- Predio destino -->
+            <div class="te-ctrl-group grow">
+                <span class="te-ctrl-lbl"><span class="te-dot" style="background:var(--orange)"></span>Predio
+                    destino</span>
+                <select id="te-predio-dest" class="te-sel">
+                    <option value="">— Seleccione predio —</option>
+                    <th:block th:each="p : ${predios}">
+                        <option th:value="${p.idPredio}" th:text="${p.descrip} + ' - ' + ${p.codigo}"></option>
+                    </th:block>
+                </select>
+            </div>
+
+            <!-- Oficina destino -->
+            <div class="te-ctrl-group grow">
+                <span class="te-ctrl-lbl"><span class="te-dot" style="background:var(--orange)"></span>Oficina
+                    destino</span>
+                <select id="te-oficina-dest" class="te-sel" disabled>
+                    <option value="">— Seleccione predio primero —</option>
+                </select>
+            </div>
+
+            <!-- Responsable destino -->
+            <div class="te-ctrl-group grow">
+                <span class="te-ctrl-lbl"><span class="te-dot" style="background:var(--orange)"></span>Responsable
+                    destino</span>
+                <select id="te-resp-dest" class="te-sel" disabled>
+                    <option value="">— Seleccione oficina primero —</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Fila 3: Documento referencia + Observación + Botón -->
+        <div class="te-ctrl-row">
+
+            <!-- Documento de referencia -->
+            <div class="te-ctrl-group" style="min-width:180px;">
+                <span class="te-ctrl-lbl">Documento / referencia</span>
+                <input class="te-input" type="text" id="te-doc-ref" placeholder="Ej: NOTA-2025-015" />
+            </div>
+
+            <!-- Observación -->
+            <div class="te-ctrl-group grow">
+                <span class="te-ctrl-lbl">Observación</span>
+                <textarea class="te-textarea" id="te-observacion" rows="1"
+                    placeholder="Motivo u observación de la transferencia…" style="height:34px;"></textarea>
+            </div>
+
+            <!-- Resumen + Transferir -->
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;align-self:flex-end;">
+                <span style="font-size:11px;color:var(--txt-muted)">Activos:</span>
+                <span class="te-badge" id="te-cnt">0</span>
+                <button class="te-btn te-btn-go" id="te-btn-go" disabled onclick="teTransferir()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2.3">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Transferir Externamente
+                </button>
+            </div>
+        </div>
+
+        <!-- Banner de resumen origen → destino -->
+        <div class="te-flow-banner" id="te-flow-banner" style="display:none;">
+            <span
+                style="font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--txt-muted);">Movimiento:</span>
+            <span class="te-flow-chip" id="te-banner-orig">—</span>
+            <span class="te-flow-arrow">→</span>
+            <span class="te-flow-chip" id="te-banner-dest">—</span>
+            <span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;" id="te-banner-resp">—</span>
+        </div>
+
+    </div>
+
+    <!-- Tabla -->
+    <div class="te-main">
+        <div class="te-overlay" id="te-overlay">
+            <div class="te-overlay-box">
+                <div class="te-spin" style="width:24px;height:24px;border-width:3px;"></div>
+                <span class="te-overlay-txt" id="te-overlay-txt">Procesando…</span>
+            </div>
+        </div>
+
+        <div class="te-empty" id="te-empty">
+            <div class="te-empty-ico">🏢</div>
+            <div class="te-empty-t">Sin activos cargados</div>
+            <div class="te-empty-s">Busca por código o sube un Excel.<br>Luego selecciona el predio y oficina de
+                destino.</div>
+        </div>
+
+        <table class="te-table" id="te-table" style="display:none;">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>Grupo Contable</th>
+                    <th>Oficina Actual</th>
+                    <th>Responsable Actual</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="te-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="te-toasts" id="te-toasts"></div>
+
+<script>
+    (function () {
+        'use strict';
+        const S = { list: [], codes: new Set() };
+
+        /* Reloj */
+        clearInterval(window._teClock);
+        window._teClock = setInterval(() => {
+            const el = document.getElementById('te-clock');
+            if (el) el.textContent = new Date().toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'medium' });
+        }, 1000);
+
+        /* Select2 */
+        window.teInitSelect2 = function () {
+            if (typeof $ === 'undefined' || !$.fn?.select2) return setTimeout(window.teInitSelect2, 80);
+            ['#te-predio-dest', '#te-oficina-dest', '#te-resp-dest'].forEach(id => {
+                try { const $e = $(id); if ($e.hasClass('select2-hidden-accessible')) $e.select2('destroy'); $e.off('change.te'); } catch (_) { }
+            });
+            const b = { width: '100%', allowClear: true, minimumResultsForSearch: 6 };
+            $('#te-predio-dest').select2({ ...b, placeholder: '— Seleccione predio —' });
+            $('#te-oficina-dest').select2({ ...b, placeholder: '— Seleccione oficina —' });
+            $('#te-resp-dest').select2({ ...b, placeholder: '— Seleccione responsable —' });
+            $('#te-predio-dest').on('change.te', window.tePredioDestChange);
+            $('#te-oficina-dest').on('change.te', window.teOficinaDestChange);
+            $('#te-resp-dest').on('change.te', teBanner);
+        };
+
+        window.tePredioDestChange = async function () {
+            const id = $('#te-predio-dest').val(), $of = $('#te-oficina-dest'), $re = $('#te-resp-dest');
+            $re.empty().append('<option value="">— Seleccione oficina primero —</option>').prop('disabled', true).trigger('change.select2');
+            teBanner();
+            if (!id) { $of.empty().append('<option value="">— Seleccione predio primero —</option>').prop('disabled', true).trigger('change.select2'); return; }
+            $of.empty().append('<option value="">— Cargando… —</option>').prop('disabled', true).trigger('change.select2');
+            try {
+                const data = await fetch(`/api/oficinas/por-predio?predioId=${id}`).then(r => r.json());
+                $of.empty().append('<option value="">— Seleccione oficina —</option>');
+                data.forEach(o => $of.append($('<option>').val(o.idOficina).text(`${o.codOfi} — ${o.nombre}`).attr('data-nombre', o.nombre)));
+                $of.prop('disabled', false).trigger('change.select2');
+            } catch (_) { teToast('e', 'Error', 'No se pudieron cargar las oficinas.'); }
+        };
+
+        window.teOficinaDestChange = async function () {
+            const id = $('#te-oficina-dest').val(), $re = $('#te-resp-dest');
+            teBanner();
+            if (!id) { $re.empty().append('<option value="">— Seleccione oficina primero —</option>').prop('disabled', true).trigger('change.select2'); return; }
+            $re.empty().append('<option value="">— Cargando… —</option>').prop('disabled', true).trigger('change.select2');
+            try {
+                const data = await fetch(`/api/responsables/por-oficina?oficinaId=${id}`).then(r => r.json());
+                $re.empty().append('<option value="">— Seleccione responsable —</option>');
+                data.forEach(r => $re.append($('<option>').val(r.idResponsable).text(`${r.codigoFuncionario} — ${r.nombre}`).attr('data-nombre', r.nombre)));
+                $re.prop('disabled', false).trigger('change.select2');
+            } catch (_) { teToast('e', 'Error', 'No se pudieron cargar los responsables.'); }
+            teBanner();
+        };
+
+        function teBanner() {
+            const $of = $('#te-oficina-dest option:selected');
+            const $re = $('#te-resp-dest option:selected');
+            const banner = document.getElementById('te-flow-banner');
+            const ofNombre = $of.val() ? ($of.attr('data-nombre') || $of.text()) : null;
+            const reNombre = $re.val() ? ($re.attr('data-nombre') || $re.text()) : null;
+
+            if (ofNombre) {
+                banner.style.display = 'flex';
+                set('te-banner-orig', 'Activos seleccionados');
+                set('te-banner-dest', ofNombre);
+                set('te-banner-resp', reNombre ? `👤 ${reNombre}` : '—');
+            } else { banner.style.display = 'none'; }
+            teCheckBtn();
+        }
+
+        function teCheckBtn() {
+            const ok = $('#te-oficina-dest').val() && $('#te-resp-dest').val() && S.list.length > 0;
+            document.getElementById('te-btn-go').disabled = !ok;
+        }
+
+        window.teBuscar = async function () {
+            const cod = document.getElementById('te-cod').value.trim();
+            if (!cod) { teToast('w', 'Campo vacío', 'Ingrese un código.'); return; }
+            if (S.codes.has(cod.toUpperCase())) { teToast('w', 'Duplicado', `"${cod}" ya está en la lista.`); return; }
+            teOverlay(`Buscando ${cod}…`);
+            try {
+                const d = await fetch(`/api/activos/por-codigo?codigo=${encodeURIComponent(cod)}`).then(r => r.json());
+                if (!d?.idActivo) { teToast('e', 'No encontrado', `No existe activo con código "${cod}".`); return; }
+                teAdd(d); document.getElementById('te-cod').value = '';
+                teToast('s', 'Activo encontrado', `${d.codigo} — ${d.descripcion}`);
+            } catch (e) { teToast('e', 'Error', e.message); }
+            finally { teOverlayOff(); }
+        };
+
+        window.teDrop = function (e) { e.preventDefault(); document.getElementById('te-drop').classList.remove('dragover'); const f = e.dataTransfer.files[0]; if (f) teExcel(f); };
+        window.teExcelChange = function (e) { const f = e.target.files[0]; if (f) teExcel(f); e.target.value = ''; };
+
+        async function teExcel(file) {
+            const $pg = document.getElementById('te-prog'), $bar = document.getElementById('te-prog-bar');
+            $pg.style.display = 'block'; $bar.style.width = '10%';
+            try {
+                const buf = await file.arrayBuffer(); $bar.style.width = '30%';
+                const wb = XLSX.read(buf, { type: 'array' });
+                const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+                let cods = rows.map(r => String(r[0] || '').trim()).filter(c => c);
+                if (cods.length && isNaN(cods[0]) && /cod/i.test(cods[0])) cods.shift();
+                const nuevos = cods.filter(c => !S.codes.has(c.toUpperCase()));
+                const dups = cods.length - nuevos.length;
+                if (!nuevos.length) { teToast('w', 'Sin nuevos', 'Todos ya están en lista.'); $pg.style.display = 'none'; return; }
+                $bar.style.width = '50%'; teOverlay(`Cargando ${nuevos.length} activos…`);
+                const data = await fetch('/api/activos/por-codigos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ codigos: nuevos }) }).then(r => r.json());
+                $bar.style.width = '90%';
+                let ok = 0, no = [];
+                data.forEach(a => { if (a?.idActivo) { teAdd(a); ok++; } else if (a.codigoBuscado) no.push(a.codigoBuscado); });
+                $bar.style.width = '100%';
+                const m = [`${ok} activo(s) cargados.`];
+                if (dups) m.push(`${dups} ya estaban.`); if (no.length) m.push(`${no.length} no encontrados.`);
+                teToast('s', 'Excel procesado', m.join(' '));
+            } catch (e) { teToast('e', 'Error al leer Excel', e.message); }
+            finally { teOverlayOff(); setTimeout(() => { $pg.style.display = 'none'; $bar.style.width = '0'; }, 1300); }
+        }
+
+        function teAdd(a) {
+            if (S.codes.has(a.codigo.toUpperCase())) return;
+            S.list.push(a); S.codes.add(a.codigo.toUpperCase());
+            teRow(a); teCounts(); teCheckBtn();
+            document.getElementById('te-empty').style.display = 'none';
+            document.getElementById('te-table').style.display = 'table';
+        }
+
+        function teRow(a) {
+            const tb = document.getElementById('te-tbody'), tr = document.createElement('tr');
+            const sid = a.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+            tr.id = `te-r-${sid}`; tr.style.animationDelay = `${Math.min(tb.rows.length * .035, .35)}s`;
+            const act = (a.estado || '').toUpperCase() === 'ACTIVO';
+            tr.innerHTML = `
+            <td class="te-td-code">${x(a.codigo)}</td>
+            <td class="te-td-desc" title="${x(a.descripcion || '')}">${x(a.descripcion || '—')}</td>
+            <td class="te-td-meta">${x(a.grupoContable?.nombre || '—')}</td>
+            <td class="te-td-meta">${x(a.oficina?.nombre || '—')}</td>
+            <td class="te-td-meta">${x(a.responsable?.nombre || '—')}</td>
+            <td><span class="te-pill-${act ? 'g' : 'r'}">${act ? '● Activo' : '○ Inactivo'}</span></td>
+            <td><button class="te-rm" onclick="teQuitar('${x(a.codigo)}')" title="Quitar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button></td>`;
+            tb.appendChild(tr);
+        }
+
+        window.teQuitar = function (cod) {
+            const sid = cod.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+            const tr = document.getElementById(`te-r-${sid}`);
+            if (tr) { tr.style.cssText += 'opacity:0;transform:translateX(-8px);transition:.2s'; setTimeout(() => tr.remove(), 220); }
+            S.list = S.list.filter(a => a.codigo.toUpperCase() !== cod.toUpperCase());
+            S.codes.delete(cod.toUpperCase());
+            teCounts(); teCheckBtn();
+            if (!S.list.length) { document.getElementById('te-empty').style.display = 'flex'; document.getElementById('te-table').style.display = 'none'; }
+        };
+
+        window.teLimpiar = function () {
+            S.list = []; S.codes.clear();
+            document.getElementById('te-tbody').innerHTML = '';
+            document.getElementById('te-empty').style.display = 'flex';
+            document.getElementById('te-table').style.display = 'none';
+            teCounts(); teCheckBtn();
+        };
+
+        window.teTransferir = async function () {
+            const ofId = document.getElementById('te-oficina-dest').value;
+            const respId = document.getElementById('te-resp-dest').value;
+            const docRef = document.getElementById('te-doc-ref').value.trim();
+            const obs = document.getElementById('te-observacion').value.trim();
+            if (!ofId || !respId) { teToast('w', 'Incompleto', 'Seleccione oficina y responsable de destino.'); return; }
+            if (!S.list.length) { teToast('w', 'Sin activos', 'No hay activos en la lista.'); return; }
+            if (!confirm(`¿Confirma la TRANSFERENCIA EXTERNA de ${S.list.length} activo(s) a otro predio?`)) return;
+            const btn = document.getElementById('te-btn-go');
+            btn.disabled = true; btn.innerHTML = '<span class="te-spin" style="width:14px;height:14px;border-width:2px;"></span>&ensp;Transfiriendo…';
+            teOverlay(`Transfiriendo ${S.list.length} activo(s) externamente…`);
+            try {
+                const payload = {
+                    idOficina: parseInt(ofId), idResponsable: parseInt(respId),
+                    codigos: S.list.map(a => a.codigo),
+                    tipo: 'EXTERNA',
+                    documentoReferencia: docRef || null,
+                    observacion: obs || null
+                };
+                const res = await fetch('/administracion/activo/transferencia-masiva', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    teToast('s', '¡Transferencia externa exitosa!', data.msg);
+                    if (data.numeroTransferencia) teToast('i', 'Referencia', `Nro: ${data.numeroTransferencia}`);
+                    teLimpiar();
+                    document.getElementById('te-doc-ref').value = '';
+                    document.getElementById('te-observacion').value = '';
+                } else { teToast('e', 'Error', data.msg || 'Revise la consola.'); }
+            } catch (e) { teToast('e', 'Error de red', e.message); }
+            finally {
+                teOverlayOff(); btn.disabled = false;
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.3"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg> Transferir Externamente`;
+                teCheckBtn();
+            }
+        };
+
+        function teCounts() { const n = S.list.length; set('te-cnt', n); }
+        function teOverlay(msg) { document.getElementById('te-overlay-txt').textContent = msg; document.getElementById('te-overlay').classList.add('on'); }
+        function teOverlayOff() { document.getElementById('te-overlay').classList.remove('on'); }
+        function teToast(type, title, msg) {
+            const icons = { s: '✅', e: '❌', w: '⚠️', i: 'ℹ️' }, cls = { s: 'te-toast-s', e: 'te-toast-e', w: 'te-toast-w', i: 'te-toast-s' };
+            const c = document.getElementById('te-toasts'), d = document.createElement('div');
+            d.className = `te-toast ${cls[type] || 'te-toast-s'}`;
+            d.innerHTML = `<span style="font-size:14px;flex-shrink:0;margin-top:1px;">${icons[type] || 'ℹ️'}</span><div><div class="te-toast-ti">${x(title)}</div><div class="te-toast-ms">${x(msg)}</div></div>`;
+            c.appendChild(d);
+            setTimeout(() => { d.style.cssText += 'opacity:0;transform:translateX(12px);transition:.3s'; setTimeout(() => d.remove(), 330); }, 4500);
+        }
+        function set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+        function x(s) { return s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+        (function boot() { if (typeof $ !== 'undefined' && $.fn?.select2) window.teInitSelect2(); else setTimeout(boot, 80); })();
+    })();
+</script>

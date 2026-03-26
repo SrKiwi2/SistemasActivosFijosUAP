@@ -309,3 +309,88 @@
         animation: none
     }
 }
+
+/* ESTILOS DEL NUEVO MODAL DE LOGIN */
+
+.login-modern-card {
+    border-radius: 16px !important;
+    background-color: #ffffff;
+    overflow: hidden;
+}
+
+/* Tipografía para las etiquetas */
+.tracking-wider {
+    letter-spacing: 1px;
+}
+
+/* Estilización de los Inputs */
+.login-input-group {
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    border: 1px solid #e5e7eb; /* Gris muy suave */
+    background-color: #f9fafb; /* Fondo muy claro para contraste */
+}
+
+/* El input y los iconos dentro del grupo */
+.login-input-group .form-control,
+.login-input-group .input-group-text {
+    border: none;
+    background: transparent;
+    box-shadow: none !important; /* Quitamos la sombra azul por defecto de Bootstrap */
+    padding-top: 0.8rem;
+    padding-bottom: 0.8rem;
+}
+
+.login-input-group .input-group-text i {
+    color: #9ca3af; /* Color del icono neutro */
+    transition: color 0.3s ease;
+}
+
+/* Estado Focus (Cuando el usuario hace clic) */
+.login-input-group:focus-within {
+    border-color: #1a56a0; /* Tu azul institucional UAP */
+    background-color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(26, 86, 160, 0.1); /* Anillo suave */
+}
+
+.login-input-group:focus-within .input-group-text i {
+    color: #1a56a0; /* Icono se pinta de azul */
+}
+
+/* Botón de Submit */
+.login-modern-card .btn-primary {
+    background-color: #1a56a0;
+    border-color: #1a56a0;
+    border-radius: 10px;
+    padding: 0.85rem;
+    transition: all 0.3s ease;
+}
+
+.login-modern-card .btn-primary:hover {
+    background-color: #154380;
+    border-color: #154380;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(26, 86, 160, 0.2) !important;
+}
+
+/* Cursor para el ojito */
+.cursor-pointer {
+    cursor: pointer;
+}
+
+/* ---------------------------------------------------
+   ELIMINAR FONDO AMARILLO DE AUTOCOMPLETADO (CHROME/EDGE)
+   --------------------------------------------------- */
+.login-input-group .form-control:-webkit-autofill,
+.login-input-group .form-control:-webkit-autofill:hover, 
+.login-input-group .form-control:-webkit-autofill:focus, 
+.login-input-group .form-control:-webkit-autofill:active {
+    /* Forzamos el fondo blanco tapando el amarillo con una sombra interna */
+    -webkit-box-shadow: 0 0 0 30px #ffffff inset !important;
+    /* Forzamos el color del texto a gris oscuro */
+    -webkit-text-fill-color: #374151 !important; 
+    /* Quitamos el borde extra que a veces pone el navegador */
+    caret-color: #1a56a0; 
+    /* Transición súper lenta para evitar parpadeos nativos */
+    transition: background-color 5000s ease-in-out 0s;
+}

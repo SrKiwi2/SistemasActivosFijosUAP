@@ -30,7 +30,9 @@ public class TransferenciaActivoController {
 
     @ValidarUsuarioAutenticado
     @GetMapping("/trasnferenciaExterna")
-    public String transferenciaExterna() {
+    public String transferenciaExterna(Model model) {
+        List<Predio> listarDePredio = predioServicio.listarPredios();
+        model.addAttribute("predios", listarDePredio);
         return "activo/transferenciaExterna";
     }
 }

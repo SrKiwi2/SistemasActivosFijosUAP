@@ -1,83 +1,6 @@
-$(function () {
-    $("#formularioLogin").on("submit", function (e) {
-        e.preventDefault();
-        
-        if (!this.checkValidity()) {
-            $(this).addClass("was-validated");
-            return;
-        }
+$(document).ready(function () {
 
-        const formData = new FormData(this);
-
-        $.ajax({
-            type: "POST",
-            url: this.action,
-            data: formData,
-            contentType: false,
-            processData: false,
-            success: function (response) {
-                // Mapeo de respuestas a rutas de destino
-                const rutasDestino = {
-                    "Iniciando Session": "/adm/inicio",           // ADMINISTRADOR
-                    "Inicio Responsable": "/adm/responsable",     // RESPONSABLE
-                    "Inicio Recepcion": "/administracion/hoja-ruta/vista",  // RECEPCION
-                    "Inicio Contador": "/contabilidad/inicio"     // CONTADOR
-                };
-
-                // Verificar si la respuesta corresponde a un inicio de sesión exitoso
-                if (rutasDestino.hasOwnProperty(response)) {
-                    // 1) Cerrar el modal de login si existe
-                    $("#modalLogin").modal("hide");
-
-                    // 2) Obtener la ruta de destino
-                    const destino = rutasDestino[response];
-
-                    // 3) Mostrar loader y redirigir
-                    Swal.fire({
-                        title: "Iniciando sesión…",
-                        text: "Redirigiendo al sistema",
-                        allowOutsideClick: false,
-                        allowEscapeKey: false,
-                        showConfirmButton: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                            // Redirige inmediatamente
-                            window.location.href = destino;
-                        }
-                    });
-                } else {
-                    // Es un mensaje de error
-                    Swal.fire({
-                        icon: "error",
-                        title: "Imposible continuar",
-                        text: response + ".",
-                        confirmButtonText: "Aceptar"
-                    });
-                }
-            },
-            error: function (xhr) {
-                let msg = "Ha ocurrido un error. Por favor, intenta nuevamente.";
-                
-                try {
-                    const json = xhr.responseJSON || JSON.parse(xhr.responseText);
-                    if (json && json.message) {
-                        msg = json.message;
-                    }
-                } catch (e) {
-                    // Si no se puede parsear, usar mensaje por defecto
-                }
-                
-                Swal.fire({
-                    icon: "error",
-                    title: "Imposible continuar",
-                    text: msg,
-                    confirmButtonText: "Aceptar"
-                });
-            }
-        });
-    });
-
-    // Toggle para mostrar/ocultar contraseña
+    // 1. Mostrar/Ocultar Contraseña (Versión única y limpia)
     $("#togglePassword").on("click", function () {
         const passwordInput = $("#contrasena");
         const iconToggle = $("#iconToggle");
@@ -90,23 +13,81 @@ $(function () {
             iconToggle.removeClass("ti-eye").addClass("ti-eye-off");
         }
     });
-});
 
+    // 2. Manejo del Formulario de Login
+    $("#formularioLogin").on("submit", function (e) {
+        e.preventDefault();
+        
+        const form = $(this);
+        const btnSubmit = form.find('button[type="submit"]');
+        const alertBox = $("#loginAlert"); // Nuevo contenedor para errores
 
-//FIN INICIO DE SESION
+        // Ocultar alerta previa y resetear validación
+        alertBox.slideUp();
+        
+        if (!this.checkValidity()) {
+            form.addClass("was-validated");
+            return;
+        }
 
-// VER CONTRASEÑA MODAL LOGIN
-// /assets/js/login_publico.js
-document.addEventListener('DOMContentLoaded', () => {
-  const togglePassword = document.getElementById('togglePassword');
-  const passwordInput  = document.getElementById('contrasena');
-  const iconToggle     = document.getElementById('iconToggle');
+        // Estado de carga en el botón
+        const originalBtnText = btnSubmit.html();
+        btnSubmit.html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Validando...').prop('disabled', true);
 
-  if (!togglePassword || !passwordInput || !iconToggle) return;
+        const formData = new FormData(this);
 
-  togglePassword.addEventListener('click', () => {
-    const isPassword = passwordInput.type === 'password';
-    passwordInput.type = isPassword ? 'text' : 'password';
-    iconToggle.className = isPassword ? 'ti ti-eye' : 'ti ti-eye-off';
-  });
+        $.ajax({
+            type: "POST",
+            url: this.action,
+            data: formData,
+            contentType: false,
+            processData: false,
+            success: function (response) {
+                // Diccionario actualizado (Asegúrate de incluir tu "Nuevo Rol" o "Apoyo" aquí)
+                const rutasDestino = {
+                    "Iniciando Session": "/adm/inicio",
+                    "Inicio Responsable": "/adm/responsable",
+                    "Inicio Recepcion": "/administracion/hoja-ruta/vista",
+                    "Inicio Contador": "/contabilidad/inicio",
+                    // Añade más roles si los configuraste en el controlador
+                };
+
+                if (rutasDestino.hasOwnProperty(response)) {
+                    // Éxito: Redirigir (El SweetAlert aquí sí está bien, es para transición exitosa)
+                    $("#modalLogin").modal("hide");
+                    const destino = rutasDestino[response];
+                    
+                    Swal.fire({
+                        title: "Acceso Concedido",
+                        text: "Iniciando entorno de trabajo...",
+                        icon: "success",
+                        showConfirmButton: false,
+                        timer: 1500,
+                        timerProgressBar: true,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    }).then(() => {
+                        window.location.href = destino;
+                    });
+                } else {
+                    // ERROR: Mostrar alerta DENTRO del modal, no con SweetAlert molesto
+                    btnSubmit.html(originalBtnText).prop('disabled', false);
+                    alertBox.html('<i class="ti ti-alert-circle me-2"></i>' + response).slideDown();
+                    // Limpiar solo la contraseña para que el usuario intente de nuevo rápido
+                    $("#contrasena").val('').focus();
+                }
+            },
+            error: function () {
+                btnSubmit.html(originalBtnText).prop('disabled', false);
+                alertBox.html('<i class="ti ti-wifi-off me-2"></i>Error de conexión con el servidor.').slideDown();
+            }
+        });
+    });
+
+    // 3. Limpiar el formulario al cerrar el modal
+    $('#modalLogin').on('hidden.bs.modal', function () {
+        $("#formularioLogin").removeClass("was-validated")[0].reset();
+        $("#loginAlert").hide();
+    });
 });

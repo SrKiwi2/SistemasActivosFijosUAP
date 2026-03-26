@@ -33,7 +33,6 @@ public class LoginController {
 
     @GetMapping(value = "/login")
     public String formLogin() {
-
         return "login/login";
     }
 
@@ -45,20 +44,16 @@ public class LoginController {
         RedirectAttributes flash) {
 
         try {
-            // Buscar usuario
             Usuario usuario_ = usuarioService.buscarUsuarioPorNombre(usuario);
             
-            // Validar credenciales
             if (usuario_ == null || !passwordEncoder.matches(contrasena, usuario_.getPassword())) {
                 return ResponseEntity.ok("Usuario o contraseña incorrectos!");
             }
 
-            // Validar estado
             if ("INACTIVO".equals(usuario_.getEstado()) || "ELIMINADO".equals(usuario_.getEstado())) {
                 return ResponseEntity.ok("Este usuario está en estado inactivo!");
             }
 
-            // Crear sesión
             HttpSession session = request.getSession(true);
             session.setAttribute("usuario", usuario_);
             session.setAttribute("persona", usuario_.getPersona());
@@ -70,11 +65,9 @@ public class LoginController {
             session.setAttribute("nombre_rol", rol);
             flash.addAttribute("success", usuario_.getPersona().getNombre());
 
-            // Log de inicio de sesión
             logger.info("Usuario inició sesión: {} - Rol: {}", 
                 usuario_.getPersona().getNombre(), rol);
 
-            // Determinar respuesta según rol
             String respuesta = determinarRespuestaLogin(rol);
             
             return ResponseEntity.ok(respuesta);
@@ -85,29 +78,25 @@ public class LoginController {
         }
     }
 
-    /**
-     * Determina la respuesta de login según el rol del usuario
-     * Esta respuesta será interpretada por el JavaScript del frontend
-     */
     private String determinarRespuestaLogin(String rol) {
         switch (rol) {
             case "ADMINISTRADOR":
-                return "Iniciando Session"; // Redirige a /adm/inicio
+                return "Iniciando Session";
 
             case "SUPER USUARIO":
                 return "Iniciando Session";
+
+            case "APOYO":
+                return "Iniciando Session";
             
             case "RECEPCION":
-                return "Inicio Recepcion"; // Nueva respuesta para recepción
+                return "Inicio Recepcion";
             
             case "RESPONSABLE":
-                return "Inicio Responsable"; // Redirige a /adm/responsable
-            
-            case "CONTADOR":
-                return "Inicio Contador"; // Nueva respuesta para contador
+                return "Inicio Responsable";
             
             default:
-                return "Iniciando Session"; // Por defecto va a inicio
+                return "Iniciando Session";
         }
     }
 

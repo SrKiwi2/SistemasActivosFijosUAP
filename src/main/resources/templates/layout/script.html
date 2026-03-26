@@ -50,339 +50,55 @@
         var botonPulsado;
         $(document).ready(function () {
 
-            // ventana por defecto al iniciar sesión
             if (document.body.dataset.ctx === "admin" && $("#contenido").length) {
-                cargarContenido("/adm/vista-administrador");
+                cargarContenido("/adm/inicio");
             }
-            botonPulsado = document.getElementById("opcion_admin");
-            botonPulsado.classList.add("active");
 
-            // menú de rol
-            $("#opcion_rol").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/rol/vista");
+            // 2. Diccionario: Mapeamos cada ID con su URL correspondiente
+            const rutasMenu = {
+                "opcion_rol": "/administracion/rol/vista",
+                "opcion_usuario": "/administracion/usuario/vista",
+                "opcion_persona": "/administracion/persona/vista",
+                "opcion_nacionalidad": "/administracion/nacionalidad/vista",
+                "opcion_genero": "/administracion/genero/vista",
+                "opcion_entidad": "/administracion/entidad/vista",
+                "opcion_municipio": "/administracion/municipio/vista",
+                "opcion_predio": "/administracion/predio/vista",
+                "opcion_oficina": "/administracion/oficina/vista",
+                "opcion_activo": "/administracion/activo/vista",
+                "opcion_activop": "/administracion/activo/vistap",
+                "opcion_contable": "/administracion/grupoc/vista",
+                "opcion_auxiliar": "/administracion/auxiliar/vista",
+                "opcion_of": "/administracion/organismo/vista",
+                "opcion_estadoA": "/administracion/estadoa/vista",
+                "opcion_responsable": "/administracion/responsable/vista",
+                "opcion_iaa": "/seguimiento-activo/vista_ingreso_ajeno",
+                "opcion_aan": "/seguimiento-activo/vista_activos_nuevos",
+                "opcion_ta": "/seguimiento-activo/vista_transferencia_activos",
+                "opcion_ba": "/seguimiento-activo/vista_bajas",
+                "opcion_trInterna": "/administracion/trasnferencia/trasnferenciaInterna",
+                "opcion_trExterna": "/administracion/trasnferencia/trasnferenciaExterna",
+                "opcion_historialA": "/administracion/historial/vista",
+                "opcion_ActivoAj": "/administracion/ingreso/vista"
+            };
 
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
+            // 3. EVENTO MAESTRO: Detecta clics en cualquier ID que exista en nuestro diccionario
+            $(".menu-item").click(function (e) {
+                const idSeleccionado = $(this).attr("id");
+
+                // Si el elemento clickeado está en nuestro diccionario, ejecutamos la acción
+                if (idSeleccionado && rutasMenu[idSeleccionado]) {
+                    e.preventDefault();
+
+                    // Cargar el contenido de la URL
+                    cargarContenido(rutasMenu[idSeleccionado]);
+
+                    // Quitar la clase 'active' de todos los demás menús
+                    $(".menu-item").removeClass("active");
+
+                    // Poner la clase 'active' SÓLO al elemento clickeado
+                    $(this).addClass("active");
                 }
-
-                botonPulsado = document.getElementById("opcion_rol");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            // menú de usuario
-            $("#opcion_usuario").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/usuario/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_usuario");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            // menú de persona
-            $("#opcion_persona").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/persona/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_persona");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-
-            $("#opcion_nacionalidad").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/nacionalidad/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_nacionalidad");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_genero").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/genero/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_genero");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_entidad").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/entidad/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_entidad");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_municipio").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/municipio/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_municipio");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_predio").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/predio/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_predio");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_oficina").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/oficina/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_oficina");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_activo").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/activo/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_activo");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_activop").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/activo/vistap");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_activop");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_contable").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/grupoc/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_contable");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_auxiliar").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/auxiliar/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_auxiliar");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_of").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/organismo/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_of");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_estadoA").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/estadoa/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_estadoA");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_responsable").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/responsable/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_responsable");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            //seguimienos
-
-            $("#opcion_iaa").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/seguimiento-activo/vista_ingreso_ajeno");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_iaa");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_aan").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/seguimiento-activo/vista_activos_nuevos");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_aan");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_ta").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/seguimiento-activo/vista_transferencia_activos");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_ta");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_ba").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/seguimiento-activo/vista_bajas");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_ba");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_trInterna").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/trasnferencia/trasnferenciaInterna");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_trInterna");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_trExterna").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/trasnferencia/trasnferenciaExterna");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_trExterna");;
-
-                botonPulsado.classList.add("active");
-
-            });
-
-            $("#opcion_historialA").click(function (e) {
-                e.preventDefault();
-                cargarContenido("/administracion/historial/vista");
-
-                if (botonPulsado.classList.contains("active")) {
-                    botonPulsado.classList.remove("active");
-                }
-
-                botonPulsado = document.getElementById("opcion_historialA");;
-
-                botonPulsado.classList.add("active");
-
             });
 
             function cargarContenido(url) {
