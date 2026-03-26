@@ -577,6 +577,7 @@ public class ActivosController {
         String  usuNombre  = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
         Long    usuId      = (usuario != null) ? usuario.getIdUsuario() : null;
         String  tipo       = (payload.tipo != null) ? payload.tipo.toUpperCase() : "INTERNA";
+        
     
         try {
             Oficina     ofDestino   = oficinaService.findById(payload.idOficina);
@@ -637,6 +638,12 @@ public class ActivosController {
                     numeroTrf = trf.getNumeroTransferencia();
                 }
             }
+
+            log.info("[DBF-DIAG] tipo={} | entidad='{}' | unidad='{}' | activos={}",
+                tipo, "entidadCode", "unidadCode", acos.size());
+            acos.forEach(ac -> log.info("[DBF-DIAG] código='{}' oficinaNueva='{}'",
+                ac.activo.getCodigo(),
+                ac.activo.getOficina() != null ? ac.activo.getOficina().getNombre() : "NULL"));
     
             // 5. Sincronizar DBF
             try {
@@ -650,6 +657,15 @@ public class ActivosController {
                     }
                 }
                 List<Activo> activos = acos.stream().map(ac -> ac.activo).toList();
+
+                log.info("[DBF-DIAG] Tipo transferencia: {}", tipo);
+                log.info("[DBF-DIAG] entidadCode = '{}' (vacío={})", entidadCode, entidadCode.isBlank());
+                log.info("[DBF-DIAG] unidadCode  = '{}' (vacío={})", unidadCode, unidadCode.isBlank());
+                log.info("[DBF-DIAG] Activos a sincronizar: {}", acos.size());
+                acos.forEach(ac -> log.info("[DBF-DIAG]   código='{}' | oficina='{}'",
+                    ac.activo.getCodigo(),
+                    ac.activo.getOficina() != null ? ac.activo.getOficina().getNombre() : "NULL"));
+
                 actualDbfWriterService.actualizarLoteTransferencias(activos, entidadCode, unidadCode, usuNombre);
     
                 return ResponseEntity.ok(Map.of(

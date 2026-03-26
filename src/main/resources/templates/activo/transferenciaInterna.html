@@ -1083,26 +1083,20 @@
         function tiRow(a) {
             const tb = document.getElementById('ti-tbody');
             const tr = document.createElement('tr');
-            
-            // Genera un ID único para la fila
             const sid = a.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+            
             tr.id = `ti-r-${sid}`; 
             tr.style.animationDelay = `${Math.min(tb.rows.length * .035, .35)}s`;
             
-            // 1. LECTURA SEGURA (Ojo al signo de interrogación '?')
-            // Si estadoActivo es null, no se rompe, simplemente toma 'SIN ESTADO'
             const nombreEstado = (a.estadoActivo?.nombre || 'SIN ESTADO').toUpperCase();
             
-            // 2. LÓGICA DE COLORES SEGÚN TU BASE DE DATOS
-            // Asignamos la clase CSS dependiendo del nombre que venga de la tabla estado_activo
-            let claseColor = 'g'; // Clase por defecto (gris/amarillo)
+            let claseColor = 'g';
             if (nombreEstado === 'BUENO' || nombreEstado === 'NUEVO') {
-                claseColor = 'g'; // Asumiendo que tienes una clase ti-pill-Bueno (verde)
+                claseColor = 'g';
             } else if (nombreEstado === 'MALO' || nombreEstado === 'OBSOLETO') {
-                claseColor = 'r';  // Asumiendo que tienes una clase ti-pill-Malo (rojo)
+                claseColor = 'r';
             }
 
-            // 3. CONSTRUCCIÓN DE LA FILA
             tr.innerHTML = `
             <td class="ti-td-code">${x(a.codigo)}</td>
             <td class="ti-td-desc" title="${x(a.descripcion || '')}">${x(a.descripcion || '—')}</td>

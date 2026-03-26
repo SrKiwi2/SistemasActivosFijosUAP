@@ -1158,20 +1158,39 @@
         }
 
         function teRow(a) {
-            const tb = document.getElementById('te-tbody'), tr = document.createElement('tr');
+            const tb = document.getElementById('te-tbody');
+            const tr = document.createElement('tr');
+            
             const sid = a.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '_');
-            tr.id = `te-r-${sid}`; tr.style.animationDelay = `${Math.min(tb.rows.length * .035, .35)}s`;
-            const act = (a.estado || '').toUpperCase() === 'ACTIVO';
+            tr.id = `te-r-${sid}`; 
+            tr.style.animationDelay = `${Math.min(tb.rows.length * .035, .35)}s`;
+
+            const nombreEstado = (a.estadoActivo?.nombre || 'SIN ESTADO').toUpperCase();
+
+            let claseColor = 'g';
+            if (nombreEstado === 'BUENO' || nombreEstado === 'NUEVO') {
+                claseColor = 'g';
+            } else if (nombreEstado === 'MALO' || nombreEstado === 'OBSOLETO') {
+                claseColor = 'r';
+            }
+
             tr.innerHTML = `
             <td class="te-td-code">${x(a.codigo)}</td>
             <td class="te-td-desc" title="${x(a.descripcion || '')}">${x(a.descripcion || '—')}</td>
             <td class="te-td-meta">${x(a.grupoContable?.nombre || '—')}</td>
             <td class="te-td-meta">${x(a.oficina?.nombre || '—')}</td>
             <td class="te-td-meta">${x(a.responsable?.nombre || '—')}</td>
-            <td><span class="te-pill-${act ? 'g' : 'r'}">${act ? '● Activo' : '○ Inactivo'}</span></td>
-            <td><button class="te-rm" onclick="teQuitar('${x(a.codigo)}')" title="Quitar">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            </button></td>`;
+            
+            <td><span class="te-pill-${claseColor}">● ${nombreEstado}</span></td>
+            
+            <td>
+                <button class="te-rm" onclick="teQuitar('${x(a.codigo)}')" title="Quitar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </td>`;
+            
             tb.appendChild(tr);
         }
 
