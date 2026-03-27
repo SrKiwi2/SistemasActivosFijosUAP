@@ -829,6 +829,122 @@ public class ActivosController {
         }
     }
 
+    public class AsignacionMasivaRequest {
+        public Long    idOficina;
+        public Long    idResponsableOrigen;
+        public Long    idResponsableDestino;
+        public List<String> codigos;
+    }
+
+    @PostMapping("/asignacion-masiva")
+    @ResponseBody
+    public ResponseEntity<?> asignacionMasiva(
+            HttpServletRequest request,
+            @RequestBody AsignacionMasivaRequest payload) {
+    
+        Usuario usuario   = (Usuario) request.getSession().getAttribute("usuario");
+        String  usuNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+        Long    usuId     = (usuario != null) ? usuario.getIdUsuario() : null;
+    
+        try {
+            // 1. Validar destino
+            Responsable respDestino = responsableService.findById(payload.idResponsableDestino);
+            Oficina     oficina     = oficinaService.findById(payload.idOficina);
+    
+            if (respDestino == null || oficina == null) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg", "Responsable destino u oficina no válidos."));
+            }
+    
+            // Seguridad: el resp destino debe pertenecer a la misma oficina
+            if (respDestino.getOficina() == null ||
+                !respDestino.getOficina().getIdOficina().equals(payload.idOficina)) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg", "El responsable destino no pertenece a la oficina indicada."));
+            }
+    
+            // 2. Buscar activos del responsable origen
+            List<Activo> activos = new ArrayList<>();
+            for (String codigo : payload.codigos) {
+                activoService.findByCodigo(codigo).ifPresent(activos::add);
+            }
+    
+            if (activos.isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados."));
+            }
+    
+            // Verificación extra: todos los activos deben pertenecer al resp origen
+            // (evitar manipulación de payload)
+            activos.removeIf(a ->
+                a.getResponsable() == null ||
+                !a.getResponsable().getIdResponsable().equals(payload.idResponsableOrigen)
+            );
+    
+            if (activos.isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg",
+                        "Ninguno de los activos pertenece al responsable origen indicado."));
+            }
+    
+            // 3. Modificar en memoria — SOLO el responsable cambia (oficina permanece igual)
+            LocalDate hoy = LocalDate.now();
+            for (Activo a : activos) {
+                a.setResponsable(respDestino);
+                a.setFecMod(hoy);
+                a.setUsuMod(usuNombre);
+                a.setFechaUlt(hoy);
+                a.setUsuario(usuNombre);
+                a.setApiEstado(Short.valueOf("3"));   // modificado
+                if (usuario != null) a.setModificacionIdUsuario(usuId);
+                a.setModificacion(new java.util.Date());
+            }
+    
+            // 4. Guardar en BD
+            for (Activo a : activos) {
+                activoService.save(a);
+            }
+            log.info("[ASIGNACION] {} activos reasignados → Resp ID: {} | Usuario: {}",
+                activos.size(), payload.idResponsableDestino, usuNombre);
+    
+            // 5. Sincronizar DBF (solo actualiza CODRESP y campos de auditoría)
+            String entidadCode = "";
+            String unidadCode  = "";
+            if (oficina.getPredio() != null) {
+                unidadCode = oficina.getPredio().getUnidad() != null
+                            ? oficina.getPredio().getUnidad() : "";
+                if (oficina.getPredio().getEntidad() != null) {
+                    entidadCode = oficina.getPredio().getEntidad().getEntidadCodigo() != null
+                                ? oficina.getPredio().getEntidad().getEntidadCodigo() : "";
+                }
+            }
+    
+            try {
+                actualDbfWriterService.actualizarLoteTransferencias(
+                    activos, entidadCode, unidadCode, usuNombre
+                );
+                return ResponseEntity.ok(Map.of(
+                    "ok",  true,
+                    "msg", String.format("%d activo(s) reasignados a %s (BD + DBF).",
+                        activos.size(), respDestino.getPersona() != null
+                            ? respDestino.getPersona().getNombre() : respDestino.getCodigoFuncionario())
+                ));
+            } catch (Exception e) {
+                log.error("[ASIGNACION] Error sincronizando DBF: {}", e.getMessage());
+                return ResponseEntity.ok(Map.of(
+                    "ok",  true,
+                    "msg", String.format("%d activo(s) reasignados en BD. DBF falló: %s",
+                        activos.size(), e.getMessage() != null ? e.getMessage() : "Error desconocido")
+                ));
+            }
+    
+        } catch (Exception e) {
+            log.error("[ASIGNACION] Error fatal", e);
+            return ResponseEntity.status(500)
+                .body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
+        }
+    }
+
     @ValidarUsuarioAutenticado
     @PostMapping("/baja-activo")
     @ResponseBody
@@ -938,12 +1054,12 @@ public class ActivosController {
             asignacion.setCodigoCompleto(codigoCompleto);
             asignacionActivoService.save(asignacion);
 
-            String idEnc = Encriptar.encrypt(String.valueOf(asignacion.getIdAsignacion()));
+            String idEnc = Encriptar.encrypt(String.valueOf(asignacion.getIdAsignacionActivo()));
 
             return ResponseEntity.ok(Map.of(
                 "ok",             true,
                 "msg",            "Documento asignado a " + activos.size() + " activo(s).",
-                "idAsignacion",   idEnc,
+                "idAsignacionActivo",   idEnc,
                 "codigoCompleto", codigoCompleto
             ));
 
@@ -1109,7 +1225,7 @@ public class ActivosController {
             AsignacionPendienteDTO dto = new AsignacionPendienteDTO();
             dto.setAsignacion(asig);
             dto.setEncryptedAsignacionId(
-                Encriptar.encrypt(String.valueOf(asig.getIdAsignacion())));
+                Encriptar.encrypt(String.valueOf(asig.getIdAsignacionActivo())));
 
             List<ActivoPendienteItemDTO> items = new ArrayList<>();
             for (DetalleAsignacionActivo det : asig.getDetalles()) {

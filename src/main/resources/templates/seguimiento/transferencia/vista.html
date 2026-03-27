@@ -1,32 +1,497 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Asignacion activos nuevos</h4>
+<!-- /seguimiento/transferencia/vista.html -->
+<h4 class="py-3 mb-4">
+    <span class="text-muted fw-light">Seguimiento /</span> Transferencia de Activos
+</h4>
 
+<!-- Tarjetas de resumen -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="avatar avatar-md bg-label-primary mb-2 mx-auto">
+                    <i class="bx bx-transfer fs-4"></i>
+                </div>
+                <h5 class="mb-0 fw-bold" id="stat-total">—</h5>
+                <small class="text-muted">Total transferencias</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="avatar avatar-md bg-label-info mb-2 mx-auto">
+                    <i class="bx bx-building fs-4"></i>
+                </div>
+                <h5 class="mb-0 fw-bold" id="stat-internas">—</h5>
+                <small class="text-muted">Internas</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="avatar avatar-md bg-label-warning mb-2 mx-auto">
+                    <i class="bx bx-globe fs-4"></i>
+                </div>
+                <h5 class="mb-0 fw-bold" id="stat-externas">—</h5>
+                <small class="text-muted">Externas</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="avatar avatar-md bg-label-success mb-2 mx-auto">
+                    <i class="bx bx-check-double fs-4"></i>
+                </div>
+                <h5 class="mb-0 fw-bold" id="stat-completadas">—</h5>
+                <small class="text-muted">Completadas</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+
+            <div class="col-12 col-md-3">
+                <label class="form-label mb-1 small fw-semibold text-muted">BUSCAR</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bx bx-search"></i></span>
+                    <input type="text" id="filtro-buscar" class="form-control form-control-sm"
+                        placeholder="N° transferencia, responsable...">
+                </div>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted">TIPO</label>
+                <select id="filtro-tipo" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="INTERNA">Interna</option>
+                    <option value="EXTERNA">Externa</option>
+                </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted">ESTADO</label>
+                <select id="filtro-estado" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="PENDIENTE">Pendiente</option>
+                    <option value="EN_PROCESO">En Proceso</option>
+                    <option value="COMPLETADA">Completada</option>
+                    <option value="ANULADA">Anulada</option>
+                </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted">DESDE</label>
+                <input type="date" id="filtro-desde" class="form-control form-control-sm">
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted">HASTA</label>
+                <input type="date" id="filtro-hasta" class="form-control form-control-sm">
+            </div>
+
+            <div class="col-12 col-md-1 d-flex gap-1 justify-content-end justify-content-md-start">
+                <button class="btn btn-sm btn-primary" onclick="aplicarFiltros()" title="Filtrar">
+                    <i class="bx bx-filter-alt"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="limpiarFiltros()" title="Limpiar">
+                    <i class="bx bx-x"></i>
+                </button>
+            </div>
+
+        </div>
+
+        <div class="row mt-2">
+            <div class="col-12 d-flex align-items-center gap-2">
+                <span class="text-muted small me-1"><i class="bx bx-export me-1"></i>Exportar:</span>
+                <button class="btn btn-sm btn-outline-danger" onclick="exportarPDF()">
+                    <i class="bx bxs-file-pdf me-1"></i>PDF
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="exportarExcel()">
+                    <i class="bx bxs-file-export me-1"></i>Excel
+                </button>
+                <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="cargarTabla()">
+                    <i class="bx bx-refresh me-1"></i>Actualizar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla -->
 <div id="tablaRegistro"></div>
+
+<!-- ======================= MODAL DETALLE TRANSFERENCIA ======================= -->
+<div class="modal fade" id="modalDetalleTransferencia" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+
+            <div class="modal-header bg-info text-white py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="avatar bg-white bg-opacity-25 rounded-2 p-2">
+                        <i class="bx bx-transfer fs-4 text-white"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title mb-0 fw-bold" id="trf-modal-numero">—</h5>
+                        <small class="opacity-75" id="trf-modal-fecha">—</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                    <span class="badge fs-6 px-3 py-2" id="trf-modal-badge-tipo">—</span>
+                    <span class="badge fs-6 px-3 py-2" id="trf-modal-badge-estado">—</span>
+                    <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal"></button>
+                </div>
+            </div>
+
+            <div class="modal-body p-0">
+                <ul class="nav nav-tabs nav-tabs-bordered px-4 pt-3" id="trfModalTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active d-flex align-items-center gap-1" data-bs-toggle="tab"
+                            href="#trf-tab-general">
+                            <i class="bx bx-info-circle"></i> General
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab"
+                            href="#trf-tab-activos">
+                            <i class="bx bx-box"></i> Activos Transferidos
+                            <span class="badge bg-info rounded-pill ms-1" id="trf-badge-num-activos">0</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab"
+                            href="#trf-tab-auditoria">
+                            <i class="bx bx-time-five"></i> Auditoría
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="tab-content p-4">
+
+                    <!-- TAB GENERAL -->
+                    <div class="tab-pane fade show active" id="trf-tab-general">
+                        <div class="row g-4">
+
+                            <div class="col-md-6">
+                                <div class="card border border-info border-opacity-25 h-100">
+                                    <div class="card-header bg-info bg-opacity-10 py-2">
+                                        <h6 class="mb-0 text-info fw-semibold"><i
+                                                class="bx bx-file-blank me-1"></i>Datos del Documento</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <dl class="row mb-0 small">
+                                            <dt class="col-sm-5 text-muted">N° Transferencia</dt>
+                                            <dd class="col-sm-7 fw-semibold text-primary" id="trf-d-numero">—</dd>
+                                            <dt class="col-sm-5 text-muted">Tipo</dt>
+                                            <dd class="col-sm-7" id="trf-d-tipo">—</dd>
+                                            <dt class="col-sm-5 text-muted">Estado</dt>
+                                            <dd class="col-sm-7" id="trf-d-estado">—</dd>
+                                            <dt class="col-sm-5 text-muted">Fecha Transferencia</dt>
+                                            <dd class="col-sm-7" id="trf-d-fecha">—</dd>
+                                            <dt class="col-sm-5 text-muted">Fecha Recepción</dt>
+                                            <dd class="col-sm-7" id="trf-d-fecha-recepcion">—</dd>
+                                            <dt class="col-sm-5 text-muted">Doc. Referencia</dt>
+                                            <dd class="col-sm-7" id="trf-d-doc-ref">—</dd>
+                                            <dt class="col-sm-5 text-muted" id="trf-lbl-institucion"
+                                                style="display:none">Institución Destino</dt>
+                                            <dd class="col-sm-7" id="trf-d-institucion" style="display:none">—</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="card border border-warning border-opacity-25 h-100">
+                                    <div class="card-header bg-warning bg-opacity-10 py-2">
+                                        <h6 class="mb-0 text-warning fw-semibold"><i
+                                                class="bx bx-transfer-alt me-1"></i>Origen → Destino</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row g-3">
+                                            <div class="col-6 border-end">
+                                                <p class="text-muted small fw-semibold mb-1 text-uppercase">Origen</p>
+                                                <div class="d-flex align-items-center gap-2 mb-2">
+                                                    <i class="bx bx-user text-warning"></i>
+                                                    <span class="small" id="trf-d-resp-origen">—</span>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="bx bx-buildings text-warning"></i>
+                                                    <span class="small text-muted" id="trf-d-oficina-origen">—</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <p class="text-muted small fw-semibold mb-1 text-uppercase">Destino</p>
+                                                <div class="d-flex align-items-center gap-2 mb-2">
+                                                    <i class="bx bx-user text-success"></i>
+                                                    <span class="small" id="trf-d-resp-destino">—</span>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="bx bx-buildings text-success"></i>
+                                                    <span class="small text-muted" id="trf-d-oficina-destino">—</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12" id="trf-container-observacion" style="display:none">
+                                <div class="alert alert-secondary d-flex gap-2 mb-0">
+                                    <i class="bx bx-comment-detail fs-5 mt-1 flex-shrink-0"></i>
+                                    <div>
+                                        <strong class="d-block small text-muted mb-1">OBSERVACIÓN</strong>
+                                        <span id="trf-d-observacion"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- TAB ACTIVOS -->
+                    <div class="tab-pane fade" id="trf-tab-activos">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-3">
+                                <div class="card bg-label-info text-center border-0">
+                                    <div class="card-body py-2">
+                                        <div class="small text-muted">Total Activos</div>
+                                        <div class="fs-5 fw-bold" id="trf-resumen-total">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-label-success text-center border-0">
+                                    <div class="card-body py-2">
+                                        <div class="small text-muted">Costo Total</div>
+                                        <div class="fs-5 fw-bold" id="trf-resumen-costo">Bs. 0.00</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 d-flex align-items-center justify-content-end">
+                                <input type="text" id="trf-buscar-activo" class="form-control form-control-sm"
+                                    placeholder="Buscar activo..." style="max-width:220px">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm align-middle" id="trf-tabla-activos">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width:40px">#</th>
+                                        <th>Código</th>
+                                        <th>Descripción</th>
+                                        <th class="text-end">Costo (Bs.)</th>
+                                        <th>Ubicación Origen</th>
+                                        <th>Ubicación Destino</th>
+                                        <th>Observación</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="trf-tbody-activos">
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">Sin activos registrados</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB AUDITORÍA -->
+                    <div class="tab-pane fade" id="trf-tab-auditoria">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body">
+                                        <h6 class="text-muted small mb-3"><i class="bx bx-plus-circle me-1"></i>REGISTRO
+                                        </h6>
+                                        <dl class="row mb-0 small">
+                                            <dt class="col-sm-5 text-muted">Fecha Registro</dt>
+                                            <dd class="col-sm-7" id="trf-aud-fecha-reg">—</dd>
+                                            <dt class="col-sm-5 text-muted">Usuario</dt>
+                                            <dd class="col-sm-7" id="trf-aud-usuario-reg">—</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body">
+                                        <h6 class="text-muted small mb-3"><i class="bx bx-edit me-1"></i>MODIFICACIÓN
+                                        </h6>
+                                        <dl class="row mb-0 small">
+                                            <dt class="col-sm-5 text-muted">Fecha Modif.</dt>
+                                            <dd class="col-sm-7" id="trf-aud-fecha-mod">—</dd>
+                                            <dt class="col-sm-5 text-muted">Usuario</dt>
+                                            <dd class="col-sm-7" id="trf-aud-usuario-mod">—</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="modal-footer bg-light border-top">
+                <a id="trf-btn-modal-pdf" href="#" target="_blank" class="btn btn-danger btn-sm">
+                    <i class="bx bxs-file-pdf me-1"></i>Descargar PDF
+                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="bx bx-x me-1"></i>Cerrar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
 
 <script>
     $(document).ready(function () {
         cargarTabla();
-
-    }); 
+        $('#filtro-buscar').on('keypress', function (e) { if (e.which === 13) cargarTabla(); });
+    });
 
     function cargarTabla() {
-        showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
+        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
         $.ajax({
             type: 'POST',
-            url: "/seguimiento-activo/tabla_transferencia_activos",  // Ruta del metodo del controlador en Spring Boot
+            url: "/administracion/transferencia/tabla_transferencias",
+            data: obtenerFiltros(),
             success: function (response) {
-                $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
+                $("#tablaRegistro").html(response);
+                calcularEstadisticas();
             },
-            error:function(){
-            $("#tablaRegistro").html(`
-                <div class="alert alert-danger m-3">
-                Ocurrió un error al cargar la tabla.
-                <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
-                </div>
-            `);
+            error: function () {
+                $("#tablaRegistro").html(`<div class="alert alert-danger d-flex gap-2">
+        <i class="bx bx-error-circle fs-4"></i>Error al cargar registros.
+        <button class="btn btn-sm btn-outline-danger ms-2" onclick="cargarTabla()">Reintentar</button>
+      </div>`);
             },
-            complete:function(){
-            hideGlobalLoader();
+            complete: function () { hideGlobalLoader(); }
+        });
+    }
+
+    function obtenerFiltros() {
+        return {
+            tipo: $('#filtro-tipo').val(), estado: $('#filtro-estado').val(),
+            buscar: $('#filtro-buscar').val(), desde: $('#filtro-desde').val(), hasta: $('#filtro-hasta').val()
+        };
+    }
+    function aplicarFiltros() { cargarTabla(); }
+    function limpiarFiltros() {
+        $('#filtro-tipo, #filtro-estado').val('');
+        $('#filtro-buscar, #filtro-desde, #filtro-hasta').val('');
+        cargarTabla();
+    }
+
+    function calcularEstadisticas() {
+        const filas = $('.trf-row');
+        let total = filas.length, internas = 0, externas = 0, completadas = 0;
+        filas.each(function () {
+            if ($(this).data('tipo') === 'INTERNA') internas++;
+            if ($(this).data('tipo') === 'EXTERNA') externas++;
+            if ($(this).data('estado') === 'COMPLETADA') completadas++;
+        });
+        $('#stat-total').text(total);
+        $('#stat-internas').text(internas);
+        $('#stat-externas').text(externas);
+        $('#stat-completadas').text(completadas);
+    }
+
+    function abrirModalTransferencia(id) {
+        const $row = $(`#trf-row-${id}`);
+        const data = $row.data();
+        const coloresTipo = { INTERNA: 'bg-info', EXTERNA: 'bg-warning text-dark' };
+        const coloresEstado = { PENDIENTE: 'bg-secondary', EN_PROCESO: 'bg-warning text-dark', COMPLETADA: 'bg-success', ANULADA: 'bg-danger' };
+
+        $('#trf-modal-numero').text(data.numero || '—');
+        $('#trf-modal-fecha').text(data.fecha || '—');
+        $('#trf-modal-badge-tipo').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresTipo[data.tipo] || 'bg-secondary')).text(data.tipo || '—');
+        $('#trf-modal-badge-estado').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresEstado[data.estado] || 'bg-secondary')).text(data.estado || '—');
+
+        $('#trf-d-numero').text(data.numero || '—');
+        $('#trf-d-tipo').html(`<span class="badge ${coloresTipo[data.tipo] || 'bg-secondary'}">${data.tipo || '—'}</span>`);
+        $('#trf-d-estado').html(`<span class="badge ${coloresEstado[data.estado] || 'bg-secondary'}">${data.estado || '—'}</span>`);
+        $('#trf-d-fecha').text(data.fecha || '—');
+        $('#trf-d-fecha-recepcion').text(data.fechaRecepcion || '—');
+        $('#trf-d-doc-ref').text(data.docRef || '—');
+        $('#trf-d-resp-origen').text(data.respOrigen || '—');
+        $('#trf-d-oficina-origen').text(data.oficinaOrigen || '—');
+        $('#trf-d-resp-destino').text(data.respDestino || '—');
+        $('#trf-d-oficina-destino').text(data.oficinaDestino || '—');
+
+        if (data.tipo === 'EXTERNA' && data.institucion) {
+            $('#trf-d-institucion').text(data.institucion);
+            $('#trf-lbl-institucion, #trf-d-institucion').show();
+        } else { $('#trf-lbl-institucion, #trf-d-institucion').hide(); }
+
+        if (data.observacion && data.observacion.trim()) {
+            $('#trf-d-observacion').text(data.observacion);
+            $('#trf-container-observacion').show();
+        } else { $('#trf-container-observacion').hide(); }
+
+        $('#trf-aud-fecha-reg').text(data.fechaReg || '—');
+        $('#trf-aud-usuario-reg').text(data.usuarioReg || '—');
+        $('#trf-aud-fecha-mod').text(data.fechaMod || '—');
+        $('#trf-aud-usuario-mod').text(data.usuarioMod || '—');
+        $('#trf-btn-modal-pdf').attr('href', `/administracion/transferencia/${id}/pdf`);
+
+        cargarActivosTransferencia(id);
+
+        const tab = new bootstrap.Tab(document.querySelector('#trfModalTabs .nav-link'));
+        tab.show();
+        new bootstrap.Modal(document.getElementById('modalDetalleTransferencia')).show();
+    }
+
+    function cargarActivosTransferencia(id) {
+        $('#trf-tbody-activos').html(`<tr><td colspan="7" class="text-center py-4">
+    <div class="spinner-border spinner-border-sm text-info me-2"></div>Cargando...</td></tr>`);
+        $.ajax({
+            type: 'GET',
+            url: `/administracion/transferencia/${id}/detalles-json`,
+            success: function (detalles) {
+                if (!detalles || detalles.length === 0) {
+                    $('#trf-tbody-activos').html('<tr><td colspan="7" class="text-center text-muted py-4">Sin activos registrados</td></tr>');
+                    $('#trf-badge-num-activos, #trf-resumen-total').text('0');
+                    $('#trf-resumen-costo').text('Bs. 0.00');
+                    return;
+                }
+                let html = '', costo = 0;
+                detalles.forEach(function (d, i) {
+                    costo += parseFloat(d.costoActivo || 0);
+                    html += `<tr>
+          <td class="text-muted small">${i + 1}</td>
+          <td><code class="small">${d.codigoActivo || '—'}</code></td>
+          <td style="max-width:200px">${d.descripcionActivo || '—'}</td>
+          <td class="text-end fw-semibold">${d.costoActivo ? 'Bs. ' + parseFloat(d.costoActivo).toLocaleString('es-BO', { minimumFractionDigits: 2 }) : '—'}</td>
+          <td class="small text-muted">${d.ubicacionOrigen || '—'}</td>
+          <td class="small text-muted">${d.ubicacionActual || '—'}</td>
+          <td class="small text-muted">${d.observacionDetalle || '—'}</td>
+        </tr>`;
+                });
+                $('#trf-tbody-activos').html(html);
+                $('#trf-badge-num-activos, #trf-resumen-total').text(detalles.length);
+                $('#trf-resumen-costo').text('Bs. ' + costo.toLocaleString('es-BO', { minimumFractionDigits: 2 }));
+                $('#trf-buscar-activo').off('input').on('input', function () {
+                    const q = $(this).val().toLowerCase();
+                    $('#trf-tabla-activos tbody tr').each(function () { $(this).toggle($(this).text().toLowerCase().includes(q)); });
+                });
+            },
+            error: function () {
+                $('#trf-tbody-activos').html('<tr><td colspan="7" class="text-center text-danger py-3">Error al cargar activos</td></tr>');
             }
         });
+    }
+
+    function exportarPDF() {
+        window.open(`/administracion/transferencia/exportar-pdf?${new URLSearchParams(obtenerFiltros())}`, '_blank');
+    }
+    function exportarExcel() {
+        window.location.href = `/administracion/transferencia/exportar-excel?${new URLSearchParams(obtenerFiltros())}`;
     }
 </script>

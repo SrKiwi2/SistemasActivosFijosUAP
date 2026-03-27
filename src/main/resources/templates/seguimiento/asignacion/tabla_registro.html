@@ -1,60 +1,230 @@
-<div class="card">
-    <div class="card-datatable table-responsive pt-0">
-        <table class="datatables-basic table table-hover" id="data-table">
-            <thead>
-                <tr>
-                    <th>Unidad Responsable</th>
-                    <th>Responsable</th>
-                    <th>Nº H.R</th>
-                    <th>Ubicacion destino</th>
-                    <th>Activo</th>
-                    <th>Opciones</th>
-                </tr>
-            </thead>
-            <tbody class="animate__animated animate__bounceInDown">
-                <tr th:each="asignacion : ${asignaciones}">
-                    <th th:text="${asignacion.unidadResponsable ?: '-'}"></th>
-                    <th th:text="${asignacion.responsable.persona.nombre ?: '-'} + ${asignacion.responsable.persona.paterno ?: '-'}"></th>
-                    <th th:text="${asignacion.hr ?: '-'}"></th>
-                    <th th:text="${asignacion.ubicacionActivo ?: '-'}"></th>
-                    <th th:text="${asignacion.descripcionActivo ?: '-'}"></th>
-                    <th>
-                        <a th:href="@{/seguimiento-activo/asignaciones/{id}/pdf(id=${asignacion.idAsignacion})}"
-                            target="_blank"
-                            class="btn btn-sm btn-outline-primary">
-                        Ver PDF
-                        </a>
-                    </th>
-                </tr>
-            </tbody>
-        </table>
+<!-- /seguimiento/asignacion/tabla_registro.html -->
+
+<!-- Sin registros -->
+<div th:if="${#lists.isEmpty(asignaciones)}" class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+        <i class="bx bx-clipboard fs-1 text-muted mb-3 d-block"></i>
+        <h6 class="text-muted">No se encontraron registros de asignación</h6>
+        <p class="text-muted small">Intenta cambiar los filtros o realiza una nueva búsqueda</p>
     </div>
 </div>
 
+<!-- Lista de tarjetas -->
+<div th:if="${!#lists.isEmpty(asignaciones)}" class="card border-0 shadow-sm">
+
+    <!-- Cabecera de la lista -->
+    <div class="card-header bg-transparent border-bottom d-flex align-items-center justify-content-between py-3">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bx bx-clipboard text-primary fs-5"></i>
+            <span class="fw-semibold">Registros de Asignación</span>
+            <span class="badge bg-primary rounded-pill" th:text="${#lists.size(asignaciones)}">0</span>
+        </div>
+        <!-- Leyenda de estados -->
+        <div class="d-none d-md-flex align-items-center gap-3 small text-muted">
+            <span><span class="badge bg-success me-1">●</span>Activa</span>
+            <span><span class="badge bg-danger me-1">●</span>Anulada</span>
+            <span><span class="badge bg-info me-1">●</span>Devuelta</span>
+        </div>
+    </div>
+
+    <!-- Encabezado columnas (solo desktop) -->
+    <div class="d-none d-lg-block px-3 pt-2 pb-1">
+        <div class="row g-0 text-muted small fw-semibold border-bottom pb-2">
+            <div class="col-lg-2">N° ASIGNACIÓN</div>
+            <div class="col-lg-2">FECHA</div>
+            <div class="col-lg-1 text-center">TIPO</div>
+            <div class="col-lg-3">RESPONSABLE DESTINO</div>
+            <div class="col-lg-2">OFICINA DESTINO</div>
+            <div class="col-lg-1 text-center">ACTIVOS</div>
+            <div class="col-lg-1 text-center">ESTADO</div>
+        </div>
+    </div>
+
+    <!-- Filas -->
+    <div class="list-group list-group-flush" id="lista-asignaciones">
+
+        <div th:each="asig : ${asignaciones}" th:id="'asig-row-' + ${asig.idAsignacionActivo}"
+            class="asig-row list-group-item list-group-item-action px-3 py-0 border-start border-4" th:classappend="${asig.estado == 'ACTIVO'} ? 'border-success' :
+                         (${asig.estadoAsignacion == 'ANULADA'} ? 'border-danger' : 'border-info')"
+            th:data-id="${asig.idAsignacionActivo}" th:data-numero="${asig.numeroAsignacion}"
+            th:data-codigo-doc="${asig.codigoDocumento}" th:data-codigo-completo="${asig.codigoCompleto}"
+            th:data-fecha="${asig.fechaAsignacion}" th:data-tipo="${asig.tipoAsignacion}"
+            th:data-estado="${asig.estadoAsignacion}" th:data-resp-origen="${asig.responsableOrigen != null ?
+           (asig.responsableOrigen.persona.nombre + ' ' + asig.responsableOrigen.persona.paterno) : ''}"
+            th:data-resp-destino="${asig.responsable != null ?
+           (asig.responsable.persona.nombre + ' ' + asig.responsable.persona.paterno) : ''}"
+            th:data-oficina="${asig.oficinaDestino != null ? asig.oficinaDestino.nombre : ''}"
+            th:data-doc-ref="${asig.documentoReferencia}" th:data-observacion="${asig.observacion}"
+            th:data-num-activos="${asig.detalles != null ? #lists.size(asig.detalles) : 0}"
+            th:data-fecha-reg="${asig._fechaRegistro}" th:data-usuario-reg="${asig._registroIdUsuario}"
+            th:data-fecha-mod="${asig._fechaModificacion}" th:data-usuario-mod="${asig._modificacionIdUsuario}"
+            style="cursor:pointer; transition: background 0.15s;">
+
+            <div class="row g-0 align-items-center py-3">
+
+                <!-- Número asignación -->
+                <div class="col-12 col-lg-2 mb-1 mb-lg-0">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="avatar avatar-xs bg-label-primary rounded">
+                            <i class="bx bx-file-blank small"></i>
+                        </div>
+                        <div>
+                            <div class="fw-semibold text-primary small" th:text="${asig.numeroAsignacion ?: '—'}">—
+                            </div>
+                            <div class="text-muted" style="font-size:0.7rem" th:text="${asig.codigoCompleto ?: '—'}">—
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fecha -->
+                <div class="col-6 col-lg-2 mb-1 mb-lg-0">
+                    <div class="d-flex align-items-center gap-1 text-muted small">
+                        <i class="bx bx-calendar"></i>
+                        <span th:if="${asig.fechaAsignacion != null}"
+                            th:text="${#temporals.format(asig.fechaAsignacion, 'dd/MM/yyyy')}">—</span>
+                        <span th:unless="${asig.fechaAsignacion != null}">—</span>
+                    </div>
+                </div>
+
+                <!-- Tipo -->
+                <div class="col-6 col-lg-1 mb-1 mb-lg-0 text-lg-center">
+                    <span class="badge" th:classappend="${asig.tipoAsignacion == 'NUEVA'} ? 'bg-label-primary' :
+                            (${asig.tipoAsignacion == 'REASIGNACION'} ? 'bg-label-warning' : 'bg-label-secondary')"
+                        th:text="${asig.tipoAsignacion ?: '—'}">—</span>
+                </div>
+
+                <!-- Responsable destino -->
+                <div class="col-12 col-lg-3 mb-1 mb-lg-0">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="avatar avatar-xs bg-label-success rounded-circle">
+                            <i class="bx bx-user small"></i>
+                        </div>
+                        <div th:if="${asig.responsable != null}" class="small text-truncate" style="max-width:180px">
+                            <span
+                                th:text="${asig.responsable.persona.nombre + ' ' + asig.responsable.persona.paterno}">—</span>
+                        </div>
+                        <span th:unless="${asig.responsable != null}" class="text-muted small">Sin responsable</span>
+                    </div>
+                </div>
+
+                <!-- Oficina destino -->
+                <div class="col-6 col-lg-2 mb-1 mb-lg-0">
+                    <div class="small text-muted text-truncate" style="max-width:140px"
+                        th:text="${asig.oficinaDestino != null ? asig.oficinaDestino.nombre : '—'}">—</div>
+                </div>
+
+                <!-- Num activos -->
+                <div class="col-3 col-lg-1 mb-1 mb-lg-0 text-lg-center">
+                    <span class="badge bg-label-info rounded-pill">
+                        <i class="bx bx-box me-1"></i>
+                        <span th:text="${asig.detalles != null ? #lists.size(asig.detalles) : 0}">0</span>
+                    </span>
+                </div>
+
+                <!-- Estado + Acciones -->
+                <div
+                    class="col-3 col-lg-1 text-lg-center d-flex align-items-center justify-content-end justify-content-lg-center gap-2">
+                    <span class="badge" th:classappend="${asig.estadoAsignacion == 'ACTIVA'} ? 'bg-success' :
+                            (${asig.estadoAsignacion == 'ANULADA'} ? 'bg-danger' : 'bg-info')"
+                        th:text="${asig.estadoAsignacion ?: '—'}">—</span>
+
+                    <!-- Botón acción rápida PDF -->
+                    <a th:href="@{/administracion/asignacion/asignaciones/{id}/pdf(id=${asig.idAsignacionActivo})}"
+                        target="_blank" class="btn btn-sm btn-icon btn-outline-danger py-0 px-1" title="Descargar PDF"
+                        onclick="event.stopPropagation()">
+                        <i class="bx bxs-file-pdf small"></i>
+                    </a>
+
+                    <i class="bx bx-chevron-right text-muted ms-1"></i>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer con paginación/resumen -->
+    <div class="card-footer bg-transparent border-top d-flex align-items-center justify-content-between py-2 px-3">
+        <small class="text-muted">
+            <i class="bx bx-info-circle me-1"></i>
+            Mostrando <strong th:text="${#lists.size(asignaciones)}">0</strong> registros.
+            Haz clic en una fila para ver el detalle completo.
+        </small>
+        <small class="text-muted d-none d-md-block">
+            <i class="bx bx-mouse me-1"></i>Clic en fila → detalle
+        </small>
+    </div>
+
+</div>
+
+<style>
+    .asig-row:hover {
+        background-color: rgba(var(--bs-primary-rgb), 0.04) !important;
+    }
+
+    .asig-row:active {
+        transform: scale(0.998);
+    }
+</style>
+
 <script>
-    $('#data-table').DataTable({
-        language: {
-            "sProcessing": "Procesando...",
-            "sLengthMenu": "Mostrar _MENU_ registros",
-            "sZeroRecords": "No se encontraron resultados",
-            "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
-            "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
-            "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
-            "sInfoPostFix": "",
-            "sSearch": "Buscar:",
-            "sUrl": "",
-            "sInfoThousands": ",",
-            "sLoadingRecords": "Cargando...",
-            "oPaginate": {
-                "sFirst": "Primero",
-                "sLast": "Último",
-                "sNext": "Siguiente",
-                "sPrevious": "Anterior"
-            },
-            "oAria": {
-                "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
-                "sSortDescending": ": Activar para ordenar la columna de manera descendente"
-            }
-        }
+    /* Clic en fila -> abrir modal */
+    $(document).on('click', '.asig-row', function () {
+        const id = $(this).data('id');
+        abrirModalAsignacion(id);
     });
+
+    /* Pasar datos a función del padre */
+    function abrirModalAsignacion(id) {
+        const $row = $(`#asig-row-${id}`);
+        if (!$row.length) return;
+        if (typeof window.parent !== 'undefined' && window.parent.abrirModalAsignacion) {
+            window.parent.abrirModalAsignacion(id);
+        } else {
+            // Si está en la misma página
+            const data = $row.data();
+            /* Llenar modal con los datos del data-* */
+            const coloresTipo = { NUEVA: 'bg-primary', REASIGNACION: 'bg-warning text-dark', DEVOLUCION: 'bg-secondary' };
+            const coloresEstado = { ACTIVA: 'bg-success', ANULADA: 'bg-danger', DEVUELTA: 'bg-info' };
+
+            $('#modal-numero-asignacion').text(data.numero || '—');
+            $('#modal-fecha-asignacion').text(data.fecha ? new Date(data.fecha).toLocaleDateString('es-BO') : '—');
+            $('#modal-badge-tipo').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresTipo[data.tipo] || 'bg-secondary')).text(data.tipo || '—');
+            $('#modal-badge-estado').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresEstado[data.estado] || 'bg-secondary')).text(data.estado || '—');
+
+            $('#d-numero').text(data.numero || '—');
+            $('#d-codigo-doc').text(data.codigoDoc || '—');
+            $('#d-codigo-completo').html(`<span class="fw-bold text-primary">${data.codigoCompleto || '—'}</span>`);
+            $('#d-fecha').text(data.fecha ? new Date(data.fecha).toLocaleDateString('es-BO') : '—');
+            $('#d-tipo').html(`<span class="badge ${coloresTipo[data.tipo] || 'bg-secondary'}">${data.tipo || '—'}</span>`);
+            $('#d-estado').html(`<span class="badge ${coloresEstado[data.estado] || 'bg-secondary'}">${data.estado || '—'}</span>`);
+            $('#d-doc-referencia').text(data.docRef || '—');
+            $('#d-resp-origen').text(data.respOrigen || '—');
+            $('#d-resp-destino').text(data.respDestino || '—');
+            $('#d-oficina-destino').text(data.oficina || '—');
+
+            if (data.observacion && data.observacion.trim() !== '') {
+                $('#d-observacion').text(data.observacion);
+                $('#container-observacion').show();
+            } else { $('#container-observacion').hide(); }
+
+            $('#aud-fecha-reg').text(data.fechaReg || '—');
+            $('#aud-usuario-reg').text(data.usuarioReg || '—');
+            $('#aud-fecha-mod').text(data.fechaMod || '—');
+            $('#aud-usuario-mod').text(data.usuarioMod || '—');
+            $('#btn-modal-pdf').attr('href', `/administracion/asignacion/asignaciones/${id}/pdf`);
+
+            // Cargar activos
+            $('#tab-activos-link').tab('show');
+            cargarActivosModal(id);
+
+            // Reset al primer tab
+            const tab = new bootstrap.Tab(document.querySelector('#modalTabs .nav-link'));
+            tab.show();
+
+            const modal = new bootstrap.Modal(document.getElementById('modalDetalleAsignacion'));
+            modal.show();
+        }
+    }
 </script>

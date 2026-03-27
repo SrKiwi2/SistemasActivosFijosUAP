@@ -1,7 +1,10 @@
 package com.usic.SistemasActivosFijosUAP.model.entity;
 
+import java.math.BigDecimal;
+
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -21,13 +24,24 @@ public class DetalleAsignacionActivo extends AuditoriaConfig {
     private Long idDetalle;
 
     @ManyToOne
-    @JoinColumn(name = "id_asignacion")
+    @JoinColumn(name = "id_asignacion_activo")
     private AsignacionActivo asignacionActivo;
 
     @ManyToOne
     @JoinColumn(name = "id_activo")
     private Activo activo;
     
-    // Guardamos 'snapshot' del estado en ese momento
     private String codigoActivoSnapshot;
+
+    @Column(name = "descripcion_activo_snapshot", length = 300)
+    private String descripcionActivoSnapshot; // ¡FALTABA!
+
+    @Column(name = "costo_activo_snapshot", precision = 18, scale = 2)
+    private BigDecimal costoActivoSnapshot; // ¡FALTABA! Usar BigDecimal para moneda
+
+    @Column(name = "estado_activo_snapshot", length = 50)
+    private String estadoActivoSnapshot; // ¡FALTABA! (BUENO, MALO, etc.)
+
+    @Column(name = "observacion_detalle", length = 500)
+    private String observacionDetalle; // ¡FALTABA!
 }

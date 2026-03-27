@@ -60,20 +60,7 @@ public class SeguimientoController {
     private final PdfInternoIngresoActivoAjenoService pdfInternoIngresoActivoAjenoService;
     private final PdfInternoBajaActivoService pdfInternoBajaActivoService;
 
-    //ASIGNACION ACTIVOS NUEVOS
-    @ValidarUsuarioAutenticado
-    @GetMapping("/vista_activos_nuevos")
-    public String vista_activos_nuevos() {
-        return "/seguimiento/asignacion/vista";
-    }
-
-    @ValidarUsuarioAutenticado
-    @PostMapping("/tabla_activos_nuevos")
-    public String tabla_activos_nuevos(Model model) {
-        List<Asignacion> asignaciones = asignacionService.findAll();
-        model.addAttribute("asignaciones", asignaciones);
-        return "/seguimiento/asignacion/tabla_registro";
-    }
+    
 
     @ValidarUsuarioAutenticado
     @GetMapping("/asignaciones/{id}/pdf")
@@ -122,21 +109,6 @@ public class SeguimientoController {
             String errorMsg = "Error procesando: " + ex.getMessage();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
         }
-    }
-
-    //TRANSFERENCIA ACTIVOS
-    @ValidarUsuarioAutenticado
-    @GetMapping("/vista_transferencia_activos")
-    public String vista_transferencia_activos() {
-        return "/seguimiento/transferencia/vista";
-    }
-
-    @ValidarUsuarioAutenticado
-    @PostMapping("/tabla_transferencia_activos")
-    public String tabla_transferencia_activos(Model model) {
-        List<Transferencia> transferencias = transferenciaService.findAllConTodo();
-        model.addAttribute("transferencias", transferencias);
-        return "/seguimiento/transferencia/tabla_registro";
     }
 
     @ValidarUsuarioAutenticado
@@ -216,21 +188,6 @@ public class SeguimientoController {
         }
     }
 
-    //INGRESO ACTIVO AJENOS
-    @ValidarUsuarioAutenticado
-    @GetMapping("/vista_ingreso_ajeno")
-    public String inicio_ingresos_ajenos() {
-        return "/seguimiento/ingresos-ajenos/vista";
-    }
-
-    @ValidarUsuarioAutenticado
-    @PostMapping("/tabla-registros-ajeno")
-    public String tabla_ingresos(Model model) {
-        List<Ingreso> ingresos = ingresoActivoAjenoService.findAllWithTodo();
-        model.addAttribute("ingresos", ingresos);
-        return "/seguimiento/ingresos-ajenos/tabla_registro";
-    }
-
     @ValidarUsuarioAutenticado
     @GetMapping("/ingresos/{id}/pdf")
     public ResponseEntity<byte[]> pdfInternoIAA(
@@ -281,20 +238,6 @@ public class SeguimientoController {
             String errorMsg = "Error procesando: " + ex.getMessage();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
         }
-    }
-
-    @ValidarUsuarioAutenticado
-    @GetMapping("/vista_bajas")
-    public String vista_bajas() {
-        return "/seguimiento/baja/vista";
-    }
-
-    @ValidarUsuarioAutenticado
-    @PostMapping("/tabla_bajas")
-    public String tabla_bajas(Model model) {
-        List<BajaActivo> bajas = bajaActivoService.findAll();
-        model.addAttribute("bajas", bajas);
-        return "/seguimiento/baja/tabla_registro";
     }
 
     @ValidarUsuarioAutenticado

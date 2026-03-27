@@ -44,7 +44,7 @@ public interface IAsignacionActivoDao extends JpaRepository<AsignacionActivo, Lo
         LEFT JOIN FETCH d.activo act
         LEFT JOIN FETCH act.responsable r
         LEFT JOIN FETCH r.persona
-        WHERE a.idAsignacion = :id
+        WHERE a.idAsignacionActivo = :id
         """)
     Optional<AsignacionActivo> findByIdConDetalles(@Param("id") Long id);
 }

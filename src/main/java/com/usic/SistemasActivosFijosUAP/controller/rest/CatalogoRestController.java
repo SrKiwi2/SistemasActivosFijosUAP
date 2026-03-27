@@ -39,6 +39,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.GrupoMetaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.OficinaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.RespOption;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResponsableDTO;
+import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
@@ -47,7 +48,9 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/api")
 public class CatalogoRestController {
@@ -510,5 +513,105 @@ public class CatalogoRestController {
                 return ResponseEntity.ok(map);
             })
             .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/activos/por-responsable")
+    @ResponseBody
+    public ResponseEntity<?> activosPorResponsable(@RequestParam Long responsableId) {
+        try {
+            List<Activo> activos = activoService.findByResponsableIdResponsable(responsableId);
+            // Proyección ligera — no devolver campos innecesarios
+            List<Map<String, Object>> resultado = activos.stream().map(a -> {
+                Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("idActivo",    a.getIdActivo());
+                m.put("codigo",      a.getCodigo());
+                m.put("descripcion", a.getDescripcion());
+                m.put("vidaUtil",    a.getVidaUtil());
+                m.put("costo",       a.getCosto());
+                m.put("estadoActivo", a.getEstadoActivo() != null
+                    ? Map.of("nombre", a.getEstadoActivo().getNombre()) : null);
+                m.put("grupoContable", a.getGrupoContable() != null
+                    ? Map.of(
+                        "codContable",  a.getGrupoContable().getCodContable(),
+                        "descripcion",  a.getGrupoContable().getNombre()
+                    ) : null);
+                return m;
+            }).toList();
+            return ResponseEntity.ok(resultado);
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                .body(Map.of("error", "Error cargando activos: " + e.getMessage()));
+        }
+    }
+    
+    
+    // ─── ENDPOINT AUXILIAR — Registro rápido de responsable ───────────────────────
+    // POST /api/responsables/registrar-rapido
+    // (Requiere adaptación a tus servicios de Persona y Responsable)
+    
+    @PostMapping("/responsables/registrar-rapido")
+    @ResponseBody
+    public ResponseEntity<?> registrarRapidoResponsable(
+            HttpServletRequest request,
+            @RequestBody NuevoResponsableRequest payload) {
+    
+        Usuario usuario   = (Usuario) request.getSession().getAttribute("usuario");
+        String  usuNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+    
+        try {
+            Oficina oficina = oficinaService.findById(payload.idOficina);
+            if (oficina == null) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg", "Oficina no encontrada."));
+            }
+    
+            // Crear o buscar Persona
+            Persona persona = new Persona();
+            persona.setNombre(payload.nombre.toUpperCase().trim());
+            persona.setPaterno(payload.paterno != null ? payload.paterno.toUpperCase().trim() : "");
+            persona.setMaterno(payload.materno != null ? payload.materno.toUpperCase().trim() : "");
+            persona.setCi(payload.ci);
+            personaService.save(persona);   // adaptar a tu service
+    
+            // Crear Responsable
+            Responsable resp = new Responsable();
+            resp.setOficina(oficina);
+            resp.setPersona(persona);
+            resp.setCodigoFuncionario(payload.codigoFuncionario.trim());
+            resp.setApiEstado(Short.valueOf("1"));
+            resp.setFechaUlt(LocalDate.now());
+            resp.setUsuario(usuNombre);
+            if (payload.idCargo != null) {
+                Cargo cargo = cargoService.findById(payload.idCargo);  // adaptar
+                resp.setCargo(cargo);
+            }
+            responsableService.save(resp);
+    
+            String nombreCompleto = String.join(" ",
+                persona.getNombre(), persona.getPaterno(), persona.getMaterno()).trim();
+    
+            return ResponseEntity.ok(Map.of(
+                "ok",            true,
+                "idResponsable", resp.getIdResponsable(),
+                "nombre",        nombreCompleto,
+                "msg",           "Responsable registrado correctamente."
+            ));
+    
+        } catch (Exception e) {
+            log.error("[NUEVO-RESP] Error registrando responsable rápido", e);
+            return ResponseEntity.status(500)
+                .body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+    
+    // DTO para registro rápido
+    public static class NuevoResponsableRequest {
+        public Long   idOficina;
+        public String nombre;
+        public String paterno;
+        public String materno;
+        public String ci;
+        public String codigoFuncionario;
+        public Long   idCargo;
     }
 }

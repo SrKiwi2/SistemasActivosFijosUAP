@@ -150,18 +150,18 @@ public class ReportesController {
         }
     }
 
-    // Endpoint NUEVO para Vista Pendientes — recibe idAsignacion ya existente
+    // Endpoint NUEVO para Vista Pendientes — recibe idAsignacionActivo ya existente
     @PostMapping("/regenerar-asignacion")
     public ResponseEntity<byte[]> regenerarReporte(
-            @RequestParam("idAsignacion")   String idAsignacionEnc,
+            @RequestParam("idAsignacionActivo")   String idAsignacionEnc,
             @RequestParam("codigoCompleto") String codigoCompleto) {
 
         try {
-            Long idAsignacion = Long.parseLong(Encriptar.decrypt(idAsignacionEnc));
+            Long idAsignacionActivo = Long.parseLong(Encriptar.decrypt(idAsignacionEnc));
 
             // Solo leer — NUNCA hacer save() aquí
             AsignacionActivo asignacion = asignacionActivoService
-                    .findByIdConDetalles(idAsignacion)
+                    .findByIdConDetalles(idAsignacionActivo)
                     .orElseThrow(() -> new RuntimeException("Asignación no encontrada"));
 
             // Obtener config por año de la asignación

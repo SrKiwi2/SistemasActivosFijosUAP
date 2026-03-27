@@ -1,32 +1,567 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Asignacion activos nuevos</h4>
+<!-- /seguimiento/asignacion/vista.html -->
+<h4 class="py-3 mb-4">
+    <span class="text-muted fw-light">Seguimiento /</span> Asignación de Activos
+</h4>
 
+<!-- Tarjetas de resumen -->
+<div class="row g-3 mb-4" id="statsRow">
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="avatar avatar-md bg-label-primary mb-2 mx-auto">
+                    <i class="bx bx-list-check fs-4"></i>
+                </div>
+                <h5 class="mb-0 fw-bold" id="stat-total">—</h5>
+                <small class="text-muted">Total registros</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="avatar avatar-md bg-label-success mb-2 mx-auto">
+                    <i class="bx bx-check-shield fs-4"></i>
+                </div>
+                <h5 class="mb-0 fw-bold" id="stat-activas">—</h5>
+                <small class="text-muted">Activas</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="avatar avatar-md bg-label-warning mb-2 mx-auto">
+                    <i class="bx bx-transfer-alt fs-4"></i>
+                </div>
+                <h5 class="mb-0 fw-bold" id="stat-reasignaciones">—</h5>
+                <small class="text-muted">Reasignaciones</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="avatar avatar-md bg-label-danger mb-2 mx-auto">
+                    <i class="bx bx-archive-out fs-4"></i>
+                </div>
+                <h5 class="mb-0 fw-bold" id="stat-activos">—</h5>
+                <small class="text-muted">Activos involucrados</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Panel de filtros + Acciones -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+
+            <div class="col-12 col-md-3">
+                <label class="form-label mb-1 small fw-semibold text-muted">BUSCAR</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bx bx-search"></i></span>
+                    <input type="text" id="filtro-buscar" class="form-control form-control-sm"
+                        placeholder="N° asignación, responsable...">
+                </div>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted">TIPO</label>
+                <select id="filtro-tipo" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="NUEVA">Nueva</option>
+                    <option value="REASIGNACION">Reasignación</option>
+                    <option value="DEVOLUCION">Devolución</option>
+                </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted">ESTADO</label>
+                <select id="filtro-estado" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="ACTIVA">Activa</option>
+                    <option value="ANULADA">Anulada</option>
+                    <option value="DEVUELTA">Devuelta</option>
+                </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted">DESDE</label>
+                <input type="date" id="filtro-desde" class="form-control form-control-sm">
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted">HASTA</label>
+                <input type="date" id="filtro-hasta" class="form-control form-control-sm">
+            </div>
+
+            <div class="col-12 col-md-1 d-flex gap-1 justify-content-end justify-content-md-start">
+                <button class="btn btn-sm btn-primary" onclick="aplicarFiltros()" title="Aplicar filtros">
+                    <i class="bx bx-filter-alt"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="limpiarFiltros()" title="Limpiar filtros">
+                    <i class="bx bx-x"></i>
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Botones de exportación -->
+        <div class="row mt-2">
+            <div class="col-12 d-flex align-items-center gap-2">
+                <span class="text-muted small me-1"><i class="bx bx-export me-1"></i>Exportar:</span>
+                <button class="btn btn-sm btn-outline-danger" onclick="exportarPDF()" id="btn-export-pdf">
+                    <i class="bx bxs-file-pdf me-1"></i>PDF
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="exportarExcel()" id="btn-export-excel">
+                    <i class="bx bxs-file-export me-1"></i>Excel
+                </button>
+                <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="cargarTabla()">
+                    <i class="bx bx-refresh me-1"></i>Actualizar
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Contenedor principal de tabla -->
 <div id="tablaRegistro"></div>
+
+<!-- ======================= MODAL DETALLE ASIGNACIÓN ======================= -->
+<div class="modal fade" id="modalDetalleAsignacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+
+            <!-- Header -->
+            <div class="modal-header bg-primary text-white py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="avatar bg-white bg-opacity-25 rounded-2 p-2">
+                        <i class="bx bx-clipboard fs-4 text-white"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title mb-0 fw-bold" id="modal-numero-asignacion">—</h5>
+                        <small class="opacity-75" id="modal-fecha-asignacion">—</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                    <span class="badge fs-6 px-3 py-2" id="modal-badge-tipo">—</span>
+                    <span class="badge fs-6 px-3 py-2" id="modal-badge-estado">—</span>
+                    <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal"></button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body p-0">
+                <!-- Tabs -->
+                <ul class="nav nav-tabs nav-tabs-bordered px-4 pt-3" id="modalTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active d-flex align-items-center gap-1" data-bs-toggle="tab"
+                            href="#tab-general">
+                            <i class="bx bx-info-circle"></i> Información General
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab" href="#tab-activos">
+                            <i class="bx bx-box"></i> Activos Asignados
+                            <span class="badge bg-primary rounded-pill ms-1" id="badge-num-activos">0</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab" href="#tab-auditoria">
+                            <i class="bx bx-time-five"></i> Auditoría
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="tab-content p-4">
+
+                    <!-- TAB GENERAL -->
+                    <div class="tab-pane fade show active" id="tab-general">
+                        <div class="row g-4">
+
+                            <!-- Columna izquierda: Datos del documento -->
+                            <div class="col-md-6">
+                                <div class="card border border-primary border-opacity-25 h-100">
+                                    <div class="card-header bg-primary bg-opacity-10 py-2">
+                                        <h6 class="mb-0 text-primary fw-semibold"><i
+                                                class="bx bx-file-blank me-1"></i>Datos del Documento</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <dl class="row mb-0 small">
+                                            <dt class="col-sm-5 text-muted">N° Asignación</dt>
+                                            <dd class="col-sm-7 fw-semibold" id="d-numero">—</dd>
+
+                                            <dt class="col-sm-5 text-muted">Código Documento</dt>
+                                            <dd class="col-sm-7" id="d-codigo-doc">—</dd>
+
+                                            <dt class="col-sm-5 text-muted">Código Completo</dt>
+                                            <dd class="col-sm-7 fw-semibold" id="d-codigo-completo">—</dd>
+
+                                            <dt class="col-sm-5 text-muted">Fecha Asignación</dt>
+                                            <dd class="col-sm-7" id="d-fecha">—</dd>
+
+                                            <dt class="col-sm-5 text-muted">Tipo</dt>
+                                            <dd class="col-sm-7" id="d-tipo">—</dd>
+
+                                            <dt class="col-sm-5 text-muted">Estado</dt>
+                                            <dd class="col-sm-7" id="d-estado">—</dd>
+
+                                            <dt class="col-sm-5 text-muted">Doc. Referencia</dt>
+                                            <dd class="col-sm-7" id="d-doc-referencia">—</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Columna derecha: Responsables -->
+                            <div class="col-md-6">
+                                <div class="card border border-success border-opacity-25 h-100">
+                                    <div class="card-header bg-success bg-opacity-10 py-2">
+                                        <h6 class="mb-0 text-success fw-semibold"><i
+                                                class="bx bx-user-check me-1"></i>Responsables</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <dl class="row mb-0 small">
+                                            <dt class="col-sm-5 text-muted">Resp. Origen</dt>
+                                            <dd class="col-sm-7 fw-semibold" id="d-resp-origen">—</dd>
+
+                                            <dt class="col-sm-5 text-muted">Resp. Destino</dt>
+                                            <dd class="col-sm-7 fw-semibold" id="d-resp-destino">—</dd>
+
+                                            <dt class="col-sm-5 text-muted">Oficina Destino</dt>
+                                            <dd class="col-sm-7" id="d-oficina-destino">—</dd>
+
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Observación -->
+                            <div class="col-12" id="container-observacion" style="display:none">
+                                <div class="alert alert-secondary d-flex gap-2 mb-0">
+                                    <i class="bx bx-comment-detail fs-5 mt-1 flex-shrink-0"></i>
+                                    <div>
+                                        <strong class="d-block small text-muted mb-1">OBSERVACIÓN</strong>
+                                        <span id="d-observacion"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- TAB ACTIVOS -->
+                    <div class="tab-pane fade" id="tab-activos">
+                        <!-- Resumen costo total -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <div class="card bg-label-primary text-center border-0">
+                                    <div class="card-body py-2">
+                                        <div class="small text-muted">Total Activos</div>
+                                        <div class="fs-5 fw-bold" id="resumen-total-activos">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-label-success text-center border-0">
+                                    <div class="card-body py-2">
+                                        <div class="small text-muted">Costo Total</div>
+                                        <div class="fs-5 fw-bold" id="resumen-costo-total">Bs. 0.00</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-center justify-content-end">
+                                <input type="text" id="buscar-activo" class="form-control form-control-sm"
+                                    placeholder="Buscar activo..." style="max-width:220px">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm align-middle" id="tabla-activos-modal">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="text-center" style="width:40px">#</th>
+                                        <th>Código</th>
+                                        <th>Descripción</th>
+                                        <th class="text-end">Costo (Bs.)</th>
+                                        <th class="text-center">Estado</th>
+                                        <th>Observación</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-activos">
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-4">Sin activos registrados</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB AUDITORÍA -->
+                    <div class="tab-pane fade" id="tab-auditoria">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body">
+                                        <h6 class="text-muted small mb-3"><i class="bx bx-plus-circle me-1"></i>REGISTRO
+                                        </h6>
+                                        <dl class="row mb-0 small">
+                                            <dt class="col-sm-5 text-muted">Fecha Registro</dt>
+                                            <dd class="col-sm-7" id="aud-fecha-reg">—</dd>
+                                            <dt class="col-sm-5 text-muted">Usuario</dt>
+                                            <dd class="col-sm-7" id="aud-usuario-reg">—</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body">
+                                        <h6 class="text-muted small mb-3"><i class="bx bx-edit me-1"></i>ÚLTIMA
+                                            MODIFICACIÓN</h6>
+                                        <dl class="row mb-0 small">
+                                            <dt class="col-sm-5 text-muted">Fecha Modif.</dt>
+                                            <dd class="col-sm-7" id="aud-fecha-mod">—</dd>
+                                            <dt class="col-sm-5 text-muted">Usuario</dt>
+                                            <dd class="col-sm-7" id="aud-usuario-mod">—</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Footer del modal -->
+            <div class="modal-footer bg-light border-top">
+                <a id="btn-modal-pdf" href="#" target="_blank" class="btn btn-danger btn-sm">
+                    <i class="bx bxs-file-pdf me-1"></i>Descargar PDF
+                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="bx bx-x me-1"></i>Cerrar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- ====================================================================== -->
 
 <script>
     $(document).ready(function () {
         cargarTabla();
-
-    }); 
+        inicializarFiltros();
+    });
 
     function cargarTabla() {
-        showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
+        const params = obtenerParametrosFiltro();
+        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
         $.ajax({
             type: 'POST',
-            url: "/seguimiento-activo/tabla_activos_nuevos",  // Ruta del metodo del controlador en Spring Boot
+            url: "/administracion/asignacion/tabla_activos_nuevos",
+            data: params,
             success: function (response) {
-                $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
+                $("#tablaRegistro").html(response);
+                calcularEstadisticas();
             },
-            error:function(){
-            $("#tablaRegistro").html(`
-                <div class="alert alert-danger m-3">
-                Ocurrió un error al cargar la tabla.
-                <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
-                </div>
-            `);
+            error: function () {
+                $("#tablaRegistro").html(`
+        <div class="alert alert-danger d-flex align-items-center gap-2 m-0">
+          <i class="bx bx-error-circle fs-4"></i>
+          <div>
+            Ocurrió un error al cargar los registros.
+            <button class="btn btn-sm btn-outline-danger ms-2" onclick="cargarTabla()">
+              <i class="bx bx-refresh me-1"></i>Reintentar
+            </button>
+          </div>
+        </div>`);
             },
-            complete:function(){
-            hideGlobalLoader();
+            complete: function () { hideGlobalLoader(); }
+        });
+    }
+
+    function obtenerParametrosFiltro() {
+        return {
+            tipo: $('#filtro-tipo').val(),
+            estado: $('#filtro-estado').val(),
+            buscar: $('#filtro-buscar').val(),
+            desde: $('#filtro-desde').val(),
+            hasta: $('#filtro-hasta').val()
+        };
+    }
+
+    function aplicarFiltros() { cargarTabla(); }
+
+    function limpiarFiltros() {
+        $('#filtro-tipo, #filtro-estado').val('');
+        $('#filtro-buscar, #filtro-desde, #filtro-hasta').val('');
+        cargarTabla();
+    }
+
+    function inicializarFiltros() {
+        $('#filtro-buscar').on('keypress', function (e) {
+            if (e.which === 13) cargarTabla();
+        });
+    }
+
+    function calcularEstadisticas() {
+        const filas = $('.asig-row');
+        let total = filas.length, activas = 0, reasig = 0, totalActivos = 0;
+        filas.each(function () {
+            if ($(this).data('estado') === 'ACTIVA') activas++;
+            if ($(this).data('tipo') === 'REASIGNACION') reasig++;
+            totalActivos += parseInt($(this).data('num-activos') || 0);
+        });
+        $('#stat-total').text(total);
+        $('#stat-activas').text(activas);
+        $('#stat-reasignaciones').text(reasig);
+        $('#stat-activos').text(totalActivos);
+    }
+
+    /* -------- ABRIR MODAL -------- */
+    function abrirModalAsignacion(id) {
+        const $row = $(`#asig-row-${id}`);
+        const data = $row.data();
+
+        // Header
+        $('#modal-numero-asignacion').text(data.numero || '—');
+        $('#modal-fecha-asignacion').text(formatearFecha(data.fecha) || '—');
+
+        // Badges tipo y estado
+        const coloresTipo = { NUEVA: 'bg-primary', REASIGNACION: 'bg-warning text-dark', DEVOLUCION: 'bg-secondary' };
+        const coloresEstado = { ACTIVA: 'bg-success', ANULADA: 'bg-danger', DEVUELTA: 'bg-info' };
+        $('#modal-badge-tipo').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresTipo[data.tipo] || 'bg-secondary')).text(data.tipo || '—');
+        $('#modal-badge-estado').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresEstado[data.estado] || 'bg-secondary')).text(data.estado || '—');
+
+        // Tab general
+        $('#d-numero').text(data.numero || '—');
+        $('#d-codigo-doc').text(data.codigoDoc || '—');
+        $('#d-codigo-completo').html(`<span class="fw-bold text-primary">${data.codigoCompleto || '—'}</span>`);
+        $('#d-fecha').text(formatearFecha(data.fecha) || '—');
+        $('#d-tipo').html(renderBadgeTipo(data.tipo));
+        $('#d-estado').html(renderBadgeEstado(data.estado));
+        $('#d-doc-referencia').text(data.docRef || '—');
+        $('#d-resp-origen').text(data.respOrigen || '—');
+        $('#d-resp-destino').text(data.respDestino || '—');
+        $('#d-oficina-destino').text(data.oficina || '—');
+
+        // Observación
+        if (data.observacion && data.observacion.trim() !== '') {
+            $('#d-observacion').text(data.observacion);
+            $('#container-observacion').show();
+        } else {
+            $('#container-observacion').hide();
+        }
+
+        // Auditoría
+        $('#aud-fecha-reg').text(formatearFechaHora(data.fechaReg) || '—');
+        $('#aud-usuario-reg').text(data.usuarioReg || '—');
+        $('#aud-fecha-mod').text(formatearFechaHora(data.fechaMod) || '—');
+        $('#aud-usuario-mod').text(data.usuarioMod || '—');
+
+        // Botón PDF
+        $('#btn-modal-pdf').attr('href', `/administracion/asignacion/asignaciones/${id}/pdf`);
+
+        // Cargar activos
+        cargarActivosModal(id);
+
+        // Volver al primer tab
+        $('#modalTabs .nav-link.active').removeClass('active show');
+        $('#modalTabs .nav-link:first').addClass('active show');
+        $('#tab-general').addClass('show active');
+        $('#tab-activos, #tab-auditoria').removeClass('show active');
+
+        new bootstrap.Modal(document.getElementById('modalDetalleAsignacion')).show();
+    }
+
+    function cargarActivosModal(idAsignacionActivo) {
+        $('#tbody-activos').html(`
+    <tr><td colspan="6" class="text-center py-4">
+      <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+      Cargando activos...
+    </td></tr>`);
+        $.ajax({
+            type: 'GET',
+            url: `/administracion/asignacion/${idAsignacionActivo}/detalles-json`,
+            success: function (detalles) {
+                if (!detalles || detalles.length === 0) {
+                    $('#tbody-activos').html('<tr><td colspan="6" class="text-center text-muted py-4">Sin activos registrados</td></tr>');
+                    $('#badge-num-activos, #resumen-total-activos').text('0');
+                    $('#resumen-costo-total').text('Bs. 0.00');
+                    return;
+                }
+                let html = '', costoTotal = 0;
+                detalles.forEach(function (d, i) {
+                    costoTotal += parseFloat(d.costoActivoSnapshot || 0);
+                    const estadoClass = d.estadoActivoSnapshot === 'BUENO' ? 'bg-success' :
+                        d.estadoActivoSnapshot === 'REGULAR' ? 'bg-warning text-dark' : 'bg-secondary';
+                    html += `<tr>
+          <td class="text-center text-muted small">${i + 1}</td>
+          <td><code class="small">${d.codigoActivoSnapshot || '—'}</code></td>
+          <td class="text-wrap" style="max-width:250px">${d.descripcionActivoSnapshot || '—'}</td>
+          <td class="text-end fw-semibold">
+            ${d.costoActivoSnapshot ? 'Bs. ' + parseFloat(d.costoActivoSnapshot).toLocaleString('es-BO', { minimumFractionDigits: 2 }) : '—'}
+          </td>
+          <td class="text-center">
+            ${d.estadoActivoSnapshot ? `<span class="badge ${estadoClass}">${d.estadoActivoSnapshot}</span>` : '—'}
+          </td>
+          <td class="small text-muted">${d.observacionDetalle || '—'}</td>
+        </tr>`;
+                });
+                $('#tbody-activos').html(html);
+                $('#badge-num-activos, #resumen-total-activos').text(detalles.length);
+                $('#resumen-costo-total').text('Bs. ' + costoTotal.toLocaleString('es-BO', { minimumFractionDigits: 2 }));
+
+                // Búsqueda en activos del modal
+                $('#buscar-activo').off('input').on('input', function () {
+                    const q = $(this).val().toLowerCase();
+                    $('#tabla-activos-modal tbody tr').each(function () {
+                        $(this).toggle($(this).text().toLowerCase().indexOf(q) > -1);
+                    });
+                });
+            },
+            error: function () {
+                $('#tbody-activos').html('<tr><td colspan="6" class="text-center text-danger py-3">Error al cargar activos</td></tr>');
             }
         });
+    }
+
+    /* -------- EXPORTAR -------- */
+    function exportarPDF() {
+        const params = new URLSearchParams(obtenerParametrosFiltro()).toString();
+        window.open(`/administracion/asignacion/exportar-pdf?${params}`, '_blank');
+    }
+
+    function exportarExcel() {
+        const params = new URLSearchParams(obtenerParametrosFiltro()).toString();
+        window.location.href = `/administracion/asignacion/exportar-excel?${params}`;
+    }
+
+    /* -------- HELPERS -------- */
+    function formatearFecha(f) {
+        if (!f) return null;
+        try {
+            const d = new Date(f);
+            return d.toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        } catch (e) { return f; }
+    }
+    function formatearFechaHora(f) {
+        if (!f) return null;
+        try {
+            const d = new Date(f);
+            return d.toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                + ' ' + d.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' });
+        } catch (e) { return f; }
+    }
+    function renderBadgeTipo(tipo) {
+        const map = { NUEVA: 'primary', REASIGNACION: 'warning', DEVOLUCION: 'secondary' };
+        return `<span class="badge bg-${map[tipo] || 'secondary'}">${tipo || '—'}</span>`;
+    }
+    function renderBadgeEstado(estado) {
+        const map = { ACTIVA: 'success', ANULADA: 'danger', DEVUELTA: 'info' };
+        return `<span class="badge bg-${map[estado] || 'secondary'}">${estado || '—'}</span>`;
     }
 </script>

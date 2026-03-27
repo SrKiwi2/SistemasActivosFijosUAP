@@ -984,8 +984,8 @@
             .then(res => {
                 hideGlobalLoader();
                 if (res.ok) {
-                    if (res.idAsignacion) {
-                        descargarReporte(res.idAsignacion, res.codigoCompleto);
+                    if (res.idAsignacionActivo) {
+                        descargarReporte(res.idAsignacionActivo, res.codigoCompleto);
                     }
                     Swal.fire('Listo', res.msg, 'success').then(() => cargarTabla());
                 } else {
@@ -1048,11 +1048,11 @@
 
 
         // ────────────────────────────────────────────────
-        // REPORTE — recibe idAsignacion ya existente, NO crea datos
+        // REPORTE — recibe idAsignacionActivo ya existente, NO crea datos
         // ────────────────────────────────────────────────
-        function descargarReporte(idAsignacion, codigoCompleto) {
+        function descargarReporte(idAsignacionActivo, codigoCompleto) {
             const form = $('<form>', { action: '/reportes/generar-asignacion', method: 'POST', target: '_blank' });
-            form.append($('<input>', { type: 'hidden', name: 'idAsignacion', value: idAsignacion }));
+            form.append($('<input>', { type: 'hidden', name: 'idAsignacionActivo', value: idAsignacionActivo }));
             form.append($('<input>', { type: 'hidden', name: 'codigoCompleto', value: codigoCompleto }));
             $('body').append(form);
             form.submit();

@@ -1,4 +1,4 @@
-package com.usic.SistemasActivosFijosUAP.controller.activo;
+package com.usic.SistemasActivosFijosUAP.controller.Seguimieto;
 
 import java.util.List;
 
@@ -16,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 @Controller
 @RequestMapping("/administracion/ingreso")
 @RequiredArgsConstructor
-public class IngresoActivoAjenoController {
+public class CIngresoActivoAjenoController {
 
     private final IOficinaService oficinaService;
     
@@ -25,6 +25,6 @@ public class IngresoActivoAjenoController {
     public String ingresoActivo(Model model) {
         List<Oficina> oficina = oficinaService.listarOficinas();
         model.addAttribute("oficinas", oficina);
-        return "activo/ingresoActivoAjeno";
+        return "seguimiento/ingreso/vista";
     }
 }

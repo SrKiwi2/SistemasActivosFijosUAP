@@ -35,4 +35,6 @@ public interface IActivoService extends IServiceGenerico<Activo, Long>{
     List<Activo> findAllById(List<Long> ids);
 
     List<String> findAllCodigos();
+
+    List<Activo> findByResponsableIdResponsable(Long idResponsable);
 }

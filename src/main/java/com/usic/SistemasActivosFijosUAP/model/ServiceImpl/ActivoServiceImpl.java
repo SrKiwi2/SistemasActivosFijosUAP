@@ -175,4 +175,9 @@ public class ActivoServiceImpl implements IActivoService{
     public List<String> findAllCodigos() {
         return dao.findAllCodigos();
     }
+
+    @Override
+    public List<Activo> findByResponsableIdResponsable(Long idResponsable) {
+        return dao.findByResponsableIdResponsable(idResponsable);
+    }
 }

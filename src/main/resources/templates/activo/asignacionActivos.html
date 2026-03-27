@@ -1,0 +1,1869 @@
+<!-- =====================================================================
+     ASIGNACIÓN DE ACTIVOS ENTRE RESPONSABLES — v1
+     Flujo: Predio → Oficina → Resp1 (origen) → [Activos] → Resp2 (destino)
+     Endpoint: POST /administracion/activo/asignacion-masiva
+     Fragmento Thymeleaf | sin <head><body><html>
+====================================================================== -->
+
+<style>
+    /* ── TOKENS (compartidos con el sistema) ─────────────────────────── */
+    :root {
+        --bg-page: #f0f2f5;
+        --bg-panel: #ffffff;
+        --bg-input: #f4f6fa;
+        --bg-hover: #f0f4ff;
+        --border-soft: #e4e8f0;
+        --border-med: #c9d0e0;
+        --border-focus: #3b5bdb;
+        --txt-primary: #1a2340;
+        --txt-sub: #5a6a8a;
+        --txt-muted: #9aa3b8;
+        --accent: #3b5bdb;
+        --accent-lt: rgba(59, 91, 219, .09);
+        --accent-hov: #2f4ac7;
+        --green: #12b76a;
+        --green-lt: rgba(18, 183, 106, .10);
+        --red: #f04438;
+        --red-lt: rgba(240, 68, 56, .10);
+        --amber: #f79009;
+        --amber-lt: rgba(247, 144, 9, .10);
+        --violet: #7c3aed;
+        --violet-lt: rgba(124, 58, 237, .09);
+        --font-ui: 'Inter', system-ui, sans-serif;
+        --font-mono: 'JetBrains Mono', 'Fira Mono', monospace;
+        --r-sm: 5px;
+        --r-md: 7px;
+        --r-lg: 10px;
+        --sh-sm: 0 1px 3px rgba(0, 0, 0, .06);
+        --sh-md: 0 4px 14px rgba(0, 0, 0, .10);
+        --t: .16s ease;
+    }
+
+    .aa-wrap,
+    .aa-wrap * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    .aa-wrap {
+        font-family: var(--font-ui);
+        color: var(--txt-primary);
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 56px);
+        overflow: hidden;
+        background: var(--bg-page);
+    }
+
+    /* ── TOPBAR ───────────────────────────────────────────────────────── */
+    .aa-topbar {
+        height: 46px;
+        flex-shrink: 0;
+        background: var(--bg-panel);
+        border-bottom: 1px solid var(--border-soft);
+        box-shadow: var(--sh-sm);
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 0 20px;
+        z-index: 20;
+    }
+
+    .aa-topbar-icon {
+        width: 26px;
+        height: 26px;
+        background: var(--violet);
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .aa-topbar-icon svg {
+        width: 13px;
+        height: 13px;
+        color: #fff;
+    }
+
+    .aa-topbar-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--txt-primary);
+    }
+
+    .aa-topbar-clock {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--txt-muted);
+    }
+
+    /* ── PASOS (stepper visual) ───────────────────────────────────────── */
+    .aa-steps {
+        flex-shrink: 0;
+        background: var(--bg-panel);
+        border-bottom: 1px solid var(--border-soft);
+        padding: 0 20px;
+        display: flex;
+        align-items: center;
+        height: 36px;
+        gap: 0;
+    }
+
+    .aa-step {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: .4px;
+        color: var(--txt-muted);
+        padding: 0 14px 0 0;
+        position: relative;
+        transition: color var(--t);
+    }
+
+    .aa-step:not(:last-child)::after {
+        content: '›';
+        position: absolute;
+        right: 4px;
+        font-size: 13px;
+        color: var(--border-med);
+    }
+
+    .aa-step-num {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 9.5px;
+        font-weight: 700;
+        background: var(--bg-input);
+        border: 1.5px solid var(--border-med);
+        color: var(--txt-muted);
+        flex-shrink: 0;
+        transition: all var(--t);
+    }
+
+    .aa-step.active {
+        color: var(--accent);
+    }
+
+    .aa-step.active .aa-step-num {
+        background: var(--accent-lt);
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+
+    .aa-step.done {
+        color: var(--green);
+    }
+
+    .aa-step.done .aa-step-num {
+        background: var(--green-lt);
+        border-color: var(--green);
+        color: var(--green);
+    }
+
+    /* ── PANEL DE CONTROLES ───────────────────────────────────────────── */
+    .aa-controls {
+        flex-shrink: 0;
+        background: var(--bg-panel);
+        border-bottom: 1px solid var(--border-soft);
+        padding: 11px 20px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+    }
+
+    /* Fila 1: Predio + Oficina + Resp1 */
+    .aa-ctrl-row1 {
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    /* Fila 2: Resp2 + Nuevo + Acciones (aparece al tener resp1 + activos) */
+    .aa-ctrl-row2 {
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding-top: 8px;
+        border-top: 1px solid var(--border-soft);
+    }
+
+    .aa-ctrl-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .aa-ctrl-group.grow {
+        flex: 1;
+        min-width: 160px;
+    }
+
+    .aa-ctrl-lbl {
+        font-size: 9.5px;
+        font-weight: 700;
+        letter-spacing: .8px;
+        text-transform: uppercase;
+        color: var(--txt-muted);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .aa-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .aa-input,
+    .aa-sel {
+        background: var(--bg-input);
+        border: 1px solid var(--border-med);
+        border-radius: var(--r-sm);
+        color: var(--txt-primary);
+        font-family: var(--font-ui);
+        font-size: 12.5px;
+        padding: 6px 10px;
+        outline: none;
+        height: 34px;
+        transition: border-color var(--t), box-shadow var(--t);
+        appearance: none;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .aa-input:focus,
+    .aa-sel:focus {
+        border-color: var(--border-focus);
+        box-shadow: 0 0 0 3px var(--accent-lt);
+    }
+
+    .aa-sel {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239aa3b8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 9px center;
+        padding-right: 26px;
+        cursor: pointer;
+    }
+
+    .aa-sel:disabled {
+        opacity: .4;
+        cursor: not-allowed;
+    }
+
+    /* Botones */
+    .aa-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        border: none;
+        border-radius: var(--r-sm);
+        font-family: var(--font-ui);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        padding: 0 13px;
+        height: 34px;
+        white-space: nowrap;
+        transition: all var(--t);
+        outline: none;
+        flex-shrink: 0;
+    }
+
+    .aa-btn:focus-visible {
+        box-shadow: 0 0 0 3px var(--accent-lt);
+    }
+
+    .aa-btn-ghost {
+        background: var(--bg-input);
+        color: var(--txt-sub);
+        border: 1px solid var(--border-med);
+    }
+
+    .aa-btn-ghost:hover:not(:disabled) {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-lt);
+    }
+
+    .aa-btn-danger {
+        background: var(--bg-input);
+        color: var(--txt-sub);
+        border: 1px solid var(--border-med);
+    }
+
+    .aa-btn-danger:hover:not(:disabled) {
+        border-color: var(--red);
+        color: var(--red);
+        background: var(--red-lt);
+    }
+
+    .aa-btn-violet {
+        background: var(--violet-lt);
+        color: var(--violet);
+        border: 1px solid rgba(124, 58, 237, .25);
+        font-size: 11px;
+    }
+
+    .aa-btn-violet:hover:not(:disabled) {
+        background: rgba(124, 58, 237, .16);
+        border-color: var(--violet);
+    }
+
+    .aa-btn-go {
+        background: var(--green);
+        color: #fff;
+        font-weight: 600;
+        font-size: 13px;
+        padding: 0 20px;
+        height: 36px;
+    }
+
+    .aa-btn-go:hover:not(:disabled) {
+        filter: brightness(1.07);
+    }
+
+    .aa-btn-go:disabled {
+        opacity: .38;
+        cursor: not-allowed;
+    }
+
+    .aa-btn-cancel {
+        background: var(--bg-input);
+        color: var(--txt-sub);
+        border: 1px solid var(--border-med);
+        height: 36px;
+        padding: 0 14px;
+    }
+
+    .aa-btn-cancel:hover:not(:disabled) {
+        border-color: var(--red);
+        color: var(--red);
+        background: var(--red-lt);
+    }
+
+    .aa-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 6px;
+        border-radius: 100px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        font-weight: 700;
+        background: var(--accent-lt);
+        color: var(--accent);
+    }
+
+    .aa-badge-g {
+        background: var(--green-lt);
+        color: var(--green);
+    }
+
+    .aa-badge-v {
+        background: var(--violet-lt);
+        color: var(--violet);
+    }
+
+    /* Resumen inline Fila 2 */
+    .aa-summary-row2 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11.5px;
+        color: var(--txt-sub);
+        margin-left: auto;
+        flex-shrink: 0;
+    }
+
+    /* Info chip del responsable origen seleccionado */
+    .aa-resp-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--green-lt);
+        border: 1px solid rgba(18, 183, 106, .2);
+        border-radius: var(--r-sm);
+        padding: 4px 10px;
+        font-size: 11px;
+        color: var(--green);
+        font-weight: 600;
+        flex-shrink: 0;
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* ── BARRA DE ESTADO ──────────────────────────────────────────────── */
+    .aa-statusbar {
+        flex-shrink: 0;
+        padding: 5px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--bg-page);
+        border-bottom: 1px solid var(--border-soft);
+        font-size: 11px;
+        color: var(--txt-muted);
+    }
+
+    .aa-statusbar.hidden {
+        display: none;
+    }
+
+    .aa-sb-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .aa-sb-right {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* Paginación en barra de estado */
+    .aa-pgn {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .aa-pgn-btn {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        border: 1px solid var(--border-med);
+        background: var(--bg-panel);
+        color: var(--txt-sub);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        transition: all var(--t);
+    }
+
+    .aa-pgn-btn:hover:not(:disabled) {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-lt);
+    }
+
+    .aa-pgn-btn:disabled {
+        opacity: .38;
+        cursor: not-allowed;
+    }
+
+    .aa-pgn-btn.current {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+        font-weight: 700;
+    }
+
+    .aa-pgn-info {
+        font-size: 10.5px;
+        color: var(--txt-muted);
+        font-family: var(--font-mono);
+    }
+
+    /* Selector de registros por página */
+    .aa-per-page {
+        background: var(--bg-input);
+        border: 1px solid var(--border-med);
+        border-radius: var(--r-sm);
+        color: var(--txt-primary);
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        padding: 2px 18px 2px 6px;
+        height: 24px;
+        cursor: pointer;
+        appearance: none;
+        outline: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 24 24' fill='none' stroke='%239aa3b8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 5px center;
+    }
+
+    /* ── ÁREA PRINCIPAL (tabla + empty) ──────────────────────────────── */
+    .aa-main {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: auto;
+        padding: 14px 20px;
+        min-height: 0;
+        position: relative;
+    }
+
+    .aa-main::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+    }
+
+    .aa-main::-webkit-scrollbar-thumb {
+        background: var(--border-med);
+        border-radius: 4px;
+    }
+
+    /* Empty state */
+    .aa-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 50vh;
+        gap: 10px;
+        color: var(--txt-muted);
+        text-align: center;
+    }
+
+    .aa-empty-ico {
+        width: 52px;
+        height: 52px;
+        border: 1.5px dashed var(--border-med);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+
+    .aa-empty-t {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--txt-sub);
+    }
+
+    .aa-empty-s {
+        font-size: 11.5px;
+        line-height: 1.65;
+        max-width: 300px;
+    }
+
+    /* Tabla */
+    .aa-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+
+    .aa-table thead th {
+        text-align: left;
+        font-family: var(--font-mono);
+        font-size: 9.5px;
+        letter-spacing: .8px;
+        text-transform: uppercase;
+        color: var(--txt-muted);
+        padding: 0 9px 8px;
+        border-bottom: 1px solid var(--border-soft);
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .aa-table thead th:first-child {
+        padding-left: 0;
+    }
+
+    .aa-table thead th.aa-th-center {
+        text-align: center;
+    }
+
+    .aa-table tbody tr {
+        border-bottom: 1px solid var(--border-soft);
+        transition: background var(--t);
+        animation: aaIn .18s ease both;
+    }
+
+    @keyframes aaIn {
+        from {
+            opacity: 0;
+            transform: translateY(4px)
+        }
+
+        to {
+            opacity: 1;
+            transform: none
+        }
+    }
+
+    .aa-table tbody tr:hover {
+        background: var(--bg-hover);
+    }
+
+    .aa-table tbody td {
+        padding: 8px 9px;
+        vertical-align: middle;
+        color: var(--txt-primary);
+    }
+
+    .aa-table tbody td:first-child {
+        padding-left: 0;
+    }
+
+    .aa-td-num {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--txt-muted);
+        width: 32px;
+    }
+
+    .aa-td-code {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--accent);
+        white-space: nowrap;
+    }
+
+    .aa-td-desc {
+        max-width: 260px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12px;
+    }
+
+    .aa-td-meta {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--txt-sub);
+        white-space: nowrap;
+    }
+
+    .aa-pill-g {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 9.5px;
+        font-weight: 700;
+        letter-spacing: .3px;
+        border-radius: 100px;
+        padding: 2px 8px;
+        text-transform: uppercase;
+        background: var(--green-lt);
+        color: var(--green);
+    }
+
+    .aa-pill-r {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 9.5px;
+        font-weight: 700;
+        letter-spacing: .3px;
+        border-radius: 100px;
+        padding: 2px 8px;
+        text-transform: uppercase;
+        background: var(--red-lt);
+        color: var(--red);
+    }
+
+    .aa-pill-a {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 9.5px;
+        font-weight: 700;
+        letter-spacing: .3px;
+        border-radius: 100px;
+        padding: 2px 8px;
+        text-transform: uppercase;
+        background: var(--amber-lt);
+        color: var(--amber);
+    }
+
+    /* Skeleton loader filas */
+    .aa-skeleton td {
+        padding: 9px;
+    }
+
+    .aa-sk {
+        height: 14px;
+        border-radius: 3px;
+        background: var(--border-soft);
+        animation: aaSkPulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes aaSkPulse {
+
+        0%,
+        100% {
+            opacity: .5
+        }
+
+        50% {
+            opacity: 1
+        }
+    }
+
+    /* ── OVERLAY ──────────────────────────────────────────────────────── */
+    .aa-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255, 255, 255, .75);
+        backdrop-filter: blur(3px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .2s;
+    }
+
+    .aa-overlay.on {
+        opacity: 1;
+        pointer-events: all;
+    }
+
+    .aa-overlay-box {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--r-md);
+        padding: 20px 28px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        box-shadow: var(--sh-md);
+    }
+
+    .aa-overlay-txt {
+        font-size: 11.5px;
+        color: var(--txt-sub);
+        font-family: var(--font-mono);
+    }
+
+    .aa-spin {
+        border: 2.5px solid var(--border-soft);
+        border-top-color: var(--violet);
+        border-radius: 50%;
+        animation: aaRot .55s linear infinite;
+        display: inline-block;
+    }
+
+    @keyframes aaRot {
+        to {
+            transform: rotate(360deg)
+        }
+    }
+
+    /* ── TOASTS ───────────────────────────────────────────────────────── */
+    .aa-toasts {
+        position: fixed;
+        bottom: 18px;
+        right: 18px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        pointer-events: none;
+    }
+
+    .aa-toast {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--r-md);
+        padding: 10px 14px;
+        min-width: 260px;
+        max-width: 330px;
+        box-shadow: var(--sh-md);
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        pointer-events: all;
+        animation: aaTIn .22s ease both;
+    }
+
+    @keyframes aaTIn {
+        from {
+            opacity: 0;
+            transform: translateX(14px)
+        }
+
+        to {
+            opacity: 1;
+            transform: none
+        }
+    }
+
+    .aa-toast-s {
+        border-left: 3px solid var(--green)
+    }
+
+    .aa-toast-e {
+        border-left: 3px solid var(--red)
+    }
+
+    .aa-toast-w {
+        border-left: 3px solid var(--amber)
+    }
+
+    .aa-toast-ti {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--txt-primary);
+        margin-bottom: 2px
+    }
+
+    .aa-toast-ms {
+        font-size: 11px;
+        color: var(--txt-sub);
+        line-height: 1.5
+    }
+
+    /* ── MODAL NUEVO RESPONSABLE ──────────────────────────────────────── */
+    .aa-modal-bg {
+        position: fixed;
+        inset: 0;
+        background: rgba(26, 35, 64, .45);
+        backdrop-filter: blur(4px);
+        z-index: 300;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .2s;
+    }
+
+    .aa-modal-bg.on {
+        opacity: 1;
+        pointer-events: all;
+    }
+
+    .aa-modal {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--r-lg);
+        box-shadow: var(--sh-md);
+        width: 420px;
+        max-width: 96vw;
+        display: flex;
+        flex-direction: column;
+        animation: aaModalIn .2s ease both;
+    }
+
+    @keyframes aaModalIn {
+        from {
+            opacity: 0;
+            transform: scale(.97)
+        }
+
+        to {
+            opacity: 1;
+            transform: none
+        }
+    }
+
+    .aa-modal-head {
+        padding: 14px 18px 12px;
+        border-bottom: 1px solid var(--border-soft);
+        display: flex;
+        align-items: center;
+        gap: 9px;
+    }
+
+    .aa-modal-icon {
+        width: 28px;
+        height: 28px;
+        background: var(--violet-lt);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .aa-modal-icon svg {
+        width: 13px;
+        height: 13px;
+        color: var(--violet);
+    }
+
+    .aa-modal-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--txt-primary);
+    }
+
+    .aa-modal-sub {
+        font-size: 11px;
+        color: var(--txt-muted);
+        margin-top: 1px;
+    }
+
+    .aa-modal-close {
+        margin-left: auto;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--txt-muted);
+        padding: 4px;
+        border-radius: 4px;
+        transition: color var(--t);
+    }
+
+    .aa-modal-close:hover {
+        color: var(--red);
+    }
+
+    .aa-modal-body {
+        padding: 16px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 11px;
+    }
+
+    .aa-modal-row {
+        display: flex;
+        gap: 10px;
+    }
+
+    .aa-modal-row .aa-ctrl-group {
+        flex: 1;
+    }
+
+    .aa-modal-foot {
+        padding: 11px 18px;
+        border-top: 1px solid var(--border-soft);
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+    }
+
+    /* Select2 estilos */
+    .select2-container {
+        width: 100% !important
+    }
+
+    .select2-container--default .select2-selection--single {
+        background-color: var(--bg-input);
+        border: 1px solid var(--border-med);
+        border-radius: var(--r-sm);
+        height: 34px;
+        display: flex;
+        align-items: center;
+        transition: border-color var(--t), box-shadow var(--t)
+    }
+
+    .select2-container--default.select2-container--open .select2-selection--single,
+    .select2-container--default.select2-container--focus .select2-selection--single {
+        border-color: var(--border-focus);
+        box-shadow: 0 0 0 3px var(--accent-lt);
+        outline: none
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        color: var(--txt-primary) !important;
+        font-family: var(--font-ui);
+        font-size: 12.5px;
+        line-height: 32px !important;
+        padding-left: 10px !important;
+        padding-right: 26px !important
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__placeholder {
+        color: var(--txt-muted) !important
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 32px;
+        right: 7px
+    }
+
+    .select2-dropdown {
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border-focus);
+        border-radius: var(--r-md);
+        box-shadow: var(--sh-md);
+        margin-top: 2px
+    }
+
+    .select2-search--dropdown {
+        padding: 7px 7px 5px
+    }
+
+    .select2-search--dropdown .select2-search__field {
+        border: 1px solid var(--border-med);
+        border-radius: var(--r-sm);
+        background: var(--bg-input);
+        color: var(--txt-primary);
+        font-family: var(--font-ui);
+        font-size: 12px;
+        padding: 5px 8px;
+        width: 100%;
+        outline: none;
+        transition: border-color var(--t)
+    }
+
+    .select2-search--dropdown .select2-search__field:focus {
+        border-color: var(--border-focus)
+    }
+
+    .select2-results__option {
+        font-family: var(--font-ui);
+        font-size: 12.5px;
+        color: var(--txt-primary) !important;
+        padding: 7px 11px;
+        transition: background var(--t)
+    }
+
+    .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+        background-color: var(--accent-lt) !important;
+        color: var(--accent) !important
+    }
+
+    .select2-container--default .select2-results__option--selected {
+        background-color: var(--bg-page) !important;
+        font-weight: 600
+    }
+
+    .select2-container--default.select2-container--disabled .select2-selection--single {
+        opacity: .4;
+        cursor: not-allowed
+    }
+
+    @media (max-width: 860px) {
+        .aa-wrap {
+            height: auto;
+            overflow: visible
+        }
+
+        .aa-ctrl-row1,
+        .aa-ctrl-row2 {
+            flex-direction: column;
+            align-items: stretch
+        }
+
+        .aa-summary-row2 {
+            margin-left: 0
+        }
+
+        .aa-steps {
+            display: none
+        }
+    }
+</style>
+
+<div class="aa-wrap">
+
+    <!-- Topbar -->
+    <header class="aa-topbar">
+        <div class="aa-topbar-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+        </div>
+        <span class="aa-topbar-title">Asignación de Activos entre Responsables</span>
+        <span class="aa-topbar-clock" id="aa-clock">—</span>
+    </header>
+
+    <!-- Stepper visual -->
+    <div class="aa-steps" id="aa-steps">
+        <div class="aa-step active" id="aa-step-1">
+            <span class="aa-step-num">1</span>
+            Unidad y Responsable origen
+        </div>
+        <div class="aa-step" id="aa-step-2">
+            <span class="aa-step-num">2</span>
+            Activos cargados
+        </div>
+        <div class="aa-step" id="aa-step-3">
+            <span class="aa-step-num">3</span>
+            Seleccionar nuevo responsable
+        </div>
+        <div class="aa-step" id="aa-step-4">
+            <span class="aa-step-num">4</span>
+            Confirmar asignación
+        </div>
+    </div>
+
+    <!-- CONTROLES -->
+    <div class="aa-controls">
+
+        <!-- Fila 1: Predio · Oficina · Responsable origen -->
+        <div class="aa-ctrl-row1">
+
+            <!-- Predio -->
+            <div class="aa-ctrl-group" style="min-width:210px;">
+                <span class="aa-ctrl-lbl">
+                    <span class="aa-dot" style="background:var(--accent)"></span>
+                    Unidad administrativa
+                </span>
+                <select id="aa-predio" class="aa-sel">
+                    <option value="">— Seleccione —</option>
+                    <th:block th:each="p : ${predios}">
+                        <option th:value="${p.idPredio}" th:text="${p.descrip} + ' — ' + ${p.codigo}"></option>
+                    </th:block>
+                </select>
+            </div>
+
+            <!-- Oficina -->
+            <div class="aa-ctrl-group grow">
+                <span class="aa-ctrl-lbl">
+                    <span class="aa-dot" style="background:var(--amber)"></span>
+                    Oficina
+                </span>
+                <select id="aa-oficina" class="aa-sel" disabled>
+                    <option value="">— Seleccione predio —</option>
+                </select>
+            </div>
+
+            <!-- Responsable origen -->
+            <div class="aa-ctrl-group grow">
+                <span class="aa-ctrl-lbl">
+                    <span class="aa-dot" style="background:var(--green)"></span>
+                    Responsable origen
+                    <span
+                        style="font-size:9px;color:var(--txt-muted);font-weight:400;text-transform:none;letter-spacing:0">(titular
+                        actual)</span>
+                </span>
+                <select id="aa-resp1" class="aa-sel" disabled>
+                    <option value="">— Seleccione oficina —</option>
+                </select>
+            </div>
+
+        </div>
+
+        <!-- Fila 2: Responsable destino + acciones (visible al cargar activos) -->
+        <div class="aa-ctrl-row2" id="aa-row2" style="display:none;">
+
+            <!-- Responsable destino -->
+            <div class="aa-ctrl-group grow">
+                <span class="aa-ctrl-lbl">
+                    <span class="aa-dot" style="background:var(--violet)"></span>
+                    Nuevo responsable destino
+                    <span
+                        style="font-size:9px;color:var(--txt-muted);font-weight:400;text-transform:none;letter-spacing:0">(misma
+                        oficina)</span>
+                </span>
+                <select id="aa-resp2" class="aa-sel" disabled>
+                    <option value="">— Seleccione responsable —</option>
+                </select>
+            </div>
+
+            <!-- Registrar nuevo responsable -->
+            <div class="aa-ctrl-group" style="justify-content:flex-end;">
+                <span class="aa-ctrl-lbl" style="opacity:0">—</span>
+                <button class="aa-btn aa-btn-violet" onclick="aaAbrirModalNuevoResp()" id="aa-btn-new-resp">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Nuevo responsable
+                </button>
+            </div>
+
+            <!-- Resumen -->
+            <div class="aa-summary-row2" id="aa-resumen">
+                <span class="aa-resp-chip" id="aa-chip-resp1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span id="aa-chip-resp1-txt">—</span>
+                </span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24"
+                    stroke="var(--txt-muted)" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+                <span
+                    style="font-family:var(--font-mono);font-size:10.5px;color:var(--txt-sub);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                    id="aa-chip-resp2">—</span>
+            </div>
+
+            <!-- Cancelar -->
+            <button class="aa-btn aa-btn-cancel" id="aa-btn-cancel" onclick="aaCancelar()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2.5">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+                Cancelar
+            </button>
+
+            <!-- Asignar -->
+            <button class="aa-btn aa-btn-go" id="aa-btn-go" disabled onclick="aaAsignar()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2.3">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Asignar Activos
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Barra de estado + paginación -->
+    <div class="aa-statusbar hidden" id="aa-statusbar">
+        <div class="aa-sb-left">
+            <span id="aa-status-txt" style="color:var(--txt-sub)">—</span>
+            <span class="aa-badge" id="aa-cnt-total">0</span>
+        </div>
+        <div class="aa-sb-right">
+            <span style="color:var(--txt-muted);font-size:10.5px;">Filas:</span>
+            <select class="aa-per-page" id="aa-per-page" onchange="aaPerPageChange()">
+                <option value="12">12</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+            </select>
+            <span class="aa-pgn-info" id="aa-pgn-info">—</span>
+            <div class="aa-pgn" id="aa-pgn"></div>
+        </div>
+    </div>
+
+    <!-- Tabla principal -->
+    <div class="aa-main">
+        <div class="aa-overlay" id="aa-overlay">
+            <div class="aa-overlay-box">
+                <div class="aa-spin" style="width:24px;height:24px;border-width:3px;"></div>
+                <span class="aa-overlay-txt" id="aa-overlay-txt">Cargando…</span>
+            </div>
+        </div>
+
+        <!-- Empty state -->
+        <div class="aa-empty" id="aa-empty">
+            <div class="aa-empty-ico">👤</div>
+            <div class="aa-empty-t">Sin activos cargados</div>
+            <div class="aa-empty-s">Seleccione un predio, oficina y responsable origen para ver los activos asignados.
+            </div>
+        </div>
+
+        <!-- Tabla de activos -->
+        <table class="aa-table" id="aa-table" style="display:none;">
+            <thead>
+                <tr>
+                    <th style="width:36px">#</th>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>Grupo Contable</th>
+                    <th>Estado</th>
+                    <th class="aa-th-center">Vida útil</th>
+                    <th class="aa-th-center">Costo</th>
+                </tr>
+            </thead>
+            <tbody id="aa-tbody"></tbody>
+        </table>
+    </div>
+
+</div><!-- /.aa-wrap -->
+
+<!-- Toasts -->
+<div class="aa-toasts" id="aa-toasts"></div>
+
+<!-- Modal Nuevo Responsable -->
+<div class="aa-modal-bg" id="aa-modal-bg" onclick="aaCerrarModal(event)">
+    <div class="aa-modal" onclick="event.stopPropagation()">
+        <div class="aa-modal-head">
+            <div class="aa-modal-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+            </div>
+            <div>
+                <div class="aa-modal-title">Registrar nuevo responsable</div>
+                <div class="aa-modal-sub" id="aa-modal-sub">Oficina: —</div>
+            </div>
+            <button class="aa-modal-close" onclick="aaCerrarModal()" title="Cerrar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2.5">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div class="aa-modal-body">
+            <div class="aa-modal-row">
+                <div class="aa-ctrl-group grow">
+                    <label class="aa-ctrl-lbl">
+                        <span class="aa-dot" style="background:var(--accent)"></span>
+                        Nombres
+                    </label>
+                    <input class="aa-input" type="text" id="aa-nr-nombre" placeholder="Nombres del funcionario" />
+                </div>
+            </div>
+            <div class="aa-modal-row">
+                <div class="aa-ctrl-group grow">
+                    <label class="aa-ctrl-lbl">Apellido paterno</label>
+                    <input class="aa-input" type="text" id="aa-nr-paterno" placeholder="Apellido paterno" />
+                </div>
+                <div class="aa-ctrl-group grow">
+                    <label class="aa-ctrl-lbl">Apellido materno</label>
+                    <input class="aa-input" type="text" id="aa-nr-materno" placeholder="Apellido materno" />
+                </div>
+            </div>
+            <div class="aa-modal-row">
+                <div class="aa-ctrl-group" style="min-width:110px;">
+                    <label class="aa-ctrl-lbl">C.I.</label>
+                    <input class="aa-input" type="text" id="aa-nr-ci" placeholder="12345678" />
+                </div>
+                <div class="aa-ctrl-group" style="min-width:110px;">
+                    <label class="aa-ctrl-lbl">Cód. funcionario</label>
+                    <input class="aa-input" type="text" id="aa-nr-codfunc" placeholder="00123" />
+                </div>
+                <div class="aa-ctrl-group grow">
+                    <label class="aa-ctrl-lbl">Cargo</label>
+                    <select id="aa-nr-cargo" class="aa-sel">
+                        <option value="">— Sin cargo —</option>
+                        <th:block th:each="c : ${cargos}">
+                            <option th:value="${c.idCargo}" th:text="${c.nombre}"></option>
+                        </th:block>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="aa-modal-foot">
+            <button class="aa-btn aa-btn-ghost" onclick="aaCerrarModal()">Cancelar</button>
+            <button class="aa-btn aa-btn-go" style="height:34px;padding:0 16px;" onclick="aaGuardarNuevoResp()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Registrar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        'use strict';
+
+        /* ────────── ESTADO GLOBAL ────────── */
+        const S = {
+            activos: [],        // lista completa cargada del servidor
+            pagina: 1,
+            perPage: 12,
+            resp1Id: null,
+            resp1Nombre: '',
+            resp2Id: null,
+            oficinaNombre: '',
+            oficinaId: null,
+        };
+
+        /* ────────── RELOJ ────────── */
+        clearInterval(window._aaClock);
+        window._aaClock = setInterval(() => {
+            const el = document.getElementById('aa-clock');
+            if (el) el.textContent = new Date().toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'medium' });
+        }, 1000);
+
+        /* ────────── SELECT2 INIT ────────── */
+        window.aaInitSelect2 = function () {
+            if (typeof $ === 'undefined' || !$.fn?.select2) return setTimeout(window.aaInitSelect2, 80);
+            ['#aa-predio', '#aa-oficina', '#aa-resp1', '#aa-resp2'].forEach(id => {
+                try {
+                    const $e = $(id);
+                    if ($e.hasClass('select2-hidden-accessible')) $e.select2('destroy');
+                    $e.off('change.aa');
+                } catch (_) { }
+            });
+            const base = { width: '100%', allowClear: true, minimumResultsForSearch: 4 };
+            $('#aa-predio').select2({ ...base, placeholder: '— Seleccione unidad —' });
+            $('#aa-oficina').select2({ ...base, placeholder: '— Seleccione oficina —' });
+            $('#aa-resp1').select2({ ...base, placeholder: '— Seleccione responsable —' });
+            $('#aa-resp2').select2({ ...base, placeholder: '— Seleccione responsable —' });
+
+            $('#aa-predio').on('change.aa', window.aaPredioChange);
+            $('#aa-oficina').on('change.aa', window.aaOficinaChange);
+            $('#aa-resp1').on('change.aa', window.aaResp1Change);
+            $('#aa-resp2').on('change.aa', window.aaResp2Change);
+        };
+
+        /* ────────── PREDIO CHANGE ────────── */
+        window.aaPredioChange = async function () {
+            const id = $('#aa-predio').val();
+            const $of = $('#aa-oficina'), $r1 = $('#aa-resp1'), $r2 = $('#aa-resp2');
+
+            // Reset dependientes
+            aaResetDesdeOficina();
+            $r1.empty().append('<option value="">— Seleccione oficina —</option>').prop('disabled', true).trigger('change.select2');
+            $r2.empty().append('<option value="">— Seleccione responsable —</option>').prop('disabled', true).trigger('change.select2');
+
+            if (!id) {
+                $of.empty().append('<option value="">— Seleccione predio —</option>').prop('disabled', true).trigger('change.select2');
+                return;
+            }
+            $of.empty().append('<option value="">— Cargando… —</option>').prop('disabled', true).trigger('change.select2');
+            try {
+                const data = await fetch(`/api/oficinas/por-predio?predioId=${id}`).then(r => r.json());
+                $of.empty().append('<option value="">— Seleccione oficina —</option>');
+                data.forEach(o => $of.append(
+                    $('<option>').val(o.idOficina).text(`${o.codOfi} — ${o.nombre}`)
+                        .attr('data-nombre', o.nombre).attr('data-cod', o.codOfi)
+                ));
+                $of.prop('disabled', false).trigger('change.select2');
+            } catch (_) { aaToast('e', 'Error', 'No se pudieron cargar las oficinas.'); }
+        };
+
+        /* ────────── OFICINA CHANGE ────────── */
+        window.aaOficinaChange = async function () {
+            const id = $('#aa-oficina').val();
+            const $r1 = $('#aa-resp1'), $r2 = $('#aa-resp2');
+
+            aaResetDesdeResp1();
+            $r2.empty().append('<option value="">— Seleccione responsable —</option>').prop('disabled', true).trigger('change.select2');
+
+            if (!id) {
+                $r1.empty().append('<option value="">— Seleccione oficina —</option>').prop('disabled', true).trigger('change.select2');
+                S.oficinaNombre = ''; S.oficinaId = null;
+                return;
+            }
+            const $selOf = $('#aa-oficina option:selected');
+            S.oficinaNombre = $selOf.attr('data-nombre') || $selOf.text();
+            S.oficinaId = parseInt(id);
+
+            $r1.empty().append('<option value="">— Cargando… —</option>').prop('disabled', true).trigger('change.select2');
+            try {
+                const data = await fetch(`/api/responsables/por-oficina?oficinaId=${id}`).then(r => r.json());
+                $r1.empty().append('<option value="">— Seleccione responsable —</option>');
+                data.forEach(r => $r1.append(
+                    $('<option>').val(r.idResponsable).text(`${r.codigoFuncionario} — ${r.nombre}`)
+                        .attr('data-nombre', r.nombre).attr('data-codfunc', r.codigoFuncionario)
+                ));
+                $r1.prop('disabled', false).trigger('change.select2');
+            } catch (_) { aaToast('e', 'Error', 'No se pudieron cargar los responsables.'); }
+        };
+
+        /* ────────── RESP1 CHANGE — carga activos ────────── */
+        window.aaResp1Change = async function () {
+            const id = $('#aa-resp1').val();
+            aaResetDesdeResp1();
+
+            if (!id) return;
+
+            const $sel = $('#aa-resp1 option:selected');
+            S.resp1Id = parseInt(id);
+            S.resp1Nombre = $sel.attr('data-nombre') || $sel.text();
+
+            // Actualizar chip
+            document.getElementById('aa-chip-resp1-txt').textContent = S.resp1Nombre;
+
+            aaOverlay('Cargando activos del responsable…');
+            aaShowSkeleton();
+
+            try {
+                const data = await fetch(`/api/activos/por-responsable?responsableId=${id}`).then(r => r.json());
+                S.activos = Array.isArray(data) ? data : [];
+                S.pagina = 1;
+
+                if (S.activos.length === 0) {
+                    aaToast('w', 'Sin activos', `${S.resp1Nombre} no tiene activos asignados.`);
+                    aaShowEmpty('Sin activos para este responsable', 'Este responsable no tiene activos registrados en el sistema.');
+                    return;
+                }
+
+                // Mostrar fila 2 y tabla
+                document.getElementById('aa-row2').style.display = 'flex';
+                aaActualizarResp2Select();
+                aaRenderTabla();
+                aaActualizarStatusbar();
+                aaActualizarStepper(2);
+                aaToast('s', 'Activos cargados', `${S.activos.length} activo(s) de ${S.resp1Nombre}`);
+
+            } catch (e) {
+                aaToast('e', 'Error', 'No se pudieron cargar los activos. ' + e.message);
+                aaShowEmpty('Error al cargar activos', 'Verifique la conexión e intente nuevamente.');
+            } finally {
+                aaOverlayOff();
+            }
+        };
+
+        /* ────────── Cargar resp2 excluyendo resp1 ────────── */
+        function aaActualizarResp2Select() {
+            const $r2 = $('#aa-resp2');
+            $r2.empty().append('<option value="">— Seleccione nuevo responsable —</option>');
+
+            // Obtener opciones de resp1 (misma oficina) y filtrar el seleccionado
+            $('#aa-resp1 option').each(function () {
+                const val = $(this).val();
+                if (!val || val === String(S.resp1Id)) return; // excluir vacío y resp1 actual
+                $r2.append(
+                    $('<option>').val(val).text($(this).text())
+                        .attr('data-nombre', $(this).attr('data-nombre'))
+                        .attr('data-codfunc', $(this).attr('data-codfunc'))
+                );
+            });
+
+            $r2.prop('disabled', false).trigger('change.select2');
+        }
+
+        /* ────────── RESP2 CHANGE ────────── */
+        window.aaResp2Change = function () {
+            const id = $('#aa-resp2').val();
+            S.resp2Id = id ? parseInt(id) : null;
+            const $sel = $('#aa-resp2 option:selected');
+            const nombre = $sel.val() ? ($sel.attr('data-nombre') || $sel.text()) : '—';
+            document.getElementById('aa-chip-resp2').textContent = nombre;
+            document.getElementById('aa-btn-go').disabled = !id;
+            aaActualizarStepper(id ? 3 : 2);
+        };
+
+        /* ────────── RENDER TABLA ────────── */
+        function aaRenderTabla() {
+            const tb = document.getElementById('aa-tbody');
+            tb.innerHTML = '';
+            const total = S.activos.length;
+            const inicio = (S.pagina - 1) * S.perPage;
+            const fin = Math.min(inicio + S.perPage, total);
+            const pagina = S.activos.slice(inicio, fin);
+
+            document.getElementById('aa-empty').style.display = 'none';
+            document.getElementById('aa-table').style.display = 'table';
+
+            pagina.forEach((a, idx) => {
+                const tr = document.createElement('tr');
+                const numGlobal = inicio + idx + 1;
+                const estado = (a.estadoActivo?.nombre || 'SIN ESTADO').toUpperCase();
+                let pillCls = 'aa-pill-a';
+                if (['BUENO', 'NUEVO'].includes(estado)) pillCls = 'aa-pill-g';
+                else if (['MALO', 'OBSOLETO', 'BAJA'].includes(estado)) pillCls = 'aa-pill-r';
+
+                const costo = a.costo != null
+                    ? new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(a.costo)
+                    : '—';
+                const vu = a.vidaUtil != null ? `${a.vidaUtil} años` : '—';
+
+                tr.style.animationDelay = `${Math.min(idx * .025, .3)}s`;
+                tr.innerHTML = `
+                <td class="aa-td-num">${numGlobal}</td>
+                <td class="aa-td-code">${x(a.codigo)}</td>
+                <td class="aa-td-desc" title="${x(a.descripcion || '')}">${x(a.descripcion || '—')}</td>
+                <td class="aa-td-meta">${x(a.grupoContable?.descripcion || a.grupoContable?.codContable || '—')}</td>
+                <td><span class="${pillCls}">● ${x(estado)}</span></td>
+                <td class="aa-td-meta" style="text-align:center;">${x(vu)}</td>
+                <td class="aa-td-meta" style="text-align:right;font-family:var(--font-mono);">${costo}</td>`;
+                tb.appendChild(tr);
+            });
+
+            aaRenderPaginacion(total);
+        }
+
+        /* ────────── PAGINACIÓN ────────── */
+        function aaRenderPaginacion(total) {
+            const totalPages = Math.ceil(total / S.perPage);
+            const inicio = (S.pagina - 1) * S.perPage + 1;
+            const fin = Math.min(S.pagina * S.perPage, total);
+
+            document.getElementById('aa-pgn-info').textContent =
+                `${inicio}–${fin} de ${total}`;
+
+            const pgn = document.getElementById('aa-pgn');
+            pgn.innerHTML = '';
+
+            // Prev
+            const prev = document.createElement('button');
+            prev.className = 'aa-pgn-btn';
+            prev.innerHTML = '‹';
+            prev.disabled = S.pagina === 1;
+            prev.onclick = () => { S.pagina--; aaRenderTabla(); };
+            pgn.appendChild(prev);
+
+            // Páginas (máx 7 botones visibles con ellipsis)
+            const pages = aaRangoPages(S.pagina, totalPages);
+            pages.forEach(p => {
+                if (p === '…') {
+                    const el = document.createElement('span');
+                    el.className = 'aa-pgn-info';
+                    el.style.padding = '0 2px';
+                    el.textContent = '…';
+                    pgn.appendChild(el);
+                } else {
+                    const btn = document.createElement('button');
+                    btn.className = 'aa-pgn-btn' + (p === S.pagina ? ' current' : '');
+                    btn.textContent = p;
+                    btn.onclick = () => { S.pagina = p; aaRenderTabla(); };
+                    pgn.appendChild(btn);
+                }
+            });
+
+            // Next
+            const next = document.createElement('button');
+            next.className = 'aa-pgn-btn';
+            next.innerHTML = '›';
+            next.disabled = S.pagina === totalPages;
+            next.onclick = () => { S.pagina++; aaRenderTabla(); };
+            pgn.appendChild(next);
+        }
+
+        function aaRangoPages(actual, total) {
+            if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+            if (actual <= 4) return [1, 2, 3, 4, 5, '…', total];
+            if (actual >= total - 3) return [1, '…', total - 4, total - 3, total - 2, total - 1, total];
+            return [1, '…', actual - 1, actual, actual + 1, '…', total];
+        }
+
+        window.aaPerPageChange = function () {
+            S.perPage = parseInt(document.getElementById('aa-per-page').value);
+            S.pagina = 1;
+            aaRenderTabla();
+            aaActualizarStatusbar();
+        };
+
+        /* ────────── STATUSBAR ────────── */
+        function aaActualizarStatusbar() {
+            const bar = document.getElementById('aa-statusbar');
+            const txt = document.getElementById('aa-status-txt');
+            const cnt = document.getElementById('aa-cnt-total');
+            if (S.activos.length) {
+                bar.classList.remove('hidden');
+                txt.textContent = `Activos de ${S.resp1Nombre}`;
+                cnt.textContent = S.activos.length;
+            } else {
+                bar.classList.add('hidden');
+            }
+        }
+
+        /* ────────── STEPPER ────────── */
+        function aaActualizarStepper(pasoActivo) {
+            for (let i = 1; i <= 4; i++) {
+                const el = document.getElementById(`aa-step-${i}`);
+                if (!el) continue;
+                el.className = 'aa-step';
+                if (i < pasoActivo) el.classList.add('done');
+                else if (i === pasoActivo) el.classList.add('active');
+            }
+        }
+
+        /* ────────── SKELETON (loading visual) ────────── */
+        function aaShowSkeleton() {
+            document.getElementById('aa-empty').style.display = 'none';
+            const tb = document.getElementById('aa-tbody');
+            tb.innerHTML = '';
+            document.getElementById('aa-table').style.display = 'table';
+            for (let i = 0; i < 8; i++) {
+                const tr = document.createElement('tr');
+                tr.className = 'aa-skeleton';
+                tr.innerHTML = `
+                <td><div class="aa-sk" style="width:24px;"></div></td>
+                <td><div class="aa-sk" style="width:90px;"></div></td>
+                <td><div class="aa-sk" style="width:${140 + Math.random() * 80 | 0}px;"></div></td>
+                <td><div class="aa-sk" style="width:80px;"></div></td>
+                <td><div class="aa-sk" style="width:54px;border-radius:100px;"></div></td>
+                <td><div class="aa-sk" style="width:44px;"></div></td>
+                <td><div class="aa-sk" style="width:60px;margin-left:auto;"></div></td>`;
+                tb.appendChild(tr);
+            }
+        }
+
+        function aaShowEmpty(titulo, subtitulo) {
+            document.getElementById('aa-table').style.display = 'none';
+            const e = document.getElementById('aa-empty');
+            e.style.display = 'flex';
+            e.querySelector('.aa-empty-t').textContent = titulo || 'Sin activos';
+            e.querySelector('.aa-empty-s').textContent = subtitulo || '';
+        }
+
+        /* ────────── ASIGNAR ────────── */
+        window.aaAsignar = async function () {
+            if (!S.resp2Id) { aaToast('w', 'Incompleto', 'Seleccione el responsable destino.'); return; }
+            if (!S.activos.length) { aaToast('w', 'Sin activos', 'No hay activos cargados.'); return; }
+
+            const resp2Nombre = $('#aa-resp2 option:selected').attr('data-nombre') || '—';
+
+            if (!confirm(
+                `¿Confirma la reasignación de ${S.activos.length} activo(s) de\n` +
+                `"${S.resp1Nombre}" → "${resp2Nombre}"?`
+            )) return;
+
+            const btn = document.getElementById('aa-btn-go');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="aa-spin" style="width:14px;height:14px;border-width:2px;border-top-color:#fff;"></span>&ensp;Asignando…';
+            aaOverlay(`Reasignando ${S.activos.length} activo(s)…`);
+
+            try {
+                const res = await fetch('/administracion/activo/asignacion-masiva', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        idOficina: S.oficinaId,
+                        idResponsableOrigen: S.resp1Id,
+                        idResponsableDestino: S.resp2Id,
+                        codigos: S.activos.map(a => a.codigo)
+                    })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    aaToast('s', '¡Asignación exitosa!', data.msg || `${S.activos.length} activo(s) reasignados.`);
+                    if (data.referencia) aaToast('i', 'Referencia', `Ref: ${data.referencia}`);
+                    aaActualizarStepper(4);
+                    setTimeout(() => aaCancelar(), 1200);
+                } else {
+                    aaToast('e', 'Error', data.msg || 'Revise la consola.');
+                }
+            } catch (e) {
+                aaToast('e', 'Error de red', e.message);
+            } finally {
+                aaOverlayOff();
+                btn.disabled = false;
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.3"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg> Asignar Activos`;
+                aaCheckBtn();
+            }
+        };
+
+        /* ────────── CANCELAR / RESET ────────── */
+        window.aaCancelar = function () {
+            // Limpiar selects
+            ['#aa-predio', '#aa-oficina', '#aa-resp1', '#aa-resp2'].forEach(id => {
+                const $e = $(id);
+                $e.val(null).trigger('change.select2');
+            });
+            $('#aa-oficina,#aa-resp1,#aa-resp2').prop('disabled', true).trigger('change.select2');
+            aaResetDesdeOficina();
+            aaActualizarStepper(1);
+            document.getElementById('aa-row2').style.display = 'none';
+            document.getElementById('aa-statusbar').classList.add('hidden');
+            document.getElementById('aa-pgn').innerHTML = '';
+            document.getElementById('aa-chip-resp1-txt').textContent = '—';
+            document.getElementById('aa-chip-resp2').textContent = '—';
+            aaShowEmpty('Sin activos cargados', 'Seleccione un predio, oficina y responsable origen para ver los activos asignados.');
+        };
+
+        function aaResetDesdeOficina() {
+            S.activos = []; S.resp1Id = null; S.resp1Nombre = '';
+            S.resp2Id = null; S.oficinaNombre = ''; S.oficinaId = null;
+            aaResetDesdeResp1();
+        }
+
+        function aaResetDesdeResp1() {
+            S.activos = []; S.resp2Id = null; S.pagina = 1;
+            document.getElementById('aa-btn-go').disabled = true;
+            document.getElementById('aa-chip-resp2').textContent = '—';
+        }
+
+        function aaCheckBtn() {
+            document.getElementById('aa-btn-go').disabled = !(S.resp2Id && S.activos.length > 0);
+        }
+
+        /* ────────── MODAL NUEVO RESPONSABLE ────────── */
+        window.aaAbrirModalNuevoResp = function () {
+            const sub = document.getElementById('aa-modal-sub');
+            sub.textContent = S.oficinaNombre ? `Oficina: ${S.oficinaNombre}` : 'Oficina: —';
+            // limpiar campos
+            ['aa-nr-nombre', 'aa-nr-paterno', 'aa-nr-materno', 'aa-nr-ci', 'aa-nr-codfunc'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            document.getElementById('aa-nr-cargo').value = '';
+            document.getElementById('aa-modal-bg').classList.add('on');
+        };
+
+        window.aaCerrarModal = function (e) {
+            if (e && e.target !== document.getElementById('aa-modal-bg')) return;
+            document.getElementById('aa-modal-bg').classList.remove('on');
+        };
+
+        window.aaGuardarNuevoResp = async function () {
+            const nombre = document.getElementById('aa-nr-nombre').value.trim();
+            const ci = document.getElementById('aa-nr-ci').value.trim();
+            const codfunc = document.getElementById('aa-nr-codfunc').value.trim();
+
+            if (!nombre || !codfunc) {
+                aaToast('w', 'Campos requeridos', 'Complete al menos nombres y código de funcionario.');
+                return;
+            }
+            if (!S.oficinaId) {
+                aaToast('w', 'Sin oficina', 'Primero seleccione una oficina.'); return;
+            }
+
+            aaOverlay('Registrando responsable…');
+            try {
+                const res = await fetch('/api/responsables/registrar-rapido', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        idOficina: S.oficinaId,
+                        nombre: nombre,
+                        paterno: document.getElementById('aa-nr-paterno').value.trim(),
+                        materno: document.getElementById('aa-nr-materno').value.trim(),
+                        ci: ci,
+                        codigoFuncionario: codfunc,
+                        idCargo: document.getElementById('aa-nr-cargo').value || null
+                    })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    aaToast('s', 'Responsable registrado', `${data.nombre} agregado correctamente.`);
+                    document.getElementById('aa-modal-bg').classList.remove('on');
+                    // Recargar responsables de la oficina actual
+                    await window.aaOficinaChange();
+                    // Restaurar resp1
+                    if (S.resp1Id) {
+                        $('#aa-resp1').val(String(S.resp1Id)).trigger('change.select2');
+                    }
+                    // Seleccionar el nuevo resp en resp2 si viene el id
+                    if (data.idResponsable) {
+                        setTimeout(() => {
+                            aaActualizarResp2Select();
+                            $('#aa-resp2').val(String(data.idResponsable)).trigger('change.select2');
+                        }, 200);
+                    }
+                } else {
+                    aaToast('e', 'Error', data.msg || 'No se pudo registrar.');
+                }
+            } catch (e) {
+                aaToast('e', 'Error de red', e.message);
+            } finally {
+                aaOverlayOff();
+            }
+        };
+
+        /* ────────── HELPERS UI ────────── */
+        function aaOverlay(msg) {
+            document.getElementById('aa-overlay-txt').textContent = msg;
+            document.getElementById('aa-overlay').classList.add('on');
+        }
+        function aaOverlayOff() { document.getElementById('aa-overlay').classList.remove('on'); }
+
+        function aaToast(type, title, msg) {
+            const icons = { s: '✅', e: '❌', w: '⚠️', i: 'ℹ️' };
+            const cls = { s: 'aa-toast-s', e: 'aa-toast-e', w: 'aa-toast-w', i: 'aa-toast-s' };
+            const c = document.getElementById('aa-toasts');
+            const d = document.createElement('div');
+            d.className = `aa-toast ${cls[type] || 'aa-toast-s'}`;
+            d.innerHTML = `<span style="font-size:14px;flex-shrink:0;margin-top:1px;">${icons[type] || 'ℹ️'}</span>
+            <div><div class="aa-toast-ti">${x(title)}</div><div class="aa-toast-ms">${x(msg)}</div></div>`;
+            c.appendChild(d);
+            setTimeout(() => {
+                d.style.cssText += 'opacity:0;transform:translateX(12px);transition:.3s';
+                setTimeout(() => d.remove(), 330);
+            }, 4500);
+        }
+
+        function x(s) {
+            return s == null ? '' : String(s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        /* ────────── BOOT ────────── */
+        (function boot() {
+            if (typeof $ !== 'undefined' && $.fn?.select2) window.aaInitSelect2();
+            else setTimeout(boot, 80);
+        })();
+
+    })();
+</script>

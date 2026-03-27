@@ -1,32 +1,416 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Baja activos</h4>
+<!-- /seguimiento/baja/vista.html -->
+<h4 class="py-3 mb-4">
+    <span class="text-muted fw-light">Seguimiento /</span> Baja de Activos
+</h4>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="avatar avatar-md bg-label-danger mb-2 mx-auto"><i class="bx bx-trash fs-4"></i></div>
+                <h5 class="mb-0 fw-bold" id="stat-total">—</h5>
+                <small class="text-muted">Total bajas</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="avatar avatar-md bg-label-success mb-2 mx-auto"><i class="bx bx-check-circle fs-4"></i>
+                </div>
+                <h5 class="mb-0 fw-bold" id="stat-aprobadas">—</h5>
+                <small class="text-muted">Aprobadas</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="avatar avatar-md bg-label-warning mb-2 mx-auto"><i class="bx bx-time fs-4"></i></div>
+                <h5 class="mb-0 fw-bold" id="stat-pendientes">—</h5>
+                <small class="text-muted">Pendientes</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="avatar avatar-md bg-label-secondary mb-2 mx-auto"><i class="bx bx-box fs-4"></i></div>
+                <h5 class="mb-0 fw-bold" id="stat-activos">—</h5>
+                <small class="text-muted">Activos dados de baja</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-3">
+                <label class="form-label mb-1 small fw-semibold text-muted">BUSCAR</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bx bx-search"></i></span>
+                    <input type="text" id="filtro-buscar" class="form-control form-control-sm"
+                        placeholder="N° resolución, responsable...">
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted">MOTIVO</label>
+                <select id="filtro-tipo" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="DETERIORO">Deterioro</option>
+                    <option value="OBSOLESCENCIA">Obsolescencia</option>
+                    <option value="ROBO_PERDIDA">Robo / Pérdida</option>
+                    <option value="SINIESTRO">Siniestro</option>
+                    <option value="DONACION">Donación</option>
+                    <option value="VENTA">Venta</option>
+                    <option value="OTRO">Otro</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted">ESTADO</label>
+                <select id="filtro-estado" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="PENDIENTE">Pendiente</option>
+                    <option value="APROBADA">Aprobada</option>
+                    <option value="EJECUTADA">Ejecutada</option>
+                    <option value="ANULADA">Anulada</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted">DESDE</label>
+                <input type="date" id="filtro-desde" class="form-control form-control-sm">
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted">HASTA</label>
+                <input type="date" id="filtro-hasta" class="form-control form-control-sm">
+            </div>
+            <div class="col-12 col-md-1 d-flex gap-1 justify-content-end justify-content-md-start">
+                <button class="btn btn-sm btn-primary" onclick="aplicarFiltros()"><i
+                        class="bx bx-filter-alt"></i></button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="limpiarFiltros()"><i
+                        class="bx bx-x"></i></button>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-12 d-flex align-items-center gap-2">
+                <span class="text-muted small me-1"><i class="bx bx-export me-1"></i>Exportar:</span>
+                <button class="btn btn-sm btn-outline-danger" onclick="exportarPDF()">
+                    <i class="bx bxs-file-pdf me-1"></i>PDF
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="exportarExcel()">
+                    <i class="bx bxs-file-export me-1"></i>Excel
+                </button>
+                <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="cargarTabla()">
+                    <i class="bx bx-refresh me-1"></i>Actualizar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div id="tablaRegistro"></div>
+
+<!-- MODAL BAJA -->
+<div class="modal fade" id="modalDetalleBaja" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+
+            <div class="modal-header text-white py-3 bg-danger">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="avatar bg-white bg-opacity-25 rounded-2 p-2">
+                        <i class="bx bx-trash fs-4 text-white"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title mb-0 fw-bold" id="baja-modal-numero">—</h5>
+                        <small class="opacity-75" id="baja-modal-fecha">—</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                    <span class="badge fs-6 px-3 py-2 bg-light text-danger fw-semibold"
+                        id="baja-modal-badge-motivo">—</span>
+                    <span class="badge fs-6 px-3 py-2" id="baja-modal-badge-estado">—</span>
+                    <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal"></button>
+                </div>
+            </div>
+
+            <div class="modal-body p-0">
+                <ul class="nav nav-tabs nav-tabs-bordered px-4 pt-3" id="bajaModalTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active d-flex align-items-center gap-1" data-bs-toggle="tab"
+                            href="#baja-tab-general">
+                            <i class="bx bx-info-circle"></i> General
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab"
+                            href="#baja-tab-activos">
+                            <i class="bx bx-box"></i> Activos Dados de Baja
+                            <span class="badge bg-danger rounded-pill ms-1" id="baja-badge-num">0</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab"
+                            href="#baja-tab-auditoria">
+                            <i class="bx bx-time-five"></i> Auditoría
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="tab-content p-4">
+                    <div class="tab-pane fade show active" id="baja-tab-general">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <div class="card border border-danger border-opacity-25 h-100">
+                                    <div class="card-header bg-danger bg-opacity-10 py-2">
+                                        <h6 class="mb-0 text-danger fw-semibold"><i
+                                                class="bx bx-file-blank me-1"></i>Datos de la Baja</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <dl class="row mb-0 small">
+                                            <dt class="col-sm-5 text-muted">N° Resolución/Acta</dt>
+                                            <dd class="col-sm-7 fw-semibold text-danger" id="baja-d-numero">—</dd>
+                                            <dt class="col-sm-5 text-muted">Motivo</dt>
+                                            <dd class="col-sm-7" id="baja-d-motivo">—</dd>
+                                            <dt class="col-sm-5 text-muted">Estado</dt>
+                                            <dd class="col-sm-7" id="baja-d-estado">—</dd>
+                                            <dt class="col-sm-5 text-muted">Fecha Solicitud</dt>
+                                            <dd class="col-sm-7" id="baja-d-fecha">—</dd>
+                                            <dt class="col-sm-5 text-muted">Fecha Aprobación</dt>
+                                            <dd class="col-sm-7" id="baja-d-fecha-aprobacion">—</dd>
+                                            <dt class="col-sm-5 text-muted">Resolución/Acta N°</dt>
+                                            <dd class="col-sm-7" id="baja-d-resolucion">—</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border border-secondary border-opacity-25 h-100">
+                                    <div class="card-header bg-secondary bg-opacity-10 py-2">
+                                        <h6 class="mb-0 text-secondary fw-semibold"><i
+                                                class="bx bx-user me-1"></i>Responsable / Unidad</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <dl class="row mb-0 small">
+                                            <dt class="col-sm-5 text-muted">Responsable</dt>
+                                            <dd class="col-sm-7 fw-semibold" id="baja-d-responsable">—</dd>
+                                            <dt class="col-sm-5 text-muted">Unidad / Oficina</dt>
+                                            <dd class="col-sm-7" id="baja-d-oficina">—</dd>
+                                            <dt class="col-sm-5 text-muted">Aprobado por</dt>
+                                            <dd class="col-sm-7" id="baja-d-aprobador">—</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12" id="baja-container-observacion" style="display:none">
+                                <div class="alert alert-secondary d-flex gap-2 mb-0">
+                                    <i class="bx bx-comment-detail fs-5 mt-1 flex-shrink-0"></i>
+                                    <div>
+                                        <strong class="d-block small text-muted mb-1">OBSERVACIÓN /
+                                            JUSTIFICACIÓN</strong>
+                                        <span id="baja-d-observacion"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="baja-tab-activos">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-3">
+                                <div class="card bg-label-danger text-center border-0">
+                                    <div class="card-body py-2">
+                                        <div class="small text-muted">Total Activos</div>
+                                        <div class="fs-5 fw-bold" id="baja-resumen-total">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-label-secondary text-center border-0">
+                                    <div class="card-body py-2">
+                                        <div class="small text-muted">Valor Total Baja</div>
+                                        <div class="fs-5 fw-bold" id="baja-resumen-costo">Bs. 0.00</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 d-flex align-items-center justify-content-end">
+                                <input type="text" id="baja-buscar-activo" class="form-control form-control-sm"
+                                    placeholder="Buscar activo..." style="max-width:220px">
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm" id="baja-tabla-activos">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Código</th>
+                                        <th>Descripción</th>
+                                        <th class="text-end">Valor Baja (Bs.)</th>
+                                        <th>Valor Residual</th>
+                                        <th>Estado Prev.</th>
+                                        <th>Observación</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="baja-tbody-activos">
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">Sin activos</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="baja-tab-auditoria">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body">
+                                        <h6 class="text-muted small mb-3"><i class="bx bx-plus-circle me-1"></i>REGISTRO
+                                        </h6>
+                                        <dl class="row mb-0 small">
+                                            <dt class="col-sm-5 text-muted">Fecha Registro</dt>
+                                            <dd class="col-sm-7" id="baja-aud-fecha-reg">—</dd>
+                                            <dt class="col-sm-5 text-muted">Usuario</dt>
+                                            <dd class="col-sm-7" id="baja-aud-usuario-reg">—</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body">
+                                        <h6 class="text-muted small mb-3"><i class="bx bx-edit me-1"></i>MODIFICACIÓN
+                                        </h6>
+                                        <dl class="row mb-0 small">
+                                            <dt class="col-sm-5 text-muted">Fecha Modif.</dt>
+                                            <dd class="col-sm-7" id="baja-aud-fecha-mod">—</dd>
+                                            <dt class="col-sm-5 text-muted">Usuario</dt>
+                                            <dd class="col-sm-7" id="baja-aud-usuario-mod">—</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer bg-light border-top">
+                <a id="baja-btn-modal-pdf" href="#" target="_blank" class="btn btn-danger btn-sm">
+                    <i class="bx bxs-file-pdf me-1"></i>Descargar PDF
+                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="bx bx-x me-1"></i>Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
     $(document).ready(function () {
         cargarTabla();
-
-    }); 
+        $('#filtro-buscar').on('keypress', function (e) { if (e.which === 13) cargarTabla(); });
+    });
 
     function cargarTabla() {
-        showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
+        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
         $.ajax({
-            type: 'POST',
-            url: "/seguimiento-activo/tabla_bajas",  // Ruta del metodo del controlador en Spring Boot
-            success: function (response) {
-                $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
+            type: 'POST', url: "/administracion/baja/tabla",
+            data: obtenerFiltros(),
+            success: function (r) { $("#tablaRegistro").html(r); calcularEstadisticas(); },
+            error: function () {
+                $("#tablaRegistro").html(`<div class="alert alert-danger">Error al cargar.
+      <button class="btn btn-sm btn-outline-danger ms-2" onclick="cargarTabla()">Reintentar</button></div>`);
             },
-            error:function(){
-            $("#tablaRegistro").html(`
-                <div class="alert alert-danger m-3">
-                Ocurrió un error al cargar la tabla.
-                <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
-                </div>
-            `);
-            },
-            complete:function(){
-            hideGlobalLoader();
-            }
+            complete: function () { hideGlobalLoader(); }
         });
     }
+    function obtenerFiltros() {
+        return {
+            motivo: $('#filtro-tipo').val(), estado: $('#filtro-estado').val(),
+            buscar: $('#filtro-buscar').val(), desde: $('#filtro-desde').val(), hasta: $('#filtro-hasta').val()
+        };
+    }
+    function aplicarFiltros() { cargarTabla(); }
+    function limpiarFiltros() { $('#filtro-tipo,#filtro-estado').val(''); $('#filtro-buscar,#filtro-desde,#filtro-hasta').val(''); cargarTabla(); }
+
+    function calcularEstadisticas() {
+        const filas = $('.baja-row');
+        let total = filas.length, aprobadas = 0, pendientes = 0, totalActivos = 0;
+        filas.each(function () {
+            if ($(this).data('estado') === 'APROBADA' || $(this).data('estado') === 'EJECUTADA') aprobadas++;
+            if ($(this).data('estado') === 'PENDIENTE') pendientes++;
+            totalActivos += parseInt($(this).data('num-activos') || 0);
+        });
+        $('#stat-total').text(total); $('#stat-aprobadas').text(aprobadas);
+        $('#stat-pendientes').text(pendientes); $('#stat-activos').text(totalActivos);
+    }
+
+    function abrirModalBaja(id) {
+        const $row = $(`#baja-row-${id}`);
+        const data = $row.data();
+        const colEst = { PENDIENTE: 'bg-warning text-dark', APROBADA: 'bg-success', EJECUTADA: 'bg-primary', ANULADA: 'bg-danger' };
+
+        $('#baja-modal-numero').text(data.numero || '—');
+        $('#baja-modal-fecha').text(data.fecha || '—');
+        $('#baja-modal-badge-motivo').text(data.motivo || '—');
+        $('#baja-modal-badge-estado').attr('class', 'badge fs-6 px-3 py-2 ' + (colEst[data.estado] || 'bg-secondary')).text(data.estado || '—');
+        $('#baja-d-numero').text(data.numero || '—');
+        $('#baja-d-motivo').text(data.motivo || '—');
+        $('#baja-d-estado').html(`<span class="badge ${colEst[data.estado] || 'bg-secondary'}">${data.estado || '—'}</span>`);
+        $('#baja-d-fecha').text(data.fecha || '—');
+        $('#baja-d-fecha-aprobacion').text(data.fechaAprobacion || '—');
+        $('#baja-d-resolucion').text(data.resolucion || '—');
+        $('#baja-d-responsable').text(data.responsable || '—');
+        $('#baja-d-oficina').text(data.oficina || '—');
+        $('#baja-d-aprobador').text(data.aprobador || '—');
+        if (data.observacion && data.observacion.trim()) {
+            $('#baja-d-observacion').text(data.observacion); $('#baja-container-observacion').show();
+        } else { $('#baja-container-observacion').hide(); }
+        $('#baja-aud-fecha-reg').text(data.fechaReg || '—'); $('#baja-aud-usuario-reg').text(data.usuarioReg || '—');
+        $('#baja-aud-fecha-mod').text(data.fechaMod || '—'); $('#baja-aud-usuario-mod').text(data.usuarioMod || '—');
+        $('#baja-btn-modal-pdf').attr('href', `/administracion/baja/${id}/pdf`);
+        cargarActivosBaja(id);
+        const tab = new bootstrap.Tab(document.querySelector('#bajaModalTabs .nav-link'));
+        tab.show();
+        new bootstrap.Modal(document.getElementById('modalDetalleBaja')).show();
+    }
+
+    function cargarActivosBaja(id) {
+        $('#baja-tbody-activos').html(`<tr><td colspan="7" class="text-center py-4">
+    <div class="spinner-border spinner-border-sm text-danger me-2"></div>Cargando...</td></tr>`);
+        $.ajax({
+            type: 'GET', url: `/administracion/baja/${id}/detalles-json`,
+            success: function (detalles) {
+                if (!detalles || detalles.length === 0) {
+                    $('#baja-tbody-activos').html('<tr><td colspan="7" class="text-center text-muted py-4">Sin activos</td></tr>');
+                    $('#baja-badge-num,#baja-resumen-total').text('0'); $('#baja-resumen-costo').text('Bs. 0.00'); return;
+                }
+                let html = '', costo = 0;
+                detalles.forEach(function (d, i) {
+                    costo += parseFloat(d.valorBaja || 0);
+                    html += `<tr><td class="small text-muted">${i + 1}</td>
+          <td><code class="small">${d.codigoActivo || '—'}</code></td>
+          <td>${d.descripcionActivo || '—'}</td>
+          <td class="text-end fw-semibold text-danger">${d.valorBaja ? 'Bs. ' + parseFloat(d.valorBaja).toLocaleString('es-BO', { minimumFractionDigits: 2 }) : '—'}</td>
+          <td class="text-end">${d.valorResidual ? 'Bs. ' + parseFloat(d.valorResidual).toLocaleString('es-BO', { minimumFractionDigits: 2 }) : '—'}</td>
+          <td><span class="badge bg-label-secondary">${d.estadoAnterior || '—'}</span></td>
+          <td class="small text-muted">${d.observacion || '—'}</td></tr>`;
+                });
+                $('#baja-tbody-activos').html(html);
+                $('#baja-badge-num,#baja-resumen-total').text(detalles.length);
+                $('#baja-resumen-costo').text('Bs. ' + costo.toLocaleString('es-BO', { minimumFractionDigits: 2 }));
+                $('#baja-buscar-activo').off('input').on('input', function () {
+                    const q = $(this).val().toLowerCase();
+                    $('#baja-tabla-activos tbody tr').each(function () { $(this).toggle($(this).text().toLowerCase().includes(q)); });
+                });
+            },
+            error: function () { $('#baja-tbody-activos').html('<tr><td colspan="7" class="text-center text-danger py-3">Error</td></tr>'); }
+        });
+    }
+    function exportarPDF() { window.open(`/administracion/baja/exportar-pdf?${new URLSearchParams(obtenerFiltros())}`, '_blank'); }
+    function exportarExcel() { window.location.href = `/administracion/baja/exportar-excel?${new URLSearchParams(obtenerFiltros())}`; }
 </script>
