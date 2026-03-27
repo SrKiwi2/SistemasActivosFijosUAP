@@ -479,13 +479,15 @@
 
     function cargarActivosModal(idAsignacionActivo) {
         $('#tbody-activos').html(`
-    <tr><td colspan="6" class="text-center py-4">
-      <div class="spinner-border spinner-border-sm text-primary me-2"></div>
-      Cargando activos...
-    </td></tr>`);
+            <tr><td colspan="6" class="text-center py-4">
+              <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+              Cargando activos...
+            </td></tr>`);
+            
         $.ajax({
             type: 'GET',
-            url: `/administracion/asignacion/${idAsignacionActivo}/detalles-json`,
+            // CORRECCIÓN 1: La URL exacta hacia tu controlador
+            url: `/administracion/asignar/asignaciones/${idAsignacionActivo}/detalles-json`,
             success: function (detalles) {
                 if (!detalles || detalles.length === 0) {
                     $('#tbody-activos').html('<tr><td colspan="6" class="text-center text-muted py-4">Sin activos registrados</td></tr>');
@@ -493,24 +495,32 @@
                     $('#resumen-costo-total').text('Bs. 0.00');
                     return;
                 }
+                
                 let html = '', costoTotal = 0;
+                
                 detalles.forEach(function (d, i) {
-                    costoTotal += parseFloat(d.costoActivoSnapshot || 0);
-                    const estadoClass = d.estadoActivoSnapshot === 'BUENO' ? 'bg-success' :
-                        d.estadoActivoSnapshot === 'REGULAR' ? 'bg-warning text-dark' : 'bg-secondary';
+                    // CORRECCIÓN 2: Usar las propiedades correctas del JSON (d.costo, d.codigo, d.estado, etc.)
+                    const costoFila = parseFloat(d.costo || 0);
+                    costoTotal += costoFila;
+                    
+                    const estadoClass = d.estado === 'BUENO' ? 'bg-success' :
+                                        d.estado === 'REGULAR' ? 'bg-warning text-dark' : 
+                                        'bg-secondary';
+                                        
                     html += `<tr>
-          <td class="text-center text-muted small">${i + 1}</td>
-          <td><code class="small">${d.codigoActivoSnapshot || '—'}</code></td>
-          <td class="text-wrap" style="max-width:250px">${d.descripcionActivoSnapshot || '—'}</td>
-          <td class="text-end fw-semibold">
-            ${d.costoActivoSnapshot ? 'Bs. ' + parseFloat(d.costoActivoSnapshot).toLocaleString('es-BO', { minimumFractionDigits: 2 }) : '—'}
-          </td>
-          <td class="text-center">
-            ${d.estadoActivoSnapshot ? `<span class="badge ${estadoClass}">${d.estadoActivoSnapshot}</span>` : '—'}
-          </td>
-          <td class="small text-muted">${d.observacionDetalle || '—'}</td>
-        </tr>`;
+                      <td class="text-center text-muted small">${i + 1}</td>
+                      <td><code class="small">${d.codigo || '—'}</code></td>
+                      <td class="text-wrap" style="max-width:250px">${d.descripcion || '—'}</td>
+                      <td class="text-end fw-semibold">
+                        ${d.costo ? 'Bs. ' + costoFila.toLocaleString('es-BO', { minimumFractionDigits: 2 }) : '—'}
+                      </td>
+                      <td class="text-center">
+                        ${d.estado ? `<span class="badge ${estadoClass}">${d.estado}</span>` : '—'}
+                      </td>
+                      <td class="small text-muted">${d.observacion || '—'}</td>
+                    </tr>`;
                 });
+                
                 $('#tbody-activos').html(html);
                 $('#badge-num-activos, #resumen-total-activos').text(detalles.length);
                 $('#resumen-costo-total').text('Bs. ' + costoTotal.toLocaleString('es-BO', { minimumFractionDigits: 2 }));

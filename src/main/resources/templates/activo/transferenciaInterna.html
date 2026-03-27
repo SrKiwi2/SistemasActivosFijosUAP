@@ -1100,7 +1100,7 @@
             tr.innerHTML = `
             <td class="ti-td-code">${x(a.codigo)}</td>
             <td class="ti-td-desc" title="${x(a.descripcion || '')}">${x(a.descripcion || '—')}</td>
-            <td class="ti-td-meta">${x(a.grupoContable?.descripcion || '—')}</td>
+            <td class="ti-td-meta">${x(a.grupoContable?.nombre || '—')}</td>
             <td class="ti-td-meta">${x(a.oficina?.nombre || '—')}</td>
             <td class="ti-td-meta">${x(a.responsable?.nombre || '—')}</td>
             

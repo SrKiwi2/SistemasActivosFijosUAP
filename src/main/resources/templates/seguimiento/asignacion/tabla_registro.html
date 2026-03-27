@@ -130,7 +130,7 @@
                         th:text="${asig.estadoAsignacion ?: '—'}">—</span>
 
                     <!-- Botón acción rápida PDF -->
-                    <a th:href="@{/administracion/asignacion/asignaciones/{id}/pdf(id=${asig.idAsignacionActivo})}"
+                    <a th:href="@{/administracion/asignar/asignaciones/{id}/pdf(id=${asig.idAsignacionActivo})}"
                         target="_blank" class="btn btn-sm btn-icon btn-outline-danger py-0 px-1" title="Descargar PDF"
                         onclick="event.stopPropagation()">
                         <i class="bx bxs-file-pdf small"></i>
@@ -213,7 +213,7 @@
             $('#aud-usuario-reg').text(data.usuarioReg || '—');
             $('#aud-fecha-mod').text(data.fechaMod || '—');
             $('#aud-usuario-mod').text(data.usuarioMod || '—');
-            $('#btn-modal-pdf').attr('href', `/administracion/asignacion/asignaciones/${id}/pdf`);
+            $('#btn-modal-pdf').attr('href', `/administracion/asignar/asignaciones/${id}/pdf`);
 
             // Cargar activos
             $('#tab-activos-link').tab('show');
