@@ -338,8 +338,6 @@ public class ActivosController {
 
             Map<String, Long> correlativosActuales = new HashMap<>();
 
-            Map<String, Integer> incrementosLocales = new HashMap<>();
-
             for (DetalleRegistroItem item : request.getItems()) {
 
                 if (item.getIdResponsable() == null) {

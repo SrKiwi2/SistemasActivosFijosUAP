@@ -2,6 +2,7 @@ package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -61,6 +62,16 @@ public class UsuarioServiceImpl implements IUsuarioService{
     @Override
     public Optional<Usuario> buscarConPersonaRol(String usuario) {
         return usuarioDao.findByUsuarioWithPersonaAndRol(usuario);
+    }
+
+    @Override
+    public Optional<Usuario> findByIdUsuario(Long idUsuario) {
+        return usuarioDao.findById(idUsuario);
+    }
+
+    @Override
+    public List<Usuario> findAllByIdUsuarioIn(Set<Long> idUsuario) {
+        return usuarioDao.findAllByIdUsuarioIn(idUsuario);
     }
     
 }

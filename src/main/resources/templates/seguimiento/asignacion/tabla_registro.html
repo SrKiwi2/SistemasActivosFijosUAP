@@ -56,7 +56,7 @@
             th:data-oficina="${asig.oficinaDestino != null ? asig.oficinaDestino.nombre : ''}"
             th:data-doc-ref="${asig.documentoReferencia}" th:data-observacion="${asig.observacion}"
             th:data-num-activos="${asig.detalles != null ? #lists.size(asig.detalles) : 0}"
-            th:data-fecha-reg="${asig.registro}" th:data-usuario-reg="${asig.registroIdUsuario}"
+            th:data-fecha-reg="${asig.registro}" th:data-usuario-reg="${asig.registroIdUsuario != null ? mapaUsuarios.get(asig.registroIdUsuario) : 'Sistema'}"
             th:data-fecha-mod="${asig.modificacion}" th:data-usuario-mod="${asig.modificacionIdUsuario}"
             style="cursor:pointer; transition: background 0.15s;">
 
@@ -130,7 +130,7 @@
                         th:text="${asig.estadoAsignacion ?: '—'}">—</span>
 
                     <!-- Botón acción rápida PDF -->
-                    <a th:href="@{/administracion/asignar/asignaciones/{id}/pdf(id=${asig.idAsignacionActivo})}"
+                    <a th:href="@{/administracion/asignacion/asignaciones/{id}/pdf(id=${asig.idAsignacionActivo})}"
                         target="_blank" class="btn btn-sm btn-icon btn-outline-danger py-0 px-1" title="Descargar PDF"
                         onclick="event.stopPropagation()">
                         <i class="bx bxs-file-pdf small"></i>
@@ -169,10 +169,11 @@
 </style>
 
 <script>
-    /* Clic en fila -> abrir modal */
-    $(document).on('click', '.asig-row', function () {
+    $(document).off('click.asigRow').on('click.asigRow', '.asig-row', function () {
         const id = $(this).data('id');
-        abrirModalAsignacion(id);
+        if (typeof abrirModalAsignacion === 'function') {
+            abrirModalAsignacion(id);
+        }
     });
 
     /* Pasar datos a función del padre */
@@ -213,7 +214,7 @@
             $('#aud-usuario-reg').text(data.usuarioReg || '—');
             $('#aud-fecha-mod').text(data.fechaMod || '—');
             $('#aud-usuario-mod').text(data.usuarioMod || '—');
-            $('#btn-modal-pdf').attr('href', `/administracion/asignar/asignaciones/${id}/pdf`);
+            $('#btn-modal-pdf').attr('href', `/administracion/asignacion/asignaciones/${id}/pdf`);
 
             // Cargar activos
             $('#tab-activos-link').tab('show');

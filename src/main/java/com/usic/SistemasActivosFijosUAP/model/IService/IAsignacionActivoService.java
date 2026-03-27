@@ -17,4 +17,6 @@ public interface IAsignacionActivoService extends IServiceGenerico<AsignacionAct
     Optional<AsignacionActivo> findByActivo(@Param("activo") Activo activo);
 
     Optional<AsignacionActivo> findByIdConDetalles(@Param("id") Long id);
+
+    List<AsignacionActivo> buscarConFiltros(String tipo, String estado, String buscar, String desde, String hasta);
 }

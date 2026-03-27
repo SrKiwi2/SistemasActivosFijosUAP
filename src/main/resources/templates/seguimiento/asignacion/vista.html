@@ -1,4 +1,20 @@
 <!-- /seguimiento/asignacion/vista.html -->
+
+<style>
+    /* Centrado perfecto para Boxicons dentro de Avatares y Botones */
+    .avatar i {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        width: 100%;
+    }
+    .btn i.bx {
+        vertical-align: middle; /* Alinea el ícono con el texto del botón */
+        line-height: 1;
+    }
+</style>
+ 
 <h4 class="py-3 mb-4">
     <span class="text-muted fw-light">Seguimiento /</span> Asignación de Activos
 </h4>
@@ -253,7 +269,8 @@
 
                     <!-- TAB ACTIVOS -->
                     <div class="tab-pane fade" id="tab-activos">
-                        <!-- Resumen costo total -->
+ 
+                        <!-- Resumen superior -->
                         <div class="row g-3 mb-3">
                             <div class="col-md-4">
                                 <div class="card bg-label-primary text-center border-0">
@@ -264,19 +281,14 @@
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <div class="card bg-label-success text-center border-0">
-                                    <div class="card-body py-2">
-                                        <div class="small text-muted">Costo Total</div>
-                                        <div class="fs-5 fw-bold" id="resumen-costo-total">Bs. 0.00</div>
-                                    </div>
-                                </div>
+                                <!-- espacio reservado para futura métrica -->
                             </div>
                             <div class="col-md-4 d-flex align-items-center justify-content-end">
                                 <input type="text" id="buscar-activo" class="form-control form-control-sm"
                                     placeholder="Buscar activo..." style="max-width:220px">
                             </div>
                         </div>
-
+                    
                         <div class="table-responsive">
                             <table class="table table-hover table-sm align-middle" id="tabla-activos-modal">
                                 <thead class="table-light">
@@ -284,14 +296,15 @@
                                         <th class="text-center" style="width:40px">#</th>
                                         <th>Código</th>
                                         <th>Descripción</th>
-                                        <th class="text-end">Costo (Bs.)</th>
                                         <th class="text-center">Estado</th>
-                                        <th>Observación</th>
+                                        <th>Oficina</th>
+                                        <th>Predio / Unidad</th>
+                                        <th class="text-center">Fecha Adquisición</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbody-activos">
                                     <tr>
-                                        <td colspan="6" class="text-center text-muted py-4">Sin activos registrados</td>
+                                        <td colspan="7" class="text-center text-muted py-4">Sin activos registrados</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -479,64 +492,92 @@
 
     function cargarActivosModal(idAsignacionActivo) {
         $('#tbody-activos').html(`
-            <tr><td colspan="6" class="text-center py-4">
-              <div class="spinner-border spinner-border-sm text-primary me-2"></div>
-              Cargando activos...
+            <tr><td colspan="7" class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+            Cargando activos...
             </td></tr>`);
-            
+    
         $.ajax({
             type: 'GET',
-            // CORRECCIÓN 1: La URL exacta hacia tu controlador
-            url: `/administracion/asignar/asignaciones/${idAsignacionActivo}/detalles-json`,
+            url: `/administracion/asignacion/asignaciones/${idAsignacionActivo}/detalles-json`,
             success: function (detalles) {
                 if (!detalles || detalles.length === 0) {
-                    $('#tbody-activos').html('<tr><td colspan="6" class="text-center text-muted py-4">Sin activos registrados</td></tr>');
+                    $('#tbody-activos').html(
+                        '<tr><td colspan="7" class="text-center text-muted py-4">Sin activos registrados</td></tr>'
+                    );
                     $('#badge-num-activos, #resumen-total-activos').text('0');
-                    $('#resumen-costo-total').text('Bs. 0.00');
                     return;
                 }
-                
-                let html = '', costoTotal = 0;
-                
+    
+                let html = '';
+    
                 detalles.forEach(function (d, i) {
-                    // CORRECCIÓN 2: Usar las propiedades correctas del JSON (d.costo, d.codigo, d.estado, etc.)
-                    const costoFila = parseFloat(d.costo || 0);
-                    costoTotal += costoFila;
-                    
-                    const estadoClass = d.estado === 'BUENO' ? 'bg-success' :
-                                        d.estado === 'REGULAR' ? 'bg-warning text-dark' : 
-                                        'bg-secondary';
-                                        
+                    // Badge de estado
+                    const estadoVal  = (d.estadoActivo || '').toUpperCase();
+                    const estadoCls  = estadoVal === 'BUENO' || estadoVal === 'NUEVO'
+                        ? 'bg-success'
+                        : (estadoVal === 'REGULAR' || estadoVal === 'DETERIORADO'
+                            ? 'bg-warning text-dark'
+                            : (estadoVal === 'MALO' || estadoVal === 'OBSOLETO'
+                                ? 'bg-danger'
+                                : 'bg-secondary'));
+    
+                    // Fecha formateada dd/MM/yyyy
+                    let fechaFmt = '—';
+                    if (d.fechaAdquisicion && d.fechaAdquisicion !== '—') {
+                        try {
+                            const partes = d.fechaAdquisicion.split('-'); // ISO: YYYY-MM-DD
+                            if (partes.length === 3) {
+                                fechaFmt = `${partes[2]}/${partes[1]}/${partes[0]}`;
+                            }
+                        } catch (_) { fechaFmt = d.fechaAdquisicion; }
+                    }
+    
                     html += `<tr>
-                      <td class="text-center text-muted small">${i + 1}</td>
-                      <td><code class="small">${d.codigo || '—'}</code></td>
-                      <td class="text-wrap" style="max-width:250px">${d.descripcion || '—'}</td>
-                      <td class="text-end fw-semibold">
-                        ${d.costo ? 'Bs. ' + costoFila.toLocaleString('es-BO', { minimumFractionDigits: 2 }) : '—'}
-                      </td>
-                      <td class="text-center">
-                        ${d.estado ? `<span class="badge ${estadoClass}">${d.estado}</span>` : '—'}
-                      </td>
-                      <td class="small text-muted">${d.observacion || '—'}</td>
+                        <td class="text-center text-muted small">${i + 1}</td>
+                        <td><code class="small fw-semibold text-primary">${escHtml(d.codigo)}</code></td>
+                        <td class="text-wrap" style="max-width:240px; font-size:0.82rem">${escHtml(d.descripcion)}</td>
+                        <td class="text-center">
+                            ${estadoVal !== '—'
+                                ? `<span class="badge ${estadoCls}">${escHtml(d.estadoActivo)}</span>`
+                                : '<span class="text-muted">—</span>'}
+                        </td>
+                        <td class="small text-truncate" style="max-width:160px">${escHtml(d.oficina)}</td>
+                        <td class="small text-muted text-truncate" style="max-width:140px">${escHtml(d.predio)}</td>
+                        <td class="text-center small text-muted">${fechaFmt}</td>
                     </tr>`;
                 });
-                
+    
                 $('#tbody-activos').html(html);
                 $('#badge-num-activos, #resumen-total-activos').text(detalles.length);
-                $('#resumen-costo-total').text('Bs. ' + costoTotal.toLocaleString('es-BO', { minimumFractionDigits: 2 }));
-
-                // Búsqueda en activos del modal
-                $('#buscar-activo').off('input').on('input', function () {
+    
+                // Búsqueda en tiempo real dentro del modal
+                $('#buscar-activo').off('input.modalBusq').on('input.modalBusq', function () {
                     const q = $(this).val().toLowerCase();
                     $('#tabla-activos-modal tbody tr').each(function () {
                         $(this).toggle($(this).text().toLowerCase().indexOf(q) > -1);
                     });
                 });
             },
-            error: function () {
-                $('#tbody-activos').html('<tr><td colspan="6" class="text-center text-danger py-3">Error al cargar activos</td></tr>');
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.msg || 'Error al cargar activos';
+                $('#tbody-activos').html(
+                    `<tr><td colspan="7" class="text-center text-danger py-3">
+                        <i class="bx bx-error-circle me-1"></i>${msg}
+                    </td></tr>`
+                );
             }
         });
+    }
+    
+    /* Helper: escapa HTML para evitar XSS en los datos */
+    function escHtml(s) {
+        if (s == null) return '—';
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     /* -------- EXPORTAR -------- */

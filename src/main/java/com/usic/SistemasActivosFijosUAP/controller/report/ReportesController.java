@@ -48,14 +48,13 @@ public class ReportesController {
     public ResponseEntity<byte[]> generarReporte(
             @RequestParam("ids") List<String> idsEnc,
             @RequestParam("nroPreventivo") String nroPreventivo,
-            HttpServletRequest request) {                          // ← quitamos @RequestBody
+            HttpServletRequest request) {
  
         Usuario usuario  = (Usuario) request.getSession().getAttribute("usuario");
         String usuNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
         Long   usuId     = (usuario != null) ? usuario.getIdUsuario() : null;
  
         try {
-            // 1. Desencriptar IDs y cargar activos
             List<Long> ids = new ArrayList<>();
             for (String enc : idsEnc) {
                 try {
@@ -69,8 +68,8 @@ public class ReportesController {
             if (activos.isEmpty()) throw new RuntimeException("Sin activos seleccionados");
  
             Responsable resp = activos.get(0).getResponsable();
+            Oficina oficinaDestino = activos.get(0).getOficina();
  
-            // 2. Obtener o crear configuración de gestión
             int anio = LocalDate.now().getYear();
             ConfiguracionGestion config = configuracionGestionService.findByGestion(anio)
                 .orElseGet(() -> {
@@ -82,12 +81,14 @@ public class ReportesController {
                     return configuracionGestionService.save(c);
                 });
  
-            // 3. Crear la asignación con sus detalles
             AsignacionActivo asignacion = new AsignacionActivo();
             asignacion.setCodigoDocumento(nroPreventivo);
             asignacion.setCodigoCompleto(config.getPrefijoDocumento() + " " + nroPreventivo);
             asignacion.setFechaAsignacion(LocalDateTime.now());
             asignacion.setResponsable(resp);
+            asignacion.setRegistroIdUsuario(usuario.getIdUsuario());
+            asignacion.setOficinaDestino(oficinaDestino);
+            asignacion.setEstado("ACTIVO");
  
             List<DetalleAsignacionActivo> detalles = new ArrayList<>();
             for (Activo a : activos) {
@@ -95,28 +96,24 @@ public class ReportesController {
                 d.setAsignacionActivo(asignacion);
                 d.setActivo(a);
                 d.setCodigoActivoSnapshot(a.getCodigo());
+                d.setRegistroIdUsuario(usuario.getIdUsuario());
+                d.setEstado("ACTIVO");
                 detalles.add(d);
             }
             asignacion.setDetalles(detalles);
  
-            // 4. Guardar asignación en BD
             asignacionActivoService.save(asignacion);
  
-            // 5. Registrar en historial cada activo asignado
-            //    Usamos directamente la lista "activos" que ya tenemos — sin @RequestBody
             for (Activo activo : activos) {
  
-                // Capturar estado ANTES (ya están cargados, no han cambiado todavía)
                 Oficina     ofAnterior   = activo.getOficina();
                 Responsable respAnterior = activo.getResponsable();
  
-                // Actualizar responsable en el activo si cambió
                 if (respAnterior == null || !respAnterior.getIdResponsable().equals(resp.getIdResponsable())) {
                     activo.setResponsable(resp);
                     activoService.save(activo);
                 }
  
-                // Descripción del evento
                 String desc = String.format(
                     "Activo asignado a '%s' | Doc: %s | Por: %s",
                     resp.getPersona().getNombreCompleto(),
@@ -124,18 +121,16 @@ public class ReportesController {
                     usuNombre
                 );
  
-                // Registrar en historial
                 transferenciaService.registrarHistorial(
                     activo,
                     "ASIGNACION",
-                    ofAnterior,          respAnterior,    // estado anterior
-                    activo.getOficina(), resp,            // estado nuevo
+                    ofAnterior,          respAnterior,
+                    activo.getOficina(), resp,
                     desc,
                     usuId, usuNombre
                 );
             }
  
-            // 6. Generar y devolver el PDF
             byte[] pdfBytes = pdfAsignacionActivoCompleto.generarActaAsignacion(asignacion, config);
  
             HttpHeaders headers = new HttpHeaders();
