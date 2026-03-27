@@ -52,8 +52,8 @@
             th:data-institucion="${trf.institucionDestino}" th:data-doc-ref="${trf.documentoReferencia}"
             th:data-observacion="${trf.observacion}"
             th:data-num-activos="${trf.detalles != null ? #lists.size(trf.detalles) : 0}"
-            th:data-fecha-reg="${trf._fechaRegistro}" th:data-usuario-reg="${trf._registroIdUsuario}"
-            th:data-fecha-mod="${trf._fechaModificacion}" th:data-usuario-mod="${trf._modificacionIdUsuario}"
+            th:data-fecha-reg="${trf.registro}" th:data-usuario-reg="${trf.registroIdUsuario}"
+            th:data-fecha-mod="${trf.modificacion}" th:data-usuario-mod="${trf.modificacionIdUsuario}"
             style="cursor:pointer; transition: background 0.15s;">
 
             <div class="row g-0 align-items-center py-3">

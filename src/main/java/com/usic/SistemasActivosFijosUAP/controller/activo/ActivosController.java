@@ -35,6 +35,8 @@ import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.ActualDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.AuxiliarDbfWriterService;
+import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.OficinaDbfWriterService;
+import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.RespDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
@@ -97,6 +99,8 @@ public class ActivosController {
 
     private final ActualDbfWriterService actualDbfWriterService;
     private final AuxiliarDbfWriterService auxiliarDbfWriterService;
+    private final OficinaDbfWriterService oficinaDbfWriterService;
+    private final RespDbfWriterService respDbfWriterService;
 
     private final IConfiguracionGestionService configuracionGestionService;
     private final IAsignacionActivoService asignacionActivoService;
@@ -1423,8 +1427,56 @@ public class ActivosController {
                 String entidadCode = a.getOficina().getPredio().getEntidad().getEntidadCodigo();
                 String unidadCode = a.getOficina().getPredio().getUnidad();
 
+                if (a.getOficina().getPredio().getCodigo() != null) {
+                    unidadCode = a.getOficina().getPredio().getCodigo();
+                }
+
+                Oficina oficina = a.getOficina();
+                Short codOfic = oficina.getCodOfi();
+                
+                if (codOfic != null) {
+                    // Verificamos directamente en el DBF si existe
+                    boolean existeOficinaDbf = oficinaDbfWriterService.existsByCodOfic(codOfic, entidadCode, unidadCode);
+                    
+                    // Si NO existe en el DBF (o si PostgreSQL dice que está pendiente '3')
+                    if (!existeOficinaDbf || (oficina.getApiEstado() != null && oficina.getApiEstado() == 3)) {
+                        if (!existeOficinaDbf) {
+                            log.info("Insertando Oficina faltante en DBF: {}", codOfic);
+                            oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
+                        }
+                        // Marcamos en PostgreSQL que ya fue sincronizada
+                        oficina.setApiEstado(Short.valueOf("1"));
+                        oficinaService.save(oficina);
+                    }
+                }
+
+                Responsable resp = a.getResponsable();
+                if (resp != null && resp.getCodigoFuncionario() != null) {
+                    // Extraer solo números del código funcionario (ej. si viene "FUNC-42" -> 42)
+                    String onlyDigits = resp.getCodigoFuncionario().replaceAll("\\D+", "");
+                    if (!onlyDigits.isEmpty()) {
+                        Integer codResp = Integer.valueOf(onlyDigits);
+                        
+                        // Verificamos directamente en el DBF si existe
+                        boolean existeRespDbf = respDbfWriterService.existsByCodResp(codResp, codOfic, entidadCode, unidadCode);
+                        
+                        // Si NO existe en el DBF (o si PostgreSQL dice que está pendiente '3')
+                        if (!existeRespDbf || (resp.getApiEstado() != null && resp.getApiEstado() == 3)) {
+                            if (!existeRespDbf) {
+                                log.info("Insertando Responsable faltante en DBF: {}", codResp);
+                                respDbfWriterService.insertarDesdeResponsable(resp, entidadCode, unidadCode, usuarioNombre);
+                            }
+                            // Marcamos en PostgreSQL que ya fue sincronizado
+                            resp.setApiEstado(Short.valueOf("1"));
+                            responsableService.save(resp);
+                        }
+                    }
+                }
+
                 if (!actualDbfWriterService.existsByCodigo(a.getCodigo())) {
                     actualDbfWriterService.insertarDesdeActivo(a, entidadCode, unidadCode, usuarioNombre);
+                } else {
+                    log.warn("El Activo {} ya existía en ACTUAL.DBF. Se omitió la inserción.", a.getCodigo());
                 }
 
                 a.setEstado("ACTIVO");
