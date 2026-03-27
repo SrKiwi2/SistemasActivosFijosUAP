@@ -1404,101 +1404,111 @@ public class ActivosController {
     @PostMapping("/api/aprobar-masivo")
     @ResponseBody
     public ResponseEntity<?> aprobarMasivo(@RequestBody List<String> idsEnc, HttpServletRequest request) {
+    
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
-        
+    
         int exitos = 0;
         int errores = 0;
         List<String> detallesError = new ArrayList<>();
-
+    
         for (String idEnc : idsEnc) {
             try {
                 Long id = Long.valueOf(Encriptar.decrypt(idEnc));
                 Activo a = activoService.findById(id);
-
+    
                 if (a == null || !"PENDIENTE".equalsIgnoreCase(a.getEstado())) {
-                    errores++; continue;
-                }
-                if (a.getOficina() == null || a.getOficina().getPredio() == null) {
-                    errores++; detallesError.add("Activo " + a.getCodigo() + ": Faltan datos de Oficina.");
+                    errores++;
                     continue;
                 }
-
-                String entidadCode = a.getOficina().getPredio().getEntidad().getEntidadCodigo();
-                String unidadCode = a.getOficina().getPredio().getUnidad();
-
-                if (a.getOficina().getPredio().getCodigo() != null) {
-                    unidadCode = a.getOficina().getPredio().getCodigo();
+                if (a.getOficina() == null || a.getOficina().getPredio() == null) {
+                    errores++;
+                    detallesError.add("Activo " + (a != null ? a.getCodigo() : idEnc) + ": Faltan datos de Oficina/Predio.");
+                    continue;
                 }
-
+    
+                Predio predio = a.getOficina().getPredio();
+    
+                // ✅ UNIDAD = predio.unidad (campo textual: "CAUN", "CULP"…)
+                //    NUNCA predio.codigo (numérico auxiliar del sistema)
+                String unidadCode = (predio.getUnidad() != null) ? predio.getUnidad() : "";
+    
+                String entidadCode = "";
+                if (predio.getEntidad() != null && predio.getEntidad().getEntidadCodigo() != null) {
+                    entidadCode = predio.getEntidad().getEntidadCodigo();
+                }
+    
+                // ── Sincronizar Oficina ──────────────────────────────────────────
                 Oficina oficina = a.getOficina();
                 Short codOfic = oficina.getCodOfi();
-                
+    
                 if (codOfic != null) {
-                    // Verificamos directamente en el DBF si existe
-                    boolean existeOficinaDbf = oficinaDbfWriterService.existsByCodOfic(codOfic, entidadCode, unidadCode);
-                    
-                    // Si NO existe en el DBF (o si PostgreSQL dice que está pendiente '3')
+                    boolean existeOficinaDbf = oficinaDbfWriterService.existsByCodOfic(
+                            codOfic, entidadCode, unidadCode);
+    
                     if (!existeOficinaDbf || (oficina.getApiEstado() != null && oficina.getApiEstado() == 3)) {
                         if (!existeOficinaDbf) {
-                            log.info("Insertando Oficina faltante en DBF: {}", codOfic);
-                            oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
+                            log.info("[APROBAR] Insertando Oficina codOfi={} unidad={} en DBF",
+                                    codOfic, unidadCode);
+                            oficinaDbfWriterService.insertarDesdeOficina(
+                                    oficina, entidadCode, unidadCode, usuarioNombre);
                         }
-                        // Marcamos en PostgreSQL que ya fue sincronizada
                         oficina.setApiEstado(Short.valueOf("1"));
                         oficinaService.save(oficina);
                     }
                 }
-
+    
+                // ── Sincronizar Responsable ──────────────────────────────────────
                 Responsable resp = a.getResponsable();
                 if (resp != null && resp.getCodigoFuncionario() != null) {
-                    // Extraer solo números del código funcionario (ej. si viene "FUNC-42" -> 42)
                     String onlyDigits = resp.getCodigoFuncionario().replaceAll("\\D+", "");
                     if (!onlyDigits.isEmpty()) {
                         Integer codResp = Integer.valueOf(onlyDigits);
-                        
-                        // Verificamos directamente en el DBF si existe
-                        boolean existeRespDbf = respDbfWriterService.existsByCodResp(codResp, codOfic, entidadCode, unidadCode);
-                        
-                        // Si NO existe en el DBF (o si PostgreSQL dice que está pendiente '3')
+    
+                        boolean existeRespDbf = respDbfWriterService.existsByCodResp(
+                                codResp, codOfic, entidadCode, unidadCode);
+    
                         if (!existeRespDbf || (resp.getApiEstado() != null && resp.getApiEstado() == 3)) {
                             if (!existeRespDbf) {
-                                log.info("Insertando Responsable faltante en DBF: {}", codResp);
-                                respDbfWriterService.insertarDesdeResponsable(resp, entidadCode, unidadCode, usuarioNombre);
+                                log.info("[APROBAR] Insertando Responsable codResp={} unidad={} en DBF",
+                                        codResp, unidadCode);
+                                respDbfWriterService.insertarDesdeResponsable(
+                                        resp, entidadCode, unidadCode, usuarioNombre);
                             }
-                            // Marcamos en PostgreSQL que ya fue sincronizado
                             resp.setApiEstado(Short.valueOf("1"));
                             responsableService.save(resp);
                         }
                     }
                 }
-
+    
+                // ── Sincronizar Activo ───────────────────────────────────────────
                 if (!actualDbfWriterService.existsByCodigo(a.getCodigo())) {
-                    actualDbfWriterService.insertarDesdeActivo(a, entidadCode, unidadCode, usuarioNombre);
+                    actualDbfWriterService.insertarDesdeActivo(
+                            a, entidadCode, unidadCode, usuarioNombre);
                 } else {
-                    log.warn("El Activo {} ya existía en ACTUAL.DBF. Se omitió la inserción.", a.getCodigo());
+                    log.warn("[APROBAR] Activo {} ya existía en ACTUAL.DBF — omitido.", a.getCodigo());
                 }
-
+    
                 a.setEstado("ACTIVO");
                 a.setApiEstado(Short.valueOf("1"));
                 activoService.save(a);
-                
                 exitos++;
-
+    
             } catch (Exception e) {
-                log.error("Error en masivo id {}: {}", idEnc, e.getMessage());
+                log.error("[APROBAR] Error procesando id {}: {}", idEnc, e.getMessage());
                 errores++;
-                detallesError.add("Error desconocido en un activo.");
+                detallesError.add("Error en un activo: " + e.getMessage());
             }
         }
-
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("ok", true);
-        resp.put("exitos", exitos);
-        resp.put("errores", errores);
-        resp.put("msg", String.format("Proceso finalizado. Éxitos: %d | Errores: %d", exitos, errores));
-        
-        return ResponseEntity.ok(resp);
+    
+        Map<String, Object> result = new HashMap<>();
+        result.put("ok", true);
+        result.put("exitos", exitos);
+        result.put("errores", errores);
+        result.put("detalles", detallesError);
+        result.put("msg", String.format("Proceso finalizado. Éxitos: %d | Errores: %d", exitos, errores));
+    
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping(value = "/generar-correlativo", produces = MediaType.APPLICATION_JSON_VALUE)
