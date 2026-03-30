@@ -69,7 +69,10 @@ public interface IOficinaDao extends JpaRepository<Oficina, Long> {
             @Param("unidad") String unidad,
             @Param("codOfi") Short codOfi);
 
-    @Query(value = "SELECT COALESCE(MAX(cod_ofi), 0) + 1 FROM oficina WHERE id_predio = :idPredio", nativeQuery = true)
+    @Query(value = "SELECT COALESCE(MAX(cod_ofi), 0) + 1 " +
+                   "FROM oficina " +
+                   "WHERE id_predio = :idPredio AND _estado = 'ACTIVO'", 
+           nativeQuery = true)
     Short findNextCodOfiByPredioId(@Param("idPredio") Long idPredio);
 
     List<Oficina> findByPredioIdPredio(Long idPredio);

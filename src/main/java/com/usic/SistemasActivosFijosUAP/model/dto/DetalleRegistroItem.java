@@ -1,5 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.dto;
 
+import java.util.List;
+
 import lombok.Data;
 
 @Data
@@ -14,4 +16,6 @@ public class DetalleRegistroItem {
     private Double costo;
     private Integer vidaUtil;
     private Integer cantidad;
+
+    private List<DetalleActivoDTO> detalles;
 }

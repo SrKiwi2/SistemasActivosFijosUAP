@@ -703,66 +703,217 @@
 
     /* Layout compacto 4 columnas para ubicación */
     /* REEMPLAZA POR: */
-.batch-grid-4 {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.6rem 1rem;
-    width: 100%;
-    min-width: 0;
-}
-.batch-grid-2 {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.6rem 1rem;
-    width: 100%;
-    min-width: 0;
-}
+    .batch-grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.6rem 1rem;
+        width: 100%;
+        min-width: 0;
+    }
+    .batch-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.6rem 1rem;
+        width: 100%;
+        min-width: 0;
+    }
 
-/* Evita que las celdas hijas rompan el grid */
-.batch-grid-4 > *,
-.batch-grid-2 > * {
-    min-width: 0;
-    overflow: hidden;
-}
+    /* Evita que las celdas hijas rompan el grid */
+    .batch-grid-4 > *,
+    .batch-grid-2 > * {
+        min-width: 0;
+        overflow: hidden;
+    }
 
-/* Select2 trunca texto largo con ellipsis */
-.batch-row-card .select2-container {
-    min-width: 0 !important;
-    max-width: 100% !important;
-}
-.batch-row-card .select2-selection--single {
-    overflow: hidden !important;
-}
-.batch-row-card .select2-selection__rendered {
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
-    max-width: 100% !important;
-    display: block !important;
-}
+    /* Select2 trunca texto largo con ellipsis */
+    .batch-row-card .select2-container {
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    .batch-row-card .select2-selection--single {
+        overflow: hidden !important;
+    }
+    .batch-row-card .select2-selection__rendered {
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        max-width: 100% !important;
+        display: block !important;
+    }
 
-/* El wrapper con botón "+" tampoco desborda */
-.batch-row-card .batch-row-field .d-flex {
-    min-width: 0;
-    overflow: hidden;
-}
-.batch-row-card .batch-row-field .d-flex select,
-.batch-row-card .batch-row-field .d-flex .select2-container {
-    min-width: 0 !important;
-    flex: 1 1 0% !important;
-    width: 0 !important; /* truco flex: fuerza a ceder espacio */
-}
+    /* El wrapper con botón "+" tampoco desborda */
+    .batch-row-card .batch-row-field .d-flex {
+        min-width: 0;
+        overflow: hidden;
+    }
+    .batch-row-card .batch-row-field .d-flex select,
+    .batch-row-card .batch-row-field .d-flex .select2-container {
+        min-width: 0 !important;
+        flex: 1 1 0% !important;
+        width: 0 !important; /* truco flex: fuerza a ceder espacio */
+    }
 
-@media (max-width: 900px) {
-    .batch-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 576px) {
-    .batch-grid-4,
-    .batch-grid-2 { grid-template-columns: minmax(0, 1fr); }
-    .batch-carousel-nav { flex-direction: column; align-items: flex-start; }
-}
+    @media (max-width: 900px) {
+        .batch-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 576px) {
+        .batch-grid-4,
+        .batch-grid-2 { grid-template-columns: minmax(0, 1fr); }
+        .batch-carousel-nav { flex-direction: column; align-items: flex-start; }
+    }
+        /* ═══ MODAL DETALLE ACTIVOS ═══ */
+    #modalDetalleActivos .modal-dialog {
+        max-width: 92vw;
+    }
+
+    #tblDetalleActivos thead th {
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--af-text-muted);
+        background: var(--af-surface);
+        padding: 0.4rem 0.5rem;
+        white-space: nowrap;
+        border-bottom: 2px solid var(--af-border);
+    }
+
+    #tblDetalleActivos tbody tr:hover td {
+        background: #f0f7ff !important;
+    }
+
+    #tblDetalleActivos .form-control-sm {
+        min-height: 1.9rem !important;
+        height: 1.9rem !important;
+        font-size: 0.8rem !important;
+        padding: 0.2rem 0.45rem !important;
+        border: 1.5px solid var(--af-border) !important;
+        border-radius: 0.4rem !important;
+        text-transform: uppercase;
+    }
+
+    #tblDetalleActivos .form-control-sm::placeholder {
+        text-transform: none;
+        color: #a0aec0;
+        font-size: 0.72rem;
+        font-weight: 400;
+    }
+
+    #tblDetalleActivos .form-control-sm:focus {
+        border-color: var(--af-primary) !important;
+        box-shadow: 0 0 0 2px rgba(26,86,219,0.1) !important;
+    }
+
+    /* Fila activa (flash de feedback al copiar) */
+    #tblDetalleActivos tbody tr.row-flash td {
+        background: #e0f2fe !important;
+        transition: background 0.5s;
+    }
+
+    /* Código en tabla */
+    .det-code-cell {
+        font-family: 'Courier New', monospace;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: var(--af-primary);
+        background: var(--af-primary-light);
+        padding: 0.25rem 0.4rem;
+        border-radius: 0.3rem;
+        white-space: nowrap;
+    }
+
+    /* Botón copy-down */
+    .btn-copy-down {
+        width: 1.9rem !important;
+        height: 1.9rem !important;
+        padding: 0 !important;
+        font-size: 0.65rem !important;
+        border-radius: 0.35rem !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: var(--af-primary) !important;
+        border-color: #bfdbfe !important;
+        background: var(--af-primary-light) !important;
+        transition: all 0.15s !important;
+    }
+
+    .btn-copy-down:hover {
+        background: var(--af-primary) !important;
+        color: white !important;
+        transform: scale(1.1);
+    }
+
+    .btn-copy-down:disabled {
+        opacity: 0.25;
+        pointer-events: none;
+    }
+
+    /* Botón detallar en la fila batch */
+    .btn-detallar {
+        width: 2.2rem !important;
+        height: 2.2rem !important;
+        padding: 0 !important;
+        border-radius: var(--af-radius) !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        position: relative;
+        transition: all 0.2s !important;
+    }
+
+    .btn-detallar .det-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: var(--af-success);
+        color: white;
+        border-radius: 99px;
+        font-size: 0.55rem;
+        font-weight: 900;
+        min-width: 14px;
+        height: 14px;
+        padding: 0 3px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        border: 1.5px solid white;
+    }
+
+    .btn-detallar.has-data {
+        background: var(--af-success-light) !important;
+        border-color: var(--af-success) !important;
+        color: var(--af-success) !important;
+    }
+
+    .btn-detallar.has-data .det-badge {
+        display: flex;
+    }
+
+    /* Descripción base */
+    #detalleBaseDesc {
+        font-size: 0.85rem !important;
+        border: 1.5px solid var(--af-border) !important;
+        border-radius: var(--af-radius) !important;
+    }
+
+    #detalleBaseDesc:focus {
+        border-color: var(--af-primary) !important;
+        box-shadow: 0 0 0 3px rgba(26,86,219,0.1) !important;
+    }
+
+    /* Columna serie resaltada */
+    #tblDetalleActivos .col-serie .form-control-sm {
+        background: #fffbeb !important;
+        border-color: #fcd34d !important;
+    }
 
 </style>
+
 <div class="card card-compact shadow-sm" id="modalFormularioActivo">
     <div class="card-header card-header-slim sticky-top z-1 bg-white border-bottom">
         <div class="d-flex justify-content-between align-items-center py-1">
@@ -1153,14 +1304,22 @@
 
             <!-- ─── DATOS ECONÓMICOS + ELIMINAR ─── -->
             <div class="batch-row-line batch-row-actions"
-                 style="border-top:1.5px dashed #e2e8f0; background:#f8fafc;">
+                style="border-top:1.5px dashed #e2e8f0; background:#f8fafc;">
                 <div class="batch-row-field">
                     <label><i class="fa-solid fa-coins"></i> Costo (Bs)</label>
                     <input type="text" class="form-control txt-costo text-end" placeholder="0.00">
                 </div>
                 <div class="batch-row-field">
                     <label><i class="fa-solid fa-hashtag"></i> Cantidad</label>
-                    <input type="number" class="form-control txt-cant text-center" value="1" min="1">
+                    <div class="d-flex gap-1">
+                        <input type="number" class="form-control txt-cant text-center" value="1" min="1" style="flex:1;">
+                        <button type="button"
+                                class="btn btn-outline-info btn-sm btn-detallar"
+                                title="Detallar descripción y características de cada activo">
+                            <i class="fa-solid fa-list-check" style="font-size:0.7rem;"></i>
+                            <span class="det-badge">0</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="batch-row-field">
                     <label><i class="fa-solid fa-clock-rotate-left"></i> Vida Útil (años)</label>
@@ -1175,6 +1334,114 @@
     </div>
 </template>
 
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: DETALLE INDIVIDUAL DE ACTIVOS
+══════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalDetalleActivos" tabindex="-1"
+     aria-labelledby="lblModalDetalle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0" style="border-radius:0.75rem; overflow:hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.18);">
+
+            <!-- Header -->
+            <div class="modal-header py-2 px-3"
+                 style="background: linear-gradient(135deg, #1a56db 0%, #1d4ed8 100%);">
+                <div>
+                    <h6 class="modal-title text-white mb-0 fw-bold" id="lblModalDetalle">
+                        <i class="fa-solid fa-list-check me-2"></i>
+                        Detalle Individual de Activos
+                    </h6>
+                    <div id="modalDetalleSubtitle"
+                         style="font-size:0.72rem; color:rgba(255,255,255,0.8); margin-top:1px;">
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white ms-auto"
+                        data-bs-dismiss="modal"></button>
+            </div>
+
+            <!-- Barra de descripción base -->
+            <div class="px-3 py-2 border-bottom"
+                 style="background: linear-gradient(135deg, #f0f7ff 0%, #e8f4f8 100%);">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-primary"
+                       style="font-size:0.8rem; flex-shrink:0;"></i>
+                    <label class="mb-0 text-nowrap"
+                           style="font-size:0.72rem; font-weight:800; color:#1a56db; text-transform:uppercase; letter-spacing:0.5px;">
+                        Descripción base:
+                    </label>
+                    <input type="text" id="detalleBaseDesc"
+                           class="form-control form-control-sm flex-grow-1"
+                           placeholder="Escribe aquí la descripción común y aplícala a todos los activos...">
+                    <button type="button" id="btnAplicarBaseDesc"
+                            class="btn btn-primary btn-sm text-nowrap"
+                            style="font-size:0.75rem; padding:0.3rem 0.8rem; flex-shrink:0;">
+                        <i class="fa-solid fa-angles-down me-1"></i> Aplicar a todos
+                    </button>
+                </div>
+                <div style="font-size:0.68rem; color:#64748b; margin-top:0.3rem; padding-left:1.5rem;">
+                    <i class="fa-solid fa-circle-info me-1 text-primary"></i>
+                    El botón <strong>↓</strong> al final de cada fila copia descripción, marca, modelo y color a las filas de abajo (la serie siempre es individual).
+                </div>
+            </div>
+
+            <!-- Cuerpo: tabla -->
+            <div class="modal-body p-0">
+                <div class="table-responsive" style="max-height: 58vh;">
+                    <table class="table table-sm table-bordered mb-0"
+                           id="tblDetalleActivos"
+                           style="min-width: 860px;">
+                        <thead style="position: sticky; top: 0; z-index: 2;">
+                            <tr>
+                                <th style="width:38px; text-align:center;">#</th>
+                                <th style="min-width:155px;">
+                                    <i class="fa-solid fa-barcode me-1"></i>Código
+                                </th>
+                                <th>
+                                    <i class="fa-solid fa-align-left me-1"></i>
+                                    Descripción <span class="text-danger">*</span>
+                                </th>
+                                <th class="col-serie" style="min-width:130px;">
+                                    <i class="fa-solid fa-hashtag me-1"></i>N° Serie
+                                    <span title="Campo individual por activo"
+                                          style="color:#f59e0b; font-size:0.6rem;">★</span>
+                                </th>
+                                <th style="min-width:105px;">
+                                    <i class="fa-solid fa-tag me-1"></i>Marca
+                                </th>
+                                <th style="min-width:105px;">
+                                    <i class="fa-solid fa-cube me-1"></i>Modelo
+                                </th>
+                                <th style="min-width:88px;">
+                                    <i class="fa-solid fa-palette me-1"></i>Color
+                                </th>
+                                <th style="width:42px; text-align:center;"
+                                    title="Copiar esta fila a las de abajo">↓</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detalleTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer py-2 px-3 justify-content-between"
+                 style="background:var(--af-surface);">
+                <div style="font-size:0.72rem; color:#64748b;">
+                    <span class="badge bg-warning text-dark me-1" style="font-size:0.65rem;">★</span>
+                    El N° Serie es individual para cada activo
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" id="btnGuardarDetalle"
+                            class="btn btn-success btn-sm px-3 fw-bold">
+                        <i class="fa-solid fa-floppy-disk me-1"></i> Guardar Detalles
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     window.ActivoForm = (function () {
         let uiState = { modo: 'LOCK' };
@@ -1182,6 +1449,8 @@
         let _correlativos = {};
         let _recalcTimer = null;
         let _currentSlide = 0;
+        let _$currentDetalleSlide = null;
+        let _modalDetalleBS = null;
 
         function init(containerSelector) {
 
@@ -2306,6 +2575,27 @@
                     if (result.isConfirmed) ejecutarBaja(idActivo);
                 });
             });
+
+            // ── Abrir modal de detalle al hacer clic en "detallar" ──────────────────────
+            $root.on('click', '.btn-detallar', function () {
+                const $slide = $(this).closest('.batch-slide');
+                openDetalleModal($slide);
+            });
+
+            // ── Si cambia la cantidad, limpiar detalles previos si no coinciden ─────────
+            $root.on('change input', '.txt-cant', function () {
+                const $slide  = $(this).closest('.batch-slide');
+                const nuevaCant = parseInt($(this).val()) || 1;
+                const prevDet  = $slide.data('assetDetails');
+
+                if (prevDet && prevDet.length !== nuevaCant) {
+                    $slide.removeData('assetDetails');
+                    _actualizarBtnDetallar($slide);
+                }
+            });
+
+            // Inicializar eventos del modal (una sola vez)
+            _bindDetalleModalEvents();
         }
 
         function addBatchRow() {
@@ -2348,6 +2638,8 @@
                 setTimeout(() => $slide.find('.batch-row-card').css({ outline: '', transition: '' }), 400);
             }, 600);
 
+            _actualizarBtnDetallar($slide.find('.batch-row-card').closest('.batch-slide'));
+
             console.log(`✅ Fila ${newIdx + 1} agregada`);
         }
 
@@ -2376,6 +2668,25 @@
 
             $root.find('#batchTrack .batch-slide').each(function () {
                 const $r = $(this);
+
+                // 1. Obtenemos los valores base
+                const cantidadAsignada = parseInt($r.find('.txt-cant').val()) || 1;
+                const descGeneral = $r.find('.txt-desc').val();
+                
+                // 2. Rescatamos los detalles del modal (si los hay)
+                let detallesGuardados = $r.data('assetDetails');
+
+                // 3. LA MAGIA: Si no abrió el modal o la cantidad no coincide, autogeneramos el array
+                if (!detallesGuardados || detallesGuardados.length !== cantidadAsignada) {
+                    detallesGuardados = Array.from({ length: cantidadAsignada }, () => ({
+                        descripcion: descGeneral, // Usamos la general por defecto
+                        serie: '',
+                        marca: '',
+                        modelo: '',
+                        color: ''
+                    }));
+                }
+
                 const item = {
                     idMunicipio:    $r.find('.sel-mun').val(),
                     idPredio:       $r.find('.sel-pred').val(),
@@ -2385,8 +2696,9 @@
                     idAuxiliar:     $r.find('.sel-aux').val() || null,
                     descripcion:    $r.find('.txt-desc').val(),
                     costo:          parseFloat($r.find('.txt-costo').val()) || 0,
-                    cantidad:       parseInt($r.find('.txt-cant').val()) || 1,
-                    vidaUtil:       parseInt($r.find('.txt-vida').val()) || 0
+                    cantidad:       cantidadAsignada,
+                    vidaUtil:       parseInt($r.find('.txt-vida').val()) || 0,
+                    detalles:       detallesGuardados
                 };
 
                 const invalido = !item.idMunicipio || !item.idPredio || !item.idOficina ||
@@ -2629,6 +2941,250 @@
             if (!$root) return;
             $root.find('select').each(function () { if ($(this).data('select2')) $(this).select2('destroy'); });
             $root.off(); $root = null;
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // DETALLE INDIVIDUAL DE ACTIVOS
+        // ──────────────────────────────────────────────────────────────────────────────
+
+        function openDetalleModal($slide) {
+            _$currentDetalleSlide = $slide;
+
+            const cantidad   = parseInt($slide.find('.txt-cant').val()) || 1;
+            const preview    = $slide.find('.txt-codigo-preview').val() || '';
+            const descBase   = $slide.find('.txt-desc').val() || '';
+            const grupoNombre = $slide.find('.sel-grp option:selected').text() || '—';
+
+            // Subtítulo del modal
+            $root.find('#modalDetalleSubtitle').text(
+                `${cantidad} activo${cantidad !== 1 ? 's' : ''} · Grupo: ${grupoNombre}`
+            );
+
+            // Descripción base
+            $('#detalleBaseDesc').val(descBase);
+
+            // Recuperar o inicializar detalles guardados
+            let detalles = $slide.data('assetDetails');
+            if (!detalles || detalles.length !== cantidad) {
+                const prev = Array.isArray(detalles) ? detalles : [];
+                detalles = Array.from({ length: cantidad }, (_, i) => prev[i] || {
+                    descripcion: descBase,
+                    serie: '',
+                    marca: prev[0]?.marca || '',
+                    modelo: prev[0]?.modelo || '',
+                    color: prev[0]?.color || ''
+                });
+            }
+
+            // Generar códigos desde el preview
+            const codigos = _generarCodigosArray(preview, cantidad);
+
+            // Renderizar filas
+            _renderDetalleRows(detalles, codigos);
+
+            // Abrir modal Bootstrap
+            if (!_modalDetalleBS) {
+                _modalDetalleBS = new bootstrap.Modal(document.getElementById('modalDetalleActivos'));
+            }
+            _modalDetalleBS.show();
+        }
+
+        function _generarCodigosArray(preview, cantidad) {
+            if (!preview || preview === '') {
+                return Array.from({ length: cantidad }, (_, i) => `Activo ${i + 1}`);
+            }
+
+            // El preview puede ser "XX-YY-ZZ-00001, XX-YY-ZZ-00002, ..."
+            const partes = preview.split(',').map(s => s.trim()).filter(Boolean);
+            if (partes.length === cantidad) return partes;
+
+            // Generar secuencia desde el primero
+            const primero = partes[0] || '';
+            const segs = primero.split('-');
+            const numFinal = parseInt(segs[segs.length - 1]);
+            if (isNaN(numFinal)) {
+                return Array.from({ length: cantidad }, (_, i) => `${primero} (${i + 1})`);
+            }
+            const prefijo = segs.slice(0, -1).join('-');
+            return Array.from({ length: cantidad }, (_, i) =>
+                `${prefijo}-${String(numFinal + i).padStart(5, '0')}`
+            );
+        }
+
+        function _renderDetalleRows(detalles, codigos) {
+            const $tbody = $('#detalleTableBody').empty();
+
+            detalles.forEach((d, i) => {
+                const isLast = i === detalles.length - 1;
+                const $tr = $(`
+                    <tr data-row-idx="${i}" style="vertical-align:middle;">
+                        <td class="text-center" style="background:var(--af-surface); padding:0.35rem 0.4rem;">
+                            <span class="badge bg-primary rounded-pill" style="font-size:0.65rem;">${i + 1}</span>
+                        </td>
+                        <td style="padding:0.35rem 0.5rem; background:#f0f7ff;">
+                            <span class="det-code-cell">${_escHtml(codigos[i] || `#${i + 1}`)}</span>
+                        </td>
+                        <td style="padding:0.3rem 0.4rem; min-width:180px;">
+                            <input type="text" class="form-control form-control-sm det-desc"
+                                value="${_escHtml(d.descripcion || '')}"
+                                placeholder="Descripción del activo...">
+                        </td>
+                        <td class="col-serie" style="padding:0.3rem 0.4rem;">
+                            <input type="text" class="form-control form-control-sm det-serie font-monospace"
+                                value="${_escHtml(d.serie || '')}"
+                                placeholder="S/N"
+                                style="letter-spacing:0.5px; background:#fffbeb !important; border-color:#fcd34d !important;">
+                        </td>
+                        <td style="padding:0.3rem 0.4rem;">
+                            <input type="text" class="form-control form-control-sm det-marca"
+                                value="${_escHtml(d.marca || '')}"
+                                placeholder="Ej: HP">
+                        </td>
+                        <td style="padding:0.3rem 0.4rem;">
+                            <input type="text" class="form-control form-control-sm det-modelo"
+                                value="${_escHtml(d.modelo || '')}"
+                                placeholder="Ej: ProBook 450">
+                        </td>
+                        <td style="padding:0.3rem 0.4rem;">
+                            <input type="text" class="form-control form-control-sm det-color"
+                                value="${_escHtml(d.color || '')}"
+                                placeholder="Ej: Negro">
+                        </td>
+                        <td class="text-center" style="padding:0.3rem 0.3rem;">
+                            <button type="button"
+                                    class="btn btn-copy-down"
+                                    data-row="${i}"
+                                    title="Copiar descripción, marca, modelo y color a las filas de abajo"
+                                    ${isLast ? 'disabled' : ''}>
+                                <i class="fa-solid fa-angles-down"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `);
+                $tbody.append($tr);
+            });
+        }
+
+        function _escHtml(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function _collectDetalleData() {
+            const detalles = [];
+            $('#detalleTableBody tr').each(function () {
+                detalles.push({
+                    descripcion: $(this).find('.det-desc').val().trim(),
+                    serie:       $(this).find('.det-serie').val().trim(),
+                    marca:       $(this).find('.det-marca').val().trim(),
+                    modelo:      $(this).find('.det-modelo').val().trim(),
+                    color:       $(this).find('.det-color').val().trim()
+                });
+            });
+            return detalles;
+        }
+
+        function _actualizarBtnDetallar($slide) {
+            const detalles = $slide.data('assetDetails');
+            const $btn = $slide.find('.btn-detallar');
+            const $badge = $btn.find('.det-badge');
+
+            if (detalles && detalles.length > 0) {
+                $btn.addClass('has-data');
+                $badge.text(detalles.length);
+            } else {
+                $btn.removeClass('has-data');
+                $badge.text('0');
+            }
+        }
+
+        function _bindDetalleModalEvents() {
+            // Copiar fila hacia abajo
+            $(document).on('click', '#tblDetalleActivos .btn-copy-down', function () {
+                const rowIdx = parseInt($(this).data('row'));
+                const $rows  = $('#detalleTableBody tr');
+                const $src   = $rows.eq(rowIdx);
+
+                const desc   = $src.find('.det-desc').val();
+                const marca  = $src.find('.det-marca').val();
+                const modelo = $src.find('.det-modelo').val();
+                const color  = $src.find('.det-color').val();
+
+                $rows.each(function (i) {
+                    if (i <= rowIdx) return;
+                    $(this).find('.det-desc').val(desc);
+                    $(this).find('.det-marca').val(marca);
+                    $(this).find('.det-modelo').val(modelo);
+                    $(this).find('.det-color').val(color);
+                });
+
+                // Flash visual en las filas afectadas
+                $rows.slice(rowIdx + 1).each(function () {
+                    const $tr = $(this);
+                    $tr.addClass('row-flash');
+                    setTimeout(() => $tr.removeClass('row-flash'), 700);
+                });
+            });
+
+            // Aplicar descripción base a todas las filas
+            $(document).on('click', '#btnAplicarBaseDesc', function () {
+                const base = $('#detalleBaseDesc').val().trim();
+                if (!base) return;
+                $('#detalleTableBody tr .det-desc').val(base);
+
+                // Flash en todas las filas
+                $('#detalleTableBody tr').each(function () {
+                    const $tr = $(this);
+                    $tr.addClass('row-flash');
+                    setTimeout(() => $tr.removeClass('row-flash'), 700);
+                });
+            });
+
+            // Guardar detalles y cerrar modal
+            $(document).on('click', '#btnGuardarDetalle', function () {
+                if (!_$currentDetalleSlide) return;
+
+                const detalles = _collectDetalleData();
+
+                // Validación mínima: al menos la primera descripción
+                const sinDesc = detalles.filter(d => !d.descripcion);
+                if (sinDesc.length > 0) {
+                    const confirmacion = confirm(
+                        `${sinDesc.length} activo(s) no tienen descripción.\n¿Guardar de todas formas?`
+                    );
+                    if (!confirmacion) return;
+                }
+
+                // Guardar en el slide
+                _$currentDetalleSlide.data('assetDetails', detalles);
+
+                // Si la primera descripción existe, actualizar txt-desc del slide
+                if (detalles[0]?.descripcion) {
+                    _$currentDetalleSlide.find('.txt-desc').val(detalles[0].descripcion);
+                }
+
+                // Actualizar botón
+                _actualizarBtnDetallar(_$currentDetalleSlide);
+
+                // Cerrar
+                if (_modalDetalleBS) _modalDetalleBS.hide();
+
+                // Toast de confirmación
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Detalles guardados',
+                    html: `<span style="font-size:0.85rem;">
+                            <b>${detalles.length}</b> activo${detalles.length > 1 ? 's' : ''} configurado${detalles.length > 1 ? 's' : ''} correctamente.
+                        </span>`,
+                    timer: 1800,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'bottom-end'
+                });
+            });
         }
 
         return {

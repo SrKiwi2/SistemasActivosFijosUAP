@@ -55,6 +55,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.ActivoFormDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoPendienteItemDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.AsignacionPendienteDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DataTablesResponse;
+import com.usic.SistemasActivosFijosUAP.model.dto.DetalleActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DetalleRegistroItem;
 import com.usic.SistemasActivosFijosUAP.model.dto.EditarActivoPendienteRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.EditarLoteRequest;
@@ -366,14 +367,34 @@ public class ActivosController {
                 
                 long correlativoActual = correlativosActuales.get(keyMap); 
 
-                for (int i = 0; i < item.getCantidad(); i++) {
+                for (DetalleActivoDTO detalle : item.getDetalles()) {
                     Activo a = new Activo();
                     
                     String codigoFinal = construirCodigo(codMun, codPred, codGrup, correlativoActual);
                     correlativoActual++;
 
                     a.setCodigo(codigoFinal);
-                    a.setDescripcion(item.getDescripcion().toUpperCase());
+
+                   String descBase = (detalle.getDescripcion() != null && !detalle.getDescripcion().trim().isEmpty()) 
+                        ? detalle.getDescripcion().trim() 
+                        : item.getDescripcion().trim();
+
+                    StringBuilder descFinal = new StringBuilder(descBase);
+
+                    if (detalle.getSerie() != null && !detalle.getSerie().trim().isEmpty()) {
+                        descFinal.append(" ").append(detalle.getSerie().trim());
+                    }
+                    if (detalle.getMarca() != null && !detalle.getMarca().trim().isEmpty()) {
+                        descFinal.append(" ").append(detalle.getMarca().trim());
+                    }
+                    if (detalle.getModelo() != null && !detalle.getModelo().trim().isEmpty()) {
+                        descFinal.append(" ").append(detalle.getModelo().trim());
+                    }
+                    if (detalle.getColor() != null && !detalle.getColor().trim().isEmpty()) {
+                        descFinal.append(" ").append(detalle.getColor().trim());
+                    }
+                    a.setDescripcion(descFinal.toString().toUpperCase());
+
                     a.setFechaAdquisicion(request.getFechaAdquisicion());
                     a.setVidaUtil(item.getVidaUtil() != null ? BigDecimal.valueOf(item.getVidaUtil()) : BigDecimal.ZERO);
                     a.setCosto(item.getCosto() != null ? item.getCosto() : 0.0);
