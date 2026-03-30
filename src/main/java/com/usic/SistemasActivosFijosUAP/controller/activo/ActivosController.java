@@ -1468,13 +1468,13 @@ public class ActivosController {
                             codOfic, entidadCode, unidadCode);
     
                     if (!existeOficinaDbf || (oficina.getApiEstado() != null && oficina.getApiEstado() == 1)) {
+                        oficina.setApiEstado(Short.valueOf("1"));
                         if (!existeOficinaDbf) {
                             log.info("[APROBAR] Insertando Oficina codOfi={} unidad={} en DBF",
                                     codOfic, unidadCode);
                             oficinaDbfWriterService.insertarDesdeOficina(
                                     oficina, entidadCode, unidadCode, usuarioNombre);
                         }
-                        oficina.setApiEstado(Short.valueOf("1"));
                         oficinaService.save(oficina);
                     }
                 }
@@ -1490,13 +1490,14 @@ public class ActivosController {
                                 codResp, codOfic, entidadCode, unidadCode);
     
                         if (!existeRespDbf || (resp.getApiEstado() != null && resp.getApiEstado() == 1)) {
+                            resp.setApiEstado(Short.valueOf("1"));
                             if (!existeRespDbf) {
                                 log.info("[APROBAR] Insertando Responsable codResp={} unidad={} en DBF",
                                         codResp, unidadCode);
                                 respDbfWriterService.insertarDesdeResponsable(
                                         resp, entidadCode, unidadCode, usuarioNombre);
                             }
-                            resp.setApiEstado(Short.valueOf("1"));
+                            
                             responsableService.save(resp);
                         }
                     }
