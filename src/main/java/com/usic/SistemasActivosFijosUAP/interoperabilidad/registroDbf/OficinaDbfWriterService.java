@@ -352,42 +352,57 @@ public class OficinaDbfWriterService {
 
     private byte[] convertirValorABytes(Object value, CampoDbf field) {
         byte[] buffer = new byte[field.length];
-        Arrays.fill(buffer, (byte) 0x20); 
+        
+        // Si es Integer ('I'), se llena con ceros binarios. Si es otro, con espacios ASCII (0x20)
+        Arrays.fill(buffer, field.type == 'I' ? (byte) 0x00 : (byte) 0x20); 
 
         if (value == null) return buffer;
 
         try {
-            byte[] data;
-            if (field.type == 'N' || field.type == 'F') { 
+            if (field.type == 'I') {
+                // FoxPro Integer (SmallInt) - 4 bytes Little-Endian
+                int intVal = 0;
+                if (value instanceof Number n) {
+                    intVal = n.intValue();
+                } else {
+                    try { intVal = Integer.parseInt(value.toString().trim()); } catch (Exception ignored) {}
+                }
+                
+                // Escribir los 4 bytes en formato Little-Endian
+                buffer[0] = (byte) (intVal & 0xFF);
+                buffer[1] = (byte) ((intVal >> 8) & 0xFF);
+                buffer[2] = (byte) ((intVal >> 16) & 0xFF);
+                buffer[3] = (byte) ((intVal >> 24) & 0xFF);
+                
+                return buffer; // Retornamos directo porque ya llenamos el buffer exacto
+                
+            } else if (field.type == 'N' || field.type == 'F') { 
                 String fmt = (field.decimals == 0) ? "%" + field.length + "d" 
-                                                   : "%" + field.length + "." + field.decimals + "f";
+                                                : "%" + field.length + "." + field.decimals + "f";
                 String numStr;
                 if (value instanceof Number n) {
                     numStr = (field.decimals == 0) ? String.format(fmt, n.longValue()) 
-                                                   : String.format(fmt, n.doubleValue());
+                                                : String.format(fmt, n.doubleValue());
                 } else {
                     numStr = value.toString();
                 }
-                data = numStr.getBytes("CP1252");
-            } else if (field.type == 'D') { 
-                if (value instanceof java.sql.Date d) {
-                    data = d.toLocalDate().format(DateTimeFormatter.ofPattern("yyyyMMdd")).getBytes("CP1252");
-                } else {
-                    data = new byte[0];
-                }
-            } else { 
-                data = value.toString().toUpperCase().getBytes("CP1252");
-            }
-
-            if (field.type == 'N' || field.type == 'F') {
+                byte[] data = numStr.getBytes("CP1252");
                 int offset = Math.max(0, field.length - data.length);
                 System.arraycopy(data, 0, buffer, offset, Math.min(data.length, field.length));
-            } else {
+                
+            } else if (field.type == 'D') { 
+                if (value instanceof java.sql.Date d) {
+                    byte[] data = d.toLocalDate().format(DateTimeFormatter.ofPattern("yyyyMMdd")).getBytes("CP1252");
+                    System.arraycopy(data, 0, buffer, 0, Math.min(data.length, field.length));
+                }
+            } else { 
+                // Cadenas de texto ('C'), Memos ('M')
+                byte[] data = value.toString().toUpperCase().getBytes("CP1252");
                 System.arraycopy(data, 0, buffer, 0, Math.min(data.length, field.length));
             }
 
         } catch (Exception e) {
-            log.error("Error convirtiendo campo {}", field.name);
+            log.error("Error convirtiendo campo {}: {}", field.name, e.getMessage());
         }
         return buffer;
     }
