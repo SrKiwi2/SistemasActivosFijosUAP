@@ -1467,7 +1467,7 @@ public class ActivosController {
                     boolean existeOficinaDbf = oficinaDbfWriterService.existsByCodOfic(
                             codOfic, entidadCode, unidadCode);
     
-                    if (!existeOficinaDbf || (oficina.getApiEstado() != null && oficina.getApiEstado() == 3)) {
+                    if (!existeOficinaDbf || (oficina.getApiEstado() != null && oficina.getApiEstado() == 1)) {
                         if (!existeOficinaDbf) {
                             log.info("[APROBAR] Insertando Oficina codOfi={} unidad={} en DBF",
                                     codOfic, unidadCode);
@@ -1489,7 +1489,7 @@ public class ActivosController {
                         boolean existeRespDbf = respDbfWriterService.existsByCodResp(
                                 codResp, codOfic, entidadCode, unidadCode);
     
-                        if (!existeRespDbf || (resp.getApiEstado() != null && resp.getApiEstado() == 3)) {
+                        if (!existeRespDbf || (resp.getApiEstado() != null && resp.getApiEstado() == 1)) {
                             if (!existeRespDbf) {
                                 log.info("[APROBAR] Insertando Responsable codResp={} unidad={} en DBF",
                                         codResp, unidadCode);
