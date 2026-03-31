@@ -899,7 +899,6 @@
                     </select>
                     <button type="button" id="ti-btn-new-resp"
                         onclick="tiAbrirModalNuevoResp()"
-                        disabled
                         title="Registrar nuevo responsable"
                         style="flex-shrink:0;width:34px;height:34px;border:1px solid var(--border-med);
                             border-radius:var(--r-sm);background:var(--bg-input);cursor:pointer;
@@ -1131,6 +1130,8 @@
         'use strict';
         const S = { list: [], codes: new Set() };
 
+        const TI_M = { oficinaId: null, oficinaNombre: '' };
+
         /* Reloj */
         clearInterval(window._tiClock);
         window._tiClock = setInterval(() => {
@@ -1165,19 +1166,6 @@
                 data.forEach(o => $of.append($('<option>').val(o.idOficina).text(`${o.codOfi} — ${o.nombre}`).attr('data-nombre', o.nombre)));
                 $of.prop('disabled', false).trigger('change.select2');
             } catch (_) { tiToast('e', 'Error', 'No se pudieron cargar las oficinas.'); }
-        };
-
-        window.tiOficinaChange = async function () {
-            const id = $('#ti-oficina').val(), $re = $('#ti-resp');
-            tiLabels();
-            if (!id) { $re.empty().append('<option value="">— Seleccione oficina primero —</option>').prop('disabled', true).trigger('change.select2'); return; }
-            $re.empty().append('<option value="">— Cargando… —</option>').prop('disabled', true).trigger('change.select2');
-            try {
-                const data = await fetch(`/api/responsables/por-oficina?oficinaId=${id}`).then(r => r.json());
-                $re.empty().append('<option value="">— Seleccione responsable —</option>');
-                data.forEach(r => $re.append($('<option>').val(r.idResponsable).text(`${r.codigoFuncionario} — ${r.nombre}`).attr('data-nombre', r.nombre)));
-                $re.prop('disabled', false).trigger('change.select2');
-            } catch (_) { tiToast('e', 'Error', 'No se pudieron cargar los responsables.'); }
         };
 
         function tiLabels() {
@@ -1353,32 +1341,43 @@
         function set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
         function x(s) { return s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-        (function boot() { if (typeof $ !== 'undefined' && $.fn?.select2) window.tiInitSelect2(); else setTimeout(boot, 80); })();
-
-        /* ─── ESTADO MODAL ─────────────────────────────────────────────── */
-        const TI_M = { oficinaId: null, oficinaNombre: '' };
-
-        /* ─── HABILITAR BOTÓN NUEVO RESP al cargar oficina ─────────────── */
-        // Parchear tiOficinaChange para activar/desactivar el botón
-        const _tiOfOrig = window.tiOficinaChange;
         window.tiOficinaChange = async function () {
-            await _tiOfOrig();
             const id = $('#ti-oficina').val();
-            const btn = document.getElementById('ti-btn-new-resp');
-            if (btn) {
-                btn.disabled = !id;
-                btn.style.opacity = id ? '1' : '.4';
-                btn.style.cursor  = id ? 'pointer' : 'not-allowed';
-            }
+            const $re = $('#ti-resp');
+            const btnNuevo = document.getElementById('ti-btn-new-resp');
+            tiLabels();
+
             if (id) {
                 TI_M.oficinaId     = parseInt(id);
                 TI_M.oficinaNombre = $('#ti-oficina option:selected').attr('data-nombre')
                                 || $('#ti-oficina option:selected').text();
+                if (btnNuevo) { btnNuevo.disabled = false; btnNuevo.style.opacity = '1'; btnNuevo.style.cursor = 'pointer'; }
             } else {
                 TI_M.oficinaId = null; TI_M.oficinaNombre = '';
+                if (btnNuevo) { btnNuevo.disabled = true; btnNuevo.style.opacity = '.4'; btnNuevo.style.cursor = 'not-allowed'; }
             }
+
+            if (!id) {
+                $re.empty().append('<option value="">— Seleccione oficina primero —</option>')
+                .prop('disabled', true).trigger('change.select2');
+                return;
+            }
+
+            $re.empty().append('<option value="">— Cargando… —</option>')
+            .prop('disabled', true).trigger('change.select2');
+            try {
+                const data = await fetch(`/api/responsables/por-oficina?oficinaId=${id}`).then(r => r.json());
+                $re.empty().append('<option value="">— Seleccione responsable —</option>');
+                data.forEach(r => $re.append(
+                    $('<option>').val(r.idResponsable)
+                        .text(`${r.codigoFuncionario} — ${r.nombre}`)
+                        .attr('data-nombre', r.nombre)
+                ));
+                $re.prop('disabled', false).trigger('change.select2');
+            } catch (_) { tiToast('e', 'Error', 'No se pudieron cargar los responsables.'); }
         };
 
+        
         /* ─── ABRIR MODAL ───────────────────────────────────────────────── */
         window.tiAbrirModalNuevoResp = async function () {
             if (!TI_M.oficinaId) {
@@ -1566,5 +1565,7 @@
                 tiToast('e', 'Error', err.message);
             }
         };
+
+        (function boot() { if (typeof $ !== 'undefined' && $.fn?.select2) window.tiInitSelect2(); else setTimeout(boot, 80); })();
     })();
 </script>
