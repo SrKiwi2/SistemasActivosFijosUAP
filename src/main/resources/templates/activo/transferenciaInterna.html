@@ -889,11 +889,29 @@
 
             <!-- Responsable destino -->
             <div class="ti-ctrl-group grow">
-                <span class="ti-ctrl-lbl"><span class="ti-dot" style="background:var(--red)"></span>Responsable
-                    destino</span>
-                <select id="ti-resp" class="ti-sel" disabled>
-                    <option value="">— Seleccione oficina primero —</option>
-                </select>
+                <span class="ti-ctrl-lbl">
+                    <span class="ti-dot" style="background:var(--red)"></span>
+                    Responsable destino
+                </span>
+                <div style="display:flex;gap:6px;">
+                    <select id="ti-resp" class="ti-sel" disabled style="flex:1;min-width:0;">
+                        <option value="">— Seleccione oficina primero —</option>
+                    </select>
+                    <button type="button" id="ti-btn-new-resp"
+                        onclick="tiAbrirModalNuevoResp()"
+                        disabled
+                        title="Registrar nuevo responsable"
+                        style="flex-shrink:0;width:34px;height:34px;border:1px solid var(--border-med);
+                            border-radius:var(--r-sm);background:var(--bg-input);cursor:pointer;
+                            display:flex;align-items:center;justify-content:center;
+                            color:var(--accent);transition:all var(--t);opacity:.4;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <!-- Resumen inline -->
@@ -959,6 +977,154 @@
 </div>
 
 <div class="ti-toasts" id="ti-toasts"></div>
+
+<!-- Modal Nuevo Responsable -->
+<div id="ti-modal-bg"
+     style="position:fixed;inset:0;background:rgba(26,35,64,.45);backdrop-filter:blur(4px);
+            z-index:300;display:flex;align-items:center;justify-content:center;
+            opacity:0;pointer-events:none;transition:opacity .2s;">
+    <div onclick="event.stopPropagation()"
+         style="background:var(--bg-panel);border:1px solid var(--border-soft);
+                border-radius:var(--r-lg);box-shadow:var(--sh-md);width:420px;max-width:96vw;
+                display:flex;flex-direction:column;animation:tiTIn .2s ease both;">
+
+        <!-- Cabecera -->
+        <div style="padding:14px 18px 12px;border-bottom:1px solid var(--border-soft);
+                    display:flex;align-items:center;gap:9px;">
+            <div style="width:28px;height:28px;background:var(--accent-lt);border-radius:6px;
+                        display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none"
+                     viewBox="0 0 24 24" stroke="var(--accent)" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                </svg>
+            </div>
+            <div>
+                <div style="font-size:13px;font-weight:600;color:var(--txt-primary);">
+                    Registrar nuevo responsable
+                </div>
+                <div id="ti-modal-sub"
+                     style="font-size:11px;color:var(--txt-muted);margin-top:1px;">
+                    Oficina: —
+                </div>
+            </div>
+            <button onclick="tiCerrarModal()"
+                style="margin-left:auto;background:none;border:none;cursor:pointer;
+                       color:var(--txt-muted);padding:4px;border-radius:4px;
+                       display:flex;align-items:center;transition:color var(--t);"
+                onmouseover="this.style.color='var(--red)'"
+                onmouseout="this.style.color='var(--txt-muted)'">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none"
+                     viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Cuerpo -->
+        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:11px;">
+
+            <!-- CI + Código funcionario -->
+            <div style="display:flex;gap:10px;">
+                <div style="display:flex;flex-direction:column;gap:4px;min-width:120px;">
+                    <label style="font-size:9.5px;font-weight:700;letter-spacing:.8px;
+                                  text-transform:uppercase;color:var(--txt-muted);">
+                        C.I. <span style="color:var(--red)">*</span>
+                    </label>
+                    <input class="ti-input" type="text" id="ti-nr-ci" placeholder="Ej: 12345678"/>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px;min-width:120px;">
+                    <label style="font-size:9.5px;font-weight:700;letter-spacing:.8px;
+                                  text-transform:uppercase;color:var(--txt-muted);">
+                        Cód. funcionario <span style="color:var(--red)">*</span>
+                        <span style="font-weight:400;text-transform:none;font-size:8.5px;">(auto)</span>
+                    </label>
+                    <input class="ti-input" type="text" id="ti-nr-codfunc" placeholder="42"
+                           style="font-family:var(--font-mono);letter-spacing:.5px;"/>
+                </div>
+            </div>
+
+            <!-- Nombre -->
+            <div style="display:flex;flex-direction:column;gap:4px;">
+                <label style="font-size:9.5px;font-weight:700;letter-spacing:.8px;
+                              text-transform:uppercase;color:var(--txt-muted);">
+                    Nombre(s) <span style="color:var(--red)">*</span>
+                </label>
+                <input class="ti-input" type="text" id="ti-nr-nombre" placeholder="Ej: Juan Carlos"/>
+            </div>
+
+            <!-- Apellidos -->
+            <div style="display:flex;gap:10px;">
+                <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
+                    <label style="font-size:9.5px;font-weight:700;letter-spacing:.8px;
+                                  text-transform:uppercase;color:var(--txt-muted);">
+                        Paterno <span style="color:var(--red)">*</span>
+                    </label>
+                    <input class="ti-input" type="text" id="ti-nr-paterno" placeholder="Apellido paterno"/>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
+                    <label style="font-size:9.5px;font-weight:700;letter-spacing:.8px;
+                                  text-transform:uppercase;color:var(--txt-muted);">
+                        Materno
+                    </label>
+                    <input class="ti-input" type="text" id="ti-nr-materno" placeholder="(Opcional)"/>
+                </div>
+            </div>
+
+            <!-- Cargo con Select2 ajax + nuevo inline -->
+            <div style="display:flex;flex-direction:column;gap:4px;">
+                <label style="font-size:9.5px;font-weight:700;letter-spacing:.8px;
+                              text-transform:uppercase;color:var(--txt-muted);">
+                    Cargo <span style="color:var(--red)">*</span>
+                </label>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <select id="ti-nr-cargo" style="flex:1;min-width:0;"></select>
+                    <button type="button" id="ti-nr-btn-nuevo-cargo"
+                        title="Escribir cargo nuevo"
+                        style="flex-shrink:0;width:34px;height:34px;border:1px solid var(--border-med);
+                               border-radius:var(--r-sm);background:var(--bg-input);cursor:pointer;
+                               display:flex;align-items:center;justify-content:center;
+                               color:var(--accent);transition:all var(--t);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none"
+                             viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path d="M12 4v16m8-8H4"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="ti-nr-cargo-nuevo-wrap"
+                     style="display:none;gap:6px;align-items:center;margin-top:3px;">
+                    <input id="ti-nr-cargo-nuevo-txt" class="ti-input" style="flex:1;"
+                           placeholder="Nombre del nuevo cargo..."/>
+                    <button type="button" id="ti-nr-btn-cancelar-cargo"
+                        style="flex-shrink:0;font-size:11px;padding:4px 8px;
+                               border:1px solid var(--border-med);border-radius:var(--r-sm);
+                               background:var(--bg-input);cursor:pointer;color:var(--txt-sub);
+                               white-space:nowrap;">
+                        ✕ cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pie -->
+        <div style="padding:11px 18px;border-top:1px solid var(--border-soft);
+                    display:flex;gap:8px;justify-content:flex-end;">
+            <button onclick="tiCerrarModal()"
+                class="ti-btn ti-btn-ghost">
+                Cancelar
+            </button>
+            <button onclick="tiGuardarNuevoResp()"
+                class="ti-btn ti-btn-go"
+                style="height:34px;padding:0 16px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none"
+                     viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                </svg>
+                Registrar
+            </button>
+        </div>
+    </div>
+</div>
 
 <script>
     (function () {
@@ -1188,5 +1354,217 @@
         function x(s) { return s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
         (function boot() { if (typeof $ !== 'undefined' && $.fn?.select2) window.tiInitSelect2(); else setTimeout(boot, 80); })();
+
+        /* ─── ESTADO MODAL ─────────────────────────────────────────────── */
+        const TI_M = { oficinaId: null, oficinaNombre: '' };
+
+        /* ─── HABILITAR BOTÓN NUEVO RESP al cargar oficina ─────────────── */
+        // Parchear tiOficinaChange para activar/desactivar el botón
+        const _tiOfOrig = window.tiOficinaChange;
+        window.tiOficinaChange = async function () {
+            await _tiOfOrig();
+            const id = $('#ti-oficina').val();
+            const btn = document.getElementById('ti-btn-new-resp');
+            if (btn) {
+                btn.disabled = !id;
+                btn.style.opacity = id ? '1' : '.4';
+                btn.style.cursor  = id ? 'pointer' : 'not-allowed';
+            }
+            if (id) {
+                TI_M.oficinaId     = parseInt(id);
+                TI_M.oficinaNombre = $('#ti-oficina option:selected').attr('data-nombre')
+                                || $('#ti-oficina option:selected').text();
+            } else {
+                TI_M.oficinaId = null; TI_M.oficinaNombre = '';
+            }
+        };
+
+        /* ─── ABRIR MODAL ───────────────────────────────────────────────── */
+        window.tiAbrirModalNuevoResp = async function () {
+            if (!TI_M.oficinaId) {
+                tiToast('w', 'Sin oficina', 'Seleccione una oficina primero.'); return;
+            }
+
+            document.getElementById('ti-modal-sub').textContent =
+                `Oficina: ${TI_M.oficinaNombre}`;
+
+            // Limpiar campos
+            ['ti-nr-ci','ti-nr-codfunc','ti-nr-nombre','ti-nr-paterno','ti-nr-materno']
+                .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+            document.getElementById('ti-nr-cargo-nuevo-wrap').style.display = 'none';
+            document.getElementById('ti-nr-cargo-nuevo-txt').value = '';
+            document.getElementById('ti-nr-btn-nuevo-cargo').style.display = 'flex';
+            document.getElementById('ti-nr-cargo').style.display = '';
+
+            // Código funcionario correlativo
+            try {
+                const r = await fetch(
+                    `/administracion/responsable/obtener-siguiente-codigo-funcionario?idOficina=${TI_M.oficinaId}`
+                );
+                if (r.ok) document.getElementById('ti-nr-codfunc').value = await r.json();
+            } catch (_) {}
+
+            // Select2 cargo con ajax
+            tiIniciarCargoSelect2();
+
+            // Auto-llenado por CI
+            document.getElementById('ti-nr-ci').onblur = async function () {
+                const ci = this.value.trim();
+                if (!ci) return;
+                try {
+                    const r = await fetch(
+                        `/administracion/responsable/api/personas/buscar-por-ci?ci=${encodeURIComponent(ci)}`
+                    );
+                    if (r.ok) {
+                        const p = await r.json();
+                        if (p.nombre)  document.getElementById('ti-nr-nombre').value  = p.nombre;
+                        if (p.paterno) document.getElementById('ti-nr-paterno').value = p.paterno;
+                        if (p.materno) document.getElementById('ti-nr-materno').value = p.materno;
+                    }
+                } catch (_) {}
+            };
+
+            // Botón "nuevo cargo"
+            document.getElementById('ti-nr-btn-nuevo-cargo').onclick = function () {
+                if ($('#ti-nr-cargo').data('select2')) $('#ti-nr-cargo').select2('destroy');
+                $('#ti-nr-cargo').val('').hide();
+                document.getElementById('ti-nr-cargo-nuevo-wrap').style.display = 'flex';
+                this.style.display = 'none';
+                document.getElementById('ti-nr-cargo-nuevo-txt').focus();
+            };
+
+            // Botón "cancelar cargo nuevo"
+            document.getElementById('ti-nr-btn-cancelar-cargo').onclick = function () {
+                document.getElementById('ti-nr-cargo-nuevo-wrap').style.display = 'none';
+                document.getElementById('ti-nr-cargo-nuevo-txt').value = '';
+                document.getElementById('ti-nr-btn-nuevo-cargo').style.display = 'flex';
+                $('#ti-nr-cargo').show();
+                tiIniciarCargoSelect2();
+            };
+
+            document.getElementById('ti-modal-bg').style.cssText +=
+                'opacity:1;pointer-events:all;';
+        };
+
+        function tiIniciarCargoSelect2() {
+            const $c = $('#ti-nr-cargo');
+            if ($c.data('select2')) $c.select2('destroy');
+            $c.select2({
+                theme: 'bootstrap-5',
+                width: '100%',
+                placeholder: 'Buscar cargo...',
+                allowClear: true,
+                minimumInputLength: 0,
+                dropdownParent: $('#ti-modal-bg'),
+                language: {
+                    searching:    () => 'Buscando...',
+                    noResults:    () => 'Sin resultados',
+                },
+                ajax: {
+                    url: '/api/cargos/search',
+                    dataType: 'json',
+                    delay: 250,
+                    data: params => ({ q: params.term || '' }),
+                    processResults: data => ({
+                        results: data.map(c => ({ id: c.nombre, text: c.nombre }))
+                    }),
+                    cache: true
+                }
+            });
+        }
+
+        window.tiCerrarModal = function () {
+            const bg = document.getElementById('ti-modal-bg');
+            bg.style.opacity = '0';
+            bg.style.pointerEvents = 'none';
+        };
+
+        /* ─── GUARDAR NUEVO RESPONSABLE ────────────────────────────────── */
+        window.tiGuardarNuevoResp = async function () {
+            const ci      = document.getElementById('ti-nr-ci').value.trim();
+            const nombre  = document.getElementById('ti-nr-nombre').value.trim();
+            const paterno = document.getElementById('ti-nr-paterno').value.trim();
+            const materno = document.getElementById('ti-nr-materno').value.trim();
+            const codfunc = document.getElementById('ti-nr-codfunc').value.trim();
+
+            const cargoNuevoVisible =
+                document.getElementById('ti-nr-cargo-nuevo-wrap').style.display !== 'none';
+            const cargo = cargoNuevoVisible
+                ? document.getElementById('ti-nr-cargo-nuevo-txt').value.trim()
+                : ($('#ti-nr-cargo').val() || '');
+
+            if (!ci)      { tiToast('w', 'Requerido', 'El CI es obligatorio.');                    return; }
+            if (!nombre)  { tiToast('w', 'Requerido', 'El nombre es obligatorio.');                return; }
+            if (!paterno) { tiToast('w', 'Requerido', 'El apellido paterno es obligatorio.');      return; }
+            if (!codfunc) { tiToast('w', 'Requerido', 'El código de funcionario es obligatorio.'); return; }
+            if (!cargo)   { tiToast('w', 'Requerido', 'Seleccione o escriba un cargo.');           return; }
+
+            tiOverlay('Registrando responsable…');
+
+            try {
+                const fd = new FormData();
+                fd.append('ci',                ci);
+                fd.append('nombre',            nombre);
+                fd.append('paterno',           paterno);
+                fd.append('materno',           materno);
+                fd.append('codigoFuncionario', codfunc);
+                fd.append('idOficina',         TI_M.oficinaId);
+                fd.append('cargoNombre',       cargo);
+                fd.append('modoRapido',        'true');
+
+                let r = await fetch('/administracion/responsable/registrar-responsable', {
+                    method: 'POST', body: fd
+                });
+
+                // Conflicto 409
+                if (r.status === 409) {
+                    tiOverlayOff();
+                    const conflicto = await r.json();
+                    if (!confirm(`Persona similar encontrada:\n${conflicto.msg}\n\n¿Crear de todas formas?`)) return;
+                    tiOverlay('Registrando (forzado)…');
+                    fd.append('forzarCreacion', 'true');
+                    r = await fetch('/administracion/responsable/registrar-responsable-forzado', {
+                        method: 'POST', body: fd
+                    });
+                }
+
+                const res = await r.json();
+                tiOverlayOff();
+                if (!res.ok) throw new Error(res.msg);
+
+                tiToast('s', 'Responsable registrado',
+                    `${nombre} ${paterno} registrado. Pendiente sincronización con DBF.`);
+                tiCerrarModal();
+
+                // Recargar select de responsables conservando la oficina actual
+                const ofId = $('#ti-oficina').val();
+                if (ofId) {
+                    const data = await fetch(
+                        `/api/responsables/por-oficina?oficinaId=${ofId}`
+                    ).then(r2 => r2.json());
+
+                    const $re = $('#ti-resp');
+                    $re.empty().append('<option value="">— Seleccione responsable —</option>');
+                    data.forEach(resp => $re.append(
+                        $('<option>').val(resp.idResponsable)
+                            .text(`${resp.codigoFuncionario} — ${resp.nombre}`)
+                            .attr('data-nombre', resp.nombre)
+                    ));
+                    $re.prop('disabled', false).trigger('change.select2');
+
+                    // Seleccionar automáticamente al nuevo
+                    if (res.id) {
+                        setTimeout(() => {
+                            $('#ti-resp').val(String(res.id)).trigger('change.select2');
+                            tiLabels();
+                        }, 150);
+                    }
+                }
+
+            } catch (err) {
+                tiOverlayOff();
+                tiToast('e', 'Error', err.message);
+            }
+        };
     })();
 </script>

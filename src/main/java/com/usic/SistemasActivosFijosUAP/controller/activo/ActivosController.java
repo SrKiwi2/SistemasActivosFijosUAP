@@ -681,22 +681,34 @@ public class ActivosController {
     public ResponseEntity<?> transferenciaMasiva(
             HttpServletRequest request,
             @RequestBody TransferenciaMasivaRequest payload) {
-    
-        Usuario usuario    = (Usuario) request.getSession().getAttribute("usuario");
-        String  usuNombre  = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
-        Long    usuId      = (usuario != null) ? usuario.getIdUsuario() : null;
-        String  tipo       = (payload.tipo != null) ? payload.tipo.toUpperCase() : "INTERNA";
-        
-    
+
+        Usuario usuario   = (Usuario) request.getSession().getAttribute("usuario");
+        String  usuNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+        Long    usuId     = (usuario != null) ? usuario.getIdUsuario() : null;
+        String  tipo      = (payload.tipo != null) ? payload.tipo.toUpperCase() : "INTERNA";
+
         try {
             Oficina     ofDestino   = oficinaService.findById(payload.idOficina);
             Responsable respDestino = responsableService.findById(payload.idResponsable);
-    
+
             if (ofDestino == null || respDestino == null) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("ok", false, "msg", "Oficina o Responsable no válidos."));
             }
-    
+
+            // ── Resolver entidad y unidad UNA SOLA VEZ, al inicio ────────────────────
+            String entidadCode = "";
+            String unidadCode  = "";
+            if (ofDestino.getPredio() != null) {
+                unidadCode = ofDestino.getPredio().getUnidad() != null
+                            ? ofDestino.getPredio().getUnidad() : "";
+                if (ofDestino.getPredio().getEntidad() != null) {
+                    entidadCode = ofDestino.getPredio().getEntidad().getEntidadCodigo() != null
+                                ? ofDestino.getPredio().getEntidad().getEntidadCodigo() : "";
+                }
+            }
+            log.info("[TRANSF] Predio destino → entidad='{}' unidad='{}'", entidadCode, unidadCode);
+
             // 1. Buscar activos y capturar estado ANTES del cambio
             List<TransferenciaService.ActivoConOrigen> acos = new ArrayList<>();
             for (String codigo : payload.codigos) {
@@ -704,34 +716,26 @@ public class ActivosController {
                     acos.add(new TransferenciaService.ActivoConOrigen(a))
                 );
             }
-    
+
             if (acos.isEmpty()) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados."));
             }
 
             Map<Long, Auxiliar> cacheAuxiliaresDestino = new HashMap<>();
-    
-            // 2. Modificar los activos en memoria (DESPUÉS de capturar el origen)
+
+            // 2. Modificar los activos en memoria
             LocalDate hoy = LocalDate.now();
             for (TransferenciaService.ActivoConOrigen ac : acos) {
                 Activo a = ac.activo;
                 if ("EXTERNA".equalsIgnoreCase(tipo)) {
- 
-                    // Paso A: Resolver el auxiliar del predio destino PRIMERO
                     if (a.getAuxiliar() != null) {
                         Long idAuxOriginal = a.getAuxiliar().getIdAuxiliar();
                         Auxiliar auxDestino = cacheAuxiliaresDestino.computeIfAbsent(
                             idAuxOriginal,
-                            id -> resolverAuxiliarDestino(
-                                a.getAuxiliar(),
-                                ofDestino.getPredio(),
-                                usuNombre
-                            )
+                            id -> resolverAuxiliarDestino(a.getAuxiliar(), ofDestino.getPredio(), usuNombre)
                         );
-                        // Asigna el auxiliar correcto ANTES de modificar otros campos
                         a.setAuxiliar(auxDestino);
-            
                         log.info("[TRANSF-EXT] Activo '{}': CODAUX {} → {}",
                             a.getCodigo(),
                             ac.activo.getAuxiliar() != null ? ac.activo.getAuxiliar().getCodAux() : "null",
@@ -748,77 +752,81 @@ public class ActivosController {
                 if (usuario != null) a.setModificacionIdUsuario(usuId);
                 a.setModificacion(new java.util.Date());
             }
-    
+
             // 3. Guardar en BD
             for (TransferenciaService.ActivoConOrigen ac : acos) {
                 activoService.save(ac.activo);
             }
-            log.info("Transferidos {} activos → Oficina ID: {}", acos.size(), payload.idOficina);
-    
-            // 4. Registrar transferencia + historial automáticamente
+            log.info("[TRANSF] Guardados {} activos en BD → Oficina ID: {}", acos.size(), payload.idOficina);
+
+            // 4. Registrar transferencia + historial
             Transferencia trf = transferenciaService.registrarTransferencia(
                 acos, tipo, ofDestino, respDestino, usuId, usuNombre
             );
-            // Campos adicionales opcionales
             String numeroTrf = "S/N";
             if (trf != null) {
-                if (payload.observacion != null)        trf.setObservacion(payload.observacion);
+                if (payload.observacion         != null) trf.setObservacion(payload.observacion);
                 if (payload.documentoReferencia != null) trf.setDocumentoReferencia(payload.documentoReferencia);
-                if (payload.institucionDestino != null)  trf.setInstitucionDestino(payload.institucionDestino);
-                transferenciaDao.save(trf); // update con los campos extra
-                
-                if (trf.getNumeroTransferencia() != null) {
-                    numeroTrf = trf.getNumeroTransferencia();
-                }
+                if (payload.institucionDestino  != null) trf.setInstitucionDestino(payload.institucionDestino);
+                transferenciaDao.save(trf);
+                if (trf.getNumeroTransferencia() != null) numeroTrf = trf.getNumeroTransferencia();
             }
 
-            log.info("[DBF-DIAG] tipo={} | entidad='{}' | unidad='{}' | activos={}",
-                tipo, "entidadCode", "unidadCode", acos.size());
-            acos.forEach(ac -> log.info("[DBF-DIAG] código='{}' oficinaNueva='{}'",
-                ac.activo.getCodigo(),
-                ac.activo.getOficina() != null ? ac.activo.getOficina().getNombre() : "NULL"));
-    
-            // 5. Sincronizar DBF
+            // 5. Sincronizar Responsable destino si es nuevo (apiEstado == 1)
+            // entidadCode y unidadCode ya están disponibles desde el inicio
             try {
-                String entidadCode = "";
-                String unidadCode = "";
-                if (ofDestino.getPredio() != null) {
-                    unidadCode = ofDestino.getPredio().getUnidad() != null ? ofDestino.getPredio().getUnidad() : "";
-                    if (ofDestino.getPredio().getEntidad() != null) {
-                        entidadCode = ofDestino.getPredio().getEntidad().getEntidadCodigo() != null 
-                                      ? ofDestino.getPredio().getEntidad().getEntidadCodigo() : "";
+                if (respDestino.getApiEstado() != null && respDestino.getApiEstado() == 1) {
+                    Short codOfic = ofDestino.getCodOfi();
+                    if (codOfic != null && respDestino.getCodigoFuncionario() != null) {
+                        String onlyDigits = respDestino.getCodigoFuncionario().replaceAll("\\D+", "");
+                        if (!onlyDigits.isEmpty()) {
+                            Integer codResp = Integer.valueOf(onlyDigits);
+                            boolean existeEnDbf = respDbfWriterService.existsByCodResp(
+                                    codResp, codOfic, entidadCode, unidadCode);
+                            if (!existeEnDbf) {
+                                log.info("[TRANSF] Insertando responsable nuevo codResp={} unidad={} en DBF",
+                                        codResp, unidadCode);
+                                respDbfWriterService.insertarDesdeResponsable(
+                                        respDestino, entidadCode, unidadCode, usuNombre);
+                            }
+                            respDestino.setApiEstado(Short.valueOf("0"));
+                            responsableService.save(respDestino);
+                        }
                     }
                 }
+            } catch (Exception e) {
+                log.warn("[TRANSF] No se pudo sincronizar responsable a DBF: {}", e.getMessage());
+                // No es fatal — continúa con la sync de activos
+            }
+
+            // 6. Sincronizar activos en DBF
+            try {
                 List<Activo> activos = acos.stream().map(ac -> ac.activo).toList();
 
-                log.info("[DBF-DIAG] Tipo transferencia: {}", tipo);
-                log.info("[DBF-DIAG] entidadCode = '{}' (vacío={})", entidadCode, entidadCode.isBlank());
-                log.info("[DBF-DIAG] unidadCode  = '{}' (vacío={})", unidadCode, unidadCode.isBlank());
-                log.info("[DBF-DIAG] Activos a sincronizar: {}", acos.size());
-                acos.forEach(ac -> log.info("[DBF-DIAG]   código='{}' | oficina='{}'",
-                    ac.activo.getCodigo(),
-                    ac.activo.getOficina() != null ? ac.activo.getOficina().getNombre() : "NULL"));
+                log.info("[DBF-DIAG] tipo={} entidad='{}' unidad='{}' activos={}",
+                    tipo, entidadCode, unidadCode, activos.size());
 
                 actualDbfWriterService.actualizarLoteTransferencias(activos, entidadCode, unidadCode, usuNombre);
-    
+
                 return ResponseEntity.ok(Map.of(
                     "ok",  true,
-                    "msg", String.format("Se transfirieron %d activos (BD + DBF). Ref: %s",
-                                        acos.size(), numeroTrf),
+                    "msg", String.format("Se transfirieron %d activos (BD + DBF). Ref: %s", acos.size(), numeroTrf),
                     "numeroTransferencia", numeroTrf
                 ));
             } catch (Exception e) {
-                log.error("Error sincronizando lote DBF: {}", e.getMessage());
+                log.error("[TRANSF] Error sincronizando activos en DBF: {}", e.getMessage());
                 return ResponseEntity.ok(Map.of(
                     "ok",  true,
                     "msg", String.format("Guardado en BD (%d activos). DBF falló: %s. Ref: %s",
-                                        acos.size(), e.getMessage() != null ? e.getMessage() : "Desconocido", numeroTrf),
+                                        acos.size(),
+                                        e.getMessage() != null ? e.getMessage() : "Desconocido",
+                                        numeroTrf),
                     "numeroTransferencia", numeroTrf
                 ));
             }
-    
+
         } catch (Exception e) {
-            log.error("Error fatal en transferencia masiva", e);
+            log.error("[TRANSF] Error fatal", e);
             return ResponseEntity.status(500)
                 .body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
         }
@@ -929,6 +937,40 @@ public class ActivosController {
             }
             log.info("[ASIGNACION] {} activos reasignados → Resp ID: {} | Usuario: {}",
                 activos.size(), payload.idResponsableDestino, usuNombre);
+
+            // ── Sincronizar Responsable destino si es nuevo (apiEstado == 1) ──────────────
+            try {
+                if (respDestino.getApiEstado() != null && respDestino.getApiEstado() == 1) {
+                    String entCode = "";
+                    String uniCode = "";
+                    if (oficina.getPredio() != null) {
+                        uniCode = oficina.getPredio().getUnidad() != null 
+                                ? oficina.getPredio().getUnidad() : "";
+                        if (oficina.getPredio().getEntidad() != null)
+                            entCode = oficina.getPredio().getEntidad().getEntidadCodigo() != null
+                                    ? oficina.getPredio().getEntidad().getEntidadCodigo() : "";
+                    }
+                    Short codOfic = oficina.getCodOfi();
+                    if (codOfic != null && respDestino.getCodigoFuncionario() != null) {
+                        String onlyDigits = respDestino.getCodigoFuncionario().replaceAll("\\D+", "");
+                        if (!onlyDigits.isEmpty()) {
+                            Integer codResp = Integer.valueOf(onlyDigits);
+                            boolean existeEnDbf = respDbfWriterService.existsByCodResp(
+                                    codResp, codOfic, entCode, uniCode);
+                            if (!existeEnDbf) {
+                                log.info("[ASIGNACION] Insertando responsable nuevo codResp={} en DBF", codResp);
+                                respDbfWriterService.insertarDesdeResponsable(
+                                        respDestino, entCode, uniCode, usuNombre);
+                            }
+                            respDestino.setApiEstado(Short.valueOf("0")); // ya sincronizado
+                            responsableService.save(respDestino);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("[ASIGNACION] No se pudo sincronizar responsable a DBF: {}", e.getMessage());
+                // No es fatal — continúa con la asignación
+            }
     
             // 5. Sincronizar DBF (solo actualiza CODRESP y campos de auditoría)
             String entidadCode = "";
