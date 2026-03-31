@@ -1141,21 +1141,21 @@
                     <div class="d-flex align-items-center gap-2">
                         <button type="button" id="btnPrevSlide"
                                 class="btn btn-sm btn-outline-secondary px-2"
-                                disabled title="Fila anterior">
+                                disabled title="Lote anterior">
                             <i class="fa-solid fa-chevron-left" style="font-size:0.7rem"></i>
                         </button>
                         <div id="batchDotsContainer" class="batch-dot-container"></div>
                         <button type="button" id="btnNextSlide"
                                 class="btn btn-sm btn-outline-secondary px-2"
-                                disabled title="Fila siguiente">
+                                disabled title="Lote siguiente">
                             <i class="fa-solid fa-chevron-right" style="font-size:0.7rem"></i>
                         </button>
-                        <span class="batch-slide-indicator" id="batchIndicator">Fila 1 de 1</span>
+                        <span class="batch-slide-indicator" id="batchIndicator">Lote 1 de 1</span>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <span class="text-muted d-none d-sm-inline" style="font-size:0.72rem;">
                             <i class="fa-solid fa-circle-check text-success me-1"></i>
-                            Cada fila genera uno o más activos
+                            Cada lote permite registrar uno o más activos
                         </span>
                         <button type="button" class="btn btn-sm" id="btnAddRow">
                             <i class="fa-solid fa-plus me-1"></i> Agregar mas lotes
@@ -2453,7 +2453,7 @@
 
         function updateCarouselNav() {
             const total = getSlideCount();
-            $root.find('#batchIndicator').text(`Fila ${_currentSlide + 1} de ${total}`);
+            $root.find('#batchIndicator').text(`Lote ${_currentSlide + 1} de ${total}`);
             $root.find('#btnPrevSlide').prop('disabled', _currentSlide === 0);
             $root.find('#btnNextSlide').prop('disabled', _currentSlide >= total - 1);
             $root.find('#batchDotsContainer .batch-dot').each(function (i) {
