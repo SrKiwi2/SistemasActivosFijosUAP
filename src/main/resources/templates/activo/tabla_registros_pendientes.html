@@ -17,22 +17,6 @@
         box-shadow: 0 4px 18px rgba(105, 108, 255, 0.12);
     }
 
-    .asig-header {
-        padding: 0.9rem 1.1rem;
-        background: #f8f9fb;
-        border-bottom: 1px solid transparent;
-        display: flex;
-        align-items: center;
-        gap: 0.85rem;
-        cursor: pointer;
-        user-select: none;
-        transition: background 0.15s;
-    }
-
-    .asig-header:hover {
-        background: #f2f4f7;
-    }
-
     .asignacion-card.is-expanded .asig-header {
         background: linear-gradient(90deg, rgba(105, 108, 255, 0.06) 0%, #f8f9fb 100%);
         border-bottom-color: #e7e9ec;
@@ -51,83 +35,10 @@
         transform: rotate(180deg);
     }
 
-    .asig-num-badge {
-        font-size: 0.7rem;
-        font-weight: 700;
-        background: rgba(105, 108, 255, 0.1);
-        color: #696cff;
-        border-radius: 6px;
-        padding: 0.3em 0.65em;
-        letter-spacing: 0.3px;
-        flex-shrink: 0;
-    }
-
-    .asig-doc-code {
-        font-weight: 700;
-        font-size: 0.95rem;
-        color: #384551;
-        line-height: 1.2;
-    }
-
-    .asig-doc-code.sin-doc {
-        color: #adb5bd;
-        font-style: italic;
-        font-weight: 400;
-        font-size: 0.85rem;
-    }
-
     .asig-meta {
         font-size: 0.72rem;
         color: #8592a3;
         margin-top: 0.1rem;
-    }
-
-    .asig-resp-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        background: rgba(67, 89, 113, 0.07);
-        border-radius: 20px;
-        padding: 0.3em 0.75em;
-        font-size: 0.78rem;
-        color: #566a7f;
-        font-weight: 500;
-        max-width: 200px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .asig-resp-chip .resp-icon {
-        width: 20px;
-        height: 20px;
-        background: rgba(105, 108, 255, 0.15);
-        color: #696cff;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.65rem;
-        flex-shrink: 0;
-    }
-
-    .asig-count-badge {
-        background: #696cff;
-        color: white;
-        font-size: 0.7rem;
-        font-weight: 700;
-        border-radius: 12px;
-        padding: 0.3em 0.75em;
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-
-    .asig-count-badge.mixed {
-        background: linear-gradient(90deg, #696cff 60%, #ffab00 100%);
-    }
-
-    .asig-count-badge.all-done {
-        background: #71dd37;
     }
 
     .asig-progress-info {
@@ -402,6 +313,201 @@
     .chk-item:not(:disabled) {
         cursor: pointer;
     }
+
+    /* ═══════════════════════════════════════════════════════════
+       NUEVO HEADER DE ASIGNACIÓN (DISEÑO UNIFICADO)
+    ═══════════════════════════════════════════════════════════ */
+    .asig-header {
+        padding: 0.75rem 1rem;
+        background: #ffffff;
+        border-bottom: 1px solid transparent;
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.2s, border-color 0.2s;
+    }
+
+    .asig-header:hover {
+        background: var(--af-surface);
+    }
+
+    .asignacion-card.is-expanded .asig-header {
+        background: #f8fafc;
+        border-bottom-color: var(--af-border);
+    }
+
+    /* Controles Izquierdos (Checkbox + Flecha) */
+    .asig-header-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-shrink: 0;
+    }
+
+    .asig-toggle-icon {
+        color: var(--af-text-muted);
+        font-size: 0.8rem;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .asignacion-card.is-expanded .asig-toggle-icon {
+        transform: rotate(180deg);
+        color: var(--af-primary);
+    }
+
+    /* Separador Vertical */
+    .asig-divider {
+        width: 1px;
+        height: 28px;
+        background-color: var(--af-border);
+        flex-shrink: 0;
+    }
+
+    /* Bloque 1: Identificador del Lote */
+    .asig-header-info {
+        display: flex;
+        flex-direction: column;
+        min-width: 180px;
+    }
+
+    .asig-title-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.15rem;
+    }
+
+    .asig-num {
+        font-size: 0.65rem;
+        font-weight: 800;
+        color: var(--af-primary);
+        background: var(--af-primary-light);
+        padding: 0.15rem 0.4rem;
+        border-radius: 0.25rem;
+    }
+
+    .asig-doc-code {
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: var(--af-text);
+        letter-spacing: 0.3px;
+    }
+
+    .asig-doc-code.sin-doc {
+        color: var(--af-text-muted);
+        font-weight: 500;
+        font-style: italic;
+    }
+
+    .asig-meta {
+        font-size: 0.7rem;
+        color: var(--af-text-muted);
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    /* Bloque 2: Responsable (Más limpio y tipográfico) */
+    .asig-header-resp {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .asig-resp-avatar {
+        width: 28px;
+        height: 28px;
+        background: var(--af-surface);
+        border: 1px solid var(--af-border);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--af-text-muted);
+        font-size: 0.75rem;
+        flex-shrink: 0;
+    }
+
+    .asig-resp-data {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .asig-resp-label {
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        font-weight: 800;
+        color: #94a3b8;
+        letter-spacing: 0.5px;
+    }
+
+    .asig-resp-name {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--af-text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 200px;
+    }
+
+    /* Bloque 3: Métricas unificadas */
+    .asig-header-stats {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        min-width: 120px;
+    }
+
+    .stat-main {
+        font-size: 0.85rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.15rem;
+    }
+
+    .stat-main.text-primary { color: var(--af-primary) !important; }
+    .stat-main.text-warning { color: var(--af-warning) !important; }
+    .stat-main.text-success { color: var(--af-success) !important; }
+
+    .stat-details {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    /* Hint / Acciones derecha */
+    .asig-header-actions {
+        margin-left: auto;
+    }
+
+    .select-hint {
+        font-size: 0.7rem;
+        color: var(--af-text-muted);
+        background: var(--af-surface);
+        border: 1px dashed #cbd5e1;
+        border-radius: 0.35rem;
+        padding: 0.3rem 0.6rem;
+        white-space: nowrap;
+    }
+
+    @media (max-width: 992px) {
+        .asig-divider { display: none; }
+        .asig-header { flex-wrap: wrap; gap: 0.75rem; }
+        .asig-header-info { min-width: 100%; border-right: none; }
+        .asig-header-resp { min-width: 100%; }
+        .asig-header-stats { align-items: flex-start; }
+    }
 </style>
 
 <div id="lista-asignaciones" class="d-flex flex-column gap-3 animate__animated animate__fadeIn">
@@ -418,50 +524,75 @@
         th:attr="data-idx=${idx.index}">
 
         <div class="asig-header" onclick="toggleAsignacionCard(this.closest('.asignacion-card'))">
+    
+            <div class="asig-header-controls">
+                <input class="form-check-input chk-masivo chk-grupo" type="checkbox" th:attr="data-grupo=${idx.index}" onclick="event.stopPropagation()">
+                <i class="fa-solid fa-chevron-down asig-toggle-icon"></i>
+            </div>
 
-            <input class="form-check-input chk-masivo chk-grupo" type="checkbox" th:attr="data-grupo=${idx.index}"
-                onclick="event.stopPropagation()">
-            <i class="fa-solid fa-chevron-down asig-toggle-icon"></i>
-            <span class="asig-num-badge" th:text="'#' + (${idx.index + 1})">#1</span>
-
-            <div class="d-flex flex-column">
-                <span class="asig-doc-code" th:classappend="${dto.asignacion.codigoCompleto == null ? ' sin-doc' : ''}"
-                    th:text="${dto.asignacion.codigoCompleto != null
-                                 ? dto.asignacion.codigoCompleto : '— Sin documento asignado —'}">
-                    PREV. 1234
-                </span>
-                <span class="asig-meta">
-                    <i class="fa-regular fa-clock me-1"></i>
-                    <span th:if="${dto.asignacion.fechaAsignacion != null}"
-                        th:text="${#temporals.format(dto.asignacion.fechaAsignacion,'dd/MM/yyyy HH:mm')}">
-                        01/01/2025 09:30
+            <div class="asig-header-info">
+                <div class="asig-title-wrapper">
+                    <span class="asig-num" th:text="'#' + (${idx.index + 1})">#1</span>
+                    <span class="asig-doc-code" th:classappend="${dto.asignacion.codigoCompleto == null ? ' sin-doc' : ''}"
+                        th:text="${dto.asignacion.codigoCompleto != null ? dto.asignacion.codigoCompleto : 'Sin documento asignado'}">
+                        PREV. 1234
                     </span>
-                    <span th:unless="${dto.asignacion.fechaAsignacion != null}" class="text-muted">Sin fecha</span>
-                </span>
+                </div>
+                <div class="asig-meta">
+                    <i class="fa-regular fa-calendar-days"></i>
+                    <span th:if="${dto.asignacion.fechaAsignacion != null}" th:text="${#temporals.format(dto.asignacion.fechaAsignacion,'dd/MM/yyyy HH:mm')}">01/01/2026 09:30</span>
+                    <span th:unless="${dto.asignacion.fechaAsignacion != null}">Fecha no registrada</span>
+                </div>
             </div>
 
-            <div class="asig-resp-chip" th:if="${dto.asignacion.responsable?.persona != null}">
-                <div class="resp-icon"><i class="fa-solid fa-user"></i></div>
-                <span th:text="${dto.asignacion.responsable.persona.nombreCompleto}">Nombre</span>
+
+            <div class="asig-header-resp">
+                <th:block th:if="${dto.asignacion.responsable?.persona != null}">
+                    <div class="asig-resp-avatar" style="background: #e0f2fe; color: #0284c7; border-color: #bae6fd;">
+                        <i class="fa-solid fa-user-tie"></i>
+                    </div>
+                    <div class="asig-resp-data">
+                        <span class="asig-resp-label">Responsable</span>
+                        <span class="asig-resp-name" th:text="${dto.asignacion.responsable.persona.nombreCompleto}">Nombre Completo</span>
+                    </div>
+
+                    <div class="asig-header-resp d-none d-md-flex" style="flex: 0.9;">
+                        <th:block th:if="${dto.asignacion.oficinaDestino?.predio != null}">
+                            <div class="asig-resp-avatar" style="background: #f0fdf4; color: #16a34a; border-color: #bbf7d0;">
+                                <i class="fa-solid fa-building"></i>
+                            </div>
+                            <div class="asig-resp-data">
+                                <span class="asig-resp-label">Predio Destino</span>
+                                <span class="asig-resp-name" th:title="${dto.asignacion.oficinaDestino.predio.descrip}" 
+                                    th:text="${dto.asignacion.oficinaDestino.predio.descrip}">Nombre del Predio</span>
+                            </div>
+                        </th:block>
+                        <th:block th:unless="${dto.asignacion.oficinaDestino?.predio != null}">
+                            <span class="text-muted fst-italic small"><i class="fa-solid fa-location-dot me-1"></i>Sin destino</span>
+                        </th:block>
+                    </div>
+                </th:block>
+                <th:block th:unless="${dto.asignacion.responsable?.persona != null}">
+                    <span class="text-muted fst-italic small"><i class="fa-solid fa-triangle-exclamation text-warning me-1"></i>Sin responsable</span>
+                </th:block>
             </div>
 
-            <span class="asig-count-badge" th:classappend="${dto.totalPendientes == 0 ? ' all-done'
-                                 : (dto.totalSincronizados > 0 ? ' mixed' : '')}"
-                th:text="${dto.totalActivos} + ' activo' + (${dto.totalActivos != 1} ? 's' : '')">
-                5 activos
-            </span>
-            <span class="asig-progress-info d-none d-md-block">
-                <span class="done" th:text="${dto.totalSincronizados}">0</span> sinc.
-                /
-                <span class="pending" th:text="${dto.totalPendientes}">0</span> pend.
-            </span>
 
-            <!-- Sólo el botón de editar lote; asignar doc y sincronizar van por la barra flotante -->
+            <div class="asig-header-stats">
+                <div class="stat-main" th:classappend="${dto.totalPendientes == 0 ? 'text-success' : (dto.totalSincronizados > 0 ? 'text-warning' : 'text-primary')}">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <span th:text="${dto.totalActivos} + ' Activos'">5 Activos</span>
+                </div>
+                <div class="stat-details d-none d-md-flex">
+                    <span class="text-success" title="Sincronizados"><i class="fa-solid fa-check-double me-1"></i>[[${dto.totalSincronizados}]]</span>
+                    <span style="color:#cbd5e1;">|</span>
+                    <span class="text-warning" title="Pendientes"><i class="fa-regular fa-clock me-1"></i>[[${dto.totalPendientes}]]</span>
+                </div>
+            </div>
+
             <div class="asig-header-actions">
-                <!-- Hint visible cuando hay pendientes pero no se ha seleccionado nada -->
-                <span class="select-hint d-none d-lg-inline" th:if="${dto.totalPendientes > 0}">
-                    <i class="fa-regular fa-hand-pointer me-1"></i>
-                    Selecciona para asignar doc. o sincronizar
+                <span class="select-hint d-none d-xl-inline" th:if="${dto.totalPendientes > 0}">
+                    <i class="fa-regular fa-hand-pointer me-1"></i> Selecciona para procesar
                 </span>
             </div>
         </div>

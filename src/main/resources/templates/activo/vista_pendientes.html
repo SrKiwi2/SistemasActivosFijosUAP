@@ -326,7 +326,7 @@
             <i class="fa-solid fa-file-signature"></i> Asignar Doc.
         </button>
         <button id="btnProcesarMasivo" class="btn-barra btn-barra-sync">
-            <i class="fa-solid fa-cloud-arrow-up"></i> Sincronizar al DBF
+            <i class="fa-solid fa-cloud-arrow-up"></i> Subir al VSIAF
         </button>
         <button class="btn-barra btn-barra-clear" onclick="limpiarSeleccion()" title="Desmarcar todos">
             <i class="fa-solid fa-xmark"></i>
@@ -1006,13 +1006,14 @@
         // ────────────────────────────────────────────────
         function confirmarSincronizar(ids) {
             Swal.fire({
-                title: `¿Sincronizar ${ids.length} activo${ids.length > 1 ? 's' : ''}?`,
-                html: `Se registrarán permanentemente en el archivo <b>ACTUAL.DBF</b>.`,
+                title: `¿Registrar ${ids.length} activo${ids.length > 1 ? 's' : ''}?`,
+                html: `¡Importante! Se procedera a registrar los activos selecionados al <b>VSIAF</b>.`,
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonText: 'Sí, sincronizar',
-                confirmButtonColor: '#696cff',
-                cancelButtonText: 'Cancelar'
+                confirmButtonText: 'Sí, registrar',
+                confirmButtonColor: '#1E9C07',
+                cancelButtonText: 'Cancelar',
+                cancelButtonColor: '#D10000'
             }).then(result => {
                 if (result.isConfirmed) enviarMasivo(ids);
             });

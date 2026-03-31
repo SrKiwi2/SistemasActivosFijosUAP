@@ -192,7 +192,7 @@
     }
 
     #sectionBatch > .row.bg-light::before {
-        content: '⚙ DATOS COMUNES DEL LOTE';
+        content: '⚙ DATOS COMUNES';
         display: block;
         font-size: 0.62rem;
         font-weight: 800;
@@ -921,25 +921,20 @@
 
                 <!-- Título módulo -->
                 <div class="d-flex align-items-center gap-2">
-                    <div class="d-flex align-items-center bg-label-primary rounded px-2 py-1">
-                        <i class="fa-solid fa-box-archive me-2 text-primary"></i>
-                        <span class="fw-bold small text-primary">ACTIVOS FIJOS</span>
-                    </div>
+                    
                     <span id="lblModo" class="badge bg-secondary" style="font-size: 0.7rem;">BLOQUEADO</span>
                 </div>
 
                 <!-- Buscador -->
-                <div class="input-group input-group-sm ms-1" style="width: 240px;">
-                    <span class="input-group-text bg-white border-end-0" style="border: 1.5px solid #e2e8f0; border-right:0; border-radius: 0.5rem 0 0 0.5rem;">
-                        <i class="fa-solid fa-barcode text-muted" style="font-size:0.75rem;"></i>
-                    </span>
+                <div class="input-group input-group-sm ms-1" style="width: 260px;">
+                    
                     <input type="text" id="buscarCodigo"
                         class="form-control font-monospace"
                         placeholder="00-00-00-00000"
-                        autocomplete="off"
-                        style="border-left:0; border-radius:0 0.5rem 0.5rem 0;">
+                        autocomplete="off">
                     <button class="btn btn-outline-primary btn-sm" id="btnBuscarCodigo" title="Buscar por código">
-                        <i class="fa-solid fa-search"></i>
+                        <i class="fa-solid fa-search me-1"></i>
+                        <span class="d-none d-sm-inline">Buscar codigo</span>
                     </button>
                 </div>
             </div>
@@ -947,18 +942,19 @@
             <!-- Botones acción -->
             <div class="d-flex gap-1">
                 <button type="button" class="btn btn-primary btn-sm" id="btnRegistrar">
-                    <i class="fa-solid fa-plus me-1"></i> Nuevo Lote
+                    <i class="fa-solid fa-plus me-1"></i> Registrar activos
                 </button>
                 <button type="button" class="btn btn-warning btn-sm" id="btnModificar" disabled title="Editar activo">
                     <i class="fa-solid fa-pen me-1"></i>
-                    <span class="d-none d-sm-inline">Editar</span>
+                    <span class="d-none d-sm-inline">Editar activo</span>
                 </button>
-                <button type="button" class="btn btn-danger btn-sm" id="btnBaja" disabled title="Dar de baja">
+                <button type="button" class="btn btn-danger btn-sm" id="btnBaja" disabled title="Desaprobar en el vsiaf">
                     <i class="fa-solid fa-arrow-down me-1"></i>
-                    <span class="d-none d-sm-inline">Baja</span>
+                    <span class="d-none d-sm-inline">Desaprobar activo</span>
                 </button>
                 <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCancelar" disabled title="Cancelar">
-                    <i class="fa-solid fa-xmark"></i>
+                    <i class="fa-solid fa-xmark me-1"></i>
+                    <span class="d-none d-sm-inline">Cancelar</span>
                 </button>
             </div>
         </div>
@@ -983,7 +979,7 @@
                         <label class="form-label">
                             <i class="fa-solid fa-city"></i> Municipio
                         </label>
-                        <select id="municipioCode" class="form-select select2it">
+                        <select id="municipioCode" class="form-select select2it" disabled>
                             <option value="">Seleccione...</option>
                             <option th:each="m : ${municipios}" th:value="${m.idMunicipio}" th:text="${m.nombre}"
                                 th:data-code="${m.codigo}"></option>
@@ -995,8 +991,12 @@
                         </label>
                         <select id="predioCode" name="predio" class="form-select select2it">
                             <option value="">Seleccione...</option>
-                            <option th:each="p : ${predios}" th:value="${p.idPredio}" th:text="${p.descrip}"
-                                th:data-code="${p.codigo}"></option>
+                            <option th:each="p : ${predios}" 
+                                    th:value="${p.idPredio}" 
+                                    th:text="${p.descrip}"
+                                    th:data-code="${p.codigo}"
+                                    th:data-mun="${p.municipio != null ? p.municipio.idMunicipio : ''}">
+                            </option>
                         </select>
                     </div>
                     <div class="col-md-3 col-sm-6">
@@ -1088,7 +1088,7 @@
                         <label class="form-label">
                             <i class="fa-solid fa-clock-rotate-left"></i> Vida Útil (años)
                         </label>
-                        <input type="number" id="vidaUtil" name="vidaUtil" class="form-control text-center">
+                        <input type="number" id="vidaUtil" name="vidaUtil" class="form-control text-center" disabled>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">
@@ -1197,7 +1197,7 @@
                 <div class="batch-grid-4">
                     <div class="batch-row-field">
                         <label><i class="fa-solid fa-city"></i> Municipio</label>
-                        <select class="form-select select2-row sel-mun">
+                        <select class="form-select select2-row sel-mun" disabled>
                             <option value="">(Seleccione)</option>
                             <option th:each="m : ${municipios}"
                                     th:value="${m.idMunicipio}"
@@ -1207,8 +1207,14 @@
                     </div>
                     <div class="batch-row-field">
                         <label><i class="fa-solid fa-building"></i> Predio</label>
-                        <select class="form-select select2-row sel-pred" disabled>
-                            <option value="">(Seleccione Municipio)</option>
+                        <select class="form-select select2-row sel-pred">
+                            <option value="">(Seleccione Predio)</option>
+                            <option th:each="p : ${predios}"
+                                    th:value="${p.idPredio}"
+                                    th:text="${p.descrip}"
+                                    th:data-code="${p.codigo}"
+                                    th:data-mun="${p.municipio != null ? p.municipio.idMunicipio : ''}">
+                            </option>
                         </select>
                     </div>
                     <div class="batch-row-field">
@@ -1321,9 +1327,9 @@
                         </button>
                     </div>
                 </div>
-                <div class="batch-row-field">
+                <div class="batch-row-field" >
                     <label><i class="fa-solid fa-clock-rotate-left"></i> Vida Útil (años)</label>
-                    <input type="number" class="form-control txt-vida text-center" placeholder="0" value="0">
+                    <input type="number" class="form-control txt-vida text-center" placeholder="0" value="0" disabled>
                 </div>
                 <div class="batch-row-field batch-row-delete">
                     <i class="fa-solid fa-trash-can btn-remove-row" title="Quitar esta fila"></i>
@@ -1600,24 +1606,21 @@
         function setupCascadaSingle() {
 
             $root.find('#municipioCode').on('change', function () {
-                const munId = $(this).val();
-                const $predio = $root.find('#predioCode');
-                const $oficina = $root.find('#oficinaId');
-                const $resp = $root.find('#responsableId');
-
-                $oficina.empty().prop('disabled', true);
-                $resp.empty().prop('disabled', true);
-
-                if (munId) cargarSelect('/api/buscar_predios', { municipioId: munId }, $predio, 'Seleccione Predio');
-                else $predio.empty().prop('disabled', true);
-
                 actualizarCodigoPreviewSingle();
             });
 
             $root.find('#predioCode').on('change', function () {
                 const predId = $(this).val();
+                const $mun = $root.find('#municipioCode');
                 const $oficina = $root.find('#oficinaId');
                 const $resp = $root.find('#responsableId');
+
+                const munId = $(this).find(':selected').data('mun');
+                if (munId && $mun.val() != munId) {
+                    $mun.val(munId).trigger('change.select2'); // Cambia sin romper estilos
+                } else if (!predId) {
+                    $mun.val('').trigger('change.select2'); // Limpia si quita el predio
+                }
 
                 $oficina.empty().prop('disabled', true);
                 $resp.val(null).trigger('change').prop('disabled', true);
@@ -1725,34 +1728,31 @@
 
             // ── Municipio → limpiar predio/oficina/responsable ──────────────────────
             $root.on('change', '.sel-mun', function () {
-                const $row = $(this).closest('.batch-slide');
-                const munId = $(this).val();
-                const $pred = $row.find('.sel-pred');
-
-                $row.find('.sel-ofi').empty()
-                    .append('<option value="">(Seleccione Predio primero)</option>')
-                    .prop('disabled', true);
-                $row.find('.btn-nueva-oficina').prop('disabled', true);
-                resetResponsableRow($row);
-                $row.find('.txt-codigo-preview').val('').attr('placeholder', '—');
-
-                if (munId) cargarSelect('/api/buscar_predios', { municipioId: munId }, $pred, 'Predio...');
-                else $pred.empty().prop('disabled', true);
+                recalcularCodigosBatchDebounced();
             });
 
             // ── Predio → cargar oficinas y habilitar botón nueva oficina ─────────────
             $root.on('change', '.sel-pred', function () {
                 const $row = $(this).closest('.batch-slide');
                 const predId = $(this).val();
+                const $mun = $row.find('.sel-mun');
                 const $ofi = $row.find('.sel-ofi');
                 const $btnNuevaOfi = $row.find('.btn-nueva-oficina');
 
+                // --- AUTO-SELECCIÓN DE MUNICIPIO ---
+                const munId = $(this).find(':selected').data('mun');
+                if (munId && $mun.val() != munId) {
+                    $mun.val(munId).trigger('change.select2');
+                } else if (!predId) {
+                    $mun.val('').trigger('change.select2');
+                }
+
                 resetResponsableRow($row);
 
+                // --- CASCADA HACIA OFICINA ---
                 if (predId) {
                     cargarSelect('/api/buscar_oficinas', { predioId: predId }, $ofi, 'Seleccione Oficina...')
                         .then(function () {
-                            // ✅ Habilitar "+" de oficina en cuanto hay un predio seleccionado
                             $btnNuevaOfi.prop('disabled', false);
                         });
                 } else {
@@ -1760,6 +1760,7 @@
                         .append('<option value="">(Seleccione Predio primero)</option>')
                         .prop('disabled', true);
                     $btnNuevaOfi.prop('disabled', true);
+                    $row.find('.txt-codigo-preview').val('').attr('placeholder', '—');
                 }
 
                 recalcularCodigosBatchDebounced();
@@ -2459,28 +2460,18 @@
 
         // ── Hereda Municipio/Predio/Oficina/Responsable de la fila anterior ───────────
         async function inheritFromPreviousSlide($prevCard, $newCard) {
-            const munId = $prevCard.find('.sel-mun').val();
-            if (!munId) return;
-
-            // Municipio (opciones ya vienen del template)
-            $newCard.find('.sel-mun').val(munId);
-            if ($newCard.find('.sel-mun').data('select2')) {
-                $newCard.find('.sel-mun').trigger('change.select2');
-            }
-
             const predId = $prevCard.find('.sel-pred').val();
             if (!predId) return;
 
-            // Cargar y seleccionar predio
+            // 1. Asignar Predio (Al disparar 'change.select2', se autocompletará el Municipio en el HTML)
             const $pred = $newCard.find('.sel-pred');
-            await cargarSelect('/api/buscar_predios', { municipioId: munId }, $pred, 'Predio...');
             $pred.val(predId);
             if ($pred.data('select2')) $pred.trigger('change.select2');
 
             const ofiId = $prevCard.find('.sel-ofi').val();
             if (!ofiId) return;
 
-            // Cargar y seleccionar oficina
+            // 2. Cargar y seleccionar oficina
             const $ofi = $newCard.find('.sel-ofi');
             await cargarSelect('/api/buscar_oficinas', { predioId: predId }, $ofi, 'Seleccione Oficina...');
             $ofi.val(ofiId);
@@ -2490,7 +2481,7 @@
             const respId = $prevCard.find('.sel-resp').val();
             if (!respId) return;
 
-            // Cargar y seleccionar responsable
+            // 3. Cargar y seleccionar responsable
             try {
                 const data = await $.get('/api/buscar_responsable', { q: '', page: 1, oficinaId: ofiId });
                 const resultados = data.results || [];
