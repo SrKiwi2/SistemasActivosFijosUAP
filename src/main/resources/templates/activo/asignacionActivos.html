@@ -1062,6 +1062,11 @@
             display: none
         }
     }
+
+    .aa-input-mono {
+        font-family: var(--font-mono);
+        letter-spacing: 0.5px;
+    }
 </style>
 
 <div class="aa-wrap">
@@ -1296,44 +1301,77 @@
             </button>
         </div>
         <div class="aa-modal-body">
+
+            <!-- CI con auto-llenado -->
             <div class="aa-modal-row">
-                <div class="aa-ctrl-group grow">
+                <div class="aa-ctrl-group" style="min-width:120px;">
                     <label class="aa-ctrl-lbl">
                         <span class="aa-dot" style="background:var(--accent)"></span>
-                        Nombres
+                        C.I. <span style="color:var(--red)">*</span>
                     </label>
-                    <input class="aa-input" type="text" id="aa-nr-nombre" placeholder="Nombres del funcionario" />
+                    <input class="aa-input" type="text" id="aa-nr-ci" placeholder="Ej: 12345678" />
+                </div>
+                <div class="aa-ctrl-group" style="min-width:120px;">
+                    <label class="aa-ctrl-lbl">
+                        Cód. funcionario <span style="color:var(--red)">*</span>
+                        <span style="font-weight:400;text-transform:none;font-size:8.5px;">(auto)</span>
+                    </label>
+                    <input class="aa-input aa-input-mono" type="text" id="aa-nr-codfunc" placeholder="42" />
                 </div>
             </div>
+
+            <!-- Nombres -->
             <div class="aa-modal-row">
                 <div class="aa-ctrl-group grow">
-                    <label class="aa-ctrl-lbl">Apellido paterno</label>
+                    <label class="aa-ctrl-lbl">Nombre(s) <span style="color:var(--red)">*</span></label>
+                    <input class="aa-input" type="text" id="aa-nr-nombre" placeholder="Ej: Juan Carlos" />
+                </div>
+            </div>
+
+            <!-- Apellidos -->
+            <div class="aa-modal-row">
+                <div class="aa-ctrl-group grow">
+                    <label class="aa-ctrl-lbl">Paterno <span style="color:var(--red)">*</span></label>
                     <input class="aa-input" type="text" id="aa-nr-paterno" placeholder="Apellido paterno" />
                 </div>
                 <div class="aa-ctrl-group grow">
-                    <label class="aa-ctrl-lbl">Apellido materno</label>
+                    <label class="aa-ctrl-lbl">Materno <span style="font-weight:400">(opcional)</span></label>
                     <input class="aa-input" type="text" id="aa-nr-materno" placeholder="Apellido materno" />
                 </div>
             </div>
-            <div class="aa-modal-row">
-                <div class="aa-ctrl-group" style="min-width:110px;">
-                    <label class="aa-ctrl-lbl">C.I.</label>
-                    <input class="aa-input" type="text" id="aa-nr-ci" placeholder="12345678" />
+
+            <!-- Cargo con Select2 ajax + nuevo inline -->
+            <div class="aa-ctrl-group">
+                <label class="aa-ctrl-lbl">Cargo <span style="color:var(--red)">*</span></label>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <select id="aa-nr-cargo" style="flex:1;min-width:0;"></select>
+                    <button type="button" id="aa-nr-btn-nuevo-cargo"
+                        title="Escribir cargo nuevo"
+                        style="flex-shrink:0;width:34px;height:34px;border:1px solid var(--border-med);
+                            border-radius:var(--r-sm);background:var(--bg-input);cursor:pointer;
+                            display:flex;align-items:center;justify-content:center;
+                            color:var(--accent);transition:all var(--t);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path d="M12 4v16m8-8H4"/>
+                        </svg>
+                    </button>
                 </div>
-                <div class="aa-ctrl-group" style="min-width:110px;">
-                    <label class="aa-ctrl-lbl">Cód. funcionario</label>
-                    <input class="aa-input" type="text" id="aa-nr-codfunc" placeholder="00123" />
-                </div>
-                <div class="aa-ctrl-group grow">
-                    <label class="aa-ctrl-lbl">Cargo</label>
-                    <select id="aa-nr-cargo" class="aa-sel">
-                        <option value="">— Sin cargo —</option>
-                        <th:block th:each="c : ${cargos}">
-                            <option th:value="${c.idCargo}" th:text="${c.nombre}"></option>
-                        </th:block>
-                    </select>
+                <!-- Input inline para cargo nuevo, oculto por defecto -->
+                <div id="aa-nr-cargo-nuevo-wrap"
+                    style="display:none;margin-top:5px;gap:6px;align-items:center;">
+                    <input id="aa-nr-cargo-nuevo-txt" class="aa-input" style="flex:1;"
+                        placeholder="Nombre del nuevo cargo..." />
+                    <button type="button" id="aa-nr-btn-cancelar-cargo"
+                        style="flex-shrink:0;font-size:11px;padding:4px 8px;
+                            border:1px solid var(--border-med);border-radius:var(--r-sm);
+                            background:var(--bg-input);cursor:pointer;color:var(--txt-sub);
+                            white-space:nowrap;">
+                        ✕ cancelar
+                    </button>
                 </div>
             </div>
+
         </div>
         <div class="aa-modal-foot">
             <button class="aa-btn aa-btn-ghost" onclick="aaCerrarModal()">Cancelar</button>
@@ -1759,17 +1797,107 @@
         }
 
         /* ────────── MODAL NUEVO RESPONSABLE ────────── */
-        window.aaAbrirModalNuevoResp = function () {
-            const sub = document.getElementById('aa-modal-sub');
-            sub.textContent = S.oficinaNombre ? `Oficina: ${S.oficinaNombre}` : 'Oficina: —';
-            // limpiar campos
-            ['aa-nr-nombre', 'aa-nr-paterno', 'aa-nr-materno', 'aa-nr-ci', 'aa-nr-codfunc'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
-            document.getElementById('aa-nr-cargo').value = '';
+        window.aaAbrirModalNuevoResp = async function () {
+            if (!S.oficinaId) {
+                aaToast('w', 'Sin oficina', 'Seleccione una oficina primero.');
+                return;
+            }
+
+            // Actualizar subtítulo
+            document.getElementById('aa-modal-sub').textContent =
+                S.oficinaNombre ? `Oficina: ${S.oficinaNombre}` : 'Oficina: —';
+
+            // Limpiar campos
+            ['aa-nr-nombre', 'aa-nr-paterno', 'aa-nr-materno', 'aa-nr-ci', 'aa-nr-codfunc']
+                .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+
+            // Ocultar panel cargo-nuevo si quedó abierto
+            document.getElementById('aa-nr-cargo-nuevo-wrap').style.display = 'none';
+            document.getElementById('aa-nr-cargo-nuevo-txt').value = '';
+            document.getElementById('aa-nr-btn-nuevo-cargo').style.display = 'flex';
+            document.getElementById('aa-nr-cargo').style.display = '';
+
+            // Código funcionario correlativo
+            try {
+                const r = await fetch(
+                    `/administracion/responsable/obtener-siguiente-codigo-funcionario?idOficina=${S.oficinaId}`
+                );
+                if (r.ok) {
+                    const cod = await r.json();
+                    document.getElementById('aa-nr-codfunc').value = cod;
+                }
+            } catch (_) { /* no crítico */ }
+
+            // Inicializar Select2 en cargo
+            aaIniciarCargoSelect2();
+
+            // Eventos CI → auto-llenado (registrar solo una vez)
+            const ciInput = document.getElementById('aa-nr-ci');
+            ciInput.onblur = async function () {
+                const ci = this.value.trim();
+                if (!ci) return;
+                try {
+                    const r = await fetch(
+                        `/administracion/responsable/api/personas/buscar-por-ci?ci=${encodeURIComponent(ci)}`
+                    );
+                    if (r.ok) {
+                        const p = await r.json();
+                        if (p.nombre)  document.getElementById('aa-nr-nombre').value  = p.nombre;
+                        if (p.paterno) document.getElementById('aa-nr-paterno').value = p.paterno;
+                        if (p.materno) document.getElementById('aa-nr-materno').value = p.materno;
+                    }
+                } catch (_) { /* silencioso */ }
+            };
+
+            // Evento botón "nuevo cargo"
+            document.getElementById('aa-nr-btn-nuevo-cargo').onclick = function () {
+                if ($('#aa-nr-cargo').data('select2')) $('#aa-nr-cargo').select2('destroy');
+                $('#aa-nr-cargo').val('').hide();
+                document.getElementById('aa-nr-cargo-nuevo-wrap').style.display = 'flex';
+                this.style.display = 'none';
+                document.getElementById('aa-nr-cargo-nuevo-txt').focus();
+            };
+
+            // Evento botón "cancelar cargo nuevo"
+            document.getElementById('aa-nr-btn-cancelar-cargo').onclick = function () {
+                document.getElementById('aa-nr-cargo-nuevo-wrap').style.display = 'none';
+                document.getElementById('aa-nr-cargo-nuevo-txt').value = '';
+                document.getElementById('aa-nr-btn-nuevo-cargo').style.display = 'flex';
+                $('#aa-nr-cargo').show();
+                aaIniciarCargoSelect2();
+            };
+
             document.getElementById('aa-modal-bg').classList.add('on');
         };
+
+        function aaIniciarCargoSelect2() {
+            const $cargo = $('#aa-nr-cargo');
+            if ($cargo.data('select2')) $cargo.select2('destroy');
+            $cargo.select2({
+                theme: 'bootstrap-5',
+                width: '100%',
+                placeholder: 'Buscar cargo...',
+                allowClear: true,
+                minimumInputLength: 0,
+                dropdownParent: $('#aa-modal-bg'),   // anclar dentro del modal
+                language: {
+                    searching:    () => 'Buscando...',
+                    noResults:    () => 'Sin resultados',
+                    inputTooShort: () => 'Escriba para buscar'
+                },
+                ajax: {
+                    url: '/api/cargos/search',
+                    dataType: 'json',
+                    delay: 250,
+                    data: params => ({ q: params.term || '' }),
+                    processResults: data => ({
+                        results: data.map(c => ({ id: c.nombre, text: c.nombre }))
+                    }),
+                    cache: true
+                }
+            });
+        }
+
 
         window.aaCerrarModal = function (e) {
             if (e && e.target !== document.getElementById('aa-modal-bg')) return;
@@ -1777,57 +1905,89 @@
         };
 
         window.aaGuardarNuevoResp = async function () {
-            const nombre = document.getElementById('aa-nr-nombre').value.trim();
-            const ci = document.getElementById('aa-nr-ci').value.trim();
-            const codfunc = document.getElementById('aa-nr-codfunc').value.trim();
+            const ci       = document.getElementById('aa-nr-ci').value.trim();
+            const nombre   = document.getElementById('aa-nr-nombre').value.trim();
+            const paterno  = document.getElementById('aa-nr-paterno').value.trim();
+            const materno  = document.getElementById('aa-nr-materno').value.trim();
+            const codfunc  = document.getElementById('aa-nr-codfunc').value.trim();
 
-            if (!nombre || !codfunc) {
-                aaToast('w', 'Campos requeridos', 'Complete al menos nombres y código de funcionario.');
-                return;
-            }
-            if (!S.oficinaId) {
-                aaToast('w', 'Sin oficina', 'Primero seleccione una oficina.'); return;
-            }
+            // Determinar cargo: ¿panel nuevo visible o Select2?
+            const cargoNuevoVisible =
+                document.getElementById('aa-nr-cargo-nuevo-wrap').style.display !== 'none';
+            const cargo = cargoNuevoVisible
+                ? document.getElementById('aa-nr-cargo-nuevo-txt').value.trim()
+                : ($('#aa-nr-cargo').val() || '');
+
+            // Validaciones
+            if (!ci)      { aaToast('w', 'Campo requerido', 'El CI es obligatorio.');               return; }
+            if (!nombre)  { aaToast('w', 'Campo requerido', 'El nombre es obligatorio.');            return; }
+            if (!paterno) { aaToast('w', 'Campo requerido', 'El apellido paterno es obligatorio.');  return; }
+            if (!codfunc) { aaToast('w', 'Campo requerido', 'El código de funcionario es obligatorio.'); return; }
+            if (!cargo)   { aaToast('w', 'Campo requerido', 'Seleccione o escriba un cargo.');       return; }
+            if (!S.oficinaId) { aaToast('w', 'Sin oficina', 'No hay oficina seleccionada.');         return; }
 
             aaOverlay('Registrando responsable…');
+
             try {
-                const res = await fetch('/api/responsables/registrar-rapido', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        idOficina: S.oficinaId,
-                        nombre: nombre,
-                        paterno: document.getElementById('aa-nr-paterno').value.trim(),
-                        materno: document.getElementById('aa-nr-materno').value.trim(),
-                        ci: ci,
-                        codigoFuncionario: codfunc,
-                        idCargo: document.getElementById('aa-nr-cargo').value || null
-                    })
+                // Mismo endpoint y formato que usa ActivoForm
+                const fd = new FormData();
+                fd.append('ci',                ci);
+                fd.append('nombre',            nombre);
+                fd.append('paterno',           paterno);
+                fd.append('materno',           materno);
+                fd.append('codigoFuncionario', codfunc);
+                fd.append('idOficina',         S.oficinaId);
+                fd.append('cargoNombre',       cargo);
+                fd.append('modoRapido',        'true');
+
+                let r = await fetch('/administracion/responsable/registrar-responsable', {
+                    method: 'POST', body: fd
                 });
-                const data = await res.json();
-                if (data.ok) {
-                    aaToast('s', 'Responsable registrado', `${data.nombre} agregado correctamente.`);
-                    document.getElementById('aa-modal-bg').classList.remove('on');
-                    // Recargar responsables de la oficina actual
-                    await window.aaOficinaChange();
-                    // Restaurar resp1
-                    if (S.resp1Id) {
-                        $('#aa-resp1').val(String(S.resp1Id)).trigger('change.select2');
-                    }
-                    // Seleccionar el nuevo resp en resp2 si viene el id
-                    if (data.idResponsable) {
-                        setTimeout(() => {
-                            aaActualizarResp2Select();
-                            $('#aa-resp2').val(String(data.idResponsable)).trigger('change.select2');
-                        }, 200);
-                    }
-                } else {
-                    aaToast('e', 'Error', data.msg || 'No se pudo registrar.');
+
+                // Conflicto 409 — persona similar, preguntar al usuario
+                if (r.status === 409) {
+                    aaOverlayOff();
+                    const conflicto = await r.json();
+                    if (!confirm(`Persona similar encontrada:\n${conflicto.msg}\n\n¿Crear de todas formas?`)) return;
+
+                    aaOverlay('Registrando (forzado)…');
+                    fd.append('forzarCreacion', 'true');
+                    r = await fetch('/administracion/responsable/registrar-responsable-forzado', {
+                        method: 'POST', body: fd
+                    });
                 }
-            } catch (e) {
-                aaToast('e', 'Error de red', e.message);
-            } finally {
+
+                const res = await r.json();
                 aaOverlayOff();
+
+                if (!res.ok) throw new Error(res.msg);
+
+                aaToast('s', 'Responsable registrado',
+                    `${nombre} ${paterno} agregado. Pendiente de sincronización con DBF.`);
+
+                document.getElementById('aa-modal-bg').classList.remove('on');
+
+                // Recargar lista de responsables de la oficina actual conservando resp1
+                await window.aaOficinaChange();
+                if (S.resp1Id) {
+                    $('#aa-resp1').val(String(S.resp1Id)).trigger('change.select2');
+                    // Restaurar activos sin volver a consultar el servidor
+                    document.getElementById('aa-row2').style.display = 'flex';
+                    aaActualizarResp2Select();
+                    aaRenderTabla();
+                    aaActualizarStatusbar();
+                }
+
+                // Seleccionar automáticamente al nuevo responsable en resp2
+                if (res.id) {
+                    setTimeout(() => {
+                        $('#aa-resp2').val(String(res.id)).trigger('change.select2');
+                    }, 250);
+                }
+
+            } catch (err) {
+                aaOverlayOff();
+                aaToast('e', 'Error', err.message);
             }
         };
 

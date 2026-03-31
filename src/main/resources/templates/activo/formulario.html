@@ -702,7 +702,6 @@
     }
 
     /* Layout compacto 4 columnas para ubicación */
-    /* REEMPLAZA POR: */
     .batch-grid-4 {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -918,16 +917,10 @@
     <div class="card-header card-header-slim sticky-top z-1 bg-white border-bottom">
         <div class="d-flex justify-content-between align-items-center py-1">
             <div class="d-flex align-items-center gap-2 flex-wrap">
-
-                <!-- Título módulo -->
                 <div class="d-flex align-items-center gap-2">
-                    
                     <span id="lblModo" class="badge bg-secondary" style="font-size: 0.7rem;">BLOQUEADO</span>
                 </div>
-
-                <!-- Buscador -->
                 <div class="input-group input-group-sm ms-1" style="width: 260px;">
-                    
                     <input type="text" id="buscarCodigo"
                         class="form-control font-monospace"
                         placeholder="00-00-00-00000"
@@ -939,7 +932,6 @@
                 </div>
             </div>
 
-            <!-- Botones acción -->
             <div class="d-flex gap-1">
                 <button type="button" class="btn btn-primary btn-sm" id="btnRegistrar">
                     <i class="fa-solid fa-plus me-1"></i> Registrar activos
@@ -964,11 +956,8 @@
         <form id="formularioActivo" class="form-compact needs-validation" novalidate autocomplete="off">
             <input type="hidden" id="idActivo" name="idActivo" />
 
-            <!-- ══════════════════════ MODO SINGLE ══════════════════════ -->
             <div id="sectionSingle" class="mode-single">
                 <div class="row g-2">
-
-                    <!-- Grupo: Ubicación -->
                     <div class="col-12">
                         <div class="af-section-title">
                             1. Ubicación
@@ -985,6 +974,7 @@
                                 th:data-code="${m.codigo}"></option>
                         </select>
                     </div>
+
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">
                             <i class="fa-solid fa-building"></i> Predio
@@ -999,6 +989,7 @@
                             </option>
                         </select>
                     </div>
+
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">
                             <i class="fa-solid fa-door-open"></i> Oficina
@@ -1008,6 +999,7 @@
                             <option th:each="o : ${oficinas}" th:value="${o.idOficina}" th:text="${o.nombre}"></option>
                         </select>
                     </div>
+
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">
                             <i class="fa-solid fa-user-tie"></i> Responsable
@@ -1017,7 +1009,6 @@
                         </select>
                     </div>
 
-                    <!-- Grupo: Clasificación -->
                     <div class="col-12 mt-1">
                         <div class="af-section-title">
                             2. Clasificación Contable
@@ -1034,6 +1025,7 @@
                                 th:data-code="${g.codDbf}"></option>
                         </select>
                     </div>
+
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">
                             <i class="fa-solid fa-bookmark"></i> Auxiliar
@@ -1044,6 +1036,7 @@
                                 th:data-code="${a.codAux}"></option>
                         </select>
                     </div>
+
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">
                             <i class="fa-solid fa-hand-holding-dollar"></i> Financiador
@@ -1055,6 +1048,7 @@
                                 th:text="${f.descripcion}"></option>
                         </select>
                     </div>
+
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">
                             <i class="fa-solid fa-barcode"></i> Código Asignado
@@ -1064,7 +1058,6 @@
                             readonly>
                     </div>
 
-                    <!-- Grupo: Datos del activo -->
                     <div class="col-12 mt-1">
                         <div class="af-section-title">
                             3. Datos del Activo
@@ -1077,6 +1070,7 @@
                         </label>
                         <input type="date" name="fechaAdquisicion" id="fechaAdq" class="form-control">
                     </div>
+
                     <div class="col-md-2 col-sm-4">
                         <label class="form-label">
                             <i class="fa-solid fa-coins"></i> Costo (Bs)
@@ -1084,12 +1078,14 @@
                         <input type="text" id="costoFmt" class="form-control fw-bold text-end">
                         <input type="hidden" name="costo" id="costo">
                     </div>
+
                     <div class="col-md-2 col-sm-4">
                         <label class="form-label">
                             <i class="fa-solid fa-clock-rotate-left"></i> Vida Útil (años)
                         </label>
                         <input type="number" id="vidaUtil" name="vidaUtil" class="form-control text-center" disabled>
                     </div>
+
                     <div class="col-md-6">
                         <label class="form-label">
                             <i class="fa-solid fa-align-left"></i> Descripción
@@ -1100,10 +1096,7 @@
                 </div>
             </div>
 
-            <!-- ══════════════════════ MODO BATCH ══════════════════════ -->
             <div id="sectionBatch" class="mode-batch">
-
-                <!-- Cabecera común del lote -->
                 <div class="row g-2 mb-2 p-2 bg-light rounded border align-items-end">
                     <div class="col-md-4 col-sm-6">
                         <label class="form-label">
@@ -1116,6 +1109,7 @@
                                     th:text="${f.descripcion}"></option>
                         </select>
                     </div>
+
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">
                             <i class="fa-solid fa-calendar-days text-primary"></i>
@@ -1123,6 +1117,7 @@
                         </label>
                         <input type="date" id="batchFecha" class="form-control" required>
                     </div>
+
                     <div class="col-md-5 d-flex align-items-end pb-1">
                         <div class="d-flex align-items-center gap-2 text-muted" style="font-size:0.73rem;">
                             <i class="fa-solid fa-circle-info text-primary"></i>
@@ -1131,12 +1126,10 @@
                     </div>
                 </div>
 
-                <!-- Carrusel -->
                 <div class="batch-carousel-outer">
                     <div class="batch-carousel-track" id="batchTrack"></div>
                 </div>
 
-                <!-- Barra de navegación -->
                 <div class="batch-carousel-nav">
                     <div class="d-flex align-items-center gap-2">
                         <button type="button" id="btnPrevSlide"
@@ -1162,10 +1155,8 @@
                         </button>
                     </div>
                 </div>
-
             </div>
 
-            <!-- Footer botón guardar -->
             <div class="mt-3 pt-2 border-top d-flex justify-content-between align-items-center">
                 <div class="text-muted" style="font-size:0.72rem;">
                     <i class="fa-solid fa-shield-halved text-success me-1"></i>
@@ -1179,15 +1170,9 @@
     </div>
 </div>
 
-
-<!-- ══════════════════════════════════════════════════════════════
-     TEMPLATE FILA BATCH
-══════════════════════════════════════════════════════════════ -->
 <template id="tplBatchRow">
     <div class="batch-slide">
         <div class="batch-row-card">
-
-            <!-- ─── BLOQUE 1: Ubicación + Asignación (4 cols) ─── -->
             <div class="batch-row-line">
                 <div class="batch-section-divider">
                     <div class="divider-icon"><i class="fa-solid fa-location-dot"></i></div>
@@ -1205,6 +1190,7 @@
                                     th:data-code="${m.codigo}"></option>
                         </select>
                     </div>
+
                     <div class="batch-row-field">
                         <label><i class="fa-solid fa-building"></i> Predio</label>
                         <select class="form-select select2-row sel-pred">
@@ -1217,6 +1203,7 @@
                             </option>
                         </select>
                     </div>
+
                     <div class="batch-row-field">
                         <label><i class="fa-solid fa-door-open"></i> Oficina</label>
                         <div class="d-flex gap-1">
@@ -1231,6 +1218,7 @@
                             </button>
                         </div>
                     </div>
+
                     <div class="batch-row-field">
                         <label><i class="fa-solid fa-user-tie"></i> Responsable</label>
                         <div class="d-flex gap-1">
@@ -1255,7 +1243,6 @@
                 </div>
             </div>
 
-            <!-- ─── BLOQUE 2: Clasificación (2 cols) ─── -->
             <div class="batch-row-line" style="border-top:1px solid #f1f5f9;">
                 <div class="batch-section-divider">
                     <div class="divider-icon"><i class="fa-solid fa-tags"></i></div>
@@ -1283,7 +1270,6 @@
                 </div>
             </div>
 
-            <!-- ─── CÓDIGO PREVIEW ─── -->
             <div class="batch-row-line" style="border-top:1px solid #f1f5f9; padding-top:0.45rem;">
                 <div class="batch-row-field full-width">
                     <label>
@@ -1296,7 +1282,6 @@
                 </div>
             </div>
 
-            <!-- ─── DESCRIPCIÓN ─── -->
             <div class="batch-row-line" style="border-top:1px solid #f1f5f9;">
                 <div class="batch-row-field full-width">
                     <label>
@@ -1308,7 +1293,6 @@
                 </div>
             </div>
 
-            <!-- ─── DATOS ECONÓMICOS + ELIMINAR ─── -->
             <div class="batch-row-line batch-row-actions"
                 style="border-top:1.5px dashed #e2e8f0; background:#f8fafc;">
                 <div class="batch-row-field">
@@ -1338,20 +1322,14 @@
                     </button>
                 </div>  
             </div>
-
         </div>
     </div>
 </template>
 
-<!-- ══════════════════════════════════════════════════════════════
-     MODAL: DETALLE INDIVIDUAL DE ACTIVOS
-══════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalDetalleActivos" tabindex="-1"
      aria-labelledby="lblModalDetalle" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content border-0" style="border-radius:0.75rem; overflow:hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.18);">
-
-            <!-- Header -->
             <div class="modal-header py-2 px-3"
                  style="background: linear-gradient(135deg, #1a56db 0%, #1d4ed8 100%);">
                 <div>
@@ -1367,7 +1345,6 @@
                         data-bs-dismiss="modal"></button>
             </div>
 
-            <!-- Barra de descripción base -->
             <div class="px-3 py-2 border-bottom"
                  style="background: linear-gradient(135deg, #f0f7ff 0%, #e8f4f8 100%);">
                 <div class="d-flex align-items-center gap-2">
@@ -1392,7 +1369,6 @@
                 </div>
             </div>
 
-            <!-- Cuerpo: tabla -->
             <div class="modal-body p-0">
                 <div class="table-responsive" style="max-height: 58vh;">
                     <table class="table table-sm table-bordered mb-0"
@@ -1431,7 +1407,6 @@
                 </div>
             </div>
 
-            <!-- Footer -->
             <div class="modal-footer py-2 px-3 justify-content-between"
                  style="background:var(--af-surface);">
                 <div style="font-size:0.72rem; color:#64748b;">
@@ -1563,16 +1538,11 @@
                             item.idResponsable || item.idAuxiliar || item.idGrupoContable;
                         const txt = item.nombre || item.descrip || item.text || item.descripcion;
 
-                        // ✅ FIX: para predios, priorizar campo numérico sobre 'unidad' textual
-                        // item.codigo = "03" (numérico) | item.unidad = "RECT" (textual DBF)
                         let codeVal = item.codigo || item.unidad || null;
 
-                        // Si el código no es numérico pero hay un campo numérico alternativo, usarlo
                         if (codeVal && isNaN(parseInt(codeVal))) {
-                            // codeVal es textual (ej: "RECT"), buscar alternativa numérica
                             const alternativa = item.codigoNumerico || item.codPredio || item.nroPredio;
                             if (alternativa) codeVal = alternativa;
-                            // Si no hay alternativa, lo dejamos como está y logeamos
                             else console.warn('⚠️ Predio sin código numérico:', item);
                         }
 
@@ -1620,9 +1590,9 @@
 
                 const munId = $(this).find(':selected').data('mun');
                 if (munId && $mun.val() != munId) {
-                    $mun.val(munId).trigger('change.select2'); // Cambia sin romper estilos
+                    $mun.val(munId).trigger('change.select2');
                 } else if (!predId) {
-                    $mun.val('').trigger('change.select2'); // Limpia si quita el predio
+                    $mun.val('').trigger('change.select2');
                 }
 
                 $oficina.empty().prop('disabled', true);
@@ -1640,15 +1610,13 @@
                 const ofiId = $(this).val();
                 const $resp = $root.find('#responsableId');
 
-                // ✅ Limpiar selección actual y opciones dinámicas previas
                 $resp.val(null).trigger('change');
-                $resp.find('option[value!=""]').remove(); // elimina opciones anteriores
+                $resp.find('option[value!=""]').remove();
 
                 if (ofiId) {
                     $resp.prop('disabled', false);
                     $resp.select2('destroy');
 
-                    // ✅ Re-inicializar select2 con la oficina actual capturada en closure
                     $resp.select2({
                         theme: 'bootstrap-5',
                         width: '100%',
@@ -1660,7 +1628,6 @@
                             dataType: 'json',
                             delay: 250,
                             data: function (params) {
-                                // ✅ Captura el valor de oficina en el momento de la búsqueda
                                 const oficinaActual = $root.find('#oficinaId').val();
                                 console.log('🔍 Buscando responsable para oficina:', oficinaActual);
                                 return {
@@ -1679,7 +1646,6 @@
                     });
                 } else {
                     $resp.prop('disabled', true);
-                    // Reinicializar sin ajax para estado vacío
                     $resp.select2('destroy');
                     $resp.select2({
                         theme: 'bootstrap-5',
@@ -1729,21 +1695,18 @@
 
         function setupCascadaBatch() {
 
-            // ── Municipio → limpiar predio/oficina/responsable ──────────────────────
             $root.on('change', '.sel-mun', function () {
                 recalcularCodigosBatchDebounced();
             });
 
-            // ── Predio → cargar oficinas y habilitar botón nueva oficina ─────────────
             $root.on('change', '.sel-pred', function () {
                 const $row = $(this).closest('.batch-slide');
                 const predId = $(this).val();
                 const $mun = $row.find('.sel-mun');
                 const $ofi = $row.find('.sel-ofi');
                 const $btnNuevaOfi = $row.find('.btn-nueva-oficina');
-
-                // --- AUTO-SELECCIÓN DE MUNICIPIO ---
                 const munId = $(this).find(':selected').data('mun');
+
                 if (munId && $mun.val() != munId) {
                     $mun.val(munId).trigger('change.select2');
                 } else if (!predId) {
@@ -1752,7 +1715,6 @@
 
                 resetResponsableRow($row);
 
-                // --- CASCADA HACIA OFICINA ---
                 if (predId) {
                     cargarSelect('/api/buscar_oficinas', { predioId: predId }, $ofi, 'Seleccione Oficina...')
                         .then(function () {
@@ -1769,7 +1731,6 @@
                 recalcularCodigosBatchDebounced();
             });
 
-            // ── Oficina → cargar responsables de esa oficina ─────────────────────────
             $root.on('change', '.sel-ofi', function () {
                 const $row = $(this).closest('.batch-slide');
                 const ofiId = $(this).val();
@@ -1780,7 +1741,6 @@
                 cargarResponsablesDeOficina($row, ofiId);
             });
 
-            // ── Grupo → vida útil + auxiliar + preview código ─────────────────────────
             $root.on('change', '.sel-grp', function () {
                 const $row = $(this).closest('.batch-slide');
                 const grpId = $(this).val();
@@ -1805,7 +1765,6 @@
                 recalcularCodigosBatchDebounced();
             });
 
-            // ── Botón "+" Nueva Oficina ───────────────────────────────────────────────
             $root.on('click', '.btn-nueva-oficina', async function () {
                 const $row = $(this).closest('.batch-slide');
                 const predId = $row.find('.sel-pred').val();
@@ -1816,7 +1775,6 @@
                     return;
                 }
 
-                // Obtener siguiente codOfi automático
                 let siguienteCod = '';
                 try {
                     const r = await fetch(`/administracion/oficina/siguiente-codigo/${predId}`);
@@ -1869,14 +1827,13 @@
 
                 if (!isConfirmed) return;
 
-                // POST al endpoint existente con modoRapido=true
                 showGlobalLoader({ texto: 'Registrando oficina...' });
                 try {
                     const fd = new FormData();
                     fd.append('predio.idPredio', formValues.idPredio);
                     fd.append('codOfi', formValues.codOfi);
                     fd.append('nombre', formValues.nombre);
-                    fd.append('modoRapido', 'true');  // ✅ salta sincronización DBF
+                    fd.append('modoRapido', 'true');
 
                     const r = await fetch('/administracion/oficina/registrar-oficina', {
                         method: 'POST', body: fd
@@ -1886,7 +1843,6 @@
 
                     if (!res.ok) throw new Error(res.msg);
 
-                    // ✅ Agregar la nueva oficina al select y seleccionarla
                     const $ofi = $row.find('.sel-ofi');
                     if ($ofi.data('select2')) $ofi.select2('destroy');
 
@@ -1901,7 +1857,6 @@
                         dropdownParent: $root, allowClear: true, matcher: matchCustom
                     });
 
-                    // Disparar cambio para cargar responsables
                     $ofi.trigger('change');
 
                     Swal.fire({
@@ -1918,7 +1873,6 @@
                 }
             });
 
-            // ── Botón "+" Nuevo Responsable ───────────────────────────────────────────
             $root.on('click', '.btn-nuevo-resp', async function () {
                 const $row = $(this).closest('.batch-slide');
                 const ofiId = $row.find('.sel-ofi').val();
@@ -1929,7 +1883,6 @@
                     return;
                 }
 
-                // Obtener siguiente código funcionario automático
                 let siguienteCodFunc = '';
                 try {
                     const r = await fetch(`/administracion/responsable/obtener-siguiente-codigo-funcionario?idOficina=${ofiId}`);
@@ -2066,7 +2019,6 @@
                     confirmButtonColor: '#0d6efd',
                     focusConfirm: false,
                     didOpen: () => {
-                        // Auto-buscar datos por CI cuando pierde foco
                         document.getElementById('swal-resp-ci').addEventListener('blur', async function () {
                             const ci = this.value.trim();
                             if (!ci) return;
@@ -2088,7 +2040,7 @@
                                 placeholder: 'Buscar cargo...',
                                 allowClear: true,
                                 minimumInputLength: 0,
-                                dropdownParent: $(Swal.getPopup()),   // ← clave: queda dentro del modal
+                                dropdownParent: $(Swal.getPopup()),
                                 language: {
                                     searching:  () => 'Buscando...',
                                     noResults:  () => 'Sin resultados',
@@ -2099,7 +2051,7 @@
                                     dataType: 'json',
                                     delay: 250,
                                     data: function (params) {
-                                        return { q: params.term || '' };   // envía el texto al endpoint
+                                        return { q: params.term || '' };
                                     },
                                     processResults: function (data) {
                                         // data = [{nombre:"..."}, ...]  →  [{id:"...", text:"..."}]
@@ -2114,13 +2066,12 @@
 
                         initCargoSelect2();
 
-                        // ── Botón "+" → muestra campo inline ────────────────────────
                         document.getElementById('swal-btn-nuevo-cargo').addEventListener('click', function () {
                             // Destruir Select2 para que no interfiera
                             if ($('#swal-resp-cargo').data('select2')) {
                                 $('#swal-resp-cargo').select2('destroy');
                             }
-                            $('#swal-resp-cargo').val('').hide();   // ocultar el <select>
+                            $('#swal-resp-cargo').val('').hide();
 
                             const wrap = document.getElementById('swal-cargo-nuevo-wrap');
                             wrap.style.display = 'flex';
@@ -2128,14 +2079,13 @@
                             document.getElementById('swal-cargo-nuevo-txt').focus();
                         });
 
-                        // ── Cancelar cargo nuevo → vuelve al select ──────────────────
                         document.getElementById('swal-btn-cancelar-cargo').addEventListener('click', function () {
                             document.getElementById('swal-cargo-nuevo-wrap').style.display = 'none';
                             document.getElementById('swal-cargo-nuevo-txt').value = '';
                             document.getElementById('swal-btn-nuevo-cargo').style.display = 'flex';
 
-                            $('#swal-resp-cargo').show();   // volver a mostrar el <select>
-                            initCargoSelect2();             // re-inicializar Select2
+                            $('#swal-resp-cargo').show();
+                            initCargoSelect2();
                         });
                     },
                     preConfirm: () => {
@@ -2178,13 +2128,12 @@
                     fd.append('codigoFuncionario', formValues.codigoFuncionario);
                     fd.append('idOficina', formValues.idOficina);
                     fd.append('cargoNombre', formValues.cargoNombre);
-                    fd.append('modoRapido', 'true');  // ✅ salta sincronización DBF
+                    fd.append('modoRapido', 'true');
 
                     const r = await fetch('/administracion/responsable/registrar-responsable', {
                         method: 'POST', body: fd
                     });
 
-                    // Manejar conflicto de persona similar (409)
                     if (r.status === 409) {
                         hideGlobalLoader();
                         const conflicto = await r.json();
@@ -2198,7 +2147,6 @@
                         });
                         if (!confirmacion.isConfirmed) return;
 
-                        // Reintentar con forzado
                         showGlobalLoader({ texto: 'Registrando...' });
                         fd.append('forzarCreacion', 'true');
                         const r2 = await fetch('/administracion/responsable/registrar-responsable-forzado', {
@@ -2234,8 +2182,6 @@
             $root.on('input', '.txt-cant', recalcularCodigosBatchDebounced);
         }
 
-        // ── Helpers de fila ──────────────────────────────────────────────────────────
-
         function resetResponsableRow($row) {
             const $resp = $row.find('.sel-resp');
             const $btnNuevoResp = $row.find('.btn-nuevo-resp');
@@ -2263,7 +2209,6 @@
                     const resultados = data.results || [];
                     $resp.empty();
 
-                    // ✅ Siempre habilitar el botón "+" de responsable cuando hay oficina
                     $btnNuevoResp.prop('disabled', false);
 
                     if (resultados.length === 0) {
@@ -2290,7 +2235,7 @@
                 .catch(function () {
                     $resp.empty().append('<option value="">Error al cargar</option>');
                     $resp.prop('disabled', true);
-                    $btnNuevoResp.prop('disabled', false); // igual permitir crear
+                    $btnNuevoResp.prop('disabled', false);
                 });
         }
 
@@ -2300,7 +2245,6 @@
 
             if ($resp.data('select2')) $resp.select2('destroy');
 
-            // Agregar si no existe ya
             if ($resp.find(`option[value="${idResp}"]`).length === 0) {
                 $resp.append($('<option>', { value: idResp, text: nombreCompleto }));
             }
@@ -2313,7 +2257,6 @@
             });
         }
 
-        // ✅ NUEVO: Obtiene el siguiente correlativo desde BD con caché por sesión de lote
         async function fetchCorrelativoBase(munCode, predCode, grpFmt) {
 
             const cacheKey = `${munCode}||${predCode}||${grpFmt}`;
@@ -2338,7 +2281,6 @@
 
                 console.log('📡 Respuesta BD:', data);
 
-                // data.codigo = "XX-YY-ZZ-NNNNN" → extraer número final
                 const parts = (data.codigo || '').split('-');
                 const num = parseInt(parts[parts.length - 1]) || 1;
                 _correlativos[cacheKey] = num;
@@ -2349,19 +2291,15 @@
             }
         }
 
-        // ✅ NUEVO: Recalcula y muestra los códigos de TODAS las filas del lote
         async function recalcularCodigosBatch() {
             const filas = [];
             
-            // 1. Leer datos de cada fila
             $root.find('#batchTrack .batch-slide').each(function () {
                 const $slide = $(this);
                 const munCode = $slide.find('.sel-mun option:selected').attr('data-code');
                 const predCode = $slide.find('.sel-pred option:selected').attr('data-code');
                 const grpRaw = $slide.find('.sel-grp option:selected').attr('data-code');
                 const $preview = $slide.find('.txt-codigo-preview');
-                
-                // 🔹 NUEVO: Obtener la cantidad escrita en esta fila (por defecto 1)
                 const cantidad = parseInt($slide.find('.txt-cant').val()) || 1;
 
                 if (!munCode || !predCode || !grpRaw) {
@@ -2371,13 +2309,12 @@
                 }
 
                 const grpFmt = String(parseInt(grpRaw)).padStart(2, '0');
-                // Agregamos la cantidad al objeto fila
+
                 filas.push({ $slide, munCode, predCode, grpFmt, $preview, cantidad });
             });
 
             if (filas.length === 0) return;
 
-            // 2. Agrupar por combinación para determinar correlativos contiguos
             const grupos = {}; 
             filas.forEach(fila => {
                 const key = `${fila.munCode}||${fila.predCode}||${fila.grpFmt}`;
@@ -2392,11 +2329,9 @@
                 grupos[key].filas.push(fila);
             });
 
-            // 3. Para cada grupo, obtener la base (con caché) y asignar correlativos
             const promesas = Object.entries(grupos).map(async ([key, grupo]) => {
                 const base = await fetchCorrelativoBase(grupo.munCode, grupo.predCode, grupo.grpFmt);
 
-                // 🔹 NUEVO: Variable para acumular el correlativo a lo largo de las filas del mismo grupo
                 let currentNum = base;
 
                 grupo.filas.forEach((fila) => {
@@ -2405,24 +2340,20 @@
                         return;
                     }
 
-                    // 🔹 NUEVO: Generar array con TODOS los códigos de esta fila
                     let codigosGenerados = [];
                     for (let i = 0; i < fila.cantidad; i++) {
                         const codigo = `${fila.munCode}-${fila.predCode}-${fila.grpFmt}-${String(currentNum + i).padStart(5, '0')}`;
                         codigosGenerados.push(codigo);
                     }
 
-                    // 🔹 NUEVO: Actualizar el contador global del grupo para la siguiente fila
                     currentNum += fila.cantidad;
 
-                    // 🔹 NUEVO: Mostrar todos los códigos separados por coma en el input
                     fila.$preview
                         .val(codigosGenerados.join(', '))
                         .attr('placeholder', '')
                         .removeClass('text-muted text-danger')
                         .addClass('text-primary');
                         
-                    // Opcional: Poner los códigos en el atributo 'title' para que se vean al dejar el mouse encima (útil si son muchos)
                     fila.$preview.attr('title', codigosGenerados.join('\n'));
                 });
             });
@@ -2430,14 +2361,11 @@
             await Promise.all(promesas);
         }
 
-        // ✅ NUEVO: Versión con debounce para no saturar el servidor
         function recalcularCodigosBatchDebounced() {
             clearTimeout(_recalcTimer);
             $root.find('.txt-codigo-preview').val('').attr('placeholder', 'Calculando...');
             _recalcTimer = setTimeout(() => recalcularCodigosBatch(), 350);
         }
-
-        // ── Carrusel: helpers ─────────────────────────────────────────────────────────
 
         function getSlideCount() {
             return $root.find('#batchTrack .batch-slide').length;
@@ -2461,12 +2389,10 @@
             });
         }
 
-        // ── Hereda Municipio/Predio/Oficina/Responsable de la fila anterior ───────────
         async function inheritFromPreviousSlide($prevCard, $newCard) {
             const predId = $prevCard.find('.sel-pred').val();
             if (!predId) return;
 
-            // 1. Asignar Predio (Al disparar 'change.select2', se autocompletará el Municipio en el HTML)
             const $pred = $newCard.find('.sel-pred');
             $pred.val(predId);
             if ($pred.data('select2')) $pred.trigger('change.select2');
@@ -2481,7 +2407,6 @@
             const ofiId = $prevCard.find('.sel-ofi').val();
             if (!ofiId) return;
 
-            // 2. Cargar y seleccionar oficina
             const $ofi = $newCard.find('.sel-ofi');
             await cargarSelect('/api/buscar_oficinas', { predioId: predId }, $ofi, 'Seleccione Oficina...');
             $ofi.val(ofiId);
@@ -2491,7 +2416,6 @@
             const respId = $prevCard.find('.sel-resp').val();
             if (!respId) return;
 
-            // 3. Cargar y seleccionar responsable
             try {
                 const data = await $.get('/api/buscar_responsable', { q: '', page: 1, oficinaId: ofiId });
                 const resultados = data.results || [];
@@ -2534,11 +2458,13 @@
                 const $slide = $(this).closest('.batch-slide');
                 const idx = $root.find('#batchTrack .batch-slide').index($slide);
                 $slide.remove();
+
                 $root.find('#batchDotsContainer .batch-dot').eq(idx).remove();
                 if (_currentSlide >= getSlideCount()) _currentSlide = getSlideCount() - 1;
-                // Reposicionar sin animación tras eliminar
+
                 $root.find('#batchTrack').css('transition', 'none')
                     .css('transform', `translateX(-${_currentSlide * 100}%)`);
+
                 setTimeout(() => $root.find('#batchTrack').css('transition', ''), 50);
                 updateCarouselNav();
                 recalcularCodigosBatchDebounced();
@@ -2577,13 +2503,11 @@
                 });
             });
 
-            // ── Abrir modal de detalle al hacer clic en "detallar" ──────────────────────
             $root.on('click', '.btn-detallar', function () {
                 const $slide = $(this).closest('.batch-slide');
                 openDetalleModal($slide);
             });
 
-            // ── Si cambia la cantidad, limpiar detalles previos si no coinciden ─────────
             $root.on('change input', '.txt-cant', function () {
                 const $slide  = $(this).closest('.batch-slide');
                 const nuevaCant = parseInt($(this).val()) || 1;
@@ -2595,7 +2519,6 @@
                 }
             });
 
-            // Inicializar eventos del modal (una sola vez)
             _bindDetalleModalEvents();
         }
 
@@ -2609,11 +2532,9 @@
 
             $root.find('#batchTrack').append($slide);
 
-            // Dot de navegación
             const $dot = $('<button type="button" class="batch-dot" title="Ir a esta fila">');
             $root.find('#batchDotsContainer').append($dot);
 
-            // Inicializar Select2
             const selectConfig = {
                 theme: 'bootstrap-5', width: '100%', dropdownParent: $root,
                 allowClear: true, minimumInputLength: 0, minimumResultsForSearch: 0,
@@ -2624,15 +2545,12 @@
 
             const newIdx = getSlideCount() - 1;
 
-            // Heredar ubicación de la fila anterior
             if ($prevCard && $prevCard.length) {
                 inheritFromPreviousSlide($prevCard, $slide.find('.batch-row-card'));
             }
 
-            // Navegar al nuevo slide
             goToSlide(newIdx);
 
-            // Pulso visual
             $slide.find('.batch-row-card').css({ outline: '2px solid #1a56db', transition: 'outline 0.1s' });
             setTimeout(() => {
                 $slide.find('.batch-row-card').css('outline', '2px solid transparent');
@@ -2670,17 +2588,14 @@
             $root.find('#batchTrack .batch-slide').each(function () {
                 const $r = $(this);
 
-                // 1. Obtenemos los valores base
                 const cantidadAsignada = parseInt($r.find('.txt-cant').val()) || 1;
                 const descGeneral = $r.find('.txt-desc').val();
                 
-                // 2. Rescatamos los detalles del modal (si los hay)
                 let detallesGuardados = $r.data('assetDetails');
 
-                // 3. LA MAGIA: Si no abrió el modal o la cantidad no coincide, autogeneramos el array
                 if (!detallesGuardados || detallesGuardados.length !== cantidadAsignada) {
                     detallesGuardados = Array.from({ length: cantidadAsignada }, () => ({
-                        descripcion: descGeneral, // Usamos la general por defecto
+                        descripcion: descGeneral,
                         serie: '',
                         marca: '',
                         modelo: '',
@@ -2706,7 +2621,7 @@
                     !item.idResponsable || !item.idGrupoContable || !item.descripcion;
 
                 if (invalido) {
-                    error = true;  // ✅ BUG 1 CORREGIDO: era "hayError" (variable inexistente)
+                    error = true;
                     $r.find('.batch-row-card').addClass('has-error');
                 } else {
                     $r.find('.batch-row-card').removeClass('has-error');
@@ -2721,7 +2636,7 @@
 
             const payload = {
                 idOrganismoFinanciero: batchFinanciador || null,
-                fechaAdquisicion: batchFecha,  // ✅ BUG 2 CORREGIDO: era "fecha" (variable inexistente)
+                fechaAdquisicion: batchFecha,
                 items: items
             };
 
@@ -2944,10 +2859,6 @@
             $root.off(); $root = null;
         }
 
-        // ──────────────────────────────────────────────────────────────────────────────
-        // DETALLE INDIVIDUAL DE ACTIVOS
-        // ──────────────────────────────────────────────────────────────────────────────
-
         function openDetalleModal($slide) {
             _$currentDetalleSlide = $slide;
 
@@ -2956,15 +2867,12 @@
             const descBase   = $slide.find('.txt-desc').val() || '';
             const grupoNombre = $slide.find('.sel-grp option:selected').text() || '—';
 
-            // Subtítulo del modal
             $root.find('#modalDetalleSubtitle').text(
                 `${cantidad} activo${cantidad !== 1 ? 's' : ''} · Grupo: ${grupoNombre}`
             );
 
-            // Descripción base
             $('#detalleBaseDesc').val(descBase);
 
-            // Recuperar o inicializar detalles guardados
             let detalles = $slide.data('assetDetails');
             if (!detalles || detalles.length !== cantidad) {
                 const prev = Array.isArray(detalles) ? detalles : [];
@@ -2977,13 +2885,10 @@
                 });
             }
 
-            // Generar códigos desde el preview
             const codigos = _generarCodigosArray(preview, cantidad);
 
-            // Renderizar filas
             _renderDetalleRows(detalles, codigos);
 
-            // Abrir modal Bootstrap
             if (!_modalDetalleBS) {
                 _modalDetalleBS = new bootstrap.Modal(document.getElementById('modalDetalleActivos'));
             }
@@ -2995,11 +2900,9 @@
                 return Array.from({ length: cantidad }, (_, i) => `Activo ${i + 1}`);
             }
 
-            // El preview puede ser "XX-YY-ZZ-00001, XX-YY-ZZ-00002, ..."
             const partes = preview.split(',').map(s => s.trim()).filter(Boolean);
             if (partes.length === cantidad) return partes;
 
-            // Generar secuencia desde el primero
             const primero = partes[0] || '';
             const segs = primero.split('-');
             const numFinal = parseInt(segs[segs.length - 1]);
@@ -3103,7 +3006,7 @@
         }
 
         function _bindDetalleModalEvents() {
-            // Copiar fila hacia abajo
+
             $(document).on('click', '#tblDetalleActivos .btn-copy-down', function () {
                 const rowIdx = parseInt($(this).data('row'));
                 const $rows  = $('#detalleTableBody tr');
@@ -3122,7 +3025,6 @@
                     $(this).find('.det-color').val(color);
                 });
 
-                // Flash visual en las filas afectadas
                 $rows.slice(rowIdx + 1).each(function () {
                     const $tr = $(this);
                     $tr.addClass('row-flash');
@@ -3130,13 +3032,11 @@
                 });
             });
 
-            // Aplicar descripción base a todas las filas
             $(document).on('click', '#btnAplicarBaseDesc', function () {
                 const base = $('#detalleBaseDesc').val().trim();
                 if (!base) return;
                 $('#detalleTableBody tr .det-desc').val(base);
 
-                // Flash en todas las filas
                 $('#detalleTableBody tr').each(function () {
                     const $tr = $(this);
                     $tr.addClass('row-flash');
@@ -3144,14 +3044,12 @@
                 });
             });
 
-            // Guardar detalles y cerrar modal
             $(document).on('click', '#btnGuardarDetalle', function () {
                 if (!_$currentDetalleSlide) return;
 
                 const detalles = _collectDetalleData();
-
-                // Validación mínima: al menos la primera descripción
                 const sinDesc = detalles.filter(d => !d.descripcion);
+
                 if (sinDesc.length > 0) {
                     const confirmacion = confirm(
                         `${sinDesc.length} activo(s) no tienen descripción.\n¿Guardar de todas formas?`
@@ -3159,21 +3057,16 @@
                     if (!confirmacion) return;
                 }
 
-                // Guardar en el slide
                 _$currentDetalleSlide.data('assetDetails', detalles);
 
-                // Si la primera descripción existe, actualizar txt-desc del slide
                 if (detalles[0]?.descripcion) {
                     _$currentDetalleSlide.find('.txt-desc').val(detalles[0].descripcion);
                 }
 
-                // Actualizar botón
                 _actualizarBtnDetallar(_$currentDetalleSlide);
 
-                // Cerrar
                 if (_modalDetalleBS) _modalDetalleBS.hide();
 
-                // Toast de confirmación
                 Swal.fire({
                     icon: 'success',
                     title: 'Detalles guardados',
