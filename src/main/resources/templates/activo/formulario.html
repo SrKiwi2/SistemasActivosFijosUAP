@@ -1158,7 +1158,7 @@
                             Cada fila genera uno o más activos
                         </span>
                         <button type="button" class="btn btn-sm" id="btnAddRow">
-                            <i class="fa-solid fa-plus me-1"></i> Agregar Fila
+                            <i class="fa-solid fa-plus me-1"></i> Agregar mas lotes
                         </button>
                     </div>
                 </div>
@@ -1332,8 +1332,11 @@
                     <input type="number" class="form-control txt-vida text-center" placeholder="0" value="0" disabled>
                 </div>
                 <div class="batch-row-field batch-row-delete">
-                    <i class="fa-solid fa-trash-can btn-remove-row" title="Quitar esta fila"></i>
-                </div>
+                    <button type="button" class="btn-remove-row d-flex align-items-center gap-2 border-0 bg-transparent" title="Quitar este lote">
+                        <i class="fa-solid fa-trash-can"></i>
+                        <span class="d-none d-sm-inline" style="font-size: 0.8rem; font-weight: 700; letter-spacing: 0.3px;">Eliminar lote</span>
+                    </button>
+                </div>  
             </div>
 
         </div>
@@ -2467,6 +2470,13 @@
             const $pred = $newCard.find('.sel-pred');
             $pred.val(predId);
             if ($pred.data('select2')) $pred.trigger('change.select2');
+
+            const munId = $prevCard.find('.sel-mun').val();
+            if (munId) {
+                const $mun = $newCard.find('.sel-mun');
+                $mun.val(munId);
+                if ($mun.data('select2')) $mun.trigger('change.select2');
+            }
 
             const ofiId = $prevCard.find('.sel-ofi').val();
             if (!ofiId) return;
