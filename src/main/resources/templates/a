@@ -1934,3 +1934,45 @@ org.hibernate.LazyInitializationException: Could not initialize proxy [com.usic.
 2026-04-01T17:04:58.430-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [   scheduling-1] c.u.S.componet.DbfChangeDetectorService  : 📦 Cambio en 'oficina': 91450→91450 bytes
 2026-04-01T17:04:58.431-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.componet.DbfChangeHandler          : 🔔 Cambio detectado: oficina — iniciando sync ordenado
 2026-04-01T17:04:58.431-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.c.sincronizacion.SyncOrchestrator  : 🔀 Orden de sync para 'oficina': [oficina]
+
+
+
+
+2026-04-01T17:46:36.716-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.interoperabilidad.JavaDbfService   : ACTUAL.DBF — campos detectados: ENTIDAD=1 UNIDAD=0 CODOFIC=13 CODRESP=14 CODIGO=2 CODCONT=3 CODAUX=4
+2026-04-01T17:49:13.246-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.interoperabilidad.JavaDbfService   : ACTUAL.DBF — leídos 31105 registros
+2026-04-01T17:49:13.246-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — 31105 registros a procesar
+2026-04-01T17:49:14.432-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 1000/31105 (3%)
+2026-04-01T17:49:14.443-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 2000/31105 (6%)
+2026-04-01T17:49:14.454-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 3000/31105 (9%)
+2026-04-01T17:49:14.464-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 4000/31105 (12%)
+2026-04-01T17:49:14.475-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 5000/31105 (16%)
+2026-04-01T17:49:14.484-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 6000/31105 (19%)
+2026-04-01T17:49:14.494-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 7000/31105 (22%)
+2026-04-01T17:49:14.505-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 8000/31105 (25%)
+2026-04-01T17:49:14.514-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 9000/31105 (28%)
+2026-04-01T17:49:14.524-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 10000/31105 (32%)
+2026-04-01T17:49:14.534-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 11000/31105 (35%)
+2026-04-01T17:49:14.544-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 12000/31105 (38%)
+2026-04-01T17:49:14.554-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 13000/31105 (41%)
+2026-04-01T17:49:14.565-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 14000/31105 (45%)
+2026-04-01T17:49:14.574-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 15000/31105 (48%)
+2026-04-01T17:49:14.584-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 16000/31105 (51%)
+2026-04-01T17:49:14.594-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 17000/31105 (54%)
+2026-04-01T17:49:14.604-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 18000/31105 (57%)
+2026-04-01T17:49:14.613-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 19000/31105 (61%)
+2026-04-01T17:49:14.625-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 20000/31105 (64%)
+2026-04-01T17:49:14.635-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 21000/31105 (67%)
+2026-04-01T17:49:14.644-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 22000/31105 (70%)
+2026-04-01T17:49:14.655-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 23000/31105 (73%)
+2026-04-01T17:49:14.665-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 24000/31105 (77%)
+2026-04-01T17:49:14.675-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 25000/31105 (80%)
+2026-04-01T17:49:14.686-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 26000/31105 (83%)
+2026-04-01T17:49:14.697-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 27000/31105 (86%)
+2026-04-01T17:49:14.707-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 28000/31105 (90%)
+2026-04-01T17:49:14.718-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 29000/31105 (93%)
+2026-04-01T17:49:14.728-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 30000/31105 (96%)
+2026-04-01T17:49:14.739-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.model.service.ActivoSyncService    : ACTUAL.DBF — progreso: 31000/31105 (99%)
+2026-04-01T17:49:45.352-04:00 ERROR 1734638 --- [SistemasActivosFijosUAP] [nio-9696-exec-7] o.a.c.c.C.[.[.[/].[dispatcherServlet]    : Servlet.service() for servlet [dispatcherServlet] in context with path [] threw exception [Request processing failed: java.lang.NullPointerException: Cannot invoke "java.time.LocalDate.toString()" because the return value of "com.usic.SistemasActivosFijosUAP.model.entity.Activo.getFechaAdquisicion()" is null] with root cause
+
+java.lang.NullPointerException: Cannot invoke "java.time.LocalDate.toString()" because the return value of "com.usic.SistemasActivosFijosUAP.model.entity.Activo.getFechaAdquisicion()" is null
+	at com.usic.SistemasActivosFijosUAP.controller.activo.ActivosController.lambda$0(ActivosController.java:165) ~[classes/:na]
