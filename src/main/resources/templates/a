@@ -1866,3 +1866,11 @@ INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.controller.log
 2026-03-26T10:55:56.248-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.c.activo.ActivosController         : [DBF-DIAG]   código='01-04-08-03164' | oficina='SISU - ADMINISTRACION'
 2026-03-26T10:55:56.248-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.i.r.ActualDbfWriterService         : ⚡ Iniciando actualización masiva OPTIMIZADA en DBF para 1 activos
 2026-03-26T10:55:56.301-04:00  INFO 856929 --- [SistemasActivosFijosUAP] [nio-9696-exec-1] c.u.S.i.r.ActualDbfWriterService         : ✅ Lote DBF finalizado. Activos actualizados: 1
+
+
+
+
+sudo mount -t cifs //172.16.22.3/dbf /mnt/dbfwin \
+  -o username=Admin,password='aaa',domain=WORKGROUP,\
+iocharset=utf8,vers=3.0,uid=$(id -u),gid=$(id -g),\
+actimeo=1,cache=none
