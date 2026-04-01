@@ -61,7 +61,8 @@
     <!-- Page CSS -->
 
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css"
+        rel="stylesheet" />
 
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" />
     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" />
@@ -73,4 +74,140 @@
     <script src="../../assets/vendor/js/helpers.js"></script>
     <script src="../../assets/vendor/js/template-customizer.js"></script>
     <script src="../../assets/js/config.js"></script>
+
+    <!-- En tu layout base, antes del </body> -->
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+
+        (function () {
+            'use strict';
+
+            let eventSource = null;
+            let reconnectTimeout = null;
+            let reconnectDelay = 3000; // empieza en 3s
+
+            function conectarSSE() {
+                if (eventSource && eventSource.readyState !== EventSource.CLOSED) return;
+
+                eventSource = new EventSource('/api/eventos/stream');
+
+                // ✅ Conexión establecida
+                eventSource.addEventListener('connected', function (e) {
+                    console.log('[SSE] Conectado al servidor de eventos');
+                    reconnectDelay = 3000; // reset backoff
+                });
+
+                // ✅ Cambio detectado en un DBF
+                eventSource.addEventListener('dbf-change', function (e) {
+                    const data = JSON.parse(e.data);
+                    console.log('[SSE] Cambio DBF:', data);
+                    manejarCambioDbf(data);
+                });
+
+                // ✅ Reconexión automática con backoff exponencial
+                eventSource.onerror = function () {
+                    console.warn('[SSE] Conexión perdida. Reconectando en', reconnectDelay, 'ms...');
+                    eventSource.close();
+                    clearTimeout(reconnectTimeout);
+                    reconnectTimeout = setTimeout(() => {
+                        reconnectDelay = Math.min(reconnectDelay * 1.5, 30000); // max 30s
+                        conectarSSE();
+                    }, reconnectDelay);
+                };
+            }
+
+            function manejarCambioDbf(data) {
+                const { tabla, estado, mensaje, datos, recargarTabla, timestamp } = data;
+
+                // 1. Mostrar toast según estado
+                const toastConfig = {
+                    'SINCRONIZANDO': { icon: 'info', title: '🔄 Sincronizando...' },
+                    'COMPLETADO': { icon: 'success', title: '✅ Sincronización completa' },
+                    'ERROR': { icon: 'error', title: '❌ Error de sincronización' },
+                };
+
+                const cfg = toastConfig[estado] || { icon: 'info', title: 'Actualización' };
+
+                // Toast no intrusivo (no bloquea al usuario)
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'bottom-end',
+                    showConfirmButton: false,
+                    timer: estado === 'SINCRONIZANDO' ? 0 : 5000, // SINCRONIZANDO no tiene timer
+                    timerProgressBar: true,
+                    showCloseButton: true,
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer);
+                        toast.addEventListener('mouseleave', Swal.resumeTimer);
+                    }
+                });
+
+                // Cerrar el toast de "SINCRONIZANDO" cuando llega el resultado
+                if (estado !== 'SINCRONIZANDO') {
+                    Swal.close(); // cierra el anterior si sigue abierto
+                }
+
+                Toast.fire({
+                    icon: cfg.icon,
+                    title: cfg.title,
+                    html: `
+                    <small class="text-muted d-block">${mensaje}</small>
+                    ${datos && datos.insertados !== undefined ? `
+                    <small class="text-muted">
+                        +${datos.insertados} nuevos · ~${datos.actualizados} actualizados
+                    </small>` : ''}
+                `
+                });
+
+                // 2. Refrescar tabla si la vista actual corresponde a la tabla que cambió
+                //    y el servidor indica que hay cambios reales
+                if (recargarTabla && estaViendoTabla(tabla)) {
+                    // Pequeño delay para que el usuario vea el toast primero
+                    setTimeout(() => {
+                        if (typeof cargarTabla === 'function') {
+                            console.log('[SSE] Auto-recargando tabla:', tabla);
+                            cargarTabla();
+                        }
+                    }, 1500);
+                }
+
+                // 3. Actualizar badge de sync si existe en la vista actual
+                if (typeof actualizarInfoSync === 'function') {
+                    actualizarInfoSync();
+                }
+            }
+
+            /**
+             * Detecta si el usuario está viendo la vista que corresponde a la tabla.
+             * Compara la URL actual con la tabla que cambió.
+             */
+            function estaViendoTabla(tabla) {
+                const url = window.location.pathname.toLowerCase();
+                const mapaUrl = {
+                    'auxiliar': '/administracion/auxiliar',
+                    'predio': '/administracion/predio',
+                    'entidad': '/administracion/entidad',
+                    'grupoContable': '/administracion/grupocontable',
+                    'oficina': '/administracion/oficina',
+                    'organismoFinanciero': '/administracion/organismo',
+                    'responsable': '/administracion/responsable',
+                };
+                const rutaEsperada = mapaUrl[tabla];
+                return rutaEsperada ? url.includes(rutaEsperada) : false;
+            }
+
+            // ✅ Iniciar conexión cuando carga la página
+            document.addEventListener('DOMContentLoaded', conectarSSE);
+
+            // ✅ Reconectar si el usuario vuelve a la pestaña después de estar inactivo
+            document.addEventListener('visibilitychange', function () {
+                if (!document.hidden) {
+                    conectarSSE();
+                }
+            });
+
+        })();
+
+        /*]]>*/
+    </script>
 </head>
