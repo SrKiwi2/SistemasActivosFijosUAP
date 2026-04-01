@@ -28,6 +28,8 @@ public class SyncResult {
     private int sinOficina;            // Registros sin oficina
     private int duplicadosEnDbf;       // Registros duplicados detectados en el DBF
     private int errores;               // Registros con errores al procesar
+
+    private int sinResponsable;
     
     /**
      * Construye un mensaje descriptivo del resultado

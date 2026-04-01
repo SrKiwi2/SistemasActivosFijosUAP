@@ -35,13 +35,15 @@ public class DbfChangeDetectorService {
     // Mapa: nombre_tabla → ruta relativa dentro del directorio CIFS
     // Ajusta las rutas según la estructura real de tu DBF
     private final Map<String, String> archivosMonitoreados = new LinkedHashMap<>() {{
-        put("auxiliar",             "AUXILIAR.DBF");
         put("predio",               "PREDIO.DBF");
         put("entidad",              "ENTIDAD.DBF");
         put("grupoContable",        "GRUCONT.DBF");
-        put("oficina",              "OFICINA.DBF");
         put("organismoFinanciero",  "ORGANIS.DBF");
-        put("responsable",          "RESPONS.DBF");
+        put("auxiliar",             "AUXILIAR.DBF");
+        put("oficina",              "OFICINA.DBF");
+        put("responsable",          "RESP.DBF");
+
+        put("activo",               "ACTUAL.DBF");
     }};
 
     @PostConstruct
@@ -62,53 +64,44 @@ public class DbfChangeDetectorService {
         }
     }
 
-    /**
-     * Polling cada 20 segundos. Ajusta según tus necesidades.
-     * fixedDelay: espera 20s DESPUÉS de que termine la ejecución anterior.
-     * Así no se acumulan ejecuciones si una tarda mucho.
-     */
     @Scheduled(fixedDelayString = "${sync.poll.interval.ms:20000}",
-               initialDelayString = "${sync.poll.initial.delay.ms:15000}")
+           initialDelayString = "${sync.poll.initial.delay.ms:15000}")
     public void detectarCambios() {
+        // Detectar cambios en todas las tablas EXCEPTO activo
         for (var entry : archivosMonitoreados.entrySet()) {
-            String tabla = entry.getKey();
-            String rutaRelativa = entry.getValue();
+            if ("activo".equals(entry.getKey())) continue; // tiene su propio scheduler
+            verificarArchivo(entry.getKey(), entry.getValue());
+        }
+    }
 
-            try {
-                FileState estadoActual = leerEstadoArchivo(rutaRelativa);
-                if (estadoActual == null) continue;
+    @Scheduled(fixedDelayString = "${sync.poll.activo.interval.ms:60000}",
+            initialDelayString = "${sync.poll.initial.delay.ms:30000}")
+    public void detectarCambiosActivo() {
+        verificarArchivo("activo", "ACTUAL.DBF");
+    }
 
-                FileState estadoAnterior = estadosConocidos.get(tabla);
+    // Extraer lógica común:
+    private void verificarArchivo(String tabla, String rutaRelativa) {
+        try {
+            FileState estadoActual = leerEstadoArchivo(rutaRelativa);
+            if (estadoActual == null) return;
 
-                if (estadoAnterior == null) {
-                    // Primera vez que lo vemos después de arranque
-                    estadosConocidos.put(tabla, estadoActual);
-                    continue;
-                }
-
-                if (estadoActual.hasChangedFrom(estadoAnterior)) {
-                    log.info("📦 Cambio detectado en DBF '{}': {} bytes → {} bytes",
-                        tabla, estadoAnterior.sizeBytes(), estadoActual.sizeBytes());
-
-                    // Actualizar estado conocido ANTES de publicar el evento
-                    // para no dispararlo dos veces si la sync tarda
-                    estadosConocidos.put(tabla, estadoActual);
-
-                    // Publicar evento de forma desacoplada
-                    eventPublisher.publishEvent(
-                        DbfChangeEvent.builder()
-                            .source(this)
-                            .tabla(tabla)
-                            .rutaDbf(Path.of(dbfBasePath, rutaRelativa).toString())
-                            .estadoAnterior(estadoAnterior)
-                            .estadoActual(estadoActual)
-                            .build()
-                    );
-                }
-
-            } catch (Exception e) {
-                log.warn("Error verificando DBF '{}': {}", tabla, e.getMessage());
+            FileState estadoAnterior = estadosConocidos.get(tabla);
+            if (estadoAnterior == null) {
+                estadosConocidos.put(tabla, estadoActual);
+                return;
             }
+
+            if (estadoActual.hasChangedFrom(estadoAnterior)) {
+                log.info("📦 Cambio en '{}': {}→{} bytes",
+                    tabla, estadoAnterior.sizeBytes(), estadoActual.sizeBytes());
+                estadosConocidos.put(tabla, estadoActual);
+                eventPublisher.publishEvent(DbfChangeEvent.builder()
+                    .source(this).tabla(tabla).rutaDbf(Path.of(dbfBasePath, rutaRelativa).toString())
+                    .estadoAnterior(estadoAnterior).estadoActual(estadoActual).build());
+            }
+        } catch (Exception e) {
+            log.warn("Error verificando '{}': {}", tabla, e.getMessage());
         }
     }
 

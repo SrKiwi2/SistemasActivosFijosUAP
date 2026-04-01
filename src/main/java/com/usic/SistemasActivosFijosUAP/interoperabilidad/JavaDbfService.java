@@ -25,6 +25,7 @@ import com.linuxense.javadbf.DBFDataType;
 import com.linuxense.javadbf.DBFField;
 import com.linuxense.javadbf.DBFReader;
 import com.linuxense.javadbf.DBFWriter;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ActivoDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.AuxiliarDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.EntidadDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.GrupoContableDbf;
@@ -984,6 +985,157 @@ public class JavaDbfService {
             }
         }
         return null;
+    }
+
+    /**
+     * Lee ACTUAL.DBF — el DBF central de activos fijos.
+     * ⚠️ Verifica los nombres exactos de campo contra tu archivo real.
+     * Implementa el mismo patrón defensivo que listarOficinaAll (break en error).
+     */
+    public List<ActivoDbf> listarActualAll(String q) {
+        Path file = baseDir.resolve("ACTUAL.DBF");
+        List<ActivoDbf> out = new ArrayList<>();
+
+        if (!Files.exists(file)) {
+            log.warn("ACTUAL.DBF no encontrado en: {}", file);
+            return out;
+        }
+
+        Charset cs = (charset != null && !charset.isBlank())
+            ? Charset.forName(charset)
+            : Charset.forName("CP1252");
+
+        try (InputStream in = Files.newInputStream(file);
+            DBFReader reader = new DBFReader(in, cs)) {
+
+            // ── Mapeo de índices ────────────────────────────────────────────────
+            // ⚠️ Ajusta estos nombres a los de tu ACTUAL.DBF real
+            int iENT = -1, iUNI = -1, iCODOFI = -1, iCODRESP = -1;
+            int iCODCONT = -1, iCODAUX = -1;
+            int iCODIGO = -1, iDESCRIP = -1, iCOSTO = -1, iVIDAUTIL = -1;
+            int iFECHAADQ = -1, iCODOF = -1, iAPI = -1, iFEULT = -1;
+            int iUSUAR = -1, iOBSERV = -1;
+
+            int n = reader.getFieldCount();
+            for (int i = 0; i < n; i++) {
+                String name = reader.getField(i).getName().toUpperCase(Locale.ROOT);
+                switch (name) {
+                    case "ENTIDAD"   -> iENT     = i;
+                    case "UNIDAD"    -> iUNI     = i;
+                    case "CODOFIC"   -> iCODOFI  = i;
+                    case "CODRESP"   -> iCODRESP = i;
+                    case "CODCONT"   -> iCODCONT = i;
+                    case "CODAUX"    -> iCODAUX  = i;
+                    case "CODIGO"    -> iCODIGO  = i;
+                    case "DESCRIP"   -> iDESCRIP = i;
+                    case "COSTO"     -> iCOSTO   = i;
+                    case "VIDAUTIL"  -> iVIDAUTIL = i;
+                    case "FECHAADQ"  -> iFECHAADQ = i;
+                    case "CODOF"     -> iCODOF   = i;
+                    case "API_ESTADO" -> iAPI    = i;
+                    case "FEULT"     -> iFEULT   = i;
+                    case "USUAR"     -> iUSUAR   = i;
+                    case "OBSERV"    -> iOBSERV  = i;
+                }
+            }
+
+            // ── Imprime campos encontrados al primer arranque (diagnóstico) ─────
+            log.info("ACTUAL.DBF — campos detectados: ENTIDAD={} UNIDAD={} CODOFIC={} " +
+                    "CODRESP={} CODIGO={} CODCONT={} CODAUX={}",
+                iENT, iUNI, iCODOFI, iCODRESP, iCODIGO, iCODCONT, iCODAUX);
+
+            final String ql = (q == null ? null : q.toLowerCase(Locale.ROOT));
+            Object[] row;
+            int rowNum = 0;
+
+            while (true) {
+                try {
+                    row = reader.nextRecord();
+                    if (row == null) break;
+                    rowNum++;
+
+                    // Validar clave mínima
+                    String codigo = asString(row, iCODIGO);
+                    if (isBlank(codigo)) continue;
+
+                    String entidad = asString(row, iENT);
+                    String unidad  = asString(row, iUNI);
+
+                    // Filtro texto
+                    if (ql != null) {
+                        String hay = (codigo + " " +
+                            (entidad != null ? entidad : "") + " " +
+                            (asString(row, iDESCRIP) != null ? asString(row, iDESCRIP) : ""))
+                            .toLowerCase(Locale.ROOT);
+                        if (!hay.contains(ql)) continue;
+                    }
+
+                    // Fechas
+                    LocalDate fechaAdq = null;
+                    if (iFECHAADQ >= 0 && row[iFECHAADQ] != null) {
+                        try {
+                            if (row[iFECHAADQ] instanceof java.util.Date dd)
+                                fechaAdq = new java.sql.Date(dd.getTime()).toLocalDate();
+                        } catch (Exception ignored) {}
+                    }
+
+                    LocalDate feult = null;
+                    if (iFEULT >= 0 && row[iFEULT] != null) {
+                        try {
+                            if (row[iFEULT] instanceof java.util.Date dd)
+                                feult = new java.sql.Date(dd.getTime()).toLocalDate();
+                        } catch (Exception ignored) {}
+                    }
+
+                    // Observaciones memo
+                    String observ = null;
+                    try {
+                        observ = asString(row, iOBSERV);
+                        if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) observ = null;
+                    } catch (Exception ignored) {}
+
+                    Integer codOfi   = asInt(row, iCODOFI);
+                    Integer codCont  = asInt(row, iCODCONT);
+                    Integer codAux   = asInt(row, iCODAUX);
+                    Integer api      = asInt(row, iAPI);
+                    Double  costo    = asDouble(row, iCOSTO);
+                    Integer vidaUtil = asInt(row, iVIDAUTIL);
+                    String  codResp  = asString(row, iCODRESP);
+                    String  codOf    = asString(row, iCODOF);
+
+                    out.add(ActivoDbf.builder()
+                        .entidadCodigo(entidad != null ? entidad.trim() : null)
+                        .unidad(unidad != null ? unidad.trim() : null)
+                        .codOfi(codOfi != null ? codOfi.shortValue() : null)
+                        .codResp(codResp != null ? codResp.trim() : null)
+                        .codCont(codCont != null ? codCont.shortValue() : null)
+                        .codAux(codAux != null ? codAux.shortValue() : null)
+                        .codigo(codigo.trim())
+                        .descrip(asString(row, iDESCRIP))
+                        .costo(costo)
+                        .vidaUtil(vidaUtil)
+                        .fechaAdq(fechaAdq)
+                        .codOf(codOf != null ? codOf.trim() : null)
+                        .apiEstado(api != null ? api.shortValue() : null)
+                        .fechaUlt(feult)
+                        .usuario(asString(row, iUSUAR))
+                        .observ(observ)
+                        .build());
+
+                } catch (Exception ex) {
+                    log.error("⚠️ Error leyendo ACTUAL.DBF en registro #{}. " +
+                            "Conservando {} registros válidos. Detalle: {}",
+                        rowNum, out.size(), ex.getMessage());
+                    break; // mismo patrón defensivo que OFICINA.DBF
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("Error abriendo ACTUAL.DBF: {}", e.getMessage());
+        }
+
+        log.info("ACTUAL.DBF — leídos {} registros", out.size());
+        return out;
     }
 
 }

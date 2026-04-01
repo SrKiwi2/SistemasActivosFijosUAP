@@ -2,6 +2,9 @@ package com.usic.SistemasActivosFijosUAP.model.entity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+import org.apache.commons.codec.digest.DigestUtils;
 
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
@@ -15,6 +18,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.NamedAttributeNode;
+import jakarta.persistence.NamedEntityGraph;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -31,6 +36,15 @@ import lombok.Setter;
         @Index(name = "idx_activo_responsable", columnList = "id_responsable"),
         @Index(name = "idx_activo_grupo", columnList = "id_grupo_contable"),
         @Index(name = "idx_activo_auxiliar", columnList = "id_auxiliar")
+    }
+)
+@NamedEntityGraph(
+    name = "activo.syncGraph",
+    attributeNodes = {
+        @NamedAttributeNode("idActivo"),
+        @NamedAttributeNode("codigo"),
+        @NamedAttributeNode("hashDatos")
+        // Nota: "estado" se asume que viene heredado de AuditoriaConfig
     }
 )
 @Setter
@@ -148,4 +162,27 @@ public class Activo extends AuditoriaConfig{
     @Size(max = 60)
     @Column(name = "usu_mod", length = 60)
     private String usuMod;
+
+    @Column(name = "fecha_ultima_sync")
+    private LocalDateTime fechaUltimaSync;
+    
+    @Column(name = "hash_datos", length = 32)
+    private String hashDatos;
+    
+    // 👇 3. AGREGAR EL MÉTODO CALCULAR HASH
+    public String calcularHash() {
+        // Concatenamos únicamente los campos que vienen del DBF y nos importa vigilar si cambian
+        String datos = String.join("|",
+            oficina != null && oficina.getIdOficina() != null ? String.valueOf(oficina.getIdOficina()) : "",
+            responsable != null && responsable.getIdResponsable() != null ? String.valueOf(responsable.getIdResponsable()) : "",
+            grupoContable != null && grupoContable.getIdGrupoContable() != null ? String.valueOf(grupoContable.getIdGrupoContable()) : "",
+            auxiliar != null && auxiliar.getIdAuxiliar() != null ? String.valueOf(auxiliar.getIdAuxiliar()) : "",
+            descripcion != null ? descripcion : "",
+            costo != null ? String.valueOf(costo) : "",
+            vidaUtil != null ? String.valueOf(vidaUtil) : "",
+            fechaAdquisicion != null ? fechaAdquisicion.toString() : "",
+            apiEstado != null ? String.valueOf(apiEstado) : ""
+        );
+        return DigestUtils.md5Hex(datos);
+    }
 }

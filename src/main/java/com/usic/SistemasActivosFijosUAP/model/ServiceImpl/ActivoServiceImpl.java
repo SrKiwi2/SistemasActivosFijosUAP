@@ -22,6 +22,8 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.Predicate;
 
 @Service
@@ -29,6 +31,9 @@ public class ActivoServiceImpl implements IActivoService{
 
     @Autowired private IActivoDao dao;
     @Autowired private IResponsableService responsableService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     public List<Activo> findAll() {
@@ -179,5 +184,17 @@ public class ActivoServiceImpl implements IActivoService{
     @Override
     public List<Activo> findByResponsableIdResponsable(Long idResponsable) {
         return dao.findByResponsableIdResponsable(idResponsable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Activo> findAllForSync() {
+        // Projection ligera: solo trae campos de hash y clave, no lazy associations
+        // Evita cargar las 30k entidades con todos sus joins
+        return entityManager.createQuery(
+            "SELECT a FROM Activo a WHERE a.estado <> 'ELIMINADO'", Activo.class)
+            .setHint("jakarta.persistence.fetchgraph", 
+                    entityManager.getEntityGraph("activo.syncGraph")) // ver abajo
+            .getResultList();
     }
 }

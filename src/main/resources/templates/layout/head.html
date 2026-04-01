@@ -104,6 +104,7 @@
                     manejarCambioDbf(data);
                 });
 
+
                 // ✅ Reconexión automática con backoff exponencial
                 eventSource.onerror = function () {
                     console.warn('[SSE] Conexión perdida. Reconectando en', reconnectDelay, 'ms...');
@@ -116,7 +117,49 @@
                 };
             }
 
+            eventSource.addEventListener('sync-progreso', function (e) {
+                const data = JSON.parse(e.data);
+                if (data.tabla !== 'activo') return;
+
+                // Actualizar o crear barra de progreso
+                let $barra = $('#sync-progreso-activo');
+                if (!$barra.length) {
+                    // Crear notificación de progreso persistente (no toast)
+                    const html = `
+                        <div id="sync-progreso-activo" class="position-fixed bottom-0 start-0 m-3 p-3 bg-dark text-white rounded shadow" style="z-index:9999; min-width:280px">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small><i class="fa-solid fa-database me-1"></i> Sincronizando Activos...</small>
+                                <small id="sync-pct-activo">0%</small>
+                            </div>
+                            <div class="progress" style="height:6px">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-info"
+                                    id="sync-bar-activo" role="progressbar" style="width:0%"></div>
+                            </div>
+                            <small class="text-muted mt-1 d-block" id="sync-detail-activo"></small>
+                        </div>`;
+                    $('body').append(html);
+                    $barra = $('#sync-progreso-activo');
+                }
+
+                // Actualizar barra
+                const pct = data.porcentaje || 0;
+                $('#sync-bar-activo').css('width', pct + '%');
+                $('#sync-pct-activo').text(pct + '%');
+                $('#sync-detail-activo').text(
+                    `${data.procesados?.toLocaleString()} / ${data.total?.toLocaleString()} registros`
+                );
+
+                // Remover cuando llega el COMPLETADO via dbf-change
+                if (pct >= 100) {
+                    setTimeout(() => $barra.fadeOut(500, function() { $(this).remove(); }), 2000);
+                }
+            });
+
             function manejarCambioDbf(data) {
+                if (data.tabla === 'activo' && data.estado === 'COMPLETADO') {
+                    $('#sync-progreso-activo').fadeOut(500, function() { $(this).remove(); });
+                }
+
                 const { tabla, estado, mensaje, datos, recargarTabla, timestamp } = data;
 
                 // 1. Mostrar toast según estado
@@ -185,12 +228,14 @@
                 const url = window.location.pathname.toLowerCase();
                 const mapaUrl = {
                     'auxiliar': '/administracion/auxiliar',
+                    'oficina': '/administracion/oficina',
+                    'responsable': '/administracion/responsable',
+                    'activo': '/administracion/activo',
+
                     'predio': '/administracion/predio',
                     'entidad': '/administracion/entidad',
                     'grupoContable': '/administracion/grupocontable',
-                    'oficina': '/administracion/oficina',
                     'organismoFinanciero': '/administracion/organismo',
-                    'responsable': '/administracion/responsable',
                 };
                 const rutaEsperada = mapaUrl[tabla];
                 return rutaEsperada ? url.includes(rutaEsperada) : false;

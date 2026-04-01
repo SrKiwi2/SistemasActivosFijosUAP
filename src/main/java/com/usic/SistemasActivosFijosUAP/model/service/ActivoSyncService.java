@@ -1,14 +1,19 @@
 package com.usic.SistemasActivosFijosUAP.model.service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
@@ -20,220 +25,301 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IOrganismoFinancieroServi
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ActivoDbf;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SyncResult;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
+import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ActivoSyncService {
 
-    // private final ActivoSyncTracker tracker;
-    // private final IEntidadService entidadService;
-    // private final IPredioServicio predioServicio;
-    // private final IOficinaService oficinaService;
-    // private final IResponsableService responsableService;
-    // private final IGrupoContableService grupoContableService;
-    // private final IAuxiliarService auxiliarService;
-    // private final IEstadoActivoService estadoActivoService;
-    // private final IOrganismoFinancieroService organismoFinancieroService;
-    // private final IActivoService activoService;
-    // private final JavaDbfService dbfService;
-    // @PersistenceContext
-    // private EntityManager em;
+    private final IActivoService activoService;
+    private final IOficinaService oficinaService;
+    private final IResponsableService responsableService;
+    private final IGrupoContableService grupoContableService;
+    private final IAuxiliarService auxiliarService;
+    private final IOrganismoFinancieroService organismoFinancieroService;
+    private final SyncControlService syncControlService;
+    private final SseEmitterRegistry sseRegistry;
+    private final JavaDbfService dbfService;
 
-    // @Async
-    // public void startSync(String q, Short gestionPreferida) {
-    //     try {
-    //         var filas = dbfService.listarActualAll(q);
-    //         tracker.reset(filas.size());
+    // ── Tamaño de chunk para progreso ───────────────────────────────────────
+    private static final int CHUNK_SIZE  = 1_000; // emitir progreso cada N filas
+    private static final int BATCH_SAVE  = 500;   // guardar en BD cada N registros
 
-    //         final int batchSize = 300;
-    //         List<ActualDbf> chunk = new ArrayList<>(batchSize);
+    public ResponseEntity<?> syncFromMounted(String q, boolean forzarCompleto) {
+        long inicio = System.currentTimeMillis();
 
-    //         for (var f : filas) {
-    //             chunk.add(f);
-    //             if (chunk.size() == batchSize) {
-    //                 processChunk(chunk, gestionPreferida);
-    //                 chunk.clear();
-    //             }
-    //         }
-    //         if (!chunk.isEmpty()) {
-    //             processChunk(chunk, gestionPreferida);
-    //         }
+        try {
+            List<ActivoDbf> filas = dbfService.listarActualAll(q);
+            int totalFilas = filas.size();
+            log.info("ACTUAL.DBF — {} registros a procesar", totalFilas);
 
-    //         tracker.set("running", false);
-    //     } catch (Exception ex) {
-    //         tracker.set("error", ex.getMessage());
-    //         tracker.set("running", false);
-    //     }
-    // }
+            // ── Cargar caches de entidades relacionadas (1 query cada uno) ──
+            Map<String, Oficina>              oficinasCache    = cargarOficinasCache();
+            Map<String, Responsable>          responsablesCache = cargarResponsablesCache();
+            Map<Integer, GrupoContable>       gruposCache      = cargarGruposCache();
+            Map<String, Auxiliar>             auxiliaresCache  = cargarAuxiliaresCache();
+            Map<String, OrganismoFinanciero>  organismoCache   = cargarOrganismosCache();
+            Map<String, Activo>               activosCache     = cargarActivosCache();
 
-    // @Transactional
-    // protected void processChunk(List<ActualDbf> chunk, Short gestionPreferida) {
-    //     for (var f : chunk) {
-    //         tracker.inc("procesadas");
+            int inserted = 0, updated = 0, skipped = 0;
+            int sinOficina = 0, sinResponsable = 0, sinGrupo = 0, sinCodigo = 0;
+            int procesados = 0;
 
-    //         if (isBlank(f.getEntidadCodigo()) || isBlank(f.getUnidad()) || isBlank(f.getCodigo())) {
-    //             continue;
-    //         }
+            List<Activo> batch = new ArrayList<>(BATCH_SAVE);
 
-    //         // ENTIDAD (0148/148/pad4)
-    //         String cod = f.getEntidadCodigo().trim();
-    //         String codNoZeros = stripLeftZeros(cod);
-    //         String codPad4 = leftPad4(codNoZeros);
-    //         Entidad entidad = (gestionPreferida != null)
-    //                 ? entidadService.findByGestionAndEntidadCodigo(gestionPreferida, cod)
-    //                     .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codNoZeros))
-    //                     .or(() -> entidadService.findByGestionAndEntidadCodigo(gestionPreferida, codPad4))
-    //                     .orElse(null)
-    //                 : entidadService.findTopByEntidadCodigoOrderByGestionDesc(cod)
-    //                     .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codNoZeros))
-    //                     .or(() -> entidadService.findTopByEntidadCodigoOrderByGestionDesc(codPad4))
-    //                     .orElse(null);
-    //         if (entidad == null) { tracker.inc("sinEntidad"); continue; }
+            for (ActivoDbf f : filas) {
+                procesados++;
 
-    //         // PREDIO
-    //         var predio = predioServicio.findByEntidadAndUnidadIgnoreCase(entidad, f.getUnidad()).orElse(null);
-    //         if (predio == null) { tracker.inc("sinPredio"); continue; }
+                // ── Emitir progreso cada CHUNK_SIZE filas ────────────────────
+                if (procesados % CHUNK_SIZE == 0) {
+                    int pct = (int) ((procesados / (double) totalFilas) * 100);
+                    sseRegistry.broadcast("sync-progreso", Map.of(
+                        "tabla",      "activo",
+                        "procesados", procesados,
+                        "total",      totalFilas,
+                        "porcentaje", pct,
+                        "insertados", inserted,
+                        "actualizados", updated
+                    ));
+                    log.info("ACTUAL.DBF — progreso: {}/{} ({}%)", procesados, totalFilas, pct);
+                }
 
-    //         // OFICINA
-    //         if (f.getCodOfi() == null) { tracker.inc("sinOficina"); continue; }
-    //         var oficina = oficinaService.findByPredioAndCodOfi(predio, f.getCodOfi()).orElse(null);
-    //         if (oficina == null) { tracker.inc("sinOficina"); continue; }
+                // ── Validar clave obligatoria ────────────────────────────────
+                if (f.getCodigo() == null || f.getCodigo().isBlank()) {
+                    sinCodigo++;
+                    continue;
+                }
 
-    //         // RESPONSABLE
-    //         Responsable responsable = null;
-    //         if (!isBlank(f.getCodRespTxt())) {
-    //             responsable = responsableService
-    //                 .findByOficinaAndCodigoFuncionario(oficina, f.getCodRespTxt().trim()).orElse(null);
-    //             if (responsable == null) { tracker.inc("sinResponsable"); }
-    //         }
+                // ── Resolver Oficina ─────────────────────────────────────────
+                // Clave: entidad|unidad|codOfi
+                String keyOficina = f.getEntidadCodigo() + "|" + f.getUnidad() + "|" + f.getCodOfi();
+                Oficina oficina = oficinasCache.get(keyOficina);
+                if (oficina == null) {
+                    sinOficina++;
+                    continue;
+                }
 
-    //         // GRUPO
-    //         GrupoContable grupo = null;
-    //         if (f.getCodCont() != null) {
-    //             grupo = grupoContableService.findByCodContable(f.getCodCont().intValue()).orElse(null);
-    //             if (grupo == null) { tracker.inc("sinGrupo"); continue; }
-    //         }
+                // ── Resolver Responsable ─────────────────────────────────────
+                // Clave: idOficina|codResp
+                Responsable responsable = null;
+                if (f.getCodResp() != null && !f.getCodResp().isBlank()) {
+                    String keyResp = oficina.getIdOficina() + "|" + f.getCodResp().trim();
+                    responsable = responsablesCache.get(keyResp);
+                }
+                if (responsable == null) {
+                    sinResponsable++;
+                    continue; // activo sin responsable no tiene sentido
+                }
 
-    //         // AUXILIAR
-    //         Auxiliar aux = null;
-    //         if (grupo != null && f.getCodAux() != null) {
-    //             aux = auxiliarService
-    //                 .findByPredio_IdPredioAndGrupoContable_IdGrupoContableAndCodAux(
-    //                     predio.getIdPredio(), grupo.getIdGrupoContable(), f.getCodAux()
-    //                 ).orElse(null);
-    //             if (aux == null) { tracker.inc("sinAuxiliar"); } // NO detenemos
-    //         }
+                // ── Resolver GrupoContable (opcional según tu modelo) ────────
+                GrupoContable grupo = null;
+                if (f.getCodCont() != null) {
+                    grupo = gruposCache.get(f.getCodCont().intValue());
+                    if (grupo == null) {
+                        sinGrupo++;
+                        continue;
+                    }
+                }
 
-    //         // ESTADO
-    //         EstadoActivo estado = null;
-    //         if (f.getCodEstado() != null) {
-    //             estado = estadoActivoService.buscarPorCodigo(String.valueOf(f.getCodEstado()));
-    //             if (estado == null){ tracker.inc("sinEstado"); } // NO detenemos
-    //         }
+                // ── Resolver Auxiliar (puede ser null) ───────────────────────
+                Auxiliar auxiliar = null;
+                if (f.getCodCont() != null && f.getCodAux() != null) {
+                    String keyAux = oficina.getPredio().getIdPredio() + "|" +
+                                    (grupo != null ? grupo.getIdGrupoContable() : "?") + "|" +
+                                    f.getCodAux();
+                    auxiliar = auxiliaresCache.get(keyAux);
+                }
 
-    //         // ORG FIN
-    //         OrganismoFinanciero orgFin = null;
-    //         if (!isBlank(f.getOrgFinCode())) {
-    //             Short ges = (f.getAno() != null) ? f.getAno().shortValue()
-    //                       : (f.getFechaUlt() != null ? (short) f.getFechaUlt().getYear() : null);
-    //             if (ges != null) {
-    //                 String code = f.getOrgFinCode().trim().toUpperCase(Locale.ROOT);
-    //                 orgFin = organismoFinancieroService.findByGestionAndCodOf(ges, code).orElse(null);
-    //             }
-    //             if (orgFin == null){ tracker.inc("sinOrgFin"); } // NO detenemos
-    //         }
+                // ── Resolver OrganismoFinanciero (puede ser null) ────────────
+                OrganismoFinanciero organismo = null;
+                if (f.getCodOf() != null && !f.getCodOf().isBlank()) {
+                    organismo = organismoCache.get(f.getCodOf().trim());
+                }
 
-    //         // UPSERT
-    //         String codigo = f.getCodigo().trim();
-    //         Activo act = activoService.findByCodigo(codigo)
-    //             .orElseGet(() -> activoService.findByOficinaAndCodigo(oficina, codigo).orElse(null));
-    //         boolean nuevo = (act == null);
-    //         if (act == null) {
-    //             act = new Activo();
-    //             act.setCodigo(codigo);
-    //         }
+                // ── Buscar o crear Activo ────────────────────────────────────
+                Activo activo = activosCache.get(f.getCodigo().trim());
+                boolean esNuevo = (activo == null);
 
-    //         // Mapear campos
-    //         act.setCodigoSec(nvl(f.getCodigoSec()));
-    //         act.setDescripcion(nvl(f.getDescripcion()));
-    //         act.setNombre(trunc(nvl(f.getDescripcion()), 255));
-    //         act.setCosto(f.getCosto());
-    //         act.setDepreciacionAcum(f.getDepAcum());
-    //         // act.setVidaUtil(f.getVidaUtil());
-    //         act.setVidaUtilAnterior(f.getVidaUtilAnt());
-    //         act.setFechaAdquisicion(buildDate(f.getAno(), f.getMes(), f.getDia()));
-    //         act.setFechaAnterior(buildDate(f.getAnoAnt(), f.getMesAnt(), f.getDiaAnt()));
-    //         act.setRevaluado(boolVal(f.getBRev()));
-    //         act.setBandUfv(boolVal(f.getBandUfv()));
-    //         act.setBanderas(nvl(f.getBanderas()));
-    //         act.setOficina(oficina);
-    //         act.setResponsable(responsable);
-    //         act.setGrupoContable(grupo);
-    //         act.setAuxiliar(aux);
-    //         act.setEstadoActivo(estado);
-    //         act.setOrgFinCode(nvl(f.getOrgFinCode()));
-    //         act.setOrganismoFinanciero(orgFin);
-    //         act.setCodRube(nvl(f.getCodRube()));
-    //         act.setNroConv(nvl(f.getNroConv()));
-    //         act.setFechaUlt(f.getFechaUlt());
-    //         act.setUsuario(nvl(f.getUsuario()));
-    //         act.setApiEstado(f.getApiEstado());
-    //         act.setFecMod(f.getFecMod());
-    //         act.setUsuMod(nvl(f.getUsuMod()));
-    //         act.setObserv(nvl(f.getObserv()));
-    //         act.setEstado("ACTIVO");
+                if (esNuevo) {
+                    activo = new Activo();
+                    activo.setCodigo(f.getCodigo().trim());
+                    activo.setEstado("ACTIVO"); // sincronizado = activo
+                    activo.setApiEstado(Short.valueOf("1"));
+                }
 
-    //         try {
-    //             activoService.save(act);
-    //             if (nuevo) tracker.inc("insertados");
-    //             else       tracker.inc("actualizados");
-    //         } catch (org.springframework.dao.DataIntegrityViolationException ignore) {
-    //             // continúa
-    //         }
-    //     }
-    //     em.flush();
-    //     em.clear();
-    // }
+                // ── Mapear campos ────────────────────────────────────────────
+                activo.setOficina(oficina);
+                activo.setResponsable(responsable);
+                activo.setGrupoContable(grupo);
+                activo.setAuxiliar(auxiliar);
+                activo.setOrganismoFinanciero(organismo);
+                if (organismo != null) activo.setOrgFinCode(organismo.getCodOf());
 
-    // // ==== helpers ====
+                if (f.getDescrip() != null && !f.getDescrip().isBlank()) {
+                    String desc = f.getDescrip().trim();
+                    activo.setDescripcion(desc.length() > 1024 ? desc.substring(0, 1024) : desc);
+                }
+                activo.setCosto(f.getCosto() != null ? f.getCosto() : 0.0);
+                activo.setFechaAdquisicion(f.getFechaAdq());
+                if (f.getVidaUtil() != null)
+                    activo.setVidaUtil(java.math.BigDecimal.valueOf(f.getVidaUtil()));
+                activo.setFechaUlt(f.getFechaUlt());
+                activo.setUsuario(f.getUsuario() != null
+                    ? (f.getUsuario().length() > 60 ? f.getUsuario().substring(0, 60) : f.getUsuario())
+                    : null);
+                activo.setApiEstado(f.getApiEstado() != null ? f.getApiEstado() : Short.valueOf("1"));
 
-    // private static boolean isBlank(String s) {
-    //     return s == null || s.trim().isEmpty();
-    // }
-    // private static String nvl(String s) { return (s == null) ? "" : s; }
-    // private static Boolean boolVal(Boolean b) { return (b == null) ? null : b; }
+                // ── Hash para skip ───────────────────────────────────────────
+                String nuevoHash = activo.calcularHash();
+                if (!esNuevo && !forzarCompleto) {
+                    if (nuevoHash.equals(activo.getHashDatos())) {
+                        skipped++;
+                        continue;
+                    }
+                }
 
-    // private LocalDate buildDate(Integer y, Integer m, Integer d) {
-    //     try {
-    //         if (y == null || m == null || d == null || y <= 0 || m <= 0 || d <= 0) return null;
-    //         return LocalDate.of(y, m, d);
-    //     } catch (Exception e) { return null; }
-    // }
+                activo.setHashDatos(nuevoHash);
+                activo.setFechaUltimaSync(LocalDateTime.now());
 
-    // private String trunc(String s, int n) {
-    //     if (s == null) return null;
-    //     return s.length() > n ? s.substring(0, n) : s;
-    // }
+                batch.add(activo);
+                if (esNuevo) {
+                    inserted++;
+                    // Actualizar caché para evitar duplicados en la misma run
+                    activosCache.put(f.getCodigo().trim(), activo);
+                } else {
+                    updated++;
+                }
 
-    // private String stripLeftZeros(String s) {
-    //     if (s == null) return null;
-    //     String out = s.replaceFirst("^0+", "");
-    //     return out.isEmpty() ? "0" : out;
-    // }
-    // private String leftPad4(String s) {
-    //     String base = stripLeftZeros(s);
-    //     try { return String.format("%04d", Integer.parseInt(base)); }
-    //     catch (Exception e) { return s; }
-    // }
+                if (batch.size() >= BATCH_SAVE) {
+                    activoService.saveAll(batch);
+                    batch.clear();
+                }
+            }
+
+            if (!batch.isEmpty()) {
+                activoService.saveAll(batch);
+                batch.clear();
+            }
+
+            long duracion = System.currentTimeMillis() - inicio;
+
+            SyncResult resultado = SyncResult.builder()
+                .totalLeidas(totalFilas)
+                .insertados(inserted)
+                .actualizados(updated)
+                .omitidos(skipped)
+                .sinOficina(sinOficina)
+                .sinResponsable(sinResponsable) // agrega este campo a SyncResult si no existe
+                .sinGrupoContable(sinGrupo)
+                .duracionMs(duracion)
+                .build();
+
+            syncControlService.registrarSincronizacion("activo", resultado);
+
+            log.info("ACTUAL.DBF sync completo: +{} nuevos, ~{} actualizados, {} omitidos en {}ms",
+                inserted, updated, skipped, duracion);
+
+            return ResponseEntity.ok(Map.ofEntries(
+                Map.entry("ok",             true),
+                Map.entry("totalLeidas",    totalFilas),
+                Map.entry("insertados",     inserted),
+                Map.entry("actualizados",   updated),
+                Map.entry("omitidos",       skipped),
+                Map.entry("sinOficina",     sinOficina),
+                Map.entry("sinResponsable", sinResponsable),
+                Map.entry("sinGrupoContable", sinGrupo),
+                Map.entry("duracionMs",     duracion),
+                Map.entry("mensaje",        String.format(
+                    "Activos sincronizados en %.1fs", duracion / 1000.0))
+            ));
+
+        } catch (Exception ex) {
+            log.error("Error sync ACTUAL.DBF: {}", ex.getMessage(), ex);
+            syncControlService.registrarError("activo", ex.getMessage());
+            return ResponseEntity.internalServerError().body(Map.of(
+                "ok",      false,
+                "message", "Error sincronizando ACTUAL.DBF: " + ex.getMessage()
+            ));
+        }
+    }
+
+    // ── Caches (1 query por tabla) ───────────────────────────────────────────
+
+    private Map<String, Oficina> cargarOficinasCache() {
+        return oficinaService.findAll().stream()
+            .filter(o -> o.getPredio() != null && o.getPredio().getEntidad() != null)
+            .collect(Collectors.toMap(
+                o -> o.getPredio().getEntidad().getEntidadCodigo() + "|" +
+                     o.getPredio().getUnidad() + "|" + o.getCodOfi(),
+                o -> o,
+                (a, b) -> a
+            ));
+    }
+
+    private Map<String, Responsable> cargarResponsablesCache() {
+        return responsableService.findAll().stream()
+            .filter(r -> r.getOficina() != null && r.getCodigoFuncionario() != null)
+            .collect(Collectors.toMap(
+                r -> r.getOficina().getIdOficina() + "|" + r.getCodigoFuncionario().trim(),
+                r -> r,
+                (a, b) -> a
+            ));
+    }
+
+    private Map<Integer, GrupoContable> cargarGruposCache() {
+        return grupoContableService.listarGruposContables().stream()
+            .filter(g -> g.getCodContable() != null)
+            .collect(Collectors.toMap(
+                GrupoContable::getCodContable,
+                g -> g,
+                (a, b) -> a
+            ));
+    }
+
+    private Map<String, Auxiliar> cargarAuxiliaresCache() {
+        return auxiliarService.findAll().stream()
+            .filter(a -> a.getPredio() != null && a.getGrupoContable() != null)
+            .collect(Collectors.toMap(
+                a -> a.getPredio().getIdPredio() + "|" +
+                     a.getGrupoContable().getIdGrupoContable() + "|" + a.getCodAux(),
+                a -> a,
+                (a, b) -> a
+            ));
+    }
+
+    private Map<String, OrganismoFinanciero> cargarOrganismosCache() {
+        return organismoFinancieroService.findAll().stream()
+            .filter(o -> o.getCodOf() != null)
+            .collect(Collectors.toMap(
+                o -> o.getCodOf().trim(),
+                o -> o,
+                (a, b) -> a
+            ));
+    }
+
+    private Map<String, Activo> cargarActivosCache() {
+        // ⚠️ Solo cargamos los campos necesarios para el hash y clave
+        // Si tienes muchos activos esto puede ser pesado: considera un @Query projection
+        return activoService.findAllForSync().stream()
+            .filter(a -> a.getCodigo() != null)
+            .collect(Collectors.toMap(
+                Activo::getCodigo,
+                a -> a,
+                (a, b) -> a
+            ));
+    }
 }
