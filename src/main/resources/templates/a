@@ -1874,3 +1874,63 @@ sudo mount -t cifs //172.16.22.3/dbf /mnt/dbfwin \
   -o username=Admin,password='aaa',domain=WORKGROUP,\
 iocharset=utf8,vers=3.0,uid=$(id -u),gid=$(id -g),\
 actimeo=1,cache=none
+
+
+ERROR 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.model.service.ActivoSyncService    : Error sync ACTUAL.DBF: Could not initialize proxy [com.usic.SistemasActivosFijosUAP.model.entity.Predio#1] - no session
+
+org.hibernate.LazyInitializationException: Could not initialize proxy [com.usic.SistemasActivosFijosUAP.model.entity.Predio#1] - no session
+	at org.hibernate.proxy.AbstractLazyInitializer.initialize(AbstractLazyInitializer.java:174) ~[hibernate-core-6.6.11.Final.jar:6.6.11.Final]
+	at org.hibernate.proxy.AbstractLazyInitializer.getImplementation(AbstractLazyInitializer.java:328) ~[hibernate-core-6.6.11.Final.jar:6.6.11.Final]
+	at org.hibernate.proxy.pojo.bytebuddy.ByteBuddyInterceptor.intercept(ByteBuddyInterceptor.java:44) ~[hibernate-core-6.6.11.Final.jar:6.6.11.Final]
+	at org.hibernate.proxy.ProxyConfiguration$InterceptorDispatcher.intercept(ProxyConfiguration.java:102) ~[hibernate-core-6.6.11.Final.jar:6.6.11.Final]
+	at com.usic.SistemasActivosFijosUAP.model.entity.Predio$HibernateProxy$AujSFBSf.getEntidad(Unknown Source) ~[classes/:na]
+	at com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncService.lambda$0(ActivoSyncService.java:264) ~[classes/:na]
+	at java.base/java.util.stream.ReferencePipeline$2$1.accept(ReferencePipeline.java:178) ~[na:na]
+	at java.base/java.util.ArrayList$ArrayListSpliterator.forEachRemaining(ArrayList.java:1708) ~[na:na]
+	at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:509) ~[na:na]
+	at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:499) ~[na:na]
+	at java.base/java.util.stream.ReduceOps$ReduceOp.evaluateSequential(ReduceOps.java:921) ~[na:na]
+	at java.base/java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:234) ~[na:na]
+	at java.base/java.util.stream.ReferencePipeline.collect(ReferencePipeline.java:682) ~[na:na]
+	at com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncService.cargarOficinasCache(ActivoSyncService.java:265) ~[classes/:na]
+	at com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncService.syncFromMounted(ActivoSyncService.java:71) ~[classes/:na]
+	at com.usic.SistemasActivosFijosUAP.config.sincronizacion.SyncOrchestrator.despacharSync(SyncOrchestrator.java:140) ~[classes/:na]
+	at com.usic.SistemasActivosFijosUAP.config.sincronizacion.SyncOrchestrator.ejecutarSync(SyncOrchestrator.java:104) ~[classes/:na]
+	at com.usic.SistemasActivosFijosUAP.config.sincronizacion.SyncOrchestrator.sincronizarConDependencias(SyncOrchestrator.java:84) ~[classes/:na]
+	at com.usic.SistemasActivosFijosUAP.componet.DbfChangeHandler.onDbfChange(DbfChangeHandler.java:28) ~[classes/:na]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:359) ~[spring-aop-6.2.5.jar:6.2.5]
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.invokeJoinpoint(ReflectiveMethodInvocation.java:196) ~[spring-aop-6.2.5.jar:6.2.5]
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:163) ~[spring-aop-6.2.5.jar:6.2.5]
+	at org.springframework.aop.interceptor.AsyncExecutionInterceptor.lambda$invoke$0(AsyncExecutionInterceptor.java:114) ~[spring-aop-6.2.5.jar:6.2.5]
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[na:na]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[na:na]
+
+2026-04-01T17:02:24.519-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [nio-9696-exec-2] c.u.S.controller.IndexController         : Usuario en sesión: SEGUNDO USUARIO
+2026-04-01T17:02:38.404-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [   scheduling-1] c.u.S.componet.DbfChangeDetectorService  : 📦 Cambio en 'oficina': 91344→91344 bytes
+2026-04-01T17:02:38.404-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [   scheduling-1] c.u.S.componet.DbfChangeDetectorService  : 📦 Cambio en 'responsable': 329548→329548 bytes
+2026-04-01T17:02:38.404-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.componet.DbfChangeHandler          : 🔔 Cambio detectado: oficina — iniciando sync ordenado
+2026-04-01T17:02:38.404-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.c.sincronizacion.SyncOrchestrator  : 🔀 Orden de sync para 'oficina': [oficina]
+2026-04-01T17:02:38.404-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.componet.DbfChangeHandler          : 🔔 Cambio detectado: responsable — iniciando sync ordenado
+2026-04-01T17:02:38.404-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.c.sincronizacion.SyncOrchestrator  : 🔀 Orden de sync para 'responsable': [oficina, responsable]
+2026-04-01T17:02:38.404-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.c.sincronizacion.SyncOrchestrator  : ⏭ 'oficina' ya está en proceso, omitiendo.
+2026-04-01T17:02:44.217-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.c.r.ResponsableController          : ✅ Total registros leídos del DBF: 2222
+2026-04-01T17:02:44.596-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.c.r.ResponsableController          : === CONSTRUYENDO CACHÉ DE PERSONAS ===
+2026-04-01T17:02:44.598-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.c.r.ResponsableController          : ✅ Personas en caché: 709 (con 1125 claves)
+2026-04-01T17:02:44.649-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.c.r.ResponsableController          : === CONSTRUYENDO CACHÉ DE RESPONSABLES ===
+2026-04-01T17:02:44.650-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.c.r.ResponsableController          : ✅ Responsables en caché: 2223
+2026-04-01T17:03:58.418-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [   scheduling-1] c.u.S.componet.DbfChangeDetectorService  : 📦 Cambio en 'oficina': 91344→91450 bytes
+2026-04-01T17:03:58.419-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.componet.DbfChangeHandler          : 🔔 Cambio detectado: oficina — iniciando sync ordenado
+2026-04-01T17:03:58.419-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.c.sincronizacion.SyncOrchestrator  : 🔀 Orden de sync para 'oficina': [oficina]
+2026-04-01T17:04:18.423-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [   scheduling-1] c.u.S.componet.DbfChangeDetectorService  : 📦 Cambio en 'oficina': 91450→91450 bytes
+2026-04-01T17:04:18.424-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.componet.DbfChangeHandler          : 🔔 Cambio detectado: oficina — iniciando sync ordenado
+2026-04-01T17:04:18.424-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.c.sincronizacion.SyncOrchestrator  : 🔀 Orden de sync para 'oficina': [oficina]
+2026-04-01T17:04:38.427-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [   scheduling-1] c.u.S.componet.DbfChangeDetectorService  : 📦 Cambio en 'oficina': 91450→91450 bytes
+2026-04-01T17:04:38.428-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.componet.DbfChangeHandler          : 🔔 Cambio detectado: oficina — iniciando sync ordenado
+2026-04-01T17:04:38.428-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-2] c.u.S.c.sincronizacion.SyncOrchestrator  : 🔀 Orden de sync para 'oficina': [oficina]
+2026-04-01T17:04:58.430-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [   scheduling-1] c.u.S.componet.DbfChangeDetectorService  : 📦 Cambio en 'oficina': 91450→91450 bytes
+2026-04-01T17:04:58.431-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.componet.DbfChangeHandler          : 🔔 Cambio detectado: oficina — iniciando sync ordenado
+2026-04-01T17:04:58.431-04:00  INFO 1734638 --- [SistemasActivosFijosUAP] [     dbf-sync-1] c.u.S.c.sincronizacion.SyncOrchestrator  : 🔀 Orden de sync para 'oficina': [oficina]
