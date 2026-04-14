@@ -7,9 +7,16 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class MvcConfig implements WebMvcConfigurer{
+
     @Override
-    public void addInterceptors(InterceptorRegistry interceptorRegistry){
-        interceptorRegistry.addInterceptor(new UsuarioAutenticadoInterceptor());
+    public void addInterceptors(InterceptorRegistry interceptorRegistry) {
+        interceptorRegistry.addInterceptor(new UsuarioAutenticadoInterceptor())
+            .excludePathPatterns(
+                "/api/eventos/**",
+                "/assets/**",
+                "/css/**",
+                "/js/**"
+            );
     }
 
     @Configuration
