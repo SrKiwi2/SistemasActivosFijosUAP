@@ -15,19 +15,19 @@
         verificarPendientes();
         setInterval(verificarPendientes, 30000);
 
-        if (typeof EventSource !== 'undefined') {
-            const evtSource = new EventSource('/sse/events');
-            evtSource.addEventListener('nueva-transferencia', function (e) {
-                const data = JSON.parse(e.data);
-                mostrarAlerta(data.pendientes);
-            });
-            evtSource.addEventListener('dbf-change', function (e) {
-                const data = JSON.parse(e.data);
-                if (data.tabla === 'transferencia' && data.recargarTabla) {
-                    cargarTabla();
-                }
-            });
-        }
+        // if (typeof EventSource !== 'undefined') {
+        //     const evtSource = new EventSource('/api/eventos/stream');
+        //     evtSource.addEventListener('nueva-transferencia', function (e) {
+        //         const data = JSON.parse(e.data);
+        //         mostrarAlerta(data.pendientes);
+        //     });
+        //     evtSource.addEventListener('dbf-change', function (e) {
+        //         const data = JSON.parse(e.data);
+        //         if (data.tabla === 'transferencia' && data.recargarTabla) {
+        //             cargarTabla();
+        //         }
+        //     });
+        // }
     });
 
     function cargarTabla(q) {
