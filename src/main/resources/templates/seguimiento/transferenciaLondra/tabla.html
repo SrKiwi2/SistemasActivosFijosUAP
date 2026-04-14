@@ -135,8 +135,8 @@
                     <td class="text-center">
                         <button th:if="${t.valida and !t.yaAprobadaEnBd}"
                                 type="button"
-                                class="btn btn-success btn-sm"
-                                th:onclick="'aprobarTransferencia(\'' + ${t.datos.corrT} + '\')'">
+                                class="btn btn-success btn-sm btn-aprobar"
+                                th:data-corr="${t.datos.corrT}">
                             <i class="fa-solid fa-circle-check me-1"></i>Aprobar
                         </button>
                         <span th:if="${!t.valida and !t.yaAprobadaEnBd}"
@@ -155,9 +155,17 @@
 </div>
 
 <script>
-    $(document).ready(function () {
-        var tooltipTriggerList = [].slice.call(
-            document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(el => new bootstrap.Tooltip(el));
+    // Tooltips
+    document.querySelectorAll('[data-bs-toggle="tooltip"]')
+        .forEach(el => new bootstrap.Tooltip(el));
+
+    // Delegación de evento para botones de aprobar
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.btn-aprobar');
+        if (!btn) return;
+        const corrT = btn.getAttribute('data-corr');
+        if (corrT && typeof window.aprobarTransferencia === 'function') {
+            window.aprobarTransferencia(corrT);
+        }
     });
 </script>
