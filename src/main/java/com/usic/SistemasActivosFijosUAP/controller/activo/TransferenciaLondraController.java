@@ -48,9 +48,17 @@ public class TransferenciaLondraController {
     @PostMapping("/tabla-registros")
     public String tablaRegistros(Model model,
             @RequestParam(name = "q", required = false) String q) {
-        List<TransferenciaValidadaDto> lista = transferenciaService.leerYValidarPendientes();
-        model.addAttribute("transferencias", lista);
-        return "seguimiento/transferenciaLondra/tabla";
+        try {
+            List<TransferenciaValidadaDto> lista = transferenciaService.leerYValidarPendientes();
+            model.addAttribute("transferencias", lista);
+            model.addAttribute("errorCarga", null);
+            return "seguimiento/transferenciaLondra/tabla";
+        } catch (Exception e) {
+            log.error("Error cargando transferencias: {}", e.getMessage(), e);
+            model.addAttribute("transferencias", List.of());
+            model.addAttribute("errorCarga", e.getMessage());
+            return "seguimiento/transferenciaLondra/tabla";
+        }
     }
 
     @ValidarUsuarioAutenticado
