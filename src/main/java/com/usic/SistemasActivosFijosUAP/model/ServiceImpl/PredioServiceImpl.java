@@ -70,4 +70,9 @@ public class PredioServiceImpl implements IPredioServicio{
     public List<Predio> findByMunicipioIdMunicipio(Long idMunicipio) {
         return dao.findByMunicipioIdMunicipio(idMunicipio);
     }
+
+    @Override
+    public Optional<Predio> findByUnidadIgnoreCase(String unidad) {
+        return dao.findByUnidadIgnoreCase(unidad);
+    }
 }

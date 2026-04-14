@@ -75,7 +75,6 @@
     <script src="../../assets/vendor/js/template-customizer.js"></script>
     <script src="../../assets/js/config.js"></script>
 
-    <!-- En tu layout base, antes del </body> -->
     <script th:inline="javascript">
         /*<![CDATA[*/
         (function () {
@@ -90,27 +89,23 @@
 
                 eventSource = new EventSource('/api/eventos/stream');
 
-                // ── Conexión establecida ────────────────────────────────────────────
                 eventSource.addEventListener('connected', function () {
                     console.log('[SSE] ✅ Conectado');
                     reconnectDelay = 3000;
                 });
 
-                // ── Cambio en un DBF ────────────────────────────────────────────────
                 eventSource.addEventListener('dbf-change', function (e) {
                     const data = JSON.parse(e.data);
                     console.log('[SSE] dbf-change:', data);
                     manejarCambioDbf(data);
                 });
 
-                // ── ⭐ MOVIDO AQUÍ: progreso del sync de activos ─────────────────────
                 eventSource.addEventListener('sync-progreso', function (e) {
                     const data = JSON.parse(e.data);
                     if (data.tabla !== 'activo') return;
                     mostrarProgresoActivo(data);
                 });
 
-                // ── Reconexión con backoff exponencial ──────────────────────────────
                 eventSource.onerror = function () {
                     console.warn('[SSE] Conexión perdida. Reconectando en', reconnectDelay, 'ms...');
                     eventSource.close();
@@ -122,7 +117,6 @@
                 };
             }
 
-            // ── Barra de progreso para ACTUAL.DBF ──────────────────────────────────
             function mostrarProgresoActivo(data) {
                 let $barra = $('#sync-progreso-activo');
                 if (!$barra.length) {
@@ -151,25 +145,28 @@
                 );
             }
 
-            // ── Manejador principal de cambios DBF ──────────────────────────────────
             function manejarCambioDbf(data) {
                 const { tabla, estado, mensaje, datos, recargarTabla } = data;
 
-                // Cerrar barra de progreso de activos si terminó
                 if (tabla === 'activo' && estado === 'COMPLETADO') {
                     $('#sync-progreso-activo').fadeOut(500, function () { $(this).remove(); });
                 }
 
-                // Toast de notificación
+                // ✅ CORRECCIÓN: diferir si el DOM aún no está listo
+                if (!document.body || document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => manejarCambioDbf(data), { once: true });
+                    return;
+                }
+
                 const cfgMap = {
-                    'SINCRONIZANDO': { icon: 'info', title: '🔄 Sincronizando...', timer: 0 },
-                    'COMPLETADO': { icon: 'success', title: '✅ Sincronización completa', timer: 6000 },
-                    'ERROR': { icon: 'error', title: '❌ Error de sincronización', timer: 8000 },
+                    'SINCRONIZANDO': { icon: 'info',    title: '🔄 Sincronizando...', timer: 2500 }, // ← antes era 0, causaba toast inmortal
+                    'COMPLETADO':    { icon: 'success', title: '✅ Sincronización completa', timer: 6000 },
+                    'ERROR':         { icon: 'error',   title: '❌ Error de sincronización', timer: 8000 },
                 };
                 const cfg = cfgMap[estado] || { icon: 'info', title: 'Actualización', timer: 4000 };
 
-                // Cerrar "SINCRONIZANDO" cuando llega el resultado
-                if (estado !== 'SINCRONIZANDO') Swal.close();
+                // ✅ CORRECCIÓN: no llamar Swal.close() en SINCRONIZANDO (cerraba toasts anteriores)
+                if (estado === 'COMPLETADO' || estado === 'ERROR') Swal.close();
 
                 Swal.mixin({
                     toast: true,
@@ -178,6 +175,8 @@
                     timer: cfg.timer,
                     timerProgressBar: cfg.timer > 0,
                     showCloseButton: true,
+                    // ✅ CORRECCIÓN: target explícito para evitar el error de querySelector
+                    target: document.body,
                     didOpen: (toast) => {
                         toast.addEventListener('mouseenter', Swal.stopTimer);
                         toast.addEventListener('mouseleave', Swal.resumeTimer);
@@ -186,15 +185,14 @@
                     icon: cfg.icon,
                     title: cfg.title,
                     html: `
-                <small class="text-muted d-block">${mensaje || ''}</small>
-                ${datos && datos.insertados !== undefined ? `
-                <small class="text-muted">
-                    +${datos.insertados} nuevos &nbsp;·&nbsp; ~${datos.actualizados} actualizados
-                </small>` : ''}
-            `
+                        <small class="text-muted d-block">${mensaje || ''}</small>
+                        ${datos && datos.insertados !== undefined ? `
+                        <small class="text-muted">
+                            +${datos.insertados} nuevos &nbsp;·&nbsp; ~${datos.actualizados} actualizados
+                        </small>` : ''}
+                    `
                 });
 
-                // Auto-recarga de tabla si el usuario está en esa vista
                 if (recargarTabla && estaViendoTabla(tabla)) {
                     setTimeout(() => {
                         if (typeof cargarTabla === 'function') {
@@ -204,11 +202,9 @@
                     }, 1500);
                 }
 
-                // Actualizar badge de sync si la vista lo tiene
                 if (typeof actualizarInfoSync === 'function') actualizarInfoSync();
             }
 
-            // ── Detecta si el usuario está en la vista de esa tabla ─────────────────
             function estaViendoTabla(tabla) {
                 const url = window.location.pathname.toLowerCase();
                 const mapaUrl = {
@@ -225,10 +221,7 @@
                 return ruta ? url.includes(ruta) : false;
             }
 
-            // ── Inicializar ─────────────────────────────────────────────────────────
             document.addEventListener('DOMContentLoaded', conectarSSE);
-
-            // Reconectar al volver a la pestaña
             document.addEventListener('visibilitychange', function () {
                 if (!document.hidden) conectarSSE();
             });

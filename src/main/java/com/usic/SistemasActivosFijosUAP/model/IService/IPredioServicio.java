@@ -21,4 +21,6 @@ public interface IPredioServicio extends IServiceGenerico<Predio, Long>{
     List<Predio> buscarPorQ(@Param("q") String q);
 
     List<Predio> findByMunicipioIdMunicipio(Long idMunicipio);
+
+    Optional<Predio>findByUnidadIgnoreCase (String unidad);
 }

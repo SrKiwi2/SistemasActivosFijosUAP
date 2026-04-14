@@ -48,5 +48,9 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     Page<RespOption> searchGlobal(@Param("q") String q, Pageable pageable);
 
     boolean existsByOficinaIdOficinaAndPersonaIdPersona(Long idOficina, Long idPersona);
+
+    Optional<Responsable> findByCodigoFuncionarioAndOficina(String codigoFuncionario, Oficina oficina);
+
+    boolean existsByPersonaCi(String ci);
     
 }

@@ -166,4 +166,8 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
     List<Responsable> findByOficinaIdOficina(Long idOficina);
 
     boolean existsByOficinaIdOficinaAndPersonaIdPersona(Long idOficina, Long idPersona);
+
+    Optional<Responsable> findByCodigoFuncionarioAndOficina(String codigoFuncionario, Oficina oficina);
+
+    boolean existsByPersonaCi(String ci);
 }

@@ -22,6 +22,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ActivoDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SyncResult;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
+import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
@@ -43,6 +44,7 @@ public class ActivoSyncService {
     private final SyncControlService syncControlService;
     private final SseEmitterRegistry sseRegistry;
     private final JavaDbfService dbfService;
+    private final ActivoSyncCacheService cache;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -61,12 +63,16 @@ public class ActivoSyncService {
             log.info("ACTUAL.DBF — {} registros a procesar", totalFilas);
 
             // Caches con JPQL que hace JOIN FETCH (no lazy)
-            Map<String, Oficina>             oficinasCache     = cargarOficinasCache();
+            Map<String, Oficina>             oficinasMap     = cargarOficinasCache();
             Map<String, Responsable>         responsablesCache = cargarResponsablesCache();
             Map<Integer, GrupoContable>      gruposCache       = cargarGruposCache();
             Map<String, Auxiliar>            auxiliaresCache   = cargarAuxiliaresCache();
             Map<String, OrganismoFinanciero> organismoCache    = cargarOrganismosCache();
+            Map<Short, EstadoActivo>         estadosMap     = cache.estadosActivo();
             Map<String, Activo>              activosCache      = cargarActivosCache();
+
+            EstadoActivo estadoPorDefecto = estadosMap.values().stream()
+                .findFirst().orElse(null);
 
             int inserted = 0, updated = 0, skipped = 0;
             int sinOficina = 0, sinResponsable = 0, sinGrupo = 0, sinCodigo = 0;
@@ -95,14 +101,17 @@ public class ActivoSyncService {
                     continue;
                 }
 
-                String keyOficina = f.getEntidadCodigo() + "|" + f.getUnidad() + "|" + f.getCodOfi();
-                Oficina oficina = oficinasCache.get(keyOficina);
+                Oficina oficina = null;
+                if (f.getEntidadCodigo() != null && f.getUnidad() != null && f.getCodOfi() != null) {
+                    String keyOf = f.getEntidadCodigo() + "|" + f.getUnidad() + "|" + f.getCodOfi();
+                    oficina = oficinasMap.get(keyOf);
+                }
                 if (oficina == null) { sinOficina++; continue; }
 
-                Responsable responsable = null;
+                 Responsable responsable = null;
                 if (f.getCodResp() != null && !f.getCodResp().isBlank()) {
-                    String keyResp = oficina.getIdOficina() + "|" + f.getCodResp().trim();
-                    responsable = responsablesCache.get(keyResp);
+                    responsable = responsablesCache.get(
+                        oficina.getIdOficina() + "|" + f.getCodResp().trim());
                 }
                 if (responsable == null) { sinResponsable++; continue; }
 
@@ -123,6 +132,12 @@ public class ActivoSyncService {
                 if (f.getCodOf() != null && !f.getCodOf().isBlank())
                     organismo = organismoCache.get(f.getCodOf().trim());
 
+                EstadoActivo estadoActivo = null;
+                if (f.getCodEstado() != null)
+                    estadoActivo = estadosMap.get(f.getCodEstado());
+                if (estadoActivo == null)
+                    estadoActivo = estadoPorDefecto;
+
                 Activo activo = activosCache.get(f.getCodigo().trim());
                 boolean esNuevo = (activo == null);
 
@@ -141,21 +156,82 @@ public class ActivoSyncService {
                 activo.setGrupoContable(grupo);
                 activo.setAuxiliar(auxiliar);
                 activo.setOrganismoFinanciero(organismo);
-                if (organismo != null) activo.setOrgFinCode(organismo.getCodOf());
+
+                if (organismo != null) {
+                    activo.setOrganismoFinanciero(organismo);
+                    activo.setOrgFinCode(organismo.getCodOf());
+                } else if (f.getCodOf() != null && !f.getCodOf().isBlank()) {
+                    // El DBF tiene un código que no resolvió → guardar el texto al menos
+                    activo.setOrgFinCode(f.getCodOf().trim());
+                }
 
                 if (f.getDescrip() != null && !f.getDescrip().isBlank()) {
                     String desc = f.getDescrip().trim();
                     activo.setDescripcion(desc.length() > 1024 ? desc.substring(0, 1024) : desc);
+                } else if (esNuevo) {
+                    activo.setDescripcion("SIN DESCRIPCION"); // @NotBlank en entidad
                 }
-                activo.setCosto(f.getCosto() != null ? f.getCosto() : 0.0);
-                activo.setFechaAdquisicion(f.getFechaAdq());
+
+                if (f.getCodigoSec() != null && !f.getCodigoSec().isBlank())
+                    activo.setCodigoSec(f.getCodigoSec().trim());
+
+                if (f.getCosto() != null)
+                    activo.setCosto(f.getCosto());
+                else if (esNuevo)
+                    activo.setCosto(0.0);
+
+                if (f.getDepAcu() != null)
+                    activo.setDepreciacionAcum(f.getDepAcu());
+
+                if (f.getCostoAnt() != null)
+                    activo.setCostoAnterior(f.getCostoAnt());
+
                 if (f.getVidaUtil() != null)
                     activo.setVidaUtil(java.math.BigDecimal.valueOf(f.getVidaUtil()));
-                activo.setFechaUlt(f.getFechaUlt());
-                activo.setUsuario(f.getUsuario() != null
-                    ? (f.getUsuario().length() > 60 ? f.getUsuario().substring(0, 60) : f.getUsuario())
-                    : null);
-                activo.setApiEstado(f.getApiEstado() != null ? f.getApiEstado() : Short.valueOf("1"));
+
+                if (f.getVutAnt() != null)
+                    activo.setVidaUtilAnterior(f.getVutAnt());
+
+                if (f.getFechaAdq() != null)
+                    activo.setFechaAdquisicion(f.getFechaAdq());
+
+                if (f.getFechaAnt() != null)
+                    activo.setFechaAnterior(f.getFechaAnt());
+
+                if (f.getBRev() != null)
+                    activo.setRevaluado(f.getBRev());
+
+                if (f.getBandUfv() != null)
+                    activo.setBandUfv(f.getBandUfv());
+
+                if (f.getCodRube() != null && !f.getCodRube().isBlank())
+                    activo.setCodRube(f.getCodRube().trim());
+
+                if (f.getNroConv() != null && !f.getNroConv().isBlank())
+                    activo.setNroConv(f.getNroConv().trim());
+
+                if (f.getBanderas() != null && !f.getBanderas().isBlank())
+                    activo.setBanderas(f.getBanderas().trim());
+
+                if (f.getObserv() != null)
+                    activo.setObserv(f.getObserv());
+
+                if (f.getFechaUlt() != null) activo.setFechaUlt(f.getFechaUlt());
+
+               if (f.getUsuario() != null) {
+                    String usr = f.getUsuario().trim();
+                    activo.setUsuario(usr.length() > 60 ? usr.substring(0, 60) : usr);
+                }
+                if (f.getApiEstado() != null)
+                    activo.setApiEstado(f.getApiEstado());
+                else if (esNuevo)
+                    activo.setApiEstado(Short.valueOf("1"));
+
+                if (f.getFecMod() != null) activo.setFecMod(f.getFecMod());
+                if (f.getUsuMod() != null) {
+                    String usr = f.getUsuMod().trim();
+                    activo.setUsuMod(usr.length() > 60 ? usr.substring(0, 60) : usr);
+                }
 
                 String nuevoHash = activo.calcularHash();
                 if (!esNuevo && !forzarCompleto && nuevoHash.equals(activo.getHashDatos())) {
@@ -199,6 +275,10 @@ public class ActivoSyncService {
                 .build();
 
             syncControlService.registrarSincronizacion("activo", resultado);
+
+            log.info("ACTUAL.DBF sync: +{} nuevos, ~{} actualizados, {} omitidos, " +
+                     "{} sin oficina, {} sin responsable, {} sin grupo | {}ms",
+                inserted, updated, skipped, sinOficina, sinResponsable, sinGrupo, duracion);
 
             return ResponseEntity.ok(Map.ofEntries(
                 Map.entry("ok",               true),

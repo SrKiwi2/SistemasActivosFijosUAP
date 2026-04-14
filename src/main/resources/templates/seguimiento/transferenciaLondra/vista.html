@@ -1,0 +1,117 @@
+<h4 class="py-3 mb-4">
+    <span class="text-muted fw-light">Menú /</span> Transferencias de Activos
+</h4>
+
+<div class="alert alert-info d-flex align-items-center gap-2 mb-3" id="alertaPendientes" style="display:none!important">
+    <i class="fa-solid fa-bell fa-beat"></i>
+    <span id="msgPendientes">Verificando transferencias pendientes...</span>
+</div>
+
+<div id="tablaRegistro"></div>
+
+<script>
+    $(document).ready(function () {
+        cargarTabla();
+        verificarPendientes();
+        setInterval(verificarPendientes, 30000);
+
+        if (typeof EventSource !== 'undefined') {
+            const evtSource = new EventSource('/sse/events');
+            evtSource.addEventListener('nueva-transferencia', function (e) {
+                const data = JSON.parse(e.data);
+                mostrarAlerta(data.pendientes);
+            });
+            evtSource.addEventListener('dbf-change', function (e) {
+                const data = JSON.parse(e.data);
+                if (data.tabla === 'transferencia' && data.recargarTabla) {
+                    cargarTabla();
+                }
+            });
+        }
+    });
+
+    function cargarTabla(q) {
+        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Leyendo DBF...' });
+        $.ajax({
+            type: 'POST',
+            url: '/administracion/transferenciasLondra/tabla-registros' + (q ? ('?q=' + encodeURIComponent(q)) : ''),
+            success: function (html) {
+                $('#tablaRegistro').html(html);
+                initDataTable();
+            },
+            error: function () {
+                $('#tablaRegistro').html(
+                    '<div class="alert alert-danger m-3">' +
+                    '<i class="fa-solid fa-triangle-exclamation me-2"></i>' +
+                    'Error al leer el archivo de transferencias. Verifique la conexión de red al servidor legacy.</div>'
+                );
+            },
+            complete: hideGlobalLoader
+        });
+    }
+
+    function initDataTable() {
+        const $tbl = $('#data-table-transferencias');
+        if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
+        $tbl.DataTable({
+            order: [ [1, 'desc'] ],
+            language: {
+                sProcessing: "Procesando...", sLengthMenu: "Mostrar _MENU_ registros",
+                sZeroRecords: "No hay transferencias pendientes",
+                sInfo: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                sInfoEmpty: "Sin registros", sInfoFiltered: "(filtrado de _MAX_)",
+                sSearch: "Buscar:", oPaginate: {
+                    sFirst: "Primero", sLast: "Último",
+                    sNext: "Siguiente", sPrevious: "Anterior"
+                }
+            }
+        });
+    }
+
+    function verificarPendientes() {
+        $.get('/administracion/transferenciasLondra/conteo-pendientes', function (res) {
+            mostrarAlerta(res.pendientes);
+        });
+    }
+
+    function mostrarAlerta(count) {
+        const $alert = $('#alertaPendientes');
+        if (count > 0) {
+            $('#msgPendientes').text(count + ' transferencia(s) pendiente(s) de aprobación en el sistema legacy.');
+            $alert.show();
+        } else {
+            $alert.hide();
+        }
+    }
+
+    function aprobarTransferencia(corrT) {
+        Swal.fire({
+            title: '¿Aprobar transferencia?',
+            html: 'Correlativo: <strong>' + corrT + '</strong><br>' +
+                  'Esta acción actualizará ACTUAL.DBF y registrará la operación en la base de datos.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="fa-solid fa-check me-1"></i> Aprobar',
+            cancelButtonText: 'Cancelar'
+        }).then(result => {
+            if (!result.isConfirmed) return;
+            showGlobalLoader({ texto: 'Procesando aprobación...' });
+            $.ajax({
+                type: 'POST',
+                url: '/administracion/transferenciasLondra/aprobar/' + encodeURIComponent(corrT),
+                success: function (res) {
+                    Swal.fire('Aprobado', res.msg, 'success');
+                    cargarTabla();
+                    verificarPendientes();
+                },
+                error: function (xhr) {
+                    const msg = xhr.responseJSON?.msg || 'Error inesperado';
+                    Swal.fire('Error', msg, 'error');
+                },
+                complete: hideGlobalLoader
+            });
+        });
+    }
+</script>

@@ -36,4 +36,6 @@ public interface IPredioDao extends JpaRepository<Predio, Long> {
 
     List<Predio> findByMunicipioIdMunicipio(Long idMunicipio);
 
+    Optional<Predio>findByUnidadIgnoreCase (String unidad);
+
 }

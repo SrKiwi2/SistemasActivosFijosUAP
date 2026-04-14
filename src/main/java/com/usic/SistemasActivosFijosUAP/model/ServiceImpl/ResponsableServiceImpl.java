@@ -248,4 +248,14 @@ public class ResponsableServiceImpl implements IResponsableService{
     public boolean existsByOficinaIdOficinaAndPersonaIdPersona(Long idOficina, Long idPersona) {
         return dao.existsByOficinaIdOficinaAndPersonaIdPersona(idOficina, idPersona);
     }
+
+    @Override
+    public Optional<Responsable> findByCodigoFuncionarioAndOficina(String codigoFuncionario, Oficina oficina) {
+        return dao.findByCodigoFuncionarioAndOficina(codigoFuncionario, oficina);
+    }
+
+    @Override
+    public boolean existsByPersonaCi(String ci) {
+        return dao.existsByPersonaCi(ci);
+    }
 }

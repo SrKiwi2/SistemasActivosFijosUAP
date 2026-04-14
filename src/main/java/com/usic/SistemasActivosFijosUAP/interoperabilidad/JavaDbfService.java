@@ -1,5 +1,6 @@
 package com.usic.SistemasActivosFijosUAP.interoperabilidad;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.math.BigDecimal;
@@ -13,8 +14,10 @@ import java.sql.Date;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -32,6 +35,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.GrupoContabl
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.OficinaDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.OrganismoFinDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ResponsableDbf;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SolTransferenciaDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.UnidadAdminDbf;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
@@ -1009,40 +1013,63 @@ public class JavaDbfService {
             DBFReader reader = new DBFReader(in, cs)) {
 
             // ── Mapeo de índices ────────────────────────────────────────────────
-            // ⚠️ Ajusta estos nombres a los de tu ACTUAL.DBF real
-            int iENT = -1, iUNI = -1, iCODOFI = -1, iCODRESP = -1;
-            int iCODCONT = -1, iCODAUX = -1;
-            int iCODIGO = -1, iDESCRIP = -1, iCOSTO = -1, iVIDAUTIL = -1;
-            int iFECHAADQ = -1, iCODOF = -1, iAPI = -1, iFEULT = -1;
-            int iUSUAR = -1, iOBSERV = -1;
+            int iUNI = -1, iENT = -1, iCOD = -1, iCODCONT = -1, iCODAUX = -1;
+            int iVIDAUTIL = -1, iDESCRIP = -1, iCOSTO = -1, iDEPACU = -1;
+            int iMES = -1, iANO = -1, iDIA = -1;
+            int iMES_ANT = -1, iANO_ANT = -1, iDIA_ANT = -1;
+            int iBREV = -1, iBANDUFV = -1, iCODESTADO = -1;
+            int iCODOFIC = -1, iCODRESP = -1, iOBSERV = -1;
+            int iVUT_ANT = -1, iCOSTO_ANT = -1;
+            int iCOD_RUBE = -1, iNRO_CONV = -1, iORG_FIN = -1;
+            int iFEULT = -1, iUSUAR = -1, iAPI = -1;
+            int iCODIGOSEC = -1, iBANDERAS = -1, iFEC_MOD = -1, iUSU_MOD = -1;
 
             int n = reader.getFieldCount();
             for (int i = 0; i < n; i++) {
                 String name = reader.getField(i).getName().toUpperCase(Locale.ROOT);
                 switch (name) {
-                    case "ENTIDAD"   -> iENT     = i;
-                    case "UNIDAD"    -> iUNI     = i;
-                    case "CODOFIC"   -> iCODOFI  = i;
-                    case "CODRESP"   -> iCODRESP = i;
-                    case "CODCONT"   -> iCODCONT = i;
-                    case "CODAUX"    -> iCODAUX  = i;
-                    case "CODIGO"    -> iCODIGO  = i;
-                    case "DESCRIP"   -> iDESCRIP = i;
-                    case "COSTO"     -> iCOSTO   = i;
-                    case "VIDAUTIL"  -> iVIDAUTIL = i;
-                    case "FECHAADQ"  -> iFECHAADQ = i;
-                    case "CODOF"     -> iCODOF   = i;
-                    case "API_ESTADO" -> iAPI    = i;
-                    case "FEULT"     -> iFEULT   = i;
-                    case "USUAR"     -> iUSUAR   = i;
-                    case "OBSERV"    -> iOBSERV  = i;
+                    case "UNIDAD"    -> iUNI       = i;
+                    case "ENTIDAD"   -> iENT       = i;
+                    case "CODIGO"    -> iCOD       = i;
+                    case "CODCONT"   -> iCODCONT   = i;
+                    case "CODAUX"    -> iCODAUX    = i;
+                    case "VIDAUTIL"  -> iVIDAUTIL  = i;
+                    case "DESCRIP"   -> iDESCRIP   = i;
+                    case "COSTO"     -> iCOSTO     = i;
+                    case "DEPACU"    -> iDEPACU    = i;
+                    case "MES"       -> iMES       = i;
+                    case "ANO"       -> iANO       = i;
+                    case "DIA"       -> iDIA       = i;
+                    case "MES_ANT"   -> iMES_ANT   = i;
+                    case "ANO_ANT"   -> iANO_ANT   = i;
+                    case "DIA_ANT"   -> iDIA_ANT   = i;
+                    case "VUT_ANT"   -> iVUT_ANT   = i;
+                    case "COSTO_ANT" -> iCOSTO_ANT = i;
+                    case "B_REV"     -> iBREV      = i;
+                    case "BAND_UFV"  -> iBANDUFV   = i;
+                    case "CODESTADO" -> iCODESTADO = i;
+                    case "CODOFIC"   -> iCODOFIC   = i;
+                    case "CODRESP"   -> iCODRESP   = i;
+                    case "OBSERV"    -> iOBSERV    = i;
+                    case "COD_RUBE"  -> iCOD_RUBE  = i;
+                    case "NRO_CONV"  -> iNRO_CONV  = i;
+                    case "ORG_FIN"   -> iORG_FIN   = i;
+                    case "FEULT"     -> iFEULT     = i;
+                    case "USUAR"     -> iUSUAR     = i;
+                    case "API_ESTADO" -> iAPI      = i;
+                    case "CODIGOSEC" -> iCODIGOSEC = i;
+                    case "BANDERAS"  -> iBANDERAS  = i;
+                    case "FEC_MOD"   -> iFEC_MOD   = i;
+                    case "USU_MOD"   -> iUSU_MOD   = i;
                 }
             }
 
-            // ── Imprime campos encontrados al primer arranque (diagnóstico) ─────
-            log.info("ACTUAL.DBF — campos detectados: ENTIDAD={} UNIDAD={} CODOFIC={} " +
-                    "CODRESP={} CODIGO={} CODCONT={} CODAUX={}",
-                iENT, iUNI, iCODOFI, iCODRESP, iCODIGO, iCODCONT, iCODAUX);
+            // Log de diagnóstico (quitar en producción)
+            log.info("ACTUAL.DBF campos: ENTIDAD={} UNIDAD={} CODIGO={} CODCONT={} " +
+                    "CODAUX={} CODOFIC={} CODRESP={} DIA={} MES={} ANO={} " +
+                    "CODESTADO={} ORG_FIN={} COSTO={} VIDAUTIL={}",
+                iENT, iUNI, iCOD, iCODCONT, iCODAUX, iCODOFIC, iCODRESP,
+                iDIA, iMES, iANO, iCODESTADO, iORG_FIN, iCOSTO, iVIDAUTIL);
 
             final String ql = (q == null ? null : q.toLowerCase(Locale.ROOT));
             Object[] row;
@@ -1054,36 +1081,43 @@ public class JavaDbfService {
                     if (row == null) break;
                     rowNum++;
 
-                    // Validar clave mínima
-                    String codigo = asString(row, iCODIGO);
+                    String codigo = asString(row, iCOD);
                     if (isBlank(codigo)) continue;
 
                     String entidad = asString(row, iENT);
                     String unidad  = asString(row, iUNI);
+                    String descrip = asString(row, iDESCRIP);
 
-                    // Filtro texto
                     if (ql != null) {
-                        String hay = (codigo + " " +
+                        String hay = ((codigo) + " " +
                             (entidad != null ? entidad : "") + " " +
-                            (asString(row, iDESCRIP) != null ? asString(row, iDESCRIP) : ""))
-                            .toLowerCase(Locale.ROOT);
+                            (descrip != null ? descrip : "")).toLowerCase(Locale.ROOT);
                         if (!hay.contains(ql)) continue;
                     }
 
-                    // Fechas
-                    LocalDate fechaAdq = null;
-                    if (iFECHAADQ >= 0 && row[iFECHAADQ] != null) {
-                        try {
-                            if (row[iFECHAADQ] instanceof java.util.Date dd)
-                                fechaAdq = new java.sql.Date(dd.getTime()).toLocalDate();
-                        } catch (Exception ignored) {}
-                    }
+                    // ── Fecha adquisición desde DIA+MES+ANO ──────────────────────
+                    LocalDate fechaAdq = construirFecha(
+                        asInt(row, iDIA), asInt(row, iMES), asInt(row, iANO));
 
+                    // ── Fecha anterior desde DIA_ANT+MES_ANT+ANO_ANT ─────────────
+                    LocalDate fechaAnt = construirFecha(
+                        asInt(row, iDIA_ANT), asInt(row, iMES_ANT), asInt(row, iANO_ANT));
+
+                    // ── FEULT (campo DATE nativo) ──────────────────────────────────
                     LocalDate feult = null;
                     if (iFEULT >= 0 && row[iFEULT] != null) {
                         try {
                             if (row[iFEULT] instanceof java.util.Date dd)
                                 feult = new java.sql.Date(dd.getTime()).toLocalDate();
+                        } catch (Exception ignored) {}
+                    }
+
+                    // ── FEC_MOD (campo DATE nativo) ───────────────────────────────
+                    LocalDate fecMod = null;
+                    if (iFEC_MOD >= 0 && row[iFEC_MOD] != null) {
+                        try {
+                            if (row[iFEC_MOD] instanceof java.util.Date dd)
+                                fecMod = new java.sql.Date(dd.getTime()).toLocalDate();
                         } catch (Exception ignored) {}
                     }
 
@@ -1094,31 +1128,53 @@ public class JavaDbfService {
                         if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) observ = null;
                     } catch (Exception ignored) {}
 
-                    Integer codOfi   = asInt(row, iCODOFI);
-                    Integer codCont  = asInt(row, iCODCONT);
-                    Integer codAux   = asInt(row, iCODAUX);
-                    Integer api      = asInt(row, iAPI);
-                    Double  costo    = asDouble(row, iCOSTO);
-                    Integer vidaUtil = asInt(row, iVIDAUTIL);
-                    String  codResp  = asString(row, iCODRESP);
-                    String  codOf    = asString(row, iCODOF);
+                    // ── CODRESP: en el DBF es Numeric, pero lo usamos como String ─
+                    String codResp = null;
+                    Integer codRespInt = asInt(row, iCODRESP);
+                    if (codRespInt != null && codRespInt > 0)
+                        codResp = String.valueOf(codRespInt);
+
+                    // ── VIDAUTIL: Float en DBF → Integer ─────────────────────────
+                    Integer vidaUtil = null;
+                    Double vidaUtilD = asDouble(row, iVIDAUTIL);
+                    if (vidaUtilD != null) vidaUtil = vidaUtilD.intValue();
+                    
+                    Integer codCont = asInt(row, iCODCONT);
+                    Integer codAux  = asInt(row, iCODAUX);
+                    Integer codOfi  = asInt(row, iCODOFIC);
+                    Integer codEst  = asInt(row, iCODESTADO);
+                    Integer vutAnt  = asInt(row, iVUT_ANT);
 
                     out.add(ActivoDbf.builder()
                         .entidadCodigo(entidad != null ? entidad.trim() : null)
                         .unidad(unidad != null ? unidad.trim() : null)
                         .codOfi(codOfi != null ? codOfi.shortValue() : null)
-                        .codResp(codResp != null ? codResp.trim() : null)
+                        .codResp(codResp)
                         .codCont(codCont != null ? codCont.shortValue() : null)
                         .codAux(codAux != null ? codAux.shortValue() : null)
                         .codigo(codigo.trim())
-                        .descrip(asString(row, iDESCRIP))
-                        .costo(costo)
+                        .codigoSec(asString(row, iCODIGOSEC))
+                        .descrip(descrip)
+                        .costo(asDouble(row, iCOSTO))
+                        .depAcu(asDouble(row, iDEPACU))
+                        .costoAnt(asDouble(row, iCOSTO_ANT))
                         .vidaUtil(vidaUtil)
+                        .vutAnt(vutAnt)
                         .fechaAdq(fechaAdq)
-                        .codOf(codOf != null ? codOf.trim() : null)
-                        .apiEstado(api != null ? api.shortValue() : null)
+                        .fechaAnt(fechaAnt)
+                        .bRev(asBool(row, iBREV))
+                        .bandUfv(asBool(row, iBANDUFV))
+                        .codEstado(codEst != null ? codEst.shortValue() : null)
+                        .codRube(asString(row, iCOD_RUBE))
+                        .nroConv(asString(row, iNRO_CONV))
+                        .codOf(asString(row, iORG_FIN))
+                        .banderas(asString(row, iBANDERAS))
                         .fechaUlt(feult)
                         .usuario(asString(row, iUSUAR))
+                        .apiEstado(asInt(row, iAPI) != null
+                            ? asInt(row, iAPI).shortValue() : null)
+                        .fecMod(fecMod)
+                        .usuMod(asString(row, iUSU_MOD))
                         .observ(observ)
                         .build());
 
@@ -1126,7 +1182,7 @@ public class JavaDbfService {
                     log.error("⚠️ Error leyendo ACTUAL.DBF en registro #{}. " +
                             "Conservando {} registros válidos. Detalle: {}",
                         rowNum, out.size(), ex.getMessage());
-                    break; // mismo patrón defensivo que OFICINA.DBF
+                    break;
                 }
             }
 
@@ -1136,6 +1192,306 @@ public class JavaDbfService {
 
         log.info("ACTUAL.DBF — leídos {} registros", out.size());
         return out;
+    }
+
+    // Helper: construir LocalDate desde 3 SmallInt
+    private LocalDate construirFecha(Integer dia, Integer mes, Integer ano) {
+        if (dia == null || mes == null || ano == null) return null;
+        if (ano < 1900 || ano > 2100) return null;
+        if (mes < 1 || mes > 12) return null;
+        if (dia < 1 || dia > 31) return null;
+        try {
+            return LocalDate.of(ano, mes, dia);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // ── Lock para escrituras en ACTUAL.DBF ──────────────────────────────────────
+    private final Object actualLock = new Object();
+
+    // ── Record interno para transportar datos raw de ACTUAL.DBF ─────────────────
+    private record ActualDbfRaw(DBFField[] fields,
+                                List<Object[]> rows,
+                                Map<String, Integer> fieldIndex) {}
+
+    // ────────────────────────────────────────────────────────────────────────────
+    //  LECTOR: sol_transferencias.dbf desde ruta CIFS externa
+    // ────────────────────────────────────────────────────────────────────────────
+    public List<SolTransferenciaDbf> listarSolTransferenciasAll(Path dir, String q) {
+        Path file = dir.resolve("sol_transferencias.DBF");
+        List<SolTransferenciaDbf> out = new ArrayList<>();
+
+        if (!Files.exists(file)) {
+            log.warn("sol_transferencias.dbf no encontrado en: {}", file);
+            return out;
+        }
+
+        Charset cs = (charset != null && !charset.isBlank())
+            ? Charset.forName(charset)
+            : Charset.forName("CP1252");
+
+        try (InputStream in = Files.newInputStream(file);
+            DBFReader reader = new DBFReader(in, cs)) {
+
+            int iIDT = -1, iNOMBRET = -1, iFECHAT = -1, iESTADOT = -1, iCORRT = -1;
+            int iUNIDADO = -1, iCODCONTO = -1, iCODAUXO = -1, iCODIGOO = -1;
+            int iESTADOO = -1, iCODOFICO = -1, iCODRESPO = -1, iCISOLO = -1;
+            int iUNIDADD = -1, iCODOFICD = -1, iCIRECEP = -1, iNOMRECEP = -1;
+
+            int n = reader.getFieldCount();
+            for (int i = 0; i < n; i++) {
+                String name = reader.getField(i).getName().toUpperCase(Locale.ROOT);
+                switch (name) {
+                    case "ID_T"      -> iIDT       = i;
+                    case "NOMBRE_T"  -> iNOMBRET   = i;
+                    case "FECHA_T"   -> iFECHAT    = i;
+                    case "ESTADO_T"  -> iESTADOT   = i;
+                    case "CORR_T"    -> iCORRT     = i;
+                    case "UNIDAD_O"  -> iUNIDADO   = i;
+                    case "CODCONT_O" -> iCODCONTO  = i;
+                    case "CODAUX_O"  -> iCODAUXO   = i;
+                    case "CODIGO_O"  -> iCODIGOO   = i;
+                    case "ESTADO_O"  -> iESTADOO   = i;
+                    case "CODOFIC_O" -> iCODOFICO  = i;
+                    case "CODRESP_O" -> iCODRESPO  = i;
+                    case "CI_SOL_O"  -> iCISOLO    = i;
+                    case "UNIDAD_D"  -> iUNIDADD   = i;
+                    case "CODOFIC_D" -> iCODOFICD  = i;
+                    case "CI_RECEP"  -> iCIRECEP   = i;
+                    case "NOM_RECEP" -> iNOMRECEP  = i;
+                    // _NULLFLAGS se ignora deliberadamente
+                }
+            }
+
+            final String ql = (q == null ? null : q.toLowerCase(Locale.ROOT));
+            Object[] row;
+            int rowNum = 0;
+
+            while (true) {
+                try {
+                    row = reader.nextRecord();
+                    if (row == null) break;
+                    rowNum++;
+
+                    String codigoO = asString(row, iCODIGOO);
+                    if (isBlank(codigoO)) continue;
+
+                    if (ql != null) {
+                        String hay = String.join(" ",
+                            codigoO,
+                            asString(row, iUNIDADO) != null ? asString(row, iUNIDADO) : "",
+                            asString(row, iUNIDADD)  != null ? asString(row, iUNIDADD)  : "",
+                            asString(row, iNOMBRET)  != null ? asString(row, iNOMBRET)  : "",
+                            asString(row, iESTADOT)  != null ? asString(row, iESTADOT)  : ""
+                        ).toLowerCase(Locale.ROOT);
+                        if (!hay.contains(ql)) continue;
+                    }
+
+                    LocalDate fechaT = null;
+                    if (iFECHAT >= 0 && row[iFECHAT] != null) {
+                        try {
+                            if (row[iFECHAT] instanceof java.util.Date dd)
+                                fechaT = new java.sql.Date(dd.getTime()).toLocalDate();
+                        } catch (Exception ignored) {}
+                    }
+
+                    out.add(SolTransferenciaDbf.builder()
+                        .idT(asLong(row, iIDT))
+                        .nombreT(asString(row, iNOMBRET))
+                        .fechaT(fechaT)
+                        .estadoT(asString(row, iESTADOT))
+                        .corrT(asString(row, iCORRT))
+                        .unidadO(asString(row, iUNIDADO) != null ? asString(row, iUNIDADO).trim() : null)
+                        .codContO(asInt(row, iCODCONTO) != null ? asInt(row, iCODCONTO).shortValue() : null)
+                        .codAuxO(asInt(row, iCODAUXO)  != null ? asInt(row, iCODAUXO).shortValue()  : null)
+                        .codigoO(codigoO.trim())
+                        .estadoO(asInt(row, iESTADOO)  != null ? asInt(row, iESTADOO).shortValue()  : null)
+                        .codOficO(asInt(row, iCODOFICO) != null ? asInt(row, iCODOFICO).shortValue() : null)
+                        .codRespO(asInt(row, iCODRESPO) != null ? asInt(row, iCODRESPO).shortValue() : null)
+                        .ciSolO(asString(row, iCISOLO))
+                        .unidadD(asString(row, iUNIDADD)  != null ? asString(row, iUNIDADD).trim()  : null)
+                        .codOficD(asInt(row, iCODOFICD) != null ? asInt(row, iCODOFICD).shortValue() : null)
+                        .ciRecep(asString(row, iCIRECEP))
+                        .nomRecep(asString(row, iNOMRECEP))
+                        .build());
+
+                } catch (Exception ex) {
+                    // Protección ante corrupción parcial del archivo CIFS
+                    log.error("⚠️ Error leyendo sol_transferencias.dbf registro #{} — " +
+                            "conservando {} registros válidos. Detalle: {}",
+                            rowNum, out.size(), ex.getMessage());
+                    break;
+                }
+            }
+
+        } catch (IOException e) {
+            // Caída de red o montaje CIFS no disponible — no interrumpe el hilo principal
+            log.error("🌐 Error de red/CIFS al leer sol_transferencias.dbf: {}. Ruta: {}",
+                    e.getMessage(), file);
+        } catch (Exception e) {
+            log.error("❌ Error inesperado leyendo sol_transferencias.dbf: {}", e.getMessage(), e);
+        }
+
+        log.info("sol_transferencias.dbf — {} registros leídos", out.size());
+        return out;
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    //  ESCRITOR: Actualiza unidad/oficina/resp de un activo en ACTUAL.DBF
+    // ────────────────────────────────────────────────────────────────────────────
+    public void actualizarActivoParaTransferencia(
+            String codigoActivo,
+            String entidadCodigo,
+            String unidadOrigen,
+            String unidadDestino,
+            Short  codOficDestino,
+            Short  codRespDestino,
+            LocalDate fechaUlt,
+            String usuario) throws Exception {
+
+        Path file = baseDir.resolve("ACTUAL.DBF");
+        Path tmp  = baseDir.resolve("ACTUAL.TMP.DBF");
+
+        synchronized (actualLock) {
+            ActualDbfRaw raw = leerActualRaw();
+
+            int iCOD    = raw.fieldIndex().getOrDefault("CODIGO",   -1);
+            int iENT    = raw.fieldIndex().getOrDefault("ENTIDAD",  -1);
+            int iUNI    = raw.fieldIndex().getOrDefault("UNIDAD",   -1);
+            int iOFIC   = raw.fieldIndex().getOrDefault("CODOFIC",  -1);
+            int iRESP   = raw.fieldIndex().getOrDefault("CODRESP",  -1);
+            int iFEULT  = raw.fieldIndex().getOrDefault("FEULT",    -1);
+            int iUSUAR  = raw.fieldIndex().getOrDefault("USUAR",    -1);
+
+            boolean found = false;
+            for (Object[] row : raw.rows()) {
+                String cod = iCOD  >= 0 && row[iCOD]  != null ? row[iCOD].toString().trim()  : null;
+                String ent = iENT  >= 0 && row[iENT]  != null ? row[iENT].toString().trim()  : null;
+                String uni = iUNI  >= 0 && row[iUNI]  != null ? row[iUNI].toString().trim()  : null;
+
+                if (!Objects.equals(cod, codigoActivo))   continue;
+                if (!Objects.equals(ent, entidadCodigo))  continue;
+                if (!Objects.equals(uni, unidadOrigen))   continue;
+
+                // Solo se tocan los campos de ubicación; el resto se preserva intacto
+                if (iUNI   >= 0) row[iUNI]   = padRight(cut(unidadDestino, 5), 5);
+                if (iOFIC  >= 0) row[iOFIC]  = codOficDestino  != null ? (int) codOficDestino  : row[iOFIC];
+                if (iRESP  >= 0) row[iRESP]  = codRespDestino  != null ? (int) codRespDestino  : row[iRESP];
+                if (iFEULT >= 0) row[iFEULT] = fechaUlt != null ? java.sql.Date.valueOf(fechaUlt) : row[iFEULT];
+                if (iUSUAR >= 0) row[iUSUAR] = cut(usuario != null ? usuario : "", 8);
+                found = true;
+                break;
+            }
+
+            if (!found) throw new IllegalArgumentException(
+                "Activo no encontrado en ACTUAL.DBF: CODIGO=" + codigoActivo +
+                " ENTIDAD=" + entidadCodigo + " UNIDAD=" + unidadOrigen);
+
+            Charset cs = (charset != null && !charset.isBlank())
+                ? Charset.forName(charset) : Charset.forName("CP1252");
+
+            try (OutputStream out = Files.newOutputStream(tmp,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                DBFWriter writer = new DBFWriter(out, cs)) {
+                writer.setFields(raw.fields());
+                for (Object[] row : raw.rows()) writer.addRecord(row);
+            }
+
+            Files.move(tmp, file,
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE);
+
+            log.info("✅ ACTUAL.DBF — activo {} transferido a unidad {}", codigoActivo, unidadDestino);
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    //  ESCRITOR: Marca una transferencia como APROBADO en sol_transferencias.dbf
+    // ────────────────────────────────────────────────────────────────────────────
+    public void actualizarEstadoTransferenciaDbf(Path dir, String corrT, String nuevoEstado)
+            throws Exception {
+
+        Path file = dir.resolve("sol_transferencias.DBF");
+        Path tmp  = dir.resolve("sol_transferencias.TMP.dbf");
+
+        Charset cs = (charset != null && !charset.isBlank())
+            ? Charset.forName(charset) : Charset.forName("CP1252");
+
+        // Leer raw
+        DBFField[] fields;
+        List<Object[]> rows = new ArrayList<>();
+        int iCORRT = -1, iESTADOT = -1;
+
+        try (InputStream in = Files.newInputStream(file);
+            DBFReader reader = new DBFReader(in, cs)) {
+
+            int n = reader.getFieldCount();
+            fields = new DBFField[n];
+            for (int i = 0; i < n; i++) {
+                fields[i] = reader.getField(i);
+                String name = fields[i].getName().toUpperCase(Locale.ROOT);
+                if ("CORR_T".equals(name))   iCORRT   = i;
+                if ("ESTADO_T".equals(name)) iESTADOT = i;
+            }
+            Object[] row;
+            while ((row = reader.nextRecord()) != null) rows.add(row);
+        }
+
+        final int fCORRT = iCORRT, fESTADOT = iESTADOT;
+        rows.stream()
+            .filter(r -> fCORRT >= 0 && r[fCORRT] != null &&
+                        corrT.equalsIgnoreCase(r[fCORRT].toString().trim()))
+            .findFirst()
+            .ifPresent(r -> { if (fESTADOT >= 0) r[fESTADOT] = nuevoEstado; });
+
+        try (OutputStream out = Files.newOutputStream(tmp,
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            DBFWriter writer = new DBFWriter(out, cs)) {
+            writer.setFields(fields);
+            for (Object[] row : rows) writer.addRecord(row);
+        }
+
+        Files.move(tmp, file,
+            StandardCopyOption.REPLACE_EXISTING,
+            StandardCopyOption.ATOMIC_MOVE);
+
+        log.info("✅ sol_transferencias.dbf — CORR_T={} marcado como {}", corrT, nuevoEstado);
+    }
+
+    // ── Helper privado: lee ACTUAL.DBF en modo raw (Object[]) ───────────────────
+    private ActualDbfRaw leerActualRaw() throws IOException {
+        Path file = baseDir.resolve("ACTUAL.DBF");
+        Charset cs = (charset != null && !charset.isBlank())
+            ? Charset.forName(charset) : Charset.forName("CP1252");
+
+        try (InputStream in = Files.newInputStream(file);
+            DBFReader reader = new DBFReader(in, cs)) {
+
+            int n = reader.getFieldCount();
+            DBFField[] fields = new DBFField[n];
+            Map<String, Integer> idx = new HashMap<>(n);
+
+            for (int i = 0; i < n; i++) {
+                fields[i] = reader.getField(i);
+                idx.put(fields[i].getName().toUpperCase(Locale.ROOT), i);
+            }
+
+            List<Object[]> rows = new ArrayList<>();
+            int rowNum = 0;
+            while (true) {
+                try {
+                    Object[] row = reader.nextRecord();
+                    if (row == null) break;
+                    rows.add(row);
+                    rowNum++;
+                } catch (Exception e) {
+                    log.error("Error leyendo ACTUAL.DBF raw en fila #{}: {}", rowNum, e.getMessage());
+                    break;
+                }
+            }
+            return new ActualDbfRaw(fields, rows, idx);
+        }
     }
 
 }
