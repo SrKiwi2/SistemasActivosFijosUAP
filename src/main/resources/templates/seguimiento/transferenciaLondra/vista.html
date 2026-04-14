@@ -17,7 +17,7 @@
             showGlobalLoader({ texto: 'Leyendo DBF...', imgUrl: '/assets/img/logo/activofijos.png' });
             $.ajax({
                 type: 'POST',
-                url: '/transferencias/tabla-registros' + (q ? ('?q=' + encodeURIComponent(q)) : ''),
+                url: '/administracion/transferenciasLondra/tabla-registros' + (q ? ('?q=' + encodeURIComponent(q)) : ''),
                 success: function (html) {
                     $('#tablaRegistro').html(html);
                     initDataTable();
@@ -61,7 +61,7 @@
         }
 
         function verificarPendientes() {
-            $.get('/transferencias/conteo-pendientes', function (res) {
+            $.get('/administracion/transferenciasLondra/conteo-pendientes', function (res) {
                 const count = res.pendientes || 0;
                 if (count > 0) {
                     $('#msgPendientes').text(count + ' transferencia(s) pendiente(s) de aprobación.');
@@ -92,7 +92,7 @@
                 showGlobalLoader({ texto: 'Procesando aprobación...' });
                 $.ajax({
                     type: 'POST',
-                    url: '/transferencias/aprobar/' + encodeURIComponent(corrT),
+                    url: '/administracion/transferenciasLondra/aprobar/' + encodeURIComponent(corrT),
                     success: function (res) {
                         Swal.fire('Aprobado', res.msg, 'success');
                         cargarTabla();
