@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -37,21 +38,25 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     private final JavaDbfService         dbfService;
     private final ITransferenciaLondraDao transferenciaRepo;
     private final IPredioServicio        predioServicio;
-
-    // ⚠️ Adapta los nombres si tus interfaces se llaman distinto:
-    private final IOficinaService        oficinaService;        // findByCodOficAndPredio(Short, Predio)
-    private final IResponsableService    responsableService;    // findByCodRespAndOficina(Short, Oficina)
-    private final IActivoService         activoService;         // findByCodigo(String)
+    private final IOficinaService        oficinaService;
+    private final IResponsableService    responsableService;
+    private final IActivoService         activoService;
 
     @Value("${legacy.dbf.transferencias.path}")
     private String transferenciasPath;
 
-    // ────────────────────────────────────────────────────────────────────────
+    private static final Set<String> ESTADOS_PENDIENTES = Set.of(
+        "ENVIADO", "PENDIENTE", "PEND", "P", "0"
+    );
 
+    private boolean esPendiente(String estadoT) {
+        if (estadoT == null) return false;
+        return ESTADOS_PENDIENTES.contains(estadoT.trim().toUpperCase());
+    }
+    
     @Override
     public List<TransferenciaValidadaDto> leerYValidarPendientes() {
         List<SolTransferenciaDbf> filas;
-
         try {
             filas = dbfService.listarSolTransferenciasAll(
                 Path.of(transferenciasPath), null);
@@ -61,7 +66,7 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         }
 
         return filas.stream()
-            .filter(f -> "PENDIENTE".equalsIgnoreCase(f.getEstadoT()))
+            .filter(f -> esPendiente(f.getEstadoT()))  // ← antes: "PENDIENTE".equalsIgnoreCase(...)
             .map(this::validar)
             .collect(Collectors.toList());
     }
@@ -71,7 +76,7 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         try {
             return dbfService.listarSolTransferenciasAll(Path.of(transferenciasPath), null)
                 .stream()
-                .filter(f -> "PENDIENTE".equalsIgnoreCase(f.getEstadoT()))
+                .filter(f -> esPendiente(f.getEstadoT()))  // ← mismo cambio
                 .count();
         } catch (Exception e) {
             log.warn("No se pudo contar pendientes: {}", e.getMessage());
@@ -79,13 +84,10 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         }
     }
 
-    // ── Aprobación ───────────────────────────────────────────────────────────
-
     @Override
     @Transactional
     public TransferenciaLondra aprobar(String corrT, String usuarioNombre) throws Exception {
 
-        // 1. Leer y re-validar
         SolTransferenciaDbf dbfRec = dbfService.listarSolTransferenciasAll(
                 Path.of(transferenciasPath), null)
             .stream()
@@ -101,7 +103,6 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
                 String.join(", ", validado.getErrores()));
         }
 
-        // 2. Persistir en PostgreSQL
         TransferenciaLondra t = TransferenciaLondra.builder()
             .corrT(dbfRec.getCorrT())
             .idTDbf(dbfRec.getIdT())
@@ -128,10 +129,8 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
 
         transferenciaRepo.save(t);
 
-        // 3. Actualizar ACTUAL.DBF (la fuente de verdad del legado)
-        //    Necesitamos la entidad del predio origen para identificar el registro en ACTUAL.DBF
         Predio predioO = predioServicio
-            .findByUnidadIgnoreCase(dbfRec.getUnidadO())   // ⚠️ Adaptar
+            .findByUnidadIgnoreCase(dbfRec.getUnidadO())
             .orElseThrow(() -> new IllegalStateException(
                 "Predio origen no encontrado al aprobar: " + dbfRec.getUnidadO()));
 
@@ -141,12 +140,11 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             dbfRec.getUnidadO(),
             dbfRec.getUnidadD(),
             dbfRec.getCodOficD(),
-            dbfRec.getCodRespO(),      // usamos el codResp del origen como base; ajusta si tienes codResp destino
+            dbfRec.getCodRespO(),
             LocalDate.now(),
             usuarioNombre
         );
 
-        // 4. Marcar como APROBADO en sol_transferencias.DBF
         dbfService.actualizarEstadoTransferenciaDbf(
             Path.of(transferenciasPath), corrT, "APROBADO");
 
@@ -154,43 +152,36 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         return t;
     }
 
-    // ── Validación interna ───────────────────────────────────────────────────
-
     private TransferenciaValidadaDto validar(SolTransferenciaDbf f) {
         List<String> errores = new ArrayList<>();
 
-        // Tipo de transferencia
         boolean mismaUnidad = f.getUnidadO() != null &&
                               f.getUnidadO().equalsIgnoreCase(f.getUnidadD());
         var tipo = mismaUnidad
             ? TransferenciaValidadaDto.TipoTransferencia.INTERNA
             : TransferenciaValidadaDto.TipoTransferencia.EXTERNA;
 
-        // ── Checks origen ────────────────────────────────────────────────────
         boolean activoOk = false;
         boolean predioOOk = false;
         boolean oficOOk = false;
         boolean respOOk = false;
 
-        // Activo
         try {
-            activoOk = activoService.findByCodigo(f.getCodigoO()).isPresent(); // ⚠️ Adaptar
+            activoOk = activoService.findByCodigo(f.getCodigoO()).isPresent();
             if (!activoOk) errores.add("Activo '" + f.getCodigoO() + "' no existe en BD");
         } catch (Exception e) {
             errores.add("Error buscando activo: " + e.getMessage());
         }
 
-        // Predio origen
         Optional<Predio> predioOpt = Optional.empty();
         try {
-            predioOpt = predioServicio.findByUnidadIgnoreCase(f.getUnidadO()); // ⚠️ Adaptar
+            predioOpt = predioServicio.findByUnidadIgnoreCase(f.getUnidadO());
             predioOOk = predioOpt.isPresent();
             if (!predioOOk) errores.add("Unidad origen '" + f.getUnidadO() + "' no existe");
         } catch (Exception e) {
             errores.add("Error buscando predio origen: " + e.getMessage());
         }
 
-        // Oficina origen
         if (predioOOk && f.getCodOficO() != null) {
             try {
                 oficOOk = oficinaService
@@ -203,13 +194,10 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             }
         }
 
-        
-
-        // Responsable origen
         if (oficOOk && f.getCodRespO() != null) {   
             try {
                 Optional<Oficina> ofic = oficinaService
-                    .findByCodOfiAndPredio(f.getCodOficO(), predioOpt.get()); // ⚠️ Adaptar
+                    .findByCodOfiAndPredio(f.getCodOficO(), predioOpt.get());
                 respOOk = ofic.isPresent() && responsableService
                     .findByCodigoFuncionarioAndOficina(String.valueOf(f.getCodRespO()), ofic.get()) 
                     .isPresent();
@@ -220,14 +208,13 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             }
         }
 
-        // ── Checks destino ───────────────────────────────────────────────────
         boolean predioD = false;
         boolean oficDOk = false;
         boolean respDOk = false;
 
         Optional<Predio> predioDOpt = Optional.empty();
         try {
-            predioDOpt = predioServicio.findByUnidadIgnoreCase(f.getUnidadD()); // ⚠️ Adaptar
+            predioDOpt = predioServicio.findByUnidadIgnoreCase(f.getUnidadD());
             predioD = predioDOpt.isPresent();
             if (!predioD) errores.add("Unidad destino '" + f.getUnidadD() + "' no existe");
         } catch (Exception e) {
@@ -237,7 +224,7 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         if (predioD && f.getCodOficD() != null) {
             try {
                 oficDOk = oficinaService
-                    .findByCodOfiAndPredio(f.getCodOficD(), predioDOpt.get()) // ⚠️ Adaptar
+                    .findByCodOfiAndPredio(f.getCodOficD(), predioDOpt.get())
                     .isPresent();
                 if (!oficDOk)
                     errores.add("Oficina destino " + f.getCodOficD() + " no existe en unidad " + f.getUnidadD());
@@ -248,13 +235,13 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
 
         if (f.getCiRecep() != null && !f.getCiRecep().isBlank()) {
             try {
-                respDOk = responsableService.existsByPersonaCi(f.getCiRecep()); // ⚠️ Adaptar
+                respDOk = responsableService.existsByPersonaCi(f.getCiRecep());
                 if (!respDOk) errores.add("CI receptor '" + f.getCiRecep() + "' no registrado");
             } catch (Exception e) {
                 errores.add("Error buscando receptor: " + e.getMessage());
             }
         } else {
-            respDOk = true; // campo opcional según tu modelo
+            respDOk = true;
         }
 
         boolean yaAprobada = transferenciaRepo.existsByCorrT(f.getCorrT());
@@ -278,5 +265,4 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             .yaAprobadaEnBd(yaAprobada)
             .build();
     }
-    
 }
