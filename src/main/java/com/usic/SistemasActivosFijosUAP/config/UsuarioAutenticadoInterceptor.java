@@ -16,6 +16,11 @@ public class UsuarioAutenticadoInterceptor implements HandlerInterceptor{
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
 
+        String uri = request.getRequestURI();
+        if (uri.startsWith("/api/eventos")) {
+            return true; // SSE pasa siempre
+        }
+
         if (handler instanceof HandlerMethod handlerMethod) {
             ValidarUsuarioAutenticado anotacion = handlerMethod.getMethodAnnotation(ValidarUsuarioAutenticado.class);
             if (anotacion != null) {
