@@ -1,117 +1,138 @@
-<!-- Error de carga -->
-<div th:if="${errorCarga != null}" class="alert alert-danger mx-3 mt-3">
-    <i class="fa-solid fa-bug me-2"></i>
-    <strong>Error:</strong> <code th:text="${errorCarga}"></code>
+<!-- ── Resumen ejecutivo ─────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4" th:if="${not #lists.isEmpty(transferencias)}">
+    <div class="col-6 col-sm-3">
+        <div class="card border-0 bg-label-warning text-center px-3 py-3">
+            <div class="fs-2 fw-bold" th:text="${#lists.size(transferencias)}">0</div>
+            <small class="text-muted">Total pendientes</small>
+        </div>
+    </div>
+    <div class="col-6 col-sm-3">
+        <div class="card border-0 bg-label-success text-center px-3 py-3">
+            <div class="fs-2 fw-bold"
+                 th:text="${#aggregates.sum(transferencias.![todosValidos ? 1 : 0])}">0</div>
+            <small class="text-muted">Listas para aprobar</small>
+        </div>
+    </div>
+    <div class="col-6 col-sm-3">
+        <div class="card border-0 bg-label-danger text-center px-3 py-3">
+            <div class="fs-2 fw-bold"
+                 th:text="${#aggregates.sum(transferencias.[!todosValidos ? 1 : 0])}">0</div>
+            <small class="text-muted">Con errores</small>
+        </div>
+    </div>
+    <div class="col-6 col-sm-3">
+        <div class="card border-0 bg-label-secondary text-center px-3 py-3">
+            <div class="fs-2 fw-bold"
+                 th:text="${#aggregates.sum(transferencias.![activos.size()])}">0</div>
+            <small class="text-muted">Activos involucrados</small>
+        </div>
+    </div>
 </div>
 
-<!-- Panel resumen -->
-<div class="row g-3 mb-4" th:if="${!transferencias.empty}">
-    <div class="col-auto">
-        <div class="card border-0 bg-label-warning text-center px-4 py-3">
-            <div class="fs-3 fw-bold" th:text="${transferencias.size()}">0</div>
-            <small>Transferencias</small>
-        </div>
-    </div>
-    <div class="col-auto">
-        <div class="card border-0 bg-label-success text-center px-4 py-3">
-            <div class="fs-3 fw-bold"
-                th:text="${transferencias.?[todosValidos].size()}">0</div>
-            <small>Listas para aprobar</small>
-        </div>
-    </div>
-    <div class="col-auto">
-        <div class="card border-0 bg-label-danger text-center px-4 py-3">
-            <div class="fs-3 fw-bold"
-                th:text="${transferencias.?[!todosValidos].size()}">0</div>
-            <small>Con errores</small>
-        </div>
-    </div>
-</div>
-
-<!-- Estado vacío -->
-<div th:if="${transferencias.empty}" class="text-center py-5">
+<!-- ── Estado vacío ──────────────────────────────────────────────────────── -->
+<div th:if="${#lists.isEmpty(transferencias)}" class="text-center py-5">
     <i class="fa-solid fa-circle-check fa-3x text-success mb-3 d-block"></i>
     <h5 class="text-muted">No hay transferencias pendientes</h5>
+    <small class="text-muted">El sistema verificará automáticamente cada 30 segundos.</small>
 </div>
 
-<!-- Tabla resumen: UNA fila = UN CORR_T -->
-<div class="card" th:if="${!transferencias.empty}">
+<!-- ── Error de carga ─────────────────────────────────────────────────────── -->
+<div th:if="${errorCarga != null}" class="alert alert-danger mx-1">
+    <i class="fa-solid fa-bug me-2"></i>
+    <strong>Error al procesar:</strong>
+    <code th:text="${errorCarga}"></code>
+</div>
+
+<!-- ── Tabla principal ───────────────────────────────────────────────────── -->
+<div class="card shadow-sm" th:if="${not #lists.isEmpty(transferencias)}">
     <div class="card-datatable table-responsive pt-0">
-        <table class="table table-hover" id="data-table-transferencias">
-            <thead>
+        <table class="table table-hover align-middle mb-0"
+               id="data-table-transferencias">
+            <thead class="table-light">
                 <tr>
+                    <th style="width:1%">#</th>
                     <th>Correlativo</th>
                     <th>Tipo</th>
-                    <th>Origen → Destino</th>
+                    <th>Ruta</th>
                     <th>Solicitante</th>
                     <th>Receptor</th>
-                    <th class="text-center">Activos</th>
-                    <th class="text-center">Estado</th>
-                    <th class="text-center">Acción</th>
+                    <th class="text-center" style="width:8%">Activos</th>
+                    <th class="text-center" style="width:10%">Estado</th>
+                    <th class="text-center" style="width:12%">Acciones</th>
                 </tr>
             </thead>
             <tbody>
-                <tr th:each="t : ${transferencias}"
-                    th:classappend="${t.yaAprobada} ? 'opacity-50' : ''">
+                <tr th:each="t, tStat : ${transferencias}"
+                    th:id="'fila-' + ${tStat.index}"
+                    th:classappend="${t.yaAprobada} ? 'opacity-50 table-success' : ''">
 
-                    <!-- Correlativo — clic abre modal -->
+                    <td class="text-muted small"
+                        th:text="${tStat.count}">1</td>
+
+                    <!-- Correlativo + fecha -->
                     <td>
-                        <a href="#"
-                           class="fw-semibold text-primary btn-ver-detalle"
-                           th:data-corr="${t.corrT}"
-                           th:data-idx="${tStat.index}"
-                           data-bs-toggle="modal"
-                           data-bs-target="#modalDetalleTransferencia">
-                            <span th:text="${t.corrT}">—</span>
-                        </a>
-                        <br>
-                        <small class="text-muted" th:text="${t.fechaT}">—</small>
+                        <div class="fw-semibold text-dark"
+                             th:text="${t.corrT}">—</div>
+                        <small class="text-muted"
+                               th:text="${#temporals.format(t.fechaT, 'dd/MM/yyyy')}">—</small>
                     </td>
 
                     <!-- Tipo -->
                     <td>
                         <span th:if="${t.tipo != null and t.tipo.name() == 'INTERNA'}"
                               class="badge bg-label-info">
-                            <i class="fa-solid fa-building me-1"></i>Interna
+                            <i class="fa-solid fa-building fa-xs me-1"></i>Interna
                         </span>
                         <span th:if="${t.tipo != null and t.tipo.name() == 'EXTERNA'}"
                               class="badge bg-label-warning">
-                            <i class="fa-solid fa-arrow-right-arrow-left me-1"></i>Externa
+                            <i class="fa-solid fa-arrow-right-arrow-left fa-xs me-1"></i>Externa
                         </span>
                     </td>
 
-                    <!-- Ruta -->
+                    <!-- Ruta origen → destino -->
                     <td>
-                        <span class="fw-semibold" th:text="${t.unidadO}">—</span>
-                        <i class="fa-solid fa-arrow-right mx-1 text-muted"></i>
-                        <span class="fw-semibold" th:text="${t.unidadD}">—</span>
+                        <div class="d-flex align-items-center gap-1">
+                            <span class="badge bg-secondary"
+                                  th:text="${t.unidadO}">—</span>
+                            <i class="fa-solid fa-arrow-right text-muted fa-xs"></i>
+                            <span class="badge bg-primary"
+                                  th:text="${t.unidadD}">—</span>
+                        </div>
                     </td>
 
                     <!-- Solicitante -->
                     <td>
-                        <div th:text="${'Of: ' + t.codOficO + ' / Resp: ' + t.codRespO}">—</div>
-                        <small class="text-muted" th:text="${t.ciSolO}">—</small>
+                        <div class="small">
+                            Of: <strong th:text="${t.codOficO}">—</strong>
+                            &nbsp;/&nbsp;
+                            Resp: <strong th:text="${t.codRespO}">—</strong>
+                        </div>
+                        <small class="text-muted"
+                               th:text="${t.ciSolO}">—</small>
                     </td>
 
                     <!-- Receptor -->
                     <td>
-                        <div th:text="${t.nomRecep}">—</div>
-                        <small class="text-muted" th:text="${t.ciRecep}">—</small>
+                        <div class="small fw-semibold"
+                             th:text="${t.nomRecep}">—</div>
+                        <small class="text-muted"
+                               th:text="${t.ciRecep}">—</small>
                     </td>
 
                     <!-- Conteo activos -->
                     <td class="text-center">
-                        <span class="badge bg-secondary"
-                              th:text="${t.activos.size()} + ' activo(s)'">—</span>
+                        <span class="badge bg-secondary rounded-pill"
+                              th:text="${#lists.size(t.activos)}">0</span>
                         <div th:if="${t.activosConError > 0}">
-                            <small class="text-danger"
-                                   th:text="${t.activosConError} + ' con error'"></small>
+                            <small class="text-danger fw-semibold"
+                                   th:text="${t.activosConError} + ' error(es)'"></small>
                         </div>
                     </td>
 
                     <!-- Estado validación -->
                     <td class="text-center">
-                        <span th:if="${t.yaAprobada}" class="badge bg-success">
+                        <span th:if="${t.yaAprobada}"
+                              class="badge bg-success">
                             <i class="fa-solid fa-circle-check me-1"></i>Aprobada
                         </span>
                         <span th:if="${!t.yaAprobada and t.todosValidos}"
@@ -124,19 +145,17 @@
                         </span>
                     </td>
 
-                    <!-- Acción -->
+                    <!-- ✅ BOTÓN "VER DETALLES" — acción principal de la fila -->
                     <td class="text-center">
-                        <button th:if="${t.todosValidos and !t.yaAprobada}"
-                                type="button"
-                                class="btn btn-success btn-sm btn-aprobar"
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary btn-ver-detalle"
+                                th:data-idx="${tStat.index}"
                                 th:data-corr="${t.corrT}"
-                                th:data-count="${t.activos.size()}">
-                            <i class="fa-solid fa-circle-check me-1"></i>Aprobar
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalDetalleTransferencia"
+                                title="Ver detalle completo">
+                            <i class="fa-solid fa-eye me-1"></i>Ver detalles
                         </button>
-                        <span th:if="${!t.todosValidos and !t.yaAprobada}"
-                              class="badge bg-label-secondary">
-                            <i class="fa-solid fa-lock"></i>
-                        </span>
                     </td>
                 </tr>
             </tbody>
@@ -144,79 +163,156 @@
     </div>
 </div>
 
-<!-- ══════════════════════════════════════════════
-     MODAL DE DETALLE: activos individuales del CORR_T
-     ══════════════════════════════════════════════ -->
-<div class="modal fade" id="modalDetalleTransferencia"
-     tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
+<!-- ══════════════════════════════════════════════════════════════════════════
+     MODAL DE DETALLE
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade"
+     id="modalDetalleTransferencia"
+     tabindex="-1"
+     aria-labelledby="modalDetalleTitulo"
+     aria-hidden="true">
 
-            <div class="modal-header">
-                <div>
-                    <h5 class="modal-title mb-0">
-                        <i class="fa-solid fa-boxes-stacked me-2"></i>
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+
+            <!-- Cabecera del modal -->
+            <div class="modal-header bg-light border-bottom-0 pb-2">
+                <div class="d-flex flex-column">
+                    <h5 class="modal-title fw-bold mb-0" id="modalDetalleTitulo">
+                        <i class="fa-solid fa-boxes-stacked me-2 text-primary"></i>
                         Detalle de Transferencia
                     </h5>
-                    <small class="text-muted" id="modal-corr-label">—</small>
+                    <small class="text-muted mt-1">
+                        Correlativo:
+                        <strong id="modal-corr" class="text-primary">—</strong>
+                        &nbsp;·&nbsp;
+                        <span id="modal-fecha">—</span>
+                        &nbsp;·&nbsp;
+                        <span id="modal-badge-tipo"></span>
+                    </small>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
             </div>
 
-            <div class="modal-body p-0">
-
-                <!-- Cabecera de ruta: origen → destino -->
-                <div class="p-3 bg-light border-bottom d-flex gap-4 flex-wrap">
-                    <div>
-                        <small class="text-muted d-block">ORIGEN</small>
-                        <span class="fw-semibold" id="modal-unidad-o">—</span>
-                        <small class="text-muted ms-2" id="modal-ci-sol">—</small>
+            <!-- Sub-cabecera: ruta origen → destino -->
+            <div class="px-4 py-3 border-bottom bg-light">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <small class="text-uppercase text-muted fw-semibold
+                                      d-block mb-1" style="font-size:.7rem">
+                            <i class="fa-solid fa-location-dot me-1"></i>Origen
+                        </small>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-secondary fs-6"
+                                  id="modal-unidad-o">—</span>
+                            <div>
+                                <div class="small fw-semibold" id="modal-ofi-o">—</div>
+                                <small class="text-muted" id="modal-ci-sol">—</small>
+                            </div>
+                        </div>
                     </div>
-                    <div class="align-self-center text-muted">
-                        <i class="fa-solid fa-arrow-right fa-lg"></i>
+                    <div class="col-auto text-center text-muted">
+                        <i class="fa-solid fa-arrow-right fa-xl"></i>
                     </div>
-                    <div>
-                        <small class="text-muted d-block">DESTINO</small>
-                        <span class="fw-semibold" id="modal-unidad-d">—</span>
-                        <small class="text-muted ms-2" id="modal-nom-recep">—</small>
-                    </div>
-                    <div class="ms-auto align-self-center">
-                        <span id="modal-badge-tipo" class="badge">—</span>
+                    <div class="col text-end">
+                        <small class="text-uppercase text-muted fw-semibold
+                                      d-block mb-1" style="font-size:.7rem">
+                            Destino <i class="fa-solid fa-flag-checkered me-1"></i>
+                        </small>
+                        <div class="d-flex align-items-center justify-content-end gap-2">
+                            <div class="text-end">
+                                <div class="small fw-semibold" id="modal-nom-recep">—</div>
+                                <small class="text-muted" id="modal-ci-recep">—</small>
+                            </div>
+                            <span class="badge bg-primary fs-6"
+                                  id="modal-unidad-d">—</span>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Tabla de activos individuales -->
-                <div class="table-responsive">
-                    <table class="table table-sm mb-0" id="modal-tabla-activos">
-                        <thead class="table-light">
+            <!-- Cuerpo: tabla de activos individuales -->
+            <div class="modal-body p-0">
+
+                <!-- Preload interno del modal -->
+                <div id="modal-preloader"
+                     class="d-flex justify-content-center align-items-center py-5"
+                     style="display:none!important">
+                    <div class="spinner-border text-primary me-3" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <span class="text-muted">Cargando activos...</span>
+                </div>
+
+                <!-- Tabla de activos -->
+                <div id="modal-contenido-activos" class="table-responsive">
+                    <table class="table table-sm table-hover mb-0"
+                           id="modal-tabla-activos">
+                        <thead class="table-light sticky-top">
                             <tr>
-                                <th>#</th>
+                                <th style="width:3%">#</th>
                                 <th>Código Activo</th>
-                                <th>Cont / Aux</th>
-                                <th>Oficina Orig</th>
-                                <th>Resp Orig</th>
+                                <th>Cód. Contable</th>
+                                <th>Cód. Auxiliar</th>
+                                <th>Oficina Orig.</th>
+                                <th>Responsable</th>
                                 <th class="text-center">Validación</th>
-                                <th>Errores</th>
+                                <th>Observaciones</th>
                             </tr>
                         </thead>
                         <tbody id="modal-tbody">
-                            <!-- Llenado por JS -->
+                            <!-- Llenado dinámico por JS -->
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <div class="modal-footer justify-content-between">
-                <small class="text-muted" id="modal-fecha">—</small>
-                <button type="button" class="btn btn-secondary btn-sm"
-                        data-bs-dismiss="modal">Cerrar</button>
+            <!-- Footer del modal -->
+            <div class="modal-footer d-flex justify-content-between align-items-center
+                        border-top bg-light">
+                <div>
+                    <small class="text-muted">
+                        <i class="fa-solid fa-circle-info me-1"></i>
+                        Total activos:
+                        <strong id="modal-total-activos">0</strong>
+                        &nbsp;·&nbsp; Con errores:
+                        <strong class="text-danger"
+                                id="modal-activos-error">0</strong>
+                    </small>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button"
+                            class="btn btn-secondary btn-sm"
+                            data-bs-dismiss="modal">
+                        <i class="fa-solid fa-xmark me-1"></i>Cerrar
+                    </button>
+                    <!-- ✅ BOTÓN PRINCIPAL DE APROBACIÓN -->
+                    <button type="button"
+                            id="btn-aprobar-modal"
+                            class="btn btn-success btn-sm"
+                            style="min-width:160px"
+                            disabled>
+                        <span id="btn-aprobar-texto">
+                            <i class="fa-solid fa-circle-check me-1"></i>
+                            Aprobar transferencia
+                        </span>
+                        <span id="btn-aprobar-loader" class="d-none">
+                            <span class="spinner-border spinner-border-sm me-1"
+                                  role="status"></span>
+                            Procesando...
+                        </span>
+                    </button>
+                </div>
             </div>
 
         </div>
     </div>
 </div>
 
-<!-- Datos serializados para el modal (evita AJAX extra) -->
+<!-- Datos serializados: Thymeleaf → JSON (sin AJAX extra) -->
 <script th:inline="javascript">
 /*<![CDATA[*/
 const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
@@ -224,85 +320,195 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
 </script>
 
 <script>
-    // ── DataTable ────────────────────────────────────────────────────────────
-    const $tbl = $('#data-table-transferencias');
-    if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
-    $tbl.DataTable({
-        order: [ [0, 'asc'] ],
-        columnDefs: [ { orderable: false, targets: [7] } ],
-        language: {
-            sZeroRecords: "No hay transferencias pendientes",
-            sInfo: "Mostrando _START_ a _END_ de _TOTAL_",
-            sInfoEmpty: "Sin registros",
-            sSearch: "Buscar:",
-            sLengthMenu: "Mostrar _MENU_",
-            oPaginate: {
-                sNext: "›", sPrevious: "‹", sFirst: "«", sLast: "»"
-            }
-        }
-    });
+(function () {
+    'use strict';
 
-    // ── Modal: poblar con datos del grupo seleccionado ────────────────────────
+    // ── Estado del modal ─────────────────────────────────────────────────────
+    let corrTActual = null;
+
+    // ── Helpers de etiquetas legibles ────────────────────────────────────────
+    function badgeCheck(ok, label) {
+        const cls = ok ? 'bg-success' : 'bg-danger';
+        const ico = ok ? 'fa-check'   : 'fa-xmark';
+        return `<span class="badge ${cls}">
+                    <i class="fa-solid ${ico} fa-xs me-1"></i>${label}
+                </span>`;
+    }
+
+    function badgeTipo(tipo) {
+        return tipo === 'INTERNA'
+            ? '<span class="badge bg-label-info"><i class="fa-solid fa-building fa-xs me-1"></i>Interna</span>'
+            : '<span class="badge bg-label-warning"><i class="fa-solid fa-arrow-right-arrow-left fa-xs me-1"></i>Externa</span>';
+    }
+
+    // ── Apertura del modal: poblar con datos del grupo ───────────────────────
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('.btn-ver-detalle');
         if (!btn) return;
 
+        // Preloader visible mientras se llena
+        document.getElementById('modal-preloader').style.display   = 'flex';
+        document.getElementById('modal-contenido-activos').style.display = 'none';
+
         const corrT = btn.getAttribute('data-corr');
+        corrTActual  = corrT;
+
         const grupo = TRANSFERENCIAS_DATA.find(t => t.corrT === corrT);
         if (!grupo) return;
 
-        // Cabecera
-        document.getElementById('modal-corr-label').textContent = corrT;
-        document.getElementById('modal-unidad-o').textContent   = grupo.unidadO || '—';
-        document.getElementById('modal-unidad-d').textContent   = grupo.unidadD || '—';
-        document.getElementById('modal-ci-sol').textContent     = grupo.ciSolO  || '—';
+        // -- Cabecera general --
+        document.getElementById('modal-corr').textContent       = corrT;
+        document.getElementById('modal-fecha').textContent      =
+            grupo.fechaT
+                ? new Date(grupo.fechaT).toLocaleDateString('es-BO')
+                : '—';
+        document.getElementById('modal-badge-tipo').innerHTML   = badgeTipo(grupo.tipo);
+        document.getElementById('modal-unidad-o').textContent   = grupo.unidadO  || '—';
+        document.getElementById('modal-unidad-d').textContent   = grupo.unidadD  || '—';
+        document.getElementById('modal-ofi-o').textContent      =
+            'Ofic. ' + (grupo.codOficO || '—') + '  Resp. ' + (grupo.codRespO || '—');
+        document.getElementById('modal-ci-sol').textContent     = grupo.ciSolO   || '—';
         document.getElementById('modal-nom-recep').textContent  = grupo.nomRecep || '—';
-        document.getElementById('modal-fecha').textContent      = grupo.fechaT   || '—';
+        document.getElementById('modal-ci-recep').textContent   = grupo.ciRecep  || '—';
 
-        const badgeTipo = document.getElementById('modal-badge-tipo');
-        if (grupo.tipo === 'INTERNA') {
-            badgeTipo.className = 'badge bg-label-info';
-            badgeTipo.innerHTML = '<i class="fa-solid fa-building me-1"></i>Interna';
-        } else {
-            badgeTipo.className = 'badge bg-label-warning';
-            badgeTipo.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left me-1"></i>Externa';
-        }
-
-        // Tabla de activos
-        const tbody = document.getElementById('modal-tbody');
+        // -- Tabla de activos --
+        const tbody  = document.getElementById('modal-tbody');
         tbody.innerHTML = '';
 
-        (grupo.activos || []).forEach((a, i) => {
-            const d   = a.datos || {};
-            const ok  = a.valida;
-            const row = document.createElement('tr');
-            row.className = ok ? '' : 'table-warning';
-            row.innerHTML = `
-                <td>${i + 1}</td>
-                <td><span class="badge bg-secondary">${d.codigoO || '—'}</span></td>
-                <td><small>${d.codContO || '—'} / ${d.codAuxO || '—'}</small></td>
-                <td>${d.codOficO || '—'}</td>
-                <td>${d.codRespO || '—'}</td>
-                <td class="text-center">
-                    ${ok
-                        ? '<span class="badge bg-success"><i class="fa-solid fa-check"></i> OK</span>'
-                        : '<span class="badge bg-danger"><i class="fa-solid fa-xmark"></i> Error</span>'
-                    }
-                </td>
-                <td><small class="text-danger">${(a.errores || []).join('<br>')}</small></td>
-            `;
-            tbody.appendChild(row);
+        const activos = grupo.activos || [];
+        activos.forEach(function (a, i) {
+            const d      = a.datos  || {};
+            const errores= a.errores || [];
+            const valida = a.valida;
+
+            // Mini-resumen de validaciones individuales
+            const checks = [
+                badgeCheck(a.activoExiste,           'Activo'),
+                badgeCheck(a.predioOrigenExiste,      'U.Orig'),
+                badgeCheck(a.oficinaOrigenExiste,     'Of.Orig'),
+                badgeCheck(a.responsableOrigenExiste, 'Resp'),
+                badgeCheck(a.predioDestinoExiste,     'U.Dest'),
+                badgeCheck(a.oficinaDestinoExiste,    'Of.Dest'),
+            ].join(' ');
+
+            const errHtml = errores.length
+                ? errores.map(function (er) {
+                    return '<div class="text-danger" style="font-size:.75rem">'
+                         + '<i class="fa-solid fa-triangle-exclamation fa-xs me-1"></i>'
+                         + er + '</div>';
+                  }).join('')
+                : '<span class="text-success" style="font-size:.75rem">'
+                + '<i class="fa-solid fa-circle-check me-1"></i>Sin errores</span>';
+
+            const tr = document.createElement('tr');
+            tr.className = valida ? '' : 'table-warning';
+            tr.innerHTML =
+                '<td class="text-muted">' + (i + 1) + '</td>'
+              + '<td><span class="badge bg-secondary font-monospace">'
+              +     (d.codigoO || '—') + '</span></td>'
+              + '<td class="text-center"><code>' + (d.codContO || '—') + '</code></td>'
+              + '<td class="text-center"><code>' + (d.codAuxO  || '—') + '</code></td>'
+              + '<td class="small">Of. <strong>' + (d.codOficO || '—') + '</strong></td>'
+              + '<td class="small">Resp. <strong>' + (d.codRespO || '—') + '</strong></td>'
+              + '<td><div class="d-flex flex-wrap gap-1">' + checks + '</div></td>'
+              + '<td>' + errHtml + '</td>';
+
+            tbody.appendChild(tr);
         });
+
+        // -- Pie del modal --
+        const totalActivos   = activos.length;
+        const activosConError= activos.filter(function (a) { return !a.valida; }).length;
+
+        document.getElementById('modal-total-activos').textContent = totalActivos;
+        document.getElementById('modal-activos-error').textContent = activosConError;
+
+        // Habilitar botón solo si todos válidos y no aprobada
+        const btnAprobar = document.getElementById('btn-aprobar-modal');
+        btnAprobar.disabled = !(grupo.todosValidos && !grupo.yaAprobada);
+        btnAprobar.setAttribute('data-corr',  corrT);
+        btnAprobar.setAttribute('data-count', totalActivos);
+
+        // Quitar preloader y mostrar contenido
+        setTimeout(function () {
+            document.getElementById('modal-preloader').style.display        = 'none';
+            document.getElementById('modal-contenido-activos').style.display = '';
+        }, 180); // pequeña pausa para percepción de carga
     });
 
-    // ── Botón Aprobar ────────────────────────────────────────────────────────
-    document.addEventListener('click', function (e) {
-        const btn = e.target.closest('.btn-aprobar');
-        if (!btn) return;
-        const corrT = btn.getAttribute('data-corr');
-        const count = btn.getAttribute('data-count');
-        if (corrT && typeof window.aprobarTransferencia === 'function') {
-            window.aprobarTransferencia(corrT, count);
-        }
-    });
+    // ── Reset al cerrar modal ────────────────────────────────────────────────
+    document.getElementById('modalDetalleTransferencia')
+        .addEventListener('hidden.bs.modal', function () {
+            document.getElementById('modal-tbody').innerHTML = '';
+            document.getElementById('btn-aprobar-modal').disabled = true;
+            corrTActual = null;
+            resetBotonAprobar();
+        });
+
+    // ── Botón Aprobar del modal ──────────────────────────────────────────────
+    document.getElementById('btn-aprobar-modal')
+        .addEventListener('click', function () {
+            const corrT = this.getAttribute('data-corr');
+            const count = this.getAttribute('data-count');
+            if (!corrT) return;
+
+            Swal.fire({
+                title: '¿Confirmar aprobación?',
+                html:  'Correlativo: <strong>' + corrT + '</strong><br>'
+                     + 'Se modificarán <strong>' + count + '</strong> registro(s) en ACTUAL.DBF.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor:  '#6c757d',
+                confirmButtonText: '<i class="fa-solid fa-check me-1"></i>Aprobar todo',
+                cancelButtonText:  'Cancelar'
+            }).then(function (result) {
+                if (!result.isConfirmed) return;
+
+                // Preloader en el botón
+                activarPreloaderBoton();
+
+                $.ajax({
+                    type: 'POST',
+                    url:  '/administracion/transferenciasLondra/aprobar/'
+                          + encodeURIComponent(corrT),
+                    success: function (res) {
+                        // Cerrar modal antes del Swal
+                        bootstrap.Modal.getInstance(
+                            document.getElementById('modalDetalleTransferencia')
+                        ).hide();
+
+                        Swal.fire({
+                            title: 'Aprobado',
+                            text:   res.msg,
+                            icon:  'success',
+                            timer: 3000,
+                            showConfirmButton: false
+                        });
+
+                        if (typeof window.cargarTabla === 'function') cargarTabla();
+                        if (typeof window.verificarPendientes === 'function') verificarPendientes();
+                    },
+                    error: function (xhr) {
+                        resetBotonAprobar();
+                        Swal.fire('Error',
+                            xhr.responseJSON?.msg || 'Error inesperado', 'error');
+                    }
+                });
+            });
+        });
+
+    // ── Helpers estado botón ─────────────────────────────────────────────────
+    function activarPreloaderBoton() {
+        document.getElementById('btn-aprobar-texto').classList.add('d-none');
+        document.getElementById('btn-aprobar-loader').classList.remove('d-none');
+        document.getElementById('btn-aprobar-modal').disabled = true;
+    }
+
+    function resetBotonAprobar() {
+        document.getElementById('btn-aprobar-texto').classList.remove('d-none');
+        document.getElementById('btn-aprobar-loader').classList.add('d-none');
+    }
+
+})();
 </script>
