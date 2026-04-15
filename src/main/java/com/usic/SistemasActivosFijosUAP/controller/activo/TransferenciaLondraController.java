@@ -22,6 +22,7 @@ import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaLondraService;
 import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaService;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.TransferenciaValidadaDto;
+import com.usic.SistemasActivosFijosUAP.model.dto.transferencia.TransferenciaAgrupadaDto;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
 import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaLondra;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
@@ -49,17 +50,17 @@ public class TransferenciaLondraController {
     public String tablaRegistros(Model model,
             @RequestParam(name = "q", required = false) String q) {
         try {
-            List<TransferenciaValidadaDto> lista = transferenciaService.leerYValidarPendientes();
+            List<TransferenciaAgrupadaDto> lista =
+                transferenciaService.leerYValidarAgrupado();
             model.addAttribute("transferencias", lista);
             model.addAttribute("errorCarga", null);
-            return "seguimiento/transferenciaLondra/tabla";
         } catch (Exception e) {
             log.error("Error cargando transferencias: {}", e.getMessage(), e);
             model.addAttribute("transferencias", List.of());
             model.addAttribute("errorCarga", e.getMessage());
-            return "seguimiento/transferenciaLondra/tabla";
         }
-    }
+        return "seguimiento/transferenciaLondra/tabla";
+}
 
     @ValidarUsuarioAutenticado
     @PostMapping("/aprobar/{corrT}")

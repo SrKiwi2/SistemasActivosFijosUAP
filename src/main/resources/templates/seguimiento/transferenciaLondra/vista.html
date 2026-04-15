@@ -76,20 +76,20 @@
         window.cargarTabla = cargarTabla;
 
         // ✅ Exponer para el botón de aprobar en tabla_registro.html
-        window.aprobarTransferencia = function (corrT) {
+        window.aprobarTransferencia = function (corrT, count) {
             Swal.fire({
                 title: '¿Aprobar transferencia?',
-                html: 'Correlativo: <strong>' + corrT + '</strong><br>' +
-                      'Esta acción actualizará ACTUAL.DBF y registrará la operación.',
+                html: `Correlativo: <strong>${corrT}</strong><br>
+                    Se procesarán <strong>${count || '?'}</strong> activo(s) en ACTUAL.DBF.`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#28a745',
                 cancelButtonColor: '#6c757d',
-                confirmButtonText: '<i class="fa-solid fa-check me-1"></i> Aprobar',
+                confirmButtonText: '<i class="fa-solid fa-check me-1"></i> Aprobar todo',
                 cancelButtonText: 'Cancelar'
             }).then(function (result) {
                 if (!result.isConfirmed) return;
-                showGlobalLoader({ texto: 'Procesando aprobación...' });
+                showGlobalLoader({ texto: 'Procesando ' + (count || '') + ' activo(s)...' });
                 $.ajax({
                     type: 'POST',
                     url: '/administracion/transferenciasLondra/aprobar/' + encodeURIComponent(corrT),
@@ -99,8 +99,7 @@
                         verificarPendientes();
                     },
                     error: function (xhr) {
-                        const msg = xhr.responseJSON?.msg || 'Error inesperado';
-                        Swal.fire('Error', msg, 'error');
+                        Swal.fire('Error', xhr.responseJSON?.msg || 'Error inesperado', 'error');
                     },
                     complete: hideGlobalLoader
                 });

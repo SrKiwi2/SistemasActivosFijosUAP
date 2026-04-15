@@ -4,7 +4,9 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -22,6 +24,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaLondraServi
 import com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaLondraDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SolTransferenciaDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.TransferenciaValidadaDto;
+import com.usic.SistemasActivosFijosUAP.model.dto.transferencia.TransferenciaAgrupadaDto;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
@@ -88,68 +91,92 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     @Transactional
     public TransferenciaLondra aprobar(String corrT, String usuarioNombre) throws Exception {
 
-        SolTransferenciaDbf dbfRec = dbfService.listarSolTransferenciasAll(
-                Path.of(transferenciasPath), null)
+        // Obtener todos los activos de este CORR_T
+        List<SolTransferenciaDbf> grupo = dbfService
+            .listarSolTransferenciasAll(Path.of(transferenciasPath), null)
             .stream()
             .filter(f -> corrT.equalsIgnoreCase(f.getCorrT()))
-            .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException(
-                "No se encontró la transferencia con CORR_T=" + corrT));
+            .collect(Collectors.toList());
 
-        TransferenciaValidadaDto validado = validar(dbfRec);
-        if (!validado.isValida()) {
+        if (grupo.isEmpty()) throw new IllegalArgumentException(
+            "No se encontró la transferencia con CORR_T=" + corrT);
+
+        // Validar que TODOS sean válidos antes de procesar cualquiera
+        List<String> erroresGlobales = new ArrayList<>();
+        for (SolTransferenciaDbf f : grupo) {
+            TransferenciaValidadaDto v = validar(f);
+            if (!v.isValida()) {
+                erroresGlobales.add("Activo " + f.getCodigoO() + ": " +
+                                    String.join(", ", v.getErrores()));
+            }
+        }
+        if (!erroresGlobales.isEmpty()) {
             throw new IllegalStateException(
-                "La transferencia no puede aprobarse. Errores: " +
-                String.join(", ", validado.getErrores()));
+                "Hay activos con errores: " + String.join(" | ", erroresGlobales));
         }
 
-        TransferenciaLondra t = TransferenciaLondra.builder()
-            .corrT(dbfRec.getCorrT())
-            .idTDbf(dbfRec.getIdT())
-            .nombreT(dbfRec.getNombreT())
-            .fechaT(dbfRec.getFechaT())
-            .estadoTDbf(dbfRec.getEstadoT())
-            .tipo(validado.getTipo())
-            .unidadO(dbfRec.getUnidadO())
-            .codContO(dbfRec.getCodContO())
-            .codAuxO(dbfRec.getCodAuxO())
-            .codigoActivo(dbfRec.getCodigoO())
-            .estadoActivoO(dbfRec.getEstadoO())
-            .codOficO(dbfRec.getCodOficO())
-            .codRespO(dbfRec.getCodRespO())
-            .ciSolicitante(dbfRec.getCiSolO())
-            .unidadD(dbfRec.getUnidadD())
-            .codOficD(dbfRec.getCodOficD())
-            .ciReceptor(dbfRec.getCiRecep())
-            .nomReceptor(dbfRec.getNomRecep())
-            .estado(TransferenciaLondra.EstadoTransferencia.APROBADO)
-            .fechaAprobacion(LocalDateTime.now())
-            .usuarioAprobacion(usuarioNombre)
-            .build();
+        SolTransferenciaDbf primero = grupo.get(0);
+        TransferenciaLondra registroFinal = null;
 
-        transferenciaRepo.save(t);
+        // Procesar cada activo individualmente
+        for (SolTransferenciaDbf f : grupo) {
 
-        Predio predioO = predioServicio
-            .findByUnidadIgnoreCase(dbfRec.getUnidadO())
-            .orElseThrow(() -> new IllegalStateException(
-                "Predio origen no encontrado al aprobar: " + dbfRec.getUnidadO()));
+            TransferenciaLondra t = TransferenciaLondra.builder()
+                .corrT(f.getCorrT())
+                .idTDbf(f.getIdT())
+                .nombreT(f.getNombreT())
+                .fechaT(f.getFechaT())
+                .estadoTDbf(f.getEstadoT())
+                .tipo(primero.getUnidadO().equalsIgnoreCase(primero.getUnidadD())
+                    ? TransferenciaValidadaDto.TipoTransferencia.INTERNA
+                    : TransferenciaValidadaDto.TipoTransferencia.EXTERNA)
+                .unidadO(f.getUnidadO())
+                .codContO(f.getCodContO())
+                .codAuxO(f.getCodAuxO())
+                .codigoActivo(f.getCodigoO())
+                .estadoActivoO(f.getEstadoO())
+                .codOficO(f.getCodOficO())
+                .codRespO(f.getCodRespO())
+                .ciSolicitante(f.getCiSolO())
+                .unidadD(f.getUnidadD())
+                .codOficD(f.getCodOficD())
+                .ciReceptor(f.getCiRecep())
+                .nomReceptor(f.getNomRecep())
+                .estado(TransferenciaLondra.EstadoTransferencia.APROBADO)
+                .fechaAprobacion(LocalDateTime.now())
+                .usuarioAprobacion(usuarioNombre)
+                .build();
 
-        dbfService.actualizarActivoParaTransferencia(
-            dbfRec.getCodigoO(),
-            predioO.getEntidad().getEntidadCodigo(),
-            dbfRec.getUnidadO(),
-            dbfRec.getUnidadD(),
-            dbfRec.getCodOficD(),
-            dbfRec.getCodRespO(),
-            LocalDate.now(),
-            usuarioNombre
-        );
+            transferenciaRepo.save(t);
+            if (registroFinal == null) registroFinal = t;
 
+            // Actualizar ACTUAL.DBF para este activo específico
+            Predio predioO = predioServicio
+                .findByUnidadIgnoreCase(f.getUnidadO())
+                .orElseThrow(() -> new IllegalStateException(
+                    "Predio origen no encontrado: " + f.getUnidadO()));
+
+            dbfService.actualizarActivoParaTransferencia(
+                f.getCodigoO(),
+                predioO.getEntidad().getEntidadCodigo(),
+                f.getUnidadO(),
+                f.getUnidadD(),
+                f.getCodOficD(),
+                f.getCodRespO(),
+                LocalDate.now(),
+                usuarioNombre
+            );
+
+            log.info("✅ Activo {} de transferencia {} procesado", f.getCodigoO(), corrT);
+        }
+
+        // Marcar el CORR_T completo como aprobado en sol_transferencias.DBF
         dbfService.actualizarEstadoTransferenciaDbf(
             Path.of(transferenciasPath), corrT, "APROBADO");
 
-        log.info("✅ Transferencia {} aprobada por {}", corrT, usuarioNombre);
-        return t;
+        log.info("✅ Transferencia {} completa — {} activos procesados por {}",
+                corrT, grupo.size(), usuarioNombre);
+        return registroFinal;
     }
 
     private TransferenciaValidadaDto validar(SolTransferenciaDbf f) {
@@ -264,5 +291,62 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             .responsableDestinoExiste(respDOk)
             .yaAprobadaEnBd(yaAprobada)
             .build();
+    }
+
+    @Override
+    public List<TransferenciaAgrupadaDto> leerYValidarAgrupado() {
+        List<SolTransferenciaDbf> filas;
+        try {
+            filas = dbfService.listarSolTransferenciasAll(
+                Path.of(transferenciasPath), null);
+        } catch (Exception e) {
+            log.error("No se pudo leer sol_transferencias.dbf: {}", e.getMessage());
+            return List.of();
+        }
+
+        // 1. Filtrar pendientes
+        // 2. Validar cada fila individualmente
+        // 3. Agrupar por CORR_T preservando orden de aparición
+        Map<String, List<TransferenciaValidadaDto>> porCorr = filas.stream()
+            .filter(f -> esPendiente(f.getEstadoT()))
+            .map(this::validar)
+            .collect(Collectors.groupingBy(
+                dto -> dto.getDatos().getCorrT() != null
+                    ? dto.getDatos().getCorrT()
+                    : "SIN_CORR",
+                LinkedHashMap::new,   // preserva orden de inserción
+                Collectors.toList()
+            ));
+
+        // 4. Construir un DTO agrupado por cada CORR_T
+        return porCorr.entrySet().stream()
+            .map(entry -> {
+                String corrT = entry.getKey();
+                List<TransferenciaValidadaDto> activos = entry.getValue();
+                SolTransferenciaDbf primero = activos.get(0).getDatos();
+
+                boolean mismaUnidad = primero.getUnidadO() != null &&
+                                    primero.getUnidadO().equalsIgnoreCase(primero.getUnidadD());
+
+                return TransferenciaAgrupadaDto.builder()
+                    .corrT(corrT)
+                    .nombreT(primero.getNombreT())
+                    .fechaT(primero.getFechaT())
+                    .estadoT(primero.getEstadoT())
+                    .unidadO(primero.getUnidadO())
+                    .codOficO(primero.getCodOficO())
+                    .codRespO(primero.getCodRespO())
+                    .ciSolO(primero.getCiSolO())
+                    .unidadD(primero.getUnidadD())
+                    .codOficD(primero.getCodOficD())
+                    .ciRecep(primero.getCiRecep())
+                    .nomRecep(primero.getNomRecep())
+                    .tipo(mismaUnidad
+                        ? TransferenciaValidadaDto.TipoTransferencia.INTERNA
+                        : TransferenciaValidadaDto.TipoTransferencia.EXTERNA)
+                    .activos(activos)
+                    .build();
+            })
+            .collect(Collectors.toList());
     }
 }

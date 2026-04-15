@@ -1,31 +1,29 @@
-<!-- Panel resumen superior -->
-<div class="row g-3 mb-4">
+<!-- Error de carga -->
+<div th:if="${errorCarga != null}" class="alert alert-danger mx-3 mt-3">
+    <i class="fa-solid fa-bug me-2"></i>
+    <strong>Error:</strong> <code th:text="${errorCarga}"></code>
+</div>
+
+<!-- Panel resumen -->
+<div class="row g-3 mb-4" th:if="${!transferencias.empty}">
     <div class="col-auto">
         <div class="card border-0 bg-label-warning text-center px-4 py-3">
             <div class="fs-3 fw-bold" th:text="${transferencias.size()}">0</div>
-            <small>Pendientes</small>
-        </div>
-    </div>
-    <div class="col-auto">
-        <div class="card border-0 bg-label-info text-center px-4 py-3">
-            <div class="fs-3 fw-bold"
-                th:text="${transferencias.?[tipo != null and tipo.name() == 'INTERNA'].size()}">0</div>
-            <small>Internas</small>
-        </div>
-    </div>
-    <div class="col-auto">
-        <div class="card border-0 bg-label-primary text-center px-4 py-3">
-            <div class="fs-3 fw-bold"
-            th:text="${transferencias.?[tipo != null and tipo.name() == 'EXTERNA'].size()}">0</div>
-            <small>Externas</small>
+            <small>Transferencias</small>
         </div>
     </div>
     <div class="col-auto">
         <div class="card border-0 bg-label-success text-center px-4 py-3">
             <div class="fs-3 fw-bold"
-                th:text="${transferencias.?[valida and !yaAprobadaEnBd].size()}">0</div>
-                 <div class="fs-3 fw-bold" th:text="${transferencias.size()}">0</div>
+                 th:text="${transferencias.stream().filter(t -> t.todosValidos).count()}">0</div>
             <small>Listas para aprobar</small>
+        </div>
+    </div>
+    <div class="col-auto">
+        <div class="card border-0 bg-label-danger text-center px-4 py-3">
+            <div class="fs-3 fw-bold"
+                 th:text="${transferencias.stream().filter(t -> !t.todosValidos).count()}">0</div>
+            <small>Con errores</small>
         </div>
     </div>
 </div>
@@ -34,265 +32,277 @@
 <div th:if="${transferencias.empty}" class="text-center py-5">
     <i class="fa-solid fa-circle-check fa-3x text-success mb-3 d-block"></i>
     <h5 class="text-muted">No hay transferencias pendientes</h5>
-    <small class="text-muted">El sistema verificará automáticamente cada 30 segundos.</small>
 </div>
 
-<!-- Error de carga -->
-<div th:if="${errorCarga != null}" class="alert alert-danger">
-    <i class="fa-solid fa-bug me-2"></i>
-    <strong>Error al procesar:</strong>
-    <code th:text="${errorCarga}"></code>
-</div>
+<!-- Tabla resumen: UNA fila = UN CORR_T -->
+<div class="card" th:if="${!transferencias.empty}">
+    <div class="card-datatable table-responsive pt-0">
+        <table class="table table-hover" id="data-table-transferencias">
+            <thead>
+                <tr>
+                    <th>Correlativo</th>
+                    <th>Tipo</th>
+                    <th>Origen → Destino</th>
+                    <th>Solicitante</th>
+                    <th>Receptor</th>
+                    <th class="text-center">Activos</th>
+                    <th class="text-center">Estado</th>
+                    <th class="text-center">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="t : ${transferencias}"
+                    th:classappend="${t.yaAprobada} ? 'opacity-50' : ''">
 
-<!-- Grid de tarjetas -->
-<div class="row g-3" id="grid-transferencias">
-    <div class="col-12 col-md-6 col-xl-4"
-         th:each="t, idx : ${transferencias}"
-         th:if="${!t.yaAprobadaEnBd}">
+                    <!-- Correlativo — clic abre modal -->
+                    <td>
+                        <a href="#"
+                           class="fw-semibold text-primary btn-ver-detalle"
+                           th:data-corr="${t.corrT}"
+                           th:data-idx="${tStat.index}"
+                           data-bs-toggle="modal"
+                           data-bs-target="#modalDetalleTransferencia">
+                            <span th:text="${t.corrT}">—</span>
+                        </a>
+                        <br>
+                        <small class="text-muted" th:text="${t.fechaT}">—</small>
+                    </td>
 
-        <div class="card h-100 shadow-sm border-0"
-             th:classappend="${t.valida} ? 'border-start border-success border-3' : 'border-start border-warning border-3'">
-
-            <!-- Cabecera: escaneo rápido -->
-            <div class="card-header d-flex justify-content-between align-items-center py-2 bg-transparent">
-                <div class="d-flex gap-2 align-items-center">
                     <!-- Tipo -->
-                    <span th:if="${t.tipo != null and t.tipo.name() == 'INTERNA'}"
-                          class="badge bg-label-info">
-                        <i class="fa-solid fa-building me-1"></i>Interna
-                    </span>
-                    <span th:if="${t.tipo != null and t.tipo.name() == 'EXTERNA'}"
-                          class="badge bg-label-warning">
-                        <i class="fa-solid fa-arrow-right-arrow-left me-1"></i>Externa
-                    </span>
-                    <!-- Estado validación -->
-                    <span th:if="${t.valida}"
-                          class="badge bg-label-success">
-                        <i class="fa-solid fa-circle-check me-1"></i>Válida
-                    </span>
-                    <span th:unless="${t.valida}"
-                          class="badge bg-label-danger">
-                        <i class="fa-solid fa-circle-xmark me-1"></i>Con errores
-                    </span>
-                </div>
-                <!-- Correlativo -->
-                <small class="text-muted fw-semibold"
-                       th:text="${t.datos.corrT}">—</small>
-            </div>
-
-            <!-- Cuerpo: lectura principal -->
-            <div class="card-body py-3">
-                <!-- Activo -->
-                <div class="d-flex align-items-center gap-2 mb-3">
-                    <div class="avatar avatar-sm flex-shrink-0">
-                        <span class="avatar-initial rounded bg-label-secondary">
-                            <i class="fa-solid fa-box-open"></i>
+                    <td>
+                        <span th:if="${t.tipo != null and t.tipo.name() == 'INTERNA'}"
+                              class="badge bg-label-info">
+                            <i class="fa-solid fa-building me-1"></i>Interna
                         </span>
-                    </div>
-                    <div class="overflow-hidden">
-                        <div class="fw-bold text-truncate"
-                             th:text="${t.datos.codigoO}">—</div>
-                        <small class="text-muted">
-                            Cont: <span th:text="${t.datos.codContO}">—</span>
-                            &nbsp;/&nbsp;
-                            Aux: <span th:text="${t.datos.codAuxO}">—</span>
-                        </small>
-                    </div>
-                </div>
+                        <span th:if="${t.tipo != null and t.tipo.name() == 'EXTERNA'}"
+                              class="badge bg-label-warning">
+                            <i class="fa-solid fa-arrow-right-arrow-left me-1"></i>Externa
+                        </span>
+                    </td>
 
-                <!-- Flecha origen → destino -->
-                <div class="d-flex align-items-center gap-2">
-                    <div class="flex-fill text-center p-2 rounded bg-light">
-                        <div class="fw-semibold" th:text="${t.datos.unidadO}">—</div>
-                        <small class="text-muted d-block">Origen</small>
-                    </div>
-                    <div class="text-muted flex-shrink-0">
-                        <i class="fa-solid fa-arrow-right"></i>
-                    </div>
-                    <div class="flex-fill text-center p-2 rounded bg-light">
-                        <div class="fw-semibold" th:text="${t.datos.unidadD}">—</div>
-                        <small class="text-muted d-block">Destino</small>
-                    </div>
-                </div>
+                    <!-- Ruta -->
+                    <td>
+                        <span class="fw-semibold" th:text="${t.unidadO}">—</span>
+                        <i class="fa-solid fa-arrow-right mx-1 text-muted"></i>
+                        <span class="fw-semibold" th:text="${t.unidadD}">—</span>
+                    </td>
 
-                <!-- Primer error si no es válida -->
-                <div th:if="${!t.valida and !t.errores.empty}"
-                     class="alert alert-warning py-1 px-2 mt-2 mb-0 d-flex align-items-center gap-1">
-                    <i class="fa-solid fa-triangle-exclamation fa-xs"></i>
-                    <small th:text="${t.errores[0]}">—</small>
-                    <span th:if="${t.errores.size() > 1}"
-                          class="ms-auto badge bg-warning text-dark"
-                          th:text="'+' + (${t.errores.size() - 1}) + ' más'">
-                    </span>
-                </div>
-            </div>
+                    <!-- Solicitante -->
+                    <td>
+                        <div th:text="${'Of: ' + t.codOficO + ' / Resp: ' + t.codRespO}">—</div>
+                        <small class="text-muted" th:text="${t.ciSolO}">—</small>
+                    </td>
 
-            <!-- Detalle expandible -->
-            <div class="collapse" th:id="'detalle-' + ${idx.index}">
-                <div class="card-body pt-0 border-top">
-                    <div class="row g-2 mb-3">
-                        <!-- Origen detalle -->
-                        <div class="col-6">
-                            <div class="p-2 rounded border">
-                                <small class="text-muted d-block fw-semibold mb-1">
-                                    <i class="fa-solid fa-location-dot me-1"></i>ORIGEN
-                                </small>
-                                <div class="small">Of: <strong th:text="${t.datos.codOficO}">—</strong></div>
-                                <div class="small">Resp: <strong th:text="${t.datos.codRespO}">—</strong></div>
-                                <div class="small text-muted" th:text="${t.datos.ciSolO}">—</div>
-                            </div>
+                    <!-- Receptor -->
+                    <td>
+                        <div th:text="${t.nomRecep}">—</div>
+                        <small class="text-muted" th:text="${t.ciRecep}">—</small>
+                    </td>
+
+                    <!-- Conteo activos -->
+                    <td class="text-center">
+                        <span class="badge bg-secondary"
+                              th:text="${t.activos.size()} + ' activo(s)'">—</span>
+                        <div th:if="${t.activosConError > 0}">
+                            <small class="text-danger"
+                                   th:text="${t.activosConError} + ' con error'"></small>
                         </div>
-                        <!-- Destino detalle -->
-                        <div class="col-6">
-                            <div class="p-2 rounded border">
-                                <small class="text-muted d-block fw-semibold mb-1">
-                                    <i class="fa-solid fa-flag-checkered me-1"></i>DESTINO
-                                </small>
-                                <div class="small">Of: <strong th:text="${t.datos.codOficD}">—</strong></div>
-                                <div class="small text-truncate"
-                                     th:text="${t.datos.nomRecep}">—</div>
-                                <div class="small text-muted" th:text="${t.datos.ciRecep}">—</div>
-                            </div>
-                        </div>
-                    </div>
+                    </td>
 
-                    <!-- Validaciones compactas -->
-                    <div class="d-flex flex-wrap gap-1 mb-2">
-                        <span th:class="${t.activoExiste}       ? 'badge bg-success' : 'badge bg-danger'">
-                            <i th:class="${t.activoExiste}       ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> Activo</span>
-                        <span th:class="${t.predioOrigenExiste}  ? 'badge bg-success' : 'badge bg-danger'">
-                            <i th:class="${t.predioOrigenExiste}  ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> U.Orig</span>
-                        <span th:class="${t.oficinaOrigenExiste} ? 'badge bg-success' : 'badge bg-danger'">
-                            <i th:class="${t.oficinaOrigenExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> Of.Orig</span>
-                        <span th:class="${t.responsableOrigenExiste} ? 'badge bg-success' : 'badge bg-danger'">
-                            <i th:class="${t.responsableOrigenExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> Resp.O</span>
-                        <span th:class="${t.predioDestinoExiste} ? 'badge bg-success' : 'badge bg-danger'">
-                            <i th:class="${t.predioDestinoExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> U.Dest</span>
-                        <span th:class="${t.oficinaDestinoExiste} ? 'badge bg-success' : 'badge bg-danger'">
-                            <i th:class="${t.oficinaDestinoExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> Of.Dest</span>
-                    </div>
+                    <!-- Estado validación -->
+                    <td class="text-center">
+                        <span th:if="${t.yaAprobada}" class="badge bg-success">
+                            <i class="fa-solid fa-circle-check me-1"></i>Aprobada
+                        </span>
+                        <span th:if="${!t.yaAprobada and t.todosValidos}"
+                              class="badge bg-label-success">
+                            <i class="fa-solid fa-circle-check me-1"></i>Válida
+                        </span>
+                        <span th:if="${!t.yaAprobada and !t.todosValidos}"
+                              class="badge bg-label-danger">
+                            <i class="fa-solid fa-circle-xmark me-1"></i>Con errores
+                        </span>
+                    </td>
 
-                    <!-- Errores restantes si hay más de 1 -->
-                    <div th:if="${!t.valida and t.errores.size() > 1}">
-                        <small class="text-danger d-block"
-                               th:each="err, ei : ${t.errores}"
-                               th:if="${ei.index > 0}">
-                            <i class="fa-solid fa-triangle-exclamation fa-xs me-1"></i>
-                            <span th:text="${err}"></span>
-                        </small>
-                    </div>
-
-                    <!-- Metadata -->
-                    <div class="text-muted mt-2" style="font-size:0.75rem">
-                        <i class="fa-regular fa-calendar me-1"></i>
-                        <span th:text="${t.datos.fechaT}">—</span>
-                        &nbsp;·&nbsp;
-                        <span th:text="${t.datos.nombreT}">—</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Pie: acción -->
-            <div class="card-footer bg-transparent d-flex justify-content-between align-items-center py-2">
-                <button class="btn btn-link btn-sm text-muted p-0 btn-toggle-detalle"
-                        th:data-target="'#detalle-' + ${idx.index}">
-                    <i class="fa-solid fa-chevron-down me-1 icon-toggle"></i>
-                    <span class="label-toggle">Ver detalle</span>
-                </button>
-
-                <div>
-                    <button th:if="${t.valida and !t.yaAprobadaEnBd}"
-                            type="button"
-                            class="btn btn-success btn-sm btn-aprobar"
-                            th:data-corr="${t.datos.corrT}">
-                        <i class="fa-solid fa-circle-check me-1"></i>Aprobar
-                    </button>
-                    <span th:if="${!t.valida}"
-                          class="badge bg-label-secondary">
-                        <i class="fa-solid fa-lock me-1"></i>No válida
-                    </span>
-                </div>
-            </div>
-        </div>
+                    <!-- Acción -->
+                    <td class="text-center">
+                        <button th:if="${t.todosValidos and !t.yaAprobada}"
+                                type="button"
+                                class="btn btn-success btn-sm btn-aprobar"
+                                th:data-corr="${t.corrT}"
+                                th:data-count="${t.activos.size()}">
+                            <i class="fa-solid fa-circle-check me-1"></i>Aprobar
+                        </button>
+                        <span th:if="${!t.todosValidos and !t.yaAprobada}"
+                              class="badge bg-label-secondary">
+                            <i class="fa-solid fa-lock"></i>
+                        </span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
     </div>
+</div>
 
-    <!-- Transferencias ya aprobadas — colapsadas por defecto -->
-    <div class="col-12 mt-2" th:if="${transferencias.?[yaAprobadaEnBd].size() > 0}">
-        <button class="btn btn-link btn-sm text-muted" data-bs-toggle="collapse"
-                data-bs-target="#aprobadas-collapse">
-            <i class="fa-solid fa-eye-slash me-1"></i>
-            Mostrar ya aprobadas
-            (<span th:text="${transferencias.?[yaAprobadaEnBd].size()}">0</span>)
-        </button>
-        <div class="collapse" id="aprobadas-collapse">
-            <div class="row g-2 mt-1">
-                <div class="col-12 col-md-6 col-xl-4"
-                     th:each="t : ${transferencias}"
-                     th:if="${t.yaAprobadaEnBd}">
-                    <div class="card border-0 bg-light opacity-75">
-                        <div class="card-body py-2 d-flex justify-content-between align-items-center">
-                            <div>
-                                <span class="badge bg-success me-2">
-                                    <i class="fa-solid fa-circle-check"></i> Aprobada
-                                </span>
-                                <small class="text-muted" th:text="${t.datos.corrT}">—</small>
-                            </div>
-                            <small class="text-muted"
-                                   th:text="${t.datos.unidadO} + ' → ' + ${t.datos.unidadD}">
-                            </small>
-                        </div>
+<!-- ══════════════════════════════════════════════
+     MODAL DE DETALLE: activos individuales del CORR_T
+     ══════════════════════════════════════════════ -->
+<div class="modal fade" id="modalDetalleTransferencia"
+     tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-0">
+                        <i class="fa-solid fa-boxes-stacked me-2"></i>
+                        Detalle de Transferencia
+                    </h5>
+                    <small class="text-muted" id="modal-corr-label">—</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-0">
+
+                <!-- Cabecera de ruta: origen → destino -->
+                <div class="p-3 bg-light border-bottom d-flex gap-4 flex-wrap">
+                    <div>
+                        <small class="text-muted d-block">ORIGEN</small>
+                        <span class="fw-semibold" id="modal-unidad-o">—</span>
+                        <small class="text-muted ms-2" id="modal-ci-sol">—</small>
+                    </div>
+                    <div class="align-self-center text-muted">
+                        <i class="fa-solid fa-arrow-right fa-lg"></i>
+                    </div>
+                    <div>
+                        <small class="text-muted d-block">DESTINO</small>
+                        <span class="fw-semibold" id="modal-unidad-d">—</span>
+                        <small class="text-muted ms-2" id="modal-nom-recep">—</small>
+                    </div>
+                    <div class="ms-auto align-self-center">
+                        <span id="modal-badge-tipo" class="badge">—</span>
                     </div>
                 </div>
+
+                <!-- Tabla de activos individuales -->
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0" id="modal-tabla-activos">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>Código Activo</th>
+                                <th>Cont / Aux</th>
+                                <th>Oficina Orig</th>
+                                <th>Resp Orig</th>
+                                <th class="text-center">Validación</th>
+                                <th>Errores</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-tbody">
+                            <!-- Llenado por JS -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
+
+            <div class="modal-footer justify-content-between">
+                <small class="text-muted" id="modal-fecha">—</small>
+                <button type="button" class="btn btn-secondary btn-sm"
+                        data-bs-dismiss="modal">Cerrar</button>
+            </div>
+
         </div>
     </div>
 </div>
+
+<!-- Datos serializados para el modal (evita AJAX extra) -->
+<script th:inline="javascript">
+/*<![CDATA[*/
+const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
+/*]]>*/
+</script>
 
 <script>
-    // Tooltips
-    document.querySelectorAll('[data-bs-toggle="tooltip"]')
-        .forEach(el => new bootstrap.Tooltip(el));
-
-    // Toggle detalle con cambio de ícono y texto
-    document.addEventListener('click', function (e) {
-        const btn = e.target.closest('.btn-toggle-detalle');
-        if (!btn) return;
-
-        const targetId = btn.getAttribute('data-target');
-        const target   = document.querySelector(targetId);
-        if (!target) return;
-
-        const icono = btn.querySelector('.icon-toggle');
-        const label = btn.querySelector('.label-toggle');
-        const abierto = target.classList.contains('show');
-
-        // Cerrar todos los demás abiertos
-        document.querySelectorAll('.collapse.show[id^="detalle-"]').forEach(el => {
-            if (el !== target) {
-                el.classList.remove('show');
-                const otroBtn = document.querySelector('[data-target="#' + el.id + '"]');
-                if (otroBtn) {
-                    otroBtn.querySelector('.icon-toggle')?.classList.remove('fa-chevron-up');
-                    otroBtn.querySelector('.icon-toggle')?.classList.add('fa-chevron-down');
-                    const otroLabel = otroBtn.querySelector('.label-toggle');
-                    if (otroLabel) otroLabel.textContent = 'Ver detalle';
-                }
+    // ── DataTable ────────────────────────────────────────────────────────────
+    const $tbl = $('#data-table-transferencias');
+    if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
+    $tbl.DataTable({
+        order: [ [0, 'asc'] ],
+        columnDefs: [ { orderable: false, targets: [7] } ],
+        language: {
+            sZeroRecords: "No hay transferencias pendientes",
+            sInfo: "Mostrando _START_ a _END_ de _TOTAL_",
+            sInfoEmpty: "Sin registros",
+            sSearch: "Buscar:",
+            sLengthMenu: "Mostrar _MENU_",
+            oPaginate: {
+                sNext: "›", sPrevious: "‹", sFirst: "«", sLast: "»"
             }
-        });
-
-        target.classList.toggle('show', !abierto);
-        icono?.classList.toggle('fa-chevron-down', abierto);
-        icono?.classList.toggle('fa-chevron-up', !abierto);
-        if (label) label.textContent = abierto ? 'Ver detalle' : 'Ocultar';
+        }
     });
 
-    // Botón aprobar
+    // ── Modal: poblar con datos del grupo seleccionado ────────────────────────
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.btn-ver-detalle');
+        if (!btn) return;
+
+        const corrT = btn.getAttribute('data-corr');
+        const grupo = TRANSFERENCIAS_DATA.find(t => t.corrT === corrT);
+        if (!grupo) return;
+
+        // Cabecera
+        document.getElementById('modal-corr-label').textContent = corrT;
+        document.getElementById('modal-unidad-o').textContent   = grupo.unidadO || '—';
+        document.getElementById('modal-unidad-d').textContent   = grupo.unidadD || '—';
+        document.getElementById('modal-ci-sol').textContent     = grupo.ciSolO  || '—';
+        document.getElementById('modal-nom-recep').textContent  = grupo.nomRecep || '—';
+        document.getElementById('modal-fecha').textContent      = grupo.fechaT   || '—';
+
+        const badgeTipo = document.getElementById('modal-badge-tipo');
+        if (grupo.tipo === 'INTERNA') {
+            badgeTipo.className = 'badge bg-label-info';
+            badgeTipo.innerHTML = '<i class="fa-solid fa-building me-1"></i>Interna';
+        } else {
+            badgeTipo.className = 'badge bg-label-warning';
+            badgeTipo.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left me-1"></i>Externa';
+        }
+
+        // Tabla de activos
+        const tbody = document.getElementById('modal-tbody');
+        tbody.innerHTML = '';
+
+        (grupo.activos || []).forEach((a, i) => {
+            const d   = a.datos || {};
+            const ok  = a.valida;
+            const row = document.createElement('tr');
+            row.className = ok ? '' : 'table-warning';
+            row.innerHTML = `
+                <td>${i + 1}</td>
+                <td><span class="badge bg-secondary">${d.codigoO || '—'}</span></td>
+                <td><small>${d.codContO || '—'} / ${d.codAuxO || '—'}</small></td>
+                <td>${d.codOficO || '—'}</td>
+                <td>${d.codRespO || '—'}</td>
+                <td class="text-center">
+                    ${ok
+                        ? '<span class="badge bg-success"><i class="fa-solid fa-check"></i> OK</span>'
+                        : '<span class="badge bg-danger"><i class="fa-solid fa-xmark"></i> Error</span>'
+                    }
+                </td>
+                <td><small class="text-danger">${(a.errores || []).join('<br>')}</small></td>
+            `;
+            tbody.appendChild(row);
+        });
+    });
+
+    // ── Botón Aprobar ────────────────────────────────────────────────────────
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('.btn-aprobar');
         if (!btn) return;
         const corrT = btn.getAttribute('data-corr');
+        const count = btn.getAttribute('data-count');
         if (corrT && typeof window.aprobarTransferencia === 'function') {
-            window.aprobarTransferencia(corrT);
+            window.aprobarTransferencia(corrT, count);
         }
     });
 </script>
