@@ -180,10 +180,10 @@
                 <div class="d-flex flex-column">
                     <h5 class="modal-title fw-bold mb-0" id="modalDetalleTitulo">
                         <i class="fa-solid fa-boxes-stacked me-2 text-primary"></i>
-                        Detalle de Transferencia
+                        DETALLE DE TRANSFERENCIA
                     </h5>
                     <small class="text-muted mt-1">
-                        Correlativo:
+                        CORRELATIVO:
                         <strong id="modal-corr" class="text-primary">—</strong>
                         &nbsp;·&nbsp;
                         <span id="modal-fecha">—</span>
@@ -201,16 +201,17 @@
             <div class="px-4 py-3 border-bottom bg-light">
                 <div class="row g-2 align-items-center">
                     <div class="col">
-                        <small class="text-uppercase text-muted fw-semibold
-                                      d-block mb-1" style="font-size:.7rem">
+                        <small class="text-uppercase text-muted fw-semibold d-block mb-1"
+                            style="font-size:.7rem">
                             <i class="fa-solid fa-location-dot me-1"></i>Origen
                         </small>
                         <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-secondary fs-6"
-                                  id="modal-unidad-o">—</span>
+                            <span class="badge bg-secondary fs-6" id="modal-unidad-o">—</span>
                             <div>
-                                <div class="small fw-semibold" id="modal-ofi-o">—</div>
-                                <small class="text-muted" id="modal-ci-sol">—</small>
+                                <!-- Nombre descriptivo de la oficina -->
+                                <div class="small fw-semibold" id="modal-ofi-o-nombre">—</div>
+                                <!-- Nombre descriptivo del responsable -->
+                                <div class="small text-muted" id="modal-resp-o-nombre">—</div>
                             </div>
                         </div>
                     </div>
@@ -239,7 +240,7 @@
 
                 <!-- Preload interno del modal -->
                 <div id="modal-preloader"
-                     class="d-flex justify-content-center align-items-center py-5"
+                     class="d-none justify-content-center align-items-center py-5"
                      style="display:none!important">
                     <div class="spinner-border text-primary me-3" role="status">
                         <span class="visually-hidden">Cargando...</span>
@@ -254,13 +255,13 @@
                         <thead class="table-light sticky-top">
                             <tr>
                                 <th style="width:3%">#</th>
-                                <th>Código Activo</th>
-                                <th>Cód. Contable</th>
-                                <th>Cód. Auxiliar</th>
-                                <th>Oficina Orig.</th>
-                                <th>Responsable</th>
-                                <th class="text-center">Validación</th>
-                                <th>Observaciones</th>
+                                <th style="width:10%">Código</th>
+                                <th style="width:18%">Descripción del Activo</th>
+                                <th style="width:14%">Grupo Contable</th>
+                                <th style="width:12%">Auxiliar</th>
+                                <th style="width:14%">Oficina Origen</th>
+                                <th style="width:14%">Responsable Origen</th>
+                                <th style="width:15%">Validación</th>
                             </tr>
                         </thead>
                         <tbody id="modal-tbody">
@@ -339,6 +340,109 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
         return tipo === 'INTERNA'
             ? '<span class="badge bg-label-info"><i class="fa-solid fa-building fa-xs me-1"></i>Interna</span>'
             : '<span class="badge bg-label-warning"><i class="fa-solid fa-arrow-right-arrow-left fa-xs me-1"></i>Externa</span>';
+    }
+
+    function poblarCabecera(grupo) {
+        document.getElementById('modal-corr').textContent      = grupo.corrT || '—';
+        document.getElementById('modal-fecha').textContent     =
+            grupo.fechaT
+                ? new Date(grupo.fechaT).toLocaleDateString('es-BO')
+                : '—';
+        document.getElementById('modal-badge-tipo').innerHTML  = badgeTipo(grupo.tipo);
+        document.getElementById('modal-unidad-o').textContent  = grupo.unidadO  || '—';
+        document.getElementById('modal-unidad-d').textContent  = grupo.unidadD  || '—';
+        document.getElementById('modal-nom-recep').textContent = grupo.nomRecep || '—';
+        document.getElementById('modal-ci-recep').textContent  = grupo.ciRecep  || '—';
+
+        // Origen descriptivo
+        document.getElementById('modal-ofi-o-nombre').textContent =
+            grupo.nombreOficinaOrigen
+                ? 'Oficina: ' + grupo.nombreOficinaOrigen
+                : 'Oficina: Of. ' + (grupo.codOficO || '—');
+
+        document.getElementById('modal-resp-o-nombre').textContent =
+            grupo.nombreResponsableOrigen
+                ? 'Responsable: ' + grupo.nombreResponsableOrigen
+                + ' (' + (grupo.ciResponsableOrigen || grupo.ciSolO || '—') + ')'
+                : 'CI: ' + (grupo.ciSolO || '—');
+    }
+
+    function poblarTablaActivos(activos) {
+        const tbody = document.getElementById('modal-tbody');
+        tbody.innerHTML = '';
+
+        activos.forEach(function (a, i) {
+            const d      = a.datos  || {};
+            const errores= a.errores || [];
+            const valida = a.valida;
+
+            // Grupo contable legible
+            const grupoLabel = a.nombreGrupoContable
+                ? a.nombreGrupoContable + ' <code>(' + (d.codContO || '—') + ')</code>'
+                : '<code>' + (d.codContO || '—') + '</code>';
+
+            // Auxiliar legible
+            const auxLabel = a.nombreAuxiliar
+                ? a.nombreAuxiliar + ' <code>(' + (d.codAuxO || '—') + ')</code>'
+                : '<code>' + (d.codAuxO || '—') + '</code>';
+
+            // Oficina origen legible
+            const oficLabel = a.nombreOficinaOrigen
+                ? a.nombreOficinaOrigen + ' <small class="text-muted">(Of. ' + (d.codOficO || '—') + ')</small>'
+                : 'Of. <strong>' + (d.codOficO || '—') + '</strong>';
+
+            // Responsable origen legible
+            const respLabel = a.nombreResponsableOrigen
+                ? a.nombreResponsableOrigen
+                + ' <small class="text-muted">(' + (a.ciResponsableOrigen || d.codRespO || '—') + ')</small>'
+                : 'Resp. <strong>' + (d.codRespO || '—') + '</strong>';
+
+            // Badges de validación compactos
+            const checks = [
+                badgeCheck(a.activoExiste,            'Activo'),
+                badgeCheck(a.predioOrigenExiste,       'U.Orig'),
+                badgeCheck(a.oficinaOrigenExiste,      'Of.Orig'),
+                badgeCheck(a.responsableOrigenExiste,  'Resp'),
+                badgeCheck(a.predioDestinoExiste,      'U.Dest'),
+                badgeCheck(a.oficinaDestinoExiste,     'Of.Dest'),
+            ].join(' ');
+
+            // Si hay errores, mostrarlos como tooltip en el badge de validación
+            const validacionHtml = valida
+                ? '<span class="badge bg-success">'
+                + '<i class="fa-solid fa-circle-check me-1"></i>OK</span>'
+                : '<div class="d-flex flex-wrap gap-1">' + checks + '</div>'
+                + (errores.length
+                        ? '<div class="mt-1">'
+                        + errores.map(function (er) {
+                                return '<div class="text-danger" style="font-size:.7rem">'
+                                    + '<i class="fa-solid fa-triangle-exclamation fa-xs me-1"></i>'
+                                    + er + '</div>';
+                            }).join('')
+                        + '</div>'
+                        : '');
+
+            const tr = document.createElement('tr');
+            tr.className = valida ? '' : 'table-warning';
+            tr.innerHTML =
+                '<td class="text-muted small">' + (i + 1) + '</td>'
+            + '<td><span class="badge bg-secondary font-monospace">'
+            +     (d.codigoO || '—') + '</span></td>'
+            + '<td class="small">'
+            +     (a.descripcionActivo
+                        ? '<span title="' + (a.descripcionActivo) + '" '
+                        + 'class="d-inline-block text-truncate" style="max-width:160px">'
+                        + a.descripcionActivo + '</span>'
+                        : '<span class="text-muted">—</span>')
+            + '</td>'
+            + '<td class="small">' + grupoLabel + '</td>'
+            + '<td class="small">' + auxLabel   + '</td>'
+            + '<td class="small">' + oficLabel  + '</td>'
+            + '<td class="small">' + respLabel  + '</td>'
+            + '<td>' + validacionHtml + '</td>';
+
+            tbody.appendChild(tr);
+        });
     }
 
     // ── Apertura del modal: poblar con datos del grupo ───────────────────────
@@ -430,10 +534,23 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
         btnAprobar.setAttribute('data-count', totalActivos);
 
         // Quitar preloader y mostrar contenido
-        setTimeout(function () {
-            document.getElementById('modal-preloader').style.display        = 'none';
-            document.getElementById('modal-contenido-activos').style.display = '';
-        }, 180); // pequeña pausa para percepción de carga
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.btn-ver-detalle');
+            if (!btn) return;
+
+            mostrarPreloader();   // ← inmediato al clic
+
+            const corrT = btn.getAttribute('data-corr');
+            corrTActual  = corrT;
+            const grupo  = TRANSFERENCIAS_DATA.find(t => t.corrT === corrT);
+            if (!grupo) { ocultarPreloader(); return; }
+
+            poblarCabecera(grupo);
+            poblarTablaActivos(grupo.activos || []);
+            poblarPie(grupo);
+
+            ocultarPreloader();   // ← inmediato al terminar, sin setTimeout
+        });
     });
 
     // ── Reset al cerrar modal ────────────────────────────────────────────────
@@ -508,6 +625,26 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
     function resetBotonAprobar() {
         document.getElementById('btn-aprobar-texto').classList.remove('d-none');
         document.getElementById('btn-aprobar-loader').classList.add('d-none');
+    }
+
+    // Al abrir modal — mostrar preloader, ocultar tabla
+    function mostrarPreloader() {
+        document.getElementById('modal-preloader')
+            .classList.remove('d-none');
+        document.getElementById('modal-preloader')
+            .classList.add('d-flex');          // necesario para el layout flex
+        document.getElementById('modal-contenido-activos')
+            .classList.add('d-none');
+    }
+
+    // Al terminar de poblar — ocultar preloader, mostrar tabla
+    function ocultarPreloader() {
+        document.getElementById('modal-preloader')
+            .classList.add('d-none');
+        document.getElementById('modal-preloader')
+            .classList.remove('d-flex');
+        document.getElementById('modal-contenido-activos')
+            .classList.remove('d-none');
     }
 
 })();

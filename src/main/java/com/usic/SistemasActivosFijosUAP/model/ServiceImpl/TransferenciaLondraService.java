@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -17,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
@@ -24,7 +27,9 @@ import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaLondraServi
 import com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaLondraDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SolTransferenciaDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.TransferenciaValidadaDto;
+import com.usic.SistemasActivosFijosUAP.model.dto.transferencia.TransferenciaActivoDetalleDto;
 import com.usic.SistemasActivosFijosUAP.model.dto.transferencia.TransferenciaAgrupadaDto;
+import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
@@ -44,6 +49,8 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     private final IOficinaService        oficinaService;
     private final IResponsableService    responsableService;
     private final IActivoService         activoService;
+    private final IGrupoContableService grupoContableService;
+    private final IAuxiliarService auxiliarService;
 
     @Value("${legacy.dbf.transferencias.path}")
     private String transferenciasPath;
@@ -58,7 +65,7 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     }
     
     @Override
-    public List<TransferenciaValidadaDto> leerYValidarPendientes() {
+    public List<TransferenciaActivoDetalleDto> leerYValidarPendientes() {
         List<SolTransferenciaDbf> filas;
         try {
             filas = dbfService.listarSolTransferenciasAll(
@@ -69,8 +76,8 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         }
 
         return filas.stream()
-            .filter(f -> esPendiente(f.getEstadoT()))  // ← antes: "PENDIENTE".equalsIgnoreCase(...)
-            .map(this::validar)
+            .filter(f -> esPendiente(f.getEstadoT()))
+            .map(this::validarEnriquecido)
             .collect(Collectors.toList());
     }
 
@@ -104,7 +111,7 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         // Validar que TODOS sean válidos antes de procesar cualquiera
         List<String> erroresGlobales = new ArrayList<>();
         for (SolTransferenciaDbf f : grupo) {
-            TransferenciaValidadaDto v = validar(f);
+            TransferenciaActivoDetalleDto v = validarEnriquecido(f);
             if (!v.isValida()) {
                 erroresGlobales.add("Activo " + f.getCodigoO() + ": " +
                                     String.join(", ", v.getErrores()));
@@ -179,27 +186,82 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         return registroFinal;
     }
 
-    private TransferenciaValidadaDto validar(SolTransferenciaDbf f) {
+    private TransferenciaActivoDetalleDto validarEnriquecido(SolTransferenciaDbf f) {
+
         List<String> errores = new ArrayList<>();
 
         boolean mismaUnidad = f.getUnidadO() != null &&
-                              f.getUnidadO().equalsIgnoreCase(f.getUnidadD());
+                            f.getUnidadO().equalsIgnoreCase(f.getUnidadD());
         var tipo = mismaUnidad
             ? TransferenciaValidadaDto.TipoTransferencia.INTERNA
             : TransferenciaValidadaDto.TipoTransferencia.EXTERNA;
 
-        boolean activoOk = false;
+        // ── Variables de resolución ──────────────────────────────────────────────
+        boolean activoOk  = false;
         boolean predioOOk = false;
-        boolean oficOOk = false;
-        boolean respOOk = false;
+        boolean oficOOk   = false;
+        boolean respOOk   = false;
+        boolean predioD   = false;
+        boolean oficDOk   = false;
+        boolean respDOk   = false;
 
+        // Campos enriquecidos — se poblan si la entidad se encuentra
+        String descripcionActivo       = null;
+        String nombreGrupoContable     = null;
+        String nombreAuxiliar          = null;
+        String nombreOficinaOrigen     = null;
+        String nombreResponsableOrigen = null;
+        String ciResponsableOrigen     = null;
+
+        // ── Activo ───────────────────────────────────────────────────────────────
         try {
-            activoOk = activoService.findByCodigo(f.getCodigoO()).isPresent();
-            if (!activoOk) errores.add("Activo '" + f.getCodigoO() + "' no existe en BD");
+            Optional<Activo> activoOpt = activoService.findByCodigo(f.getCodigoO());
+            activoOk = activoOpt.isPresent();
+            if (activoOk) {
+                // ⚠️ Adapta el getter al nombre real del campo en tu entidad Activo
+                descripcionActivo = activoOpt.get().getDescripcion();
+            } else {
+                errores.add("Activo '" + f.getCodigoO() + "' no existe en BD");
+            }
         } catch (Exception e) {
             errores.add("Error buscando activo: " + e.getMessage());
         }
 
+        // ── Grupo contable ───────────────────────────────────────────────────────
+        if (f.getCodContO() != null) {
+            try {
+                grupoContableService.findByCodContable(f.getCodContO().intValue())
+                    .ifPresent(g -> {
+                        // nombreGrupoContable es efectivamente final para el lambda
+                    });
+                // Usar variable local para poder asignar desde lambda:
+                var grupoOpt = grupoContableService.findByCodContable(f.getCodContO().intValue());
+                if (grupoOpt.isPresent()) {
+                    nombreGrupoContable = grupoOpt.get().getNombre();
+                }
+            } catch (Exception e) {
+                log.debug("No se pudo resolver grupo contable {}: {}", f.getCodContO(), e.getMessage());
+            }
+        }
+
+        // ── Auxiliar ─────────────────────────────────────────────────────────────
+        // ⚠️ Necesita el método findByGrupoContableAndCodAux — confirma si existe
+        if (f.getCodContO() != null && f.getCodAuxO() != null) {
+            try {
+                var grupoOpt = grupoContableService.findByCodContable(f.getCodContO().intValue());
+                if (grupoOpt.isPresent()) {
+                    var auxOpt = auxiliarService
+                        .findByGrupoContableAndCodAux(grupoOpt.get(), f.getCodAuxO());
+                    if (auxOpt.isPresent()) {
+                        nombreAuxiliar = auxOpt.get().getNombre();
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("No se pudo resolver auxiliar {}: {}", f.getCodAuxO(), e.getMessage());
+            }
+        }
+
+        // ── Predio origen ────────────────────────────────────────────────────────
         Optional<Predio> predioOpt = Optional.empty();
         try {
             predioOpt = predioServicio.findByUnidadIgnoreCase(f.getUnidadO());
@@ -209,57 +271,67 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             errores.add("Error buscando predio origen: " + e.getMessage());
         }
 
+        // ── Oficina origen ───────────────────────────────────────────────────────
+        Optional<Oficina> oficOOpt = Optional.empty();
         if (predioOOk && f.getCodOficO() != null) {
             try {
-                oficOOk = oficinaService
-                    .findByCodOfiAndPredio(f.getCodOficO(), predioOpt.get()) // ⚠️ Adaptar
-                    .isPresent();
-                if (!oficOOk)
-                    errores.add("Oficina origen " + f.getCodOficO() + " no existe en unidad " + f.getUnidadO());
+                oficOOpt = oficinaService.findByCodOfiAndPredio(f.getCodOficO(), predioOpt.get());
+                oficOOk  = oficOOpt.isPresent();
+                if (oficOOk) {
+                    // ⚠️ Adapta al getter real de tu entidad Oficina
+                    nombreOficinaOrigen = oficOOpt.get().getNombre();
+                } else {
+                    errores.add("Oficina origen " + f.getCodOficO()
+                                + " no existe en unidad " + f.getUnidadO());
+                }
             } catch (Exception e) {
                 errores.add("Error buscando oficina origen: " + e.getMessage());
             }
         }
 
-        if (oficOOk && f.getCodRespO() != null) {   
+        // ── Responsable origen ───────────────────────────────────────────────────
+        if (oficOOk && f.getCodRespO() != null) {
             try {
-                Optional<Oficina> ofic = oficinaService
-                    .findByCodOfiAndPredio(f.getCodOficO(), predioOpt.get());
-                respOOk = ofic.isPresent() && responsableService
-                    .findByCodigoFuncionarioAndOficina(String.valueOf(f.getCodRespO()), ofic.get()) 
-                    .isPresent();
-                if (!respOOk)
+                var respOpt = responsableService.findByCodigoFuncionarioAndOficina(
+                    String.valueOf(f.getCodRespO()), oficOOpt.get());
+                respOOk = respOpt.isPresent();
+                if (respOOk) {
+                    // ⚠️ Adapta los getters al nombre real de tu entidad Responsable
+                    nombreResponsableOrigen = respOpt.get().getPersona().getNombreCompleto();
+                    ciResponsableOrigen     = respOpt.get().getPersona().getCi();
+                } else {
                     errores.add("Responsable origen " + f.getCodRespO() + " no existe");
+                }
             } catch (Exception e) {
                 errores.add("Error buscando responsable origen: " + e.getMessage());
             }
         }
 
-        boolean predioD = false;
-        boolean oficDOk = false;
-        boolean respDOk = false;
-
+        // ── Predio destino ───────────────────────────────────────────────────────
         Optional<Predio> predioDOpt = Optional.empty();
         try {
             predioDOpt = predioServicio.findByUnidadIgnoreCase(f.getUnidadD());
-            predioD = predioDOpt.isPresent();
+            predioD    = predioDOpt.isPresent();
             if (!predioD) errores.add("Unidad destino '" + f.getUnidadD() + "' no existe");
         } catch (Exception e) {
             errores.add("Error buscando predio destino: " + e.getMessage());
         }
 
+        // ── Oficina destino ──────────────────────────────────────────────────────
         if (predioD && f.getCodOficD() != null) {
             try {
                 oficDOk = oficinaService
                     .findByCodOfiAndPredio(f.getCodOficD(), predioDOpt.get())
                     .isPresent();
                 if (!oficDOk)
-                    errores.add("Oficina destino " + f.getCodOficD() + " no existe en unidad " + f.getUnidadD());
+                    errores.add("Oficina destino " + f.getCodOficD()
+                                + " no existe en unidad " + f.getUnidadD());
             } catch (Exception e) {
                 errores.add("Error buscando oficina destino: " + e.getMessage());
             }
         }
 
+        // ── Receptor ─────────────────────────────────────────────────────────────
         if (f.getCiRecep() != null && !f.getCiRecep().isBlank()) {
             try {
                 respDOk = responsableService.existsByPersonaCi(f.getCiRecep());
@@ -272,12 +344,11 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         }
 
         boolean yaAprobada = transferenciaRepo.existsByCorrT(f.getCorrT());
-
-        boolean valida = errores.isEmpty()
+        boolean valida     = errores.isEmpty()
             && activoOk && predioOOk && oficOOk && respOOk
-            && predioD   && oficDOk   && !yaAprobada;
+            && predioD  && oficDOk   && !yaAprobada;
 
-        return TransferenciaValidadaDto.builder()
+        return TransferenciaActivoDetalleDto.builder()
             .datos(f)
             .tipo(tipo)
             .valida(valida)
@@ -290,6 +361,12 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             .oficinaDestinoExiste(oficDOk)
             .responsableDestinoExiste(respDOk)
             .yaAprobadaEnBd(yaAprobada)
+            .descripcionActivo(descripcionActivo)
+            .nombreGrupoContable(nombreGrupoContable)
+            .nombreAuxiliar(nombreAuxiliar)
+            .nombreOficinaOrigen(nombreOficinaOrigen)
+            .nombreResponsableOrigen(nombreResponsableOrigen)
+            .ciResponsableOrigen(ciResponsableOrigen)
             .build();
     }
 
@@ -307,9 +384,9 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         // 1. Filtrar pendientes
         // 2. Validar cada fila individualmente
         // 3. Agrupar por CORR_T preservando orden de aparición
-        Map<String, List<TransferenciaValidadaDto>> porCorr = filas.stream()
+        Map<String, List<TransferenciaActivoDetalleDto>> porCorr = filas.stream()
             .filter(f -> esPendiente(f.getEstadoT()))
-            .map(this::validar)
+            .map(this::validarEnriquecido)
             .collect(Collectors.groupingBy(
                 dto -> dto.getDatos().getCorrT() != null
                     ? dto.getDatos().getCorrT()
@@ -322,7 +399,24 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         return porCorr.entrySet().stream()
             .map(entry -> {
                 String corrT = entry.getKey();
-                List<TransferenciaValidadaDto> activos = entry.getValue();
+                List<TransferenciaActivoDetalleDto> activos = entry.getValue();
+
+                // Tomar nombre de oficina y responsable del primer activo que los resolvió
+                String nomOficOrigen = activos.stream()
+                    .map(TransferenciaActivoDetalleDto::getNombreOficinaOrigen)
+                    .filter(Objects::nonNull)
+                    .findFirst().orElse(null);
+
+                String nomRespOrigen = activos.stream()
+                    .map(TransferenciaActivoDetalleDto::getNombreResponsableOrigen)
+                    .filter(Objects::nonNull)
+                    .findFirst().orElse(null);
+
+                String ciRespOrigen = activos.stream()
+                    .map(TransferenciaActivoDetalleDto::getCiResponsableOrigen)
+                    .filter(Objects::nonNull)
+                    .findFirst().orElse(null);
+                    
                 SolTransferenciaDbf primero = activos.get(0).getDatos();
 
                 boolean mismaUnidad = primero.getUnidadO() != null &&
@@ -344,6 +438,9 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
                     .tipo(mismaUnidad
                         ? TransferenciaValidadaDto.TipoTransferencia.INTERNA
                         : TransferenciaValidadaDto.TipoTransferencia.EXTERNA)
+                        .nombreOficinaOrigen(nomOficOrigen)
+                    .nombreResponsableOrigen(nomRespOrigen)
+                    .ciResponsableOrigen(ciRespOrigen)
                     .activos(activos)
                     .build();
             })

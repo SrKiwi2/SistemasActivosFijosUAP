@@ -35,7 +35,7 @@ public class TransferenciaAgrupadaDto {
     private TransferenciaValidadaDto.TipoTransferencia tipo;
 
     // Lista de activos individuales con su validación
-    private List<TransferenciaValidadaDto> activos;
+    private List<TransferenciaActivoDetalleDto> activos;
 
     // ── Campos calculados ────────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ public class TransferenciaAgrupadaDto {
     public boolean isTodosValidos() {
         return activos != null &&
                !activos.isEmpty() &&
-               activos.stream().allMatch(TransferenciaValidadaDto::isValida);
+               activos.stream().allMatch(TransferenciaActivoDetalleDto::isValida);
     }
 
     // Cuenta activos con problemas
@@ -55,6 +55,11 @@ public class TransferenciaAgrupadaDto {
     // true si ya fue aprobada en BD (basta con que uno esté aprobado)
     public boolean isYaAprobada() {
         return activos != null &&
-               activos.stream().anyMatch(TransferenciaValidadaDto::isYaAprobadaEnBd);
+               activos.stream().anyMatch(TransferenciaActivoDetalleDto::isYaAprobadaEnBd);
     }
+
+    // ── Cabecera enriquecida (origen) ────────────────────────────────────────────
+    private String nombreOficinaOrigen;      // resuelto desde codOficO + unidadO
+    private String nombreResponsableOrigen;  // resuelto desde codRespO
+    private String ciResponsableOrigen;
 }

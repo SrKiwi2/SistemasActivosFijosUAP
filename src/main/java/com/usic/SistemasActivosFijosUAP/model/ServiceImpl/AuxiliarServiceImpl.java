@@ -12,6 +12,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IAuxiliarDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.AuxOption;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
+import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
 import lombok.RequiredArgsConstructor;
@@ -114,5 +115,10 @@ public class AuxiliarServiceImpl implements IAuxiliarService {
     public Optional<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(Long idPredio,
             Long idGrupo, String nombre) {
         return dao.findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(idPredio, idGrupo, nombre);
+    }
+
+    @Override
+    public Optional<Auxiliar> findByGrupoContableAndCodAux(GrupoContable grupe, Short codAux) {
+        return dao.findByGrupoContableAndCodAux(grupe, codAux);
     }
 }

@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import com.usic.SistemasActivosFijosUAP.model.dto.AuxOption;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
+import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
 public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
@@ -79,4 +80,6 @@ public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
     Optional<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(
         Long idPredio, Long idGrupo, String nombre
     );
+
+    Optional<Auxiliar> findByGrupoContableAndCodAux(GrupoContable grupe, Short codAux);
 }

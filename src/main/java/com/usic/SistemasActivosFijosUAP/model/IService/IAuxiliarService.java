@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.dto.AuxOption;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
+import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
 @Service
@@ -44,5 +45,7 @@ public interface IAuxiliarService extends IServiceGenerico<Auxiliar, Long> {
  
     Optional<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(
         Long idPredio, Long idGrupo, String nombre
-    );     
+    );
+
+    Optional<Auxiliar> findByGrupoContableAndCodAux(GrupoContable grupe, Short codAux);
 }
