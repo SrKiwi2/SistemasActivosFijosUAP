@@ -1,156 +1,250 @@
-<!-- Bloque de diagnóstico — quitar después de resolver -->
-<div th:if="${errorCarga != null}" class="alert alert-danger mx-3 mt-3">
-    <strong><i class="fa-solid fa-bug me-2"></i>Error interno:</strong>
+<!-- Panel resumen superior -->
+<div class="row g-3 mb-4">
+    <div class="col-auto">
+        <div class="card border-0 bg-label-warning text-center px-4 py-3">
+            <div class="fs-3 fw-bold" th:text="${transferencias.size()}">0</div>
+            <small>Pendientes</small>
+        </div>
+    </div>
+    <div class="col-auto">
+        <div class="card border-0 bg-label-info text-center px-4 py-3">
+            <div class="fs-3 fw-bold"
+                th:text="${transferencias.?[tipo != null and tipo.name() == 'INTERNA'].size()}">0</div>
+            <small>Internas</small>
+        </div>
+    </div>
+    <div class="col-auto">
+        <div class="card border-0 bg-label-primary text-center px-4 py-3">
+            <div class="fs-3 fw-bold"
+            th:text="${transferencias.?[tipo != null and tipo.name() == 'EXTERNA'].size()}">0</div>
+            <small>Externas</small>
+        </div>
+    </div>
+    <div class="col-auto">
+        <div class="card border-0 bg-label-success text-center px-4 py-3">
+            <div class="fs-3 fw-bold"
+                th:text="${transferencias.?[valida and !yaAprobadaEnBd].size()}">0</div>
+                 <div class="fs-3 fw-bold" th:text="${transferencias.size()}">0</div>
+            <small>Listas para aprobar</small>
+        </div>
+    </div>
+</div>
+
+<!-- Estado vacío -->
+<div th:if="${transferencias.empty}" class="text-center py-5">
+    <i class="fa-solid fa-circle-check fa-3x text-success mb-3 d-block"></i>
+    <h5 class="text-muted">No hay transferencias pendientes</h5>
+    <small class="text-muted">El sistema verificará automáticamente cada 30 segundos.</small>
+</div>
+
+<!-- Error de carga -->
+<div th:if="${errorCarga != null}" class="alert alert-danger">
+    <i class="fa-solid fa-bug me-2"></i>
+    <strong>Error al procesar:</strong>
     <code th:text="${errorCarga}"></code>
 </div>
 
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Solicitudes de Transferencia — Pendientes</h5>
-        <div class="d-flex gap-2 align-items-center">
-            <span class="badge bg-warning fs-6">
-                <i class="fa-solid fa-hourglass-half me-1"></i>
-                <span th:text="${transferencias.size()}">0</span> pendiente(s)
-            </span>
-            <button class="btn btn-outline-secondary btn-sm" onclick="cargarTabla()">
-                <i class="fa-solid fa-rotate me-1"></i> Actualizar
-            </button>
+<!-- Grid de tarjetas -->
+<div class="row g-3" id="grid-transferencias">
+    <div class="col-12 col-md-6 col-xl-4"
+         th:each="t, idx : ${transferencias}"
+         th:if="${!t.yaAprobadaEnBd}">
+
+        <div class="card h-100 shadow-sm border-0"
+             th:classappend="${t.valida} ? 'border-start border-success border-3' : 'border-start border-warning border-3'">
+
+            <!-- Cabecera: escaneo rápido -->
+            <div class="card-header d-flex justify-content-between align-items-center py-2 bg-transparent">
+                <div class="d-flex gap-2 align-items-center">
+                    <!-- Tipo -->
+                    <span th:if="${t.tipo != null and t.tipo.name() == 'INTERNA'}"
+                          class="badge bg-label-info">
+                        <i class="fa-solid fa-building me-1"></i>Interna
+                    </span>
+                    <span th:if="${t.tipo != null and t.tipo.name() == 'EXTERNA'}"
+                          class="badge bg-label-warning">
+                        <i class="fa-solid fa-arrow-right-arrow-left me-1"></i>Externa
+                    </span>
+                    <!-- Estado validación -->
+                    <span th:if="${t.valida}"
+                          class="badge bg-label-success">
+                        <i class="fa-solid fa-circle-check me-1"></i>Válida
+                    </span>
+                    <span th:unless="${t.valida}"
+                          class="badge bg-label-danger">
+                        <i class="fa-solid fa-circle-xmark me-1"></i>Con errores
+                    </span>
+                </div>
+                <!-- Correlativo -->
+                <small class="text-muted fw-semibold"
+                       th:text="${t.datos.corrT}">—</small>
+            </div>
+
+            <!-- Cuerpo: lectura principal -->
+            <div class="card-body py-3">
+                <!-- Activo -->
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <div class="avatar avatar-sm flex-shrink-0">
+                        <span class="avatar-initial rounded bg-label-secondary">
+                            <i class="fa-solid fa-box-open"></i>
+                        </span>
+                    </div>
+                    <div class="overflow-hidden">
+                        <div class="fw-bold text-truncate"
+                             th:text="${t.datos.codigoO}">—</div>
+                        <small class="text-muted">
+                            Cont: <span th:text="${t.datos.codContO}">—</span>
+                            &nbsp;/&nbsp;
+                            Aux: <span th:text="${t.datos.codAuxO}">—</span>
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Flecha origen → destino -->
+                <div class="d-flex align-items-center gap-2">
+                    <div class="flex-fill text-center p-2 rounded bg-light">
+                        <div class="fw-semibold" th:text="${t.datos.unidadO}">—</div>
+                        <small class="text-muted d-block">Origen</small>
+                    </div>
+                    <div class="text-muted flex-shrink-0">
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                    <div class="flex-fill text-center p-2 rounded bg-light">
+                        <div class="fw-semibold" th:text="${t.datos.unidadD}">—</div>
+                        <small class="text-muted d-block">Destino</small>
+                    </div>
+                </div>
+
+                <!-- Primer error si no es válida -->
+                <div th:if="${!t.valida and !t.errores.empty}"
+                     class="alert alert-warning py-1 px-2 mt-2 mb-0 d-flex align-items-center gap-1">
+                    <i class="fa-solid fa-triangle-exclamation fa-xs"></i>
+                    <small th:text="${t.errores[0]}">—</small>
+                    <span th:if="${t.errores.size() > 1}"
+                          class="ms-auto badge bg-warning text-dark"
+                          th:text="'+' + (${t.errores.size() - 1}) + ' más'">
+                    </span>
+                </div>
+            </div>
+
+            <!-- Detalle expandible -->
+            <div class="collapse" th:id="'detalle-' + ${idx.index}">
+                <div class="card-body pt-0 border-top">
+                    <div class="row g-2 mb-3">
+                        <!-- Origen detalle -->
+                        <div class="col-6">
+                            <div class="p-2 rounded border">
+                                <small class="text-muted d-block fw-semibold mb-1">
+                                    <i class="fa-solid fa-location-dot me-1"></i>ORIGEN
+                                </small>
+                                <div class="small">Of: <strong th:text="${t.datos.codOficO}">—</strong></div>
+                                <div class="small">Resp: <strong th:text="${t.datos.codRespO}">—</strong></div>
+                                <div class="small text-muted" th:text="${t.datos.ciSolO}">—</div>
+                            </div>
+                        </div>
+                        <!-- Destino detalle -->
+                        <div class="col-6">
+                            <div class="p-2 rounded border">
+                                <small class="text-muted d-block fw-semibold mb-1">
+                                    <i class="fa-solid fa-flag-checkered me-1"></i>DESTINO
+                                </small>
+                                <div class="small">Of: <strong th:text="${t.datos.codOficD}">—</strong></div>
+                                <div class="small text-truncate"
+                                     th:text="${t.datos.nomRecep}">—</div>
+                                <div class="small text-muted" th:text="${t.datos.ciRecep}">—</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Validaciones compactas -->
+                    <div class="d-flex flex-wrap gap-1 mb-2">
+                        <span th:class="${t.activoExiste}       ? 'badge bg-success' : 'badge bg-danger'">
+                            <i th:class="${t.activoExiste}       ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> Activo</span>
+                        <span th:class="${t.predioOrigenExiste}  ? 'badge bg-success' : 'badge bg-danger'">
+                            <i th:class="${t.predioOrigenExiste}  ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> U.Orig</span>
+                        <span th:class="${t.oficinaOrigenExiste} ? 'badge bg-success' : 'badge bg-danger'">
+                            <i th:class="${t.oficinaOrigenExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> Of.Orig</span>
+                        <span th:class="${t.responsableOrigenExiste} ? 'badge bg-success' : 'badge bg-danger'">
+                            <i th:class="${t.responsableOrigenExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> Resp.O</span>
+                        <span th:class="${t.predioDestinoExiste} ? 'badge bg-success' : 'badge bg-danger'">
+                            <i th:class="${t.predioDestinoExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> U.Dest</span>
+                        <span th:class="${t.oficinaDestinoExiste} ? 'badge bg-success' : 'badge bg-danger'">
+                            <i th:class="${t.oficinaDestinoExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> Of.Dest</span>
+                    </div>
+
+                    <!-- Errores restantes si hay más de 1 -->
+                    <div th:if="${!t.valida and t.errores.size() > 1}">
+                        <small class="text-danger d-block"
+                               th:each="err, ei : ${t.errores}"
+                               th:if="${ei.index > 0}">
+                            <i class="fa-solid fa-triangle-exclamation fa-xs me-1"></i>
+                            <span th:text="${err}"></span>
+                        </small>
+                    </div>
+
+                    <!-- Metadata -->
+                    <div class="text-muted mt-2" style="font-size:0.75rem">
+                        <i class="fa-regular fa-calendar me-1"></i>
+                        <span th:text="${t.datos.fechaT}">—</span>
+                        &nbsp;·&nbsp;
+                        <span th:text="${t.datos.nombreT}">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pie: acción -->
+            <div class="card-footer bg-transparent d-flex justify-content-between align-items-center py-2">
+                <button class="btn btn-link btn-sm text-muted p-0 btn-toggle-detalle"
+                        th:data-target="'#detalle-' + ${idx.index}">
+                    <i class="fa-solid fa-chevron-down me-1 icon-toggle"></i>
+                    <span class="label-toggle">Ver detalle</span>
+                </button>
+
+                <div>
+                    <button th:if="${t.valida and !t.yaAprobadaEnBd}"
+                            type="button"
+                            class="btn btn-success btn-sm btn-aprobar"
+                            th:data-corr="${t.datos.corrT}">
+                        <i class="fa-solid fa-circle-check me-1"></i>Aprobar
+                    </button>
+                    <span th:if="${!t.valida}"
+                          class="badge bg-label-secondary">
+                        <i class="fa-solid fa-lock me-1"></i>No válida
+                    </span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="card-datatable table-responsive pt-0">
-        <table class="datatables-basic table table-hover" id="data-table-transferencias">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Fecha / Correlativo</th>
-                    <th>Tipo</th>
-                    <th>Activo</th>
-                    <th>Origen</th>
-                    <th>Destino</th>
-                    <th class="text-center">Validación</th>
-                    <th class="text-center">Acción</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="t, idx : ${transferencias}">
-                    <td th:text="${idx.index + 1}"></td>
-
-                    <!-- Fecha y correlativo -->
-                    <td>
-                        <div class="fw-semibold" th:text="${t.datos.corrT}">—</div>
-                        <small class="text-muted" th:text="${t.datos.fechaT}">—</small>
-                        <br>
-                        <small th:text="${t.datos.nombreT}" class="text-truncate d-block" style="max-width:140px"></small>
-                    </td>
-
-                    <!-- Tipo: INTERNA / EXTERNA -->
-                    <td>
-                        <span th:if="${t.tipo != null and t.tipo.name() == 'INTERNA'}"
-                              class="badge bg-info">
-                            <i class="fa-solid fa-building me-1"></i>Interna
-                        </span>
-                        <span th:if="${t.tipo != null and t.tipo.name() == 'EXTERNA'}"
-                              class="badge bg-warning text-dark">
-                            <i class="fa-solid fa-arrow-right-arrow-left me-1"></i>Externa
-                        </span>
-                    </td>
-
-                    <!-- Activo -->
-                    <td>
-                        <span class="badge bg-secondary" th:text="${t.datos.codigoO}">—</span>
-                        <br>
-                        <small class="text-muted">
-                            CONT: <span th:text="${t.datos.codContO}">—</span> /
-                            AUX: <span th:text="${t.datos.codAuxO}">—</span>
-                        </small>
-                    </td>
-
-                    <!-- Origen -->
-                    <td>
-                        <div><i class="fa-solid fa-location-dot text-muted me-1"></i>
-                            <span th:text="${t.datos.unidadO}">—</span></div>
-                        <small>Of: <span th:text="${t.datos.codOficO}">—</span>
-                            / Resp: <span th:text="${t.datos.codRespO}">—</span></small>
-                        <br>
-                        <small class="text-muted">CI: <span th:text="${t.datos.ciSolO}">—</span></small>
-                    </td>
-
-                    <!-- Destino -->
-                    <td>
-                        <div><i class="fa-solid fa-flag-checkered text-muted me-1"></i>
-                            <span th:text="${t.datos.unidadD}">—</span></div>
-                        <small>Of: <span th:text="${t.datos.codOficD}">—</span></small>
-                        <br>
-                        <small class="text-muted">
-                            <span th:text="${t.datos.nomRecep}">—</span>
-                            (<span th:text="${t.datos.ciRecep}">—</span>)
-                        </small>
-                    </td>
-
-                    <!-- Validación: íconos individuales con tooltip -->
-                    <td class="text-center">
-                        <div th:if="${t.yaAprobadaEnBd}">
-                            <span class="badge bg-success">
-                                <i class="fa-solid fa-circle-check me-1"></i>Ya aprobada
-                            </span>
-                        </div>
-                        <div th:if="${!t.yaAprobadaEnBd}" class="d-flex flex-wrap gap-1 justify-content-center">
-                            <span th:class="${t.activoExiste} ? 'badge bg-success' : 'badge bg-danger'"
-                                  data-bs-toggle="tooltip" title="Activo">
-                                <i th:class="${t.activoExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> Activo
-                            </span>
-                            <span th:class="${t.predioOrigenExiste} ? 'badge bg-success' : 'badge bg-danger'"
-                                  data-bs-toggle="tooltip" title="Unidad origen">
-                                <i th:class="${t.predioOrigenExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> U.Orig
-                            </span>
-                            <span th:class="${t.oficinaOrigenExiste} ? 'badge bg-success' : 'badge bg-danger'"
-                                  data-bs-toggle="tooltip" title="Oficina origen">
-                                <i th:class="${t.oficinaOrigenExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> Of.Orig
-                            </span>
-                            <span th:class="${t.responsableOrigenExiste} ? 'badge bg-success' : 'badge bg-danger'"
-                                  data-bs-toggle="tooltip" title="Responsable origen">
-                                <i th:class="${t.responsableOrigenExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> Resp.O
-                            </span>
-                            <span th:class="${t.predioDestinoExiste} ? 'badge bg-success' : 'badge bg-danger'"
-                                  data-bs-toggle="tooltip" title="Unidad destino">
-                                <i th:class="${t.predioDestinoExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> U.Dest
-                            </span>
-                            <span th:class="${t.oficinaDestinoExiste} ? 'badge bg-success' : 'badge bg-danger'"
-                                  data-bs-toggle="tooltip" title="Oficina destino">
-                                <i th:class="${t.oficinaDestinoExiste} ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i> Of.Dest
-                            </span>
-                        </div>
-                        <!-- Errores detallados -->
-                        <div th:if="${!t.valida and !t.yaAprobadaEnBd and !t.errores.empty}"
-                             class="mt-1">
-                            <small class="text-danger" th:each="err : ${t.errores}">
-                                <i class="fa-solid fa-triangle-exclamation"></i>
-                                <span th:text="${err}"></span><br>
+    <!-- Transferencias ya aprobadas — colapsadas por defecto -->
+    <div class="col-12 mt-2" th:if="${transferencias.?[yaAprobadaEnBd].size() > 0}">
+        <button class="btn btn-link btn-sm text-muted" data-bs-toggle="collapse"
+                data-bs-target="#aprobadas-collapse">
+            <i class="fa-solid fa-eye-slash me-1"></i>
+            Mostrar ya aprobadas
+            (<span th:text="${transferencias.?[yaAprobadaEnBd].size()}">0</span>)
+        </button>
+        <div class="collapse" id="aprobadas-collapse">
+            <div class="row g-2 mt-1">
+                <div class="col-12 col-md-6 col-xl-4"
+                     th:each="t : ${transferencias}"
+                     th:if="${t.yaAprobadaEnBd}">
+                    <div class="card border-0 bg-light opacity-75">
+                        <div class="card-body py-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge bg-success me-2">
+                                    <i class="fa-solid fa-circle-check"></i> Aprobada
+                                </span>
+                                <small class="text-muted" th:text="${t.datos.corrT}">—</small>
+                            </div>
+                            <small class="text-muted"
+                                   th:text="${t.datos.unidadO} + ' → ' + ${t.datos.unidadD}">
                             </small>
                         </div>
-                    </td>
-
-                    <!-- Acción -->
-                    <td class="text-center">
-                        <button th:if="${t.valida and !t.yaAprobadaEnBd}"
-                                type="button"
-                                class="btn btn-success btn-sm btn-aprobar"
-                                th:data-corr="${t.datos.corrT}">
-                            <i class="fa-solid fa-circle-check me-1"></i>Aprobar
-                        </button>
-                        <span th:if="${!t.valida and !t.yaAprobadaEnBd}"
-                              class="badge bg-secondary"
-                              data-bs-toggle="tooltip" title="Corrija los errores antes de aprobar">
-                            <i class="fa-solid fa-lock"></i> No válida
-                        </span>
-                        <span th:if="${t.yaAprobadaEnBd}" class="text-muted">
-                            <i class="fa-solid fa-circle-check text-success"></i>
-                        </span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -159,7 +253,40 @@
     document.querySelectorAll('[data-bs-toggle="tooltip"]')
         .forEach(el => new bootstrap.Tooltip(el));
 
-    // Delegación de evento para botones de aprobar
+    // Toggle detalle con cambio de ícono y texto
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.btn-toggle-detalle');
+        if (!btn) return;
+
+        const targetId = btn.getAttribute('data-target');
+        const target   = document.querySelector(targetId);
+        if (!target) return;
+
+        const icono = btn.querySelector('.icon-toggle');
+        const label = btn.querySelector('.label-toggle');
+        const abierto = target.classList.contains('show');
+
+        // Cerrar todos los demás abiertos
+        document.querySelectorAll('.collapse.show[id^="detalle-"]').forEach(el => {
+            if (el !== target) {
+                el.classList.remove('show');
+                const otroBtn = document.querySelector('[data-target="#' + el.id + '"]');
+                if (otroBtn) {
+                    otroBtn.querySelector('.icon-toggle')?.classList.remove('fa-chevron-up');
+                    otroBtn.querySelector('.icon-toggle')?.classList.add('fa-chevron-down');
+                    const otroLabel = otroBtn.querySelector('.label-toggle');
+                    if (otroLabel) otroLabel.textContent = 'Ver detalle';
+                }
+            }
+        });
+
+        target.classList.toggle('show', !abierto);
+        icono?.classList.toggle('fa-chevron-down', abierto);
+        icono?.classList.toggle('fa-chevron-up', !abierto);
+        if (label) label.textContent = abierto ? 'Ver detalle' : 'Ocultar';
+    });
+
+    // Botón aprobar
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('.btn-aprobar');
         if (!btn) return;
