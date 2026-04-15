@@ -313,7 +313,6 @@
     </div>
 </div>
 
-<!-- Datos serializados: Thymeleaf → JSON (sin AJAX extra) -->
 <script th:inline="javascript">
 /*<![CDATA[*/
 const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
@@ -324,80 +323,103 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
 (function () {
     'use strict';
 
-    // ── Estado del modal ─────────────────────────────────────────────────────
     let corrTActual = null;
 
-    // ── Helpers de etiquetas legibles ────────────────────────────────────────
+    // ── Preloader ────────────────────────────────────────────────────────────
+    function mostrarPreloader() {
+        const pre = document.getElementById('modal-preloader');
+        const con = document.getElementById('modal-contenido-activos');
+        if (pre) { pre.classList.remove('d-none'); pre.classList.add('d-flex'); }
+        if (con) { con.classList.add('d-none'); }
+    }
+
+    function ocultarPreloader() {
+        const pre = document.getElementById('modal-preloader');
+        const con = document.getElementById('modal-contenido-activos');
+        if (pre) { pre.classList.add('d-none'); pre.classList.remove('d-flex'); }
+        if (con) { con.classList.remove('d-none'); }
+    }
+
+    // ── Helpers visuales ─────────────────────────────────────────────────────
     function badgeCheck(ok, label) {
         const cls = ok ? 'bg-success' : 'bg-danger';
         const ico = ok ? 'fa-check'   : 'fa-xmark';
-        return `<span class="badge ${cls}">
-                    <i class="fa-solid ${ico} fa-xs me-1"></i>${label}
-                </span>`;
+        return '<span class="badge ' + cls + '">'
+             + '<i class="fa-solid ' + ico + ' fa-xs me-1"></i>' + label
+             + '</span>';
     }
 
     function badgeTipo(tipo) {
         return tipo === 'INTERNA'
-            ? '<span class="badge bg-label-info"><i class="fa-solid fa-building fa-xs me-1"></i>Interna</span>'
-            : '<span class="badge bg-label-warning"><i class="fa-solid fa-arrow-right-arrow-left fa-xs me-1"></i>Externa</span>';
+            ? '<span class="badge bg-label-info">'
+              + '<i class="fa-solid fa-building fa-xs me-1"></i>Interna</span>'
+            : '<span class="badge bg-label-warning">'
+              + '<i class="fa-solid fa-arrow-right-arrow-left fa-xs me-1"></i>Externa</span>';
     }
 
+    // ── Poblar cabecera del modal ─────────────────────────────────────────────
     function poblarCabecera(grupo) {
-        document.getElementById('modal-corr').textContent      = grupo.corrT || '—';
-        document.getElementById('modal-fecha').textContent     =
-            grupo.fechaT
-                ? new Date(grupo.fechaT).toLocaleDateString('es-BO')
-                : '—';
-        document.getElementById('modal-badge-tipo').innerHTML  = badgeTipo(grupo.tipo);
-        document.getElementById('modal-unidad-o').textContent  = grupo.unidadO  || '—';
-        document.getElementById('modal-unidad-d').textContent  = grupo.unidadD  || '—';
-        document.getElementById('modal-nom-recep').textContent = grupo.nomRecep || '—';
-        document.getElementById('modal-ci-recep').textContent  = grupo.ciRecep  || '—';
+        function set(id, val) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val || '—';
+        }
+        function setHtml(id, val) {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = val || '—';
+        }
 
-        // Origen descriptivo
-        document.getElementById('modal-ofi-o-nombre').textContent =
+        set('modal-corr',      grupo.corrT);
+        set('modal-fecha',     grupo.fechaT
+            ? new Date(grupo.fechaT).toLocaleDateString('es-BO') : null);
+        setHtml('modal-badge-tipo', badgeTipo(grupo.tipo));
+        set('modal-unidad-o',  grupo.unidadO);
+        set('modal-unidad-d',  grupo.unidadD);
+        set('modal-nom-recep', grupo.nomRecep);
+        set('modal-ci-recep',  grupo.ciRecep);
+
+        // Origen descriptivo — IDs correctos según el HTML actual
+        set('modal-ofi-o-nombre',
             grupo.nombreOficinaOrigen
                 ? 'Oficina: ' + grupo.nombreOficinaOrigen
-                : 'Oficina: Of. ' + (grupo.codOficO || '—');
+                : 'Oficina: Of. ' + (grupo.codOficO || '—'));
 
-        document.getElementById('modal-resp-o-nombre').textContent =
+        set('modal-resp-o-nombre',
             grupo.nombreResponsableOrigen
                 ? 'Responsable: ' + grupo.nombreResponsableOrigen
-                + ' (' + (grupo.ciResponsableOrigen || grupo.ciSolO || '—') + ')'
-                : 'CI: ' + (grupo.ciSolO || '—');
+                  + ' (' + (grupo.ciResponsableOrigen || grupo.ciSolO || '—') + ')'
+                : 'CI: ' + (grupo.ciSolO || '—'));
     }
 
+    // ── Poblar tabla de activos ───────────────────────────────────────────────
     function poblarTablaActivos(activos) {
         const tbody = document.getElementById('modal-tbody');
+        if (!tbody) return;
         tbody.innerHTML = '';
 
         activos.forEach(function (a, i) {
-            const d      = a.datos  || {};
+            const d      = a.datos   || {};
             const errores= a.errores || [];
             const valida = a.valida;
 
-            // Grupo contable legible
             const grupoLabel = a.nombreGrupoContable
                 ? a.nombreGrupoContable + ' <code>(' + (d.codContO || '—') + ')</code>'
                 : '<code>' + (d.codContO || '—') + '</code>';
 
-            // Auxiliar legible
             const auxLabel = a.nombreAuxiliar
                 ? a.nombreAuxiliar + ' <code>(' + (d.codAuxO || '—') + ')</code>'
                 : '<code>' + (d.codAuxO || '—') + '</code>';
 
-            // Oficina origen legible
             const oficLabel = a.nombreOficinaOrigen
-                ? a.nombreOficinaOrigen + ' <small class="text-muted">(Of. ' + (d.codOficO || '—') + ')</small>'
+                ? a.nombreOficinaOrigen
+                  + ' <small class="text-muted">(Of. ' + (d.codOficO || '—') + ')</small>'
                 : 'Of. <strong>' + (d.codOficO || '—') + '</strong>';
 
-            // Responsable origen legible
             const respLabel = a.nombreResponsableOrigen
                 ? a.nombreResponsableOrigen
-                + ' <small class="text-muted">(' + (a.ciResponsableOrigen || d.codRespO || '—') + ')</small>'
+                  + ' <small class="text-muted">('
+                  + (a.ciResponsableOrigen || d.codRespO || '—') + ')</small>'
                 : 'Resp. <strong>' + (d.codRespO || '—') + '</strong>';
 
-            // Badges de validación compactos
             const checks = [
                 badgeCheck(a.activoExiste,            'Activo'),
                 badgeCheck(a.predioOrigenExiste,       'U.Orig'),
@@ -407,164 +429,106 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
                 badgeCheck(a.oficinaDestinoExiste,     'Of.Dest'),
             ].join(' ');
 
-            // Si hay errores, mostrarlos como tooltip en el badge de validación
             const validacionHtml = valida
                 ? '<span class="badge bg-success">'
-                + '<i class="fa-solid fa-circle-check me-1"></i>OK</span>'
+                  + '<i class="fa-solid fa-circle-check me-1"></i>OK</span>'
                 : '<div class="d-flex flex-wrap gap-1">' + checks + '</div>'
-                + (errores.length
-                        ? '<div class="mt-1">'
+                  + (errores.length
+                      ? '<div class="mt-1">'
                         + errores.map(function (er) {
-                                return '<div class="text-danger" style="font-size:.7rem">'
-                                    + '<i class="fa-solid fa-triangle-exclamation fa-xs me-1"></i>'
-                                    + er + '</div>';
-                            }).join('')
+                              return '<div class="text-danger" style="font-size:.7rem">'
+                                   + '<i class="fa-solid fa-triangle-exclamation'
+                                   + ' fa-xs me-1"></i>' + er + '</div>';
+                          }).join('')
                         + '</div>'
-                        : '');
+                      : '');
 
             const tr = document.createElement('tr');
             tr.className = valida ? '' : 'table-warning';
             tr.innerHTML =
                 '<td class="text-muted small">' + (i + 1) + '</td>'
-            + '<td><span class="badge bg-secondary font-monospace">'
-            +     (d.codigoO || '—') + '</span></td>'
-            + '<td class="small">'
-            +     (a.descripcionActivo
-                        ? '<span title="' + (a.descripcionActivo) + '" '
-                        + 'class="d-inline-block text-truncate" style="max-width:160px">'
-                        + a.descripcionActivo + '</span>'
-                        : '<span class="text-muted">—</span>')
-            + '</td>'
-            + '<td class="small">' + grupoLabel + '</td>'
-            + '<td class="small">' + auxLabel   + '</td>'
-            + '<td class="small">' + oficLabel  + '</td>'
-            + '<td class="small">' + respLabel  + '</td>'
-            + '<td>' + validacionHtml + '</td>';
+              + '<td><span class="badge bg-secondary font-monospace">'
+              +     (d.codigoO || '—') + '</span></td>'
+              + '<td class="small">'
+              +     (a.descripcionActivo
+                        ? '<span title="' + a.descripcionActivo + '" '
+                          + 'class="d-inline-block text-truncate" style="max-width:160px">'
+                          + a.descripcionActivo + '</span>'
+                        : '<span class="text-muted fst-italic">Sin descripción</span>')
+              + '</td>'
+              + '<td class="small">' + grupoLabel + '</td>'
+              + '<td class="small">' + auxLabel   + '</td>'
+              + '<td class="small">' + oficLabel  + '</td>'
+              + '<td class="small">' + respLabel  + '</td>'
+              + '<td>'               + validacionHtml + '</td>';
 
             tbody.appendChild(tr);
         });
     }
 
-    // ── Apertura del modal: poblar con datos del grupo ───────────────────────
+    // ── Poblar pie del modal ──────────────────────────────────────────────────
+    function poblarPie(grupo) {
+        const activos        = grupo.activos || [];
+        const totalActivos   = activos.length;
+        const activosConError= activos.filter(function (a) { return !a.valida; }).length;
+
+        const elTotal = document.getElementById('modal-total-activos');
+        const elError = document.getElementById('modal-activos-error');
+        if (elTotal) elTotal.textContent = totalActivos;
+        if (elError) elError.textContent = activosConError;
+
+        const btnAprobar = document.getElementById('btn-aprobar-modal');
+        if (btnAprobar) {
+            btnAprobar.disabled = !(grupo.todosValidos && !grupo.yaAprobada);
+            btnAprobar.setAttribute('data-corr',  grupo.corrT);
+            btnAprobar.setAttribute('data-count', totalActivos);
+        }
+    }
+
+    // ── Handler único de apertura del modal ──────────────────────────────────
+    // Registrado UNA sola vez aquí, nunca anidado
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('.btn-ver-detalle');
         if (!btn) return;
 
-        // Preloader visible mientras se llena
-        document.getElementById('modal-preloader').style.display   = 'flex';
-        document.getElementById('modal-contenido-activos').style.display = 'none';
+        mostrarPreloader();
 
         const corrT = btn.getAttribute('data-corr');
         corrTActual  = corrT;
 
-        const grupo = TRANSFERENCIAS_DATA.find(t => t.corrT === corrT);
-        if (!grupo) return;
-
-        // -- Cabecera general --
-        document.getElementById('modal-corr').textContent       = corrT;
-        document.getElementById('modal-fecha').textContent      =
-            grupo.fechaT
-                ? new Date(grupo.fechaT).toLocaleDateString('es-BO')
-                : '—';
-        document.getElementById('modal-badge-tipo').innerHTML   = badgeTipo(grupo.tipo);
-        document.getElementById('modal-unidad-o').textContent   = grupo.unidadO  || '—';
-        document.getElementById('modal-unidad-d').textContent   = grupo.unidadD  || '—';
-        document.getElementById('modal-ofi-o').textContent      =
-            'Ofic. ' + (grupo.codOficO || '—') + '  Resp. ' + (grupo.codRespO || '—');
-        document.getElementById('modal-ci-sol').textContent     = grupo.ciSolO   || '—';
-        document.getElementById('modal-nom-recep').textContent  = grupo.nomRecep || '—';
-        document.getElementById('modal-ci-recep').textContent   = grupo.ciRecep  || '—';
-
-        // -- Tabla de activos --
-        const tbody  = document.getElementById('modal-tbody');
-        tbody.innerHTML = '';
-
-        const activos = grupo.activos || [];
-        activos.forEach(function (a, i) {
-            const d      = a.datos  || {};
-            const errores= a.errores || [];
-            const valida = a.valida;
-
-            // Mini-resumen de validaciones individuales
-            const checks = [
-                badgeCheck(a.activoExiste,           'Activo'),
-                badgeCheck(a.predioOrigenExiste,      'U.Orig'),
-                badgeCheck(a.oficinaOrigenExiste,     'Of.Orig'),
-                badgeCheck(a.responsableOrigenExiste, 'Resp'),
-                badgeCheck(a.predioDestinoExiste,     'U.Dest'),
-                badgeCheck(a.oficinaDestinoExiste,    'Of.Dest'),
-            ].join(' ');
-
-            const errHtml = errores.length
-                ? errores.map(function (er) {
-                    return '<div class="text-danger" style="font-size:.75rem">'
-                         + '<i class="fa-solid fa-triangle-exclamation fa-xs me-1"></i>'
-                         + er + '</div>';
-                  }).join('')
-                : '<span class="text-success" style="font-size:.75rem">'
-                + '<i class="fa-solid fa-circle-check me-1"></i>Sin errores</span>';
-
-            const tr = document.createElement('tr');
-            tr.className = valida ? '' : 'table-warning';
-            tr.innerHTML =
-                '<td class="text-muted">' + (i + 1) + '</td>'
-              + '<td><span class="badge bg-secondary font-monospace">'
-              +     (d.codigoO || '—') + '</span></td>'
-              + '<td class="text-center"><code>' + (d.codContO || '—') + '</code></td>'
-              + '<td class="text-center"><code>' + (d.codAuxO  || '—') + '</code></td>'
-              + '<td class="small">Of. <strong>' + (d.codOficO || '—') + '</strong></td>'
-              + '<td class="small">Resp. <strong>' + (d.codRespO || '—') + '</strong></td>'
-              + '<td><div class="d-flex flex-wrap gap-1">' + checks + '</div></td>'
-              + '<td>' + errHtml + '</td>';
-
-            tbody.appendChild(tr);
+        const grupo = TRANSFERENCIAS_DATA.find(function (t) {
+            return t.corrT === corrT;
         });
 
-        // -- Pie del modal --
-        const totalActivos   = activos.length;
-        const activosConError= activos.filter(function (a) { return !a.valida; }).length;
+        if (!grupo) {
+            ocultarPreloader();
+            return;
+        }
 
-        document.getElementById('modal-total-activos').textContent = totalActivos;
-        document.getElementById('modal-activos-error').textContent = activosConError;
+        poblarCabecera(grupo);
+        poblarTablaActivos(grupo.activos || []);
+        poblarPie(grupo);
 
-        // Habilitar botón solo si todos válidos y no aprobada
-        const btnAprobar = document.getElementById('btn-aprobar-modal');
-        btnAprobar.disabled = !(grupo.todosValidos && !grupo.yaAprobada);
-        btnAprobar.setAttribute('data-corr',  corrT);
-        btnAprobar.setAttribute('data-count', totalActivos);
-
-        // Quitar preloader y mostrar contenido
-        document.addEventListener('click', function (e) {
-            const btn = e.target.closest('.btn-ver-detalle');
-            if (!btn) return;
-
-            mostrarPreloader();   // ← inmediato al clic
-
-            const corrT = btn.getAttribute('data-corr');
-            corrTActual  = corrT;
-            const grupo  = TRANSFERENCIAS_DATA.find(t => t.corrT === corrT);
-            if (!grupo) { ocultarPreloader(); return; }
-
-            poblarCabecera(grupo);
-            poblarTablaActivos(grupo.activos || []);
-            poblarPie(grupo);
-
-            ocultarPreloader();   // ← inmediato al terminar, sin setTimeout
-        });
+        ocultarPreloader();
     });
 
-    // ── Reset al cerrar modal ────────────────────────────────────────────────
-    document.getElementById('modalDetalleTransferencia')
-        .addEventListener('hidden.bs.modal', function () {
-            document.getElementById('modal-tbody').innerHTML = '';
-            document.getElementById('btn-aprobar-modal').disabled = true;
+    // ── Reset al cerrar modal ─────────────────────────────────────────────────
+    const modalEl = document.getElementById('modalDetalleTransferencia');
+    if (modalEl) {
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            const tbody = document.getElementById('modal-tbody');
+            if (tbody) tbody.innerHTML = '';
+            const btnAprobar = document.getElementById('btn-aprobar-modal');
+            if (btnAprobar) btnAprobar.disabled = true;
             corrTActual = null;
             resetBotonAprobar();
         });
+    }
 
-    // ── Botón Aprobar del modal ──────────────────────────────────────────────
-    document.getElementById('btn-aprobar-modal')
-        .addEventListener('click', function () {
+    // ── Botón Aprobar ─────────────────────────────────────────────────────────
+    const btnAprobarEl = document.getElementById('btn-aprobar-modal');
+    if (btnAprobarEl) {
+        btnAprobarEl.addEventListener('click', function () {
             const corrT = this.getAttribute('data-corr');
             const count = this.getAttribute('data-count');
             if (!corrT) return;
@@ -572,17 +536,17 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
             Swal.fire({
                 title: '¿Confirmar aprobación?',
                 html:  'Correlativo: <strong>' + corrT + '</strong><br>'
-                     + 'Se modificarán <strong>' + count + '</strong> registro(s) en ACTUAL.DBF.',
+                     + 'Se modificarán <strong>' + count
+                     + '</strong> registro(s) en ACTUAL.DBF.',
                 icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#28a745',
-                cancelButtonColor:  '#6c757d',
-                confirmButtonText: '<i class="fa-solid fa-check me-1"></i>Aprobar todo',
-                cancelButtonText:  'Cancelar'
+                showCancelButton:    true,
+                confirmButtonColor:  '#28a745',
+                cancelButtonColor:   '#6c757d',
+                confirmButtonText:   '<i class="fa-solid fa-check me-1"></i>Aprobar todo',
+                cancelButtonText:    'Cancelar'
             }).then(function (result) {
                 if (!result.isConfirmed) return;
 
-                // Preloader en el botón
                 activarPreloaderBoton();
 
                 $.ajax({
@@ -590,10 +554,9 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
                     url:  '/administracion/transferenciasLondra/aprobar/'
                           + encodeURIComponent(corrT),
                     success: function (res) {
-                        // Cerrar modal antes del Swal
-                        bootstrap.Modal.getInstance(
-                            document.getElementById('modalDetalleTransferencia')
-                        ).hide();
+                        const modal = bootstrap.Modal.getInstance(
+                            document.getElementById('modalDetalleTransferencia'));
+                        if (modal) modal.hide();
 
                         Swal.fire({
                             title: 'Aprobado',
@@ -614,37 +577,23 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
                 });
             });
         });
+    }
 
-    // ── Helpers estado botón ─────────────────────────────────────────────────
+    // ── Estado del botón aprobar ──────────────────────────────────────────────
     function activarPreloaderBoton() {
-        document.getElementById('btn-aprobar-texto').classList.add('d-none');
-        document.getElementById('btn-aprobar-loader').classList.remove('d-none');
-        document.getElementById('btn-aprobar-modal').disabled = true;
+        const txt = document.getElementById('btn-aprobar-texto');
+        const ldr = document.getElementById('btn-aprobar-loader');
+        const btn = document.getElementById('btn-aprobar-modal');
+        if (txt) txt.classList.add('d-none');
+        if (ldr) ldr.classList.remove('d-none');
+        if (btn) btn.disabled = true;
     }
 
     function resetBotonAprobar() {
-        document.getElementById('btn-aprobar-texto').classList.remove('d-none');
-        document.getElementById('btn-aprobar-loader').classList.add('d-none');
-    }
-
-    // Al abrir modal — mostrar preloader, ocultar tabla
-    function mostrarPreloader() {
-        document.getElementById('modal-preloader')
-            .classList.remove('d-none');
-        document.getElementById('modal-preloader')
-            .classList.add('d-flex');          // necesario para el layout flex
-        document.getElementById('modal-contenido-activos')
-            .classList.add('d-none');
-    }
-
-    // Al terminar de poblar — ocultar preloader, mostrar tabla
-    function ocultarPreloader() {
-        document.getElementById('modal-preloader')
-            .classList.add('d-none');
-        document.getElementById('modal-preloader')
-            .classList.remove('d-flex');
-        document.getElementById('modal-contenido-activos')
-            .classList.remove('d-none');
+        const txt = document.getElementById('btn-aprobar-texto');
+        const ldr = document.getElementById('btn-aprobar-loader');
+        if (txt) txt.classList.remove('d-none');
+        if (ldr) ldr.classList.add('d-none');
     }
 
 })();
