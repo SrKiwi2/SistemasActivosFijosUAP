@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.usic.SistemasActivosFijosUAP.model.dto.hardware.ActivoMantenimientoDTO;
 import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
@@ -92,4 +93,98 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
 
     @Query("SELECT a.codigo FROM Activo a")
     List<String> findAllCodigos();
+
+    String GRUPO_EQUIPOS_COMPUTACION = "EQUIPOS DE COMPUTACION";
+    
+    // =========================================================================
+    // QUERY 1: Listado Paginado — Todos los Equipos de Computación
+    // =========================================================================
+
+    /**
+     * Retorna una página de activos del grupo "EQUIPOS DE COMPUTACION".
+     *
+     * LEFT JOIN en relaciones opcionales (oficina, responsable, estadoActivo)
+     * para no excluir activos con esos campos incompletos.
+     *
+     * JOIN (INNER) en grupoContable: es el filtro principal y DEBE existir.
+     * JOIN en persona: se asume que todo Responsable tiene Persona asociada.
+     *                  Si puede ser null, cambiar a LEFT JOIN r.persona p.
+     */
+
+    @Query(
+        value = """
+            SELECT new com.usic.SistemasActivosFijosUAP.model.dto.hardware.ActivoMantenimientoDTO(
+                a.idActivo,
+                a.codigo,
+                a.codigoSec,
+                a.nombre,
+                a.descripcion,
+                o.nombre,
+                CONCAT(COALESCE(p.nombre, ''), ' ', COALESCE(p.paterno, '')),
+                r.codigoFuncionario,
+                a.fechaAdquisicion,
+                a.vidaUtil,
+                ea.nombre,
+                a.hashDatos
+            )
+            FROM Activo a
+            JOIN  a.grupoContable gc
+            LEFT JOIN a.oficina         o
+            LEFT JOIN a.responsable     r
+            LEFT JOIN r.persona         p
+            LEFT JOIN a.estadoActivo    ea
+            WHERE UPPER(gc.nombre) = :grupoNombre
+            ORDER BY a.codigo ASC
+            """,
+        countQuery = """
+            SELECT COUNT(a)
+            FROM Activo a
+            JOIN a.grupoContable gc
+            WHERE UPPER(gc.nombre) = :grupoNombre
+            """
+    )
+    Page<ActivoMantenimientoDTO> findAllEquiposComputacion(
+        @Param("grupoNombre") String grupoNombre,
+        Pageable pageable
+    );
+
+    // =========================================================================
+    // QUERY 2: Búsqueda por Código — Usa el índice idx_activo_codigo
+    // =========================================================================
+
+    /**
+     * Busca un activo específico por su código, garantizando que pertenece
+     * al grupo de computación. Aprovecha el índice idx_activo_codigo.
+     *
+     * Retorna Optional para que la capa de servicio maneje correctamente
+     * el caso "no encontrado" sin lanzar excepciones en el DAO.
+     */
+    @Query("""
+            SELECT new com.usic.SistemasActivosFijosUAP.model.dto.hardware.ActivoMantenimientoDTO(
+                a.idActivo,
+                a.codigo,
+                a.codigoSec,
+                a.nombre,
+                a.descripcion,
+                o.nombre,
+                CONCAT(COALESCE(p.nombre, ''), ' ', COALESCE(p.paterno, '')),
+                r.codigoFuncionario,
+                a.fechaAdquisicion,
+                a.vidaUtil,
+                ea.nombre,
+                a.hashDatos
+            )
+            FROM Activo a
+            JOIN  a.grupoContable    gc
+            LEFT JOIN a.oficina      o
+            LEFT JOIN a.responsable  r
+            LEFT JOIN r.persona      p
+            LEFT JOIN a.estadoActivo ea
+            WHERE a.codigo = :codigo
+              AND UPPER(gc.nombre) = :grupoNombre
+            """)
+    Optional<ActivoMantenimientoDTO> findEquipoComputacionByCodigo(
+        @Param("codigo")      String codigo,
+        @Param("grupoNombre") String grupoNombre
+    );
 }
