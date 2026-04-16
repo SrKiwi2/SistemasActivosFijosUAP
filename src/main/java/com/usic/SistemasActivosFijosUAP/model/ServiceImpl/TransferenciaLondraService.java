@@ -25,6 +25,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaLondraService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IAuxiliarDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaCabeceraDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaLondraDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SolTransferenciaDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.TransferenciaValidadaDto;
@@ -36,6 +37,9 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
+import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaCabecera;
+import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaDetalle;
+import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaDetalleLondra;
 import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaLondra;
 
 import lombok.RequiredArgsConstructor;
@@ -53,7 +57,7 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     private final IResponsableService    responsableService;
     private final IActivoService         activoService;
     private final IGrupoContableService grupoContableService;
-    private final IAuxiliarService auxiliarService;
+    private final ITransferenciaCabeceraDao cabeceraRepo;
 
     private final IAuxiliarDao auxiliarRepository;
 
@@ -101,9 +105,16 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
 
     @Override
     @Transactional
-    public TransferenciaLondra aprobar(String corrT, String usuarioNombre) throws Exception {
+    public TransferenciaCabecera aprobar(String corrT,
+                                        String usuarioNombre) throws Exception {
 
-        // Obtener todos los activos de este CORR_T
+        // ── 1. Verificar duplicado antes de todo ─────────────────────────────────
+        if (cabeceraRepo.existsByCorrT(corrT)) {
+            throw new IllegalStateException(
+                "La transferencia '" + corrT + "' ya fue aprobada anteriormente");
+        }
+
+        // ── 2. Leer activos del DBF ───────────────────────────────────────────────
         List<SolTransferenciaDbf> grupo = dbfService
             .listarSolTransferenciasAll(Path.of(transferenciasPath), null)
             .stream()
@@ -111,84 +122,121 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             .collect(Collectors.toList());
 
         if (grupo.isEmpty()) throw new IllegalArgumentException(
-            "No se encontró la transferencia con CORR_T=" + corrT);
+            "No se encontró ningún activo con CORR_T=" + corrT);
 
-        // Validar que TODOS sean válidos antes de procesar cualquiera
+        // ── 3. Validar TODOS — fail fast ──────────────────────────────────────────
+        Map<String, String> cache = cargarCacheNombresAuxiliar(grupo);
         List<String> erroresGlobales = new ArrayList<>();
+
         for (SolTransferenciaDbf f : grupo) {
-            TransferenciaActivoDetalleDto v = validarEnriquecido(f);
+            TransferenciaActivoDetalleDto v = validarEnriquecido(f, cache);
             if (!v.isValida()) {
-                erroresGlobales.add("Activo " + f.getCodigoO() + ": " +
-                                    String.join(", ", v.getErrores()));
+                erroresGlobales.add("• " + f.getCodigoO() + ": "
+                    + String.join(", ", v.getErrores()));
             }
         }
+
         if (!erroresGlobales.isEmpty()) {
             throw new IllegalStateException(
-                "Hay activos con errores: " + String.join(" | ", erroresGlobales));
+                "No se puede aprobar. Errores detectados:\n"
+                + String.join("\n", erroresGlobales));
         }
 
+        // ── 4. Construir y persistir cabecera ─────────────────────────────────────
         SolTransferenciaDbf primero = grupo.get(0);
-        TransferenciaLondra registroFinal = null;
+        boolean mismaUnidad = primero.getUnidadO() != null &&
+                            primero.getUnidadO().equalsIgnoreCase(primero.getUnidadD());
 
-        // Procesar cada activo individualmente
+        TransferenciaCabecera cabecera = TransferenciaCabecera.builder()
+            .corrT(corrT)
+            .nombreT(primero.getNombreT())
+            .fechaT(primero.getFechaT())
+            .estadoTDbf(primero.getEstadoT())
+            .unidadO(primero.getUnidadO())
+            .unidadD(primero.getUnidadD())
+            .codOficO(primero.getCodOficO())
+            .ciSolicitante(primero.getCiSolO())
+            .codOficD(primero.getCodOficD())
+            .ciReceptor(primero.getCiRecep())
+            .nomReceptor(primero.getNomRecep())
+            .tipo(mismaUnidad
+                ? TransferenciaValidadaDto.TipoTransferencia.INTERNA
+                : TransferenciaValidadaDto.TipoTransferencia.EXTERNA)
+            .estado(TransferenciaCabecera.EstadoTransferencia.APROBADO)
+            .fechaAprobacion(LocalDateTime.now())
+            .usuarioAprobacion(usuarioNombre)
+            .build();
+
+        // ── 5. Construir detalles y asociarlos a la cabecera ──────────────────────
         for (SolTransferenciaDbf f : grupo) {
-
-            TransferenciaLondra t = TransferenciaLondra.builder()
-                .corrT(f.getCorrT())
+            TransferenciaDetalleLondra detalle = TransferenciaDetalleLondra.builder()
+                .cabecera(cabecera)
                 .idTDbf(f.getIdT())
-                .nombreT(f.getNombreT())
-                .fechaT(f.getFechaT())
-                .estadoTDbf(f.getEstadoT())
-                .tipo(primero.getUnidadO().equalsIgnoreCase(primero.getUnidadD())
-                    ? TransferenciaValidadaDto.TipoTransferencia.INTERNA
-                    : TransferenciaValidadaDto.TipoTransferencia.EXTERNA)
-                .unidadO(f.getUnidadO())
+                .codigoActivo(f.getCodigoO())
                 .codContO(f.getCodContO())
                 .codAuxO(f.getCodAuxO())
-                .codigoActivo(f.getCodigoO())
                 .estadoActivoO(f.getEstadoO())
                 .codOficO(f.getCodOficO())
                 .codRespO(f.getCodRespO())
-                .ciSolicitante(f.getCiSolO())
-                .unidadD(f.getUnidadD())
-                .codOficD(f.getCodOficD())
-                .ciReceptor(f.getCiRecep())
-                .nomReceptor(f.getNomRecep())
-                .estado(TransferenciaLondra.EstadoTransferencia.APROBADO)
-                .fechaAprobacion(LocalDateTime.now())
-                .usuarioAprobacion(usuarioNombre)
+                .estadoDetalle(TransferenciaDetalleLondra.EstadoActivo.APROBADO)
                 .build();
 
-            transferenciaRepo.save(t);
-            if (registroFinal == null) registroFinal = t;
-
-            // Actualizar ACTUAL.DBF para este activo específico
-            Predio predioO = predioServicio
-                .findByUnidadIgnoreCase(f.getUnidadO())
-                .orElseThrow(() -> new IllegalStateException(
-                    "Predio origen no encontrado: " + f.getUnidadO()));
-
-            dbfService.actualizarActivoParaTransferencia(
-                f.getCodigoO(),
-                predioO.getEntidad().getEntidadCodigo(),
-                f.getUnidadO(),
-                f.getUnidadD(),
-                f.getCodOficD(),
-                f.getCodRespO(),
-                LocalDate.now(),
-                usuarioNombre
-            );
-
-            log.info("✅ Activo {} de transferencia {} procesado", f.getCodigoO(), corrT);
+            cabecera.getDetalles().add(detalle);
         }
 
-        // Marcar el CORR_T completo como aprobado en sol_transferencias.DBF
-        dbfService.actualizarEstadoTransferenciaDbf(
-            Path.of(transferenciasPath), corrT, "APROBADO");
+        // Un solo save guarda cabecera + todos los detalles (CascadeType.ALL)
+        cabeceraRepo.save(cabecera);
+        log.info("✅ BD — cabecera y {} detalles guardados para {}",
+                grupo.size(), corrT);
 
-        log.info("✅ Transferencia {} completa — {} activos procesados por {}",
+        // ── 6. Actualizar ACTUAL.DBF para cada activo ─────────────────────────────
+        List<String> erroresDbf = new ArrayList<>();
+
+        for (SolTransferenciaDbf f : grupo) {
+            try {
+                Predio predioO = predioServicio
+                    .findByUnidadIgnoreCase(f.getUnidadO())
+                    .orElseThrow(() -> new IllegalStateException(
+                        "Predio origen no encontrado: " + f.getUnidadO()));
+
+                dbfService.actualizarActivoParaTransferencia(
+                    f.getCodigoO(),
+                    predioO.getEntidad().getEntidadCodigo(),
+                    f.getUnidadO(),
+                    f.getUnidadD(),
+                    f.getCodOficD(),
+                    f.getCodRespO(),
+                    LocalDate.now(),
+                    usuarioNombre
+                );
+
+                log.info("✅ ACTUAL.DBF — activo {} transferido", f.getCodigoO());
+
+            } catch (Exception e) {
+                erroresDbf.add("• " + f.getCodigoO() + ": " + e.getMessage());
+                log.error("❌ Error en ACTUAL.DBF para activo {}: {}",
+                    f.getCodigoO(), e.getMessage(), e);
+            }
+        }
+
+        // ── 7. Marcar en sol_transferencias.DBF ───────────────────────────────────
+        try {
+            dbfService.actualizarEstadoTransferenciaDbf(
+                Path.of(transferenciasPath), corrT, "APROBADO");
+        } catch (Exception e) {
+            log.error("❌ Error marcando APROBADO en sol_transferencias.DBF: {}",
+                e.getMessage());
+        }
+
+        if (!erroresDbf.isEmpty()) {
+            log.warn("⚠️ Transferencia {} aprobada en BD pero con {} "
+                + "error(es) en ACTUAL.DBF:\n{}",
+                    corrT, erroresDbf.size(), String.join("\n", erroresDbf));
+        }
+
+        log.info("✅ Transferencia {} completada — {} activo(s) por {}",
                 corrT, grupo.size(), usuarioNombre);
-        return registroFinal;
+        return cabecera;
     }
 
     private TransferenciaActivoDetalleDto validarEnriquecido(
