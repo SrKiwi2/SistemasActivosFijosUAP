@@ -378,10 +378,22 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
         set('modal-fecha',     grupo.fechaT
             ? new Date(grupo.fechaT).toLocaleDateString('es-BO') : null);
         setHtml('modal-badge-tipo', badgeTipo(grupo.tipo));
-        set('modal-unidad-o',  grupo.unidadO);
+
+        // ── ORIGEN ───────────────────────────────────────────────────────────────
+        set('modal-unidad-o', grupo.unidadO);
+
+        set('modal-ofi-o-nombre',
+            grupo.nombreOficinaOrigen
+                ? 'Oficina: ' + grupo.nombreOficinaOrigen
+                : 'Oficina: Of. ' + (grupo.codOficO || '—'));
+
+        set('modal-resp-o-nombre',
+            grupo.nombreResponsableOrigen
+                ? 'Responsable: ' + grupo.nombreResponsableOrigen
+                + ' (' + (grupo.ciResponsableOrigen || grupo.ciSolO || '—') + ')'
+                : 'CI: ' + (grupo.ciSolO || '—'));
+
         set('modal-unidad-d',  grupo.unidadD);
-        set('modal-nom-recep', grupo.nomRecep);
-        set('modal-ci-recep',  grupo.ciRecep);
 
         // Origen descriptivo — IDs correctos según el HTML actual
         set('modal-ofi-d-nombre',
