@@ -24,7 +24,7 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     List<Responsable> findAllByPersonaIdPersona(@Param("idPersona") Long idPersona);
     List<Responsable> findAllByPersona(Persona persona);
     List<Responsable> findByPersonaAndEstado(Persona persona, String estado);
-    Optional<Responsable> findByOficinaAndCodigoFuncionario(Oficina oficina, String codigo_funcionario);
+    
     Optional<Responsable> findByOficinaAndPersona(Oficina oficina, Persona persona);
     List<Responsable> saveAll(Iterable<Responsable> responsables);
     Page<IResposableDao.ResponsableRow> datatable(String q, Long oficinaId, Pageable pageable);
@@ -52,5 +52,13 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     Optional<Responsable> findByCodigoFuncionarioAndOficina(String codigoFuncionario, Oficina oficina);
 
     boolean existsByPersonaCi(String ci);
+
+    // ORIGEN: buscar por codigoFuncionario + oficina (ya filtrada por predio)
+    Optional<Responsable> findByOficinaAndCodigoFuncionario(
+        Oficina oficina, String codigoFuncionario);
+
+    // DESTINO: buscar por CI de persona + oficina (ya filtrada por predio)
+    Optional<Responsable> findByOficinaAndPersonaCi(
+        Oficina oficina, String ci);
     
 }

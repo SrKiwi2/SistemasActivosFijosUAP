@@ -82,4 +82,28 @@ public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
     );
 
     Optional<Auxiliar> findByGrupoContableAndCodAux(GrupoContable grupe, Short codAux);
+
+    @Query("""
+        SELECT a FROM Auxiliar a
+        JOIN a.predio p
+        JOIN a.grupoContable g
+        WHERE LOWER(TRIM(p.unidad)) = LOWER(TRIM(:unidad))
+          AND g.codContable = :codContable
+          AND a.codAux      = :codAux
+          AND a.estado      = 'ACTIVO'
+        """)
+    Optional<Auxiliar> findByUnidadGrupoAndCodAux(
+        @Param("unidad")      String unidad,
+        @Param("codContable") Integer codContable,
+        @Param("codAux")      Short codAux
+    );
+
+    @Query("""
+        SELECT a FROM Auxiliar a
+        JOIN FETCH a.predio p
+        JOIN FETCH a.grupoContable g
+        WHERE LOWER(TRIM(p.unidad)) IN :unidades
+          AND a.estado = 'ACTIVO'
+        """)
+    List<Auxiliar> findAllByUnidadesIn(@Param("unidades") List<String> unidades);
 }

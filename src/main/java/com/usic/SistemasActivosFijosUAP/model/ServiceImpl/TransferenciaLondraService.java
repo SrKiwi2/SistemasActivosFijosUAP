@@ -24,14 +24,17 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaLondraService;
+import com.usic.SistemasActivosFijosUAP.model.dao.IAuxiliarDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaLondraDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SolTransferenciaDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.TransferenciaValidadaDto;
 import com.usic.SistemasActivosFijosUAP.model.dto.transferencia.TransferenciaActivoDetalleDto;
 import com.usic.SistemasActivosFijosUAP.model.dto.transferencia.TransferenciaAgrupadaDto;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
+import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
 import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaLondra;
 
@@ -51,6 +54,8 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     private final IActivoService         activoService;
     private final IGrupoContableService grupoContableService;
     private final IAuxiliarService auxiliarService;
+
+    private final IAuxiliarDao auxiliarRepository;
 
     @Value("${legacy.dbf.transferencias.path}")
     private String transferenciasPath;
@@ -186,7 +191,9 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         return registroFinal;
     }
 
-    private TransferenciaActivoDetalleDto validarEnriquecido(SolTransferenciaDbf f) {
+    private TransferenciaActivoDetalleDto validarEnriquecido(
+        SolTransferenciaDbf f,
+        Map<String, String> cacheAuxiliar) {
 
         List<String> errores = new ArrayList<>();
 
@@ -196,7 +203,6 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             ? TransferenciaValidadaDto.TipoTransferencia.INTERNA
             : TransferenciaValidadaDto.TipoTransferencia.EXTERNA;
 
-        // ── Variables de resolución ──────────────────────────────────────────────
         boolean activoOk  = false;
         boolean predioOOk = false;
         boolean oficOOk   = false;
@@ -205,21 +211,19 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         boolean oficDOk   = false;
         boolean respDOk   = false;
 
-        // Campos enriquecidos — se poblan si la entidad se encuentra
-        String descripcionActivo       = null;
-        String nombreGrupoContable     = null;
-        String nombreAuxiliar          = null;
-        String nombreOficinaOrigen     = null;
-        String nombreResponsableOrigen = null;
-        String ciResponsableOrigen     = null;
+        String descripcionActivo    = null;
+        String nombreGrupoContable  = null;
+        String nombreAuxiliar       = null;
+        String nombreOficinaOrigen  = null;
+        String nomRespOrigen        = null;
+        String ciRespOrigen         = null;
 
         // ── Activo ───────────────────────────────────────────────────────────────
         try {
-            Optional<Activo> activoOpt = activoService.findByCodigo(f.getCodigoO());
+            var activoOpt = activoService.findByCodigo(f.getCodigoO());
             activoOk = activoOpt.isPresent();
             if (activoOk) {
-                // ⚠️ Adapta el getter al nombre real del campo en tu entidad Activo
-                descripcionActivo = activoOpt.get().getDescripcion();
+                descripcionActivo = activoOpt.get().getDescripcion(); // ⚠️ adaptar getter
             } else {
                 errores.add("Activo '" + f.getCodigoO() + "' no existe en BD");
             }
@@ -230,35 +234,20 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         // ── Grupo contable ───────────────────────────────────────────────────────
         if (f.getCodContO() != null) {
             try {
-                grupoContableService.findByCodContable(f.getCodContO().intValue())
-                    .ifPresent(g -> {
-                        // nombreGrupoContable es efectivamente final para el lambda
-                    });
-                // Usar variable local para poder asignar desde lambda:
-                var grupoOpt = grupoContableService.findByCodContable(f.getCodContO().intValue());
-                if (grupoOpt.isPresent()) {
-                    nombreGrupoContable = grupoOpt.get().getNombre();
-                }
+                nombreGrupoContable = grupoContableService.findByCodContable(f.getCodContO().intValue())
+                    .map(g -> g.getNombre()) // Extrae el nombre si el grupo existe
+                    .orElse(nombreGrupoContable); // Si no existe, mantiene el valor que ya tenía
             } catch (Exception e) {
-                log.debug("No se pudo resolver grupo contable {}: {}", f.getCodContO(), e.getMessage());
+                log.debug("Grupo contable no resuelto: {}", f.getCodContO());
             }
         }
 
-        // ── Auxiliar ─────────────────────────────────────────────────────────────
-        // ⚠️ Necesita el método findByGrupoContableAndCodAux — confirma si existe
-        if (f.getCodContO() != null && f.getCodAuxO() != null) {
-            try {
-                var grupoOpt = grupoContableService.findByCodContable(f.getCodContO().intValue());
-                if (grupoOpt.isPresent()) {
-                    var auxOpt = auxiliarService
-                        .findByGrupoContableAndCodAux(grupoOpt.get(), f.getCodAuxO());
-                    if (auxOpt.isPresent()) {
-                        nombreAuxiliar = auxOpt.get().getNombre();
-                    }
-                }
-            } catch (Exception e) {
-                log.debug("No se pudo resolver auxiliar {}: {}", f.getCodAuxO(), e.getMessage());
-            }
+        // ── Auxiliar desde caché (O(1), sin query) ───────────────────────────────
+        if (f.getUnidadO() != null && f.getCodContO() != null && f.getCodAuxO() != null) {
+            String clave = f.getUnidadO().trim().toLowerCase()
+                        + "|" + f.getCodContO().intValue()
+                        + "|" + f.getCodAuxO();
+            nombreAuxiliar = cacheAuxiliar.get(clave);
         }
 
         // ── Predio origen ────────────────────────────────────────────────────────
@@ -271,40 +260,26 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             errores.add("Error buscando predio origen: " + e.getMessage());
         }
 
-        // ── Oficina origen ───────────────────────────────────────────────────────
-        Optional<Oficina> oficOOpt = Optional.empty();
+        // ── Oficina + Responsable ORIGEN (por codigoFuncionario) ─────────────────
         if (predioOOk && f.getCodOficO() != null) {
-            try {
-                oficOOpt = oficinaService.findByCodOfiAndPredio(f.getCodOficO(), predioOpt.get());
-                oficOOk  = oficOOpt.isPresent();
-                if (oficOOk) {
-                    // ⚠️ Adapta al getter real de tu entidad Oficina
-                    nombreOficinaOrigen = oficOOpt.get().getNombre();
-                } else {
-                    errores.add("Oficina origen " + f.getCodOficO()
-                                + " no existe en unidad " + f.getUnidadO());
-                }
-            } catch (Exception e) {
-                errores.add("Error buscando oficina origen: " + e.getMessage());
-            }
-        }
+            String[] resuelto = resolverOficinaYResponsable(
+                f.getUnidadO(),
+                f.getCodOficO(),
+                f.getCodRespO() != null ? String.valueOf(f.getCodRespO()) : null,
+                false   // false = buscar por codigoFuncionario
+            );
 
-        // ── Responsable origen ───────────────────────────────────────────────────
-        if (oficOOk && f.getCodRespO() != null) {
-            try {
-                var respOpt = responsableService.findByCodigoFuncionarioAndOficina(
-                    String.valueOf(f.getCodRespO()), oficOOpt.get());
-                respOOk = respOpt.isPresent();
-                if (respOOk) {
-                    // ⚠️ Adapta los getters al nombre real de tu entidad Responsable
-                    nombreResponsableOrigen = respOpt.get().getPersona().getNombreCompleto();
-                    ciResponsableOrigen     = respOpt.get().getPersona().getCi();
-                } else {
-                    errores.add("Responsable origen " + f.getCodRespO() + " no existe");
-                }
-            } catch (Exception e) {
-                errores.add("Error buscando responsable origen: " + e.getMessage());
-            }
+            nombreOficinaOrigen = resuelto[0];
+            nomRespOrigen       = resuelto[1];
+            ciRespOrigen        = resuelto[2];
+
+            oficOOk = (nombreOficinaOrigen != null);
+            respOOk = (nomRespOrigen != null);
+
+            if (!oficOOk) errores.add("Oficina origen " + f.getCodOficO()
+                                    + " no existe en unidad " + f.getUnidadO());
+            if (oficOOk && !respOOk)
+                errores.add("Responsable origen " + f.getCodRespO() + " no existe");
         }
 
         // ── Predio destino ───────────────────────────────────────────────────────
@@ -319,19 +294,18 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
 
         // ── Oficina destino ──────────────────────────────────────────────────────
         if (predioD && f.getCodOficD() != null) {
-            try {
-                oficDOk = oficinaService
-                    .findByCodOfiAndPredio(f.getCodOficD(), predioDOpt.get())
-                    .isPresent();
-                if (!oficDOk)
-                    errores.add("Oficina destino " + f.getCodOficD()
-                                + " no existe en unidad " + f.getUnidadD());
-            } catch (Exception e) {
-                errores.add("Error buscando oficina destino: " + e.getMessage());
-            }
+            String[] resueltoD = resolverOficinaYResponsable(
+                f.getUnidadD(),
+                f.getCodOficD(),
+                null,   // oficina destino no necesita responsable aquí
+                false
+            );
+            oficDOk = (resueltoD[0] != null);
+            if (!oficDOk) errores.add("Oficina destino " + f.getCodOficD()
+                                    + " no existe en unidad " + f.getUnidadD());
         }
 
-        // ── Receptor ─────────────────────────────────────────────────────────────
+        // ── Receptor por CI + oficina destino ────────────────────────────────────
         if (f.getCiRecep() != null && !f.getCiRecep().isBlank()) {
             try {
                 respDOk = responsableService.existsByPersonaCi(f.getCiRecep());
@@ -365,9 +339,14 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             .nombreGrupoContable(nombreGrupoContable)
             .nombreAuxiliar(nombreAuxiliar)
             .nombreOficinaOrigen(nombreOficinaOrigen)
-            .nombreResponsableOrigen(nombreResponsableOrigen)
-            .ciResponsableOrigen(ciResponsableOrigen)
+            .nombreResponsableOrigen(nomRespOrigen)
+            .ciResponsableOrigen(ciRespOrigen != null ? ciRespOrigen : f.getCiSolO())
             .build();
+    }
+
+    // Sobrecarga para aprobar() — construye caché propio
+    private TransferenciaActivoDetalleDto validarEnriquecido(SolTransferenciaDbf f) {
+        return validarEnriquecido(f, cargarCacheNombresAuxiliar(List.of(f)));
     }
 
     @Override
@@ -381,69 +360,162 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             return List.of();
         }
 
-        // 1. Filtrar pendientes
-        // 2. Validar cada fila individualmente
-        // 3. Agrupar por CORR_T preservando orden de aparición
-        Map<String, List<TransferenciaActivoDetalleDto>> porCorr = filas.stream()
+        List<SolTransferenciaDbf> pendientes = filas.stream()
             .filter(f -> esPendiente(f.getEstadoT()))
-            .map(this::validarEnriquecido)
+            .collect(Collectors.toList());
+
+        if (pendientes.isEmpty()) return List.of();
+
+        // ✅ Una sola consulta batch ANTES del loop de validación
+        Map<String, String> cacheAuxiliar = cargarCacheNombresAuxiliar(pendientes);
+
+        Map<String, List<TransferenciaActivoDetalleDto>> porCorr = pendientes.stream()
+            .map(f -> validarEnriquecido(f, cacheAuxiliar))  // ← pasar el caché
             .collect(Collectors.groupingBy(
                 dto -> dto.getDatos().getCorrT() != null
-                    ? dto.getDatos().getCorrT()
-                    : "SIN_CORR",
-                LinkedHashMap::new,   // preserva orden de inserción
+                    ? dto.getDatos().getCorrT() : "SIN_CORR",
+                LinkedHashMap::new,
                 Collectors.toList()
             ));
 
-        // 4. Construir un DTO agrupado por cada CORR_T
         return porCorr.entrySet().stream()
-            .map(entry -> {
-                String corrT = entry.getKey();
-                List<TransferenciaActivoDetalleDto> activos = entry.getValue();
-
-                // Tomar nombre de oficina y responsable del primer activo que los resolvió
-                String nomOficOrigen = activos.stream()
-                    .map(TransferenciaActivoDetalleDto::getNombreOficinaOrigen)
-                    .filter(Objects::nonNull)
-                    .findFirst().orElse(null);
-
-                String nomRespOrigen = activos.stream()
-                    .map(TransferenciaActivoDetalleDto::getNombreResponsableOrigen)
-                    .filter(Objects::nonNull)
-                    .findFirst().orElse(null);
-
-                String ciRespOrigen = activos.stream()
-                    .map(TransferenciaActivoDetalleDto::getCiResponsableOrigen)
-                    .filter(Objects::nonNull)
-                    .findFirst().orElse(null);
-                    
-                SolTransferenciaDbf primero = activos.get(0).getDatos();
-
-                boolean mismaUnidad = primero.getUnidadO() != null &&
-                                    primero.getUnidadO().equalsIgnoreCase(primero.getUnidadD());
-
-                return TransferenciaAgrupadaDto.builder()
-                    .corrT(corrT)
-                    .nombreT(primero.getNombreT())
-                    .fechaT(primero.getFechaT())
-                    .estadoT(primero.getEstadoT())
-                    .unidadO(primero.getUnidadO())
-                    .codOficO(primero.getCodOficO())
-                    .codRespO(primero.getCodRespO())
-                    .ciSolO(primero.getCiSolO())
-                    .unidadD(primero.getUnidadD())
-                    .codOficD(primero.getCodOficD())
-                    .ciRecep(primero.getCiRecep())
-                    .nomRecep(primero.getNomRecep())
-                    .tipo(mismaUnidad
-                        ? TransferenciaValidadaDto.TipoTransferencia.INTERNA
-                        : TransferenciaValidadaDto.TipoTransferencia.EXTERNA)
-                        .nombreOficinaOrigen(nomOficOrigen)
-                    .nombreResponsableOrigen(nomRespOrigen)
-                    .ciResponsableOrigen(ciRespOrigen)
-                    .activos(activos)
-                    .build();
-            })
+            .map(entry -> construirGrupo(entry.getKey(), entry.getValue()))
             .collect(Collectors.toList());
+    }
+
+    private TransferenciaAgrupadaDto construirGrupo(
+        String corrT,
+        List<TransferenciaActivoDetalleDto> activos) {
+
+        SolTransferenciaDbf primero = activos.get(0).getDatos();
+        boolean mismaUnidad = primero.getUnidadO() != null &&
+                            primero.getUnidadO().equalsIgnoreCase(primero.getUnidadD());
+
+        // Origen — tomar del primer activo que lo resolvió
+        String nomOficO = activos.stream()
+            .map(TransferenciaActivoDetalleDto::getNombreOficinaOrigen)
+            .filter(Objects::nonNull).findFirst().orElse(null);
+        String nomRespO = activos.stream()
+            .map(TransferenciaActivoDetalleDto::getNombreResponsableOrigen)
+            .filter(Objects::nonNull).findFirst().orElse(null);
+        String ciRespO  = activos.stream()
+            .map(TransferenciaActivoDetalleDto::getCiResponsableOrigen)
+            .filter(Objects::nonNull).findFirst().orElse(null);
+
+        // Destino — resolver aquí usando CI_RECEP + CODOFIC_D + UNIDAD_D
+        String[] resueltoD = resolverOficinaYResponsable(
+            primero.getUnidadD(),
+            primero.getCodOficD(),
+            primero.getCiRecep(),
+            true   // true = buscar por CI (destino)
+        );
+
+        return TransferenciaAgrupadaDto.builder()
+            .corrT(corrT)
+            .nombreT(primero.getNombreT())
+            .fechaT(primero.getFechaT())
+            .estadoT(primero.getEstadoT())
+            .unidadO(primero.getUnidadO())
+            .codOficO(primero.getCodOficO())
+            .codRespO(primero.getCodRespO())
+            .ciSolO(primero.getCiSolO())
+            .unidadD(primero.getUnidadD())
+            .codOficD(primero.getCodOficD())
+            .ciRecep(primero.getCiRecep())
+            .nomRecep(primero.getNomRecep())
+            .tipo(mismaUnidad
+                ? TransferenciaValidadaDto.TipoTransferencia.INTERNA
+                : TransferenciaValidadaDto.TipoTransferencia.EXTERNA)
+            .activos(activos)
+            .nombreOficinaOrigen(nomOficO)
+            .nombreResponsableOrigen(nomRespO)
+            .ciResponsableOrigen(ciRespO)
+            .nombreOficinaDestino(resueltoD[0])
+            .nombreResponsableDestino(resueltoD[1])
+            .ciResponsableDestino(resueltoD[2])
+            .build();
+    }
+
+    private Map<String, String> cargarCacheNombresAuxiliar(
+        List<SolTransferenciaDbf> filas) {
+
+        // 1. Recopilar todas las unidades origen únicas del lote
+        List<String> unidades = filas.stream()
+            .map(f -> f.getUnidadO() != null ? f.getUnidadO().trim().toLowerCase() : null)
+            .filter(Objects::nonNull)
+            .distinct()
+            .collect(Collectors.toList());
+
+        if (unidades.isEmpty()) return Map.of();
+
+        // 2. Una sola consulta para todos los auxiliares de esas unidades
+        List<Auxiliar> todos = auxiliarRepository.findAllByUnidadesIn(unidades);
+
+        // 3. Construir mapa con clave compuesta
+        return todos.stream().collect(Collectors.toMap(
+            a -> a.getPredio().getUnidad().trim().toLowerCase()
+                + "|" + a.getGrupoContable().getCodContable()
+                + "|" + a.getCodAux(),
+            Auxiliar::getNombre,
+            (existing, duplicate) -> existing   // en caso de colisión, conservar primero
+        ));
+    }
+
+    /**
+     * Resuelve oficina y responsable dado unidad, codOfic y el identificador
+     * del responsable (codigoFuncionario para origen, ci para destino).
+     *
+     * @param unidad       valor de UNIDAD_O o UNIDAD_D del DBF
+     * @param codOfic      CODOFIC_O o CODOFIC_D del DBF
+     * @param identificador codigoFuncionario (origen) o CI (destino)
+     * @param esPorCi      true = buscar por CI (destino), false = por codigoFuncionario (origen)
+     */
+    private String[] resolverOficinaYResponsable(
+            String unidad, Short codOfic,
+            String identificador, boolean esPorCi) {
+
+        // Retorna: [0]=nombreOficina, [1]=nombreResponsable, [2]=ciResponsable
+        String[] resultado = {null, null, null};
+
+        if (unidad == null || codOfic == null) return resultado;
+
+        try {
+            Optional<Predio> predioOpt =
+                predioServicio.findByUnidadIgnoreCase(unidad.trim());
+            if (predioOpt.isEmpty()) return resultado;
+
+            Optional<Oficina> oficOpt =
+                oficinaService.findByCodOfiAndPredio(codOfic, predioOpt.get());
+            if (oficOpt.isEmpty()) return resultado;
+
+            // ⚠️ Adapta al getter real del nombre en tu entidad Oficina
+            resultado[0] = oficOpt.get().getNombre();
+
+            if (identificador == null || identificador.isBlank()) return resultado;
+
+            Optional<Responsable> respOpt;
+            if (esPorCi) {
+                // DESTINO: buscar por CI de persona + oficina
+                respOpt = responsableService.findByOficinaAndPersonaCi(
+                    oficOpt.get(), identificador.trim());
+            } else {
+                // ORIGEN: buscar por codigoFuncionario + oficina
+                respOpt = responsableService.findByOficinaAndCodigoFuncionario(
+                    oficOpt.get(), identificador.trim());
+            }
+
+            respOpt.ifPresent(r -> {
+                if (r.getPersona() != null) {
+                    resultado[1] = r.getPersona().getNombreCompleto();
+                    resultado[2] = r.getPersona().getCi();
+                }
+            });
+
+        } catch (Exception e) {
+            log.debug("No se pudo resolver oficina/responsable [{} / {}]: {}",
+                unidad, codOfic, e.getMessage());
+        }
+
+        return resultado;
     }
 }

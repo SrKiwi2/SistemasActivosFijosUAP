@@ -62,4 +62,9 @@ public class TransferenciaAgrupadaDto {
     private String nombreOficinaOrigen;      // resuelto desde codOficO + unidadO
     private String nombreResponsableOrigen;  // resuelto desde codRespO
     private String ciResponsableOrigen;
+    
+    // ── Cabecera enriquecida (destino) ───────────────────────────────────────────
+    private String nombreOficinaDestino;
+    private String nombreResponsableDestino; // <-- Faltaba este
+    private String ciResponsableDestino;     // <-- Y faltaba este
 }

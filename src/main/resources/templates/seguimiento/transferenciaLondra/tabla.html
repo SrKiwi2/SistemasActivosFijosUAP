@@ -102,13 +102,18 @@
 
                     <!-- Solicitante -->
                     <td>
-                        <div class="small">
-                            Of: <strong th:text="${t.codOficO}">—</strong>
-                            &nbsp;/&nbsp;
-                            Resp: <strong th:text="${t.codRespO}">—</strong>
-                        </div>
+                        <div class="small fw-semibold"
+                            th:text="${t.nombreResponsableOrigen != null}
+                                    ? ${t.nombreResponsableOrigen}
+                                    : ('Resp: ' + (${t.codRespO} ?: '—'))">—</div>
                         <small class="text-muted"
-                               th:text="${t.ciSolO}">—</small>
+                            th:text="${t.ciResponsableOrigen != null}
+                                        ? ${t.ciResponsableOrigen}
+                                        : ${t.ciSolO}">—</small>
+                        <div th:if="${t.nombreOficinaOrigen != null}">
+                            <small class="text-muted fst-italic"
+                                th:text="${t.nombreOficinaOrigen}">—</small>
+                        </div>
                     </td>
 
                     <!-- Receptor -->
@@ -219,17 +224,18 @@
                         <i class="fa-solid fa-arrow-right fa-xl"></i>
                     </div>
                     <div class="col text-end">
-                        <small class="text-uppercase text-muted fw-semibold
-                                      d-block mb-1" style="font-size:.7rem">
+                        <small class="text-uppercase text-muted fw-semibold d-block mb-1"
+                            style="font-size:.7rem">
                             Destino <i class="fa-solid fa-flag-checkered me-1"></i>
                         </small>
                         <div class="d-flex align-items-center justify-content-end gap-2">
                             <div class="text-end">
-                                <div class="small fw-semibold" id="modal-nom-recep">—</div>
-                                <small class="text-muted" id="modal-ci-recep">—</small>
+                                <!-- Nombre descriptivo de la oficina destino -->
+                                <div class="small fw-semibold" id="modal-ofi-d-nombre">—</div>
+                                <!-- Nombre y CI del receptor -->
+                                <div class="small text-muted" id="modal-resp-d-nombre">—</div>
                             </div>
-                            <span class="badge bg-primary fs-6"
-                                  id="modal-unidad-d">—</span>
+                            <span class="badge bg-primary fs-6" id="modal-unidad-d">—</span>
                         </div>
                     </div>
                 </div>
@@ -378,16 +384,18 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
         set('modal-ci-recep',  grupo.ciRecep);
 
         // Origen descriptivo — IDs correctos según el HTML actual
-        set('modal-ofi-o-nombre',
-            grupo.nombreOficinaOrigen
-                ? 'Oficina: ' + grupo.nombreOficinaOrigen
-                : 'Oficina: Of. ' + (grupo.codOficO || '—'));
+        set('modal-ofi-d-nombre',
+            grupo.nombreOficinaDestino
+                ? 'Oficina: ' + grupo.nombreOficinaDestino
+                : 'Oficina: Of. ' + (grupo.codOficD || '—'));
 
-        set('modal-resp-o-nombre',
-            grupo.nombreResponsableOrigen
-                ? 'Responsable: ' + grupo.nombreResponsableOrigen
-                  + ' (' + (grupo.ciResponsableOrigen || grupo.ciSolO || '—') + ')'
-                : 'CI: ' + (grupo.ciSolO || '—'));
+        set('modal-resp-d-nombre',
+            grupo.nombreResponsableDestino
+                ? 'Receptor: ' + grupo.nombreResponsableDestino
+                + ' (' + (grupo.ciResponsableDestino || grupo.ciRecep || '—') + ')'
+                : (grupo.nomRecep
+                    ? grupo.nomRecep + ' (' + (grupo.ciRecep || '—') + ')'
+                    : 'CI: ' + (grupo.ciRecep || '—')));
     }
 
     // ── Poblar tabla de activos ───────────────────────────────────────────────
