@@ -3,7 +3,11 @@ package com.usic.SistemasActivosFijosUAP.interoperabilidad;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.math.BigDecimal;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -13,7 +17,9 @@ import java.nio.file.StandardOpenOption;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -42,6 +48,27 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
 public class JavaDbfService {
+
+    private record DbfFieldMeta(
+        String name,
+        char   type,
+        int    recOffset,   // posición dentro del registro (1-based, tras flag de borrado)
+        int    length
+    ) {}
+
+    private record DbfMeta(
+        int                 recordCount,
+        int                 headerSize,
+        int                 recordSize,
+        List<DbfFieldMeta>  fields
+    ) {
+        DbfFieldMeta field(String name) {
+            return fields.stream()
+                .filter(f -> f.name().equalsIgnoreCase(name.trim()))
+                .findFirst().orElse(null);
+        }
+    }
+
     private final Path baseDir;
     private final String charset;
     private final Object codcontLock = new Object();
@@ -1341,70 +1368,122 @@ public class JavaDbfService {
     //  ESCRITOR: Actualiza unidad/oficina/resp de un activo en ACTUAL.DBF
     // ────────────────────────────────────────────────────────────────────────────
     public void actualizarActivoParaTransferencia(
-            String codigoActivo,
-            String entidadCodigo,
-            String unidadOrigen,
-            String unidadDestino,
-            Short  codOficDestino,
-            Short  codRespDestino,
-            LocalDate fechaUlt,
-            String usuario) throws Exception {
+        String    codigoActivo,
+        String    entidadCodigo,
+        String    unidadOrigen,
+        String    unidadDestino,
+        Short     codOficDestino,
+        Short     codRespDestino,
+        LocalDate fechaUlt,
+        String    usuario) throws Exception {
 
         Path file = baseDir.resolve("ACTUAL.DBF");
-        Path tmp  = baseDir.resolve("ACTUAL.TMP.DBF");
+        if (!Files.exists(file)) {
+            throw new IllegalStateException("ACTUAL.DBF no encontrado en: " + file);
+        }
+
+        Charset cs = (charset != null && !charset.isBlank())
+            ? Charset.forName(charset) : Charset.forName("CP1252");
 
         synchronized (actualLock) {
-            ActualDbfRaw raw = leerActualRaw();
+            // Reintentos ante lock del proceso legacy
+            int maxIntentos = 3;
+            for (int intento = 1; intento <= maxIntentos; intento++) {
+                try (RandomAccessFile raf = new RandomAccessFile(file.toFile(), "rw");
+                    FileChannel canal = raf.getChannel()) {
 
-            int iCOD    = raw.fieldIndex().getOrDefault("CODIGO",   -1);
-            int iENT    = raw.fieldIndex().getOrDefault("ENTIDAD",  -1);
-            int iUNI    = raw.fieldIndex().getOrDefault("UNIDAD",   -1);
-            int iOFIC   = raw.fieldIndex().getOrDefault("CODOFIC",  -1);
-            int iRESP   = raw.fieldIndex().getOrDefault("CODRESP",  -1);
-            int iFEULT  = raw.fieldIndex().getOrDefault("FEULT",    -1);
-            int iUSUAR  = raw.fieldIndex().getOrDefault("USUAR",    -1);
+                    FileLock lock = canal.tryLock();
+                    if (lock == null) {
+                        if (intento == maxIntentos) throw new IllegalStateException(
+                            "ACTUAL.DBF bloqueado por otro proceso tras " + maxIntentos + " intentos");
+                        log.warn("ACTUAL.DBF bloqueado, reintento {}/{}", intento, maxIntentos);
+                        Thread.sleep(500L * intento);
+                        continue;
+                    }
 
-            boolean found = false;
-            for (Object[] row : raw.rows()) {
-                String cod = iCOD  >= 0 && row[iCOD]  != null ? row[iCOD].toString().trim()  : null;
-                String ent = iENT  >= 0 && row[iENT]  != null ? row[iENT].toString().trim()  : null;
-                String uni = iUNI  >= 0 && row[iUNI]  != null ? row[iUNI].toString().trim()  : null;
+                    try {
+                        DbfMeta meta = parsearCabecera(raf);
+                        ejecutarUpdate(raf, meta, cs,
+                            codigoActivo, entidadCodigo, unidadOrigen,
+                            unidadDestino, codOficDestino, codRespDestino,
+                            fechaUlt, usuario);
+                        return; // éxito — salir del loop de reintentos
+                    } finally {
+                        lock.release();
+                    }
 
-                if (!Objects.equals(cod, codigoActivo))   continue;
-                if (!Objects.equals(ent, entidadCodigo))  continue;
-                if (!Objects.equals(uni, unidadOrigen))   continue;
-
-                // Solo se tocan los campos de ubicación; el resto se preserva intacto
-                if (iUNI   >= 0) row[iUNI]   = padRight(cut(unidadDestino, 5), 5);
-                if (iOFIC  >= 0) row[iOFIC]  = codOficDestino  != null ? (int) codOficDestino  : row[iOFIC];
-                if (iRESP  >= 0) row[iRESP]  = codRespDestino  != null ? (int) codRespDestino  : row[iRESP];
-                if (iFEULT >= 0) row[iFEULT] = fechaUlt != null ? java.sql.Date.valueOf(fechaUlt) : row[iFEULT];
-                if (iUSUAR >= 0) row[iUSUAR] = cut(usuario != null ? usuario : "", 8);
-                found = true;
-                break;
+                } catch (OverlappingFileLockException e) {
+                    if (intento == maxIntentos) throw new IllegalStateException(
+                        "Lock solapado en ACTUAL.DBF", e);
+                    Thread.sleep(500L * intento);
+                }
             }
-
-            if (!found) throw new IllegalArgumentException(
-                "Activo no encontrado en ACTUAL.DBF: CODIGO=" + codigoActivo +
-                " ENTIDAD=" + entidadCodigo + " UNIDAD=" + unidadOrigen);
-
-            Charset cs = (charset != null && !charset.isBlank())
-                ? Charset.forName(charset) : Charset.forName("CP1252");
-
-            try (OutputStream out = Files.newOutputStream(tmp,
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-                DBFWriter writer = new DBFWriter(out, cs)) {
-                writer.setFields(raw.fields());
-                for (Object[] row : raw.rows()) writer.addRecord(row);
-            }
-
-            Files.move(tmp, file,
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE);
-
-            log.info("✅ ACTUAL.DBF — activo {} transferido a unidad {}", codigoActivo, unidadDestino);
         }
     }
+
+    private void ejecutarUpdate(
+        RandomAccessFile raf,
+        DbfMeta          meta,
+        Charset          cs,
+        String codigoActivo, String entidadCodigo, String unidadOrigen,
+        String unidadDestino, Short codOficD, Short codRespD,
+        LocalDate fechaUlt, String usuario) throws IOException {
+
+        // Resolver índices de campo UNA sola vez
+        DbfFieldMeta fCodigo  = meta.field("CODIGO");
+        DbfFieldMeta fEntidad = meta.field("ENTIDAD");
+        DbfFieldMeta fUnidad  = meta.field("UNIDAD");
+        DbfFieldMeta fCodOfi  = meta.field("CODOFIC");
+        DbfFieldMeta fCodResp = meta.field("CODRESP");
+        DbfFieldMeta fFeult   = meta.field("FEULT");
+        DbfFieldMeta fUsuar   = meta.field("USUAR");
+
+        if (fCodigo == null) throw new IllegalStateException(
+            "Campo CODIGO no encontrado en ACTUAL.DBF");
+
+        boolean encontrado = false;
+
+        for (int i = 0; i < meta.recordCount(); i++) {
+            long posReg = (long) meta.headerSize() + (long) i * meta.recordSize();
+            raf.seek(posReg);
+
+            byte[] reg = new byte[meta.recordSize()];
+            raf.readFully(reg);
+
+            // Saltar registros marcados como eliminados
+            if (reg[0] == 0x2A) continue;   // '*' = eliminado
+
+            // Comparar campos clave (lectura rápida desde bytes ya en memoria)
+            if (!codigoActivo.equalsIgnoreCase(leerCampo(reg, fCodigo, cs)))  continue;
+            if (fEntidad != null &&
+                !entidadCodigo.equalsIgnoreCase(leerCampo(reg, fEntidad, cs))) continue;
+            if (fUnidad != null &&
+                !unidadOrigen.equalsIgnoreCase(leerCampo(reg, fUnidad, cs)))   continue;
+
+            // ── Registro encontrado: escribir SOLO los campos que cambian ──────
+            if (fUnidad  != null && unidadDestino != null)
+                escribirCharacter(raf, posReg, fUnidad,  unidadDestino, cs);
+            if (fCodOfi  != null && codOficD != null)
+                escribirNumerico(raf, posReg, fCodOfi,  codOficD.longValue());
+            if (fCodResp != null && codRespD != null)
+                escribirNumerico(raf, posReg, fCodResp, codRespD.longValue());
+            if (fFeult   != null && fechaUlt != null)
+                escribirFecha(raf, posReg, fFeult, fechaUlt);
+            if (fUsuar   != null && usuario != null)
+                escribirCharacter(raf, posReg, fUsuar, usuario, cs);
+
+            encontrado = true;
+            log.info("✅ ACTUAL.DBF — activo {} actualizado en registro #{} (in-place)",
+                    codigoActivo, i);
+            break; // CODIGO es único — no seguir escaneando
+        }
+
+        if (!encontrado) throw new IllegalArgumentException(
+            "Activo no encontrado en ACTUAL.DBF — CODIGO=" + codigoActivo
+            + " ENTIDAD=" + entidadCodigo + " UNIDAD=" + unidadOrigen);
+    }
+
+
 
     // ────────────────────────────────────────────────────────────────────────────
     //  ESCRITOR: Marca una transferencia como APROBADO en sol_transferencias.dbf
@@ -1492,6 +1571,97 @@ public class JavaDbfService {
             }
             return new ActualDbfRaw(fields, rows, idx);
         }
+    }
+
+    /**
+     * Lee la cabecera y descriptores de campo del DBF en formato dBASE III/IV.
+     * Ignora campos MEMO para el cálculo de offsets correctamente.
+     */
+    private DbfMeta parsearCabecera(RandomAccessFile raf) throws IOException {
+        raf.seek(0);
+
+        raf.skipBytes(4);                        // version + fecha última edición
+        int numRegistros = leerInt32LE(raf);     // bytes 4-7
+        int tamCabecera  = leerInt16LE(raf);     // bytes 8-9
+        int tamRegistro  = leerInt16LE(raf);     // bytes 10-11
+        raf.skipBytes(20);                       // bytes 12-31 reservados
+
+        List<DbfFieldMeta> campos = new ArrayList<>();
+        int offsetEnReg = 1; // byte 0 del registro = flag de borrado
+
+        while (true) {
+            int primerByte = raf.read();
+            if (primerByte == -1 || primerByte == 0x0D) break; // terminador de cabecera
+
+            byte[] desc = new byte[31];
+            raf.readFully(desc);
+
+            // Nombre del campo: primer byte + bytes 0-9 del descriptor
+            byte[] nombreBytes = new byte[11];
+            nombreBytes[0] = (byte) primerByte;
+            System.arraycopy(desc, 0, nombreBytes, 1, 10);
+            String nombre = new String(nombreBytes, StandardCharsets.US_ASCII)
+                .replace("\0", "").trim();
+
+            char tipo   = (char)(desc[10] & 0xFF);   // byte 11 del descriptor
+            int  longit = desc[15] & 0xFF;            // byte 16 del descriptor
+
+            campos.add(new DbfFieldMeta(nombre, tipo, offsetEnReg, longit));
+            offsetEnReg += longit; // MEMO también suma (guarda puntero de 10 bytes)
+        }
+
+        return new DbfMeta(numRegistros, tamCabecera, tamRegistro, campos);
+    }
+
+    /** Lee un campo CHARACTER desde los bytes del registro ya en memoria. */
+    private String leerCampo(byte[] reg, DbfFieldMeta campo, Charset cs) {
+        if (campo == null || campo.recOffset() >= reg.length) return "";
+        int len = Math.min(campo.length(), reg.length - campo.recOffset());
+        return new String(reg, campo.recOffset(), len, cs).trim();
+    }
+
+    /** Escribe un campo CHARACTER en su posición exacta del archivo. */
+    private void escribirCharacter(RandomAccessFile raf, long posReg,
+            DbfFieldMeta campo, String valor, Charset cs) throws IOException {
+        byte[] valorBytes = valor.getBytes(cs);
+        byte[] buffer     = new byte[campo.length()];
+        Arrays.fill(buffer, (byte) ' ');     // padding con espacios
+        System.arraycopy(valorBytes, 0, buffer, 0,
+            Math.min(valorBytes.length, buffer.length));
+        raf.seek(posReg + campo.recOffset());
+        raf.write(buffer);
+    }
+
+    /** Escribe un campo NUMERIC como ASCII alineado a la derecha. */
+    private void escribirNumerico(RandomAccessFile raf, long posReg,
+            DbfFieldMeta campo, long valor) throws IOException {
+        String formateado = String.format("%" + campo.length() + "d", valor);
+        if (formateado.length() > campo.length())
+            formateado = formateado.substring(formateado.length() - campo.length());
+        raf.seek(posReg + campo.recOffset());
+        raf.write(formateado.getBytes(StandardCharsets.US_ASCII));
+    }
+
+    /** Escribe un campo DATE en formato YYYYMMDD. */
+    private void escribirFecha(RandomAccessFile raf, long posReg,
+            DbfFieldMeta campo, LocalDate fecha) throws IOException {
+        String formateado = fecha.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        raf.seek(posReg + campo.recOffset());
+        raf.write(formateado.getBytes(StandardCharsets.US_ASCII));
+    }
+
+    /** Lee int32 little-endian desde RandomAccessFile. */
+    private int leerInt32LE(RandomAccessFile raf) throws IOException {
+        return (raf.readUnsignedByte())
+            | (raf.readUnsignedByte() << 8)
+            | (raf.readUnsignedByte() << 16)
+            | (raf.readUnsignedByte() << 24);
+    }
+
+    /** Lee int16 little-endian desde RandomAccessFile. */
+    private int leerInt16LE(RandomAccessFile raf) throws IOException {
+        return (raf.readUnsignedByte())
+            | (raf.readUnsignedByte() << 8);
     }
 
 }
