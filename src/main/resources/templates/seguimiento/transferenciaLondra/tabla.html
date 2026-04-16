@@ -569,8 +569,9 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
 
                 $.ajax({
                     type: 'POST',
-                    url:  '/administracion/transferenciasLondra/aprobar/'
-                          + encodeURIComponent(corrT),
+                    url:  '/administracion/transferenciasLondra/aprobar',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ corrT: corrT }),
                     success: function (res) {
                         const modal = bootstrap.Modal.getInstance(
                             document.getElementById('modalDetalleTransferencia'));
@@ -589,8 +590,8 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
                     },
                     error: function (xhr) {
                         resetBotonAprobar();
-                        Swal.fire('Error',
-                            xhr.responseJSON?.msg || 'Error inesperado', 'error');
+                        const msg = xhr.responseJSON?.msg || xhr.responseText || 'Error inesperado';
+                        Swal.fire('Error', msg, 'error');
                     }
                 });
             });

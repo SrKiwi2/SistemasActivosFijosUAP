@@ -13,6 +13,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -63,11 +64,17 @@ public class TransferenciaLondraController {
 }
 
     @ValidarUsuarioAutenticado
-    @PostMapping("/aprobar/{corrT}")
-    @ResponseBody
+    @PostMapping("/aprobar")
     public ResponseEntity<?> aprobar(
             HttpServletRequest request,
-            @PathVariable("corrT") String corrT) {
+            @RequestBody Map<String, String> body) {
+
+        String corrT = body.get("corrT");
+        if (corrT == null || corrT.isBlank()) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("ok", false, "msg", "corrT es requerido"));
+        }
+
         try {
             Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
             String nombreUsuario = usuario != null ? usuario.getUsuario() : "SISTEMA";
