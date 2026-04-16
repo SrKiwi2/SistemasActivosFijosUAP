@@ -25,6 +25,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaService;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.TransferenciaValidadaDto;
 import com.usic.SistemasActivosFijosUAP.model.dto.transferencia.TransferenciaAgrupadaDto;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
+import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaCabecera;
 import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaLondra;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
@@ -63,45 +64,47 @@ public class TransferenciaLondraController {
         return "seguimiento/transferenciaLondra/tabla";
 }
 
-    @ValidarUsuarioAutenticado
     @PostMapping("/aprobar")
+    @ResponseBody
     public ResponseEntity<?> aprobar(
             HttpServletRequest request,
             @RequestBody Map<String, String> body) {
-
-        String corrT = body.get("corrT");
-        if (corrT == null || corrT.isBlank()) {
-            return ResponseEntity.badRequest()
-                .body(Map.of("ok", false, "msg", "corrT es requerido"));
-        }
-
         try {
+            String corrT = body.get("corrT");
+            if (corrT == null || corrT.isBlank()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg", "corrT es requerido"));
+            }
+
             Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
             String nombreUsuario = usuario != null ? usuario.getUsuario() : "SISTEMA";
 
-            TransferenciaLondra t = transferenciaService.aprobar(corrT, nombreUsuario);
+            // ← Ahora retorna TransferenciaCabecera en lugar de TransferenciaLondra
+            TransferenciaCabecera t = transferenciaService.aprobar(corrT, nombreUsuario);
 
-            // Notificar a todos los clientes SSE conectados
             sseRegistry.broadcast("dbf-change", Map.of(
-                "tabla",   "transferencia",
-                "estado",  "COMPLETADO",
-                "mensaje", "Transferencia " + corrT + " aprobada",
+                "tabla",         "transferencia",
+                "estado",        "COMPLETADO",
+                "mensaje",       "Transferencia " + corrT + " aprobada ("
+                                + t.getDetalles().size() + " activos)",
                 "recargarTabla", true,
-                "timestamp", LocalDateTime.now()
+                "timestamp",     LocalDateTime.now()
                     .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))
             ));
 
             return ResponseEntity.ok(Map.of(
-                "ok",  true,
-                "msg", "Transferencia " + corrT + " aprobada correctamente",
-                "id",  t.getIdTransferencia()
+                "ok",      true,
+                "msg",     "Transferencia aprobada correctamente ("
+                        + t.getDetalles().size() + " activo(s))",
+                "id",      t.getIdCabecera(),
+                "activos", t.getDetalles().size()
             ));
 
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest()
                 .body(Map.of("ok", false, "msg", e.getMessage()));
         } catch (Exception e) {
-            log.error("Error aprobando transferencia {}: {}", corrT, e.getMessage(), e);
+            log.error("Error aprobando {}: {}", body.get("corrT"), e.getMessage(), e);
             return ResponseEntity.internalServerError()
                 .body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
         }
