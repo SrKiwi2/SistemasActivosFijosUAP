@@ -1378,6 +1378,12 @@ public class JavaDbfService {
         String    usuario) throws Exception {
 
         Path file = baseDir.resolve("ACTUAL.DBF");
+
+        log.info("🔍 RUTA ACTUAL.DBF: {} | existe={} | escritura={}",
+        file.toAbsolutePath(),
+        Files.exists(file),
+        Files.isWritable(file));
+
         if (!Files.exists(file)) {
             throw new IllegalStateException("ACTUAL.DBF no encontrado en: " + file);
         }
@@ -1491,51 +1497,67 @@ public class JavaDbfService {
     public void actualizarEstadoTransferenciaDbf(Path dir, String corrT, String nuevoEstado)
             throws Exception {
 
-        Path file = dir.resolve("sol_transferencias.DBF");
-        Path tmp  = dir.resolve("sol_transferencias.TMP.dbf");
+        Path file = dir.resolve("sol_transferencias.dbf");
+        if (!Files.exists(file)) {
+            log.warn("sol_transferencias.dbf no encontrado en: {}", file);
+            return;
+        }
 
         Charset cs = (charset != null && !charset.isBlank())
             ? Charset.forName(charset) : Charset.forName("CP1252");
 
-        // Leer raw
-        DBFField[] fields;
-        List<Object[]> rows = new ArrayList<>();
-        int iCORRT = -1, iESTADOT = -1;
 
-        try (InputStream in = Files.newInputStream(file);
-            DBFReader reader = new DBFReader(in, cs)) {
+        try (RandomAccessFile raf = new RandomAccessFile(file.toFile(), "rw");
+            FileChannel canal = raf.getChannel()) {
 
-            int n = reader.getFieldCount();
-            fields = new DBFField[n];
-            for (int i = 0; i < n; i++) {
-                fields[i] = reader.getField(i);
-                String name = fields[i].getName().toUpperCase(Locale.ROOT);
-                if ("CORR_T".equals(name))   iCORRT   = i;
-                if ("ESTADO_T".equals(name)) iESTADOT = i;
+            FileLock lock = canal.tryLock();
+            if (lock == null) {
+                log.warn("sol_transferencias.dbf bloqueado, no se pudo marcar APROBADO");
+                return;
             }
-            Object[] row;
-            while ((row = reader.nextRecord()) != null) rows.add(row);
+
+            try {
+                DbfMeta meta = parsearCabecera(raf);
+
+                DbfFieldMeta fCorrT   = meta.field("CORR_T");
+                DbfFieldMeta fEstado  = meta.field("ESTADO_T");
+
+                if (fCorrT == null || fEstado == null) {
+                    log.error("Campos CORR_T o ESTADO_T no encontrados en sol_transferencias.dbf");
+                    return;
+                }
+
+                boolean encontrado = false;
+
+                for (int i = 0; i < meta.recordCount(); i++) {
+                    long posReg = (long) meta.headerSize()
+                                + (long) i * meta.recordSize();
+                    raf.seek(posReg);
+
+                    byte[] reg = new byte[meta.recordSize()];
+                    raf.readFully(reg);
+
+                    if (reg[0] == 0x2A) continue; // eliminado
+
+                    String corrTLeido = leerCampo(reg, fCorrT, cs);
+                    if (!corrT.equalsIgnoreCase(corrTLeido)) continue;
+
+                    // Encontrado — sobreescribir solo ESTADO_T
+                    escribirCharacter(raf, posReg, fEstado, nuevoEstado, cs);
+                    encontrado = true;
+                    log.info("✅ sol_transferencias.dbf — CORR_T={} marcado como {}",
+                            corrT, nuevoEstado);
+                    // No break: puede haber múltiples filas con el mismo CORR_T
+                }
+
+                if (!encontrado) {
+                    log.warn("CORR_T={} no encontrado en sol_transferencias.dbf", corrT);
+                }
+
+            } finally {
+                lock.release();
+            }
         }
-
-        final int fCORRT = iCORRT, fESTADOT = iESTADOT;
-        rows.stream()
-            .filter(r -> fCORRT >= 0 && r[fCORRT] != null &&
-                        corrT.equalsIgnoreCase(r[fCORRT].toString().trim()))
-            .findFirst()
-            .ifPresent(r -> { if (fESTADOT >= 0) r[fESTADOT] = nuevoEstado; });
-
-        try (OutputStream out = Files.newOutputStream(tmp,
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            DBFWriter writer = new DBFWriter(out, cs)) {
-            writer.setFields(fields);
-            for (Object[] row : rows) writer.addRecord(row);
-        }
-
-        Files.move(tmp, file,
-            StandardCopyOption.REPLACE_EXISTING,
-            StandardCopyOption.ATOMIC_MOVE);
-
-        log.info("✅ sol_transferencias.dbf — CORR_T={} marcado como {}", corrT, nuevoEstado);
     }
 
     // ── Helper privado: lee ACTUAL.DBF en modo raw (Object[]) ───────────────────

@@ -321,7 +321,7 @@
 
 <script th:inline="javascript">
 /*<![CDATA[*/
-const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
+window.TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
 /*]]>*/
 </script>
 
@@ -514,7 +514,7 @@ const TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
         const corrT = btn.getAttribute('data-corr');
         corrTActual  = corrT;
 
-        const grupo = TRANSFERENCIAS_DATA.find(function (t) {
+        const grupo = window.TRANSFERENCIAS_DATA.find(function (t) {
             return t.corrT === corrT;
         });
 
