@@ -34,4 +34,14 @@ public interface IUsuarioDao extends JpaRepository <Usuario, Long>{
     Optional<Usuario> findByIdUsuario(Long idUsuario);
 
     List<Usuario> findAllByIdUsuarioIn(Set<Long> idUsuario);
+
+    // Buscar usuarios activos por nombre de rol
+    @Query("SELECT u FROM Usuario u " +
+        "JOIN FETCH u.persona p " +
+        "WHERE u.rol.nombre = :nombreRol " +
+        "AND u.estado = :estado")
+    List<Usuario> findByRolNombreAndEstado(
+        @Param("nombreRol") String nombreRol,
+        @Param("estado")    String estado
+    );
 }

@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
+import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -31,5 +33,34 @@ public class SseController {
     @GetMapping("/clientes-conectados")
     public int clientesConectados() {
         return sseRegistry.countConnected();
+    }
+
+    /**
+     * Endpoint SSE autenticado — el frontend lo llama al iniciar sesión.
+     * Registra el emitter asociado al usuario y su rol para recibir
+     * notificaciones dirigidas.
+     */
+    @GetMapping("/sse/usuario")
+    public SseEmitter sseUsuario(HttpServletRequest request) {
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            // Si no hay sesión, devolver emitter que se cierra inmediatamente
+            SseEmitter empty = new SseEmitter(0L);
+            empty.complete();
+            return empty;
+        }
+
+        String nombreRol = usuario.getRol() != null
+            ? usuario.getRol().getNombre()
+            : "SIN_ROL";
+
+        String clientId = "usr-" + usuario.getIdUsuario()
+            + "-" + System.currentTimeMillis();
+
+        return sseRegistry.registerUsuario(
+            usuario.getIdUsuario(),
+            nombreRol,
+            clientId
+        );
     }
 }

@@ -1,6 +1,7 @@
 <nav th:fragment="topbar"
     class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
     id="layout-navbar">
+
     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
             <i class="ti ti-menu-2 ti-sm"></i>
@@ -11,83 +12,706 @@
         <!-- Search -->
         <div class="navbar-nav align-items-center">
             <div class="nav-item navbar-search-wrapper mb-0">
-                <a class="nav-item nav-link search-toggler d-flex align-items-center px-0" href="javascript:void(0);">
+                <a class="nav-item nav-link search-toggler d-flex align-items-center px-0"
+                   href="javascript:void(0);">
                     <i class="ti ti-search ti-md me-2"></i>
                     <span class="d-none d-md-inline-block text-muted">Search (Ctrl+/)</span>
                 </a>
             </div>
         </div>
-        <!-- /Search -->
 
         <ul class="navbar-nav flex-row align-items-center ms-auto">
+
             <!-- Style Switcher -->
             <li class="nav-item dropdown-style-switcher dropdown me-2 me-xl-0">
-                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                <a class="nav-link dropdown-toggle hide-arrow"
+                   href="javascript:void(0);" data-bs-toggle="dropdown">
                     <i class="ti ti-md"></i>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end dropdown-styles">
                     <li>
                         <a class="dropdown-item" href="javascript:void(0);" data-theme="light">
-                            <span class="align-middle"><i class="ti ti-sun me-2"></i>Light</span>
+                            <span class="align-middle">
+                                <i class="ti ti-sun me-2"></i>Light
+                            </span>
                         </a>
                     </li>
                     <li>
                         <a class="dropdown-item" href="javascript:void(0);" data-theme="dark">
-                            <span class="align-middle"><i class="ti ti-moon me-2"></i>Dark</span>
+                            <span class="align-middle">
+                                <i class="ti ti-moon me-2"></i>Dark
+                            </span>
                         </a>
                     </li>
                     <li>
                         <a class="dropdown-item" href="javascript:void(0);" data-theme="system">
-                            <span class="align-middle"><i class="ti ti-device-desktop me-2"></i>System</span>
+                            <span class="align-middle">
+                                <i class="ti ti-device-desktop me-2"></i>System
+                            </span>
                         </a>
                     </li>
                 </ul>
             </li>
-            <!-- / Style Switcher-->
+
+            <!-- ══════════════════════════════════════════════════
+                 CAMPANA DE NOTIFICACIONES
+                 ══════════════════════════════════════════════════ -->
+            <li class="nav-item dropdown dropdown-notifications me-2 me-xl-1">
+                <a class="nav-link dropdown-toggle hide-arrow position-relative"
+                   href="javascript:void(0);"
+                   data-bs-toggle="dropdown"
+                   data-bs-auto-close="outside"
+                   aria-expanded="false"
+                   id="btnCampana"
+                   title="Notificaciones">
+
+                    <!-- Ícono campana -->
+                    <i class="ti ti-bell ti-md"></i>
+
+                    <!-- Badge contador — oculto si es 0 -->
+                    <span id="badge-notif"
+                          class="position-absolute top-0 start-100 translate-middle
+                                 badge rounded-pill bg-danger"
+                          style="font-size:.6rem; min-width:18px;
+                                 display:none!important">
+                        0
+                    </span>
+                </a>
+
+                <!-- ── Panel dropdown ────────────────────────────── -->
+                <ul class="dropdown-menu dropdown-menu-end py-0 shadow-lg"
+                    style="width:380px; max-width:95vw;">
+
+                    <!-- Cabecera del panel -->
+                    <li class="dropdown-menu-header border-bottom py-3 px-4">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <h6 class="mb-0 fw-bold">Notificaciones</h6>
+                                <small class="text-muted">
+                                    <span id="notif-count-texto">Sin notificaciones nuevas</span>
+                                </small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary py-1 px-2"
+                                    id="btn-marcar-todas-leidas"
+                                    title="Marcar todas como leídas"
+                                    style="display:none">
+                                <i class="ti ti-checks ti-xs me-1"></i>
+                                <span style="font-size:.75rem">Leer todas</span>
+                            </button>
+                        </div>
+                    </li>
+
+                    <!-- Lista de notificaciones -->
+                    <li class="overflow-auto" style="max-height:340px;">
+                        <ul class="list-group list-group-flush" id="lista-notificaciones">
+                            <!-- Vacío por defecto -->
+                            <li class="list-group-item text-center text-muted py-4"
+                                id="notif-vacio">
+                                <i class="ti ti-bell-off ti-md d-block mb-2"></i>
+                                <small>No hay notificaciones nuevas</small>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- Footer del panel -->
+                    <li class="border-top py-2 px-3 text-center">
+                        <a href="javascript:void(0);"
+                           id="btn-ver-historial"
+                           class="text-primary small fw-semibold"
+                           data-bs-toggle="modal"
+                           data-bs-target="#modalHistorialNotificaciones">
+                            <i class="ti ti-history ti-xs me-1"></i>
+                            Ver historial completo
+                        </a>
+                    </li>
+                </ul>
+            </li>
+            <!-- ── FIN CAMPANA ──────────────────────────────────── -->
+
             <!-- User -->
             <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                <a class="nav-link dropdown-toggle hide-arrow"
+                   href="javascript:void(0);" data-bs-toggle="dropdown">
                     <div class="avatar avatar-online">
-                        <img src="../../assets/img/avatars/1.png" alt class="h-auto rounded-circle" />
+                        <img src="/assets/img/avatars/1.png"
+                             alt class="h-auto rounded-circle"/>
                     </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li>
-                        <a class="dropdown-item" href="pages-account-settings-account.html">
+                        <a class="dropdown-item" href="#">
                             <div class="d-flex">
                                 <div class="flex-shrink-0 me-3">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt class="h-auto rounded-circle" />
+                                        <img src="/assets/img/avatars/1.png"
+                                             alt class="h-auto rounded-circle"/>
                                     </div>
                                 </div>
                                 <div class="flex-grow-1">
-                                    <span class="fw-medium d-block" th:text="${session.persona != null ? session.persona.nombre+' '+session.persona.paterno+' '+session.persona.materno : 'Invitado'}"></span>
-                                    <small class="text-muted" th:text="${session.persona != null and session.persona.usuario != null and session.persona.usuario.rol != null ? session.persona.usuario.rol.nombre : 'Sin rol'}"></small>
+                                    <span class="fw-medium d-block"
+                                          th:text="${session.persona != null
+                                            ? session.persona.nombre + ' '
+                                            + session.persona.paterno + ' '
+                                            + session.persona.materno
+                                            : 'Invitado'}"></span>
+                                    <small class="text-muted"
+                                           th:text="${session.persona != null
+                                             and session.persona.usuario != null
+                                             and session.persona.usuario.rol != null
+                                             ? session.persona.usuario.rol.nombre
+                                             : 'Sin rol'}"></small>
                                 </div>
                             </div>
                         </a>
                     </li>
+                    <li><div class="dropdown-divider"></div></li>
                     <li>
-                        <div class="dropdown-divider"></div>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalPerfil">
+                        <a class="dropdown-item" href="#"
+                           data-bs-toggle="modal" data-bs-target="#modalPerfil">
                             <i class="ti ti-user-check me-2 ti-sm"></i>
                             <span class="align-middle">Mi Perfil</span>
                         </a>
                     </li>
+                    <li><div class="dropdown-divider"></div></li>
                     <li>
-                        <div class="dropdown-divider"></div>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" href="/cerrar_sesion" data-bs-toggle="modal" data-bs-target="#modalConfirmLogout">
+                        <a class="dropdown-item" href="/cerrar_sesion">
                             <i class="ti ti-logout me-2 ti-sm"></i>
                             <span class="align-middle">Cerrar sesión</span>
                         </a>
-                    </li>                    
+                    </li>
                 </ul>
             </li>
-            <!--/ User -->
         </ul>
     </div>
 </nav>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     MODAL HISTORIAL COMPLETO DE NOTIFICACIONES
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade"
+     id="modalHistorialNotificaciones"
+     tabindex="-1"
+     aria-labelledby="modalHistorialTitulo"
+     aria-hidden="true">
+
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+
+            <div class="modal-header bg-light border-bottom-0">
+                <h5 class="modal-title fw-bold" id="modalHistorialTitulo">
+                    <i class="ti ti-history me-2 text-primary"></i>
+                    Historial de Notificaciones
+                </h5>
+                <button type="button" class="btn-close"
+                        data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <!-- Filtros -->
+            <div class="px-4 py-2 border-bottom bg-light d-flex gap-2 align-items-center">
+                <select class="form-select form-select-sm w-auto"
+                        id="historial-filtro-tipo">
+                    <option value="">Todos los tipos</option>
+                    <option value="TRANSFERENCIA_NUEVA">Transferencias nuevas</option>
+                    <option value="TRANSFERENCIA_APROBADA">Aprobadas</option>
+                    <option value="SISTEMA">Sistema</option>
+                </select>
+                <select class="form-select form-select-sm w-auto"
+                        id="historial-filtro-leida">
+                    <option value="">Todas</option>
+                    <option value="false">No leídas</option>
+                    <option value="true">Leídas</option>
+                </select>
+                <button class="btn btn-sm btn-outline-secondary ms-auto"
+                        id="btn-historial-marcar-todas">
+                    <i class="ti ti-checks ti-xs me-1"></i>Marcar todas leídas
+                </button>
+            </div>
+
+            <div class="modal-body p-0">
+                <!-- Loader -->
+                <div id="historial-loader"
+                     class="d-flex justify-content-center align-items-center py-5">
+                    <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                    <span class="text-muted small">Cargando historial...</span>
+                </div>
+
+                <!-- Lista historial -->
+                <ul class="list-group list-group-flush"
+                    id="historial-lista" style="display:none">
+                </ul>
+
+                <!-- Sin resultados -->
+                <div id="historial-vacio"
+                     class="text-center text-muted py-5" style="display:none">
+                    <i class="ti ti-bell-off ti-lg d-block mb-2"></i>
+                    <small>No hay notificaciones en el historial</small>
+                </div>
+            </div>
+
+            <!-- Paginación -->
+            <div class="modal-footer border-top bg-light
+                        d-flex justify-content-between align-items-center py-2">
+                <small class="text-muted" id="historial-info-pagina">—</small>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-secondary"
+                            id="btn-historial-anterior" disabled>
+                        <i class="ti ti-chevron-left ti-xs"></i> Anterior
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary"
+                            id="btn-historial-siguiente" disabled>
+                        Siguiente <i class="ti ti-chevron-right ti-xs"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     TOAST DE NOTIFICACIÓN EN TIEMPO REAL
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:9999">
+    <div id="toast-notificacion"
+         class="toast align-items-center text-bg-primary border-0 shadow"
+         role="alert" aria-live="assertive" aria-atomic="true"
+         data-bs-delay="6000">
+        <div class="d-flex">
+            <div class="toast-body d-flex align-items-start gap-2">
+                <i class="ti ti-bell-ringing ti-sm mt-1 flex-shrink-0"></i>
+                <div>
+                    <div class="fw-semibold small" id="toast-titulo">Notificación</div>
+                    <div class="small opacity-75 mt-1" id="toast-mensaje"></div>
+                </div>
+            </div>
+            <button type="button"
+                    class="btn-close btn-close-white me-2 m-auto"
+                    data-bs-dismiss="toast" aria-label="Cerrar"></button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT — Notificaciones + SSE usuario
+     ══════════════════════════════════════════════════════════════════════════ -->
+<script th:inline="javascript">
+/*<![CDATA[*/
+(function () {
+    'use strict';
+
+    // ── Config ────────────────────────────────────────────────────────────────
+    const API = {
+        noLeidas:    '/api/notificaciones/no-leidas',
+        conteo:      '/api/notificaciones/conteo',
+        historial:   '/api/notificaciones/historial',
+        leer:        (id) => `/api/notificaciones/${id}/leer`,
+        leerTodas:   '/api/notificaciones/leer-todas',
+        sseUsuario:  '/api/eventos/sse/usuario'
+    };
+
+    // ── Estado local ──────────────────────────────────────────────────────────
+    let historialPagina    = 0;
+    let historialTotal     = 0;
+    let historialTotalPag  = 0;
+    const PAGE_SIZE        = 15;
+
+    // ── Referencias DOM ───────────────────────────────────────────────────────
+    const badge            = document.getElementById('badge-notif');
+    const listaEl          = document.getElementById('lista-notificaciones');
+    const vacioEl          = document.getElementById('notif-vacio');
+    const countTextoEl     = document.getElementById('notif-count-texto');
+    const btnMarcarTodas   = document.getElementById('btn-marcar-todas-leidas');
+    const toastEl          = document.getElementById('toast-notificacion');
+    const toastTitulo      = document.getElementById('toast-titulo');
+    const toastMensaje     = document.getElementById('toast-mensaje');
+
+    // ════════════════════════════════════════════════════════════════
+    //  BADGE
+    // ════════════════════════════════════════════════════════════════
+    function actualizarBadge(count) {
+        if (count > 0) {
+            badge.textContent  = count > 99 ? '99+' : count;
+            badge.style.display = '';
+            countTextoEl.textContent =
+                count + ' notificación' + (count > 1 ? 'es' : '') + ' sin leer';
+            if (btnMarcarTodas) btnMarcarTodas.style.display = '';
+        } else {
+            badge.style.display = 'none';
+            countTextoEl.textContent = 'Sin notificaciones nuevas';
+            if (btnMarcarTodas) btnMarcarTodas.style.display = 'none';
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  LISTA DE NO LEÍDAS (dentro del dropdown)
+    // ════════════════════════════════════════════════════════════════
+    function cargarNoLeidas() {
+        fetch(API.noLeidas)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (!data) return;
+                renderListaNoLeidas(data.notificaciones || []);
+                actualizarBadge(data.total || 0);
+            })
+            .catch(() => {});
+    }
+
+    function renderListaNoLeidas(notifs) {
+        // Limpiar items anteriores (menos el "vacío")
+        Array.from(listaEl.querySelectorAll('.notif-item'))
+             .forEach(el => el.remove());
+
+        if (notifs.length === 0) {
+            vacioEl.style.display = '';
+            return;
+        }
+
+        vacioEl.style.display = 'none';
+
+        notifs.slice(0, 8).forEach(n => {
+            const li = document.createElement('li');
+            li.className =
+                'list-group-item list-group-item-action notif-item px-3 py-2 '
+                + (n.leida ? '' : 'bg-light');
+            li.style.cursor = 'pointer';
+            li.dataset.id  = n.id;
+            li.dataset.url = n.urlDestino || '';
+
+            li.innerHTML =
+                '<div class="d-flex gap-2 align-items-start">'
+                    + '<div class="flex-shrink-0 mt-1">'
+                        + iconoPorTipo(n.tipo)
+                    + '</div>'
+                    + '<div class="flex-grow-1 overflow-hidden">'
+                        + '<div class="d-flex justify-content-between">'
+                            + '<small class="fw-semibold text-truncate" '
+                            +        'style="max-width:220px">'
+                            +   escHtml(n.titulo)
+                            + '</small>'
+                            + '<span class="text-muted ms-1 flex-shrink-0" '
+                            +       'style="font-size:.65rem">'
+                            +   (n.fechaCreacion || '')
+                            + '</span>'
+                        + '</div>'
+                        + '<small class="text-muted d-block text-truncate">'
+                        +   escHtml(n.mensaje)
+                        + '</small>'
+                    + '</div>'
+                    + (!n.leida
+                        ? '<div class="flex-shrink-0 ms-1">'
+                          + '<span class="badge bg-primary rounded-circle p-1"'
+                          + ' style="width:8px;height:8px;display:block"></span>'
+                          + '</div>'
+                        : '')
+                + '</div>';
+
+            li.addEventListener('click', () => onClickNotificacion(n));
+            listaEl.insertBefore(li, vacioEl);
+        });
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  CLICK EN NOTIFICACIÓN
+    // ════════════════════════════════════════════════════════════════
+    function onClickNotificacion(n) {
+        // Cerrar dropdown
+        const dropdown = bootstrap.Dropdown.getInstance(
+            document.getElementById('btnCampana'));
+        if (dropdown) dropdown.hide();
+
+        // Marcar como leída
+        if (!n.leida) {
+            fetch(API.leer(n.id), { method: 'POST' })
+                .then(r => r.json())
+                .then(data => actualizarBadge(data.noLeidasRestantes || 0))
+                .catch(() => {});
+        }
+
+        // Navegar si tiene URL
+        if (n.urlDestino && n.urlDestino !== '#') {
+            window.location.href = n.urlDestino;
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  MARCAR TODAS COMO LEÍDAS
+    // ════════════════════════════════════════════════════════════════
+    if (btnMarcarTodas) {
+        btnMarcarTodas.addEventListener('click', () => {
+            fetch(API.leerTodas, { method: 'POST' })
+                .then(r => r.json())
+                .then(() => {
+                    actualizarBadge(0);
+                    cargarNoLeidas();
+                })
+                .catch(() => {});
+        });
+    }
+
+    const btnHistorialMarcarTodas =
+        document.getElementById('btn-historial-marcar-todas');
+    if (btnHistorialMarcarTodas) {
+        btnHistorialMarcarTodas.addEventListener('click', () => {
+            fetch(API.leerTodas, { method: 'POST' })
+                .then(r => r.json())
+                .then(() => {
+                    actualizarBadge(0);
+                    cargarHistorial(0);
+                })
+                .catch(() => {});
+        });
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  TOAST
+    // ════════════════════════════════════════════════════════════════
+    function mostrarToast(titulo, mensaje) {
+        if (!toastEl) return;
+        toastTitulo.textContent  = titulo  || 'Notificación';
+        toastMensaje.textContent = mensaje || '';
+        const toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+        toast.show();
+
+        // Sonido sutil (opcional — comentar si no se desea)
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 880;
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.3);
+        } catch (e) {}
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  HISTORIAL (modal)
+    // ════════════════════════════════════════════════════════════════
+    function cargarHistorial(pagina) {
+        const loader   = document.getElementById('historial-loader');
+        const lista    = document.getElementById('historial-lista');
+        const vacio    = document.getElementById('historial-vacio');
+        const infoEl   = document.getElementById('historial-info-pagina');
+        const btnAnt   = document.getElementById('btn-historial-anterior');
+        const btnSig   = document.getElementById('btn-historial-siguiente');
+        const filtTipo = document.getElementById('historial-filtro-tipo');
+        const filtLeid = document.getElementById('historial-filtro-leida');
+
+        loader.style.display = '';
+        lista.style.display  = 'none';
+        vacio.style.display  = 'none';
+
+        const params = new URLSearchParams({
+            page: pagina,
+            size: PAGE_SIZE
+        });
+
+        fetch(API.historial + '?' + params)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                loader.style.display = 'none';
+                if (!data) return;
+
+                historialTotal    = data.total        || 0;
+                historialTotalPag = data.totalPaginas || 0;
+                historialPagina   = pagina;
+
+                const notifs = data.notificaciones || [];
+
+                // Filtros locales
+                const tipoFiltro = filtTipo ? filtTipo.value : '';
+                const leidaFilt  = filtLeid ? filtLeid.value : '';
+                const filtrados  = notifs.filter(n => {
+                    if (tipoFiltro && n.tipo !== tipoFiltro) return false;
+                    if (leidaFilt === 'true'  && !n.leida)  return false;
+                    if (leidaFilt === 'false' &&  n.leida)  return false;
+                    return true;
+                });
+
+                if (filtrados.length === 0) {
+                    vacio.style.display = '';
+                } else {
+                    lista.innerHTML    = '';
+                    lista.style.display = '';
+                    filtrados.forEach(n => {
+                        lista.appendChild(crearItemHistorial(n));
+                    });
+                }
+
+                // Paginación
+                const desde = pagina * PAGE_SIZE + 1;
+                const hasta = Math.min(desde + PAGE_SIZE - 1, historialTotal);
+                infoEl.textContent = historialTotal > 0
+                    ? `Mostrando ${desde}–${hasta} de ${historialTotal}`
+                    : 'Sin resultados';
+
+                if (btnAnt) btnAnt.disabled = (pagina === 0);
+                if (btnSig) btnSig.disabled = (pagina >= historialTotalPag - 1);
+            })
+            .catch(() => { loader.style.display = 'none'; });
+    }
+
+    function crearItemHistorial(n) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item list-group-item-action px-4 py-3 '
+            + (n.leida ? '' : 'bg-light border-start border-3 border-primary');
+
+        li.innerHTML =
+            '<div class="d-flex gap-3 align-items-start">'
+                + '<div class="flex-shrink-0 mt-1">' + iconoPorTipo(n.tipo) + '</div>'
+                + '<div class="flex-grow-1">'
+                    + '<div class="d-flex justify-content-between align-items-start">'
+                        + '<span class="fw-semibold small">' + escHtml(n.titulo) + '</span>'
+                        + '<div class="d-flex align-items-center gap-2 ms-2 flex-shrink-0">'
+                            + (!n.leida
+                                ? '<span class="badge bg-primary" style="font-size:.6rem">'
+                                  + 'NUEVA</span>'
+                                : '<span class="badge bg-secondary" style="font-size:.6rem">'
+                                  + 'LEÍDA</span>')
+                            + '<small class="text-muted" style="font-size:.65rem">'
+                            +   (n.fechaCreacion || '') + '</small>'
+                        + '</div>'
+                    + '</div>'
+                    + '<small class="text-muted d-block mt-1">' + escHtml(n.mensaje) + '</small>'
+                    + (n.fechaLectura
+                        ? '<small class="text-success d-block mt-1" style="font-size:.65rem">'
+                          + '<i class="ti ti-circle-check ti-xs me-1"></i>'
+                          + 'Leída el ' + n.fechaLectura + '</small>'
+                        : '')
+                    + (n.urlDestino && !n.leida
+                        ? '<button class="btn btn-xs btn-outline-primary mt-2 py-0 px-2 '
+                          + 'btn-historial-ir" data-id="' + n.id + '" '
+                          + 'data-url="' + escHtml(n.urlDestino) + '" '
+                          + 'style="font-size:.7rem">'
+                          + '<i class="ti ti-arrow-right ti-xs me-1"></i>Ir</button>'
+                        : '')
+                + '</div>'
+            + '</div>';
+
+        // Click en botón "Ir"
+        const btnIr = li.querySelector('.btn-historial-ir');
+        if (btnIr) {
+            btnIr.addEventListener('click', e => {
+                e.stopPropagation();
+                const id  = parseInt(btnIr.dataset.id);
+                const url = btnIr.dataset.url;
+                fetch(API.leer(id), { method: 'POST' }).finally(() => {
+                    if (url) window.location.href = url;
+                });
+            });
+        }
+        return li;
+    }
+
+    // Paginación historial
+    document.getElementById('btn-historial-anterior')
+        ?.addEventListener('click', () => cargarHistorial(historialPagina - 1));
+    document.getElementById('btn-historial-siguiente')
+        ?.addEventListener('click', () => cargarHistorial(historialPagina + 1));
+
+    // Filtros historial
+    ['historial-filtro-tipo', 'historial-filtro-leida'].forEach(id => {
+        document.getElementById(id)
+            ?.addEventListener('change', () => cargarHistorial(0));
+    });
+
+    // Abrir modal historial → cargar
+    document.getElementById('modalHistorialNotificaciones')
+        ?.addEventListener('show.bs.modal', () => cargarHistorial(0));
+
+    // ════════════════════════════════════════════════════════════════
+    //  SSE AUTENTICADO — recibe notificaciones en tiempo real
+    // ════════════════════════════════════════════════════════════════
+    function conectarSseUsuario() {
+        const sse = new EventSource(API.sseUsuario);
+
+        // Notificación dirigida al usuario
+        sse.addEventListener('notificacion', e => {
+            try {
+                const data = JSON.parse(e.data);
+                // Actualizar badge
+                actualizarBadge(data.noLeidasTotal || 0);
+                // Refrescar lista del dropdown
+                cargarNoLeidas();
+                // Mostrar toast
+                mostrarToast(data.titulo, data.mensaje);
+                // Si la página actual es la de transferencias → recargar tabla
+                if (typeof window.cargarTabla === 'function') {
+                    window.cargarTabla();
+                }
+            } catch (err) {}
+        });
+
+        // Evento de nueva transferencia (broadcast) → recargar tabla
+        sse.addEventListener('nueva-transferencia', e => {
+            try {
+                const data = JSON.parse(e.data);
+                if (data.recargarTabla && typeof window.cargarTabla === 'function') {
+                    window.cargarTabla();
+                }
+                if (typeof window.verificarPendientes === 'function') {
+                    window.verificarPendientes();
+                }
+            } catch (err) {}
+        });
+
+        sse.addEventListener('connected', () => {
+            console.debug('[SSE usuario] Conectado');
+        });
+
+        sse.onerror = () => {
+            // Reconexión automática tras 5s
+            sse.close();
+            setTimeout(conectarSseUsuario, 5000);
+        };
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  HELPERS
+    // ════════════════════════════════════════════════════════════════
+    function iconoPorTipo(tipo) {
+        const mapa = {
+            'TRANSFERENCIA_NUEVA':     '<span class="badge bg-label-warning p-1">'
+                                       + '<i class="ti ti-arrows-exchange ti-xs"></i></span>',
+            'TRANSFERENCIA_APROBADA':  '<span class="badge bg-label-success p-1">'
+                                       + '<i class="ti ti-circle-check ti-xs"></i></span>',
+            'TRANSFERENCIA_ERROR':     '<span class="badge bg-label-danger p-1">'
+                                       + '<i class="ti ti-alert-triangle ti-xs"></i></span>',
+            'SYNC_COMPLETADO':         '<span class="badge bg-label-info p-1">'
+                                       + '<i class="ti ti-refresh ti-xs"></i></span>',
+            'SISTEMA':                 '<span class="badge bg-label-secondary p-1">'
+                                       + '<i class="ti ti-settings ti-xs"></i></span>',
+        };
+        return mapa[tipo] || mapa['SISTEMA'];
+    }
+
+    function escHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  INICIALIZACIÓN
+    // ════════════════════════════════════════════════════════════════
+    // Cargar conteo inicial al arrancar la página
+    fetch(API.conteo)
+        .then(r => r.json())
+        .then(data => actualizarBadge(data.noLeidas || 0))
+        .catch(() => {});
+
+    // Cargar lista cuando se abre el dropdown
+    document.getElementById('btnCampana')
+        ?.addEventListener('show.bs.dropdown', cargarNoLeidas);
+
+    // Conectar SSE autenticado
+    conectarSseUsuario();
+
+})();
+/*]]>*/
+</script>

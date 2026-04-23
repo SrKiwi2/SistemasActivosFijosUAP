@@ -73,5 +73,10 @@ public class UsuarioServiceImpl implements IUsuarioService{
     public List<Usuario> findAllByIdUsuarioIn(Set<Long> idUsuario) {
         return usuarioDao.findAllByIdUsuarioIn(idUsuario);
     }
+
+    @Override
+    public List<Usuario> findByRolNombreAndEstado(String nombreRol, String estado) {
+        return usuarioDao.findByRolNombreAndEstado(nombreRol, estado);
+    }
     
 }

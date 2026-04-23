@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaLondraService;
+import com.usic.SistemasActivosFijosUAP.model.service.TransferenciasNotificadorService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +24,9 @@ public class SyncScheduler {
     private final SyncOrchestrator orchestrator;
     private final ITransferenciaLondraService transferenciaService;
     private final SseEmitterRegistry    sseRegistry;
-    private long ultimoConteoTransferencias = -1;   // -1 = sin lectura previa
+    private final TransferenciasNotificadorService  notificadorService;
+
+    private long ultimoConteoTransferencias = -1;
 
     /**
      * Sync completo de respaldo cada 6 horas.
@@ -40,7 +43,7 @@ public class SyncScheduler {
             try {
                 orchestrator.sincronizarConDependencias(tabla, true);
             } catch (Exception e) {
-                // Continuar con la siguiente tabla aunque una falle
+                log.error("Error sync {}: {}", tabla, e.getMessage());
             }
         }
     }
@@ -54,22 +57,30 @@ public class SyncScheduler {
         try {
             long conteoActual = transferenciaService.contarPendientesEnDbf();
 
-            // Solo notificar si hay cambio respecto al último ciclo
             if (conteoActual != ultimoConteoTransferencias) {
                 ultimoConteoTransferencias = conteoActual;
 
                 if (conteoActual > 0) {
+                    // ── ANTES: solo broadcast genérico ───────────────────────
                     sseRegistry.broadcast("nueva-transferencia", Map.of(
                         "pendientes", conteoActual,
-                        "mensaje",   conteoActual + " transferencia(s) pendiente(s) de aprobación",
+                        "mensaje",   conteoActual + " transferencia(s) pendiente(s)",
                         "timestamp", LocalDateTime.now()
                             .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))
                     ));
+
+                    // ── NUEVO: crear notificaciones persistentes + SSE dirigido
+                    try {
+                        notificadorService.detectarYNotificarNuevasTransferencias();
+                    } catch (Exception e) {
+                        log.error("Error notificando transferencias: {}", e.getMessage(), e);
+                    }
+
                     log.info("🔔 {} transferencia(s) pendiente(s) detectada(s)", conteoActual);
                 }
             }
         } catch (Exception e) {
             log.warn("No se pudo pollear transferencias: {}", e.getMessage());
+        }
     }
-}
 }

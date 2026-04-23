@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
@@ -24,4 +25,9 @@ public interface IUsuarioService extends IServiceGenerico <Usuario, Long>{
     Optional<Usuario> findByIdUsuario(Long idUsuario);
 
     List<Usuario> findAllByIdUsuarioIn(Set<Long> idUsuario);
+
+    List<Usuario> findByRolNombreAndEstado(
+        @Param("nombreRol") String nombreRol,
+        @Param("estado")    String estado
+    );
 }
