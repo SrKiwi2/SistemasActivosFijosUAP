@@ -395,6 +395,7 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         nuevo.setCodigoFuncionario(nextCodFunc);
         nuevo.setFechaUlt(LocalDate.now());
         nuevo.setUsuario(usuarioNombre);
+        nuevo.setEstado("ACTIVO");
 
         // Heredar cargo de cualquier responsable existente de esta persona
         responsableDao.findAllByPersonaIdPersona(persona.getIdPersona())
@@ -473,6 +474,7 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         nuevoAux.setObserv(auxOrigen.getObserv());
         nuevoAux.setFechaUlt(LocalDate.now());
         nuevoAux.setUsuario(usuarioNombre);
+        nuevoAux.setEstado("ACTIVO");
 
         Auxiliar savedAux = auxiliarService.save(nuevoAux);
 
