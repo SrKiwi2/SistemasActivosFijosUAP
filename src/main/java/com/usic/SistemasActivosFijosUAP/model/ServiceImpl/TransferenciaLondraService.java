@@ -35,6 +35,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SolTransfere
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.TransferenciaValidadaDto;
 import com.usic.SistemasActivosFijosUAP.model.dto.transferencia.TransferenciaActivoDetalleDto;
 import com.usic.SistemasActivosFijosUAP.model.dto.transferencia.TransferenciaAgrupadaDto;
+import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
@@ -136,15 +137,13 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         //    ESTE BLOQUE CORRIGE EL BUG PRINCIPAL
         ContextoDestino contextoD = resolverContextoDestino(primero, usuarioNombre);
 
-        // ── 6. Para EXTERNA: resolver/crear Auxiliar por cada activo ─────────
-        //    Los auxiliares varían por activo (distinto codCont/codAux/nombre)
-        Map<String, Short> codAuxDestinoMap = new HashMap<>();
+        // ── 6. Resolver Auxiliar destino por cada activo (solo EXTERNA) ───────────
+        Map<String, Auxiliar> auxiliarDestinoMap = new HashMap<>();
         if (esExterna) {
             for (SolTransferenciaDbf f : grupo) {
-                Short codAuxD = resolverOCrearAuxiliarDestino(
+                Auxiliar auxD = resolverOCrearAuxiliarDestino(
                     f, contextoD.getPredioD(), usuarioNombre);
-                codAuxDestinoMap.put(f.getCodigoO(), codAuxD);
-                log.debug("  Activo {} → codAuxDestino={}", f.getCodigoO(), codAuxD);
+                auxiliarDestinoMap.put(f.getCodigoO(), auxD);
             }
         }
 
@@ -158,36 +157,48 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         TransferenciaCabecera cabecera = construirYPersistirCabecera(
             corrT, grupo, primero, esExterna, usuarioNombre);
 
-        // ── 9. Actualizar ACTUAL.DBF para cada activo ─────────────────────────
+        // ── 9. Actualizar ACTUAL.DBF + BD para cada activo ────────────────────────
         List<String> erroresDbf = new ArrayList<>();
+
         for (SolTransferenciaDbf f : grupo) {
             try {
-                // Interna: unidad y codAux NO cambian → se pasan los valores origen
-                // Externa: unidad y codAux cambian   → se pasan los valores destino
-                String unidadFinal  = esExterna ? primero.getUnidadD() : primero.getUnidadO();
-                Short  codAuxFinal  = esExterna
-                    ? codAuxDestinoMap.get(f.getCodigoO())
+                String  unidadFinal   = esExterna ? primero.getUnidadD() : primero.getUnidadO();
+                Auxiliar auxiliarFinal = esExterna
+                    ? auxiliarDestinoMap.get(f.getCodigoO())   // ← del mapa, NO llamar otro método
+                    : null;
+                Short codAuxFinal = auxiliarFinal != null
+                    ? auxiliarFinal.getCodAux()
                     : f.getCodAuxO();
 
+                // ── 9a. Actualizar ACTUAL.DBF ──────────────────────────────────────
                 dbfService.actualizarActivoParaTransferencia(
                     f.getCodigoO(),
                     predioO.getEntidad().getEntidadCodigo(),
-                    f.getUnidadO(),                   // unidad origen (clave de búsqueda)
-                    unidadFinal,                      // unidad que se escribe
-                    primero.getCodOficD(),             // CODOFIC destino
-                    contextoD.getCodRespDbf(),         // ← CORREGIDO: codigoFuncionario real
-                    codAuxFinal,                      // ← NUEVO: null para interna
+                    f.getUnidadO(),
+                    unidadFinal,
+                    primero.getCodOficD(),
+                    contextoD.getCodRespDbf(),
+                    codAuxFinal,
                     LocalDate.now(),
                     usuarioNombre
                 );
+                log.info("✅ ACTUAL.DBF — activo={} actualizado", f.getCodigoO());
 
-                log.info("✅ ACTUAL.DBF — activo={} | {}->{} | CODOFIC={} CODRESP={} CODAUX={}",
-                    f.getCodigoO(), f.getUnidadO(), unidadFinal,
-                    primero.getCodOficD(), contextoD.getCodRespDbf(), codAuxFinal);
+                // ── 9b. Actualizar entidad Activo en PostgreSQL ────────────────────
+                actualizarActivoEnBd(
+                    f.getCodigoO(),
+                    contextoD.getOficinaD(),
+                    contextoD.getResponsableD(),
+                    auxiliarFinal,          // ← null para interna, entidad para externa
+                    esExterna,
+                    LocalDate.now(),
+                    usuarioNombre
+                );
+                log.info("✅ PostgreSQL — activo={} actualizado en BD", f.getCodigoO());
 
             } catch (Exception e) {
                 erroresDbf.add("• " + f.getCodigoO() + ": " + e.getMessage());
-                log.error("❌ Error en ACTUAL.DBF para {}: {}", f.getCodigoO(), e.getMessage(), e);
+                log.error("❌ Error procesando activo {}: {}", f.getCodigoO(), e.getMessage(), e);
             }
         }
 
@@ -413,18 +424,14 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     // =========================================================================
 
     /**
-     * Busca el Auxiliar equivalente en el predio destino.
-     * Si no existe, lo crea con el siguiente codAux correlativo.
-     *
-     * La equivalencia se determina por: GrupoContable + Nombre (case-insensitive).
-     * El activo MANTIENE su GrupoContable — solo cambia el codAux local del predio destino.
+     * Retorna la entidad Auxiliar en el predio destino.
+     * La crea si no existe.
      */
-    private Short resolverOCrearAuxiliarDestino(
+    private Auxiliar resolverOCrearAuxiliarDestino(
             SolTransferenciaDbf f,
             Predio predioD,
             String usuarioNombre) {
 
-        // 1. Obtener el Auxiliar origen para conocer nombre y GrupoContable
         Auxiliar auxOrigen = auxiliarRepository
             .findByUnidadGrupoAndCodAux(
                 f.getUnidadO().trim(),
@@ -436,7 +443,7 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
 
         GrupoContable grupo = auxOrigen.getGrupoContable();
 
-        // 2. Buscar en el predio destino por: mismo grupo + mismo nombre
+        // Buscar en destino por grupo + nombre
         Optional<Auxiliar> enDestino = auxiliarRepository
             .findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(
                 predioD.getIdPredio(),
@@ -445,18 +452,18 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
 
         if (enDestino.isPresent()) {
             log.debug("✅ Auxiliar '{}' ya existe en predio '{}' — codAux={}",
-                auxOrigen.getNombre(), predioD.getUnidad(), enDestino.get().getCodAux());
-            return enDestino.get().getCodAux();
+                auxOrigen.getNombre(), predioD.getUnidad(),
+                enDestino.get().getCodAux());
+            return enDestino.get(); // ← retorna entidad completa
         }
 
-        // 3. No existe → calcular siguiente codAux y crear
+        // Crear nuevo
         Integer maxActual = auxiliarRepository.findMaxCodAux(
             predioD.getIdPredio(), grupo.getIdGrupoContable());
         short nextCodAux = (short)((maxActual == null ? 0 : maxActual) + 1);
 
-        log.info("📋 Creando Auxiliar '{}' en predio='{}' | grupo={} | codAux={}",
-            auxOrigen.getNombre(), predioD.getUnidad(),
-            grupo.getCodContable(), nextCodAux);
+        log.info("📋 Creando Auxiliar '{}' en predio='{}' codAux={}",
+            auxOrigen.getNombre(), predioD.getUnidad(), nextCodAux);
 
         Auxiliar nuevoAux = new Auxiliar();
         nuevoAux.setPredio(predioD);
@@ -469,16 +476,14 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
 
         Auxiliar savedAux = auxiliarService.save(nuevoAux);
 
-        // Sincronizar con AUXILIAR.DBF
         try {
             dbfService.upsertAuxiliarDesdeEntidad(savedAux);
-            log.info("✅ AUXILIAR.DBF — sincronizado: '{}' codAux={} predio={}",
-                nuevoAux.getNombre(), nextCodAux, predioD.getUnidad());
+            log.info("✅ AUXILIAR.DBF sincronizado codAux={}", nextCodAux);
         } catch (Exception e) {
-            log.error("❌ AUXILIAR.DBF no sincronizado (BD sí actualizada): {}", e.getMessage(), e);
+            log.error("❌ AUXILIAR.DBF no sincronizado: {}", e.getMessage(), e);
         }
 
-        return nextCodAux;
+        return savedAux; // ← retorna entidad completa
     }
 
     // =========================================================================
@@ -877,6 +882,48 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             Auxiliar::getNombre,
             (existing, duplicate) -> existing   // en caso de colisión, conservar primero
         ));
+    }
+
+    // =========================================================================
+    //  HELPERS PRIVADOS — al final de la clase, antes del último }
+    // =========================================================================
+
+    private void actualizarActivoEnBd(
+            String      codigoActivo,
+            Oficina     oficinaD,
+            Responsable responsableD,
+            Auxiliar    auxiliarD,      // null = interna, no tocar auxiliar
+            boolean     esExterna,
+            LocalDate   fechaUlt,
+            String      usuario) {
+
+        Activo activo = activoService.fetchFullByCodigo(codigoActivo)
+            .orElseThrow(() -> new IllegalStateException(
+                "Activo no encontrado en BD — CODIGO=" + codigoActivo));
+
+        activo.setOficina(responsableD.getOficina() != null
+            ? responsableD.getOficina() : oficinaD);
+        activo.setResponsable(responsableD);
+
+        if (esExterna && auxiliarD != null) {
+            activo.setAuxiliar(auxiliarD);
+        }
+
+        activo.setFechaUlt(fechaUlt);
+        activo.setUsuario(usuario);
+        activo.setFecMod(fechaUlt);
+        activo.setUsuMod(usuario);
+        activo.setHashDatos(activo.calcularHash());
+
+        activoService.save(activo);
+
+        log.info("  BD Activo id={} codigo={} | oficina='{}' | "
+            + "responsable codFunc={} | auxiliar={}",
+            activo.getIdActivo(),
+            codigoActivo,
+            oficinaD.getNombre(),
+            responsableD.getCodigoFuncionario(),
+            auxiliarD != null ? auxiliarD.getCodAux() : "sin cambio");
     }
 
     /**
