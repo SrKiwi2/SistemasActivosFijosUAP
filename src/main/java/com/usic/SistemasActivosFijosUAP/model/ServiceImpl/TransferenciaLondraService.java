@@ -14,8 +14,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
@@ -68,6 +74,14 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     private final IAuxiliarService auxiliarService;
     private final IPersonasDao personaDao;
     private final IResposableDao responsableDao;
+
+    private final RestTemplate restTemplate;
+
+    @Value("${londra.callback.url}")
+    private String londraCallbackUrl;
+
+    @Value("${londra.callback.api-key}")
+    private String londraApiKey;
 
     @Value("${legacy.dbf.transferencias.path}")
     private String transferenciasPath;
@@ -209,6 +223,13 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         } catch (Exception e) {
             log.error("❌ Error marcando APROBADO en sol_transferencias.DBF: {}", e.getMessage());
         }
+
+         // ── 11. Notificar a Londra (VSIAF) ────────────────────────────────────
+        notificarLondra(
+            cabecera.getIdCabecera(),
+            String.format("Transferencia %s aprobada — %d activo(s) procesado(s) por %s",
+                corrT, grupo.size(), usuarioNombre)
+        );
 
         if (!erroresDbf.isEmpty()) {
             log.warn("⚠️ Transferencia {} con {}/{} error(es) en ACTUAL.DBF:\n{}",
@@ -984,5 +1005,43 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         }
 
         return resultado;
+    }
+
+    /**
+     * Notifica al sistema Londra (VSIAF) que una transferencia fue aprobada.
+     * Es BEST-EFFORT: si falla, se loguea pero NO interrumpe el proceso.
+     *
+     * @param transferenciaId  ID interno de la cabecera guardada en BD
+     * @param observacion      mensaje descriptivo
+     */
+    private void notificarLondra(Long transferenciaId, String observacion) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("x-api-key", londraApiKey);
+
+            Map<String, Object> body = Map.of(
+                "TransferenciaId", transferenciaId,
+                "Estado",          "FINALIZADO",
+                "Observacion",     observacion
+            );
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                londraCallbackUrl,
+                HttpMethod.POST,
+                request,
+                String.class
+            );
+
+            log.info("✅ Londra notificado — TransferenciaId={} | HTTP {}",
+                transferenciaId, response.getStatusCode());
+
+        } catch (Exception e) {
+            // No lanzar — la transferencia ya fue aprobada, el callback es secundario
+            log.error("❌ Error notificando a Londra — TransferenciaId={} | Error: {}",
+                transferenciaId, e.getMessage());
+        }
     }
 }

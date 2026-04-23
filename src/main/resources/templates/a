@@ -1976,3 +1976,13 @@ org.hibernate.LazyInitializationException: Could not initialize proxy [com.usic.
 
 java.lang.NullPointerException: Cannot invoke "java.time.LocalDate.toString()" because the return value of "com.usic.SistemasActivosFijosUAP.model.entity.Activo.getFechaAdquisicion()" is null
 	at com.usic.SistemasActivosFijosUAP.controller.activo.ActivosController.lambda$0(ActivosController.java:165) ~[classes/:na]
+
+
+
+
+
+# Callback Londra
+londra.callback.url=http://192.168.20.121/Activos/TransferenciaCallback.aspx
+londra.callback.api-key=UAP-7F3D9C2A-8B61-4E5F-9A2D-3C7F91515DDE45
+
+spring.output.ansi.enabled=ALWAYS
