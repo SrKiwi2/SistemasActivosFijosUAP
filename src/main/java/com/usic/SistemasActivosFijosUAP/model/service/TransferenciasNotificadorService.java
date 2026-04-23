@@ -42,7 +42,7 @@ public class TransferenciasNotificadorService {
 
     // Roles que reciben notificaciones de transferencia
     private static final List<String> ROLES_NOTIFICADOS =
-        List.of("PRINCIPAL", "ADMINISTRADOR");
+        List.of("SUPER USUARIO", "ADMINISTRADOR");
 
     private static final DateTimeFormatter FMT =
         DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
