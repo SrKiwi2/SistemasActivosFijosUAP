@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,27 +22,31 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaLondraService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IAuxiliarDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IPersonasDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaCabeceraDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaLondraDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SolTransferenciaDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.TransferenciaValidadaDto;
 import com.usic.SistemasActivosFijosUAP.model.dto.transferencia.TransferenciaActivoDetalleDto;
 import com.usic.SistemasActivosFijosUAP.model.dto.transferencia.TransferenciaAgrupadaDto;
-import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
+import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
+import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
-import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
 import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaCabecera;
-import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaDetalle;
 import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaDetalleLondra;
-import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaLondra;
+import com.usic.SistemasActivosFijosUAP.util.NombreParser;
 
+import lombok.Builder;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -58,8 +63,10 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     private final IActivoService         activoService;
     private final IGrupoContableService grupoContableService;
     private final ITransferenciaCabeceraDao cabeceraRepo;
-
     private final IAuxiliarDao auxiliarRepository;
+    private final IAuxiliarService auxiliarService;
+    private final IPersonasDao personaDao;
+    private final IResposableDao responsableDao;
 
     @Value("${legacy.dbf.transferencias.path}")
     private String transferenciasPath;
@@ -68,26 +75,518 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         "ENVIADO", "PENDIENTE", "PEND", "P", "0"
     );
 
+    @Builder @Getter
+    private static class ContextoDestino {
+        private final Predio      predioD;
+        private final Oficina     oficinaD;
+        private final Responsable responsableD;
+        private final Short       codRespDbf;
+    }
+
+    // =========================================================================
+    //  aprobar() — COMPLETAMENTE REFACTORIZADO
+    // =========================================================================
+    @Override
+    @Transactional
+    public TransferenciaCabecera aprobar(String corrT, String usuarioNombre) throws Exception {
+
+        // ── 1. Guardia: duplicado ─────────────────────────────────────────────
+        if (cabeceraRepo.existsByCorrT(corrT)) {
+            throw new IllegalStateException(
+                "La transferencia '" + corrT + "' ya fue aprobada anteriormente");
+        }
+
+        // ── 2. Leer grupo del DBF ─────────────────────────────────────────────
+        List<SolTransferenciaDbf> grupo = dbfService
+            .listarSolTransferenciasAll(Path.of(transferenciasPath), null)
+            .stream()
+            .filter(f -> corrT.equalsIgnoreCase(f.getCorrT()))
+            .collect(Collectors.toList());
+
+        if (grupo.isEmpty()) {
+            throw new IllegalArgumentException(
+                "No se encontró ningún activo con CORR_T=" + corrT);
+        }
+
+        SolTransferenciaDbf primero = grupo.get(0);
+
+        // ── 3. Tipo: interna vs externa ───────────────────────────────────────
+        boolean esExterna = !NombreParser.normalizar(primero.getUnidadO())
+            .equals(NombreParser.normalizar(primero.getUnidadD()));
+
+        log.info("📋 Aprobando transferencia corrT={} tipo={} activos={}",
+            corrT, esExterna ? "EXTERNA" : "INTERNA", grupo.size());
+
+        // ── 4. Validación previa (fail-fast) ──────────────────────────────────
+        Map<String, String> cacheAux = cargarCacheNombresAuxiliar(grupo);
+        List<String> erroresValidacion = new ArrayList<>();
+        for (SolTransferenciaDbf f : grupo) {
+            TransferenciaActivoDetalleDto v = validarEnriquecido(f, cacheAux);
+            if (!v.isValida()) {
+                erroresValidacion.add("• " + f.getCodigoO() + ": "
+                    + String.join(", ", v.getErrores()));
+            }
+        }
+        if (!erroresValidacion.isEmpty()) {
+            throw new IllegalStateException(
+                "No se puede aprobar. Errores:\n" + String.join("\n", erroresValidacion));
+        }
+
+        // ── 5. Resolver contexto destino (predio → oficina → responsable) ─────
+        //    ESTE BLOQUE CORRIGE EL BUG PRINCIPAL
+        ContextoDestino contextoD = resolverContextoDestino(primero, usuarioNombre);
+
+        // ── 6. Para EXTERNA: resolver/crear Auxiliar por cada activo ─────────
+        //    Los auxiliares varían por activo (distinto codCont/codAux/nombre)
+        Map<String, Short> codAuxDestinoMap = new HashMap<>();
+        if (esExterna) {
+            for (SolTransferenciaDbf f : grupo) {
+                Short codAuxD = resolverOCrearAuxiliarDestino(
+                    f, contextoD.getPredioD(), usuarioNombre);
+                codAuxDestinoMap.put(f.getCodigoO(), codAuxD);
+                log.debug("  Activo {} → codAuxDestino={}", f.getCodigoO(), codAuxD);
+            }
+        }
+
+        // ── 7. Resolver predio origen (para obtener entidadCodigo) ────────────
+        Predio predioO = predioServicio
+            .findByUnidadIgnoreCase(primero.getUnidadO())
+            .orElseThrow(() -> new IllegalStateException(
+                "Predio origen no encontrado: " + primero.getUnidadO()));
+
+        // ── 8. Persistir cabecera + detalles en PostgreSQL ────────────────────
+        TransferenciaCabecera cabecera = construirYPersistirCabecera(
+            corrT, grupo, primero, esExterna, usuarioNombre);
+
+        // ── 9. Actualizar ACTUAL.DBF para cada activo ─────────────────────────
+        List<String> erroresDbf = new ArrayList<>();
+        for (SolTransferenciaDbf f : grupo) {
+            try {
+                // Interna: unidad y codAux NO cambian → se pasan los valores origen
+                // Externa: unidad y codAux cambian   → se pasan los valores destino
+                String unidadFinal  = esExterna ? primero.getUnidadD() : primero.getUnidadO();
+                Short  codAuxFinal  = esExterna
+                    ? codAuxDestinoMap.get(f.getCodigoO())
+                    : f.getCodAuxO();
+
+                dbfService.actualizarActivoParaTransferencia(
+                    f.getCodigoO(),
+                    predioO.getEntidad().getEntidadCodigo(),
+                    f.getUnidadO(),                   // unidad origen (clave de búsqueda)
+                    unidadFinal,                      // unidad que se escribe
+                    primero.getCodOficD(),             // CODOFIC destino
+                    contextoD.getCodRespDbf(),         // ← CORREGIDO: codigoFuncionario real
+                    codAuxFinal,                      // ← NUEVO: null para interna
+                    LocalDate.now(),
+                    usuarioNombre
+                );
+
+                log.info("✅ ACTUAL.DBF — activo={} | {}->{} | CODOFIC={} CODRESP={} CODAUX={}",
+                    f.getCodigoO(), f.getUnidadO(), unidadFinal,
+                    primero.getCodOficD(), contextoD.getCodRespDbf(), codAuxFinal);
+
+            } catch (Exception e) {
+                erroresDbf.add("• " + f.getCodigoO() + ": " + e.getMessage());
+                log.error("❌ Error en ACTUAL.DBF para {}: {}", f.getCodigoO(), e.getMessage(), e);
+            }
+        }
+
+        // ── 10. Marcar APROBADO en sol_transferencias.DBF ─────────────────────
+        try {
+            dbfService.actualizarEstadoTransferenciaDbf(
+                Path.of(transferenciasPath), corrT, "APROBADO");
+        } catch (Exception e) {
+            log.error("❌ Error marcando APROBADO en sol_transferencias.DBF: {}", e.getMessage());
+        }
+
+        if (!erroresDbf.isEmpty()) {
+            log.warn("⚠️ Transferencia {} con {}/{} error(es) en ACTUAL.DBF:\n{}",
+                corrT, erroresDbf.size(), grupo.size(), String.join("\n", erroresDbf));
+        }
+
+        log.info("✅ Transferencia {} ({}) completada — {} activo(s) por {}",
+            corrT, esExterna ? "EXTERNA" : "INTERNA", grupo.size(), usuarioNombre);
+
+        return cabecera;
+    }
+
+    // =========================================================================
+    //  RESOLUCIÓN DEL CONTEXTO DESTINO
+    // =========================================================================
+
+    /**
+     * Centraliza la resolución de: predio destino → oficina destino → responsable receptor.
+     * Solo hace esto UNA vez para todo el grupo (no por cada activo).
+     */
+    private ContextoDestino resolverContextoDestino(
+            SolTransferenciaDbf primero,
+            String usuarioNombre) {
+
+        // ── Predio destino ────────────────────────────────────────────────────
+        Predio predioD = predioServicio
+            .findByUnidadIgnoreCase(primero.getUnidadD())
+            .orElseThrow(() -> new IllegalStateException(
+                "Predio destino no encontrado: " + primero.getUnidadD()));
+
+        // ── Oficina destino ───────────────────────────────────────────────────
+        Oficina oficinaD = oficinaService
+            .findByCodOfiAndPredio(primero.getCodOficD(), predioD)
+            .orElseThrow(() -> new IllegalStateException(String.format(
+                "Oficina codOfi=%d no existe en predio '%s'",
+                primero.getCodOficD(), predioD.getUnidad())));
+
+        // ── Responsable receptor ──────────────────────────────────────────────
+        Responsable respD = resolverOCrearResponsableDestino(
+            primero.getCiRecep(),
+            primero.getNomRecep(),
+            oficinaD,
+            usuarioNombre
+        );
+
+        Short codRespDbf = parsearCodigoFuncionario(respD);
+
+        log.info("📍 Contexto destino resuelto — predio={} | oficina={}(cod={}) | "
+            + "receptor='{}' (CI={}) | codigoFuncionario→CODRESP={}",
+            predioD.getUnidad(),
+            oficinaD.getNombre(), oficinaD.getCodOfi(),
+            respD.getPersona() != null ? respD.getPersona().getNombreCompleto() : "?",
+            primero.getCiRecep(),
+            codRespDbf);
+
+        return ContextoDestino.builder()
+            .predioD(predioD)
+            .oficinaD(oficinaD)
+            .responsableD(respD)
+            .codRespDbf(codRespDbf)
+            .build();
+    }
+
+    /**
+     * Busca la oficina en el predio destino por codOfi.
+     * Si no existe (sistema fuera de sincronía), lanza excepción descriptiva.
+     */
+    private Oficina resolverOficinaDestino(Short codOficD, Predio predioD) {
+        return oficinaService.findByCodOfiAndPredio(codOficD, predioD)
+            .orElseThrow(() -> new IllegalStateException(String.format(
+                "Oficina codOfi=%d no existe en predio '%s' — verifique sincronización de OFICINA.DBF",
+                codOficD, predioD.getUnidad())));
+    }
+
+    /**
+     * Resuelve el Responsable receptor en la oficina destino.
+     *
+     * Flujo:
+     *  1. Buscar si ya tiene vínculo en ESA oficina destino (caso ideal)
+     *  2. Buscar la Persona por CI
+     *  3. Verificar si tiene vínculo por Persona (CI pudo haber variado en el DBF)
+     *  4. Si no hay vínculo → crearlo con siguiente codigoFuncionario de esa oficina
+     */
+    private Responsable resolverOCrearResponsableDestino(
+            String ciRecep,
+            String nomRecepReferencia,
+            Oficina oficinaD,
+            String usuarioNombre) {
+
+        String ciLimpio = ciRecep != null ? ciRecep.trim() : null;
+
+        // ── Paso 1: ya tiene vínculo directo (CI + oficina destino) ──────────────
+        // Es el caso más común en transferencias internas repetidas
+        if (ciLimpio != null && !ciLimpio.isBlank()) {
+            Optional<Responsable> yaVinculado =
+                responsableDao.findByOficinaAndPersonaCi(oficinaD, ciLimpio);
+
+            if (yaVinculado.isPresent()) {
+                Responsable r = yaVinculado.get();
+                log.info("✅ Paso 1 — receptor CI={} ya vinculado en oficina={}(cod={}) | "
+                    + "codigoFuncionario={}",
+                    ciLimpio, oficinaD.getNombre(), oficinaD.getCodOfi(),
+                    r.getCodigoFuncionario());
+                return r;
+            }
+        }
+
+        // ── Paso 2: buscar Persona por CI ─────────────────────────────────────────
+        Persona persona = resolverPersonaReceptora(ciLimpio, nomRecepReferencia);
+
+        // ── Paso 3: puede que ya tenga vínculo pero con CI levemente diferente ────
+        // (ej. "4741353" vs "4741353 LP" — mismo CI, diferente formato en DBF)
+        Optional<Responsable> vinculoPorPersona =
+            responsableDao.findByOficinaAndPersona(oficinaD, persona);
+
+        if (vinculoPorPersona.isPresent()) {
+            Responsable r = vinculoPorPersona.get();
+            log.info("✅ Paso 3 — receptor encontrado por Persona id={} en oficina={}(cod={}) | "
+                + "codigoFuncionario={}",
+                persona.getIdPersona(), oficinaD.getNombre(),
+                oficinaD.getCodOfi(), r.getCodigoFuncionario());
+            return r;
+        }
+
+        // ── Paso 4: no existe vínculo → crear ─────────────────────────────────────
+        log.info("📋 Paso 4 — receptor CI={} ('{}') sin vínculo en oficina={}(cod={}) → creando",
+            ciLimpio, nomRecepReferencia,
+            oficinaD.getNombre(), oficinaD.getCodOfi());
+
+        return crearVinculoResponsable(persona, oficinaD, usuarioNombre);
+    }
+
+    /**
+     * Busca la Persona receptora ÚNICAMENTE por CI.
+     *
+     * Si no se encuentra, lanza excepción descriptiva con los datos del registro
+     * para que el operador pueda identificar el problema en el sistema.
+     *
+     * NO se usa el nombre para buscar — el CI es el identificador único confiable.
+     */
+    private Persona resolverPersonaReceptora(String ciRecep, String nomRecepReferencia) {
+
+        if (ciRecep == null || ciRecep.isBlank()) {
+            throw new IllegalStateException(
+                "El registro DBF no tiene CI_RECEP — nombre de referencia: '"
+                + nomRecepReferencia + "'. "
+                + "Verifique el archivo sol_transferencias.DBF.");
+        }
+
+        String ciLimpio = ciRecep.trim();
+
+        return personaDao.findByCi(ciLimpio)
+            .orElseThrow(() -> new IllegalStateException(String.format(
+                "No se encontró Persona activa con CI='%s' (receptor: '%s'). %n"
+                + "Causas posibles: %n"
+                + "  1. La persona no está sincronizada en el sistema. %n"
+                + "  2. El CI en sol_transferencias.DBF difiere del registrado en BD. %n"
+                + "  3. La persona existe pero su estado no es ACTIVO. %n"
+                + "Acción: verifique en Gestión de Personas → CI=%s.",
+                ciLimpio, nomRecepReferencia, ciLimpio)));
+    }
+
+    /**
+     * Crea el vínculo Responsable para una Persona en la oficina destino,
+     * asignando el siguiente codigoFuncionario correlativo de ESA oficina.
+     */
+    private Responsable crearVinculoResponsable(
+        Persona persona,
+        Oficina oficinaD,
+        String usuarioNombre) {
+
+        String nextCodFunc = calcularNextCodigoFuncionario(oficinaD.getIdOficina());
+
+        log.info("  → Persona: '{}' CI={} id={}",
+            persona.getNombreCompleto(), persona.getCi(), persona.getIdPersona());
+        log.info("  → Oficina: '{}' cod={} predio={}",
+            oficinaD.getNombre(), oficinaD.getCodOfi(),
+            oficinaD.getPredio() != null ? oficinaD.getPredio().getUnidad() : "?");
+        log.info("  → codigoFuncionario asignado: {}", nextCodFunc);
+
+        Responsable nuevo = new Responsable();
+        nuevo.setPersona(persona);
+        nuevo.setOficina(oficinaD);
+        nuevo.setCodigoFuncionario(nextCodFunc);
+        nuevo.setFechaUlt(LocalDate.now());
+        nuevo.setUsuario(usuarioNombre);
+
+        // Heredar cargo de cualquier responsable existente de esta persona
+        responsableDao.findAllByPersonaIdPersona(persona.getIdPersona())
+            .stream()
+            .filter(r -> r.getCargo() != null)
+            .findFirst()
+            .ifPresent(r -> nuevo.setCargo(r.getCargo()));
+
+        Responsable guardado = responsableService.save(nuevo);
+        log.info("  → PostgreSQL: Responsable id={} guardado ✅", guardado.getIdResponsable());
+
+        // Sincronizar con RESP.DBF
+        try {
+            dbfService.upsertResponsableDesdeEntidad(guardado);
+            log.info("  → RESP.DBF: sincronizado CODOFIC={} CODRESP={} ✅",
+                oficinaD.getCodOfi(), nextCodFunc);
+        } catch (Exception e) {
+            log.error("  → RESP.DBF: ERROR al sincronizar — BD actualizada pero DBF no: {}",
+                e.getMessage(), e);
+        }
+
+        return guardado;
+    }
+
+    // =========================================================================
+    //  RESOLUCIÓN DEL AUXILIAR DESTINO (solo para EXTERNA)
+    // =========================================================================
+
+    /**
+     * Busca el Auxiliar equivalente en el predio destino.
+     * Si no existe, lo crea con el siguiente codAux correlativo.
+     *
+     * La equivalencia se determina por: GrupoContable + Nombre (case-insensitive).
+     * El activo MANTIENE su GrupoContable — solo cambia el codAux local del predio destino.
+     */
+    private Short resolverOCrearAuxiliarDestino(
+            SolTransferenciaDbf f,
+            Predio predioD,
+            String usuarioNombre) {
+
+        // 1. Obtener el Auxiliar origen para conocer nombre y GrupoContable
+        Auxiliar auxOrigen = auxiliarRepository
+            .findByUnidadGrupoAndCodAux(
+                f.getUnidadO().trim(),
+                f.getCodContO().intValue(),
+                f.getCodAuxO())
+            .orElseThrow(() -> new IllegalStateException(String.format(
+                "Auxiliar origen no encontrado — unidad='%s' codCont=%d codAux=%d",
+                f.getUnidadO(), f.getCodContO(), f.getCodAuxO())));
+
+        GrupoContable grupo = auxOrigen.getGrupoContable();
+
+        // 2. Buscar en el predio destino por: mismo grupo + mismo nombre
+        Optional<Auxiliar> enDestino = auxiliarRepository
+            .findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(
+                predioD.getIdPredio(),
+                grupo.getIdGrupoContable(),
+                auxOrigen.getNombre());
+
+        if (enDestino.isPresent()) {
+            log.debug("✅ Auxiliar '{}' ya existe en predio '{}' — codAux={}",
+                auxOrigen.getNombre(), predioD.getUnidad(), enDestino.get().getCodAux());
+            return enDestino.get().getCodAux();
+        }
+
+        // 3. No existe → calcular siguiente codAux y crear
+        Integer maxActual = auxiliarRepository.findMaxCodAux(
+            predioD.getIdPredio(), grupo.getIdGrupoContable());
+        short nextCodAux = (short)((maxActual == null ? 0 : maxActual) + 1);
+
+        log.info("📋 Creando Auxiliar '{}' en predio='{}' | grupo={} | codAux={}",
+            auxOrigen.getNombre(), predioD.getUnidad(),
+            grupo.getCodContable(), nextCodAux);
+
+        Auxiliar nuevoAux = new Auxiliar();
+        nuevoAux.setPredio(predioD);
+        nuevoAux.setGrupoContable(grupo);
+        nuevoAux.setCodAux(nextCodAux);
+        nuevoAux.setNombre(auxOrigen.getNombre());
+        nuevoAux.setObserv(auxOrigen.getObserv());
+        nuevoAux.setFechaUlt(LocalDate.now());
+        nuevoAux.setUsuario(usuarioNombre);
+
+        Auxiliar savedAux = auxiliarService.save(nuevoAux);
+
+        // Sincronizar con AUXILIAR.DBF
+        try {
+            dbfService.upsertAuxiliarDesdeEntidad(savedAux);
+            log.info("✅ AUXILIAR.DBF — sincronizado: '{}' codAux={} predio={}",
+                nuevoAux.getNombre(), nextCodAux, predioD.getUnidad());
+        } catch (Exception e) {
+            log.error("❌ AUXILIAR.DBF no sincronizado (BD sí actualizada): {}", e.getMessage(), e);
+        }
+
+        return nextCodAux;
+    }
+
+    // =========================================================================
+    //  HELPERS PRIVADOS
+    // =========================================================================
+
+    /**
+     * MAX(codigoFuncionario) + 1 para la oficina dada.
+     * REGLA: correlativo POR oficina. Si la oficina 28 tiene [1,2,3], el siguiente es 4.
+     * Si esa misma persona luego entra a oficina 10 que tiene [1..10], su código allí es 11.
+     */
+    private String calcularNextCodigoFuncionario(Long idOficina) {
+        List<Responsable> existentes = responsableDao.findByOficinaIdOficina(idOficina);
+
+        int max = existentes.stream()
+            .map(Responsable::getCodigoFuncionario)
+            .filter(Objects::nonNull)
+            .mapToInt(s -> {
+                try { return Integer.parseInt(s.trim()); }
+                catch (NumberFormatException e) { return 0; }
+            })
+            .max()
+            .orElse(0);
+
+        String siguiente = String.valueOf(max + 1);
+
+        log.debug("  calcularNextCodigoFuncionario: oficina={} | existentes={} | max={} | siguiente={}",
+            idOficina, existentes.size(), max, siguiente);
+
+        return siguiente;
+    }
+
+    /**
+     * Convierte codigoFuncionario (String) → Short para escribir en ACTUAL.DBF.
+     */
+    private Short parsearCodigoFuncionario(Responsable r) {
+        String codFunc = r.getCodigoFuncionario();
+        if (codFunc == null || codFunc.isBlank()) {
+            throw new IllegalStateException(String.format(
+                "Responsable id=%d no tiene codigoFuncionario — oficina=%s",
+                r.getIdResponsable(),
+                r.getOficina() != null ? r.getOficina().getCodOfi() : "?"));
+        }
+        try {
+            return Short.parseShort(codFunc.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException(
+                "codigoFuncionario='" + codFunc + "' no es numérico para "
+                + "Responsable id=" + r.getIdResponsable(), e);
+        }
+    }
+
+    private TransferenciaCabecera construirYPersistirCabecera(
+            String corrT,
+            List<SolTransferenciaDbf> grupo,
+            SolTransferenciaDbf primero,
+            boolean esExterna,
+            String usuarioNombre) {
+
+        TransferenciaCabecera cabecera = TransferenciaCabecera.builder()
+            .corrT(corrT)
+            .nombreT(primero.getNombreT())
+            .fechaT(primero.getFechaT())
+            .estadoTDbf(primero.getEstadoT())
+            .unidadO(primero.getUnidadO())
+            .unidadD(primero.getUnidadD())
+            .codOficO(primero.getCodOficO())
+            .ciSolicitante(primero.getCiSolO())
+            .codOficD(primero.getCodOficD())
+            .ciReceptor(primero.getCiRecep())
+            .nomReceptor(primero.getNomRecep())
+            .tipo(esExterna
+                ? TransferenciaValidadaDto.TipoTransferencia.EXTERNA
+                : TransferenciaValidadaDto.TipoTransferencia.INTERNA)
+            .estado(TransferenciaCabecera.EstadoTransferencia.APROBADO)
+            .fechaAprobacion(LocalDateTime.now())
+            .usuarioAprobacion(usuarioNombre)
+            .build();
+
+        for (SolTransferenciaDbf f : grupo) {
+            cabecera.getDetalles().add(
+                TransferenciaDetalleLondra.builder()
+                    .cabecera(cabecera)
+                    .idTDbf(f.getIdT())
+                    .codigoActivo(f.getCodigoO())
+                    .codContO(f.getCodContO())
+                    .codAuxO(f.getCodAuxO())
+                    .estadoActivoO(f.getEstadoO())
+                    .codOficO(f.getCodOficO())
+                    .codRespO(f.getCodRespO())
+                    .estadoDetalle(TransferenciaDetalleLondra.EstadoActivo.APROBADO)
+                    .build()
+            );
+        }
+
+        cabeceraRepo.save(cabecera);
+        log.info("✅ PostgreSQL — {} detalles persistidos para corrT={}",
+            grupo.size(), corrT);
+        return cabecera;
+    }
+
+    // =========================================================================
+    //  MÉTODOS DE LECTURA/VALIDACIÓN (sin cambios estructurales)
+    // =========================================================================
+
     private boolean esPendiente(String estadoT) {
         if (estadoT == null) return false;
         return ESTADOS_PENDIENTES.contains(estadoT.trim().toUpperCase());
-    }
-    
-    @Override
-    public List<TransferenciaActivoDetalleDto> leerYValidarPendientes() {
-        List<SolTransferenciaDbf> filas;
-        try {
-            filas = dbfService.listarSolTransferenciasAll(
-                Path.of(transferenciasPath), null);
-        } catch (Exception e) {
-            log.error("🌐 No se pudo leer sol_transferencias.dbf: {}", e.getMessage());
-            return List.of();
-        }
-
-        return filas.stream()
-            .filter(f -> esPendiente(f.getEstadoT()))
-            .map(this::validarEnriquecido)
-            .collect(Collectors.toList());
     }
 
     @Override
@@ -104,139 +603,49 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     }
 
     @Override
-    @Transactional
-    public TransferenciaCabecera aprobar(String corrT,
-                                        String usuarioNombre) throws Exception {
+    public List<TransferenciaActivoDetalleDto> leerYValidarPendientes() {
+        try {
+            List<SolTransferenciaDbf> filas = dbfService
+                .listarSolTransferenciasAll(Path.of(transferenciasPath), null);
+            Map<String, String> cache = cargarCacheNombresAuxiliar(filas);
+            return filas.stream()
+                .filter(f -> esPendiente(f.getEstadoT()))
+                .map(f -> validarEnriquecido(f, cache))
+                .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("No se pudo leer sol_transferencias.dbf: {}", e.getMessage());
+            return List.of();
+        }
+    }
 
-        // ── 1. Verificar duplicado antes de todo ─────────────────────────────────
-        if (cabeceraRepo.existsByCorrT(corrT)) {
-            throw new IllegalStateException(
-                "La transferencia '" + corrT + "' ya fue aprobada anteriormente");
+    @Override
+    public List<TransferenciaAgrupadaDto> leerYValidarAgrupado() {
+        List<SolTransferenciaDbf> filas;
+        try {
+            filas = dbfService.listarSolTransferenciasAll(Path.of(transferenciasPath), null);
+        } catch (Exception e) {
+            log.error("No se pudo leer sol_transferencias.dbf: {}", e.getMessage());
+            return List.of();
         }
 
-        // ── 2. Leer activos del DBF ───────────────────────────────────────────────
-        List<SolTransferenciaDbf> grupo = dbfService
-            .listarSolTransferenciasAll(Path.of(transferenciasPath), null)
-            .stream()
-            .filter(f -> corrT.equalsIgnoreCase(f.getCorrT()))
+        List<SolTransferenciaDbf> pendientes = filas.stream()
+            .filter(f -> esPendiente(f.getEstadoT()))
             .collect(Collectors.toList());
 
-        if (grupo.isEmpty()) throw new IllegalArgumentException(
-            "No se encontró ningún activo con CORR_T=" + corrT);
+        if (pendientes.isEmpty()) return List.of();
 
-        // ── 3. Validar TODOS — fail fast ──────────────────────────────────────────
-        Map<String, String> cache = cargarCacheNombresAuxiliar(grupo);
-        List<String> erroresGlobales = new ArrayList<>();
+        Map<String, String> cacheAux = cargarCacheNombresAuxiliar(pendientes);
 
-        for (SolTransferenciaDbf f : grupo) {
-            TransferenciaActivoDetalleDto v = validarEnriquecido(f, cache);
-            if (!v.isValida()) {
-                erroresGlobales.add("• " + f.getCodigoO() + ": "
-                    + String.join(", ", v.getErrores()));
-            }
-        }
-
-        if (!erroresGlobales.isEmpty()) {
-            throw new IllegalStateException(
-                "No se puede aprobar. Errores detectados:\n"
-                + String.join("\n", erroresGlobales));
-        }
-
-        // ── 4. Construir y persistir cabecera ─────────────────────────────────────
-        SolTransferenciaDbf primero = grupo.get(0);
-        boolean mismaUnidad = primero.getUnidadO() != null &&
-                            primero.getUnidadO().equalsIgnoreCase(primero.getUnidadD());
-
-        TransferenciaCabecera cabecera = TransferenciaCabecera.builder()
-            .corrT(corrT)
-            .nombreT(primero.getNombreT())
-            .fechaT(primero.getFechaT())
-            .estadoTDbf(primero.getEstadoT())
-            .unidadO(primero.getUnidadO())
-            .unidadD(primero.getUnidadD())
-            .codOficO(primero.getCodOficO())
-            .ciSolicitante(primero.getCiSolO())
-            .codOficD(primero.getCodOficD())
-            .ciReceptor(primero.getCiRecep())
-            .nomReceptor(primero.getNomRecep())
-            .tipo(mismaUnidad
-                ? TransferenciaValidadaDto.TipoTransferencia.INTERNA
-                : TransferenciaValidadaDto.TipoTransferencia.EXTERNA)
-            .estado(TransferenciaCabecera.EstadoTransferencia.APROBADO)
-            .fechaAprobacion(LocalDateTime.now())
-            .usuarioAprobacion(usuarioNombre)
-            .build();
-
-        // ── 5. Construir detalles y asociarlos a la cabecera ──────────────────────
-        for (SolTransferenciaDbf f : grupo) {
-            TransferenciaDetalleLondra detalle = TransferenciaDetalleLondra.builder()
-                .cabecera(cabecera)
-                .idTDbf(f.getIdT())
-                .codigoActivo(f.getCodigoO())
-                .codContO(f.getCodContO())
-                .codAuxO(f.getCodAuxO())
-                .estadoActivoO(f.getEstadoO())
-                .codOficO(f.getCodOficO())
-                .codRespO(f.getCodRespO())
-                .estadoDetalle(TransferenciaDetalleLondra.EstadoActivo.APROBADO)
-                .build();
-
-            cabecera.getDetalles().add(detalle);
-        }
-
-        // Un solo save guarda cabecera + todos los detalles (CascadeType.ALL)
-        cabeceraRepo.save(cabecera);
-        log.info("✅ BD — cabecera y {} detalles guardados para {}",
-                grupo.size(), corrT);
-
-        // ── 6. Actualizar ACTUAL.DBF para cada activo ─────────────────────────────
-        List<String> erroresDbf = new ArrayList<>();
-
-        for (SolTransferenciaDbf f : grupo) {
-            try {
-                Predio predioO = predioServicio
-                    .findByUnidadIgnoreCase(f.getUnidadO())
-                    .orElseThrow(() -> new IllegalStateException(
-                        "Predio origen no encontrado: " + f.getUnidadO()));
-
-                dbfService.actualizarActivoParaTransferencia(
-                    f.getCodigoO(),
-                    predioO.getEntidad().getEntidadCodigo(),
-                    f.getUnidadO(),
-                    f.getUnidadD(),
-                    f.getCodOficD(),
-                    f.getCodRespO(),
-                    LocalDate.now(),
-                    usuarioNombre
-                );
-
-                log.info("✅ ACTUAL.DBF — activo {} transferido", f.getCodigoO());
-
-            } catch (Exception e) {
-                erroresDbf.add("• " + f.getCodigoO() + ": " + e.getMessage());
-                log.error("❌ Error en ACTUAL.DBF para activo {}: {}",
-                    f.getCodigoO(), e.getMessage(), e);
-            }
-        }
-
-        // ── 7. Marcar en sol_transferencias.DBF ───────────────────────────────────
-        try {
-            dbfService.actualizarEstadoTransferenciaDbf(
-                Path.of(transferenciasPath), corrT, "APROBADO");
-        } catch (Exception e) {
-            log.error("❌ Error marcando APROBADO en sol_transferencias.DBF: {}",
-                e.getMessage());
-        }
-
-        if (!erroresDbf.isEmpty()) {
-            log.warn("⚠️ Transferencia {} aprobada en BD pero con {} "
-                + "error(es) en ACTUAL.DBF:\n{}",
-                    corrT, erroresDbf.size(), String.join("\n", erroresDbf));
-        }
-
-        log.info("✅ Transferencia {} completada — {} activo(s) por {}",
-                corrT, grupo.size(), usuarioNombre);
-        return cabecera;
+        return pendientes.stream()
+            .map(f -> validarEnriquecido(f, cacheAux))
+            .collect(Collectors.groupingBy(
+                dto -> dto.getDatos().getCorrT() != null
+                    ? dto.getDatos().getCorrT() : "SIN_CORR",
+                LinkedHashMap::new, Collectors.toList()
+            ))
+            .entrySet().stream()
+            .map(e -> construirGrupo(e.getKey(), e.getValue()))
+            .collect(Collectors.toList());
     }
 
     private TransferenciaActivoDetalleDto validarEnriquecido(
@@ -390,45 +799,6 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             .nombreResponsableOrigen(nomRespOrigen)
             .ciResponsableOrigen(ciRespOrigen != null ? ciRespOrigen : f.getCiSolO())
             .build();
-    }
-
-    // Sobrecarga para aprobar() — construye caché propio
-    private TransferenciaActivoDetalleDto validarEnriquecido(SolTransferenciaDbf f) {
-        return validarEnriquecido(f, cargarCacheNombresAuxiliar(List.of(f)));
-    }
-
-    @Override
-    public List<TransferenciaAgrupadaDto> leerYValidarAgrupado() {
-        List<SolTransferenciaDbf> filas;
-        try {
-            filas = dbfService.listarSolTransferenciasAll(
-                Path.of(transferenciasPath), null);
-        } catch (Exception e) {
-            log.error("No se pudo leer sol_transferencias.dbf: {}", e.getMessage());
-            return List.of();
-        }
-
-        List<SolTransferenciaDbf> pendientes = filas.stream()
-            .filter(f -> esPendiente(f.getEstadoT()))
-            .collect(Collectors.toList());
-
-        if (pendientes.isEmpty()) return List.of();
-
-        // ✅ Una sola consulta batch ANTES del loop de validación
-        Map<String, String> cacheAuxiliar = cargarCacheNombresAuxiliar(pendientes);
-
-        Map<String, List<TransferenciaActivoDetalleDto>> porCorr = pendientes.stream()
-            .map(f -> validarEnriquecido(f, cacheAuxiliar))  // ← pasar el caché
-            .collect(Collectors.groupingBy(
-                dto -> dto.getDatos().getCorrT() != null
-                    ? dto.getDatos().getCorrT() : "SIN_CORR",
-                LinkedHashMap::new,
-                Collectors.toList()
-            ));
-
-        return porCorr.entrySet().stream()
-            .map(entry -> construirGrupo(entry.getKey(), entry.getValue()))
-            .collect(Collectors.toList());
     }
 
     private TransferenciaAgrupadaDto construirGrupo(

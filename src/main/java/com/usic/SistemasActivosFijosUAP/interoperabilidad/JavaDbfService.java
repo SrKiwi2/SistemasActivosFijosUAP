@@ -43,9 +43,12 @@ import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.OrganismoFin
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ResponsableDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SolTransferenciaDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.UnidadAdminDbf;
+import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
+import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
+import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
 public class JavaDbfService {
 
@@ -1364,35 +1367,37 @@ public class JavaDbfService {
         return out;
     }
 
-    // ────────────────────────────────────────────────────────────────────────────
-    //  ESCRITOR: Actualiza unidad/oficina/resp de un activo en ACTUAL.DBF
-    // ────────────────────────────────────────────────────────────────────────────
+    /**
+     * Actualiza ACTUAL.DBF para una transferencia.
+     *
+     * @param codAuxDestino  codAux del auxiliar en el predio destino.
+     *                       NULL para transferencia INTERNA (el auxiliar no cambia).
+     */
     public void actualizarActivoParaTransferencia(
-        String    codigoActivo,
-        String    entidadCodigo,
-        String    unidadOrigen,
-        String    unidadDestino,
-        Short     codOficDestino,
-        Short     codRespDestino,
-        LocalDate fechaUlt,
-        String    usuario) throws Exception {
+            String    codigoActivo,
+            String    entidadCodigo,
+            String    unidadOrigen,
+            String    unidadDestino,
+            Short     codOficDestino,
+            Short     codRespDestino,   // ← codigoFuncionario del receptor en oficina destino
+            Short     codAuxDestino,    // ← NUEVO: null en interna, codAux destino en externa
+            LocalDate fechaUlt,
+            String    usuario) throws Exception {
 
         Path file = baseDir.resolve("ACTUAL.DBF");
-
-        log.info("🔍 RUTA ACTUAL.DBF: {} | existe={} | escritura={}",
-        file.toAbsolutePath(),
-        Files.exists(file),
-        Files.isWritable(file));
-
         if (!Files.exists(file)) {
             throw new IllegalStateException("ACTUAL.DBF no encontrado en: " + file);
         }
+
+        log.info("✏️  actualizarActivoParaTransferencia: activo={} {} → {} "
+            + "codOfic={} codResp={} codAux={}",
+            codigoActivo, unidadOrigen, unidadDestino,
+            codOficDestino, codRespDestino, codAuxDestino);
 
         Charset cs = (charset != null && !charset.isBlank())
             ? Charset.forName(charset) : Charset.forName("CP1252");
 
         synchronized (actualLock) {
-            // Reintentos ante lock del proceso legacy
             int maxIntentos = 3;
             for (int intento = 1; intento <= maxIntentos; intento++) {
                 try (RandomAccessFile raf = new RandomAccessFile(file.toFile(), "rw");
@@ -1401,26 +1406,25 @@ public class JavaDbfService {
                     FileLock lock = canal.tryLock();
                     if (lock == null) {
                         if (intento == maxIntentos) throw new IllegalStateException(
-                            "ACTUAL.DBF bloqueado por otro proceso tras " + maxIntentos + " intentos");
+                            "ACTUAL.DBF bloqueado tras " + maxIntentos + " intentos");
                         log.warn("ACTUAL.DBF bloqueado, reintento {}/{}", intento, maxIntentos);
                         Thread.sleep(500L * intento);
                         continue;
                     }
-
                     try {
                         DbfMeta meta = parsearCabecera(raf);
                         ejecutarUpdate(raf, meta, cs,
                             codigoActivo, entidadCodigo, unidadOrigen,
                             unidadDestino, codOficDestino, codRespDestino,
+                            codAuxDestino,   // ← pasa el nuevo parámetro
                             fechaUlt, usuario);
-                        return; // éxito — salir del loop de reintentos
+                        return;
                     } finally {
                         lock.release();
                     }
-
                 } catch (OverlappingFileLockException e) {
-                    if (intento == maxIntentos) throw new IllegalStateException(
-                        "Lock solapado en ACTUAL.DBF", e);
+                    if (intento == maxIntentos)
+                        throw new IllegalStateException("Lock solapado en ACTUAL.DBF", e);
                     Thread.sleep(500L * intento);
                 }
             }
@@ -1428,19 +1432,18 @@ public class JavaDbfService {
     }
 
     private void ejecutarUpdate(
-        RandomAccessFile raf,
-        DbfMeta          meta,
-        Charset          cs,
+        RandomAccessFile raf, DbfMeta meta, Charset cs,
         String codigoActivo, String entidadCodigo, String unidadOrigen,
         String unidadDestino, Short codOficD, Short codRespD,
+        Short codAuxD,   // ← NUEVO
         LocalDate fechaUlt, String usuario) throws IOException {
 
-        // Resolver índices de campo UNA sola vez
         DbfFieldMeta fCodigo  = meta.field("CODIGO");
         DbfFieldMeta fEntidad = meta.field("ENTIDAD");
         DbfFieldMeta fUnidad  = meta.field("UNIDAD");
         DbfFieldMeta fCodOfi  = meta.field("CODOFIC");
         DbfFieldMeta fCodResp = meta.field("CODRESP");
+        DbfFieldMeta fCodAux  = meta.field("CODAUX");   // ← NUEVO
         DbfFieldMeta fFeult   = meta.field("FEULT");
         DbfFieldMeta fUsuar   = meta.field("USUAR");
 
@@ -1456,32 +1459,33 @@ public class JavaDbfService {
             byte[] reg = new byte[meta.recordSize()];
             raf.readFully(reg);
 
-            // Saltar registros marcados como eliminados
-            if (reg[0] == 0x2A) continue;   // '*' = eliminado
+            if (reg[0] == 0x2A) continue; // eliminado
 
-            // Comparar campos clave (lectura rápida desde bytes ya en memoria)
-            if (!codigoActivo.equalsIgnoreCase(leerCampo(reg, fCodigo, cs)))  continue;
+            if (!codigoActivo.equalsIgnoreCase(leerCampo(reg, fCodigo, cs)))   continue;
             if (fEntidad != null &&
                 !entidadCodigo.equalsIgnoreCase(leerCampo(reg, fEntidad, cs))) continue;
             if (fUnidad != null &&
                 !unidadOrigen.equalsIgnoreCase(leerCampo(reg, fUnidad, cs)))   continue;
 
-            // ── Registro encontrado: escribir SOLO los campos que cambian ──────
+            // ── Escribir SOLO los campos que cambian ──────────────────────────────
             if (fUnidad  != null && unidadDestino != null)
                 escribirCharacter(raf, posReg, fUnidad,  unidadDestino, cs);
             if (fCodOfi  != null && codOficD != null)
-                escribirNumerico(raf, posReg, fCodOfi,  codOficD.longValue());
+                escribirNumerico(raf,  posReg, fCodOfi,  codOficD.longValue());
             if (fCodResp != null && codRespD != null)
-                escribirNumerico(raf, posReg, fCodResp, codRespD.longValue());
+                escribirNumerico(raf,  posReg, fCodResp, codRespD.longValue());
+            // ↓ NUEVO: solo se escribe si se recibe un valor (null = no cambia = interna)
+            if (fCodAux  != null && codAuxD  != null)
+                escribirNumerico(raf,  posReg, fCodAux,  codAuxD.longValue());
             if (fFeult   != null && fechaUlt != null)
                 escribirFecha(raf, posReg, fFeult, fechaUlt);
-            if (fUsuar   != null && usuario != null)
+            if (fUsuar   != null && usuario  != null)
                 escribirCharacter(raf, posReg, fUsuar, usuario, cs);
 
             encontrado = true;
-            log.info("✅ ACTUAL.DBF — activo {} actualizado en registro #{} (in-place)",
-                    codigoActivo, i);
-            break; // CODIGO es único — no seguir escaneando
+            log.info("✅ ACTUAL.DBF — registro #{} actualizado: {} [UNIDAD={} CODOFIC={} CODRESP={} CODAUX={}]",
+                i, codigoActivo, unidadDestino, codOficD, codRespD, codAuxD);
+            break;
         }
 
         if (!encontrado) throw new IllegalArgumentException(
@@ -1489,6 +1493,225 @@ public class JavaDbfService {
             + " ENTIDAD=" + entidadCodigo + " UNIDAD=" + unidadOrigen);
     }
 
+
+    /** Esquema de RESP.DBF */
+    private DBFField[] schemaResp() {
+        return new DBFField[] {
+            crearCampo("ENTIDAD",    DBFDataType.CHARACTER, 4,  0),
+            crearCampo("UNIDAD",     DBFDataType.CHARACTER, 5,  0),
+            crearCampo("CODOFIC",    DBFDataType.NUMERIC,   5,  0),
+            crearCampo("CODRESP",    DBFDataType.NUMERIC,   5,  0),
+            crearCampo("NOMRESP",    DBFDataType.CHARACTER, 60, 0),
+            crearCampo("CI",         DBFDataType.CHARACTER, 15, 0),
+            crearCampo("CARGO",      DBFDataType.CHARACTER, 40, 0),
+            crearCampo("FEULT",      DBFDataType.DATE,      8,  0),
+            crearCampo("USUAR",      DBFDataType.CHARACTER, 8,  0),
+            crearCampo("COD_EXP",    DBFDataType.NUMERIC,   5,  0),
+            crearCampo("API_ESTADO", DBFDataType.NUMERIC,   5,  0),
+        };
+    }
+
+    public ResponsableDbf mapDesdeEntidad(Responsable r) {
+        String entidad = Optional.ofNullable(r.getOficina())
+            .map(Oficina::getPredio).map(Predio::getEntidad)
+            .map(Entidad::getEntidadCodigo).orElse(null);
+        String unidad  = Optional.ofNullable(r.getOficina())
+            .map(Oficina::getPredio).map(Predio::getUnidad).orElse(null);
+        String nombre  = Optional.ofNullable(r.getPersona())
+            .map(Persona::getNombreCompleto).orElse(null);
+        String ci      = Optional.ofNullable(r.getPersona())
+            .map(Persona::getCi).orElse(null);
+        // Cargo: adaptar según tu entidad Cargo (getNombre() o similar)
+        String cargo   = Optional.ofNullable(r.getCargo())
+            .map(c -> c.getNombre()).orElse(null);
+
+        return ResponsableDbf.builder()
+            .entidadCodigo(entidad)
+            .unidad(unidad)
+            .codOfi(r.getOficina() != null ? r.getOficina().getCodOfi() : null)
+            .codResp(r.getCodigoFuncionario())
+            .nombre(nombre)
+            .ci(ci)
+            .cargo(cargo)
+            .observ(r.getObserv())
+            .fechaUlt(r.getFechaUlt())
+            .usuario(r.getUsuario() != null ? r.getUsuario() : "")
+            .codExp(r.getCodExp())
+            .apiEstado(r.getApiEstado())
+            .build();
+    }
+
+    public void upsertResponsableDesdeEntidad(Responsable r) throws Exception {
+        upsertResponsable(mapDesdeEntidad(r));
+    }
+
+    private final Object respLock = new Object();
+
+    public void upsertResponsable(ResponsableDbf nuevo) throws Exception {
+        Path file = baseDir.resolve("RESP.DBF");
+        Path tmp  = baseDir.resolve("RESP.TMP.DBF");
+
+        synchronized (respLock) {
+            List<ResponsableDbf> todos = listarResponsableAll(null);
+
+            // Clave: ENTIDAD + UNIDAD + CODOFIC + CODRESP
+            String entN = cut(nuevo.getEntidadCodigo(), 4);
+            String uniN = cut(nuevo.getUnidad(), 5);
+
+            boolean replaced = false;
+            for (int i = 0; i < todos.size(); i++) {
+                ResponsableDbf r = todos.get(i);
+                if (Objects.equals(cut(r.getEntidadCodigo(), 4), entN)
+                    && Objects.equals(cut(r.getUnidad(), 5), uniN)
+                    && Objects.equals(r.getCodOfi(), nuevo.getCodOfi())
+                    && Objects.equals(r.getCodResp(), nuevo.getCodResp())) {
+                    todos.set(i, nuevo);
+                    replaced = true;
+                    break;
+                }
+            }
+            if (!replaced) todos.add(nuevo);
+
+            Charset cs = (charset != null && !charset.isBlank())
+                ? Charset.forName(charset) : Charset.forName("CP1252");
+
+            try (OutputStream out = Files.newOutputStream(tmp,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                DBFWriter writer = new DBFWriter(out, cs)) {
+
+                writer.setFields(schemaResp());
+                for (ResponsableDbf r : todos) writer.addRecord(asRowResp(r));
+            }
+
+            Files.move(tmp, file,
+                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+
+            log.info("✅ RESP.DBF — upsert completado: CODOFIC={} CODRESP={}",
+                nuevo.getCodOfi(), nuevo.getCodResp());
+        }
+    }
+
+    private Object[] asRowResp(ResponsableDbf r) {
+        Integer codResp = null;
+        if (r.getCodResp() != null) {
+            try { codResp = Integer.parseInt(r.getCodResp().trim()); }
+            catch (NumberFormatException ignored) {}
+        }
+        return new Object[] {
+            cut(r.getEntidadCodigo(), 4),
+            cut(r.getUnidad(), 5),
+            r.getCodOfi() != null ? r.getCodOfi().intValue() : null,
+            codResp,
+            cut(r.getNombre(), 60),
+            cut(r.getCi(), 15),
+            cut(r.getCargo(), 40),
+            r.getFechaUlt() != null ? java.sql.Date.valueOf(r.getFechaUlt()) : null,
+            cut(r.getUsuario() != null ? r.getUsuario() : "", 8),
+            r.getCodExp() != null ? r.getCodExp().intValue() : null,
+            r.getApiEstado() != null ? r.getApiEstado().intValue() : null,
+        };
+    }
+
+    private DBFField[] schemaAuxiliar() {
+        return new DBFField[] {
+            crearCampo("ENTIDAD",  DBFDataType.CHARACTER, 4,  0),
+            crearCampo("UNIDAD",   DBFDataType.CHARACTER, 5,  0),
+            crearCampo("CODCONT",  DBFDataType.NUMERIC,   5,  0),
+            crearCampo("CODAUX",   DBFDataType.NUMERIC,   5,  0),
+            crearCampo("NOMAUX",   DBFDataType.CHARACTER, 60, 0),
+            crearCampo("FEULT",    DBFDataType.DATE,      8,  0),
+            crearCampo("USUAR",    DBFDataType.CHARACTER, 8,  0),
+        };
+    }
+
+    public AuxiliarDbf mapDesdeEntidad(Auxiliar a) {
+        String entidad = Optional.ofNullable(a.getPredio())
+            .map(Predio::getEntidad).map(Entidad::getEntidadCodigo).orElse(null);
+        String unidad  = Optional.ofNullable(a.getPredio())
+            .map(Predio::getUnidad).orElse(null);
+        Integer codCont = Optional.ofNullable(a.getGrupoContable())
+            .map(g -> g.getCodContable()).orElse(null);
+
+        return AuxiliarDbf.builder()
+            .entidadCodigo(entidad)
+            .unidad(unidad)
+            .codCont(codCont != null ? codCont.shortValue() : null)
+            .codAux(a.getCodAux())
+            .nomAux(a.getNombre())
+            .observ(a.getObserv())
+            .fechaUlt(a.getFechaUlt())
+            .usuario(a.getUsuario() != null ? a.getUsuario() : "")
+            .build();
+    }
+
+    public void upsertAuxiliarDesdeEntidad(Auxiliar a) throws Exception {
+        upsertAuxiliar(mapDesdeEntidad(a));
+    }
+
+    private final Object auxLock = new Object();
+
+    public void upsertAuxiliar(AuxiliarDbf nuevo) throws Exception {
+        Path file = baseDir.resolve("AUXILIAR.DBF");
+        Path tmp  = baseDir.resolve("AUXILIAR.TMP.DBF");
+
+        synchronized (auxLock) {
+            List<AuxiliarDbf> todos = listarAuxiliarAll(null);
+
+            // Clave: ENTIDAD + UNIDAD + CODCONT + CODAUX
+            boolean replaced = false;
+            for (int i = 0; i < todos.size(); i++) {
+                AuxiliarDbf a = todos.get(i);
+                if (Objects.equals(cut(a.getEntidadCodigo(), 4), cut(nuevo.getEntidadCodigo(), 4))
+                    && Objects.equals(cut(a.getUnidad(), 5), cut(nuevo.getUnidad(), 5))
+                    && Objects.equals(a.getCodCont(), nuevo.getCodCont())
+                    && Objects.equals(a.getCodAux(),  nuevo.getCodAux())) {
+                    todos.set(i, nuevo);
+                    replaced = true;
+                    break;
+                }
+            }
+            if (!replaced) todos.add(nuevo);
+
+            Charset cs = (charset != null && !charset.isBlank())
+                ? Charset.forName(charset) : Charset.forName("CP1252");
+
+            try (OutputStream out = Files.newOutputStream(tmp,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                DBFWriter writer = new DBFWriter(out, cs)) {
+
+                writer.setFields(schemaAuxiliar());
+                for (AuxiliarDbf a : todos) writer.addRecord(asRowAux(a));
+            }
+
+            Files.move(tmp, file,
+                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+
+            log.info("✅ AUXILIAR.DBF — upsert: CODCONT={} CODAUX={} NOMAUX={}",
+                nuevo.getCodCont(), nuevo.getCodAux(), nuevo.getNomAux());
+        }
+    }
+
+    private Object[] asRowAux(AuxiliarDbf a) {
+        return new Object[] {
+            cut(a.getEntidadCodigo(), 4),
+            cut(a.getUnidad(), 5),
+            a.getCodCont() != null ? a.getCodCont().intValue() : null,
+            a.getCodAux()  != null ? a.getCodAux().intValue()  : null,
+            cut(a.getNomAux(), 60),
+            a.getFechaUlt() != null ? java.sql.Date.valueOf(a.getFechaUlt()) : null,
+            cut(a.getUsuario() != null ? a.getUsuario() : "", 8),
+        };
+    }
+
+    /** Helper para crear DBFField de manera uniforme */
+    private static DBFField crearCampo(String nombre, DBFDataType tipo, int len, int dec) {
+        DBFField f = new DBFField();
+        f.setName(nombre);
+        f.setType(tipo);
+        f.setLength(len);
+        if (dec > 0) f.setDecimalCount(dec);
+        return f;
+    }
 
 
     // ────────────────────────────────────────────────────────────────────────────
