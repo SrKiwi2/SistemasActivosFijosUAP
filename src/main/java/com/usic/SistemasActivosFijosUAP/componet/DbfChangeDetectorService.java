@@ -141,4 +141,23 @@ public class DbfChangeDetectorService {
             return null;
         }
     }
+
+    /**
+     * Limpia el baseline de una tabla específica o de todas.
+     * En el próximo ciclo del scheduler, volverá a leer el estado
+     * actual como nueva referencia — útil tras reemplazar DBFs.
+     *
+     * @param tabla nombre de la tabla, o null para resetear todas
+     */
+    public void resetearBaseline(String tabla) {
+        if (tabla == null) {
+            estadosConocidos.clear();
+            ultimoEventoMs.clear();
+            log.info("🔄 Baseline reseteado para TODAS las tablas");
+        } else {
+            estadosConocidos.remove(tabla);
+            ultimoEventoMs.remove(tabla);
+            log.info("🔄 Baseline reseteado para tabla '{}'", tabla);
+        }
+    }
 }

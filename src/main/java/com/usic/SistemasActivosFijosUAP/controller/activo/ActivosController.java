@@ -74,6 +74,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
+import com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncService;
 import com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService;
 
 import jakarta.persistence.EntityManager;
@@ -109,6 +110,8 @@ public class ActivosController {
 
     private final TransferenciaService transferenciaService;
     private final ITransferenciaDao transferenciaDao;
+
+    private final ActivoSyncService activoSyncService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -1306,6 +1309,25 @@ public class ActivosController {
         activo.setEstado("ELIMINADO");
         activoService.save(activo);
         return ResponseEntity.ok("Registro Eliminado");
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/sync-forzar")
+    @ResponseBody
+    public ResponseEntity<?> forzarSync() {
+        try {
+            log.info("🔄 Sync forzado de activos solicitado");
+            ResponseEntity<?> resultado = activoSyncService.syncFromMounted(null, true);
+            return ResponseEntity.ok(Map.of(
+                "ok",      true,
+                "mensaje", "Sync forzado completado",
+                "detalle", resultado.getBody()
+            ));
+        } catch (Exception e) {
+            log.error("Error en sync forzado: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                .body(Map.of("ok", false, "msg", e.getMessage()));
+        }
     }
 
     /* =============================== */
