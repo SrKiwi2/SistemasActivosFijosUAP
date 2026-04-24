@@ -110,19 +110,28 @@
     }
 
     function onClickNotificacion(n) {
-        const dropdown = document.getElementById('btnCampana');
-        if (dropdown) {
-            const bsDropdown = bootstrap.Dropdown.getInstance(dropdown);
-            if (bsDropdown) bsDropdown.hide();
+        // 1. Cerrar dropdown primero
+        const btnCampana = document.getElementById('btnCampana');
+        if (btnCampana) {
+            try {
+                bootstrap.Dropdown.getInstance(btnCampana)?.hide();
+            } catch(e) {}
         }
+
+        // 2. Marcar leída en background — NO seguir su respuesta
         if (!n.leida) {
-            fetch(API.leer(n.id), { method: 'POST' })
-                .then(r => r.json())
-                .then(data => actualizarBadge(data.noLeidasRestantes || 0))
-                .catch(() => {});
+            fetch(API.leer(n.id), {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            }).catch(() => {});
         }
+
+        // 3. Navegar solo si hay URL — con pequeño delay para que cierre el dropdown
         if (n.urlDestino && n.urlDestino !== '#') {
-            window.location.href = n.urlDestino;
+            setTimeout(() => { window.location.href = n.urlDestino; }, 150);
+        } else {
+            // Sin URL → solo refrescar lista
+            cargarNoLeidas();
         }
     }
 

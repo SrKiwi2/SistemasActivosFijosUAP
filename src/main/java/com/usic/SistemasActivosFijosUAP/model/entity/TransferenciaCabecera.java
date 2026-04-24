@@ -35,21 +35,16 @@ public class TransferenciaCabecera {
     private Long idCabecera;
 
     @Column(unique = true, nullable = false)
-    private String corrT;           // CORR_T — clave única del grupo
+    private String corrT;
 
     private String    nombreT;
     private LocalDate fechaT;
     private String    estadoTDbf;
 
-    // Ruta
     private String unidadO;
     private String unidadD;
-
-    // Solicitante (común a todo el grupo)
-    private Short  codOficO;        // puede variar por activo, aquí va el del primero
+    private Short  codOficO;
     private String ciSolicitante;
-
-    // Receptor (común a todo el grupo)
     private Short  codOficD;
     private String ciReceptor;
     private String nomReceptor;
@@ -67,7 +62,22 @@ public class TransferenciaCabecera {
     @Column(updatable = false)
     private LocalDateTime creadoEn;
 
-    // Relación 1:N con los activos del grupo
+    @Column(columnDefinition = "text")
+    private String motivo;
+
+    private LocalDateTime fechaAccion;
+    private String        usuarioAccion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado_callback")
+    private EstadoCallback estadoCallback; 
+
+    private LocalDateTime fechaCallback;
+    private String        respuestaCallback;
+
+    @Column(updatable = false)
+    private LocalDateTime creadoEns;
+
     @OneToMany(mappedBy = "cabecera",
                cascade = CascadeType.ALL,
                orphanRemoval = true,
@@ -78,5 +88,15 @@ public class TransferenciaCabecera {
     @PrePersist
     protected void onCreate() { this.creadoEn = LocalDateTime.now(); }
 
-    public enum EstadoTransferencia { PENDIENTE, APROBADO, RECHAZADO }
+    public enum EstadoTransferencia { PENDIENTE,
+        FINALIZADO,
+        RECHAZADO,
+        OBSERVADO,
+        CANCELADO }
+
+    public enum EstadoCallback {
+        PENDIENTE,
+        ENVIADO,
+        FALLIDO
+    }
 }

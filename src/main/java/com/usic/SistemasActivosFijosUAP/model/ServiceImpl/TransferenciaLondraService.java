@@ -3,6 +3,7 @@ package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -24,10 +25,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
+import com.usic.SistemasActivosFijosUAP.model.IService.INotificacionService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
@@ -36,8 +39,11 @@ import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaLondraServi
 import com.usic.SistemasActivosFijosUAP.model.dao.IAuxiliarDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IPersonasDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaAccionDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaCabeceraDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaLondraDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IUsuarioDao;
+import com.usic.SistemasActivosFijosUAP.model.dto.NotificacionSseDto;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SolTransferenciaDbf;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.TransferenciaValidadaDto;
 import com.usic.SistemasActivosFijosUAP.model.dto.transferencia.TransferenciaActivoDetalleDto;
@@ -45,10 +51,12 @@ import com.usic.SistemasActivosFijosUAP.model.dto.transferencia.TransferenciaAgr
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
+import com.usic.SistemasActivosFijosUAP.model.entity.Notificacion;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaAccion;
 import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaCabecera;
 import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaDetalleLondra;
 import com.usic.SistemasActivosFijosUAP.util.NombreParser;
@@ -75,6 +83,11 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     private final IAuxiliarService auxiliarService;
     private final IPersonasDao personaDao;
     private final IResposableDao responsableDao;
+
+    private final ITransferenciaAccionDao accionRepo;
+    private final INotificacionService    notificacionService;
+    private final IUsuarioDao             usuarioDao;
+    private final SseEmitterRegistry       sseRegistry;
 
     @Autowired
     private RestTemplate restTemplate;
@@ -226,12 +239,24 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             log.error("❌ Error marcando APROBADO en sol_transferencias.DBF: {}", e.getMessage());
         }
 
-         // ── 11. Notificar a Londra (VSIAF) ────────────────────────────────────
-        notificarLondra(
+        // ── 11. Notificar a Londra ────────────────────────────────────────────────
+        String respCallback = notificarLondra(
             cabecera.getIdCabecera(),
-            String.format("Transferencia %s aprobada — %d activo(s) procesado(s) por %s",
+            "FINALIZADO",
+            String.format("Transferencia %s aprobada — %d activo(s) por %s",
                 corrT, grupo.size(), usuarioNombre)
         );
+
+        // Guardar resultado del callback en la cabecera
+        cabecera.setEstadoCallback(respCallback.startsWith("ERROR")
+            ? TransferenciaCabecera.EstadoCallback.FALLIDO
+            : TransferenciaCabecera.EstadoCallback.ENVIADO);
+        cabecera.setFechaCallback(LocalDateTime.now());
+        cabecera.setRespuestaCallback(
+            respCallback != null && respCallback.length() > 500
+                ? respCallback.substring(0, 500)
+                : respCallback);
+        cabeceraRepo.save(cabecera);
 
         if (!erroresDbf.isEmpty()) {
             log.warn("⚠️ Transferencia {} con {}/{} error(es) en ACTUAL.DBF:\n{}",
@@ -242,6 +267,246 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             corrT, esExterna ? "EXTERNA" : "INTERNA", grupo.size(), usuarioNombre);
 
         return cabecera;
+    }
+
+    // =========================================================================
+    //  RECHAZAR
+    // =========================================================================
+    @Override
+    @Transactional
+    public TransferenciaCabecera rechazar(String corrT,
+                                        String motivo,
+                                        String usuarioNombre) {
+
+        // ── 1. Obtener cabecera ───────────────────────────────────────────────
+        TransferenciaCabecera cabecera = cabeceraRepo.findByCorrT(corrT)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Transferencia no encontrada: " + corrT));
+
+        // ── 2. Validar estado — solo se puede rechazar si está PENDIENTE ──────
+        if (cabecera.getEstado() != TransferenciaCabecera.EstadoTransferencia.PENDIENTE
+            && cabecera.getEstado() != TransferenciaCabecera.EstadoTransferencia.OBSERVADO) {
+            throw new IllegalStateException(
+                "Solo se puede rechazar una transferencia PENDIENTE u OBSERVADA. "
+                + "Estado actual: " + cabecera.getEstado());
+        }
+
+        if (motivo == null || motivo.isBlank()) {
+            throw new IllegalArgumentException(
+                "El motivo es obligatorio para rechazar una transferencia");
+        }
+
+        // ── 3. Actualizar cabecera ────────────────────────────────────────────
+        cabecera.setEstado(TransferenciaCabecera.EstadoTransferencia.RECHAZADO);
+        cabecera.setMotivo(motivo.trim());
+        cabecera.setFechaAccion(LocalDateTime.now());
+        cabecera.setUsuarioAccion(usuarioNombre);
+
+        // ── 4. Registrar en historial de acciones ─────────────────────────────
+        TransferenciaAccion accion = TransferenciaAccion.builder()
+            .cabecera(cabecera)
+            .tipoAccion(TransferenciaAccion.TipoAccion.RECHAZADO)
+            .motivo(motivo.trim())
+            .usuarioAccion(usuarioNombre)
+            .fechaAccion(LocalDateTime.now())
+            .build();
+
+        // ── 5. Actualizar estado en sol_transferencias.DBF ────────────────────
+        try {
+            dbfService.actualizarEstadoTransferenciaDbf(
+                Path.of(transferenciasPath), corrT, "RECHAZADO");
+        } catch (Exception e) {
+            log.error("❌ Error actualizando DBF al rechazar corrT={}: {}",
+                corrT, e.getMessage());
+        }
+
+        // ── 6. Notificar a Londra ─────────────────────────────────────────────
+        String respCallback = notificarLondra(
+            cabecera.getIdCabecera(),
+            "RECHAZADO",
+            motivo.trim()
+        );
+
+        accion.setEstadoCallback(respCallback.startsWith("ERROR")
+            ? TransferenciaCabecera.EstadoCallback.FALLIDO
+            : TransferenciaCabecera.EstadoCallback.ENVIADO);
+        accion.setRespuestaCallback(
+            respCallback != null && respCallback.length() > 500
+                ? respCallback.substring(0, 500)
+                : respCallback);
+
+        cabecera.setEstadoCallback(accion.getEstadoCallback());
+        cabecera.setFechaCallback(LocalDateTime.now());
+        cabecera.setRespuestaCallback(accion.getRespuestaCallback());
+
+        // ── 7. Persistir ──────────────────────────────────────────────────────
+        cabeceraRepo.save(cabecera);
+        accionRepo.save(accion);
+
+        log.info("🚫 Transferencia {} RECHAZADA por {} — motivo: {}",
+            corrT, usuarioNombre, motivo);
+
+        // ── 8. Notificación interna SSE ───────────────────────────────────────
+        notificarAccionInterna(cabecera, "RECHAZADO", motivo, usuarioNombre);
+
+        return cabecera;
+    }
+
+    // =========================================================================
+    //  OBSERVAR
+    // =========================================================================
+    @Override
+    @Transactional
+    public TransferenciaCabecera observar(String corrT,
+                                        String motivo,
+                                        String usuarioNombre) {
+
+        // ── 1. Obtener cabecera ───────────────────────────────────────────────
+        TransferenciaCabecera cabecera = cabeceraRepo.findByCorrT(corrT)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Transferencia no encontrada: " + corrT));
+
+        // ── 2. Validar estado ─────────────────────────────────────────────────
+        if (cabecera.getEstado() != TransferenciaCabecera.EstadoTransferencia.PENDIENTE) {
+            throw new IllegalStateException(
+                "Solo se puede observar una transferencia PENDIENTE. "
+                + "Estado actual: " + cabecera.getEstado());
+        }
+
+        if (motivo == null || motivo.isBlank()) {
+            throw new IllegalArgumentException(
+                "El motivo es obligatorio para observar una transferencia");
+        }
+
+        // ── 3. Actualizar cabecera ────────────────────────────────────────────
+        cabecera.setEstado(TransferenciaCabecera.EstadoTransferencia.OBSERVADO);
+        cabecera.setMotivo(motivo.trim());
+        cabecera.setFechaAccion(LocalDateTime.now());
+        cabecera.setUsuarioAccion(usuarioNombre);
+
+        // ── 4. Registrar en historial ─────────────────────────────────────────
+        TransferenciaAccion accion = TransferenciaAccion.builder()
+            .cabecera(cabecera)
+            .tipoAccion(TransferenciaAccion.TipoAccion.OBSERVADO)
+            .motivo(motivo.trim())
+            .usuarioAccion(usuarioNombre)
+            .fechaAccion(LocalDateTime.now())
+            .build();
+
+        // ── 5. Actualizar DBF ─────────────────────────────────────────────────
+        try {
+            dbfService.actualizarEstadoTransferenciaDbf(
+                Path.of(transferenciasPath), corrT, "OBSERVADO");
+        } catch (Exception e) {
+            log.error("❌ Error actualizando DBF al observar corrT={}: {}",
+                corrT, e.getMessage());
+        }
+
+        // ── 6. Notificar a Londra ─────────────────────────────────────────────
+        String respCallback = notificarLondra(
+            cabecera.getIdCabecera(),
+            "OBSERVADO",
+            motivo.trim()
+        );
+
+        accion.setEstadoCallback(respCallback.startsWith("ERROR")
+            ? TransferenciaCabecera.EstadoCallback.FALLIDO
+            : TransferenciaCabecera.EstadoCallback.ENVIADO);
+        accion.setRespuestaCallback(
+            respCallback != null && respCallback.length() > 500
+                ? respCallback.substring(0, 500)
+                : respCallback);
+
+        cabecera.setEstadoCallback(accion.getEstadoCallback());
+        cabecera.setFechaCallback(LocalDateTime.now());
+        cabecera.setRespuestaCallback(accion.getRespuestaCallback());
+
+        // ── 7. Persistir ──────────────────────────────────────────────────────
+        cabeceraRepo.save(cabecera);
+        accionRepo.save(accion);
+
+        log.info("👁️ Transferencia {} OBSERVADA por {} — motivo: {}",
+            corrT, usuarioNombre, motivo);
+
+        // ── 8. Notificación interna SSE ───────────────────────────────────────
+        notificarAccionInterna(cabecera, "OBSERVADO", motivo, usuarioNombre);
+
+        return cabecera;
+    }
+
+    /**
+     * Crea notificación en BD y envía SSE a los roles
+     * cuando se rechaza u observa una transferencia.
+     */
+    private void notificarAccionInterna(
+            TransferenciaCabecera cabecera,
+            String tipoAccion,
+            String motivo,
+            String usuarioAccion) {
+
+        boolean esRechazo = "RECHAZADO".equals(tipoAccion);
+
+        String titulo = esRechazo
+            ? "Transferencia rechazada"
+            : "Transferencia observada";
+
+        String mensaje = String.format(
+            "Correlativo: %s | %s | Motivo: %s | Por: %s",
+            cabecera.getCorrT(),
+            cabecera.getUnidadO() + " → " + cabecera.getUnidadD(),
+            motivo,
+            usuarioAccion
+        );
+
+        Notificacion.TipoNotificacion tipoNotif = esRechazo
+            ? Notificacion.TipoNotificacion.TRANSFERENCIA_ERROR
+            : Notificacion.TipoNotificacion.TRANSFERENCIA_NUEVA;
+
+        // Crear para SUPER USUARIO y ADMINISTRADOR
+        List<Notificacion> creadas = notificacionService.crearParaRoles(
+            List.of("SUPER USUARIO", "ADMINISTRADOR"),
+            tipoNotif,
+            titulo,
+            mensaje,
+            cabecera.getCorrT(),
+            "/administracion/transferenciasLondra"
+        );
+
+        // Enviar SSE a cada usuario notificado
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        creadas.forEach(n -> {
+            Long idUsuario = n.getUsuario().getIdUsuario();
+            if (!sseRegistry.isUsuarioConectado(idUsuario)) return;
+
+            long noLeidas = notificacionService.contarNoLeidas(n.getUsuario());
+
+            NotificacionSseDto dto = NotificacionSseDto.builder()
+                .idNotificacion(n.getIdNotificacion())
+                .tipo(n.getTipo().name())
+                .titulo(titulo)
+                .mensaje(mensaje)
+                .referenciaId(cabecera.getCorrT())
+                .urlDestino("/administracion/transferenciasLondra")
+                .fechaCreacion(LocalDateTime.now().format(fmt))
+                .noLeidasTotal(noLeidas)
+                .build();
+
+            sseRegistry.enviarAUsuario(idUsuario, "notificacion", dto);
+        });
+
+        // Broadcast para recargar tabla en quien esté en esa pantalla
+        sseRegistry.enviarARoles(
+            List.of("SUPER USUARIO", "ADMINISTRADOR"),
+            "transferencia-accion",
+            Map.of(
+                "corrT",      cabecera.getCorrT(),
+                "estado",     tipoAccion,
+                "motivo",     motivo,
+                "usuario",    usuarioAccion,
+                "timestamp",  LocalDateTime.now().format(fmt),
+                "recargarTabla", true
+            )
+        );
     }
 
     // =========================================================================
@@ -583,7 +848,7 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             .tipo(esExterna
                 ? TransferenciaValidadaDto.TipoTransferencia.EXTERNA
                 : TransferenciaValidadaDto.TipoTransferencia.INTERNA)
-            .estado(TransferenciaCabecera.EstadoTransferencia.APROBADO)
+            .estado(TransferenciaCabecera.EstadoTransferencia.FINALIZADO)
             .fechaAprobacion(LocalDateTime.now())
             .usuarioAprobacion(usuarioNombre)
             .build();
@@ -1010,23 +1275,25 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     }
 
     /**
-     * Notifica al sistema Londra (VSIAF) que una transferencia fue aprobada.
-     * Es BEST-EFFORT: si falla, se loguea pero NO interrumpe el proceso.
+     * Notifica al sistema Londra el resultado de una transferencia.
      *
-     * @param transferenciaId  ID interno de la cabecera guardada en BD
-     * @param observacion      mensaje descriptivo
+     * @param transferenciaId  ID interno de la cabecera
+     * @param estado           FINALIZADO | RECHAZADO | OBSERVADO
+     * @param observacion      motivo/descripción de la acción
+     * @return respuesta HTTP de Londra como String (para guardar en BD)
      */
-    private void notificarLondra(Long transferenciaId, String observacion) {
+    private String notificarLondra(Long transferenciaId,
+                                String estado,
+                                String observacion) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("x-api-key", londraApiKey);
 
-            Map<String, Object> body = Map.of(
-                "TransferenciaId", transferenciaId,
-                "Estado",          "FINALIZADO",
-                "Observacion",     observacion
-            );
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("TransferenciaId", transferenciaId);
+            body.put("Estado",          estado);
+            body.put("Observacion",     observacion != null ? observacion : "");
 
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
@@ -1037,13 +1304,15 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
                 String.class
             );
 
-            log.info("✅ Londra notificado — TransferenciaId={} | HTTP {}",
-                transferenciaId, response.getStatusCode());
+            log.info("✅ Londra notificado — id={} estado={} HTTP={}",
+                transferenciaId, estado, response.getStatusCode());
+
+            return response.getBody();
 
         } catch (Exception e) {
-            // No lanzar — la transferencia ya fue aprobada, el callback es secundario
-            log.error("❌ Error notificando a Londra — TransferenciaId={} | Error: {}",
-                transferenciaId, e.getMessage());
+            log.error("❌ Error notificando a Londra — id={} estado={} error={}",
+                transferenciaId, estado, e.getMessage());
+            return "ERROR: " + e.getMessage();
         }
     }
 }

@@ -136,31 +136,78 @@
 
                     <!-- Estado validación -->
                     <td class="text-center">
-                        <span th:if="${t.yaAprobada}"
-                              class="badge bg-success">
-                            <i class="fa-solid fa-circle-check me-1"></i>Aprobada
+                        <!-- Ya procesada en BD -->
+                        <span th:if="${t.yaAprobada and t.estadoBd == 'FINALIZADO'}"
+                            class="badge bg-success">
+                            <i class="fa-solid fa-circle-check me-1"></i>Finalizado
                         </span>
+                        <span th:if="${t.yaAprobada and t.estadoBd == 'RECHAZADO'}"
+                            class="badge bg-danger">
+                            <i class="fa-solid fa-circle-xmark me-1"></i>Rechazado
+                        </span>
+                        <span th:if="${t.yaAprobada and t.estadoBd == 'OBSERVADO'}"
+                            class="badge bg-warning text-dark">
+                            <i class="fa-solid fa-eye me-1"></i>Observado
+                        </span>
+                        <!-- Pendiente de procesar -->
                         <span th:if="${!t.yaAprobada and t.todosValidos}"
-                              class="badge bg-label-success">
+                            class="badge bg-label-success">
                             <i class="fa-solid fa-circle-check me-1"></i>Válida
                         </span>
                         <span th:if="${!t.yaAprobada and !t.todosValidos}"
-                              class="badge bg-label-danger">
+                            class="badge bg-label-danger">
                             <i class="fa-solid fa-circle-xmark me-1"></i>Con errores
                         </span>
                     </td>
 
                     <!-- ✅ BOTÓN "VER DETALLES" — acción principal de la fila -->
                     <td class="text-center">
-                        <button type="button"
-                                class="btn btn-sm btn-outline-primary btn-ver-detalle"
-                                th:data-idx="${tStat.index}"
-                                th:data-corr="${t.corrT}"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalDetalleTransferencia"
-                                title="Ver detalle completo">
-                            <i class="fa-solid fa-eye me-1"></i>Ver detalles
-                        </button>
+                        <div class="d-flex gap-1 justify-content-center flex-wrap">
+
+                            <!-- Ver detalles — siempre visible -->
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary btn-ver-detalle"
+                                    th:data-idx="${tStat.index}"
+                                    th:data-corr="${t.corrT}"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalDetalleTransferencia"
+                                    title="Ver detalle completo">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+
+                            <!-- Botones de acción — solo si NO está ya procesada -->
+                            <th:block th:if="${!t.yaAprobada}">
+
+                                <!-- Observar — si está PENDIENTE -->
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-warning btn-accion-transferencia"
+                                        th:data-corr="${t.corrT}"
+                                        data-accion="observar"
+                                        title="Observar transferencia">
+                                    <i class="fa-solid fa-eye-slash"></i>
+                                </button>
+
+                                <!-- Rechazar — si está PENDIENTE u OBSERVADA -->
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger btn-accion-transferencia"
+                                        th:data-corr="${t.corrT}"
+                                        data-accion="rechazar"
+                                        title="Rechazar transferencia">
+                                    <i class="fa-solid fa-ban"></i>
+                                </button>
+
+                            </th:block>
+
+                            <!-- Historial — si ya fue procesada -->
+                            <button th:if="${t.yaAprobada}"
+                                    type="button"
+                                    class="btn btn-sm btn-outline-secondary btn-historial-acciones"
+                                    th:data-corr="${t.corrT}"
+                                    title="Ver historial de acciones">
+                                <i class="fa-solid fa-clock-rotate-left"></i>
+                            </button>
+
+                        </div>
                     </td>
                 </tr>
             </tbody>
@@ -279,24 +326,54 @@
 
             <!-- Footer del modal -->
             <div class="modal-footer d-flex justify-content-between align-items-center
-                        border-top bg-light">
+            border-top bg-light">
                 <div>
                     <small class="text-muted">
                         <i class="fa-solid fa-circle-info me-1"></i>
                         Total activos:
                         <strong id="modal-total-activos">0</strong>
                         &nbsp;·&nbsp; Con errores:
-                        <strong class="text-danger"
-                                id="modal-activos-error">0</strong>
+                        <strong class="text-danger" id="modal-activos-error">0</strong>
                     </small>
                 </div>
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 flex-wrap justify-content-end">
                     <button type="button"
                             class="btn btn-secondary btn-sm"
                             data-bs-dismiss="modal">
                         <i class="fa-solid fa-xmark me-1"></i>Cerrar
                     </button>
-                    <!-- ✅ BOTÓN PRINCIPAL DE APROBACIÓN -->
+
+                    <!-- Observar -->
+                    <button type="button"
+                            id="btn-observar-modal"
+                            class="btn btn-warning btn-sm"
+                            style="min-width:140px"
+                            disabled>
+                        <span id="btn-observar-texto">
+                            <i class="fa-solid fa-eye-slash me-1"></i>Observar
+                        </span>
+                        <span id="btn-observar-loader" class="d-none">
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            Procesando...
+                        </span>
+                    </button>
+
+                    <!-- Rechazar -->
+                    <button type="button"
+                            id="btn-rechazar-modal"
+                            class="btn btn-danger btn-sm"
+                            style="min-width:140px"
+                            disabled>
+                        <span id="btn-rechazar-texto">
+                            <i class="fa-solid fa-ban me-1"></i>Rechazar
+                        </span>
+                        <span id="btn-rechazar-loader" class="d-none">
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            Procesando...
+                        </span>
+                    </button>
+
+                    <!-- Aprobar -->
                     <button type="button"
                             id="btn-aprobar-modal"
                             class="btn btn-success btn-sm"
@@ -304,17 +381,146 @@
                             disabled>
                         <span id="btn-aprobar-texto">
                             <i class="fa-solid fa-circle-check me-1"></i>
-                            Aprobar transferencia
+                            Aprobar
                         </span>
                         <span id="btn-aprobar-loader" class="d-none">
-                            <span class="spinner-border spinner-border-sm me-1"
-                                  role="status"></span>
+                            <span class="spinner-border spinner-border-sm me-1"></span>
                             Procesando...
                         </span>
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
 
+<!-- ══════════════════════════════════════════════════════════════════════
+     MODAL MOTIVO — para Rechazar y Observar
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade"
+     id="modalMotivoAccion"
+     tabindex="-1"
+     aria-labelledby="modalMotivoTitulo"
+     aria-hidden="true"
+     data-bs-backdrop="static">
+
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+
+            <div class="modal-header border-bottom-0 pb-2"
+                 id="modal-motivo-header">
+                <h5 class="modal-title fw-bold" id="modalMotivoTitulo">
+                    <i id="modal-motivo-icono"
+                       class="fa-solid fa-ban me-2"></i>
+                    <span id="modal-motivo-titulo-texto">Rechazar Transferencia</span>
+                </h5>
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+            </div>
+
+            <div class="modal-body pt-2">
+
+                <!-- Info de la transferencia -->
+                <div class="alert alert-light border mb-3 py-2 px-3">
+                    <div class="small">
+                        <strong>Correlativo:</strong>
+                        <span id="modal-motivo-corr" class="text-primary fw-bold">—</span>
+                    </div>
+                    <div class="small text-muted" id="modal-motivo-ruta">—</div>
+                </div>
+
+                <!-- Campo motivo -->
+                <div class="mb-2">
+                    <label class="form-label fw-semibold small"
+                           for="input-motivo">
+                        Motivo
+                        <span class="text-danger">*</span>
+                    </label>
+                    <textarea id="input-motivo"
+                              class="form-control"
+                              rows="4"
+                              maxlength="500"
+                              placeholder="Describa el motivo detalladamente..."></textarea>
+                    <div class="d-flex justify-content-between mt-1">
+                        <div class="text-danger small d-none"
+                             id="motivo-error">
+                            El motivo es obligatorio.
+                        </div>
+                        <div class="text-muted small ms-auto"
+                             id="motivo-contador">0 / 500</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="modal-footer border-top-0 pt-0">
+                <button type="button"
+                        class="btn btn-secondary btn-sm"
+                        data-bs-dismiss="modal">
+                    <i class="fa-solid fa-xmark me-1"></i>Cancelar
+                </button>
+                <button type="button"
+                        id="btn-confirmar-accion"
+                        class="btn btn-sm"
+                        style="min-width:140px">
+                    <!-- Texto e ícono se setean dinámicamente -->
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     MODAL HISTORIAL DE ACCIONES
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade"
+     id="modalHistorialAcciones"
+     tabindex="-1"
+     aria-hidden="true">
+
+    <div class="modal-dialog modal-lg modal-dialog-centered
+                modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+
+            <div class="modal-header bg-light border-bottom-0">
+                <h5 class="modal-title fw-bold">
+                    <i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>
+                    Historial de Acciones
+                </h5>
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-0">
+                <!-- Loader -->
+                <div id="hist-acc-loader"
+                     class="d-flex justify-content-center py-4">
+                    <div class="spinner-border spinner-border-sm
+                                text-primary me-2"></div>
+                    <span class="text-muted small">Cargando historial...</span>
+                </div>
+                <!-- Timeline -->
+                <ul class="list-group list-group-flush"
+                    id="hist-acc-lista" style="display:none"></ul>
+                <!-- Vacío -->
+                <div id="hist-acc-vacio"
+                     class="text-center text-muted py-5"
+                     style="display:none">
+                    <i class="fa-solid fa-inbox fa-2x mb-2 d-block"></i>
+                    <small>Sin acciones registradas</small>
+                </div>
+            </div>
+
+            <div class="modal-footer bg-light">
+                <small class="text-muted me-auto"
+                       id="hist-acc-corr"></small>
+                <button class="btn btn-secondary btn-sm"
+                        data-bs-dismiss="modal">Cerrar</button>
+            </div>
         </div>
     </div>
 </div>
@@ -329,41 +535,37 @@ window.TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
 (function () {
     'use strict';
 
-    let corrTActual = null;
+    // ── Estado ────────────────────────────────────────────────────────────────
+    let corrTActual  = null;
+    let accionActual = null; // 'rechazar' | 'observar'
 
-    // ── Preloader ────────────────────────────────────────────────────────────
+    // ── Preloader modal principal ─────────────────────────────────────────────
     function mostrarPreloader() {
         const pre = document.getElementById('modal-preloader');
         const con = document.getElementById('modal-contenido-activos');
         if (pre) { pre.classList.remove('d-none'); pre.classList.add('d-flex'); }
-        if (con) { con.classList.add('d-none'); }
+        if (con) con.classList.add('d-none');
     }
-
     function ocultarPreloader() {
         const pre = document.getElementById('modal-preloader');
         const con = document.getElementById('modal-contenido-activos');
         if (pre) { pre.classList.add('d-none'); pre.classList.remove('d-flex'); }
-        if (con) { con.classList.remove('d-none'); }
+        if (con) con.classList.remove('d-none');
     }
 
-    // ── Helpers visuales ─────────────────────────────────────────────────────
+    // ── Helpers visuales ──────────────────────────────────────────────────────
     function badgeCheck(ok, label) {
-        const cls = ok ? 'bg-success' : 'bg-danger';
-        const ico = ok ? 'fa-check'   : 'fa-xmark';
-        return '<span class="badge ' + cls + '">'
-             + '<i class="fa-solid ' + ico + ' fa-xs me-1"></i>' + label
-             + '</span>';
+        return '<span class="badge ' + (ok ? 'bg-success' : 'bg-danger') + '">'
+             + '<i class="fa-solid ' + (ok ? 'fa-check' : 'fa-xmark')
+             + ' fa-xs me-1"></i>' + label + '</span>';
     }
-
     function badgeTipo(tipo) {
         return tipo === 'INTERNA'
-            ? '<span class="badge bg-label-info">'
-              + '<i class="fa-solid fa-building fa-xs me-1"></i>Interna</span>'
-            : '<span class="badge bg-label-warning">'
-              + '<i class="fa-solid fa-arrow-right-arrow-left fa-xs me-1"></i>Externa</span>';
+            ? '<span class="badge bg-label-info"><i class="fa-solid fa-building fa-xs me-1"></i>Interna</span>'
+            : '<span class="badge bg-label-warning"><i class="fa-solid fa-arrow-right-arrow-left fa-xs me-1"></i>Externa</span>';
     }
 
-    // ── Poblar cabecera del modal ─────────────────────────────────────────────
+    // ── Poblar cabecera del modal ──────────────────────────────────────────────
     function poblarCabecera(grupo) {
         function set(id, val) {
             const el = document.getElementById(id);
@@ -373,94 +575,73 @@ window.TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
             const el = document.getElementById(id);
             if (el) el.innerHTML = val || '—';
         }
-
-        set('modal-corr',      grupo.corrT);
-        set('modal-fecha',     grupo.fechaT
+        set('modal-corr', grupo.corrT);
+        set('modal-fecha', grupo.fechaT
             ? new Date(grupo.fechaT).toLocaleDateString('es-BO') : null);
         setHtml('modal-badge-tipo', badgeTipo(grupo.tipo));
-
-        // ── ORIGEN ───────────────────────────────────────────────────────────────
         set('modal-unidad-o', grupo.unidadO);
-
-        set('modal-ofi-o-nombre',
-            grupo.nombreOficinaOrigen
-                ? 'Oficina: ' + grupo.nombreOficinaOrigen
-                : 'Oficina: Of. ' + (grupo.codOficO || '—'));
-
-        set('modal-resp-o-nombre',
-            grupo.nombreResponsableOrigen
-                ? 'Responsable: ' + grupo.nombreResponsableOrigen
-                + ' (' + (grupo.ciResponsableOrigen || grupo.ciSolO || '—') + ')'
-                : 'CI: ' + (grupo.ciSolO || '—'));
-
-        set('modal-unidad-d',  grupo.unidadD);
-
-        // Origen descriptivo — IDs correctos según el HTML actual
-        set('modal-ofi-d-nombre',
-            grupo.nombreOficinaDestino
-                ? 'Oficina: ' + grupo.nombreOficinaDestino
-                : 'Oficina: Of. ' + (grupo.codOficD || '—'));
-
-        set('modal-resp-d-nombre',
-            grupo.nombreResponsableDestino
-                ? 'Receptor: ' + grupo.nombreResponsableDestino
-                + ' (' + (grupo.ciResponsableDestino || grupo.ciRecep || '—') + ')'
-                : (grupo.nomRecep
-                    ? grupo.nomRecep + ' (' + (grupo.ciRecep || '—') + ')'
-                    : 'CI: ' + (grupo.ciRecep || '—')));
+        set('modal-ofi-o-nombre', grupo.nombreOficinaOrigen
+            ? 'Oficina: ' + grupo.nombreOficinaOrigen
+            : 'Oficina: Of. ' + (grupo.codOficO || '—'));
+        set('modal-resp-o-nombre', grupo.nombreResponsableOrigen
+            ? 'Responsable: ' + grupo.nombreResponsableOrigen
+              + ' (' + (grupo.ciResponsableOrigen || grupo.ciSolO || '—') + ')'
+            : 'CI: ' + (grupo.ciSolO || '—'));
+        set('modal-unidad-d', grupo.unidadD);
+        set('modal-ofi-d-nombre', grupo.nombreOficinaDestino
+            ? 'Oficina: ' + grupo.nombreOficinaDestino
+            : 'Oficina: Of. ' + (grupo.codOficD || '—'));
+        set('modal-resp-d-nombre', grupo.nombreResponsableDestino
+            ? 'Receptor: ' + grupo.nombreResponsableDestino
+              + ' (' + (grupo.ciResponsableDestino || grupo.ciRecep || '—') + ')'
+            : (grupo.nomRecep
+                ? grupo.nomRecep + ' (' + (grupo.ciRecep || '—') + ')'
+                : 'CI: ' + (grupo.ciRecep || '—')));
     }
 
-    // ── Poblar tabla de activos ───────────────────────────────────────────────
+    // ── Poblar tabla de activos ────────────────────────────────────────────────
     function poblarTablaActivos(activos) {
         const tbody = document.getElementById('modal-tbody');
         if (!tbody) return;
         tbody.innerHTML = '';
-
         activos.forEach(function (a, i) {
-            const d      = a.datos   || {};
-            const errores= a.errores || [];
-            const valida = a.valida;
+            const d       = a.datos   || {};
+            const errores = a.errores || [];
+            const valida  = a.valida;
 
             const grupoLabel = a.nombreGrupoContable
                 ? a.nombreGrupoContable + ' <code>(' + (d.codContO || '—') + ')</code>'
                 : '<code>' + (d.codContO || '—') + '</code>';
-
             const auxLabel = a.nombreAuxiliar
                 ? a.nombreAuxiliar + ' <code>(' + (d.codAuxO || '—') + ')</code>'
                 : '<code>' + (d.codAuxO || '—') + '</code>';
-
             const oficLabel = a.nombreOficinaOrigen
-                ? a.nombreOficinaOrigen
-                  + ' <small class="text-muted">(Of. ' + (d.codOficO || '—') + ')</small>'
+                ? a.nombreOficinaOrigen + ' <small class="text-muted">(Of. '
+                  + (d.codOficO || '—') + ')</small>'
                 : 'Of. <strong>' + (d.codOficO || '—') + '</strong>';
-
             const respLabel = a.nombreResponsableOrigen
-                ? a.nombreResponsableOrigen
-                  + ' <small class="text-muted">('
+                ? a.nombreResponsableOrigen + ' <small class="text-muted">('
                   + (a.ciResponsableOrigen || d.codRespO || '—') + ')</small>'
                 : 'Resp. <strong>' + (d.codRespO || '—') + '</strong>';
 
             const checks = [
-                badgeCheck(a.activoExiste,            'Activo'),
-                badgeCheck(a.predioOrigenExiste,       'U.Orig'),
-                badgeCheck(a.oficinaOrigenExiste,      'Of.Orig'),
-                badgeCheck(a.responsableOrigenExiste,  'Resp'),
-                badgeCheck(a.predioDestinoExiste,      'U.Dest'),
-                badgeCheck(a.oficinaDestinoExiste,     'Of.Dest'),
+                badgeCheck(a.activoExiste,           'Activo'),
+                badgeCheck(a.predioOrigenExiste,      'U.Orig'),
+                badgeCheck(a.oficinaOrigenExiste,     'Of.Orig'),
+                badgeCheck(a.responsableOrigenExiste, 'Resp'),
+                badgeCheck(a.predioDestinoExiste,     'U.Dest'),
+                badgeCheck(a.oficinaDestinoExiste,    'Of.Dest'),
             ].join(' ');
 
             const validacionHtml = valida
-                ? '<span class="badge bg-success">'
-                  + '<i class="fa-solid fa-circle-check me-1"></i>OK</span>'
+                ? '<span class="badge bg-success"><i class="fa-solid fa-circle-check me-1"></i>OK</span>'
                 : '<div class="d-flex flex-wrap gap-1">' + checks + '</div>'
                   + (errores.length
-                      ? '<div class="mt-1">'
-                        + errores.map(function (er) {
-                              return '<div class="text-danger" style="font-size:.7rem">'
-                                   + '<i class="fa-solid fa-triangle-exclamation'
-                                   + ' fa-xs me-1"></i>' + er + '</div>';
-                          }).join('')
-                        + '</div>'
+                      ? '<div class="mt-1">' + errores.map(function (er) {
+                            return '<div class="text-danger" style="font-size:.7rem">'
+                                 + '<i class="fa-solid fa-triangle-exclamation fa-xs me-1"></i>'
+                                 + er + '</div>';
+                        }).join('') + '</div>'
                       : '');
 
             const tr = document.createElement('tr');
@@ -468,18 +649,14 @@ window.TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
             tr.innerHTML =
                 '<td class="text-muted small">' + (i + 1) + '</td>'
               + '<td><span class="badge bg-secondary font-monospace">'
-              +     (d.codigoO || '—') + '</span></td>'
-              + '<td class="small">'
-                +     (a.descripcionActivo
-                        ? a.descripcionActivo
-                    : '<span class="text-muted fst-italic">Sin descripción</span>')
-                + '</td>'
+              +   (d.codigoO || '—') + '</span></td>'
+              + '<td class="small">' + (a.descripcionActivo
+                    || '<span class="text-muted fst-italic">Sin descripción</span>') + '</td>'
               + '<td class="small">' + grupoLabel + '</td>'
               + '<td class="small">' + auxLabel   + '</td>'
               + '<td class="small">' + oficLabel  + '</td>'
               + '<td class="small">' + respLabel  + '</td>'
               + '<td>'               + validacionHtml + '</td>';
-
             tbody.appendChild(tr);
         });
     }
@@ -488,65 +665,403 @@ window.TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
     function poblarPie(grupo) {
         const activos        = grupo.activos || [];
         const totalActivos   = activos.length;
-        const activosConError= activos.filter(function (a) { return !a.valida; }).length;
+        const activosConError= activos.filter(a => !a.valida).length;
 
         const elTotal = document.getElementById('modal-total-activos');
         const elError = document.getElementById('modal-activos-error');
         if (elTotal) elTotal.textContent = totalActivos;
         if (elError) elError.textContent = activosConError;
 
+        const esProcesada = grupo.yaAprobada;
+
+        // Aprobar
         const btnAprobar = document.getElementById('btn-aprobar-modal');
         if (btnAprobar) {
-            btnAprobar.disabled = !(grupo.todosValidos && !grupo.yaAprobada);
+            btnAprobar.disabled = !(grupo.todosValidos && !esProcesada);
             btnAprobar.setAttribute('data-corr',  grupo.corrT);
             btnAprobar.setAttribute('data-count', totalActivos);
         }
+
+        // Observar — disponible si NO está procesada
+        const btnObservar = document.getElementById('btn-observar-modal');
+        if (btnObservar) {
+            btnObservar.disabled = esProcesada;
+            btnObservar.setAttribute('data-corr', grupo.corrT);
+        }
+
+        // Rechazar — disponible si NO está procesada
+        const btnRechazar = document.getElementById('btn-rechazar-modal');
+        if (btnRechazar) {
+            btnRechazar.disabled = esProcesada;
+            btnRechazar.setAttribute('data-corr', grupo.corrT);
+        }
     }
 
-    // ── Handler único de apertura del modal ──────────────────────────────────
-    // Registrado UNA sola vez aquí, nunca anidado
+    // ════════════════════════════════════════════════════════════════
+    //  ABRIR MODAL DETALLE
+    // ════════════════════════════════════════════════════════════════
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('.btn-ver-detalle');
         if (!btn) return;
-
         mostrarPreloader();
-
         const corrT = btn.getAttribute('data-corr');
         corrTActual  = corrT;
-
-        const grupo = window.TRANSFERENCIAS_DATA.find(function (t) {
-            return t.corrT === corrT;
-        });
-
-        if (!grupo) {
-            ocultarPreloader();
-            return;
-        }
-
+        const grupo = window.TRANSFERENCIAS_DATA.find(t => t.corrT === corrT);
+        if (!grupo) { ocultarPreloader(); return; }
         poblarCabecera(grupo);
         poblarTablaActivos(grupo.activos || []);
         poblarPie(grupo);
-
         ocultarPreloader();
     });
 
-    // ── Reset al cerrar modal ─────────────────────────────────────────────────
-    const modalEl = document.getElementById('modalDetalleTransferencia');
-    if (modalEl) {
-        modalEl.addEventListener('hidden.bs.modal', function () {
+    // ── Reset al cerrar modal detalle ─────────────────────────────────────────
+    document.getElementById('modalDetalleTransferencia')
+        ?.addEventListener('hidden.bs.modal', function () {
             const tbody = document.getElementById('modal-tbody');
             if (tbody) tbody.innerHTML = '';
-            const btnAprobar = document.getElementById('btn-aprobar-modal');
-            if (btnAprobar) btnAprobar.disabled = true;
+            ['btn-aprobar-modal',
+             'btn-observar-modal',
+             'btn-rechazar-modal'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) btn.disabled = true;
+            });
             corrTActual = null;
-            resetBotonAprobar();
+            resetBotones();
         });
+
+    // ════════════════════════════════════════════════════════════════
+    //  BOTONES ACCIÓN EN TABLA (fuera del modal)
+    // ════════════════════════════════════════════════════════════════
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.btn-accion-transferencia');
+        if (!btn) return;
+        const corrT  = btn.getAttribute('data-corr');
+        const accion = btn.getAttribute('data-accion');
+        if (!corrT || !accion) return;
+        abrirModalMotivo(corrT, accion);
+    });
+
+    // Botón historial en tabla
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.btn-historial-acciones');
+        if (!btn) return;
+        const corrT = btn.getAttribute('data-corr');
+        if (!corrT) return;
+        abrirHistorialAcciones(corrT);
+    });
+
+    // ════════════════════════════════════════════════════════════════
+    //  BOTONES ACCIÓN EN MODAL DETALLE
+    // ════════════════════════════════════════════════════════════════
+    document.getElementById('btn-observar-modal')
+        ?.addEventListener('click', function () {
+            const corrT = this.getAttribute('data-corr');
+            if (!corrT) return;
+            // Cerrar modal detalle y abrir modal motivo
+            bootstrap.Modal.getInstance(
+                document.getElementById('modalDetalleTransferencia'))?.hide();
+            setTimeout(() => abrirModalMotivo(corrT, 'observar'), 300);
+        });
+
+    document.getElementById('btn-rechazar-modal')
+        ?.addEventListener('click', function () {
+            const corrT = this.getAttribute('data-corr');
+            if (!corrT) return;
+            bootstrap.Modal.getInstance(
+                document.getElementById('modalDetalleTransferencia'))?.hide();
+            setTimeout(() => abrirModalMotivo(corrT, 'rechazar'), 300);
+        });
+
+    // ════════════════════════════════════════════════════════════════
+    //  MODAL MOTIVO
+    // ════════════════════════════════════════════════════════════════
+    function abrirModalMotivo(corrT, accion) {
+        accionActual = accion;
+        const esRechazo = accion === 'rechazar';
+
+        // Header color
+        const header = document.getElementById('modal-motivo-header');
+        if (header) {
+            header.className = 'modal-header border-bottom-0 pb-2 '
+                + (esRechazo ? 'bg-danger bg-opacity-10' : 'bg-warning bg-opacity-10');
+        }
+
+        // Ícono y título
+        const icono  = document.getElementById('modal-motivo-icono');
+        const titulo = document.getElementById('modal-motivo-titulo-texto');
+        if (icono) {
+            icono.className = 'fa-solid me-2 '
+                + (esRechazo ? 'fa-ban text-danger' : 'fa-eye-slash text-warning');
+        }
+        if (titulo) {
+            titulo.textContent = esRechazo
+                ? 'Rechazar Transferencia'
+                : 'Observar Transferencia';
+        }
+
+        // Info de la transferencia
+        const grupo = window.TRANSFERENCIAS_DATA.find(t => t.corrT === corrT);
+        const corrEl = document.getElementById('modal-motivo-corr');
+        const rutaEl = document.getElementById('modal-motivo-ruta');
+        if (corrEl) corrEl.textContent = corrT;
+        if (rutaEl && grupo) {
+            rutaEl.textContent = (grupo.unidadO || '?')
+                + ' → ' + (grupo.unidadD || '?')
+                + ' | ' + (grupo.activos?.length || 0) + ' activo(s)';
+        }
+
+        // Limpiar textarea
+        const textarea = document.getElementById('input-motivo');
+        if (textarea) {
+            textarea.value = '';
+            textarea.className = 'form-control';
+        }
+        const errorEl = document.getElementById('motivo-error');
+        if (errorEl) errorEl.classList.add('d-none');
+        const contadorEl = document.getElementById('motivo-contador');
+        if (contadorEl) contadorEl.textContent = '0 / 500';
+
+        // Botón confirmar
+        const btnConfirmar = document.getElementById('btn-confirmar-accion');
+        if (btnConfirmar) {
+            btnConfirmar.className = 'btn btn-sm '
+                + (esRechazo ? 'btn-danger' : 'btn-warning');
+            btnConfirmar.style.minWidth = '140px';
+            btnConfirmar.innerHTML = '<i class="fa-solid '
+                + (esRechazo ? 'fa-ban' : 'fa-eye-slash')
+                + ' me-1"></i>'
+                + (esRechazo ? 'Confirmar rechazo' : 'Confirmar observación');
+            btnConfirmar.setAttribute('data-corr', corrT);
+        }
+
+        // Abrir modal
+        const modal = new bootstrap.Modal(
+            document.getElementById('modalMotivoAccion'));
+        modal.show();
     }
 
-    // ── Botón Aprobar ─────────────────────────────────────────────────────────
-    const btnAprobarEl = document.getElementById('btn-aprobar-modal');
-    if (btnAprobarEl) {
-        btnAprobarEl.addEventListener('click', function () {
+    // Contador de caracteres en textarea
+    document.getElementById('input-motivo')
+        ?.addEventListener('input', function () {
+            const len = this.value.length;
+            const el  = document.getElementById('motivo-contador');
+            if (el) el.textContent = len + ' / 500';
+            // Quitar error si el usuario está escribiendo
+            if (len > 0) {
+                this.classList.remove('is-invalid');
+                document.getElementById('motivo-error')
+                    ?.classList.add('d-none');
+            }
+        });
+
+    // Confirmar acción
+    document.getElementById('btn-confirmar-accion')
+        ?.addEventListener('click', function () {
+            const corrT  = this.getAttribute('data-corr');
+            const motivo = document.getElementById('input-motivo')?.value?.trim();
+
+            // Validar motivo
+            if (!motivo) {
+                document.getElementById('input-motivo')
+                    ?.classList.add('is-invalid');
+                document.getElementById('motivo-error')
+                    ?.classList.remove('d-none');
+                return;
+            }
+
+            const accion = accionActual; // 'rechazar' | 'observar'
+            const esRechazo = accion === 'rechazar';
+
+            Swal.fire({
+                title: esRechazo ? '¿Rechazar transferencia?' : '¿Observar transferencia?',
+                html:  'Correlativo: <strong>' + corrT + '</strong><br>'
+                     + '<span class="text-muted small">Motivo: ' + motivo + '</span>',
+                icon:  esRechazo ? 'warning' : 'info',
+                showCancelButton:   true,
+                confirmButtonColor: esRechazo ? '#dc3545' : '#ffc107',
+                cancelButtonColor:  '#6c757d',
+                confirmButtonText:  esRechazo
+                    ? '<i class="fa-solid fa-ban me-1"></i>Sí, rechazar'
+                    : '<i class="fa-solid fa-eye-slash me-1"></i>Sí, observar',
+                cancelButtonText: 'Cancelar'
+            }).then(function (result) {
+                if (!result.isConfirmed) return;
+
+                // Deshabilitar botón mientras procesa
+                const btnConf = document.getElementById('btn-confirmar-accion');
+                if (btnConf) {
+                    btnConf.disabled = true;
+                    btnConf.innerHTML = '<span class="spinner-border '
+                        + 'spinner-border-sm me-1"></span>Procesando...';
+                }
+
+                const url = '/administracion/transferenciasLondra/' + accion;
+
+                $.ajax({
+                    type:        'POST',
+                    url:         url,
+                    contentType: 'application/json',
+                    data:        JSON.stringify({ corrT: corrT, motivo: motivo }),
+                    success: function (res) {
+                        // Cerrar modal motivo
+                        bootstrap.Modal.getInstance(
+                            document.getElementById('modalMotivoAccion'))?.hide();
+
+                        Swal.fire({
+                            title: esRechazo ? 'Rechazada' : 'Observada',
+                            text:  res.msg,
+                            icon:  'success',
+                            timer: 3000,
+                            showConfirmButton: false
+                        });
+
+                        // Recargar tabla
+                        if (typeof window.cargarTabla === 'function')
+                            window.cargarTabla();
+                        if (typeof window.verificarPendientes === 'function')
+                            window.verificarPendientes();
+                    },
+                    error: function (xhr) {
+                        // Rehabilitar botón
+                        if (btnConf) {
+                            btnConf.disabled = false;
+                            btnConf.innerHTML = '<i class="fa-solid '
+                                + (esRechazo ? 'fa-ban' : 'fa-eye-slash')
+                                + ' me-1"></i>'
+                                + (esRechazo
+                                    ? 'Confirmar rechazo'
+                                    : 'Confirmar observación');
+                        }
+                        const msg = xhr.responseJSON?.msg
+                            || xhr.responseText
+                            || 'Error inesperado';
+                        Swal.fire('Error', msg, 'error');
+                    }
+                });
+            });
+        });
+
+    // ════════════════════════════════════════════════════════════════
+    //  HISTORIAL DE ACCIONES
+    // ════════════════════════════════════════════════════════════════
+    function abrirHistorialAcciones(corrT) {
+        const loader = document.getElementById('hist-acc-loader');
+        const lista  = document.getElementById('hist-acc-lista');
+        const vacio  = document.getElementById('hist-acc-vacio');
+        const corrEl = document.getElementById('hist-acc-corr');
+
+        if (loader) loader.style.display = '';
+        if (lista)  lista.style.display  = 'none';
+        if (vacio)  vacio.style.display  = 'none';
+        if (corrEl) corrEl.textContent   = 'Correlativo: ' + corrT;
+
+        const modal = new bootstrap.Modal(
+            document.getElementById('modalHistorialAcciones'));
+        modal.show();
+
+        fetch('/administracion/transferenciasLondra/historial-acciones/'
+              + encodeURIComponent(corrT))
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (loader) loader.style.display = 'none';
+                if (!data || !data.acciones?.length) {
+                    if (vacio) vacio.style.display = '';
+                    return;
+                }
+
+                if (lista) {
+                    lista.innerHTML    = '';
+                    lista.style.display = '';
+
+                    data.acciones.forEach(function (a) {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item px-4 py-3';
+
+                        const cfg = configAccion(a.tipoAccion);
+
+                        li.innerHTML =
+                            '<div class="d-flex gap-3 align-items-start">'
+                            + '<div class="flex-shrink-0 mt-1">'
+                            +   '<span class="badge ' + cfg.badgeClass
+                            +   ' p-2"><i class="fa-solid ' + cfg.icono
+                            +   '"></i></span>'
+                            + '</div>'
+                            + '<div class="flex-grow-1">'
+                            +   '<div class="d-flex justify-content-between align-items-start">'
+                            +     '<span class="fw-semibold">'
+                            +       cfg.label + '</span>'
+                            +     '<small class="text-muted ms-2">'
+                            +       (a.fechaAccion || '') + '</small>'
+                            +   '</div>'
+                            +   '<small class="text-muted d-block">'
+                            +     'Por: <strong>' + (a.usuarioAccion || '—') + '</strong>'
+                            +   '</small>'
+                            +   (a.motivo
+                                ? '<div class="mt-1 p-2 bg-light rounded small">'
+                                  + '<i class="fa-solid fa-quote-left fa-xs me-1 '
+                                  + 'text-muted"></i>'
+                                  + escHtml(a.motivo) + '</div>'
+                                : '')
+                            +   '<div class="mt-1">'
+                            +     badgeCallback(a.estadoCallback)
+                            +   '</div>'
+                            + '</div>'
+                            + '</div>';
+                        lista.appendChild(li);
+                    });
+                }
+            })
+            .catch(() => {
+                if (loader) loader.style.display = 'none';
+                if (vacio)  vacio.style.display  = '';
+            });
+    }
+
+    function configAccion(tipo) {
+        const mapa = {
+            'FINALIZADO': {
+                label:      'Aprobado / Finalizado',
+                icono:      'fa-circle-check',
+                badgeClass: 'bg-success'
+            },
+            'RECHAZADO': {
+                label:      'Rechazado',
+                icono:      'fa-ban',
+                badgeClass: 'bg-danger'
+            },
+            'OBSERVADO': {
+                label:      'Observado',
+                icono:      'fa-eye-slash',
+                badgeClass: 'bg-warning text-dark'
+            },
+            'CANCELADO': {
+                label:      'Cancelado',
+                icono:      'fa-circle-xmark',
+                badgeClass: 'bg-secondary'
+            }
+        };
+        return mapa[tipo] || {
+            label: tipo, icono: 'fa-circle', badgeClass: 'bg-secondary'
+        };
+    }
+
+    function badgeCallback(estado) {
+        if (!estado) return '';
+        const cfg = {
+            'ENVIADO':  { cls: 'bg-label-success', txt: 'Londra notificado' },
+            'FALLIDO':  { cls: 'bg-label-danger',  txt: 'Error notificando a Londra' },
+            'PENDIENTE':{ cls: 'bg-label-warning',  txt: 'Pendiente de notificar' }
+        }[estado] || { cls: 'bg-label-secondary', txt: estado };
+        return '<span class="badge ' + cfg.cls + '" style="font-size:.65rem">'
+             + '<i class="fa-solid fa-satellite-dish fa-xs me-1"></i>'
+             + cfg.txt + '</span>';
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  BOTÓN APROBAR (igual que antes)
+    // ════════════════════════════════════════════════════════════════
+    document.getElementById('btn-aprobar-modal')
+        ?.addEventListener('click', function () {
             const corrT = this.getAttribute('data-corr');
             const count = this.getAttribute('data-count');
             if (!corrT) return;
@@ -557,26 +1072,24 @@ window.TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
                      + 'Se modificarán <strong>' + count
                      + '</strong> registro(s) en ACTUAL.DBF.',
                 icon: 'question',
-                showCancelButton:    true,
-                confirmButtonColor:  '#28a745',
-                cancelButtonColor:   '#6c757d',
-                confirmButtonText:   '<i class="fa-solid fa-check me-1"></i>Aprobar todo',
-                cancelButtonText:    'Cancelar'
+                showCancelButton:   true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor:  '#6c757d',
+                confirmButtonText:  '<i class="fa-solid fa-check me-1"></i>Aprobar todo',
+                cancelButtonText:   'Cancelar'
             }).then(function (result) {
                 if (!result.isConfirmed) return;
-
-                activarPreloaderBoton();
-
+                activarLoader('btn-aprobar-modal',
+                              'btn-aprobar-texto',
+                              'btn-aprobar-loader');
                 $.ajax({
-                    type: 'POST',
-                    url:  '/administracion/transferenciasLondra/aprobar',
+                    type:        'POST',
+                    url:         '/administracion/transferenciasLondra/aprobar',
                     contentType: 'application/json',
-                    data: JSON.stringify({ corrT: corrT }),
+                    data:        JSON.stringify({ corrT: corrT }),
                     success: function (res) {
-                        const modal = bootstrap.Modal.getInstance(
-                            document.getElementById('modalDetalleTransferencia'));
-                        if (modal) modal.hide();
-
+                        bootstrap.Modal.getInstance(
+                            document.getElementById('modalDetalleTransferencia'))?.hide();
                         Swal.fire({
                             title: 'Aprobado',
                             text:   res.msg,
@@ -584,35 +1097,60 @@ window.TRANSFERENCIAS_DATA = /*[[${transferencias}]]*/ [];
                             timer: 3000,
                             showConfirmButton: false
                         });
-
-                        if (typeof window.cargarTabla === 'function') cargarTabla();
-                        if (typeof window.verificarPendientes === 'function') verificarPendientes();
+                        if (typeof window.cargarTabla === 'function')
+                            window.cargarTabla();
+                        if (typeof window.verificarPendientes === 'function')
+                            window.verificarPendientes();
                     },
                     error: function (xhr) {
-                        resetBotonAprobar();
-                        const msg = xhr.responseJSON?.msg || xhr.responseText || 'Error inesperado';
+                        resetBotones();
+                        const msg = xhr.responseJSON?.msg
+                            || xhr.responseText || 'Error inesperado';
                         Swal.fire('Error', msg, 'error');
                     }
                 });
             });
         });
-    }
 
-    // ── Estado del botón aprobar ──────────────────────────────────────────────
-    function activarPreloaderBoton() {
-        const txt = document.getElementById('btn-aprobar-texto');
-        const ldr = document.getElementById('btn-aprobar-loader');
-        const btn = document.getElementById('btn-aprobar-modal');
+    // ════════════════════════════════════════════════════════════════
+    //  SSE — recarga tabla al recibir evento de acción
+    // ════════════════════════════════════════════════════════════════
+    // El SSE de notificaciones.js ya maneja 'nueva-transferencia'
+    // Aquí escuchamos el evento específico de acción
+    document.addEventListener('transferencia-accion-sse', function (e) {
+        if (e.detail?.recargarTabla
+            && typeof window.cargarTabla === 'function') {
+            window.cargarTabla();
+        }
+    });
+
+    // ── Helpers estado botones ────────────────────────────────────────────────
+    function activarLoader(btnId, textoId, loaderId) {
+        const btn = document.getElementById(btnId);
+        const txt = document.getElementById(textoId);
+        const ldr = document.getElementById(loaderId);
+        if (btn) btn.disabled = true;
         if (txt) txt.classList.add('d-none');
         if (ldr) ldr.classList.remove('d-none');
-        if (btn) btn.disabled = true;
     }
 
-    function resetBotonAprobar() {
-        const txt = document.getElementById('btn-aprobar-texto');
-        const ldr = document.getElementById('btn-aprobar-loader');
-        if (txt) txt.classList.remove('d-none');
-        if (ldr) ldr.classList.add('d-none');
+    function resetBotones() {
+        [
+            ['btn-aprobar-modal',  'btn-aprobar-texto',  'btn-aprobar-loader'],
+            ['btn-rechazar-modal', 'btn-rechazar-texto', 'btn-rechazar-loader'],
+            ['btn-observar-modal', 'btn-observar-texto', 'btn-observar-loader'],
+        ].forEach(function ([btnId, textoId, loaderId]) {
+            const txt = document.getElementById(textoId);
+            const ldr = document.getElementById(loaderId);
+            if (txt) txt.classList.remove('d-none');
+            if (ldr) ldr.classList.add('d-none');
+        });
+    }
+
+    function escHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
 })();
