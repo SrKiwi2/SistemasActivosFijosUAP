@@ -12,10 +12,12 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/eventos")
 @RequiredArgsConstructor
+@Slf4j
 public class SseController {
     
     private final SseEmitterRegistry sseRegistry;
@@ -49,6 +51,10 @@ public class SseController {
             empty.complete();
             return empty;
         }
+
+        log.info("🔌 SSE usuario conectado: id={} rol={}",
+        usuario.getIdUsuario(),
+        usuario.getRol() != null ? usuario.getRol().getNombre() : "?");
 
         String nombreRol = usuario.getRol() != null
             ? usuario.getRol().getNombre()
