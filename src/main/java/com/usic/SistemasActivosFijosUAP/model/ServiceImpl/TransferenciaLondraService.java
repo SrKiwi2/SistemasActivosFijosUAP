@@ -278,31 +278,27 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
                                         String motivo,
                                         String usuarioNombre) {
 
-        // ── 1. Obtener cabecera ───────────────────────────────────────────────
-        TransferenciaCabecera cabecera = cabeceraRepo.findByCorrT(corrT)
-            .orElseThrow(() -> new IllegalArgumentException(
-                "Transferencia no encontrada: " + corrT));
+        // ── 1. Obtener O CREAR cabecera ← CORREGIDO
+        TransferenciaCabecera cabecera = obtenerOCrearCabecera(corrT);
 
-        // ── 2. Validar estado — solo se puede rechazar si está PENDIENTE ──────
-        if (cabecera.getEstado() != TransferenciaCabecera.EstadoTransferencia.PENDIENTE
-            && cabecera.getEstado() != TransferenciaCabecera.EstadoTransferencia.OBSERVADO) {
+        // ── 2. Validar estado
+        if (cabecera.getEstado() == TransferenciaCabecera.EstadoTransferencia.FINALIZADO) {
             throw new IllegalStateException(
-                "Solo se puede rechazar una transferencia PENDIENTE u OBSERVADA. "
-                + "Estado actual: " + cabecera.getEstado());
+                "No se puede rechazar una transferencia ya FINALIZADA");
         }
 
         if (motivo == null || motivo.isBlank()) {
             throw new IllegalArgumentException(
-                "El motivo es obligatorio para rechazar una transferencia");
+                "El motivo es obligatorio para rechazar");
         }
 
-        // ── 3. Actualizar cabecera ────────────────────────────────────────────
+        // ── 3. Actualizar estado
         cabecera.setEstado(TransferenciaCabecera.EstadoTransferencia.RECHAZADO);
         cabecera.setMotivo(motivo.trim());
         cabecera.setFechaAccion(LocalDateTime.now());
         cabecera.setUsuarioAccion(usuarioNombre);
 
-        // ── 4. Registrar en historial de acciones ─────────────────────────────
+        // ── 4. Historial
         TransferenciaAccion accion = TransferenciaAccion.builder()
             .cabecera(cabecera)
             .tipoAccion(TransferenciaAccion.TipoAccion.RECHAZADO)
@@ -311,46 +307,42 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             .fechaAccion(LocalDateTime.now())
             .build();
 
-        // ── 5. Actualizar estado en sol_transferencias.DBF ────────────────────
+        // ── 5. Actualizar DBF
         try {
             dbfService.actualizarEstadoTransferenciaDbf(
                 Path.of(transferenciasPath), corrT, "RECHAZADO");
         } catch (Exception e) {
-            log.error("❌ Error actualizando DBF al rechazar corrT={}: {}",
-                corrT, e.getMessage());
+            log.error("❌ Error actualizando DBF al rechazar corrT={}: {}", corrT, e.getMessage());
         }
 
-        // ── 6. Notificar a Londra ─────────────────────────────────────────────
+        // ── 6. Notificar a Londra
         String respCallback = notificarLondra(
-            cabecera.getIdCabecera(),
-            "RECHAZADO",
-            motivo.trim()
-        );
+            cabecera.getIdCabecera(), "RECHAZADO", motivo.trim());
 
-        accion.setEstadoCallback(respCallback.startsWith("ERROR")
+        TransferenciaCabecera.EstadoCallback estadoCb = respCallback.startsWith("ERROR")
             ? TransferenciaCabecera.EstadoCallback.FALLIDO
-            : TransferenciaCabecera.EstadoCallback.ENVIADO);
-        accion.setRespuestaCallback(
-            respCallback != null && respCallback.length() > 500
-                ? respCallback.substring(0, 500)
-                : respCallback);
+            : TransferenciaCabecera.EstadoCallback.ENVIADO;
 
-        cabecera.setEstadoCallback(accion.getEstadoCallback());
+        accion.setEstadoCallback(estadoCb);
+        accion.setRespuestaCallback(truncar(respCallback, 500));
+        cabecera.setEstadoCallback(estadoCb);
         cabecera.setFechaCallback(LocalDateTime.now());
-        cabecera.setRespuestaCallback(accion.getRespuestaCallback());
+        cabecera.setRespuestaCallback(truncar(respCallback, 500));
 
-        // ── 7. Persistir ──────────────────────────────────────────────────────
+        // ── 7. Persistir
         cabeceraRepo.save(cabecera);
         accionRepo.save(accion);
 
         log.info("🚫 Transferencia {} RECHAZADA por {} — motivo: {}",
             corrT, usuarioNombre, motivo);
 
-        // ── 8. Notificación interna SSE ───────────────────────────────────────
+        // ── 8. Notificación interna
         notificarAccionInterna(cabecera, "RECHAZADO", motivo, usuarioNombre);
 
         return cabecera;
     }
+
+    //papiiiiiii
 
     // =========================================================================
     //  OBSERVAR
@@ -361,30 +353,29 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
                                         String motivo,
                                         String usuarioNombre) {
 
-        // ── 1. Obtener cabecera ───────────────────────────────────────────────
-        TransferenciaCabecera cabecera = cabeceraRepo.findByCorrT(corrT)
-            .orElseThrow(() -> new IllegalArgumentException(
-                "Transferencia no encontrada: " + corrT));
+        // ── 1. Obtener O CREAR cabecera ← CORREGIDO
+        TransferenciaCabecera cabecera = obtenerOCrearCabecera(corrT);
 
-        // ── 2. Validar estado ─────────────────────────────────────────────────
-        if (cabecera.getEstado() != TransferenciaCabecera.EstadoTransferencia.PENDIENTE) {
+        // ── 2. Validar estado
+        if (cabecera.getEstado() == TransferenciaCabecera.EstadoTransferencia.FINALIZADO
+            || cabecera.getEstado() == TransferenciaCabecera.EstadoTransferencia.RECHAZADO) {
             throw new IllegalStateException(
-                "Solo se puede observar una transferencia PENDIENTE. "
-                + "Estado actual: " + cabecera.getEstado());
+                "No se puede observar una transferencia "
+                + cabecera.getEstado().name());
         }
 
         if (motivo == null || motivo.isBlank()) {
             throw new IllegalArgumentException(
-                "El motivo es obligatorio para observar una transferencia");
+                "El motivo es obligatorio para observar");
         }
 
-        // ── 3. Actualizar cabecera ────────────────────────────────────────────
+        // ── 3. Actualizar estado
         cabecera.setEstado(TransferenciaCabecera.EstadoTransferencia.OBSERVADO);
         cabecera.setMotivo(motivo.trim());
         cabecera.setFechaAccion(LocalDateTime.now());
         cabecera.setUsuarioAccion(usuarioNombre);
 
-        // ── 4. Registrar en historial ─────────────────────────────────────────
+        // ── 4. Historial
         TransferenciaAccion accion = TransferenciaAccion.builder()
             .cabecera(cabecera)
             .tipoAccion(TransferenciaAccion.TipoAccion.OBSERVADO)
@@ -393,45 +384,97 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
             .fechaAccion(LocalDateTime.now())
             .build();
 
-        // ── 5. Actualizar DBF ─────────────────────────────────────────────────
+        // ── 5. Actualizar DBF
         try {
             dbfService.actualizarEstadoTransferenciaDbf(
                 Path.of(transferenciasPath), corrT, "OBSERVADO");
         } catch (Exception e) {
-            log.error("❌ Error actualizando DBF al observar corrT={}: {}",
-                corrT, e.getMessage());
+            log.error("❌ Error actualizando DBF al observar corrT={}: {}", corrT, e.getMessage());
         }
 
-        // ── 6. Notificar a Londra ─────────────────────────────────────────────
+        // ── 6. Notificar a Londra
         String respCallback = notificarLondra(
-            cabecera.getIdCabecera(),
-            "OBSERVADO",
-            motivo.trim()
-        );
+            cabecera.getIdCabecera(), "OBSERVADO", motivo.trim());
 
-        accion.setEstadoCallback(respCallback.startsWith("ERROR")
+        TransferenciaCabecera.EstadoCallback estadoCb = respCallback.startsWith("ERROR")
             ? TransferenciaCabecera.EstadoCallback.FALLIDO
-            : TransferenciaCabecera.EstadoCallback.ENVIADO);
-        accion.setRespuestaCallback(
-            respCallback != null && respCallback.length() > 500
-                ? respCallback.substring(0, 500)
-                : respCallback);
+            : TransferenciaCabecera.EstadoCallback.ENVIADO;
 
-        cabecera.setEstadoCallback(accion.getEstadoCallback());
+        accion.setEstadoCallback(estadoCb);
+        accion.setRespuestaCallback(truncar(respCallback, 500));
+        cabecera.setEstadoCallback(estadoCb);
         cabecera.setFechaCallback(LocalDateTime.now());
-        cabecera.setRespuestaCallback(accion.getRespuestaCallback());
+        cabecera.setRespuestaCallback(truncar(respCallback, 500));
 
-        // ── 7. Persistir ──────────────────────────────────────────────────────
+        // ── 7. Persistir
         cabeceraRepo.save(cabecera);
         accionRepo.save(accion);
 
         log.info("👁️ Transferencia {} OBSERVADA por {} — motivo: {}",
             corrT, usuarioNombre, motivo);
 
-        // ── 8. Notificación interna SSE ───────────────────────────────────────
+        // ── 8. Notificación interna
         notificarAccionInterna(cabecera, "OBSERVADO", motivo, usuarioNombre);
 
         return cabecera;
+    }
+
+    // Helper para truncar strings largos
+    private String truncar(String s, int max) {
+        if (s == null) return null;
+        return s.length() > max ? s.substring(0, max) : s;
+    }
+
+    // ── Helper privado: obtener o crear cabecera ──────────────────────────────
+    /**
+     * Para rechazar/observar: la transferencia puede no existir en BD aún
+     * (solo existe en el DBF como ENVIADO/PENDIENTE).
+     * En ese caso la creamos con estado PENDIENTE y luego la actualizamos.
+     */
+    private TransferenciaCabecera obtenerOCrearCabecera(String corrT) {
+
+        // Si ya existe → devolverla directamente
+        Optional<TransferenciaCabecera> existente = cabeceraRepo.findByCorrT(corrT);
+        if (existente.isPresent()) return existente.get();
+
+        // No existe → leer del DBF y crear
+        List<SolTransferenciaDbf> grupo = dbfService
+            .listarSolTransferenciasAll(Path.of(transferenciasPath), null)
+            .stream()
+            .filter(f -> corrT.equalsIgnoreCase(f.getCorrT()))
+            .collect(Collectors.toList());
+
+        if (grupo.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Transferencia no encontrada ni en BD ni en DBF: " + corrT);
+        }
+
+        SolTransferenciaDbf primero = grupo.get(0);
+        boolean esExterna = primero.getUnidadO() != null
+            && primero.getUnidadD() != null
+            && !primero.getUnidadO().trim().equalsIgnoreCase(
+                primero.getUnidadD().trim());
+
+        TransferenciaCabecera nueva = TransferenciaCabecera.builder()
+            .corrT(corrT)
+            .nombreT(primero.getNombreT())
+            .fechaT(primero.getFechaT())
+            .estadoTDbf(primero.getEstadoT())
+            .unidadO(primero.getUnidadO())
+            .unidadD(primero.getUnidadD())
+            .codOficO(primero.getCodOficO())
+            .ciSolicitante(primero.getCiSolO())
+            .codOficD(primero.getCodOficD())
+            .ciReceptor(primero.getCiRecep())
+            .nomReceptor(primero.getNomRecep())
+            .tipo(esExterna
+                ? TransferenciaValidadaDto.TipoTransferencia.EXTERNA
+                : TransferenciaValidadaDto.TipoTransferencia.INTERNA)
+            .estado(TransferenciaCabecera.EstadoTransferencia.PENDIENTE)
+            .estadoCallback(TransferenciaCabecera.EstadoCallback.PENDIENTE)
+            .build();
+
+        return cabeceraRepo.save(nueva);
     }
 
     /**
