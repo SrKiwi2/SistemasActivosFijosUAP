@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -75,7 +76,8 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     private final IPersonasDao personaDao;
     private final IResposableDao responsableDao;
 
-    private final RestTemplate restTemplate;
+    @Autowired
+    private RestTemplate restTemplate;
 
     @Value("${londra.callback.url}")
     private String londraCallbackUrl;
