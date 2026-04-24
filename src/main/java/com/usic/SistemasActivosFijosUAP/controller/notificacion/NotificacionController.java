@@ -16,7 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.model.IService.INotificacionService;
+import com.usic.SistemasActivosFijosUAP.model.dto.NotificacionSseDto;
 import com.usic.SistemasActivosFijosUAP.model.entity.Notificacion;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
@@ -30,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class NotificacionController {
     private final INotificacionService notificacionService;
+    private final SseEmitterRegistry   sseRegistry;
 
     // ── Obtener no leídas del usuario conectado ───────────────────────────────
     @GetMapping("/no-leidas")
@@ -136,5 +139,44 @@ public class NotificacionController {
         m.put("fechaLectura", n.getFechaLectura() != null
             ? n.getFechaLectura().format(FMT)  : null);
         return m;
+    }
+
+    // ⚠️ SOLO PARA PRUEBAS — eliminar en producción
+    @PostMapping("/test")
+    public ResponseEntity<?> testNotificacion(HttpServletRequest request) {
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        if (usuario == null) return ResponseEntity.status(401).build();
+
+        // Crear notificación directo para el usuario conectado
+        Notificacion n = notificacionService.crear(
+            usuario,
+            Notificacion.TipoNotificacion.TRANSFERENCIA_NUEVA,
+            "🧪 Prueba de notificación",
+            "Esto es una notificación de prueba generada manualmente",
+            "TEST-001",
+            "/administracion/transferenciasLondra"
+        );
+
+        // Enviar SSE inmediatamente
+        long noLeidas = notificacionService.contarNoLeidas(usuario);
+        NotificacionSseDto dto = NotificacionSseDto.builder()
+            .idNotificacion(n.getIdNotificacion())
+            .tipo(n.getTipo().name())
+            .titulo(n.getTitulo())
+            .mensaje(n.getMensaje())
+            .referenciaId(n.getReferenciaId())
+            .urlDestino(n.getUrlDestino())
+            .fechaCreacion(n.getFechaCreacion()
+                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")))
+            .noLeidasTotal(noLeidas)
+            .build();
+
+        sseRegistry.enviarAUsuario(usuario.getIdUsuario(), "notificacion", dto);
+
+        return ResponseEntity.ok(Map.of(
+            "ok",              true,
+            "idNotificacion",  n.getIdNotificacion(),
+            "noLeidasTotal",   noLeidas
+        ));
     }
 }
