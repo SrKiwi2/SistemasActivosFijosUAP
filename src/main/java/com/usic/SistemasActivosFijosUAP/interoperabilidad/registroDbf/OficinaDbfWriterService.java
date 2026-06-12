@@ -240,6 +240,17 @@ public class OficinaDbfWriterService {
      */
     public void actualizarDesdeOficina(Short codOficOriginal, String entidadOriginal, String unidadOriginal,
                                        Oficina oficina, String entidadCode, String unidadCode, String usuario) {
+        // ── Modo COLA: encolar UPDATE para el worker VFPOLEDB (mantiene el índice .CDX) ──
+        if ("cola".equalsIgnoreCase(writeMode)) {
+            Map<String, Object> clave = new LinkedHashMap<>();
+            clave.put("ENTIDAD", entidadOriginal);
+            clave.put("UNIDAD", unidadOriginal);
+            clave.put("CODOFIC", codOficOriginal);
+            colaService.encolarUpdate("OFICINA", clave, construirCamposOficina(oficina, entidadCode, unidadCode, usuario));
+            log.info("📤 Oficina {} encolada para UPDATE en VSIAF (modo cola)", codOficOriginal);
+            return;
+        }
+
         log.info("⚡ Actualizando oficina {} in-place", codOficOriginal);
 
         synchronized (oficinaLock) {

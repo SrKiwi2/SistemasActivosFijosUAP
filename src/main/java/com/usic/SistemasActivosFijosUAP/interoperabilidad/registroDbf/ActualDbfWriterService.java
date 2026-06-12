@@ -231,8 +231,17 @@ public class ActualDbfWriterService {
     /**
      * Actualiza un registro existente en ACTUAL.DBF buscándolo por código
      */
-    public void actualizarDesdeActivo(String codigoOriginal, Activo a, String entidadCode, 
+    public void actualizarDesdeActivo(String codigoOriginal, Activo a, String entidadCode,
                                       String unidadCode, String usuario) {
+        // ── Modo COLA: encolar UPDATE para el worker VFPOLEDB (mantiene el índice .CDX) ──
+        if ("cola".equalsIgnoreCase(writeMode)) {
+            Map<String, Object> clave = new LinkedHashMap<>();
+            clave.put("CODIGO", codigoOriginal);
+            colaService.encolarUpdate("ACTUAL", clave, construirCamposActivo(a, entidadCode, unidadCode, usuario));
+            log.info("📤 Activo {} encolado para UPDATE en VSIAF (modo cola)", codigoOriginal);
+            return;
+        }
+
         log.info("⚡ Actualizando Activo {} en ACTUAL.DBF", codigoOriginal);
         synchronized (actualLock) {
             try (RandomAccessFile raf = new RandomAccessFile(getActualDbfFile(), "rw");
@@ -317,6 +326,23 @@ public class ActualDbfWriterService {
 
     public void actualizarLoteTransferencias(List<Activo> activos, String entidadCode, String unidadCode, String usuario) {
         if (activos == null || activos.isEmpty()) return;
+
+        // ── Modo COLA: encolar un UPDATE por activo (transferencia cambia CODOFIC/CODRESP, indexados) ──
+        if ("cola".equalsIgnoreCase(writeMode)) {
+            String[] campos = { "ENTIDAD", "UNIDAD", "CODOFIC", "CODRESP", "CODAUX",
+                                "USU_MOD", "FEC_MOD", "FEULT", "API_ESTADO" };
+            for (Activo a : activos) {
+                Map<String, Object> clave = new LinkedHashMap<>();
+                clave.put("CODIGO", a.getCodigo());
+                Map<String, Object> set = new LinkedHashMap<>();
+                for (String c : campos) {
+                    set.put(c, obtenerValorCampo(c, a, entidadCode, unidadCode, usuario));
+                }
+                colaService.encolarUpdate("ACTUAL", clave, set);
+            }
+            log.info("📤 {} activos encolados para UPDATE (transferencia, modo cola)", activos.size());
+            return;
+        }
 
         // 1. Diccionario para búsqueda O(1)
         Map<String, Activo> mapaActivos = new HashMap<>();

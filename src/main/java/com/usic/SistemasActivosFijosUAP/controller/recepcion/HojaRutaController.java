@@ -226,10 +226,11 @@ public class HojaRutaController {
         Map<String, Object> response = new HashMap<>();
         
         try {
-            // Verificar que no exista el código
-            if (hojaRutaService.findByCodigo(codigo).isPresent()) {
+            // Verificar que no exista el mismo código para ese tipo y gestión.
+            // El número puede repetirse en gestiones o tipos distintos.
+            if (hojaRutaService.findByTipoAndCodigoAndGestion(tipo, codigo, gestion) != null) {
                 response.put("ok", false);
-                response.put("msg", "Ya existe una hoja de ruta con ese código");
+                response.put("msg", "Ya existe una hoja de ruta con ese código en la gestión " + gestion);
                 return ResponseEntity.ok(response);
             }
             
@@ -314,10 +315,11 @@ public class HojaRutaController {
                 return ResponseEntity.badRequest().body(response);
             }
             
-            // Verificar código único si cambió
-            if (!hojaRuta.getCodigo().equals(codigo) && hojaRutaService.findByCodigo(codigo).isPresent()) {
+            // Verificar que la combinación tipo + código + gestión no pertenezca a otra hoja
+            HojaRuta existente = hojaRutaService.findByTipoAndCodigoAndGestion(tipo, codigo, gestion);
+            if (existente != null && !existente.getIdHojaRuta().equals(idHojaRuta)) {
                 response.put("ok", false);
-                response.put("msg", "Ya existe una hoja de ruta con ese código");
+                response.put("msg", "Ya existe una hoja de ruta con ese código en la gestión " + gestion);
                 return ResponseEntity.ok(response);
             }
             

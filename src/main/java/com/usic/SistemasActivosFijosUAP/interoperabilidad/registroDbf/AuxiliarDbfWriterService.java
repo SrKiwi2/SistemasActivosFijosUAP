@@ -283,10 +283,22 @@ public class AuxiliarDbfWriterService {
     /**
      * Actualiza un registro existente en auxiliar.DBF
      */
-    public void actualizarDesdeAuxiliar(Short codContOriginal, Short codAuxOriginal, 
+    public void actualizarDesdeAuxiliar(Short codContOriginal, Short codAuxOriginal,
                                         String entidadOriginal, String unidadOriginal,
                                         Auxiliar auxiliar, String entidadCode, String unidadCode, String usuario) {
-        log.info("Iniciando actualización de auxiliar CODCONT={}, CODAUX={} en auxiliar.DBF", 
+        // ── Modo COLA: encolar UPDATE para el worker VFPOLEDB (mantiene el índice .CDX) ──
+        if ("cola".equalsIgnoreCase(writeMode)) {
+            Map<String, Object> clave = new LinkedHashMap<>();
+            clave.put("ENTIDAD", entidadOriginal);
+            clave.put("UNIDAD", unidadOriginal);
+            clave.put("CODCONT", codContOriginal);
+            clave.put("CODAUX", codAuxOriginal);
+            colaService.encolarUpdate("AUXILIAR", clave, construirCamposAuxiliar(auxiliar, entidadCode, unidadCode, usuario));
+            log.info("📤 Auxiliar CODAUX={} encolado para UPDATE en VSIAF (modo cola)", codAuxOriginal);
+            return;
+        }
+
+        log.info("Iniciando actualización de auxiliar CODCONT={}, CODAUX={} en auxiliar.DBF",
                 codContOriginal, codAuxOriginal);
         verificarConexionDBF();
         
