@@ -211,7 +211,7 @@ public class ResponsableController {
             @RequestParam(required = false) String paterno,
             @RequestParam(required = false) String materno,
             @RequestParam(required = false) String correo,
-            @RequestParam(required = false) String cargoNombre,
+            @RequestParam(value = "cargoApi", required = false) String cargoNombre,
             @RequestParam(defaultValue = "false") boolean modoRapido) {
 
         log.info("=== INICIANDO REGISTRO DE RESPONSABLE ===");
