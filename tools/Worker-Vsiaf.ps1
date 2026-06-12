@@ -88,14 +88,20 @@ function Procesar-Orden($conn, $archivo, $schemaCache) {
     }
     $schema = $schemaCache[$tabla]
 
+    # Valores provistos por el SCIAF (claves en mayuscula)
+    $provistos = @{}
+    foreach ($prop in $json.campos.PSObject.Properties) { $provistos[$prop.Name.ToUpper()] = $prop.Value }
+
+    # Insertamos TODAS las columnas de la tabla: usa el valor provisto, o un
+    # default segun el tipo (texto vacio / 0 / fecha vacia / .F.). Asi nunca
+    # falla por un campo obligatorio que el SCIAF no mando.
     $cols = @(); $vals = @()
-    foreach ($prop in $json.campos.PSObject.Properties) {
-        $name = $prop.Name.ToUpper()
-        if (-not $schema.ContainsKey($name)) { continue }   # ignora campos que no existen en la tabla
-        $cols += $name
-        $vals += (Format-Valor $prop.Value $schema[$name])
+    foreach ($col in $schema.Keys) {
+        $raw = if ($provistos.ContainsKey($col)) { $provistos[$col] } else { "" }
+        $cols += $col
+        $vals += (Format-Valor $raw $schema[$col])
     }
-    if ($cols.Count -eq 0) { throw "La orden no trae campos validos para $tabla." }
+    if ($cols.Count -eq 0) { throw "No se pudo leer el esquema de $tabla." }
 
     $sql = "INSERT INTO $tabla (" + ($cols -join ", ") + ") VALUES (" + ($vals -join ", ") + ")"
     $conn.Execute($sql) | Out-Null

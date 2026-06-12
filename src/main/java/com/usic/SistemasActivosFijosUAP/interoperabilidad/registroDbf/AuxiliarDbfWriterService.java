@@ -9,10 +9,13 @@ import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +24,7 @@ import com.linuxense.javadbf.DBFField;
 import com.linuxense.javadbf.DBFReader;
 import com.linuxense.javadbf.DBFWriter;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
+import com.usic.SistemasActivosFijosUAP.model.service.DbfColaService;
 
 /**
  * Servicio para escribir directamente en auxiliar.DBF usando JavaDBF.
@@ -33,7 +37,13 @@ public class AuxiliarDbfWriterService {
     
     @Value("${legacy.dbf.path:/mnt/dbfwin}")
     private String dbfPath;
-    
+
+    @Value("${legacy.dbf.write.mode:bytes}")
+    private String writeMode;
+
+    @Autowired
+    private DbfColaService colaService;
+
     public AuxiliarDbfWriterService() {
         log.info("Inicializando AuxiliarDbfWriterService con acceso directo a archivos DBF");
     }
@@ -167,7 +177,14 @@ public class AuxiliarDbfWriterService {
      * Inserta un nuevo registro en auxiliar.DBF
      */
     public void insertarDesdeAuxiliar(Auxiliar auxiliar, String entidadCode, String unidadCode, String usuario) {
-        log.info("Iniciando inserción de auxiliar CODCONT={}, CODAUX={} en auxiliar.DBF", 
+        // ── Modo COLA: dejar la orden para el worker VFPOLEDB (mantiene el índice .CDX) ──
+        if ("cola".equalsIgnoreCase(writeMode)) {
+            colaService.encolarInsert("AUXILIAR", construirCamposAuxiliar(auxiliar, entidadCode, unidadCode, usuario));
+            log.info("📤 Auxiliar CODAUX={} encolado para VSIAF (modo cola)", auxiliar.getCodAux());
+            return;
+        }
+
+        log.info("Iniciando inserción de auxiliar CODCONT={}, CODAUX={} en auxiliar.DBF",
                 auxiliar.getGrupoContable().getCodContable(), auxiliar.getCodAux());
         verificarConexionDBF();
         
@@ -419,7 +436,26 @@ public class AuxiliarDbfWriterService {
     /**
      * Crea un arreglo con todos los campos del registro
      */
-    private Object[] crearRegistroDesdeAuxiliar(Auxiliar aux, String entidadCode, String unidadCode, 
+    /** Arma el mapa campo→valor (crudo) de AUXILIAR para encolar la orden al worker VFPOLEDB. */
+    private Map<String, Object> construirCamposAuxiliar(Auxiliar aux, String ent, String uni, String usr) {
+        Short codcont = null;
+        if (aux.getGrupoContable() != null && aux.getGrupoContable().getCodContable() != null) {
+            try {
+                codcont = Short.valueOf(aux.getGrupoContable().getCodContable().toString().trim());
+            } catch (Exception ignored) { }
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("ENTIDAD", ent);
+        m.put("UNIDAD", uni);
+        m.put("CODCONT", codcont);
+        m.put("CODAUX", aux.getCodAux());
+        m.put("NOMAUX", aux.getNombre());
+        m.put("FEULT", java.sql.Date.valueOf(LocalDate.now()));
+        m.put("USUAR", usr != null ? usr : "SISTEMA");
+        return m;
+    }
+
+    private Object[] crearRegistroDesdeAuxiliar(Auxiliar aux, String entidadCode, String unidadCode,
                                                 String usuario, DBFField[] fields) {
         Object[] record = new Object[fields.length];
         

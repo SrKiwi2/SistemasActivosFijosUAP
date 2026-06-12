@@ -9,14 +9,18 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
+import com.usic.SistemasActivosFijosUAP.model.service.DbfColaService;
 
 
 @Service
@@ -27,7 +31,13 @@ public class OficinaDbfWriterService {
 
     @Value("${legacy.dbf.path:/mnt/dbfwin}")
     private String dbfPath;
-    
+
+    @Value("${legacy.dbf.write.mode:bytes}")
+    private String writeMode;
+
+    @Autowired
+    private DbfColaService colaService;
+
     // ✅ CLASE INTERNA PARA EVITAR RESTRICCIONES DE LA LIBRERÍA
     private static class CampoDbf {
         String name;
@@ -167,8 +177,15 @@ public class OficinaDbfWriterService {
      * Inserta un nuevo registro en OFICINA.DBF
      */
     public void insertarDesdeOficina(Oficina oficina, String entidadCode, String unidadCode, String usuario) {
+        // ── Modo COLA: dejar la orden para el worker VFPOLEDB (mantiene el índice .CDX) ──
+        if ("cola".equalsIgnoreCase(writeMode)) {
+            colaService.encolarInsert("OFICINA", construirCamposOficina(oficina, entidadCode, unidadCode, usuario));
+            log.info("📤 Oficina {} encolada para VSIAF (modo cola)", oficina.getCodOfi());
+            return;
+        }
+
         log.info("⚡ Insertando oficina {} (Append Seguro)", oficina.getCodOfi());
-        
+
         synchronized (oficinaLock) {
             File dbfFile = getOficinaDbfFile();
             
@@ -334,6 +351,16 @@ public class OficinaDbfWriterService {
             lista.add(c);
         }
         return lista;
+    }
+
+    /** Arma el mapa campo→valor (crudo) de OFICINA para encolar la orden al worker VFPOLEDB. */
+    private Map<String, Object> construirCamposOficina(Oficina o, String ent, String uni, String usr) {
+        String[] campos = { "ENTIDAD", "UNIDAD", "CODOFIC", "NOMOFIC", "FEULT", "USUAR", "API_ESTADO" };
+        Map<String, Object> m = new LinkedHashMap<>();
+        for (String c : campos) {
+            m.put(c, obtenerValorCampo(c, o, ent, uni, usr));
+        }
+        return m;
     }
 
     private Object obtenerValorCampo(String fieldName, Oficina o, String ent, String uni, String usr) {

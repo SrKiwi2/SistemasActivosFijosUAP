@@ -13,18 +13,21 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.linuxense.javadbf.DBFField;
 import com.linuxense.javadbf.DBFReader;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.service.DbfColaService;
 
 @Service
 public class ActualDbfWriterService {
@@ -34,6 +37,12 @@ public class ActualDbfWriterService {
 
     @Value("${legacy.dbf.path:/mnt/dbfwin}")
     private String dbfPath;
+
+    @Value("${legacy.dbf.write.mode:bytes}")
+    private String writeMode;
+
+    @Autowired
+    private DbfColaService colaService;
 
     private static class CampoDbf {
         String name;
@@ -160,6 +169,13 @@ public class ActualDbfWriterService {
      * Inserta un nuevo registro en ACTUAL.DBF
      */
     public void insertarDesdeActivo(Activo a, String entidadCode, String unidadCode, String usuario) {
+        // ── Modo COLA: dejar la orden para el worker VFPOLEDB (mantiene el índice .CDX) ──
+        if ("cola".equalsIgnoreCase(writeMode)) {
+            colaService.encolarInsert("ACTUAL", construirCamposActivo(a, entidadCode, unidadCode, usuario));
+            log.info("📤 Activo {} encolado para VSIAF (modo cola)", a.getCodigo());
+            return;
+        }
+
         log.info("Iniciando inserción de activo {} en ACTUAL.DBF", a.getCodigo());
 
         synchronized (actualLock) {
@@ -405,6 +421,21 @@ public class ActualDbfWriterService {
                 throw new RuntimeException("Error en actualización por lotes DBF: " + e.getMessage());
             }
         }
+    }
+
+    /** Arma el mapa campo→valor (crudo) de ACTUAL para encolar la orden al worker VFPOLEDB. */
+    private Map<String, Object> construirCamposActivo(Activo a, String ent, String uni, String usr) {
+        String[] campos = {
+            "ENTIDAD", "UNIDAD", "CODIGO", "CODIGOSEC", "DESCRIP", "CODCONT", "CODAUX", "CODOFIC", "CODRESP",
+            "VIDAUTIL", "COSTO", "DEPACU", "DIA", "MES", "ANO", "B_REV", "BAND_UFV", "USUAR", "USU_MOD",
+            "BANDERAS", "NRO_CONV", "COD_RUBE", "ORG_FIN", "FEULT", "FEC_MOD", "CODESTADO", "API_ESTADO",
+            "DIA_ANT", "MES_ANT", "ANO_ANT", "VUT_ANT", "COSTO_ANT"
+        };
+        Map<String, Object> m = new LinkedHashMap<>();
+        for (String c : campos) {
+            m.put(c, obtenerValorCampo(c, a, ent, uni, usr));
+        }
+        return m;
     }
 
     private Object obtenerValorCampo(String fieldName, Activo a, String ent, String uni, String usr) {

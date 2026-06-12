@@ -336,26 +336,17 @@ public class RespDbfWriterService {
 
     // ================= HELPER METHODS =================
 
-    /** Arma el mapa campo→valor (texto) de RESP para encolar la orden al worker VFPOLEDB. */
-    private Map<String, String> construirCamposResp(Responsable resp, String ent, String uni, String usr) {
+    /** Arma el mapa campo→valor (crudo) de RESP para encolar la orden al worker VFPOLEDB. */
+    private Map<String, Object> construirCamposResp(Responsable resp, String ent, String uni, String usr) {
         String[] campos = {
             "ENTIDAD", "UNIDAD", "CODOFIC", "CODRESP", "NOMRESP", "CARGO",
             "OBSERV", "CI", "FEULT", "USUAR", "COD_EXP", "API_ESTADO"
         };
-        Map<String, String> m = new LinkedHashMap<>();
+        Map<String, Object> m = new LinkedHashMap<>();
         for (String c : campos) {
-            m.put(c, formatearValor(obtenerValorCampo(c, resp, ent, uni, usr)));
+            m.put(c, obtenerValorCampo(c, resp, ent, uni, usr));
         }
         return m;
-    }
-
-    /** Convierte un valor a texto que el worker pueda interpretar (fechas yyyy-MM-dd, lógicos 1/0). */
-    private String formatearValor(Object v) {
-        if (v == null) return "";
-        if (v instanceof java.sql.Date d) return d.toLocalDate().toString();
-        if (v instanceof java.time.LocalDate d) return d.toString();
-        if (v instanceof Boolean b) return b ? "1" : "0";
-        return v.toString().trim();
     }
 
 

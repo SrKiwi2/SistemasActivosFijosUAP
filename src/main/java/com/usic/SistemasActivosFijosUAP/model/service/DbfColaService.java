@@ -42,17 +42,23 @@ public class DbfColaService {
      * Encola un INSERT para la tabla indicada.
      *
      * @param tabla  nombre de la tabla DBF (p. ej. "RESP")
-     * @param campos pares campo-&gt;valor (valores como texto)
+     * @param campos pares campo-&gt;valor (valores crudos; se convierten a texto)
      */
-    public void encolarInsert(String tabla, Map<String, String> campos) {
+    public void encolarInsert(String tabla, Map<String, Object> campos) {
         try {
             Path cola = Path.of(dbfPath, "_cola");
             Files.createDirectories(cola);
 
+            // Convertir cada valor a texto que el worker pueda interpretar
+            Map<String, String> camposTexto = new LinkedHashMap<>();
+            for (Map.Entry<String, Object> e : campos.entrySet()) {
+                camposTexto.put(e.getKey(), formatear(e.getValue()));
+            }
+
             Map<String, Object> orden = new LinkedHashMap<>();
             orden.put("tabla", tabla);
             orden.put("op", "INSERT");
-            orden.put("campos", campos);
+            orden.put("campos", camposTexto);
 
             String nombre = tabla + "_" + System.currentTimeMillis() + "_"
                     + UUID.randomUUID().toString().substring(0, 8);
@@ -72,5 +78,14 @@ public class DbfColaService {
             log.error("No se pudo encolar la orden para {}: {}", tabla, e.getMessage(), e);
             throw new RuntimeException("Error encolando orden DBF: " + e.getMessage(), e);
         }
+    }
+
+    /** Convierte un valor a texto interpretable por el worker (fechas yyyy-MM-dd, lógicos 1/0). */
+    private String formatear(Object v) {
+        if (v == null) return "";
+        if (v instanceof java.sql.Date d) return d.toLocalDate().toString();
+        if (v instanceof java.time.LocalDate d) return d.toString();
+        if (v instanceof Boolean b) return b ? "1" : "0";
+        return v.toString().trim();
     }
 }
