@@ -211,8 +211,12 @@ public class ResponsableController {
             @RequestParam(required = false) String paterno,
             @RequestParam(required = false) String materno,
             @RequestParam(required = false) String correo,
-            @RequestParam(value = "cargoApi", required = false) String cargoNombre,
+            @RequestParam(value = "cargoApi", required = false) String cargoApi,
+            @RequestParam(value = "cargoNombre", required = false) String cargoNombreParam,
             @RequestParam(defaultValue = "false") boolean modoRapido) {
+
+        // Distintos formularios mandan el cargo con nombre distinto (cargoApi / cargoNombre): aceptar ambos.
+        String cargoNombre = (cargoApi != null && !cargoApi.isBlank()) ? cargoApi : cargoNombreParam;
 
         log.info("=== INICIANDO REGISTRO DE RESPONSABLE ===");
         log.info("CI: {}, Código: {}, Nombre: {}, Paterno: {}, Materno: {}", 
@@ -586,10 +590,13 @@ public class ResponsableController {
             @RequestParam(required = false) String correo,
             @RequestParam(required = false) Long idCargo,
             @RequestParam(required = false) String nombreCargoApi,
+            @RequestParam(value = "cargoNombre", required = false) String cargoNombre,
             @RequestParam(defaultValue = "false") boolean forzarCreacion) {
-        
-        return registrarResponsable(request, codigoApi, ci, codExp,codigoFuncionario,
-                                   idOficina, nombre, paterno, materno, correo, nombreCargoApi, forzarCreacion);
+
+        // Aceptar el cargo venga como nombreCargoApi o cargoNombre
+        String cargoEfectivo = (nombreCargoApi != null && !nombreCargoApi.isBlank()) ? nombreCargoApi : cargoNombre;
+        return registrarResponsable(request, codigoApi, ci, codExp, codigoFuncionario,
+                                   idOficina, nombre, paterno, materno, correo, cargoEfectivo, null, forzarCreacion);
     }
 
     private boolean esCiValido(String ci) {

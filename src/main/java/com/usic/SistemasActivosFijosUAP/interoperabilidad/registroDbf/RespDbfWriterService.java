@@ -238,6 +238,18 @@ public class RespDbfWriterService {
      */
     public void actualizarDesdeResponsable(Integer codRespOriginal, Short codOficOriginal, String entidadOriginal, String unidadOriginal,
                                            Responsable resp, String entidadCode, String unidadCode, String usuario) {
+        // ── Modo COLA: encolar UPDATE para el worker VFPOLEDB (mantiene el índice .CDX) ──
+        if ("cola".equalsIgnoreCase(writeMode)) {
+            Map<String, Object> clave = new LinkedHashMap<>();
+            clave.put("ENTIDAD", entidadOriginal);
+            clave.put("UNIDAD", unidadOriginal);
+            clave.put("CODOFIC", codOficOriginal);
+            clave.put("CODRESP", codRespOriginal);
+            colaService.encolarUpdate("RESP", clave, construirCamposResp(resp, entidadCode, unidadCode, usuario));
+            log.info("📤 Responsable CODRESP={} encolado para UPDATE en VSIAF (modo cola)", codRespOriginal);
+            return;
+        }
+
         log.info("⚡ Actualizando Responsable CODRESP={} in-place", codRespOriginal);
 
         synchronized (respLock) {

@@ -75,7 +75,7 @@ function Procesar-Orden($conn, $archivo, $schemaCache) {
     $tabla = ([string]$json.tabla).ToUpper().Trim()
     if ([string]::IsNullOrWhiteSpace($tabla)) { throw "Orden sin 'tabla'." }
     $op = if ($json.op) { ([string]$json.op).ToUpper() } else { "INSERT" }
-    if ($op -ne "INSERT") { throw "Operacion '$op' no soportada todavia (solo INSERT)." }
+    if ($op -ne "INSERT" -and $op -ne "UPDATE") { throw "Operacion '$op' no soportada (solo INSERT/UPDATE)." }
 
     # Esquema (tipos) de la tabla, cacheado
     if (-not $schemaCache.ContainsKey($tabla)) {
@@ -92,18 +92,43 @@ function Procesar-Orden($conn, $archivo, $schemaCache) {
     $provistos = @{}
     foreach ($prop in $json.campos.PSObject.Properties) { $provistos[$prop.Name.ToUpper()] = $prop.Value }
 
-    # Insertamos TODAS las columnas de la tabla: usa el valor provisto, o un
-    # default segun el tipo (texto vacio / 0 / fecha vacia / .F.). Asi nunca
-    # falla por un campo obligatorio que el SCIAF no mando.
-    $cols = @(); $vals = @()
-    foreach ($col in $schema.Keys) {
-        $raw = if ($provistos.ContainsKey($col)) { $provistos[$col] } else { "" }
-        $cols += $col
-        $vals += (Format-Valor $raw $schema[$col])
+    if ($op -eq "INSERT") {
+        # Insertamos TODAS las columnas: valor provisto o default por tipo (texto vacio /
+        # 0 / fecha vacia / .F.). Asi nunca falla por un campo obligatorio que no se mando.
+        $cols = @(); $vals = @()
+        foreach ($col in $schema.Keys) {
+            $raw = if ($provistos.ContainsKey($col)) { $provistos[$col] } else { "" }
+            $cols += $col
+            $vals += (Format-Valor $raw $schema[$col])
+        }
+        if ($cols.Count -eq 0) { throw "No se pudo leer el esquema de $tabla." }
+        $sql = "INSERT INTO $tabla (" + ($cols -join ", ") + ") VALUES (" + ($vals -join ", ") + ")"
     }
-    if ($cols.Count -eq 0) { throw "No se pudo leer el esquema de $tabla." }
+    else {
+        # UPDATE: SET con los campos provistos (menos las columnas clave), WHERE con la clave
+        $clave = @{}
+        if ($json.clave) { foreach ($p in $json.clave.PSObject.Properties) { $clave[$p.Name.ToUpper()] = $p.Value } }
+        if ($clave.Count -eq 0) { throw "Orden UPDATE sin 'clave' (no se puede armar el WHERE)." }
 
-    $sql = "INSERT INTO $tabla (" + ($cols -join ", ") + ") VALUES (" + ($vals -join ", ") + ")"
+        # SET con todos los campos provistos (incluida la clave con su valor NUEVO,
+        # para soportar ediciones que cambian la clave). El WHERE usa la clave ORIGINAL.
+        $sets = @()
+        foreach ($col in $provistos.Keys) {
+            if (-not $schema.ContainsKey($col)) { continue }
+            $sets += ("$col = " + (Format-Valor $provistos[$col] $schema[$col]))
+        }
+        if ($sets.Count -eq 0) { throw "Orden UPDATE sin campos para actualizar." }
+
+        $wheres = @()
+        foreach ($col in $clave.Keys) {
+            if (-not $schema.ContainsKey($col)) { continue }
+            $wheres += ("$col = " + (Format-Valor $clave[$col] $schema[$col]))
+        }
+        if ($wheres.Count -eq 0) { throw "Orden UPDATE con clave invalida." }
+
+        $sql = "UPDATE $tabla SET " + ($sets -join ", ") + " WHERE " + ($wheres -join " AND ")
+    }
+
     $conn.Execute($sql) | Out-Null
     return $sql
 }

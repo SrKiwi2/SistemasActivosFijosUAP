@@ -45,20 +45,34 @@ public class DbfColaService {
      * @param campos pares campo-&gt;valor (valores crudos; se convierten a texto)
      */
     public void encolarInsert(String tabla, Map<String, Object> campos) {
+        Map<String, Object> orden = new LinkedHashMap<>();
+        orden.put("tabla", tabla);
+        orden.put("op", "INSERT");
+        orden.put("campos", aTexto(campos));
+        escribirOrden(tabla, orden);
+    }
+
+    /**
+     * Encola un UPDATE para la tabla indicada.
+     *
+     * @param tabla  nombre de la tabla DBF (p. ej. "RESP")
+     * @param clave  pares campo-&gt;valor que identifican el registro (WHERE)
+     * @param campos pares campo-&gt;valor a actualizar (SET)
+     */
+    public void encolarUpdate(String tabla, Map<String, Object> clave, Map<String, Object> campos) {
+        Map<String, Object> orden = new LinkedHashMap<>();
+        orden.put("tabla", tabla);
+        orden.put("op", "UPDATE");
+        orden.put("clave", aTexto(clave));
+        orden.put("campos", aTexto(campos));
+        escribirOrden(tabla, orden);
+    }
+
+    /** Escribe la orden como JSON en _cola (primero .tmp y luego rename, para lecturas atómicas). */
+    private void escribirOrden(String tabla, Map<String, Object> orden) {
         try {
             Path cola = Path.of(dbfPath, "_cola");
             Files.createDirectories(cola);
-
-            // Convertir cada valor a texto que el worker pueda interpretar
-            Map<String, String> camposTexto = new LinkedHashMap<>();
-            for (Map.Entry<String, Object> e : campos.entrySet()) {
-                camposTexto.put(e.getKey(), formatear(e.getValue()));
-            }
-
-            Map<String, Object> orden = new LinkedHashMap<>();
-            orden.put("tabla", tabla);
-            orden.put("op", "INSERT");
-            orden.put("campos", camposTexto);
 
             String nombre = tabla + "_" + System.currentTimeMillis() + "_"
                     + UUID.randomUUID().toString().substring(0, 8);
@@ -73,11 +87,20 @@ public class DbfColaService {
                 Files.move(tmp, fin, StandardCopyOption.REPLACE_EXISTING);
             }
 
-            log.info("📤 Orden encolada para VSIAF: {}", fin.getFileName());
+            log.info("📤 Orden {} encolada para VSIAF: {}", orden.get("op"), fin.getFileName());
         } catch (Exception e) {
             log.error("No se pudo encolar la orden para {}: {}", tabla, e.getMessage(), e);
             throw new RuntimeException("Error encolando orden DBF: " + e.getMessage(), e);
         }
+    }
+
+    /** Convierte un mapa de valores crudos a texto interpretable por el worker. */
+    private Map<String, String> aTexto(Map<String, Object> valores) {
+        Map<String, String> txt = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> e : valores.entrySet()) {
+            txt.put(e.getKey(), formatear(e.getValue()));
+        }
+        return txt;
     }
 
     /** Convierte un valor a texto interpretable por el worker (fechas yyyy-MM-dd, lógicos 1/0). */
