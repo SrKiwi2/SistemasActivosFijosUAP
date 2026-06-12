@@ -1,0 +1,263 @@
+<!-- =====================================================================
+     CONSULTA DE ACTIVOS  (solo lectura)  ·  Fragmento SPA
+     Roles: ADMINISTRADOR + SUPER USUARIO + APOYO
+     Datos: POST /administracion/activo/datatables  (server-side, buscarConFiltros)
+     Filtros: búsqueda global (nombre/código), código, predio, oficina, responsable, usuario, fecha.
+     Solo muestra activos en estado ACTIVO. Exporta a Excel los resultados filtrados.
+====================================================================== -->
+
+<!-- Acceso restringido (defensa en profundidad) -->
+<div th:unless="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO' or session.nombre_rol == 'APOYO'}"
+     class="text-center text-muted py-5">
+    <div style="font-size:44px;">🔒</div>
+    <h5 class="mt-2">Acceso restringido</h5>
+    <p>Este módulo está disponible para Administrador, Encargada de Activos Fijos y Apoyo.</p>
+</div>
+
+<div th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO' or session.nombre_rol == 'APOYO'}">
+
+    <style>
+        #cact-wrap .cact-pill {
+            font-size:.72rem; font-weight:600; padding:.2rem .55rem; border-radius:6px;
+            background:rgba(26,86,160,.1); color:#1a56a0; white-space:nowrap;
+        }
+        #cact-wrap table.dataTable td { vertical-align:middle; font-size:.86rem; }
+        #cact-wrap .cact-cod { font-family:'JetBrains Mono',monospace; font-weight:600; color:#1a56a0; }
+        #cact-wrap .cact-desc { max-width:320px; }
+        #cact-wrap .filtros .form-label { font-size:.72rem; font-weight:600; letter-spacing:.4px;
+            text-transform:uppercase; color:#8592a3; margin-bottom:.25rem; }
+    </style>
+
+    <div id="cact-wrap">
+
+        <h4 class="py-2 mb-1"><span class="text-muted fw-light">Reportes y Consultas /</span> CONSULTA DE ACTIVOS</h4>
+        <p class="text-muted mb-3" style="font-size:.9rem;">
+            Busca y filtra los activos en estado <b>ACTIVO</b>. Usa la búsqueda global (nombre o código)
+            o los filtros específicos, y exporta el resultado a Excel.
+        </p>
+
+        <!-- Filtros -->
+        <div class="card mb-3">
+            <div class="card-body filtros">
+                <div class="row g-3">
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">Código</label>
+                        <input type="text" id="f-codigo" class="form-control form-control-sm" placeholder="Ej: 09-01-..." />
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">Predio</label>
+                        <select id="f-predio" class="form-select form-select-sm">
+                            <option value="">Todos los predios</option>
+                            <option th:each="p : ${predios}" th:value="${p.idPredio}" th:text="${p.descrip}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">Oficina</label>
+                        <select id="f-oficina" class="form-select form-select-sm">
+                            <option value="">Todas las oficinas</option>
+                            <option th:each="of : ${oficinas}" th:value="${of.idOficina}"
+                                    th:attr="data-predio=${of.predio != null ? of.predio.idPredio : ''}"
+                                    th:text="${of.nombre}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">Responsable</label>
+                        <select id="f-responsable" class="form-select form-select-sm">
+                            <option value="">Todos los responsables</option>
+                            <option th:each="r : ${responsables}" th:value="${r.idResponsable}"
+                                    th:text="${r.persona != null ? r.persona.nombreCompleto : r.codigoFuncionario}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">Fecha de adquisición</label>
+                        <input type="date" id="f-fecha" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">Usuario (registró/modificó)</label>
+                        <input type="text" id="f-usuario" class="form-control form-control-sm" placeholder="Ej: admin-01" />
+                    </div>
+                    <div class="col-md-6 col-sm-6 d-flex align-items-end gap-2 flex-wrap">
+                        <button type="button" class="btn btn-sm btn-primary" id="btnFiltrar">
+                            <i class="ti ti-filter me-1"></i> Filtrar
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLimpiar">
+                            <i class="ti ti-x me-1"></i> Limpiar
+                        </button>
+                        <button type="button" class="btn btn-sm btn-success ms-auto" id="btnExportar">
+                            <i class="ti ti-file-spreadsheet me-1"></i> Exportar Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="tblConsulta" class="table table-hover table-striped" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Responsable</th>
+                                <th>Oficina</th>
+                                <th>Estado</th>
+                                <th class="text-end">Costo</th>
+                                <th class="text-center">Vida útil</th>
+                                <th>Adquisición</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            'use strict';
+
+            var URL_DT = '/administracion/activo/datatables';
+            var txt = ($.fn.dataTable && $.fn.dataTable.render) ? $.fn.dataTable.render.text() : null;
+            function val(sel) { var v = $(sel).val(); return v == null ? '' : String(v).trim(); }
+
+            // ── Cascada Predio → Oficina ───────────────────────────────────
+            var $ofi = $('#f-oficina');
+            var ofiAll = $ofi.find('option[data-predio]').map(function () {
+                return { id: this.value, nombre: this.textContent, predio: this.getAttribute('data-predio') || '' };
+            }).get();
+
+            $('#f-predio').on('change', function () {
+                var pred = String($(this).val() || '');
+                $ofi.find('option[data-predio]').remove();
+                var lista = pred ? ofiAll.filter(function (o) { return o.predio === pred; }) : ofiAll;
+                lista.forEach(function (o) {
+                    $ofi.append($('<option>').val(o.id).attr('data-predio', o.predio).text(o.nombre));
+                });
+                $ofi.val('');
+            });
+
+            // ── Inicializar / reinicializar DataTable ──────────────────────
+            if ($.fn.dataTable.isDataTable('#tblConsulta')) {
+                $('#tblConsulta').DataTable().clear().destroy();
+            }
+
+            var tabla = $('#tblConsulta').DataTable({
+                processing: true,
+                serverSide: true,
+                searching: true,
+                ordering: false,
+                lengthMenu: [10, 25, 50, 100],
+                pageLength: 25,
+                language: {
+                    processing: 'Cargando…',
+                    search: 'Buscar (nombre/código):',
+                    lengthMenu: 'Mostrar _MENU_',
+                    info: 'Mostrando _START_ a _END_ de _TOTAL_ activos',
+                    infoEmpty: 'Sin activos',
+                    infoFiltered: '(filtrado de _MAX_)',
+                    zeroRecords: 'No se encontraron activos',
+                    paginate: { first: '«', last: '»', next: '›', previous: '‹' }
+                },
+                ajax: function (d, callback) {
+                    d.codigo      = val('#f-codigo');
+                    d.oficina     = val('#f-oficina');
+                    d.responsable = val('#f-responsable');
+                    d.predio      = val('#f-predio');
+                    d.usuario     = val('#f-usuario');
+                    d.fecha       = val('#f-fecha');
+                    $.ajax({
+                        url: URL_DT, type: 'POST', data: d,
+                        success: function (res) {
+                            callback({
+                                draw: d.draw,
+                                recordsTotal: res.recordsTotal || 0,
+                                recordsFiltered: res.recordsFiltered || 0,
+                                data: res.data || []
+                            });
+                        },
+                        error: function () {
+                            callback({ draw: d.draw, recordsTotal: 0, recordsFiltered: 0, data: [] });
+                            if (window.Swal) Swal.fire('Error', 'No se pudo cargar la consulta de activos.', 'error');
+                        }
+                    });
+                },
+                columns: [
+                    { data: null, orderable: false, className: 'text-muted',
+                      render: function (dt, type, row, meta) { return meta.row + 1 + meta.settings._iDisplayStart; } },
+                    { data: 'codigo', render: function (d) { return '<span class="cact-cod">' + (d || '') + '</span>'; } },
+                    { data: 'descripcion', className: 'cact-desc', render: txt },
+                    { data: 'responsable', render: txt },
+                    { data: 'oficina', render: txt },
+                    { data: 'estado', render: function (d) { return d ? '<span class="cact-pill">' + d + '</span>' : ''; } },
+                    { data: 'costo', className: 'text-end', render: function (d) {
+                        if (d == null || d === '') return '—';
+                        var n = Number(d); return isNaN(n) ? d : n.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    } },
+                    { data: 'vidaUtil', className: 'text-center' },
+                    { data: 'fechaAdquisicion' }
+                ]
+            });
+
+            // ── Acciones de filtro ─────────────────────────────────────────
+            $('#btnFiltrar').on('click', function () { tabla.ajax.reload(); });
+            $('#f-codigo, #f-fecha, #f-usuario').on('keydown', function (e) { if (e.key === 'Enter') tabla.ajax.reload(); });
+            $('#f-oficina, #f-responsable, #f-predio').on('change', function () { tabla.ajax.reload(); });
+
+            $('#btnLimpiar').on('click', function () {
+                $('#f-codigo, #f-fecha, #f-usuario').val('');
+                $('#f-predio').val('').trigger('change');
+                $('#f-responsable').val('');
+                tabla.search('').ajax.reload();
+            });
+
+            // ── Exportar a Excel (todos los resultados filtrados) ──────────
+            function withXLSX(cb) {
+                if (typeof XLSX !== 'undefined') return cb();
+                var s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+                s.onload = cb;
+                s.onerror = function () { if (window.Swal) Swal.fire('Error', 'No se pudo cargar el exportador.', 'error'); };
+                document.head.appendChild(s);
+            }
+
+            $('#btnExportar').on('click', function () {
+                var $b = $(this); $b.prop('disabled', true).html('<i class="ti ti-loader me-1"></i> Generando…');
+                var body = {
+                    draw: 1, start: 0, length: 100000,
+                    'search[value]': tabla.search() || '',
+                    codigo: val('#f-codigo'), oficina: val('#f-oficina'),
+                    responsable: val('#f-responsable'), predio: val('#f-predio'),
+                    usuario: val('#f-usuario'), fecha: val('#f-fecha')
+                };
+                $.ajax({
+                    url: URL_DT, type: 'POST', data: body,
+                    success: function (res) {
+                        var rows = (res.data || []).map(function (a) {
+                            return {
+                                'Código': a.codigo, 'Descripción': a.descripcion, 'Responsable': a.responsable,
+                                'Oficina': a.oficina, 'Estado': a.estado, 'Costo': a.costo,
+                                'Vida útil': a.vidaUtil, 'F. Adquisición': a.fechaAdquisicion
+                            };
+                        });
+                        if (!rows.length) {
+                            if (window.Swal) Swal.fire('Sin datos', 'No hay activos para exportar con el filtro actual.', 'info');
+                            return;
+                        }
+                        withXLSX(function () {
+                            var ws = XLSX.utils.json_to_sheet(rows);
+                            var wb = XLSX.utils.book_new();
+                            XLSX.utils.book_append_sheet(wb, ws, 'Activos');
+                            XLSX.writeFile(wb, 'consulta_activos_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+                        });
+                    },
+                    error: function () { if (window.Swal) Swal.fire('Error', 'No se pudo exportar.', 'error'); },
+                    complete: function () { $b.prop('disabled', false).html('<i class="ti ti-file-spreadsheet me-1"></i> Exportar Excel'); }
+                });
+            });
+        })();
+    </script>
+</div>

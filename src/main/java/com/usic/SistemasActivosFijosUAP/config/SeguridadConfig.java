@@ -32,6 +32,8 @@ public class SeguridadConfig {
                 "/reporte/**",
                 "/baja/**",
                 "/informacion/**",
+                /* seguimiento público de hojas de ruta (sin login) */
+                "/seguimiento-hr/**",
                 "/seguimiento-activo/**",
                 "/pdfs/**",
                 "/vista/**",

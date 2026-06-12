@@ -1,0 +1,476 @@
+<!-- =====================================================================
+     SEGUIMIENTO DE HOJAS DE RUTA  (solo lectura)  ·  Fragmento SPA
+     Roles: ADMINISTRADOR + SUPER USUARIO (encargada)
+     Reutiliza:
+        POST /administracion/hoja-ruta/listar   (gestion, unidadOrigenId)
+        POST /administracion/hoja-ruta/buscar   (codigo, tipo, gestion)
+====================================================================== -->
+
+<!-- ── Panel "no autorizado" (defensa en profundidad, mismo mecanismo del sidebar) ── -->
+<div th:unless="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}"
+     style="padding:60px 20px;text-align:center;color:#6b7280;">
+    <div style="font-size:46px;">🔒</div>
+    <h4 style="margin-top:10px;color:#374151;">Acceso restringido</h4>
+    <p style="font-size:14px;">Este módulo está disponible solo para Administrador y Encargada de Activos Fijos.</p>
+</div>
+
+<!-- ── Módulo ── -->
+<div th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+
+<style>
+/* ── TOKENS (scoped) ─────────────────────────────────────────────── */
+.hrs-wrap {
+    --bg-page:#f0f2f5; --bg-panel:#fff; --bg-input:#f4f6fa; --bg-hover:#f0f4ff;
+    --border-soft:#e4e8f0; --border-med:#c9d0e0; --border-focus:#1a56a0;
+    --txt:#1a2340; --txt-sub:#5a6a8a; --txt-muted:#9aa3b8;
+    --accent:#1a56a0; --accent-lt:rgba(26,86,160,.09); --accent-hov:#14406f;
+    --green:#12b76a; --green-lt:rgba(18,183,106,.12);
+    --blue:#2563b0;  --blue-lt:rgba(37,99,176,.12);
+    --amber:#b45309; --amber-lt:rgba(180,83,9,.12);
+    --gray:#64748b;  --gray-lt:rgba(100,116,139,.12);
+    --red:#f04438;
+    --mono:'JetBrains Mono','Fira Mono',monospace;
+    --r:8px; --sh:0 1px 3px rgba(0,0,0,.07); --t:.16s ease;
+}
+.hrs-wrap, .hrs-wrap * { box-sizing:border-box; }
+.hrs-wrap {
+    --topbar-h:56px;
+    font-family:'Inter',system-ui,sans-serif; color:var(--txt);
+    display:flex; flex-direction:column;
+    height:calc(100vh - var(--topbar-h)); overflow:hidden; background:var(--bg-page);
+}
+
+/* ── Topbar interna ── */
+.hrs-topbar {
+    height:46px; flex-shrink:0; background:var(--bg-panel);
+    border-bottom:1px solid var(--border-soft); box-shadow:var(--sh);
+    display:flex; align-items:center; gap:11px; padding:0 20px; z-index:20;
+}
+.hrs-topbar-icon {
+    width:26px; height:26px; background:var(--accent); border-radius:6px;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:15px; flex-shrink:0;
+}
+.hrs-topbar-title { font-size:13px; font-weight:600; }
+.hrs-topbar-clock { margin-left:auto; font-family:var(--mono); font-size:10px; color:var(--txt-muted); letter-spacing:.4px; }
+
+/* ── Filtros ── */
+.hrs-filters {
+    flex-shrink:0; background:var(--bg-panel); border-bottom:1px solid var(--border-soft);
+    padding:11px 20px; display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;
+}
+.hrs-fg { display:flex; flex-direction:column; gap:4px; }
+.hrs-flabel { font-size:10px; font-weight:600; letter-spacing:.6px; text-transform:uppercase; color:var(--txt-muted); }
+.hrs-input, .hrs-sel {
+    background:var(--bg-input); border:1px solid var(--border-med); border-radius:6px;
+    color:var(--txt); font-size:12.5px; padding:6px 10px; outline:none; height:34px;
+    transition:border-color var(--t), box-shadow var(--t);
+}
+.hrs-input:focus, .hrs-sel:focus { border-color:var(--border-focus); box-shadow:0 0 0 3px var(--accent-lt); }
+.hrs-input--num { width:120px; }
+.hrs-sel { min-width:200px; }
+.hrs-search { margin-left:auto; position:relative; }
+.hrs-search input { padding-left:30px; width:240px; }
+.hrs-search .ico { position:absolute; left:9px; top:50%; transform:translateY(-50%); color:var(--txt-muted); font-size:14px; }
+
+.hrs-btn {
+    display:inline-flex; align-items:center; gap:6px; border:none; border-radius:6px;
+    font-size:12.5px; font-weight:500; cursor:pointer; padding:0 14px; height:34px;
+    transition:all var(--t); white-space:nowrap;
+}
+.hrs-btn-primary { background:var(--accent); color:#fff; }
+.hrs-btn-primary:hover { background:var(--accent-hov); }
+.hrs-btn-ghost { background:var(--bg-input); color:var(--txt-sub); border:1px solid var(--border-med); }
+.hrs-btn-ghost:hover { border-color:var(--accent); color:var(--accent); }
+
+/* ── Cuerpo: dos columnas ── */
+.hrs-body { flex:1; display:flex; min-height:0; }
+.hrs-col-list {
+    width:46%; min-width:340px; display:flex; flex-direction:column;
+    border-right:1px solid var(--border-soft); background:var(--bg-page); min-height:0;
+}
+.hrs-col-detail { flex:1; display:flex; flex-direction:column; min-height:0; overflow-y:auto; }
+
+.hrs-list-head {
+    flex-shrink:0; padding:9px 16px; display:flex; align-items:center; gap:8px;
+    border-bottom:1px solid var(--border-soft); background:var(--bg-panel); font-size:12px; color:var(--txt-sub);
+}
+.hrs-badge {
+    display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:19px;
+    padding:0 7px; border-radius:100px; font-family:var(--mono); font-size:10.5px; font-weight:700;
+    background:var(--accent-lt); color:var(--accent);
+}
+.hrs-list-scroll { flex:1; overflow-y:auto; min-height:0; }
+.hrs-list-scroll::-webkit-scrollbar { width:5px; }
+.hrs-list-scroll::-webkit-scrollbar-thumb { background:var(--border-med); border-radius:4px; }
+
+table.hrs-table { width:100%; border-collapse:collapse; font-size:12px; }
+.hrs-table thead th {
+    position:sticky; top:0; background:var(--bg-panel); z-index:2;
+    text-align:left; padding:8px 12px; font-size:10px; font-weight:700; letter-spacing:.5px;
+    text-transform:uppercase; color:var(--txt-muted); border-bottom:1px solid var(--border-soft);
+}
+.hrs-table tbody td { padding:9px 12px; border-bottom:1px solid var(--border-soft); vertical-align:middle; }
+.hrs-table tbody tr { cursor:pointer; transition:background var(--t); }
+.hrs-table tbody tr:hover { background:var(--bg-hover); }
+.hrs-table tbody tr.sel { background:var(--accent-lt); box-shadow:inset 3px 0 0 var(--accent); }
+.hrs-cod { font-family:var(--mono); font-weight:700; color:var(--accent); }
+.hrs-desc-cell { color:var(--txt-sub); max-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ── Pills de estado ── */
+.hrs-pill {
+    display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:700; letter-spacing:.4px;
+    border-radius:100px; padding:3px 9px; text-transform:uppercase; white-space:nowrap;
+}
+.hrs-pill[data-e="RECIBIDO"] { background:var(--green-lt); color:var(--green); }
+.hrs-pill[data-e="ENVIADO"]  { background:var(--blue-lt);  color:var(--blue); }
+.hrs-pill[data-e="ARCHIVADO"]{ background:var(--gray-lt);  color:var(--gray); }
+.hrs-pill[data-e="SIN MOVIMIENTOS"], .hrs-pill[data-e="DESCONOCIDO"] { background:var(--gray-lt); color:var(--txt-muted); }
+
+/* ── Detalle ── */
+.hrs-empty {
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px; color:var(--txt-muted); text-align:center; padding:30px;
+}
+.hrs-empty-ico {
+    width:54px; height:54px; border:1.5px dashed var(--border-med); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:24px;
+}
+.hrs-detail-inner { padding:18px 20px; display:none; }
+
+.hrs-card {
+    background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:var(--r);
+    box-shadow:var(--sh); padding:16px 18px; margin-bottom:16px;
+}
+.hrs-card-title {
+    display:flex; align-items:center; gap:8px; margin-bottom:14px;
+    font-size:13px; font-weight:700; color:var(--txt);
+}
+.hrs-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px 18px; }
+.hrs-field-l { font-size:10px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:var(--txt-muted); margin-bottom:2px; }
+.hrs-field-v { font-size:13px; color:var(--txt); word-break:break-word; }
+.hrs-field-full { grid-column:1 / -1; }
+
+/* ── Timeline ── */
+.hrs-tl-title { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; margin-bottom:12px; }
+.hrs-tl { position:relative; padding-left:26px; }
+.hrs-tl::before { content:''; position:absolute; left:9px; top:4px; bottom:4px; width:2px; background:var(--border-soft); }
+.hrs-ev { position:relative; padding:0 0 16px 6px; }
+.hrs-ev:last-child { padding-bottom:0; }
+.hrs-ev-dot {
+    position:absolute; left:-22px; top:2px; width:18px; height:18px; border-radius:50%;
+    border:3px solid var(--bg-page); display:flex; align-items:center; justify-content:center;
+}
+.hrs-ev-dot[data-e="RECIBIDO"] { background:var(--green); }
+.hrs-ev-dot[data-e="ENVIADO"]  { background:var(--blue); }
+.hrs-ev-dot[data-e="ARCHIVADO"]{ background:var(--gray); }
+.hrs-ev-dot[data-e="DESCONOCIDO"]{ background:var(--txt-muted); }
+.hrs-ev-card { background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:7px; padding:10px 13px; box-shadow:var(--sh); }
+.hrs-ev-card.actual { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-lt); }
+.hrs-ev-row1 { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px; }
+.hrs-ev-fecha { font-family:var(--mono); font-size:10px; color:var(--txt-muted); white-space:nowrap; }
+.hrs-flow { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:6px; }
+.hrs-flow-chip {
+    background:var(--bg-input); border:1px solid var(--border-soft); border-radius:5px; padding:2px 9px;
+    font-size:11px; color:var(--txt); max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.hrs-flow-arrow { color:var(--border-med); font-size:13px; }
+.hrs-ev-obs { font-size:11.5px; color:var(--txt-sub); line-height:1.5; }
+.hrs-ev-tag-actual { font-size:9px; font-weight:700; color:var(--accent); background:var(--accent-lt); padding:1px 7px; border-radius:100px; text-transform:uppercase; }
+
+/* ── Toasts ── */
+.hrs-toasts { position:fixed; bottom:18px; right:18px; z-index:9999; display:flex; flex-direction:column; gap:7px; }
+.hrs-toast {
+    background:var(--bg-panel); border:1px solid var(--border-soft); border-left-width:3px; border-radius:7px;
+    padding:10px 14px; min-width:240px; max-width:330px; box-shadow:0 4px 14px rgba(0,0,0,.12);
+    font-size:12px; animation:hrsTIn .22s ease both;
+}
+@keyframes hrsTIn { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:none} }
+.hrs-toast-s { border-left-color:var(--green); }
+.hrs-toast-e { border-left-color:var(--red); }
+.hrs-toast-w { border-left-color:var(--amber); }
+
+@media (max-width:820px) {
+    .hrs-body { flex-direction:column; }
+    .hrs-col-list { width:100%; min-width:0; max-height:42%; border-right:none; border-bottom:1px solid var(--border-soft); }
+    .hrs-grid { grid-template-columns:1fr; }
+    .hrs-search { margin-left:0; }
+    .hrs-search input { width:100%; }
+}
+</style>
+
+<div class="hrs-wrap">
+
+    <!-- Topbar -->
+    <header class="hrs-topbar">
+        <span class="hrs-topbar-icon">🗂️</span>
+        <span class="hrs-topbar-title">Seguimiento de Hojas de Ruta</span>
+        <span class="hrs-topbar-clock" id="hrs-clock">—</span>
+    </header>
+
+    <!-- Filtros -->
+    <div class="hrs-filters">
+        <div class="hrs-fg">
+            <label class="hrs-flabel">Gestión</label>
+            <input type="number" id="hrs-gestion" class="hrs-input hrs-input--num"
+                   placeholder="Ej: 2025" min="2000" max="2100" />
+        </div>
+        <div class="hrs-fg">
+            <label class="hrs-flabel">Unidad de Origen</label>
+            <select id="hrs-unidad" class="hrs-sel">
+                <option value="">Todas las unidades</option>
+                <option th:each="unidad : ${listaUnidades}"
+                        th:value="${unidad.idUnidad}" th:text="${unidad.nombre}"></option>
+            </select>
+        </div>
+        <button class="hrs-btn hrs-btn-primary" onclick="hrsListar()">🔎 Buscar</button>
+        <button class="hrs-btn hrs-btn-ghost" onclick="hrsLimpiar()">Limpiar</button>
+
+        <div class="hrs-search">
+            <span class="ico">🔍</span>
+            <input type="text" id="hrs-filtro" class="hrs-input"
+                   placeholder="Filtrar código, solicitante, descripción…" autocomplete="off" />
+        </div>
+    </div>
+
+    <!-- Cuerpo -->
+    <div class="hrs-body">
+
+        <!-- Columna izquierda: listado -->
+        <div class="hrs-col-list">
+            <div class="hrs-list-head">
+                <i>📋</i> Hojas de Ruta
+                <span class="hrs-badge" id="hrs-total">0</span>
+                <span style="margin-left:auto;color:var(--txt-muted);font-size:10.5px;">clic en una fila para ver su trayectoria</span>
+            </div>
+            <div class="hrs-list-scroll">
+                <table class="hrs-table">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Tipo</th>
+                            <th>Gestión</th>
+                            <th>Solicitante</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hrs-tbody">
+                        <tr><td colspan="5" style="text-align:center;padding:28px;color:var(--txt-muted);">
+                            Presiona <strong>Buscar</strong> para cargar los registros.
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Columna derecha: detalle + timeline -->
+        <div class="hrs-col-detail">
+            <div class="hrs-empty" id="hrs-empty">
+                <div class="hrs-empty-ico">🧭</div>
+                <div style="font-size:13px;font-weight:600;color:var(--txt-sub);">Sin hoja de ruta seleccionada</div>
+                <div style="font-size:11.5px;line-height:1.6;">
+                    Busca por gestión o unidad, y selecciona una hoja de ruta<br>
+                    de la lista para ver sus datos y la línea de tiempo de movimientos.
+                </div>
+            </div>
+            <div class="hrs-detail-inner" id="hrs-detail">
+                <!-- Datos -->
+                <div class="hrs-card">
+                    <div class="hrs-card-title">📄 Datos de la Hoja de Ruta
+                        <span style="margin-left:auto;" class="hrs-pill" id="hrs-d-estado" data-e="SIN MOVIMIENTOS">—</span>
+                    </div>
+                    <div class="hrs-grid">
+                        <div><div class="hrs-field-l">Código</div><div class="hrs-field-v hrs-cod" id="hrs-d-codigo">—</div></div>
+                        <div><div class="hrs-field-l">Tipo</div><div class="hrs-field-v" id="hrs-d-tipo">—</div></div>
+                        <div><div class="hrs-field-l">Gestión</div><div class="hrs-field-v" id="hrs-d-gestion">—</div></div>
+                        <div><div class="hrs-field-l">Monto</div><div class="hrs-field-v" id="hrs-d-monto">—</div></div>
+                        <div><div class="hrs-field-l">Solicitante</div><div class="hrs-field-v" id="hrs-d-solicitante">—</div></div>
+                        <div><div class="hrs-field-l">N° Certificación</div><div class="hrs-field-v" id="hrs-d-certif">—</div></div>
+                        <div class="hrs-field-full"><div class="hrs-field-l">Descripción</div><div class="hrs-field-v" id="hrs-d-desc">—</div></div>
+                    </div>
+                </div>
+                <!-- Timeline -->
+                <div class="hrs-tl-title">🧭 Línea de Tiempo de Movimientos
+                    <span class="hrs-badge" id="hrs-mov-total" style="margin-left:6px;">0</span>
+                </div>
+                <div class="hrs-tl" id="hrs-tl"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="hrs-toasts" id="hrs-toasts"></div>
+
+<script>
+(function () {
+    'use strict';
+
+    const HRS = { rows: [], selKey: null };
+
+    /* Reloj */
+    clearInterval(window._hrsClock);
+    window._hrsClock = setInterval(() => {
+        const el = document.getElementById('hrs-clock');
+        if (el) el.textContent = new Date().toLocaleString('es-BO', { dateStyle:'short', timeStyle:'medium' });
+        else clearInterval(window._hrsClock);
+    }, 1000);
+
+    /* ── Helpers ── */
+    function esc(s){ return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function estadoNorm(e){ return (e||'SIN MOVIMIENTOS').toUpperCase(); }
+    function fmtMonto(m){
+        if (m==null||m==='') return '—';
+        const n = Number(m); if (isNaN(n)) return esc(m);
+        return n.toLocaleString('es-BO',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Bs';
+    }
+    function fmtFechaHora(f,h){
+        const fecha = f ? f : '—';
+        const hora  = h ? String(h).slice(0,5) : '';
+        return hora ? (fecha + ' · ' + hora) : fecha;
+    }
+    function toast(type,msg){
+        const c = document.getElementById('hrs-toasts'); if(!c) return;
+        const d = document.createElement('div');
+        d.className = 'hrs-toast hrs-toast-' + (type||'s');
+        d.innerHTML = esc(msg);
+        c.appendChild(d);
+        setTimeout(()=>{ d.style.cssText+='opacity:0;transform:translateX(12px);transition:.3s'; setTimeout(()=>d.remove(),320); }, 4200);
+    }
+
+    /* ── Listar (POST /listar) ── */
+    window.hrsListar = function () {
+        const gestion = document.getElementById('hrs-gestion').value.trim();
+        const unidad  = document.getElementById('hrs-unidad').value;
+        const tbody = document.getElementById('hrs-tbody');
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--txt-muted);">Cargando…</td></tr>';
+
+        $.post('/administracion/hoja-ruta/listar', {
+            gestion: gestion || '',
+            unidadOrigenId: unidad || ''
+        }).done(function (resp) {
+            if (!resp || !resp.ok) { toast('e', (resp && resp.msg) || 'No se pudieron cargar los registros'); HRS.rows=[]; renderTabla(); return; }
+            HRS.rows = resp.hojaRutas || [];
+            renderTabla();
+            if (!HRS.rows.length) toast('w','Sin resultados para el filtro indicado');
+        }).fail(function () { toast('e','Error de conexión al listar'); tbody.innerHTML=''; });
+    };
+
+    /* ── Render de tabla (con filtro de texto libre) ── */
+    function renderTabla() {
+        const q = (document.getElementById('hrs-filtro').value || '').toLowerCase().trim();
+        const tbody = document.getElementById('hrs-tbody');
+        const filtradas = !q ? HRS.rows : HRS.rows.filter(r =>
+            [r.codigo, r.tipo, r.gestion, r.solicitanteNombre, r.descripcion]
+            .some(v => (v==null?'':String(v)).toLowerCase().includes(q)));
+
+        document.getElementById('hrs-total').textContent = filtradas.length;
+
+        if (!filtradas.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:26px;color:var(--txt-muted);">Sin hojas de ruta que mostrar.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = filtradas.map(r => {
+            const est = estadoNorm(r.estadoActual);
+            const key = r.tipo + '|' + r.codigo + '|' + r.gestion;
+            const selCls = (key === HRS.selKey) ? ' class="sel"' : '';
+            return `<tr${selCls} data-tipo="${esc(r.tipo)}" data-codigo="${esc(r.codigo)}" data-gestion="${esc(r.gestion)}">
+                <td class="hrs-cod">${esc(r.codigo)}</td>
+                <td>${esc(r.tipo)}</td>
+                <td>${esc(r.gestion)}</td>
+                <td>${esc(r.solicitanteNombre || '—')}</td>
+                <td><span class="hrs-pill" data-e="${esc(est)}">${esc(est)}</span></td>
+            </tr>`;
+        }).join('');
+
+        tbody.querySelectorAll('tr[data-codigo]').forEach(tr => {
+            tr.addEventListener('click', () => {
+                HRS.selKey = tr.dataset.tipo + '|' + tr.dataset.codigo + '|' + tr.dataset.gestion;
+                tbody.querySelectorAll('tr').forEach(t => t.classList.remove('sel'));
+                tr.classList.add('sel');
+                verDetalle(tr.dataset.tipo, tr.dataset.codigo, tr.dataset.gestion);
+            });
+        });
+    }
+
+    document.getElementById('hrs-filtro').addEventListener('input', renderTabla);
+    document.getElementById('hrs-gestion').addEventListener('keydown', e => { if (e.key==='Enter') hrsListar(); });
+
+    /* ── Detalle + timeline (POST /buscar) ── */
+    function verDetalle(tipo, codigo, gestion) {
+        $.post('/administracion/hoja-ruta/buscar', { codigo: codigo, tipo: tipo, gestion: gestion })
+        .done(function (resp) {
+            if (!resp || !resp.ok) { toast('e', (resp && resp.msg) || 'No se encontró la hoja de ruta'); return; }
+            pintarDetalle(resp);
+        }).fail(function () { toast('e','Error de conexión al buscar la hoja de ruta'); });
+    }
+
+    function pintarDetalle(resp) {
+        const hr = resp.hojaRuta || {};
+        const movs = resp.movimientos || [];
+        const estadoActual = estadoNorm(resp.movimientoActual);
+
+        document.getElementById('hrs-empty').style.display = 'none';
+        document.getElementById('hrs-detail').style.display = 'block';
+
+        document.getElementById('hrs-d-codigo').textContent     = hr.codigo || '—';
+        document.getElementById('hrs-d-tipo').textContent        = hr.tipo || '—';
+        document.getElementById('hrs-d-gestion').textContent     = hr.gestion || '—';
+        document.getElementById('hrs-d-monto').textContent       = fmtMonto(hr.monto);
+        document.getElementById('hrs-d-certif').textContent      = hr.certificacion || '—';
+        document.getElementById('hrs-d-desc').textContent        = hr.descripcion || '—';
+        const sol = hr.solicitanteNombre ? (hr.solicitanteNombre + (hr.solicitanteCargo ? ' — ' + hr.solicitanteCargo : '')) : '—';
+        document.getElementById('hrs-d-solicitante').textContent = sol;
+
+        const pill = document.getElementById('hrs-d-estado');
+        pill.textContent = estadoActual;
+        pill.setAttribute('data-e', estadoActual);
+
+        document.getElementById('hrs-mov-total').textContent = movs.length;
+
+        const tl = document.getElementById('hrs-tl');
+        if (!movs.length) {
+            tl.innerHTML = '<div style="color:var(--txt-muted);font-size:12px;padding:6px 0;">Esta hoja de ruta no tiene movimientos registrados.</div>';
+            return;
+        }
+        // El primer movimiento es el actual (así lo entrega el backend)
+        tl.innerHTML = movs.map((m, i) => {
+            const est = estadoNorm(m.estado);
+            const actual = (i === 0);
+            const origen  = `<span class="hrs-flow-chip" title="${esc(m.origen)}">${esc(m.origen || '—')}</span>`;
+            const destino = `<span class="hrs-flow-chip" title="${esc(m.destino)}">${esc(m.destino || '—')}</span>`;
+            return `<div class="hrs-ev">
+                <div class="hrs-ev-dot" data-e="${esc(est)}"></div>
+                <div class="hrs-ev-card ${actual ? 'actual' : ''}">
+                    <div class="hrs-ev-row1">
+                        <span class="hrs-pill" data-e="${esc(est)}">${esc(est)}</span>
+                        <span style="display:flex;align-items:center;gap:7px;">
+                            ${actual ? '<span class="hrs-ev-tag-actual">actual</span>' : ''}
+                            <span class="hrs-ev-fecha">${esc(fmtFechaHora(m.fecha, m.hora))}</span>
+                        </span>
+                    </div>
+                    <div class="hrs-flow">${origen}<span class="hrs-flow-arrow">→</span>${destino}</div>
+                    ${m.observacion ? `<div class="hrs-ev-obs">📝 ${esc(m.observacion)}</div>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    /* ── Limpiar ── */
+    window.hrsLimpiar = function () {
+        document.getElementById('hrs-gestion').value = '';
+        document.getElementById('hrs-unidad').value = '';
+        document.getElementById('hrs-filtro').value = '';
+        HRS.rows = []; HRS.selKey = null;
+        document.getElementById('hrs-tbody').innerHTML =
+            '<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--txt-muted);">Presiona <strong>Buscar</strong> para cargar los registros.</td></tr>';
+        document.getElementById('hrs-total').textContent = '0';
+        document.getElementById('hrs-detail').style.display = 'none';
+        document.getElementById('hrs-empty').style.display = 'flex';
+    };
+
+    /* Carga inicial automática (gestión actual) */
+    document.getElementById('hrs-gestion').value = new Date().getFullYear();
+    hrsListar();
+})();
+</script>
+
+</div>

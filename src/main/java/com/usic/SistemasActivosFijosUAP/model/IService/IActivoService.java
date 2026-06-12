@@ -23,7 +23,8 @@ public interface IActivoService extends IServiceGenerico<Activo, Long>{
     List<Activo> listarActivosPendientes();
     Page<Activo> buscarPorNombreOCodigo(@Param("filtro") String filtro, Pageable pageable);
     Page<Activo> buscarConFiltros(String searchValue, String codigo, String responsableId,
-                              String oficinaId, String fecha, Pageable pageable);
+                              String oficinaId, String predioId, String usuario,
+                              String fecha, Pageable pageable);
     List<Activo> obtenerActivosDelResponsable(Persona persona);
     Optional<Activo> findByCodigo(String codigo);
 

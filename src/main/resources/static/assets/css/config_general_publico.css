@@ -136,30 +136,38 @@
 }
 
 .titulo-sistema {
-    font-size: clamp(2rem, 6vw, 3.8rem);
+    position: relative;
+    z-index: 2;
+    font-size: clamp(2.2rem, 6vw, 4rem);
     font-weight: 900;
-    letter-spacing: 3px;
-    background: linear-gradient(90deg, #1e3a8a, #b91c1c, #1e3a8a);
-    background-size: 200% auto;
+    letter-spacing: 4px;
+    line-height: 1.05;
+    background: linear-gradient(90deg, #1a56a0 0%, #1e3a8a 32%, #b91c1c 64%, #1a56a0 100%);
+    background-size: 220% auto;
     background-clip: text;
+    -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: brillo 4s linear infinite;
-    text-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+    animation: brillo 6s linear infinite, heroTitleIn .9s cubic-bezier(.2, .7, .2, 1) both;
+    text-shadow: 0 4px 16px rgba(26, 86, 160, 0.14);
 }
 
 .titulo-sistema .version {
-    font-weight: 700;
+    font-weight: 800;
     color: #dc2626;
     /* rojo fijo para destacar */
-    text-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
+    -webkit-text-fill-color: #dc2626;
+    text-shadow: 0 2px 10px rgba(220, 38, 38, 0.4);
 }
 
 .slogan {
+    position: relative;
+    z-index: 2;
     font-family: "Georgia", serif;
-    font-size: 1.1rem;
-    color: #374151;
+    font-size: clamp(1rem, 2.2vw, 1.2rem);
+    color: #475569;
+    letter-spacing: .3px;
     opacity: 0;
-    animation: fadeInUp 1.8s ease forwards 1s;
+    animation: fadeInUp 1.6s ease forwards .9s;
 }
 
 /* Animaciones */
@@ -382,15 +390,585 @@
    ELIMINAR FONDO AMARILLO DE AUTOCOMPLETADO (CHROME/EDGE)
    --------------------------------------------------- */
 .login-input-group .form-control:-webkit-autofill,
-.login-input-group .form-control:-webkit-autofill:hover, 
-.login-input-group .form-control:-webkit-autofill:focus, 
+.login-input-group .form-control:-webkit-autofill:hover,
+.login-input-group .form-control:-webkit-autofill:focus,
 .login-input-group .form-control:-webkit-autofill:active {
     /* Forzamos el fondo blanco tapando el amarillo con una sombra interna */
     -webkit-box-shadow: 0 0 0 30px #ffffff inset !important;
     /* Forzamos el color del texto a gris oscuro */
-    -webkit-text-fill-color: #374151 !important; 
+    -webkit-text-fill-color: #374151 !important;
     /* Quitamos el borde extra que a veces pone el navegador */
-    caret-color: #1a56a0; 
+    caret-color: #1a56a0;
     /* Transición súper lenta para evitar parpadeos nativos */
     transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ===========================================================
+   HERO INSTITUCIONAL — vista pública
+   Lenguaje visual alineado al modal de login (azul UAP #1a56a0,
+   esquinas suaves, sombras difusas, animación optimizada por GPU).
+   =========================================================== */
+.hero-institucional {
+    --uap-blue: #1a56a0;
+    --uap-blue-deep: #173e74;
+    --uap-red: #b91c1c;
+    --hero-ink: #1e3a5f;
+    min-height: 250px;
+    border-radius: 20px !important;
+    color: var(--hero-ink);
+    /* Fondo en tono medio azul-pizarra: ni blanco (evita reflejos) ni oscuro */
+    background:
+        radial-gradient(135% 130% at 0% 0%, rgba(26, 86, 160, 0.20) 0%, rgba(26, 86, 160, 0) 52%),
+        radial-gradient(130% 130% at 100% 100%, rgba(185, 28, 28, 0.12) 0%, rgba(185, 28, 28, 0) 50%),
+        linear-gradient(135deg, #e7eef7 0%, #d3def0 55%, #c9d7ea 100%);
+    border: 1px solid rgba(26, 86, 160, 0.16) !important;
+    box-shadow:
+        0 18px 42px -22px rgba(26, 86, 160, 0.5),
+        0 6px 18px -12px rgba(15, 23, 42, 0.2);
+    transition: box-shadow .4s ease, transform .4s ease;
+}
+
+.hero-institucional:hover {
+    box-shadow:
+        0 26px 55px -24px rgba(26, 86, 160, 0.55),
+        0 10px 24px -12px rgba(15, 23, 42, 0.22);
+}
+
+/* Barra de acento superior animada (degradado institucional en movimiento) */
+.hero-accent-bar {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 5px;
+    background: linear-gradient(90deg,
+            var(--uap-blue) 0%, var(--uap-blue-deep) 30%, var(--uap-red) 60%, var(--uap-blue) 100%);
+    background-size: 200% 100%;
+    animation: brillo 6s linear infinite;
+    z-index: 3;
+}
+
+/* Cuadrícula técnica sutil que se desvanece hacia abajo */
+.hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(26, 86, 160, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(26, 86, 160, 0.05) 1px, transparent 1px);
+    background-size: 38px 38px;
+    -webkit-mask-image: radial-gradient(120% 100% at 50% 0%, #000 35%, transparent 75%);
+    mask-image: radial-gradient(120% 100% at 50% 0%, #000 35%, transparent 75%);
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Manchas de color difusas y flotantes (identidad UAP: azul + rojo) */
+/* Glow suave SIN filter:blur (el degradado ya difumina) → sin jank */
+.hero-blob {
+    position: absolute;
+    width: 340px;
+    height: 340px;
+    border-radius: 50%;
+    opacity: .5;
+    z-index: 0;
+    pointer-events: none;
+    will-change: transform;
+}
+
+.hero-blob--blue {
+    top: -130px;
+    left: -100px;
+    background: radial-gradient(circle at 50% 50%, rgba(26, 86, 160, 0.34) 0%, rgba(26, 86, 160, 0) 68%);
+    animation: heroFloat 14s ease-in-out infinite;
+}
+
+.hero-blob--red {
+    bottom: -150px;
+    right: -90px;
+    background: radial-gradient(circle at 50% 50%, rgba(185, 28, 28, 0.24) 0%, rgba(185, 28, 28, 0) 68%);
+    animation: heroFloat 17s ease-in-out infinite reverse;
+}
+
+/* Contenido y logos por encima de la decoración */
+.hero-body,
+.hero-logo-side {
+    position: relative;
+    z-index: 2;
+}
+
+/* Separador decorativo bajo el título (se dibuja al entrar) */
+.hero-divider {
+    display: block;
+    width: 0;
+    height: 3px;
+    margin: .35rem auto .9rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--uap-blue), var(--uap-red));
+    animation: heroDivider 1.1s cubic-bezier(.2, .7, .2, 1) .5s forwards;
+}
+
+/* Acrónimo principal SCIAF — letras grandes que entran en cascada */
+.hero-acronimo {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    gap: clamp(.1rem, 1vw, .4rem);
+    margin: 0;
+    font-weight: 900;
+    letter-spacing: 1px;
+    line-height: 1;
+    font-size: clamp(3.2rem, 12vw, 6.5rem);
+}
+
+.hero-acronimo .ha-letter {
+    display: inline-block;
+    color: #163a6b;
+    text-shadow: 0 3px 10px rgba(23, 62, 116, 0.18);
+    opacity: 0;
+    transform: translateY(18px);
+    animation: haDrop .6s cubic-bezier(.2, .8, .25, 1) forwards;
+}
+
+/* La "F" en rojo institucional para reforzar la identidad UAP */
+.hero-acronimo .ha-letter--red {
+    color: #b3201f;
+    text-shadow: 0 3px 10px rgba(185, 28, 28, 0.18);
+}
+
+.hero-acronimo .ha-letter:nth-child(1) { animation-delay: .05s; }
+.hero-acronimo .ha-letter:nth-child(2) { animation-delay: .15s; }
+.hero-acronimo .ha-letter:nth-child(3) { animation-delay: .25s; }
+.hero-acronimo .ha-letter:nth-child(4) { animation-delay: .35s; }
+.hero-acronimo .ha-letter:nth-child(5) { animation-delay: .45s; }
+
+/* Significado del acrónimo con las iniciales resaltadas */
+.hero-significado {
+    position: relative;
+    z-index: 2;
+    margin: 0;
+    font-size: clamp(1rem, 2.5vw, 1.45rem);
+    font-weight: 600;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    color: #1f3f6b;
+    opacity: 0;
+    animation: fadeInUp 1s ease forwards .7s;
+}
+
+.hero-significado .hs-ini {
+    font-weight: 800;
+    color: var(--uap-blue);
+}
+
+.hero-significado .hs-ini--red {
+    color: var(--uap-red);
+}
+
+/* Slogan: color con buen contraste sobre el fondo medio (solo en público) */
+.hero-institucional .slogan {
+    color: #2b4a76;
+    margin-top: .35rem;
+}
+
+@keyframes haDrop {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes heroFloat {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50%      { transform: translate3d(14px, 12px, 0); }
+}
+
+@keyframes heroTitleIn {
+    from { opacity: 0; transform: translateY(14px); letter-spacing: 10px; }
+    to   { opacity: 1; transform: translateY(0);    letter-spacing: 4px; }
+}
+
+@keyframes heroDivider {
+    from { width: 0;    opacity: 0; }
+    to   { width: 90px; opacity: 1; }
+}
+
+/* Accesibilidad: respeta el movimiento reducido del sistema */
+@media (prefers-reduced-motion: reduce) {
+    .hero-accent-bar,
+    .hero-blob--blue,
+    .hero-blob--red,
+    .titulo-sistema {
+        animation: none !important;
+    }
+
+    .hero-acronimo .ha-letter,
+    .hero-significado,
+    .slogan {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
+    .hero-divider {
+        width: 90px;
+        animation: none;
+    }
+}
+
+/* ===========================================================
+   SECCIÓN DE INFORMACIÓN INSTITUCIONAL — vista pública
+   Rediseño en tonos medios (sin blanco puro), tarjetas modernas,
+   bandas institucionales azul/rojo y entrada animada sutil.
+   =========================================================== */
+.info-seccion {
+    --uap-blue: #1a56a0;
+    --uap-blue-deep: #173e74;
+    --uap-red: #b91c1c;
+    --info-ink: #1f2f47;
+    --info-muted: #44546d;
+    --info-panel: #f1f6fc;
+    position: relative;
+    margin-top: 2.5rem;
+    border-radius: 22px;
+    overflow: hidden;
+    color: var(--info-ink);
+    background: linear-gradient(180deg, #eef2f9 0%, #e3eaf4 100%);
+    border: 1px solid rgba(26, 86, 160, 0.14);
+    box-shadow: 0 20px 45px -26px rgba(26, 86, 160, 0.5);
+}
+
+/* Encabezado con banda institucional */
+.info-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.4rem;
+    background: linear-gradient(120deg, var(--uap-blue-deep) 0%, var(--uap-blue) 58%, var(--uap-red) 135%);
+    color: #fff;
+}
+
+.info-cabecera__brand {
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+    min-width: 0;
+}
+
+.info-cabecera__icono {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    font-size: 1.4rem;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.info-cabecera__texto h2 {
+    margin: 0;
+    font-size: clamp(1.05rem, 2.4vw, 1.5rem);
+    font-weight: 800;
+    letter-spacing: .3px;
+    line-height: 1.15;
+}
+
+.info-cabecera__texto span {
+    font-size: .78rem;
+    opacity: .88;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.info-toggle {
+    flex: 0 0 auto;
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-size: 1.1rem;
+    transition: background .25s ease, transform .25s ease;
+}
+
+.info-toggle:hover {
+    background: rgba(255, 255, 255, 0.28);
+    transform: translateY(-1px);
+}
+
+.info-toggle[aria-expanded="true"] .transition-rotate {
+    transform: rotate(180deg);
+}
+
+/* Bloques internos */
+.info-bloque {
+    padding: clamp(1.4rem, 3.5vw, 2.6rem);
+}
+
+.info-bloque--legal {
+    border-top: 1px solid rgba(26, 86, 160, 0.12);
+    background: linear-gradient(180deg, rgba(185, 28, 28, 0.04), rgba(185, 28, 28, 0));
+}
+
+.info-bloque__head {
+    margin-bottom: 1.6rem;
+}
+
+.info-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .3rem .8rem;
+    border-radius: 999px;
+    font-size: .74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: .7rem;
+}
+
+.info-chip--blue {
+    color: var(--uap-blue-deep);
+    background: rgba(26, 86, 160, 0.12);
+}
+
+.info-chip--red {
+    color: var(--uap-red);
+    background: rgba(185, 28, 28, 0.12);
+}
+
+.info-bloque__head h3 {
+    margin: 0;
+    font-weight: 800;
+    font-size: clamp(1.25rem, 3vw, 1.7rem);
+    color: var(--uap-blue-deep);
+}
+
+.info-bloque--legal .info-bloque__head h3 {
+    color: var(--uap-red);
+}
+
+.info-lead {
+    margin: .6rem 0 0;
+    max-width: 64ch;
+    font-size: 1.02rem;
+    color: var(--info-muted);
+}
+
+.info-lead strong {
+    color: var(--uap-blue-deep);
+}
+
+/* Rejilla de funciones (se adapta al espacio disponible) */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
+.info-func {
+    display: flex;
+    gap: .9rem;
+    padding: 1.1rem;
+    border-radius: 16px;
+    background: var(--info-panel);
+    border: 1px solid rgba(26, 86, 160, 0.1);
+    box-shadow: 0 8px 20px -16px rgba(26, 86, 160, 0.55);
+    transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease;
+    opacity: 0;
+    animation: infoReveal .6s ease forwards;
+}
+
+.info-func:hover {
+    transform: translateY(-5px);
+    border-color: rgba(26, 86, 160, 0.28);
+    box-shadow: 0 16px 30px -18px rgba(26, 86, 160, 0.6);
+}
+
+.info-func__icon {
+    flex: 0 0 auto;
+    width: 50px;
+    height: 50px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    font-size: 1.35rem;
+    color: #fff;
+    background: linear-gradient(135deg, var(--uap-blue), var(--uap-blue-deep));
+    box-shadow: 0 8px 16px -8px rgba(26, 86, 160, 0.7);
+}
+
+/* Acento rojo alterno para dar ritmo visual */
+.info-func:nth-child(even) .info-func__icon {
+    background: linear-gradient(135deg, #d12d2d, var(--uap-red));
+    box-shadow: 0 8px 16px -8px rgba(185, 28, 28, 0.7);
+}
+
+.info-func h5 {
+    margin: .1rem 0 .25rem;
+    font-weight: 700;
+    font-size: 1.02rem;
+    color: var(--info-ink);
+}
+
+.info-func p {
+    margin: 0;
+    font-size: .9rem;
+    color: var(--info-muted);
+}
+
+/* Artículo destacado (cita normativa) */
+.info-quote {
+    position: relative;
+    margin: 0 0 1.6rem;
+    padding: 1.2rem 1.3rem 1.2rem 3.2rem;
+    border-radius: 16px;
+    background: var(--info-panel);
+    border: 1px solid rgba(26, 86, 160, 0.1);
+    border-left: 5px solid var(--uap-blue);
+    color: #2c3e57;
+    font-size: 1rem;
+    text-align: justify;
+}
+
+.info-quote__mark {
+    position: absolute;
+    top: .7rem;
+    left: 1rem;
+    font-size: 1.7rem;
+    color: rgba(26, 86, 160, 0.38);
+}
+
+.info-quote p {
+    margin: 0;
+}
+
+.info-quote strong {
+    color: var(--uap-blue-deep);
+}
+
+/* Tarjetas legales */
+.info-grid--legal {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.info-legal {
+    padding: 1.3rem;
+    border-radius: 16px;
+    background: var(--info-panel);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-top: 4px solid var(--uap-blue);
+    box-shadow: 0 10px 24px -18px rgba(15, 23, 42, 0.5);
+    opacity: 0;
+    animation: infoReveal .6s ease forwards;
+}
+
+.info-legal--red {
+    border-top-color: var(--uap-red);
+}
+
+.info-legal__head {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    margin-bottom: .9rem;
+}
+
+.info-legal__count {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: .95rem;
+    color: #fff;
+    background: var(--uap-blue);
+}
+
+.info-legal--red .info-legal__count {
+    background: var(--uap-red);
+}
+
+.info-legal__head h5 {
+    margin: 0;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: var(--info-ink);
+}
+
+.info-legal__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.info-legal__list li {
+    display: flex;
+    align-items: flex-start;
+    gap: .6rem;
+    padding: .6rem 0;
+    font-size: .92rem;
+    color: #2f3f57;
+    border-top: 1px dashed rgba(0, 0, 0, 0.08);
+}
+
+.info-legal__list li:first-child {
+    border-top: 0;
+}
+
+.info-legal__list li i {
+    flex: 0 0 auto;
+    margin-top: .15rem;
+    color: var(--uap-blue);
+}
+
+.info-legal--red .info-legal__list li i {
+    color: var(--uap-red);
+}
+
+/* Pie institucional */
+.info-pie {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .55rem;
+    padding: 1rem 1.4rem;
+    font-style: italic;
+    font-size: .92rem;
+    color: #eef4fb;
+    background: linear-gradient(120deg, var(--uap-blue-deep), var(--uap-blue));
+}
+
+.info-pie i {
+    font-size: 1.1rem;
+}
+
+/* Entrada escalonada de las tarjetas */
+@keyframes infoReveal {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.info-grid article:nth-child(1) { animation-delay: .05s; }
+.info-grid article:nth-child(2) { animation-delay: .12s; }
+.info-grid article:nth-child(3) { animation-delay: .19s; }
+.info-grid article:nth-child(4) { animation-delay: .26s; }
+.info-grid article:nth-child(5) { animation-delay: .33s; }
+.info-grid article:nth-child(6) { animation-delay: .40s; }
+
+@media (prefers-reduced-motion: reduce) {
+    .info-func,
+    .info-legal {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
+    .info-func:hover,
+    .info-toggle:hover {
+        transform: none;
+    }
 }

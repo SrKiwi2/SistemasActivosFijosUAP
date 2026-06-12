@@ -77,7 +77,8 @@ public class ActivoServiceImpl implements IActivoService{
 
     @Transactional(readOnly = true)
     public Page<Activo> buscarConFiltros(String searchValue, String codigo, String responsableId,
-                                        String oficinaId, String fecha, Pageable pageable) {
+                                        String oficinaId, String predioId, String usuario,
+                                        String fecha, Pageable pageable) {
         Specification<Activo> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -90,13 +91,22 @@ public class ActivoServiceImpl implements IActivoService{
             if (codigo != null && !codigo.isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("codigo")), "%" + codigo.toLowerCase() + "%"));
             }
-            
+
             if (responsableId != null && !responsableId.isBlank()) {
                 predicates.add(cb.equal(root.get("responsable").get("idResponsable"), Long.valueOf(responsableId)));
             }
 
             if (oficinaId != null && !oficinaId.isBlank()) {
                 predicates.add(cb.equal(root.get("oficina").get("idOficina"), Long.valueOf(oficinaId)));
+            }
+
+            if (predioId != null && !predioId.isBlank()) {
+                predicates.add(cb.equal(
+                        root.get("oficina").get("predio").get("idPredio"), Long.valueOf(predioId)));
+            }
+
+            if (usuario != null && !usuario.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("usuario")), "%" + usuario.toLowerCase() + "%"));
             }
 
             if (fecha != null && !fecha.isBlank()) {

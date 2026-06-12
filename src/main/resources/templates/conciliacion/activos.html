@@ -1,0 +1,243 @@
+<!-- =====================================================================
+     CONCILIACIÓN BD ↔ DBF (VSIAF)  ·  solo lectura  ·  Fragmento SPA
+     Roles: ADMINISTRADOR + SUPER USUARIO
+     Datos: GET /administracion/conciliacion/datos  (lee ACTUAL.DBF y compara)
+     No modifica nada: solo muestra divergencias para revisión manual.
+====================================================================== -->
+
+<!-- Acceso restringido (defensa en profundidad) -->
+<div th:unless="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}"
+     class="text-center text-muted py-5">
+    <div style="font-size:44px;">🔒</div>
+    <h5 class="mt-2">Acceso restringido</h5>
+    <p>Este módulo está disponible para Administrador y Super Usuario.</p>
+</div>
+
+<div th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+
+    <style>
+        #conc-wrap .conc-cod { font-family:'JetBrains Mono',monospace; font-weight:600; color:#1a56a0; }
+        #conc-wrap table.dataTable td { vertical-align:middle; font-size:.86rem; }
+        #conc-wrap .conc-card { border:none; border-radius:12px; }
+        #conc-wrap .conc-card .num { font-size:1.6rem; font-weight:700; line-height:1; }
+        #conc-wrap .conc-card .lbl { font-size:.72rem; text-transform:uppercase; letter-spacing:.4px; color:#8592a3; }
+        #conc-wrap .badge-pend { background:#fff3cd; color:#8a6d00; }
+        #conc-wrap .badge-anom { background:#f8d7da; color:#a3232f; }
+        #conc-wrap .badge-otro { background:#e9ecef; color:#5b6573; }
+        #conc-wrap .badge-vsiaf{ background:#cfe2ff; color:#1a56a0; }
+    </style>
+
+    <div id="conc-wrap">
+
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
+            <div>
+                <h4 class="py-2 mb-1"><span class="text-muted fw-light">Reportes y Consultas /</span> CONCILIACIÓN BD ↔ VSIAF</h4>
+                <p class="text-muted mb-2" style="font-size:.9rem; max-width:780px;">
+                    Compara los activos de la base de datos con el archivo <b>ACTUAL.DBF</b> del VSIAF.
+                    Un activo <b>en BD pero no en el DBF</b> normalmente está <b>PENDIENTE</b> de aprobar/sincronizar;
+                    si está <b>ACTIVO</b> sin respaldo en el DBF es una <b>anomalía</b> a revisar (registro de prueba,
+                    borrado en VSIAF o inconsistencia). Este módulo <b>no modifica</b> nada.
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-primary" id="btnRecalcular">
+                    <i class="ti ti-refresh me-1"></i> Recalcular
+                </button>
+                <button type="button" class="btn btn-sm btn-success" id="btnExportarConc">
+                    <i class="ti ti-file-spreadsheet me-1"></i> Exportar Excel
+                </button>
+            </div>
+        </div>
+
+        <!-- Tarjetas de resumen -->
+        <div class="row g-3 mb-3" id="conc-cards">
+            <div class="col-6 col-md"><div class="card conc-card shadow-sm"><div class="card-body py-3">
+                <div class="num text-dark" id="c-bd">—</div><div class="lbl">Activos en BD</div></div></div></div>
+            <div class="col-6 col-md"><div class="card conc-card shadow-sm"><div class="card-body py-3">
+                <div class="num text-dark" id="c-vsiaf">—</div><div class="lbl">Códigos en VSIAF</div></div></div></div>
+            <div class="col-6 col-md"><div class="card conc-card shadow-sm"><div class="card-body py-3">
+                <div class="num" style="color:#8a6d00" id="c-pend">—</div><div class="lbl">Pendientes de sync</div></div></div></div>
+            <div class="col-6 col-md"><div class="card conc-card shadow-sm"><div class="card-body py-3">
+                <div class="num" style="color:#a3232f" id="c-anom">—</div><div class="lbl">Anomalías (ACTIVO sin DBF)</div></div></div></div>
+            <div class="col-6 col-md"><div class="card conc-card shadow-sm"><div class="card-body py-3">
+                <div class="num" style="color:#1a56a0" id="c-solo">—</div><div class="lbl">Solo en VSIAF</div></div></div></div>
+        </div>
+
+        <!-- Estado de carga -->
+        <div id="conc-loading" class="text-center text-muted py-4" style="display:none;">
+            <div class="spinner-border text-primary" role="status"></div>
+            <div class="mt-2">Leyendo el DBF del VSIAF y comparando… esto puede tardar unos segundos.</div>
+        </div>
+
+        <!-- Pestañas -->
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-bd" type="button">
+                En BD sin respaldo en VSIAF <span class="badge bg-secondary ms-1" id="n-bd">0</span></button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-vsiaf" type="button">
+                En VSIAF sin reflejo en BD <span class="badge bg-secondary ms-1" id="n-vsiaf">0</span></button></li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- TAB A: en BD pero no en DBF -->
+            <div class="tab-pane fade show active" id="tab-bd">
+                <div class="card"><div class="card-body">
+                    <div class="table-responsive">
+                        <table id="tblBd" class="table table-hover table-striped" style="width:100%">
+                            <thead><tr>
+                                <th>#</th><th>Código</th><th>Descripción</th>
+                                <th>Estado</th><th>Diagnóstico</th><th>Última sync</th>
+                            </tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div></div>
+            </div>
+
+            <!-- TAB B: en DBF pero no en BD -->
+            <div class="tab-pane fade" id="tab-vsiaf">
+                <div class="card"><div class="card-body">
+                    <div class="table-responsive">
+                        <table id="tblVsiaf" class="table table-hover table-striped" style="width:100%">
+                            <thead><tr>
+                                <th>#</th><th>Código</th><th>Descripción (DBF)</th><th>Diagnóstico</th>
+                            </tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            'use strict';
+
+            var URL_DATOS = '/administracion/conciliacion/datos';
+            var ultimo = { bd: [], vsiaf: [] };
+
+            var txt = ($.fn.dataTable && $.fn.dataTable.render) ? $.fn.dataTable.render.text() : null;
+
+            function badgeDiag(clas) {
+                switch (clas) {
+                    case 'PENDIENTE_SYNC': return '<span class="badge badge-pend">Pendiente de sincronizar</span>';
+                    case 'ANOMALIA_ACTIVO': return '<span class="badge badge-anom">Anomalía: ACTIVO sin DBF</span>';
+                    case 'SOLO_VSIAF':     return '<span class="badge badge-vsiaf">Solo en VSIAF</span>';
+                    default:               return '<span class="badge badge-otro">' + (clas || 'Otro') + '</span>';
+                }
+            }
+            function pill(estado) { return estado ? '<span class="badge badge-otro">' + estado + '</span>' : ''; }
+            function fmtFecha(f) { return f ? String(f).replace('T', ' ').slice(0, 19) : '—'; }
+
+            function initTabla(sel, columnas) {
+                if ($.fn.dataTable.isDataTable(sel)) $(sel).DataTable().clear().destroy();
+                return $(sel).DataTable({
+                    data: [],
+                    ordering: true,
+                    pageLength: 25,
+                    lengthMenu: [10, 25, 50, 100],
+                    language: {
+                        search: 'Buscar:', lengthMenu: 'Mostrar _MENU_',
+                        info: 'Mostrando _START_ a _END_ de _TOTAL_',
+                        infoEmpty: 'Sin registros', zeroRecords: 'Sin coincidencias',
+                        paginate: { first: '«', last: '»', next: '›', previous: '‹' }
+                    },
+                    columns: columnas
+                });
+            }
+
+            var idx = { data: null, orderable: false, className: 'text-muted',
+                        render: function (d, t, r, m) { return m.row + 1 + m.settings._iDisplayStart; } };
+
+            var tblBd = initTabla('#tblBd', [
+                idx,
+                { data: 'codigo', render: function (d) { return '<span class="conc-cod">' + (d || '') + '</span>'; } },
+                { data: 'descripcion', render: txt },
+                { data: 'estado', render: function (d) { return pill(d); } },
+                { data: 'clasificacion', render: function (d) { return badgeDiag(d); } },
+                { data: 'fechaUltimaSync', render: function (d) { return fmtFecha(d); } }
+            ]);
+
+            var tblVsiaf = initTabla('#tblVsiaf', [
+                idx,
+                { data: 'codigo', render: function (d) { return '<span class="conc-cod">' + (d || '') + '</span>'; } },
+                { data: 'descripcion', render: txt },
+                { data: 'clasificacion', render: function (d) { return badgeDiag(d); } }
+            ]);
+
+            function setCard(id, v) { $('#' + id).text(v == null ? '—' : Number(v).toLocaleString('es-BO')); }
+
+            function cargar() {
+                $('#conc-loading').show();
+                $('#btnRecalcular').prop('disabled', true);
+                $.ajax({
+                    url: URL_DATOS, type: 'GET',
+                    success: function (res) {
+                        ultimo.bd = res.enBdNoEnVsiaf || [];
+                        ultimo.vsiaf = res.enVsiafNoEnBd || [];
+
+                        setCard('c-bd', res.totalBd);
+                        setCard('c-vsiaf', res.totalVsiaf);
+                        setCard('c-pend', res.pendientesSync);
+                        setCard('c-anom', res.anomaliasActivo);
+                        setCard('c-solo', res.soloVsiaf);
+
+                        $('#n-bd').text(ultimo.bd.length);
+                        $('#n-vsiaf').text(ultimo.vsiaf.length);
+
+                        tblBd.clear().rows.add(ultimo.bd).draw();
+                        tblVsiaf.clear().rows.add(ultimo.vsiaf).draw();
+                    },
+                    error: function (xhr) {
+                        var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'No se pudo calcular la conciliación.';
+                        if (window.Swal) Swal.fire('Error', msg, 'error');
+                    },
+                    complete: function () {
+                        $('#conc-loading').hide();
+                        $('#btnRecalcular').prop('disabled', false);
+                    }
+                });
+            }
+
+            $('#btnRecalcular').on('click', cargar);
+
+            // DataTables dentro de un tab oculto calcula mal los anchos: reajustar al mostrarlo.
+            $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function () {
+                tblBd.columns.adjust();
+                tblVsiaf.columns.adjust();
+            });
+
+            // ── Exportar a Excel (ambas hojas) ─────────────────────────────
+            function withXLSX(cb) {
+                if (typeof XLSX !== 'undefined') return cb();
+                var s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+                s.onload = cb;
+                s.onerror = function () { if (window.Swal) Swal.fire('Error', 'No se pudo cargar el exportador.', 'error'); };
+                document.head.appendChild(s);
+            }
+
+            $('#btnExportarConc').on('click', function () {
+                if (!ultimo.bd.length && !ultimo.vsiaf.length) {
+                    if (window.Swal) Swal.fire('Sin datos', 'No hay divergencias para exportar.', 'info');
+                    return;
+                }
+                withXLSX(function () {
+                    var wb = XLSX.utils.book_new();
+                    var hojaBd = ultimo.bd.map(function (a) {
+                        return { 'Código': a.codigo, 'Descripción': a.descripcion, 'Estado': a.estado, 'Diagnóstico': a.clasificacion, 'Última sync': a.fechaUltimaSync };
+                    });
+                    var hojaVsiaf = ultimo.vsiaf.map(function (a) {
+                        return { 'Código': a.codigo, 'Descripción (DBF)': a.descripcion, 'Diagnóstico': a.clasificacion };
+                    });
+                    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaBd.length ? hojaBd : [{}]), 'BD sin VSIAF');
+                    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaVsiaf.length ? hojaVsiaf : [{}]), 'VSIAF sin BD');
+                    XLSX.writeFile(wb, 'conciliacion_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+                });
+            });
+
+            // Carga inicial automática
+            cargar();
+        })();
+    </script>
+</div>

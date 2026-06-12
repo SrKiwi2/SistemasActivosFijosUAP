@@ -9,15 +9,19 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.service.DbfColaService;
 
 
 @Service
@@ -27,6 +31,13 @@ public class RespDbfWriterService {
 
     @Value("${legacy.dbf.path:/mnt/dbfwin}")
     private String dbfPath;
+
+    /** Modo de escritura al DBF: "cola" (vía worker VFPOLEDB, mantiene índice) o "bytes" (append crudo, legacy). */
+    @Value("${legacy.dbf.write.mode:bytes}")
+    private String writeMode;
+
+    @Autowired
+    private DbfColaService colaService;
 
     private static class CampoDbf {
         String name;
@@ -166,8 +177,15 @@ public class RespDbfWriterService {
      * Inserta un nuevo responsable en RESP.DBF
      */
     public void insertarDesdeResponsable(Responsable resp, String entidadCode, String unidadCode, String usuario) {
+        // ── Modo COLA: dejar la orden para el worker VFPOLEDB (mantiene el índice .CDX) ──
+        if ("cola".equalsIgnoreCase(writeMode)) {
+            colaService.encolarInsert("RESP", construirCamposResp(resp, entidadCode, unidadCode, usuario));
+            log.info("📤 Responsable CODRESP={} encolado para VSIAF (modo cola)", resp.getCodigoFuncionario());
+            return;
+        }
+
         log.info("⚡ Insertando Responsable CODRESP={} (Append Seguro)", resp.getCodigoFuncionario());
-        
+
         synchronized (respLock) {
             try (RandomAccessFile raf = new RandomAccessFile(getRespDbfFile(), "rw");
                  FileChannel channel = raf.getChannel();
@@ -317,6 +335,29 @@ public class RespDbfWriterService {
     }
 
     // ================= HELPER METHODS =================
+
+    /** Arma el mapa campo→valor (texto) de RESP para encolar la orden al worker VFPOLEDB. */
+    private Map<String, String> construirCamposResp(Responsable resp, String ent, String uni, String usr) {
+        String[] campos = {
+            "ENTIDAD", "UNIDAD", "CODOFIC", "CODRESP", "NOMRESP", "CARGO",
+            "OBSERV", "CI", "FEULT", "USUAR", "COD_EXP", "API_ESTADO"
+        };
+        Map<String, String> m = new LinkedHashMap<>();
+        for (String c : campos) {
+            m.put(c, formatearValor(obtenerValorCampo(c, resp, ent, uni, usr)));
+        }
+        return m;
+    }
+
+    /** Convierte un valor a texto que el worker pueda interpretar (fechas yyyy-MM-dd, lógicos 1/0). */
+    private String formatearValor(Object v) {
+        if (v == null) return "";
+        if (v instanceof java.sql.Date d) return d.toLocalDate().toString();
+        if (v instanceof java.time.LocalDate d) return d.toString();
+        if (v instanceof Boolean b) return b ? "1" : "0";
+        return v.toString().trim();
+    }
+
 
     private List<CampoDbf> leerMetadatosCampos(RandomAccessFile raf) throws IOException {
         List<CampoDbf> lista = new ArrayList<>();

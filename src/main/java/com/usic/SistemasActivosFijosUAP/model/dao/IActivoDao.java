@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.usic.SistemasActivosFijosUAP.model.dto.hardware.ActivoMantenimientoDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.DivergenciaActivoDto;
 import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
@@ -93,6 +94,19 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
 
     @Query("SELECT a.codigo FROM Activo a")
     List<String> findAllCodigos();
+
+    /**
+     * Proyección ligera para la conciliación BD↔DBF: trae solo lo necesario para
+     * comparar por código y diagnosticar, sin cargar la entidad ni sus relaciones.
+     * Excluye los ELIMINADO (baja lógica intencional, no son divergencias reales).
+     */
+    @Query("""
+            SELECT new com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.DivergenciaActivoDto(
+                a.idActivo, a.codigo, a.nombre, a.descripcion, a.estado, a.fechaUltimaSync)
+            FROM Activo a
+            WHERE a.estado <> 'ELIMINADO' AND a.codigo IS NOT NULL
+            """)
+    List<DivergenciaActivoDto> listarParaConciliacion();
 
     String GRUPO_EQUIPOS_COMPUTACION = "EQUIPOS DE COMPUTACION";
     

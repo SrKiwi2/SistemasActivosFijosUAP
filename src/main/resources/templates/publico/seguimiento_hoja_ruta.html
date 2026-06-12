@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Seguimiento de Hoja de Ruta · Activos Fijos UAP</title>
+    <link rel="icon" href="/assets/img/logo/activofijos.png" type="image/png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+    <style>
+        :root {
+            --azul:#1e3a8a; --azul-2:#1a56a0; --rojo:#b91c1c;
+            --green:#12835a; --green-lt:#e6f7ef;
+            --blue:#1d4ed8;  --blue-lt:#e7eefb;
+            --gray:#64748b;  --gray-lt:#eef1f5;
+            --border:#e4e8f0; --txt:#1a2340; --txt-sub:#5a6a8a; --txt-muted:#9aa3b8;
+        }
+        * { box-sizing:border-box; }
+        body {
+            margin:0; font-family:'Segoe UI',system-ui,sans-serif; color:var(--txt);
+            background:#f0f2f5; min-height:100vh;
+        }
+
+        /* Header */
+        .pub-header {
+            background:linear-gradient(135deg, var(--azul), var(--rojo));
+            color:#fff; padding:16px 22px; display:flex; align-items:center; gap:14px;
+            box-shadow:0 2px 10px rgba(0,0,0,.12);
+        }
+        .pub-header img { height:42px; width:auto; background:#fff; border-radius:8px; padding:3px 5px; }
+        .pub-header .ht { display:flex; flex-direction:column; line-height:1.2; }
+        .pub-header .ht b { font-size:16px; font-weight:700; letter-spacing:.3px; }
+        .pub-header .ht span { font-size:11.5px; opacity:.85; }
+        .pub-header a.back {
+            margin-left:auto; color:#fff; text-decoration:none; font-size:13px;
+            border:1px solid rgba(255,255,255,.5); padding:7px 13px; border-radius:8px;
+            display:inline-flex; align-items:center; gap:6px; transition:background .15s;
+        }
+        .pub-header a.back:hover { background:rgba(255,255,255,.16); }
+
+        .pub-container { max-width:860px; margin:0 auto; padding:28px 18px 60px; }
+
+        /* Search card */
+        .pub-card {
+            background:#fff; border:1px solid var(--border); border-radius:14px;
+            box-shadow:0 4px 18px rgba(26,86,160,.07); padding:24px 24px 22px; margin-bottom:22px;
+        }
+        .pub-title { display:flex; align-items:center; gap:10px; margin:0 0 4px; font-size:19px; font-weight:700; color:var(--azul); }
+        .pub-sub { margin:0 0 20px; color:var(--txt-sub); font-size:13.5px; }
+
+        .pub-form { display:grid; grid-template-columns:1fr 1.3fr .9fr auto; gap:12px; align-items:end; }
+        .pub-fg { display:flex; flex-direction:column; gap:5px; }
+        .pub-fg label { font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--txt-muted); }
+        .pub-fg input, .pub-fg select {
+            border:1px solid #c9d0e0; border-radius:9px; padding:11px 13px; font-size:14px;
+            background:#f8fafc; outline:none; transition:border-color .15s, box-shadow .15s; width:100%;
+        }
+        .pub-fg input:focus, .pub-fg select:focus { border-color:var(--azul-2); box-shadow:0 0 0 3px rgba(26,86,160,.12); background:#fff; }
+        .pub-btn {
+            border:none; border-radius:9px; padding:12px 20px; font-size:14px; font-weight:600;
+            background:var(--azul-2); color:#fff; cursor:pointer; display:inline-flex; align-items:center; gap:7px;
+            transition:background .15s; white-space:nowrap; height:46px;
+        }
+        .pub-btn:hover { background:#14406f; }
+        .pub-btn:disabled { opacity:.6; cursor:not-allowed; }
+
+        /* Result */
+        .pub-result { display:none; }
+        .pub-hr-head {
+            display:flex; align-items:center; flex-wrap:wrap; gap:12px 18px; padding-bottom:16px;
+            margin-bottom:18px; border-bottom:1px dashed var(--border);
+        }
+        .pub-hr-cod { font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; color:var(--azul); }
+        .pub-hr-meta { font-size:13px; color:var(--txt-sub); }
+        .pub-hr-meta b { color:var(--txt); }
+        .pub-estado {
+            margin-left:auto; font-size:12px; font-weight:700; letter-spacing:.4px; text-transform:uppercase;
+            padding:7px 14px; border-radius:100px; display:inline-flex; align-items:center; gap:6px;
+        }
+        .e-RECIBIDO  { background:var(--green-lt); color:var(--green); }
+        .e-ENVIADO   { background:var(--blue-lt);  color:var(--blue); }
+        .e-ARCHIVADO { background:var(--gray-lt);  color:var(--gray); }
+        .e-SINMOV, .e-DESCONOCIDO { background:var(--gray-lt); color:var(--txt-muted); }
+
+        /* Timeline */
+        .pub-tl-title { font-size:14px; font-weight:700; color:var(--txt); margin:0 0 16px; display:flex; align-items:center; gap:8px; }
+        .pub-tl { position:relative; padding-left:30px; }
+        .pub-tl::before { content:''; position:absolute; left:11px; top:6px; bottom:6px; width:2px; background:var(--border); }
+        .pub-ev { position:relative; padding:0 0 18px 8px; }
+        .pub-ev:last-child { padding-bottom:0; }
+        .pub-ev-dot {
+            position:absolute; left:-24px; top:3px; width:22px; height:22px; border-radius:50%;
+            border:4px solid #fff; box-shadow:0 0 0 1px var(--border);
+            display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px;
+        }
+        .d-RECIBIDO  { background:var(--green); }
+        .d-ENVIADO   { background:var(--blue); }
+        .d-ARCHIVADO { background:var(--gray); }
+        .d-DESCONOCIDO { background:var(--txt-muted); }
+        .pub-ev-card { background:#fafbfc; border:1px solid var(--border); border-radius:10px; padding:12px 15px; }
+        .pub-ev-card.actual { border-color:var(--azul-2); box-shadow:0 0 0 2px rgba(26,86,160,.12); background:#fff; }
+        .pub-ev-row1 { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:9px; }
+        .pub-ev-est { font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:3px 10px; border-radius:100px; }
+        .pub-ev-fecha { font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--txt-muted); }
+        .pub-flow { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+        .pub-flow-chip {
+            background:#eef2f8; border:1px solid var(--border); border-radius:7px; padding:4px 11px;
+            font-size:12.5px; color:var(--txt); max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+        }
+        .pub-flow-arrow { color:#c9d0e0; font-size:16px; }
+        .pub-tag-actual { font-size:9.5px; font-weight:700; color:var(--azul-2); background:rgba(26,86,160,.1); padding:2px 8px; border-radius:100px; text-transform:uppercase; margin-right:8px; }
+
+        /* States */
+        .pub-state { text-align:center; padding:34px 16px; color:var(--txt-muted); }
+        .pub-state .ico { font-size:42px; display:block; margin-bottom:8px; }
+        .pub-state.error .ico { color:var(--rojo); }
+        .pub-hint { font-size:12px; color:var(--txt-muted); margin-top:14px; display:flex; align-items:center; gap:6px; }
+
+        .pub-foot { text-align:center; color:var(--txt-muted); font-size:12px; padding:10px; }
+
+        @media (max-width:680px) {
+            .pub-form { grid-template-columns:1fr 1fr; }
+            .pub-form .pub-btn { grid-column:1 / -1; justify-content:center; }
+            .pub-header a.back span { display:none; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="pub-header">
+        <img src="/assets/img/logo/activofijos.png" alt="Activos Fijos UAP" />
+        <div class="ht">
+            <b>Seguimiento de Hoja de Ruta</b>
+            <span>Sección de Activos Fijos · Universidad Amazónica de Pando</span>
+        </div>
+        <a class="back" href="/"><i class="bi bi-arrow-left"></i><span>Volver al inicio</span></a>
+    </header>
+
+    <div class="pub-container">
+
+        <!-- Buscador -->
+        <div class="pub-card">
+            <h2 class="pub-title"><i class="bi bi-search"></i> Consultar una hoja de ruta</h2>
+            <p class="pub-sub">Ingresa el <b>tipo</b>, el <b>número</b> y la <b>gestión</b> para ver el estado y el recorrido del documento.</p>
+
+            <form class="pub-form" id="pubForm" autocomplete="off">
+                <div class="pub-fg">
+                    <label>Tipo</label>
+                    <select id="pubTipo" required>
+                        <option value="">Seleccionar</option>
+                        <option value="RECTORADO">RECTORADO</option>
+                        <option value="DAF">DAF</option>
+                        <option value="PEDIDO">PEDIDO</option>
+                    </select>
+                </div>
+                <div class="pub-fg">
+                    <label>N° Hoja de Ruta</label>
+                    <input type="text" id="pubCodigo" placeholder="Ej: 12345" required />
+                </div>
+                <div class="pub-fg">
+                    <label>Gestión</label>
+                    <input type="number" id="pubGestion" placeholder="Ej: 2025" min="2000" max="2100" required />
+                </div>
+                <button type="submit" class="pub-btn" id="pubBtn">
+                    <i class="bi bi-search"></i> Buscar
+                </button>
+            </form>
+
+            <div class="pub-hint">
+                <i class="bi bi-shield-lock"></i>
+                Esta consulta pública muestra únicamente el estado y la trayectoria del documento.
+            </div>
+        </div>
+
+        <!-- Estado inicial / vacío -->
+        <div class="pub-card" id="pubEmptyCard">
+            <div class="pub-state">
+                <span class="ico">🧭</span>
+                <div style="font-size:14px;font-weight:600;color:var(--txt-sub);">Aún no has realizado una búsqueda</div>
+                <div style="font-size:12.5px;margin-top:4px;">Completa el formulario para rastrear una hoja de ruta.</div>
+            </div>
+        </div>
+
+        <!-- Resultado -->
+        <div class="pub-card pub-result" id="pubResult">
+            <div class="pub-hr-head">
+                <span class="pub-hr-cod" id="rCodigo">—</span>
+                <span class="pub-hr-meta">Tipo: <b id="rTipo">—</b></span>
+                <span class="pub-hr-meta">Gestión: <b id="rGestion">—</b></span>
+                <span class="pub-estado" id="rEstado">—</span>
+            </div>
+            <h3 class="pub-tl-title"><i class="bi bi-signpost-split"></i> Recorrido del documento</h3>
+            <div class="pub-tl" id="rTimeline"></div>
+        </div>
+
+    </div>
+
+    <div class="pub-foot">
+        <i class="bi bi-building"></i> Dirección Administrativa Financiera — Universidad Amazónica de Pando
+    </div>
+
+    <script>
+        (function () {
+            'use strict';
+            var form    = document.getElementById('pubForm');
+            var btn     = document.getElementById('pubBtn');
+            var emptyC  = document.getElementById('pubEmptyCard');
+            var result  = document.getElementById('pubResult');
+
+            function esc(s){ return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+            function estClass(e){ return (e||'DESCONOCIDO').replace(/\s+/g,'').toUpperCase().replace('SINMOVIMIENTOS','SINMOV'); }
+            function fechaHora(f,h){
+                if(!f) return '—';
+                var hora = h ? String(h).slice(0,5) : '';
+                return hora ? (f + ' · ' + hora) : f;
+            }
+
+            function mostrarMensaje(card, esError, titulo, detalle){
+                emptyC.style.display = 'none';
+                result.style.display = 'block';
+                result.innerHTML =
+                    '<div class="pub-state ' + (esError?'error':'') + '">' +
+                    '<span class="ico">' + (esError?'⚠️':'🔍') + '</span>' +
+                    '<div style="font-size:14px;font-weight:600;color:var(--txt-sub);">' + esc(titulo) + '</div>' +
+                    '<div style="font-size:12.5px;margin-top:4px;">' + esc(detalle) + '</div></div>';
+            }
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var tipo    = document.getElementById('pubTipo').value;
+                var codigo  = document.getElementById('pubCodigo').value.trim();
+                var gestion = document.getElementById('pubGestion').value.trim();
+                if (!tipo || !codigo || !gestion) return;
+
+                btn.disabled = true;
+                btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Buscando…';
+
+                var url = '/seguimiento-hr/buscar?tipo=' + encodeURIComponent(tipo) +
+                          '&codigo=' + encodeURIComponent(codigo) +
+                          '&gestion=' + encodeURIComponent(gestion);
+
+                fetch(url)
+                    .then(function (r) { return r.json(); })
+                    .then(function (resp) {
+                        if (!resp || !resp.ok) {
+                            mostrarMensaje(result, false, 'Sin resultados',
+                                (resp && resp.msg) || 'No se encontró una hoja de ruta con esos datos.');
+                            return;
+                        }
+                        pintar(resp);
+                    })
+                    .catch(function () {
+                        mostrarMensaje(result, true, 'Error de conexión',
+                            'No fue posible consultar en este momento. Intenta nuevamente.');
+                    })
+                    .finally(function () {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-search"></i> Buscar';
+                    });
+            });
+
+            function pintar(resp) {
+                var hr   = resp.hojaRuta || {};
+                var movs = resp.movimientos || [];
+                emptyC.style.display = 'none';
+
+                var estadoAct = hr.estadoActual || 'SIN MOVIMIENTOS';
+                var timeline;
+                if (!movs.length) {
+                    timeline = '<div class="pub-state"><span class="ico">📭</span>' +
+                        '<div style="font-size:13px;">Esta hoja de ruta no tiene movimientos registrados.</div></div>';
+                } else {
+                    timeline = movs.map(function (m, i) {
+                        var est = (m.estado || 'DESCONOCIDO');
+                        var cls = estClass(est);
+                        var actual = (i === 0);
+                        return '<div class="pub-ev">' +
+                            '<div class="pub-ev-dot d-' + esc(cls) + '"><i class="bi bi-dot"></i></div>' +
+                            '<div class="pub-ev-card ' + (actual ? 'actual' : '') + '">' +
+                                '<div class="pub-ev-row1">' +
+                                    '<span class="pub-ev-est e-' + esc(cls) + '">' + esc(est) + '</span>' +
+                                    '<span>' + (actual ? '<span class="pub-tag-actual">actual</span>' : '') +
+                                        '<span class="pub-ev-fecha">' + esc(fechaHora(m.fecha, m.hora)) + '</span></span>' +
+                                '</div>' +
+                                '<div class="pub-flow">' +
+                                    '<span class="pub-flow-chip" title="' + esc(m.origen) + '">' + esc(m.origen || '—') + '</span>' +
+                                    '<span class="pub-flow-arrow"><i class="bi bi-arrow-right"></i></span>' +
+                                    '<span class="pub-flow-chip" title="' + esc(m.destino) + '">' + esc(m.destino || '—') + '</span>' +
+                                '</div>' +
+                            '</div></div>';
+                    }).join('');
+                }
+
+                result.style.display = 'block';
+                result.innerHTML =
+                    '<div class="pub-hr-head">' +
+                        '<span class="pub-hr-cod">' + esc(hr.codigo) + '</span>' +
+                        '<span class="pub-hr-meta">Tipo: <b>' + esc(hr.tipo) + '</b></span>' +
+                        '<span class="pub-hr-meta">Gestión: <b>' + esc(hr.gestion) + '</b></span>' +
+                        '<span class="pub-estado e-' + esc(estClass(estadoAct)) + '"><i class="bi bi-geo-alt-fill"></i> ' + esc(estadoAct) + '</span>' +
+                    '</div>' +
+                    '<h3 class="pub-tl-title"><i class="bi bi-signpost-split"></i> Recorrido del documento</h3>' +
+                    '<div class="pub-tl">' + timeline + '</div>';
+            }
+        })();
+    </script>
+</body>
+</html>

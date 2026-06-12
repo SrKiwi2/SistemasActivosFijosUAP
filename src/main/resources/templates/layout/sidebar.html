@@ -417,13 +417,35 @@
         </a>
     </div>
 
-    <ul class="menu-inner py-1">
+    <!--
+        ════════════════════════════════════════════════════════════════════
+        MATRIZ DE ROLES (mismo mecanismo de siempre: session.nombre_rol).
+        Se calcula una sola vez con th:with para no repetir la condición.
 
-        <li class="menu-header small text-uppercase" th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
-            <span class="menu-header-text">Administración</span>
+          · ADMINISTRADOR  → ve TODO.
+          · SUPER USUARIO  → todo lo de Activos Fijos (NO "Administración del
+                             Sistema": cuentas, roles, personas).
+          · APOYO          → solo "Seguimiento y Consultas" + "Reportes".
+          · RECEPCION      → no usa este sidebar (se redirige a otra vista).
+
+        verActivos  = ADMIN o SUPER USUARIO   (operativo de activos)
+        verConsulta = ADMIN o SUPER USUARIO o APOYO   (consulta / seguimiento)
+        ════════════════════════════════════════════════════════════════════
+    -->
+    <ul class="menu-inner py-1"
+        th:with="rol=${session.nombre_rol},
+                 esAdmin=${rol == 'ADMINISTRADOR'},
+                 esEncargada=${rol == 'SUPER USUARIO'},
+                 esApoyo=${rol == 'APOYO'},
+                 verActivos=${esAdmin or esEncargada},
+                 verConsulta=${esAdmin or esEncargada or esApoyo}">
+
+        <!-- ══════════════ 1 · ADMINISTRACIÓN DEL SISTEMA (solo ADMIN) ══════════════ -->
+        <li class="menu-header small text-uppercase" th:if="${esAdmin}">
+            <span class="menu-header-text">Administración del Sistema</span>
         </li>
 
-        <li class="menu-item" id="opcion_admin" th:if="${session.nombre_rol == 'ADMINISTRADOR'}">
+        <li class="menu-item" id="opcion_admin" th:if="${esAdmin}">
             <a href="#" class="menu-link menu-toggle">
                 <span class="sm-gi gi-purple menu-icon"><i class="ti ti-users-group"></i></span>
                 <div>Usuarios y Accesos</div>
@@ -456,12 +478,12 @@
             </ul>
         </li>
 
-        <li class="menu-header small text-uppercase "
-            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+        <!-- ══════════════ 2 · CATÁLOGOS (ADMIN + SUPER USUARIO) ══════════════ -->
+        <li class="menu-header small text-uppercase" th:if="${verActivos}">
             <span class="menu-header-text">Catálogos</span>
         </li>
 
-        <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+        <li class="menu-item" th:if="${verActivos}">
             <a href="#" class="menu-link menu-toggle">
                 <span class="sm-gi gi-teal menu-icon"><i class="ti ti-adjustments-horizontal"></i></span>
                 <div>Clasificación Contable</div>
@@ -494,7 +516,7 @@
             </ul>
         </li>
 
-        <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+        <li class="menu-item" th:if="${verActivos}">
             <a href="#" class="menu-link menu-toggle">
                 <span class="sm-gi gi-blue menu-icon"><i class="ti ti-map-2"></i></span>
                 <div>Ámbito Geográfico</div>
@@ -527,12 +549,12 @@
             </ul>
         </li>
 
-        <li class="menu-header small text-uppercase"
-            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
-            <span class="menu-header-text">Gestión de Activos</span>
+        <!-- ══════════════ 3 · OPERACIONES DE ACTIVOS (ADMIN + SUPER USUARIO) ══════════════ -->
+        <li class="menu-header small text-uppercase" th:if="${verActivos}">
+            <span class="menu-header-text">Operaciones de Activos</span>
         </li>
 
-        <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+        <li class="menu-item" th:if="${verActivos}">
             <a href="#" class="menu-link menu-toggle">
                 <span class="sm-gi gi-green menu-icon"><i class="ti ti-packages"></i></span>
                 <div>Administración de Activos</div>
@@ -554,13 +576,7 @@
             </ul>
         </li>
 
-        <li class="menu-header small text-uppercase"
-            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'APOYO'}">
-            <span class="menu-header-text">Gestion</span>
-        </li>
-
-        <li class="menu-item"
-            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO' or session.nombre_rol == 'APOYO'}">
+        <li class="menu-item" th:if="${verActivos}">
             <a href="#" class="menu-link menu-toggle">
                 <span class="sm-gi gi-green menu-icon"><i class="ti ti-arrows-exchange"></i></span>
                 <div>Transferencia de Activos</div>
@@ -587,11 +603,10 @@
             </ul>
         </li>
 
-        <li class="menu-item"
-            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO' or session.nombre_rol == 'APOYO'}">
+        <li class="menu-item" th:if="${verActivos}">
             <a href="#" class="menu-link menu-toggle">
-                <span class="sm-gi gi-blue menu-icon"><i class="ti ti-history"></i></span>
-                <div>Asignacion de activos</div>
+                <span class="sm-gi gi-blue menu-icon"><i class="ti ti-clipboard-plus"></i></span>
+                <div>Asignación de Activos</div>
             </a>
             <ul class="menu-sub">
                 <li class="menu-item" id="opcion_ActivoAj">
@@ -603,12 +618,32 @@
             </ul>
         </li>
 
-        <li class="menu-header small text-uppercase"
-            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'APOYO'}">
-            <span class="menu-header-text">Seguimiento</span>
+        <!-- ══════════════ 4 · HOJAS DE RUTA (ADMIN + SUPER USUARIO) ══════════════ -->
+        <li class="menu-header small text-uppercase" th:if="${verActivos}">
+            <span class="menu-header-text">Hojas de Ruta</span>
         </li>
 
-        <li class="menu-item" th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'APOYO'}">
+        <li class="menu-item" th:if="${verActivos}">
+            <a href="#" class="menu-link menu-toggle">
+                <span class="sm-gi gi-orange menu-icon"><i class="ti ti-file-description"></i></span>
+                <div>Hojas de Ruta</div>
+            </a>
+            <ul class="menu-sub">
+                <li class="menu-item" id="opcion_hr_seguimiento">
+                    <a class="menu-link">
+                        <span class="sm-si si-blue"><i class="ti ti-zoom-check"></i></span>
+                        <div>Búsqueda y Seguimiento</div>
+                    </a>
+                </li>
+            </ul>
+        </li>
+
+        <!-- ══════════════ 5 · SEGUIMIENTO Y CONSULTAS (ADMIN + SUPER USUARIO + APOYO) ══════════════ -->
+        <li class="menu-header small text-uppercase" th:if="${verConsulta}">
+            <span class="menu-header-text">Seguimiento y Consultas</span>
+        </li>
+
+        <li class="menu-item" th:if="${verConsulta}">
             <a href="#" class="menu-link menu-toggle">
                 <span class="sm-gi gi-orange menu-icon"><i class="ti ti-route"></i></span>
                 <div>Movimientos</div>
@@ -641,13 +676,7 @@
             </ul>
         </li>
 
-        <li class="menu-header small text-uppercase"
-            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'APOYO'}">
-            <span class="menu-header-text">Mas Herramientas</span>
-        </li>
-
-        <li class="menu-item"
-            th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO' or session.nombre_rol == 'APOYO'}">
+        <li class="menu-item" th:if="${verConsulta}">
             <a href="#" class="menu-link menu-toggle">
                 <span class="sm-gi gi-blue menu-icon"><i class="ti ti-history"></i></span>
                 <div>Historial</div>
@@ -657,6 +686,46 @@
                     <a class="menu-link">
                         <span class="sm-si si-blue"><i class="ti ti-timeline"></i></span>
                         <div>Historial Activo</div>
+                    </a>
+                </li>
+            </ul>
+        </li>
+
+        <!-- ══════════════ 6 · REPORTES Y CONSULTAS (ADMIN + SUPER USUARIO + APOYO) ══════════════
+             Vista unificada: una sola "Consulta de Activos" con filtros
+             (texto, código, predio→oficina, responsable, fecha) + exportación a
+             Excel, que cubre buscar/por-oficina/por-responsable/por-predio y los
+             reportes. Reusa el endpoint server-side /administracion/activo/datatables. -->
+        <li class="menu-header small text-uppercase" th:if="${verConsulta}">
+            <span class="menu-header-text">Reportes y Consultas</span>
+        </li>
+
+        <li class="menu-item" th:if="${verConsulta}">
+            <a href="#" class="menu-link menu-toggle">
+                <span class="sm-gi gi-blue menu-icon"><i class="ti ti-zoom-scan"></i></span>
+                <div>Consulta de Activos</div>
+            </a>
+            <ul class="menu-sub">
+                <li class="menu-item" id="opcion_consulta_activo">
+                    <a class="menu-link">
+                        <span class="sm-si si-blue"><i class="ti ti-search"></i></span>
+                        <div>Buscar / Filtrar Activos</div>
+                    </a>
+                </li>
+            </ul>
+        </li>
+
+        <!-- Conciliación BD ↔ VSIAF (divergencias). Solo ADMIN / SUPER USUARIO. -->
+        <li class="menu-item" th:if="${verActivos}">
+            <a href="#" class="menu-link menu-toggle">
+                <span class="sm-gi gi-blue menu-icon"><i class="ti ti-git-compare"></i></span>
+                <div>Conciliación VSIAF</div>
+            </a>
+            <ul class="menu-sub">
+                <li class="menu-item" id="opcion_conciliacion">
+                    <a class="menu-link">
+                        <span class="sm-si si-blue"><i class="ti ti-arrows-diff"></i></span>
+                        <div>BD ↔ VSIAF (divergencias)</div>
                     </a>
                 </li>
             </ul>

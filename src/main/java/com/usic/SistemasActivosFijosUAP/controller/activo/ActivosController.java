@@ -147,12 +147,14 @@ public class ActivosController {
         String codigo = params.get("codigo");
         String responsableId = params.get("responsable");
         String oficinaId = params.get("oficina");
+        String predioId = params.get("predio");
+        String usuario = params.get("usuario");
         String fecha = params.get("fecha");
 
         PageRequest pageRequest = PageRequest.of(start / length, length);
 
         Page<Activo> pagina = activoService.buscarConFiltros(
-                searchValue, codigo, responsableId, oficinaId, fecha, pageRequest);
+                searchValue, codigo, responsableId, oficinaId, predioId, usuario, fecha, pageRequest);
 
         List<ActivoDTO> activosDTO = pagina.getContent().stream().map(activo -> {
             ActivoDTO dto = new ActivoDTO();

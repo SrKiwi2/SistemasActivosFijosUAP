@@ -23,6 +23,13 @@
                 </div>
 
                 <ul class="navbar-nav flex-row align-items-center ms-auto">
+                    <li class="nav-item me-2">
+                        <a class="nav-link d-flex align-items-center" href="/seguimiento-hr"
+                            title="Seguimiento público de Hojas de Ruta">
+                            <i class="ti ti-route me-2"></i>
+                            <span class="d-none d-md-inline-block">Seguimiento H.R.</span>
+                        </a>
+                    </li>
                     <li class="nav-item" th:if="${session.persona == null}">
                         <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modalLogin">
                             <i class="ti ti-login me-2"></i> Iniciar sesión
@@ -165,8 +172,8 @@
                     
                     <div class="mb-4">
                         <img src="../../assets/img/logo/logoUap.png" alt="Logo UAP" height="65" class="mb-3" />
-                        <h4 class="fw-bold text-dark mb-1">SAYOVE <span class="text-primary">2.0</span></h4>
-                        <p class="text-muted small">Portal de Gestión de Activos</p>
+                        <h4 class="fw-bold text-dark mb-1">S<span class="text-primary">CIAF</span></h4>
+                        <p class="text-muted small">Sistema de Control Interno de Activos Fijos</p>
                     </div>
 
                     <div id="loginAlert" class="alert alert-danger small text-start py-2 px-3 mb-4" style="display: none; border-radius: 8px;">
@@ -239,31 +246,52 @@
         <div class="layout-container">
             <div class="container">
                 <div class="content-wrapper">
-                    <div class="card animated-card position-relative p-0 mb-4 overflow-hidden shadow-sm border-0"
-                        style="min-height: 200px; border-radius: 14px; background: linear-gradient(135deg, rgba(30,58,138,0.06), rgba(185,28,28,0.06));">
+                    <div class="card hero-institucional animated-card position-relative p-0 mb-4 overflow-hidden border-0">
+
+                        <!-- Barra de acento institucional -->
+                        <span class="hero-accent-bar" aria-hidden="true"></span>
+
+                        <!-- Decoración de fondo (no interactiva) -->
+                        <span class="hero-grid" aria-hidden="true"></span>
+                        <span class="hero-blob hero-blob--blue" aria-hidden="true"></span>
+                        <span class="hero-blob hero-blob--red" aria-hidden="true"></span>
 
                         <!-- Logos (desktop) -->
-                        <div class="position-absolute top-0 start-0 p-4 d-none d-sm-block">
-                            <img src="../../assets/img/logo/activofijos.png" alt="UAP" height="90" class="logo-hover" />
+                        <div class="position-absolute top-0 start-0 p-4 d-none d-sm-block hero-logo-side">
+                            <img src="../../assets/img/logo/activofijos.png" alt="Activos Fijos UAP" height="90"
+                                class="logo-hover" />
                         </div>
-                        <div class="position-absolute top-0 end-0 p-4 d-none d-sm-block">
+                        <div class="position-absolute top-0 end-0 p-4 d-none d-sm-block hero-logo-side">
                             <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="100" class="logo-hover" />
                         </div>
 
                         <!-- Contenido central -->
                         <div
-                            class="card-body d-flex flex-column justify-content-center align-items-center text-center py-5 px-3">
+                            class="card-body hero-body d-flex flex-column justify-content-center align-items-center text-center py-5 px-3">
                             <!-- Logos en móvil -->
                             <div class="d-block d-sm-none text-center pb-3">
-                                <img src="../../assets/img/logo/activofijos.png" alt="UAP" height="60"
+                                <img src="../../assets/img/logo/activofijos.png" alt="Activos Fijos UAP" height="60"
                                     class="logo-hover mx-1" />
                                 <img src="../../assets/img/logo/logoUap.png" alt="UAP" height="65"
                                     class="logo-hover mx-1" />
                             </div>
-                            <!-- Nombre del sistema dinámico -->
-                            <h1 class="titulo-sistema mb-2 text-uppercase">
-                                SAYOVE <span class="version">2.0</span>
+                            <!-- Acrónimo institucional: cada letra entra en cascada -->
+                            <h1 class="hero-acronimo mb-1" aria-label="SCIAF">
+                                <span class="ha-letter">S</span><span class="ha-letter">C</span><span
+                                    class="ha-letter">I</span><span class="ha-letter">A</span><span
+                                    class="ha-letter ha-letter--red">F</span>
                             </h1>
+
+                            <span class="hero-divider" aria-hidden="true"></span>
+
+                            <!-- Significado del acrónimo con iniciales resaltadas -->
+                            <p class="hero-significado mb-2">
+                                <span class="hs-ini">S</span>istema de
+                                <span class="hs-ini">C</span>ontrol
+                                <span class="hs-ini">I</span>nterno de
+                                <span class="hs-ini">A</span>ctivos
+                                <span class="hs-ini hs-ini--red">F</span>ijos
+                            </p>
 
                             <p class="slogan mb-0 fst-italic d-sm-block">
                                 Escribiendo una nueva historia con vos...
@@ -430,7 +458,7 @@
                         </div>
                     </div>
                     <div class="container-fluid mt-5 px-0">
-                        <div id="informacionActivosFijos"></div>
+                        <div th:replace="~{publico/informacion :: contenidoInformacion}"></div>
                     </div>
 
                     <footer th:replace="~{layout/footer :: footer}"></footer>
@@ -1478,7 +1506,6 @@
             </div>
         </div>
     </div>
-    <script src="https://unpkg.com/html5-qrcode"></script>
     <div th:replace="~{layout/script_publico :: script_publico}"></div>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" />

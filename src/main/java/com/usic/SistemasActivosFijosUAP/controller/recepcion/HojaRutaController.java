@@ -67,6 +67,21 @@ public class HojaRutaController {
         return "hojaRuta/vista";
     }
 
+    /**
+     * Vista de SEGUIMIENTO (solo lectura) para ADMINISTRADOR y SUPER USUARIO.
+     * Se carga como fragmento dentro del SPA (#contenido). Reutiliza los
+     * endpoints /listar y /buscar para mostrar la tabla y la línea de tiempo
+     * de movimientos. El control de rol se hace en la plantilla con
+     * session.nombre_rol (mismo mecanismo que el sidebar), evitando redirigir
+     * a una página inexistente dentro del contenedor AJAX.
+     */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/seguimiento")
+    public String seguimiento(Model model) {
+        model.addAttribute("listaUnidades", unidadService.findAll());
+        return "hojaRuta/seguimiento";
+    }
+
     @PostMapping("/listar")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> listar(
