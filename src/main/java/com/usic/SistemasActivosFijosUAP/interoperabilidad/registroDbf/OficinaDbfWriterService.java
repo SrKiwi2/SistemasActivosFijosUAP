@@ -355,7 +355,7 @@ public class OficinaDbfWriterService {
 
     /** Arma el mapa campo→valor (crudo) de OFICINA para encolar la orden al worker VFPOLEDB. */
     private Map<String, Object> construirCamposOficina(Oficina o, String ent, String uni, String usr) {
-        String[] campos = { "ENTIDAD", "UNIDAD", "CODOFIC", "NOMOFIC", "FEULT", "USUAR", "API_ESTADO" };
+        String[] campos = { "ENTIDAD", "UNIDAD", "CODOFIC", "NOMOFIC", "OBSERV", "FEULT", "USUAR", "API_ESTADO" };
         Map<String, Object> m = new LinkedHashMap<>();
         for (String c : campos) {
             m.put(c, obtenerValorCampo(c, o, ent, uni, usr));

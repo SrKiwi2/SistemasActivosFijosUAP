@@ -429,7 +429,7 @@ public class ActualDbfWriterService {
             "ENTIDAD", "UNIDAD", "CODIGO", "CODIGOSEC", "DESCRIP", "CODCONT", "CODAUX", "CODOFIC", "CODRESP",
             "VIDAUTIL", "COSTO", "DEPACU", "DIA", "MES", "ANO", "B_REV", "BAND_UFV", "USUAR", "USU_MOD",
             "BANDERAS", "NRO_CONV", "COD_RUBE", "ORG_FIN", "FEULT", "FEC_MOD", "CODESTADO", "API_ESTADO",
-            "DIA_ANT", "MES_ANT", "ANO_ANT", "VUT_ANT", "COSTO_ANT"
+            "DIA_ANT", "MES_ANT", "ANO_ANT", "VUT_ANT", "COSTO_ANT", "OBSERV"
         };
         Map<String, Object> m = new LinkedHashMap<>();
         for (String c : campos) {

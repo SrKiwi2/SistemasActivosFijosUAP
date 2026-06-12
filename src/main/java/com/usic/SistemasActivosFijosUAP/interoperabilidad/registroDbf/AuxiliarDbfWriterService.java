@@ -450,6 +450,7 @@ public class AuxiliarDbfWriterService {
         m.put("CODCONT", codcont);
         m.put("CODAUX", aux.getCodAux());
         m.put("NOMAUX", aux.getNombre());
+        m.put("OBSERV", "");
         m.put("FEULT", java.sql.Date.valueOf(LocalDate.now()));
         m.put("USUAR", usr != null ? usr : "SISTEMA");
         return m;
