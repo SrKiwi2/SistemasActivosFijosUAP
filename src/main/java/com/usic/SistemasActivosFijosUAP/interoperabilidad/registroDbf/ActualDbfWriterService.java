@@ -176,6 +176,12 @@ public class ActualDbfWriterService {
             return;
         }
 
+        // Modo BYTES (legacy): chequear existencia para no duplicar (el controller ya no lo hace)
+        if (existsByCodigo(a.getCodigo())) {
+            log.warn("Activo {} ya existe en ACTUAL.DBF — omitido (bytes).", a.getCodigo());
+            return;
+        }
+
         log.info("Iniciando inserción de activo {} en ACTUAL.DBF", a.getCodigo());
 
         synchronized (actualLock) {

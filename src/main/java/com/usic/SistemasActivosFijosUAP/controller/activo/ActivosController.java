@@ -1508,11 +1508,8 @@ public class ActivosController {
             String entidadCode = a.getOficina().getPredio().getEntidad().getEntidadCodigo();
             String unidadCode = a.getOficina().getPredio().getUnidad();
 
-           if (actualDbfWriterService.existsByCodigo(a.getCodigo())) {
-                log.warn("El activo {} ya existe en DBF. Se asume sincronizado.", a.getCodigo());
-            } else {
-                actualDbfWriterService.insertarDesdeActivo(a, entidadCode, unidadCode, usuarioNombre);
-            }
+            // El worker inserta solo si no existe (chequeo por índice); sin escaneo del DBF.
+            actualDbfWriterService.insertarDesdeActivo(a, entidadCode, unidadCode, usuarioNombre);
 
             a.setEstado("ACTIVO");
             a.setApiEstado(Short.valueOf("1"));
@@ -1564,57 +1561,26 @@ public class ActivosController {
                     entidadCode = predio.getEntidad().getEntidadCodigo();
                 }
     
-                // ── Sincronizar Oficina ──────────────────────────────────────────
+                // ── Sincronizar Oficina (el worker inserta solo si no existe; sin escaneo DBF) ──
                 Oficina oficina = a.getOficina();
                 Short codOfic = oficina.getCodOfi();
-    
                 if (codOfic != null) {
-                    boolean existeOficinaDbf = oficinaDbfWriterService.existsByCodOfic(
-                            codOfic, entidadCode, unidadCode);
-    
-                    if (!existeOficinaDbf || (oficina.getApiEstado() != null && oficina.getApiEstado() == 1)) {
-                        oficina.setApiEstado(Short.valueOf("1"));
-                        if (!existeOficinaDbf) {
-                            log.info("[APROBAR] Insertando Oficina codOfi={} unidad={} en DBF",
-                                    codOfic, unidadCode);
-                            oficinaDbfWriterService.insertarDesdeOficina(
-                                    oficina, entidadCode, unidadCode, usuarioNombre);
-                        }
-                        oficinaService.save(oficina);
-                    }
+                    oficina.setApiEstado(Short.valueOf("1"));
+                    oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
+                    oficinaService.save(oficina);
                 }
-    
-                // ── Sincronizar Responsable ──────────────────────────────────────
+
+                // ── Sincronizar Responsable (el worker inserta solo si no existe; sin escaneo DBF) ──
                 Responsable resp = a.getResponsable();
-                if (resp != null && resp.getCodigoFuncionario() != null) {
-                    String onlyDigits = resp.getCodigoFuncionario().replaceAll("\\D+", "");
-                    if (!onlyDigits.isEmpty()) {
-                        Integer codResp = Integer.valueOf(onlyDigits);
-    
-                        boolean existeRespDbf = respDbfWriterService.existsByCodResp(
-                                codResp, codOfic, entidadCode, unidadCode);
-    
-                        if (!existeRespDbf || (resp.getApiEstado() != null && resp.getApiEstado() == 1)) {
-                            resp.setApiEstado(Short.valueOf("1"));
-                            if (!existeRespDbf) {
-                                log.info("[APROBAR] Insertando Responsable codResp={} unidad={} en DBF",
-                                        codResp, unidadCode);
-                                respDbfWriterService.insertarDesdeResponsable(
-                                        resp, entidadCode, unidadCode, usuarioNombre);
-                            }
-                            
-                            responsableService.save(resp);
-                        }
-                    }
+                if (resp != null && resp.getCodigoFuncionario() != null
+                        && !resp.getCodigoFuncionario().replaceAll("\\D+", "").isEmpty()) {
+                    resp.setApiEstado(Short.valueOf("1"));
+                    respDbfWriterService.insertarDesdeResponsable(resp, entidadCode, unidadCode, usuarioNombre);
+                    responsableService.save(resp);
                 }
-    
-                // ── Sincronizar Activo ───────────────────────────────────────────
-                if (!actualDbfWriterService.existsByCodigo(a.getCodigo())) {
-                    actualDbfWriterService.insertarDesdeActivo(
-                            a, entidadCode, unidadCode, usuarioNombre);
-                } else {
-                    log.warn("[APROBAR] Activo {} ya existía en ACTUAL.DBF — omitido.", a.getCodigo());
-                }
+
+                // ── Sincronizar Activo (el worker inserta solo si no existe; sin escaneo DBF) ──
+                actualDbfWriterService.insertarDesdeActivo(a, entidadCode, unidadCode, usuarioNombre);
     
                 a.setEstado("ACTIVO");
                 a.setApiEstado(Short.valueOf("1"));

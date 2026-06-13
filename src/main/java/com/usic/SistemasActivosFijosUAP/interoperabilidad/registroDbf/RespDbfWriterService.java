@@ -184,6 +184,17 @@ public class RespDbfWriterService {
             return;
         }
 
+        // Modo BYTES (legacy): chequear existencia para no duplicar (el controller ya no lo hace)
+        try {
+            String dig = resp.getCodigoFuncionario() != null ? resp.getCodigoFuncionario().replaceAll("\\D+", "") : "";
+            Short codOfic = (resp.getOficina() != null) ? resp.getOficina().getCodOfi() : null;
+            if (!dig.isEmpty() && codOfic != null
+                    && existsByCodResp(Integer.valueOf(dig), codOfic, entidadCode, unidadCode)) {
+                log.warn("Responsable CODRESP={} ya existe en RESP.DBF — omitido (bytes).", resp.getCodigoFuncionario());
+                return;
+            }
+        } catch (Exception ignored) { }
+
         log.info("⚡ Insertando Responsable CODRESP={} (Append Seguro)", resp.getCodigoFuncionario());
 
         synchronized (respLock) {

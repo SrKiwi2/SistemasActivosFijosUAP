@@ -52,6 +52,14 @@ $NUM  = @(2,3,4,5,6,14,16,17,18,19,20,21,131,139)   # enteros, decimales, numeri
 $DATE = @(7,133,135)                                 # fecha / datetime
 $BOOL = @(11)                                        # logico
 
+# Columnas clave por tabla (para "insertar solo si no existe", chequeo por indice .CDX)
+$CLAVES = @{
+    "RESP"     = @("ENTIDAD","UNIDAD","CODOFIC","CODRESP")
+    "OFICINA"  = @("ENTIDAD","UNIDAD","CODOFIC")
+    "ACTUAL"   = @("CODIGO")
+    "AUXILIAR" = @("ENTIDAD","UNIDAD","CODCONT","CODAUX")
+}
+
 function Format-Valor($raw, $adType) {
     $s = if ($null -eq $raw) { "" } else { [string]$raw }
     if ($NUM -contains $adType) {
@@ -93,6 +101,25 @@ function Procesar-Orden($conn, $archivo, $schemaCache) {
     foreach ($prop in $json.campos.PSObject.Properties) { $provistos[$prop.Name.ToUpper()] = $prop.Value }
 
     if ($op -eq "INSERT") {
+        # "Insertar solo si no existe": chequeo rapido por clave usando el indice .CDX
+        # (SELECT COUNT con WHERE indexado = instantaneo). Reemplaza el escaneo lento
+        # que hacia el SCIAF sobre CIFS.
+        $keyCols = $CLAVES[$tabla]
+        if ($keyCols) {
+            $kw = @()
+            foreach ($kc in $keyCols) {
+                if ($provistos.ContainsKey($kc) -and $schema.ContainsKey($kc)) {
+                    $kw += ("$kc = " + (Format-Valor $provistos[$kc] $schema[$kc]))
+                }
+            }
+            if ($kw.Count -eq $keyCols.Count) {
+                $rsc = $conn.Execute("SELECT COUNT(*) FROM $tabla WHERE " + ($kw -join " AND "))
+                $existe = (-not $rsc.EOF) -and ([int]$rsc.Fields.Item(0).Value -gt 0)
+                $rsc.Close()
+                if ($existe) { return "OMITIDO (ya existe en $tabla)" }
+            }
+        }
+
         # Insertamos TODAS las columnas: valor provisto o default por tipo (texto vacio /
         # 0 / fecha vacia / .F.). Asi nunca falla por un campo obligatorio que no se mando.
         $cols = @(); $vals = @()

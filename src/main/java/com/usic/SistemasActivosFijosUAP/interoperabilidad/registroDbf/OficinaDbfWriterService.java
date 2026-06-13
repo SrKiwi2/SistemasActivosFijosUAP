@@ -184,6 +184,12 @@ public class OficinaDbfWriterService {
             return;
         }
 
+        // Modo BYTES (legacy): chequear existencia para no duplicar (el controller ya no lo hace)
+        if (oficina.getCodOfi() != null && existsByCodOfic(oficina.getCodOfi(), entidadCode, unidadCode)) {
+            log.warn("Oficina {} ya existe en OFICINA.DBF — omitida (bytes).", oficina.getCodOfi());
+            return;
+        }
+
         log.info("⚡ Insertando oficina {} (Append Seguro)", oficina.getCodOfi());
 
         synchronized (oficinaLock) {
