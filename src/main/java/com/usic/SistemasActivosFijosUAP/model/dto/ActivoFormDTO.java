@@ -20,6 +20,7 @@ public class ActivoFormDTO {
     private Long auxiliarId;
     private String auxiliarNombre; 
     private Long oficinaId;
+    private String oficinaNombre;
     private Long responsableId;
     private String responsableNombre;
     private Long organismoFinancieroId;

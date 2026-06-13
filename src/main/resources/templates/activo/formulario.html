@@ -1604,8 +1604,11 @@
                 $resp.val(null).trigger('change').prop('disabled', true);
 
                 if (predId) {
-                    cargarSelect('/api/buscar_oficinas', { predioId: predId }, $oficina, 'Seleccione Oficina');
+                    // Guardamos el promise de carga para que fillFromDTO pueda esperarlo (evita race condition)
+                    $oficina.data('loadPromise',
+                        cargarSelect('/api/buscar_oficinas', { predioId: predId }, $oficina, 'Seleccione Oficina'));
                 } else {
+                    $oficina.removeData('loadPromise');
                     $oficina.empty().append('<option value="">(Seleccione Predio)</option>').prop('disabled', true);
                 }
                 actualizarCodigoPreviewSingle();
@@ -2741,12 +2744,20 @@
 
                 if (d.predioId) {
                     $root.find('#predioCode').val(String(d.predioId)).trigger('change');
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    // Esperar la carga REAL de oficinas de ese predio (no un timeout fijo) para evitar
+                    // que la oficina no quede seleccionada por una race condition.
+                    const lp = $root.find('#oficinaId').data('loadPromise');
+                    if (lp) { try { await lp; } catch (e) { } }
                 }
 
                 if (d.oficinaId) {
-                    $root.find('#oficinaId').val(String(d.oficinaId)).trigger('change');
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    const $ofi = $root.find('#oficinaId');
+                    // Si la opción no vino en la lista cargada, la agregamos para no perder la selección.
+                    if ($ofi.find(`option[value="${d.oficinaId}"]`).length === 0) {
+                        $ofi.append(new Option(d.oficinaNombre || d.oficina || '(Oficina)', d.oficinaId, true, true));
+                    }
+                    $ofi.val(String(d.oficinaId)).trigger('change');
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
 
                 if (d.grupoContableId) {

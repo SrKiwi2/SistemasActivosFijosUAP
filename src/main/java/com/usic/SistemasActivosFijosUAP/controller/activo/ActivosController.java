@@ -1690,6 +1690,7 @@ public class ActivosController {
 
         if (a.getOficina() != null) {
             dto.setOficinaId(a.getOficina().getIdOficina());
+            dto.setOficinaNombre(a.getOficina().getNombre());
             if (a.getOficina().getPredio() != null) {
                 dto.setPredioId(a.getOficina().getPredio().getIdPredio());
                 if (a.getOficina().getPredio().getMunicipio() != null) {
