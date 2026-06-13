@@ -1482,6 +1482,10 @@
 
             $single.hide();
             $batch.hide();
+            // batchFecha es 'required' pero pertenece SOLO al registro masivo. Si queda
+            // habilitado en otros modos, bloquea checkValidity() del form (la edición no
+            // guardaba "sin hacer nada"). Lo deshabilitamos fuera del modo masivo.
+            $root.find('#batchFecha').prop('disabled', true);
 
             $btnRegistrar.prop('disabled', false);
             $btnModificar.prop('disabled', true);
@@ -1490,6 +1494,7 @@
 
             if (modo === 'NEW_BATCH') {
                 $batch.show();
+                $root.find('#batchFecha').prop('disabled', false);   // requerido solo en registro masivo
                 $lbl.text('REGISTRO MASIVO').attr('class', 'badge bg-primary');
                 $btnSubmit.text('Guardar Lote').show();
                 $btnCancelar.prop('disabled', false);
@@ -2475,7 +2480,16 @@
                 if (uiState.modo === 'NEW_BATCH') guardarMasivo();
                 else if (uiState.modo === 'EDIT_SINGLE') {
                     if (this.checkValidity()) guardarSingle(this);
-                    else { e.stopPropagation(); this.classList.add('was-validated'); }
+                    else {
+                        e.stopPropagation();
+                        this.classList.add('was-validated');
+                        // No fallar en silencio: avisar qué campo es inválido y enfocarlo.
+                        const inv = this.querySelector(':invalid');
+                        if (inv) {
+                            if (window.Swal) Swal.fire('Faltan datos', 'Revisa el campo: ' + (inv.name || inv.id || 'desconocido'), 'warning');
+                            inv.focus();
+                        }
+                    }
                 }
             });
 
