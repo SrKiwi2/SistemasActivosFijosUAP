@@ -93,21 +93,6 @@ public class ResponsableController {
         int page = Math.max(start, 0) / Math.max(size, 1);
         Pageable pageable = PageRequest.of(page, size);
         Page<IResposableDao.ResponsableRow> p = responsableService.datatable(search, oficinaId, pageable);
-        Set<String> clavesDbf = new HashSet<>();
-        try {
-            var filasDbf = dbfService.listarResponsableAll(null);
-            for(var f : filasDbf) {
-                String k = generarClaveUnica(
-                    f.getEntidadCodigo(), 
-                    f.getUnidad(), 
-                    f.getCodOfi(), 
-                    (f.getCodResp() != null ? f.getCodResp() : "0")
-                );
-                clavesDbf.add(k);
-            }
-        } catch (Exception e) {
-            log.error("Error leyendo RESP.DBF para comparación", e);
-        }
 
         List<Map<String, Object>> data = new ArrayList<>(p.getNumberOfElements());
 
@@ -115,14 +100,10 @@ public class ResponsableController {
             String idEnc = "";
             try { idEnc = Encriptar.encrypt(String.valueOf(row.getIdResponsable())); } catch (Exception e) {}
 
-            String claveBd = generarClaveUnica(
-                row.getEntidadCodigo(), 
-                row.getUnidadCodigo(), 
-                row.getCodOfi(), 
-                row.getCodFun()
-            );
-
-            boolean enDbf = clavesDbf.contains(claveBd);
+            // "No en DBF" = registro nuevo aún pendiente de sincronizar (apiEstado 1 ó 3).
+            // Ya NO se lee RESP.DBF por CIFS en cada página; el cruce real vive en Conciliación.
+            Short api = row.getApiEstado();
+            boolean enDbf = !(api != null && (api == 1 || api == 3));
 
             Map<String, Object> m = new HashMap<>();
             m.put("idEnc", idEnc);

@@ -2,8 +2,11 @@ package com.usic.SistemasActivosFijosUAP.model.service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
@@ -53,6 +56,14 @@ public class ActivoSyncService {
     private static final int CHUNK_SIZE  = 1_000; // emitir progreso cada N filas
     private static final int BATCH_SAVE  = 500;   // guardar en BD cada N registros
 
+    /**
+     * Último conteo conocido de registros en ACTUAL.DBF (en memoria).
+     * Permite el sync INCREMENTAL: procesar solo la "cola" de registros nuevos
+     * (los DBF se agregan al final) en vez de releer los 30.000 en cada cambio.
+     * -1 = aún no se hizo ningún sync (la primera vez se hace completo).
+     */
+    private volatile int lastDbfCount = -1;
+
     @Transactional
     public ResponseEntity<?> syncFromMounted(String q, boolean forzarCompleto) {
         long inicio = System.currentTimeMillis();
@@ -60,7 +71,36 @@ public class ActivoSyncService {
         try {
             List<ActivoDbf> filas = dbfService.listarActualAll(q);
             int totalFilas = filas.size();
-            log.info("ACTUAL.DBF — {} registros a procesar", totalFilas);
+
+            // ── Decisión INCREMENTAL ──────────────────────────────────────────────
+            // Los DBF agregan registros nuevos al final. Si el conteo creció, procesamos
+            // solo la "cola" (lo nuevo). Si es igual, fue una edición in-place → la toma el
+            // sync completo periódico (no recargamos 30.000). Si bajó o se fuerza → completo.
+            List<ActivoDbf> filasAProcesar = filas;
+            boolean incremental = false;
+
+            if (!forzarCompleto && lastDbfCount >= 0) {
+                if (totalFilas == lastDbfCount) {
+                    lastDbfCount = totalFilas;
+                    long dur = System.currentTimeMillis() - inicio;
+                    log.info("ACTUAL.DBF — sin registros nuevos ({}). Incremental omitido en {}ms", totalFilas, dur);
+                    syncControlService.registrarSincronizacion("activo", SyncResult.builder()
+                        .totalLeidas(totalFilas).insertados(0).actualizados(0).omitidos(totalFilas)
+                        .duracionMs(dur).build());
+                    return ResponseEntity.ok(Map.of("ok", true, "totalLeidas", totalFilas,
+                        "insertados", 0, "actualizados", 0, "omitidos", totalFilas,
+                        "duracionMs", dur, "mensaje", "Sin cambios nuevos"));
+                } else if (totalFilas > lastDbfCount) {
+                    filasAProcesar = filas.subList(lastDbfCount, totalFilas);
+                    incremental = true;
+                    log.info("ACTUAL.DBF — incremental: {} nuevos (de {} a {})",
+                        filasAProcesar.size(), lastDbfCount, totalFilas);
+                }
+                // totalFilas < lastDbfCount (pack/borrados) → cae al sync completo
+            }
+            if (!incremental) {
+                log.info("ACTUAL.DBF — sync COMPLETO: {} registros a procesar", totalFilas);
+            }
 
             // Caches con JPQL que hace JOIN FETCH (no lazy)
             Map<String, Oficina>             oficinasMap     = cargarOficinasCache();
@@ -69,7 +109,11 @@ public class ActivoSyncService {
             Map<String, Auxiliar>            auxiliaresCache   = cargarAuxiliaresCache();
             Map<String, OrganismoFinanciero> organismoCache    = cargarOrganismosCache();
             Map<Short, EstadoActivo>         estadosMap     = cache.estadosActivo();
-            Map<String, Activo>              activosCache      = cargarActivosCache();
+            // En incremental, la caché de activos se carga SOLO para los códigos de la cola
+            // (no los 30.000): ese era el costo dominante del sync.
+            Map<String, Activo>              activosCache      = incremental
+                ? cargarActivosCache(codigosDe(filasAProcesar))
+                : cargarActivosCache();
 
             EstadoActivo estadoPorDefecto = estadosMap.values().stream()
                 .findFirst().orElse(null);
@@ -80,20 +124,21 @@ public class ActivoSyncService {
 
             List<Activo> batch = new ArrayList<>(BATCH_SAVE);
 
-            for (ActivoDbf f : filas) {
+            int totalAProcesar = filasAProcesar.size();
+            for (ActivoDbf f : filasAProcesar) {
                 procesados++;
 
                 if (procesados % CHUNK_SIZE == 0) {
-                    int pct = (int) ((procesados / (double) totalFilas) * 100);
+                    int pct = (int) ((procesados / (double) totalAProcesar) * 100);
                     sseRegistry.broadcast("sync-progreso", Map.of(
                         "tabla",        "activo",
                         "procesados",   procesados,
-                        "total",        totalFilas,
+                        "total",        totalAProcesar,
                         "porcentaje",   pct,
                         "insertados",   inserted,
                         "actualizados", updated
                     ));
-                    log.info("ACTUAL.DBF — progreso: {}/{} ({}%)", procesados, totalFilas, pct);
+                    log.info("ACTUAL.DBF — progreso: {}/{} ({}%)", procesados, totalAProcesar, pct);
                 }
 
                 if (f.getCodigo() == null || f.getCodigo().isBlank()) {
@@ -261,6 +306,9 @@ public class ActivoSyncService {
                 batch.clear();
             }
 
+            // Recordar el conteo para el próximo ciclo incremental
+            lastDbfCount = totalFilas;
+
             long duracion = System.currentTimeMillis() - inicio;
 
             SyncResult resultado = SyncResult.builder()
@@ -379,5 +427,29 @@ public class ActivoSyncService {
         return activos.stream().collect(Collectors.toMap(
             Activo::getCodigo, a -> a, (a, b) -> a
         ));
+    }
+
+    /** Carga en cache SOLO los activos de los códigos indicados (para el sync incremental). */
+    @Transactional(readOnly = true)
+    public Map<String, Activo> cargarActivosCache(Collection<String> codigos) {
+        if (codigos == null || codigos.isEmpty()) return new java.util.HashMap<>();
+        List<Activo> activos = entityManager.createQuery(
+            "SELECT a FROM Activo a WHERE a.estado <> 'ELIMINADO' AND a.codigo IN :codigos",
+            Activo.class)
+            .setParameter("codigos", codigos)
+            .getResultList();
+
+        return activos.stream().collect(Collectors.toMap(
+            Activo::getCodigo, a -> a, (a, b) -> a
+        ));
+    }
+
+    /** Conjunto de códigos (trim, no vacíos) de una lista de filas del DBF. */
+    private Set<String> codigosDe(List<ActivoDbf> filas) {
+        Set<String> set = new HashSet<>();
+        for (ActivoDbf f : filas) {
+            if (f.getCodigo() != null && !f.getCodigo().isBlank()) set.add(f.getCodigo().trim());
+        }
+        return set;
     }
 }

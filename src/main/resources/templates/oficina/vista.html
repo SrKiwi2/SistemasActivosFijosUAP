@@ -12,6 +12,9 @@
     $(document).ready(function () {
         cargarTabla();
 
+        // Auto-refresco por SSE: si el VSIAF cambia y se sincroniza, recargar esta tabla sola.
+        if (window.registrarTablaSse) window.registrarTablaSse('oficina', function () { cargarTabla(); });
+
         // Inicializar tooltips
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         tooltipTriggerList.map(function (tooltipTriggerEl) {
@@ -57,12 +60,12 @@
     }
 
     function cargarTabla(q) {
-        showGlobalLoader({
-            imgUrl: '/assets/img/logo/activofijos.png',
-            axis: 'y',
-            speed: 1.2,
-            texto: 'Cargando...'
-        });
+        // Loader DENTRO de la tabla (no el preload global que bloquea toda la pantalla / el tecleo)
+        $("#tablaRegistro").html(
+            '<div class="text-center text-muted py-5">' +
+            '<div class="spinner-border text-primary" role="status"></div>' +
+            '<div class="mt-2">Cargando oficinas…</div></div>'
+        );
 
         $.ajax({
             type: 'POST',
@@ -73,8 +76,7 @@
             },
             error: function (xhr) {
                 $("#tablaRegistro").html(`<div class="alert alert-danger m-3">Error cargando tabla</div>`);
-            },
-            complete: hideGlobalLoader
+            }
         });
     }
 

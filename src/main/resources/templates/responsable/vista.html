@@ -116,6 +116,12 @@
 
         initDataTable();
 
+        // Auto-refresco por SSE: si el VSIAF cambia y se sincroniza, recargar esta tabla sola
+        // (sin perder la página/filtros actuales).
+        if (window.registrarTablaSse) window.registrarTablaSse('responsable', function () {
+            if ($.fn.DataTable.isDataTable('#data-table')) $('#data-table').DataTable().ajax.reload(null, false);
+        });
+
         $('#filtroOficina').on('change', function () {
             $('#data-table').DataTable().ajax.reload();
         });

@@ -145,6 +145,12 @@
                 );
             }
 
+            // Registro de refresco por módulo: cada vista de tabla registra CÓMO refrescarse.
+            // El SSE llama al refresco correcto sin depender de la URL (clave en este SPA).
+            window.registrarTablaSse = function (tabla, refrescarFn) {
+                window.__tablaSse = { tabla: tabla, refrescar: refrescarFn };
+            };
+
             function manejarCambioDbf(data) {
                 const { tabla, estado, mensaje, datos, recargarTabla } = data;
 
@@ -193,13 +199,24 @@
                     `
                 });
 
-                if (recargarTabla && estaViendoTabla(tabla)) {
-                    setTimeout(() => {
-                        if (typeof cargarTabla === 'function') {
-                            console.log('[SSE] Auto-recargando tabla:', tabla);
+                if (recargarTabla) {
+                    // Robusto: el módulo que estás viendo registró su propio refresco (no depende de la URL).
+                    if (window.__tablaSse && window.__tablaSse.tabla === tabla
+                            && typeof window.__tablaSse.refrescar === 'function') {
+                        setTimeout(() => {
+                            try {
+                                window.__tablaSse.refrescar();
+                                console.log('[SSE] Tabla actualizada (registro):', tabla);
+                            } catch (e) { console.warn('[SSE] No se pudo refrescar', tabla, e); }
+                        }, 800);
+                    }
+                    // Fallback: módulos viejos que exponen cargarTabla y cambian la URL.
+                    else if (estaViendoTabla(tabla) && typeof cargarTabla === 'function') {
+                        setTimeout(() => {
+                            console.log('[SSE] Auto-recargando tabla (fallback):', tabla);
                             cargarTabla();
-                        }
-                    }, 1500);
+                        }, 1500);
+                    }
                 }
 
                 if (typeof actualizarInfoSync === 'function') actualizarInfoSync();
