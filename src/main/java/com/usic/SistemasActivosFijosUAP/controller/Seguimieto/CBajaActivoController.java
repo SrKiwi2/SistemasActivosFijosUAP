@@ -27,6 +27,13 @@ public class CBajaActivoController {
         return "/seguimiento/baja/vista";
     }
 
+    // Vista dedicada del módulo: registro de baja (con informe adjunto) + seguimiento.
+    @ValidarUsuarioAutenticado
+    @GetMapping("/modulo")
+    public String moduloBajas() {
+        return "operaciones/baja/modulo";
+    }
+
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla")
     public String tablaBajas(Model model) {

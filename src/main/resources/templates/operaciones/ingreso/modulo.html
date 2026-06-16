@@ -1,0 +1,332 @@
+<!-- ============================================================
+     MÓDULO: INGRESO DE ACTIVOS AJENOS
+     Vista dedicada (fragmento inyectado en #contenido vía AJAX).
+     Registro de bienes ajenos (datos del activo + foto por activo +
+     datos del custodio/propietario + nota del inmediato superior) con
+     vigencia de 3 meses + seguimiento con galería (reusa la vista de
+     seguimiento de ingresos).
+     Backend:
+       POST /ingreso/registrar           (registro + PDF)
+       POST /api/uap/obtenerDatos         (validación de funcionarios)
+       GET  /api/ingresos                 (listado, vía vista incluida)
+============================================================= -->
+
+<div class="container-fluid px-0 mb-2">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <h4 class="mb-0">
+            <span class="text-muted fw-light">Operaciones de Activos /</span> Ingreso de Bienes Ajenos
+        </h4>
+        <button class="btn btn-success" id="btnAbrirRegistroIngreso">
+            <i class="bx bx-box me-1"></i> Registrar ingreso
+        </button>
+    </div>
+</div>
+
+<!-- ===== Seguimiento (lista + detalle + galería) reutilizado ===== -->
+<div th:insert="~{seguimiento/ingreso/vista}"></div>
+
+<!-- ===================== MODAL: REGISTRAR INGRESO ===================== -->
+<div class="modal fade" id="modalRegistrarIngreso" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <form id="formRegIngreso" autocomplete="off" enctype="multipart/form-data" class="w-100">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold"><i class="bx bx-box me-2"></i>Registrar ingreso de bien ajeno</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+
+                    <input type="hidden" name="unidadIncorpora" id="ing-unidad">
+                    <input type="hidden" name="nombreIdentificacion" value="LIC. VERONICA LAYME CORI">
+                    <input type="hidden" name="cargoIdentificacion" value="RESPONSABLE DE ACTIVOS FIJOS">
+                    <input type="hidden" name="unidadIdentificacion" value="SECCIÓN DE ACTIVOS FIJOS">
+
+                    <!-- Fechas -->
+                    <fieldset class="border rounded-3 p-3 mb-3">
+                        <legend class="w-auto px-2 fs-6 fw-semibold text-primary"><i class="bx bx-calendar me-1"></i> Periodo de vigencia (3 meses)</legend>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small">Fecha de incorporación <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" name="fechaIncorporacion" id="ing-fecha-inc" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small">Fecha de retiro (automática)</label>
+                                <input type="date" class="form-control" name="fechaRetiro" id="ing-fecha-ret" readonly>
+                                <div class="form-text">Se calcula sumando 3 meses a la incorporación.</div>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- Custodio / propietario -->
+                    <fieldset class="border rounded-3 p-3 mb-3">
+                        <legend class="w-auto px-2 fs-6 fw-semibold text-success"><i class="bx bx-user me-1"></i> Custodio (propietario del bien)</legend>
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-5">
+                                <label class="form-label fw-semibold small">Código funcionario <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="codigoFuncionarioPropietario" id="ing-prop-cod" placeholder="Ej: 12345" required>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label fw-semibold small">C.I. <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="ciPropietario" id="ing-prop-ci" placeholder="Ej: 9876543" required>
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="button" class="btn btn-outline-success" id="ing-prop-verificar"><i class="bx bx-search me-1"></i>Verificar</button>
+                            </div>
+                        </div>
+                        <div id="ing-prop-info" class="alert alert-success mt-3 mb-0 py-2 d-none small"></div>
+                    </fieldset>
+
+                    <!-- Inmediato superior / autorizador -->
+                    <fieldset class="border rounded-3 p-3 mb-3">
+                        <legend class="w-auto px-2 fs-6 fw-semibold text-info"><i class="bx bx-user-check me-1"></i> Inmediato superior (autoriza)</legend>
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-5">
+                                <label class="form-label fw-semibold small">Código funcionario <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="codigoFuncionarioAutorizador" id="ing-auto-cod" placeholder="Ej: 54321" required>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label fw-semibold small">C.I. <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="ciAutorizador" id="ing-auto-ci" placeholder="Ej: 1234567" required>
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="button" class="btn btn-outline-info" id="ing-auto-verificar"><i class="bx bx-search me-1"></i>Verificar</button>
+                            </div>
+                        </div>
+                        <div id="ing-auto-info" class="alert alert-info mt-3 mb-0 py-2 d-none small"></div>
+                    </fieldset>
+
+                    <!-- Nota del superior -->
+                    <fieldset class="border rounded-3 p-3 mb-3">
+                        <legend class="w-auto px-2 fs-6 fw-semibold text-warning"><i class="bx bx-paperclip me-1"></i> Nota de autorización</legend>
+                        <label class="form-label fw-semibold small">Nota del inmediato superior (PDF o imagen) <span class="text-danger">*</span></label>
+                        <input type="file" class="form-control" name="notaSuperior" id="ing-nota" accept=".pdf,.png,.jpg,.jpeg,.webp" required>
+                        <div class="form-text">Documento que habilita y autoriza el ingreso del bien ajeno.</div>
+                    </fieldset>
+
+                    <!-- Activos -->
+                    <fieldset class="border rounded-3 p-3">
+                        <legend class="w-auto px-2 fs-6 fw-semibold text-danger d-flex align-items-center gap-2">
+                            <span><i class="bx bx-package me-1"></i> Bienes a registrar</span>
+                            <span class="badge bg-primary" id="ing-badge">0</span>
+                        </legend>
+                        <div id="ing-activos-container"></div>
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="ing-add-activo">
+                            <i class="bx bx-plus me-1"></i> Añadir bien
+                        </button>
+                    </fieldset>
+
+                    <div id="ing-form-alert" class="alert alert-danger mt-3 d-none"></div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bx bx-x me-1"></i>Cancelar</button>
+                    <button type="submit" class="btn btn-success" id="ing-btn-guardar">
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="ing-spinner"></span>
+                        <i class="bx bx-check-circle me-1"></i> Registrar ingreso
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===================== MODAL: PDF ===================== -->
+<div class="modal fade" id="modalPdfIngreso" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="bx bxs-file-pdf me-2"></i>Comprobante de ingreso</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <iframe id="ing-iframe-pdf" style="width:100%;height:600px;border:none"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plantilla de fila de activo -->
+<template id="ing-activo-template">
+    <div class="ing-activo-row card border mb-2">
+        <div class="card-body py-3 position-relative">
+            <button type="button" class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-2 ing-remove" title="Quitar">
+                <i class="bx bx-trash"></i>
+            </button>
+            <div class="row g-2">
+                <div class="col-md-8">
+                    <label class="form-label small fw-semibold mb-1">Descripción <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm" name="descripcionActivo[]" required
+                           placeholder="Ej: Laptop Lenovo ThinkPad T14" oninput="this.value=this.value.toUpperCase()">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold mb-1">Estado <span class="text-danger">*</span></label>
+                    <select class="form-select form-select-sm" name="estadoActivoAjeno[]" required>
+                        <option value="" selected disabled>Seleccione...</option>
+                        <option value="BUENO">BUENO</option>
+                        <option value="REGULAR">REGULAR</option>
+                        <option value="MALO">MALO</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold mb-1">Marca</label>
+                    <input type="text" class="form-control form-control-sm" name="marca[]" placeholder="Ej: Lenovo">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold mb-1">Modelo</label>
+                    <input type="text" class="form-control form-control-sm" name="modelo[]" placeholder="Ej: T14">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold mb-1">N° de serie</label>
+                    <input type="text" class="form-control form-control-sm" name="serie[]" placeholder="Ej: PF-2X9...">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold mb-1">Cantidad</label>
+                    <input type="number" min="1" value="1" class="form-control form-control-sm" name="cantidad[]">
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label small fw-semibold mb-1">Fotografía del bien</label>
+                    <input type="file" class="form-control form-control-sm ing-foto" name="fotoActivo" accept="image/*">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <img class="ing-foto-preview rounded border d-none" style="max-height:48px" alt="preview">
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+    (function () {
+        'use strict';
+
+        const formEl = document.getElementById('formRegIngreso');
+        const cont = document.getElementById('ing-activos-container');
+        const tpl = document.getElementById('ing-activo-template');
+
+        let propVerificado = false;
+
+        function takePersonaShape(p) {
+            if (!p) return {};
+            if (p.data && typeof p.data === 'object') return p.data;
+            if (p.persona && typeof p.persona === 'object') return p.persona;
+            return p;
+        }
+        const nv = v => (v === null || v === undefined || (typeof v === 'string' && v.trim() === '')) ? 'N/A' : String(v).trim();
+
+        // ---------- Fila de activo ----------
+        function actualizarBadge() {
+            document.getElementById('ing-badge').textContent = cont.querySelectorAll('.ing-activo-row').length;
+        }
+        function agregarFila() {
+            cont.appendChild(tpl.content.cloneNode(true));
+            actualizarBadge();
+        }
+        cont.addEventListener('click', e => {
+            const btn = e.target.closest('.ing-remove');
+            if (!btn) return;
+            const filas = cont.querySelectorAll('.ing-activo-row');
+            if (filas.length > 1) { btn.closest('.ing-activo-row').remove(); }
+            else { if (window.Swal) Swal.fire({ icon: 'info', title: 'Debe registrar al menos un bien', timer: 1600, showConfirmButton: false }); }
+            actualizarBadge();
+        });
+        cont.addEventListener('change', e => {
+            if (!e.target.classList.contains('ing-foto')) return;
+            const prev = e.target.closest('.ing-activo-row').querySelector('.ing-foto-preview');
+            const f = e.target.files && e.target.files[0];
+            if (f) { prev.src = URL.createObjectURL(f); prev.classList.remove('d-none'); }
+            else { prev.classList.add('d-none'); }
+        });
+        document.getElementById('ing-add-activo').addEventListener('click', agregarFila);
+
+        // ---------- Fecha retiro +3 meses ----------
+        document.getElementById('ing-fecha-inc').addEventListener('change', function () {
+            const ini = new Date(this.value);
+            const out = document.getElementById('ing-fecha-ret');
+            if (isNaN(ini.getTime())) { out.value = ''; return; }
+            const fin = new Date(ini);
+            fin.setMonth(fin.getMonth() + 3);
+            if (ini.getDate() !== fin.getDate()) fin.setDate(0);
+            out.value = fin.toISOString().slice(0, 10);
+        });
+
+        // ---------- Verificación de funcionarios ----------
+        function verificar(codId, ciId, infoId, esPropietario) {
+            const codigo = (document.getElementById(codId).value || '').trim();
+            const ci = (document.getElementById(ciId).value || '').trim();
+            const $info = $('#' + infoId);
+            if (!codigo || !ci) {
+                $info.removeClass('d-none alert-success alert-info').addClass('alert-warning').text('Ingresa código y C.I. antes de verificar.');
+                return;
+            }
+            $info.removeClass('d-none alert-warning').text('Verificando...');
+            fetch('/api/uap/obtenerDatos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ usuario: codigo, contrasena: ci })
+            })
+                .then(r => { if (!r.ok) throw new Error('No se encontró el funcionario.'); return r.json(); })
+                .then(j => {
+                    const d = takePersonaShape(j);
+                    const nombre = `${nv(d.per_nombres)} ${nv(d.per_ap_paterno)} ${nv(d.per_ap_materno)}`;
+                    const ofi = nv(d.eo_descripcion), cargo = nv(d.p_descripcion);
+                    $info.html(`<i class="bx bx-check-circle"></i> <strong>${nombre}</strong> — ${cargo} · ${ofi}`);
+                    if (esPropietario) {
+                        document.getElementById('ing-unidad').value = (d.eo_descripcion || '').trim();
+                        propVerificado = true;
+                    }
+                })
+                .catch(err => {
+                    $info.removeClass('alert-success alert-info').addClass('d-block').text(err.message);
+                    if (esPropietario) propVerificado = false;
+                });
+        }
+        document.getElementById('ing-prop-verificar').addEventListener('click', () => verificar('ing-prop-cod', 'ing-prop-ci', 'ing-prop-info', true));
+        document.getElementById('ing-auto-verificar').addEventListener('click', () => verificar('ing-auto-cod', 'ing-auto-ci', 'ing-auto-info', false));
+        // Si cambian el propietario, se invalida la verificación.
+        ['ing-prop-cod', 'ing-prop-ci'].forEach(id => document.getElementById(id).addEventListener('input', () => { propVerificado = false; }));
+
+        // ---------- Abrir modal ----------
+        document.getElementById('btnAbrirRegistroIngreso').addEventListener('click', function () {
+            formEl.reset();
+            cont.innerHTML = '';
+            agregarFila();
+            propVerificado = false;
+            $('#ing-prop-info,#ing-auto-info').addClass('d-none').text('');
+            $('#ing-form-alert').addClass('d-none').text('');
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalRegistrarIngreso')).show();
+        });
+
+        // ---------- Submit ----------
+        $('#formRegIngreso').on('submit', function (e) {
+            e.preventDefault();
+            $('#ing-form-alert').addClass('d-none').text('');
+
+            if (!formEl.checkValidity()) { formEl.reportValidity(); return; }
+            if (!propVerificado || !document.getElementById('ing-unidad').value) {
+                $('#ing-form-alert').removeClass('d-none').text('Verifica el custodio (propietario) antes de registrar — se necesita su unidad.');
+                return;
+            }
+
+            const $btn = $('#ing-btn-guardar');
+            $btn.prop('disabled', true);
+            $('#ing-spinner').removeClass('d-none');
+
+            fetch('/ingreso/registrar', { method: 'POST', body: new FormData(formEl) })
+                .then(async r => {
+                    if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error(t || 'No se pudo registrar el ingreso.'); }
+                    return r.blob();
+                })
+                .then(blob => {
+                    bootstrap.Modal.getInstance(document.getElementById('modalRegistrarIngreso'))?.hide();
+                    document.getElementById('ing-iframe-pdf').src = URL.createObjectURL(blob);
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPdfIngreso')).show();
+                    if (window.Swal) Swal.fire({ icon: 'success', title: 'Ingreso registrado', timer: 2000, showConfirmButton: false });
+                    if (typeof window.iaBuscar === 'function') window.iaBuscar();
+                })
+                .catch(err => { $('#ing-form-alert').removeClass('d-none').text(err.message); })
+                .finally(() => { $btn.prop('disabled', false); $('#ing-spinner').addClass('d-none'); });
+        });
+
+        // init: una fila por defecto
+        agregarFila();
+    })();
+</script>

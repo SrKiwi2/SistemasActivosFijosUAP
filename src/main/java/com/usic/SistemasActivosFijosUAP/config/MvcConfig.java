@@ -25,6 +25,11 @@ public class MvcConfig implements WebMvcConfigurer{
         public void addResourceHandlers(ResourceHandlerRegistry registry) {
             registry.addResourceHandler("/pdfs/activos-ajenos/**")
                     .addResourceLocations("file:pdfs/activos-ajenos/");
+
+            // Adjuntos subidos por los módulos de baja e ingreso de bienes ajenos
+            // (informe de hardware, nota del inmediato superior, fotos de activos).
+            registry.addResourceHandler("/uploads/**")
+                    .addResourceLocations("file:uploads/");
         }
     }
 

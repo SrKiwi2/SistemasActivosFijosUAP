@@ -2,6 +2,7 @@ package com.usic.SistemasActivosFijosUAP.model.entity;
 
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -37,4 +38,12 @@ public class BajaActivo extends AuditoriaConfig{
     
     private String causa;
     private String descripcion;
+
+    // Informe de evaluación emitido por la unidad de hardware (adjunto).
+    // Se guarda la URL pública relativa (/uploads/baja/informes/...) y el nombre original.
+    @Column(name = "informe_path", length = 512)
+    private String informePath;
+
+    @Column(name = "informe_nombre", length = 255)
+    private String informeNombre;
 }

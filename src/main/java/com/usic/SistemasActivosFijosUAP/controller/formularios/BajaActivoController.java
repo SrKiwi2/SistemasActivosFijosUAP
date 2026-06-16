@@ -19,11 +19,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IBajaActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IEstadoActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGeneroService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IMunicipioService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
@@ -34,6 +36,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.BajaActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
+import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Genero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Municipio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
@@ -42,6 +45,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesResponsableRepo;
+import com.usic.SistemasActivosFijosUAP.model.service.ArchivoStorageService;
 import com.usic.SistemasActivosFijosUAP.model.service.PdfBajaActivoService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,21 +70,43 @@ public class BajaActivoController {
 
     private final PdfBajaActivoService pdfBajaActivoService;
     private final FuncionesResponsableRepo funcionesResponsableRepo;
-    
+
+    private final IEstadoActivoService estadoActivoService;
+    private final ArchivoStorageService archivoStorageService;
+
     @PostMapping("/registro")
     public ResponseEntity<byte[]> registroBajasActivo(
         @RequestParam String fechaBaja,
         @RequestParam String numeroDocumento,
-        @RequestParam String codigoFuncionarioBaja,
-        @RequestParam String ciFuncionarioBaja,
+        @RequestParam(required = false) String codigoFuncionarioBaja,
+        @RequestParam(required = false) String ciFuncionarioBaja,
         @RequestParam String codigoActivoBaja,
         @RequestParam String causa,
-        @RequestParam String descripcionBaja, HttpServletRequest request
+        @RequestParam(required = false) String descripcionBaja,
+        @RequestParam(value = "informe", required = false) MultipartFile informe,
+        HttpServletRequest request
         ) throws Exception{
         try{
             Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-            Responsable responsbaleBaja = obtenerORegistrarResponsable(codigoFuncionarioBaja, ciFuncionarioBaja);
+
             Activo activoBaja = activoService.buscarPorCodigo(codigoActivoBaja);
+            if (activoBaja == null) {
+                throw new RuntimeException("No se encontró el activo con código: " + codigoActivoBaja);
+            }
+
+            // Responsable: se usa el responsable actual del activo. Si el activo no tiene uno
+            // y se proporcionó código de funcionario, se resuelve contra la API institucional.
+            Responsable responsbaleBaja = activoBaja.getResponsable();
+            if (responsbaleBaja == null && codigoFuncionarioBaja != null && !codigoFuncionarioBaja.isBlank()) {
+                responsbaleBaja = obtenerORegistrarResponsable(codigoFuncionarioBaja, ciFuncionarioBaja);
+            }
+            if (responsbaleBaja == null) {
+                throw new RuntimeException("El activo no tiene responsable asignado. Ingrese el código de funcionario responsable.");
+            }
+
+            // Adjuntar el informe emitido por la unidad de hardware (opcional a nivel servidor).
+            String informePath = archivoStorageService.guardar(informe, "baja/informes", "informe_" + codigoActivoBaja);
+
             byte[] pdfBytes = pdfBajaActivoService.generarPDfBajaActivo(
                 fechaBaja,
                 numeroDocumento,
@@ -95,17 +121,36 @@ public class BajaActivoController {
             headers1.setContentDisposition(ContentDisposition.inline().filename("baja_activo_"+ fechaBaja +".pdf").build());
             headers1.setContentLength(pdfBytes.length);
 
-            Activo activo = activoService.buscarPorCodigo(codigoActivoBaja);
-            
             BajaActivo bajaActivo = new BajaActivo();
-            bajaActivo.setActivo(activo);
+            bajaActivo.setActivo(activoBaja);
             bajaActivo.setHr(numeroDocumento);
             bajaActivo.setResponsable(responsbaleBaja);
+            bajaActivo.setCausa(causa);
             bajaActivo.setDescripcion(descripcionBaja);
             bajaActivo.setFechaBaja(fechaBaja);
             bajaActivo.setEstado("A");
-            bajaActivo.setRegistroIdUsuario(usuario.getIdUsuario());
+            if (informePath != null) {
+                bajaActivo.setInformePath(informePath);
+                bajaActivo.setInformeNombre(informe.getOriginalFilename());
+            }
+            if (usuario != null) {
+                bajaActivo.setRegistroIdUsuario(usuario.getIdUsuario());
+            }
             bajaActivoService.save(bajaActivo);
+
+            // Cambiar el estado del activo a BAJA en PostgreSQL (no se escribe al VSIAF por ahora).
+            EstadoActivo estadoBaja = estadoActivoService.buscarPorCodigo("BAJA");
+            if (estadoBaja == null) {
+                estadoBaja = new EstadoActivo();
+                estadoBaja.setCodigo("BAJA");
+                estadoBaja.setNombre("BAJA DEFINITIVA");
+                estadoBaja.setEstado("ACTIVO");
+                estadoBaja.setRegistroIdUsuario(usuario != null ? usuario.getIdUsuario() : 1L);
+                estadoBaja = estadoActivoService.save(estadoBaja);
+            }
+            activoBaja.setEstadoActivo(estadoBaja);
+            activoBaja.setEstado("BAJA");
+            activoService.save(activoBaja);
 
             return new ResponseEntity<>(pdfBytes, headers1, HttpStatus.OK);
         }catch (Exception ex) {

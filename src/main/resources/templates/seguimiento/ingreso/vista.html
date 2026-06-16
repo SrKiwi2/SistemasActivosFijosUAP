@@ -1104,7 +1104,7 @@
                 <div class="ia-info-lbl">Autorizador</div>
                 <div class="ia-info-val">${x(ing.responsableAutorizador || '—')}</div>
             </div>
-            ${ing.documentoReferencia ? `<div class="ia-info-item"><div class="ia-info-lbl">Doc. referencia</div><div class="ia-info-val mono">${x(ing.documentoReferencia)}</div></div>` : ''}
+            ${ing.notaPath ? `<div class="ia-info-item"><div class="ia-info-lbl">Nota del superior</div><div class="ia-info-val"><a href="${x(ing.notaPath)}" target="_blank" style="color:var(--teal);font-weight:600;">📄 Ver documento</a></div></div>` : ''}
             ${ing.observacion ? `<div class="ia-info-item" style="grid-column:1/-1"><div class="ia-info-lbl">Observación</div><div class="ia-info-val">${x(ing.observacion)}</div></div>` : ''}
         </div>
 

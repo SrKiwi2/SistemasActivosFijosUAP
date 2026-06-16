@@ -1,5 +1,6 @@
 package com.usic.SistemasActivosFijosUAP.controller.formularios;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
@@ -45,6 +47,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesResponsableRepo;
+import com.usic.SistemasActivosFijosUAP.model.service.ArchivoStorageService;
 import com.usic.SistemasActivosFijosUAP.model.service.PdfIngresoActivoAjenoService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -68,27 +71,35 @@ public class IngresoActivosAjenosController {
 
     private final FuncionesResponsableRepo funcionesResponsableRepo;
 
+    private final ArchivoStorageService archivoStorageService;
+
     @PostMapping("/registrar")
     @Transactional(rollbackFor = Exception.class)
     public ResponseEntity<byte[]> ingresoActivosAjenos(
         @RequestParam String fechaIncorporacion,
-        @RequestParam String fechaRetiro,
+        @RequestParam(required = false) String fechaRetiro,
         @RequestParam List<String> descripcionActivo,
         @RequestParam List<String> estadoActivoAjeno,
+        @RequestParam(required = false) List<String> marca,
+        @RequestParam(required = false) List<String> modelo,
+        @RequestParam(required = false) List<String> serie,
+        @RequestParam(required = false) List<String> cantidad,
+        @RequestParam(value = "fotoActivo", required = false) List<MultipartFile> fotoActivo,
+        @RequestParam(value = "notaSuperior", required = false) MultipartFile notaSuperior,
         @RequestParam String unidadIncorpora,
         @RequestParam String codigoFuncionarioPropietario,
         @RequestParam String ciPropietario,
         @RequestParam String codigoFuncionarioAutorizador,
         @RequestParam String ciAutorizador,
-        @RequestParam String nombreIdentificacion,
-        @RequestParam String cargoIdentificacion,
-        @RequestParam String unidadIdentificacion, HttpServletRequest request){
-        
+        @RequestParam(required = false) String nombreIdentificacion,
+        @RequestParam(required = false) String cargoIdentificacion,
+        @RequestParam(required = false) String unidadIdentificacion, HttpServletRequest request){
+
         try{
             final Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
             final Responsable responsablePropietario = obtenerORegistrarResponsable(codigoFuncionarioPropietario, ciPropietario);
             final Responsable responsableAutorizador = obtenerORegistrarResponsable(codigoFuncionarioAutorizador, ciAutorizador);
-            
+
             final Oficina oficinaIncorpora = oficinaService.buscarPorNombre(unidadIncorpora)
                 .orElseThrow(() ->
                     new ResponseStatusException(
@@ -96,13 +107,26 @@ public class IngresoActivosAjenosController {
                         "No se encontró la oficina/unidad: " + unidadIncorpora
                     )
                 );
-            
+
+            // El periodo de vigencia es de 3 meses: si no llega la fecha de retiro, se calcula.
+            String fechaFin = fechaRetiro;
+            if (fechaFin == null || fechaFin.isBlank()) {
+                fechaFin = LocalDate.parse(fechaIncorporacion).plusMonths(3).toString();
+            }
+
+            // Nota del inmediato superior que autoriza el ingreso (una por ingreso).
+            String notaPath = archivoStorageService.guardar(notaSuperior, "ajenos/notas", "nota_" + codigoFuncionarioPropietario);
+
             Ingreso ingresoActivoAjeno = new Ingreso();
             ingresoActivoAjeno.setResponsablePropietario(responsablePropietario);
             ingresoActivoAjeno.setResponsableAutoriza(responsableAutorizador);
             ingresoActivoAjeno.setOficinaPropietario(oficinaIncorpora);
             ingresoActivoAjeno.setFechaIngreso(fechaIncorporacion);
-            ingresoActivoAjeno.setFechaFin(fechaRetiro);
+            ingresoActivoAjeno.setFechaFin(fechaFin);
+            if (notaPath != null) {
+                ingresoActivoAjeno.setNotaPath(notaPath);
+                ingresoActivoAjeno.setNotaNombre(notaSuperior.getOriginalFilename());
+            }
             ingresoActivoAjeno.setRegistroIdUsuario(usuario.getIdUsuario());
             ingresoActivoAjeno.setEstado("ACTIVO");
 
@@ -119,8 +143,19 @@ public class IngresoActivosAjenosController {
                 det.setIngreso(ingresoActivoAjeno);
                 det.setDescripcion(descripcionActivoAjeno);
                 det.setEstadoActivo(estadoActivoA);
+                det.setMarca(valorEn(marca, i));
+                det.setModelo(valorEn(modelo, i));
+                det.setSerie(valorEn(serie, i));
+                det.setCantidad(enteroEn(cantidad, i));
                 det.setEstado("A");
                 det.setRegistroIdUsuario(usuario.getIdUsuario());
+
+                // Fotografía del activo (paralela por índice).
+                if (fotoActivo != null && i < fotoActivo.size()) {
+                    String fotoPath = archivoStorageService.guardar(
+                        fotoActivo.get(i), "ajenos/fotos", "foto_" + codigoFuncionarioPropietario + "_" + (i + 1));
+                    det.setFotoPath(fotoPath);
+                }
                 detalles.add(det);
 
                 ActivoIngresoAjenoDTO dto = new ActivoIngresoAjenoDTO();
@@ -155,6 +190,28 @@ public class IngresoActivosAjenosController {
             ex.printStackTrace();
             String errorMsg = "Error procesando: " + ex.getMessage();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
+        }
+    }
+
+    /** Devuelve el elemento i de la lista, o {@code null} si no existe / está vacío. */
+    private static String valorEn(List<String> lista, int i) {
+        if (lista == null || i >= lista.size()) {
+            return null;
+        }
+        String v = lista.get(i);
+        return (v == null || v.isBlank()) ? null : v.trim();
+    }
+
+    /** Igual que {@link #valorEn} pero parseando a entero; {@code null} si no es numérico. */
+    private static Integer enteroEn(List<String> lista, int i) {
+        String v = valorEn(lista, i);
+        if (v == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(v);
+        } catch (NumberFormatException ex) {
+            return null;
         }
     }
 

@@ -1,4 +1,4 @@
-<!-- /seguimiento/baja/tabla_registro.html -->
+<!-- /seguimiento/baja/tabla_registro.html  —  fragmento de lista de bajas (entidad real BajaActivo) -->
 
 <div th:if="${#lists.isEmpty(bajas)}" class="card border-0 shadow-sm">
     <div class="card-body text-center py-5">
@@ -15,54 +15,46 @@
             <span class="fw-semibold">Registros de Baja de Activos</span>
             <span class="badge bg-danger rounded-pill" th:text="${#lists.size(bajas)}">0</span>
         </div>
-        <div class="d-none d-md-flex align-items-center gap-3 small text-muted">
-            <span><span class="badge bg-success me-1">●</span>Aprobada</span>
-            <span><span class="badge bg-primary me-1">●</span>Ejecutada</span>
-            <span><span class="badge bg-warning me-1">●</span>Pendiente</span>
-            <span><span class="badge bg-danger me-1">●</span>Anulada</span>
-        </div>
     </div>
 
     <div class="d-none d-lg-block px-3 pt-2 pb-1">
         <div class="row g-0 text-muted small fw-semibold border-bottom pb-2">
-            <div class="col-lg-2">N° RESOLUCIÓN</div>
+            <div class="col-lg-2">N° DOCUMENTO</div>
             <div class="col-lg-2">FECHA</div>
             <div class="col-lg-2">MOTIVO</div>
-            <div class="col-lg-3">RESPONSABLE</div>
-            <div class="col-lg-1">OFICINA</div>
-            <div class="col-lg-1 text-center">ACTIVOS</div>
-            <div class="col-lg-1 text-center">ESTADO</div>
+            <div class="col-lg-3">ACTIVO</div>
+            <div class="col-lg-2">RESPONSABLE</div>
+            <div class="col-lg-1 text-center">INFORME</div>
         </div>
     </div>
 
     <div class="list-group list-group-flush">
-        <div th:each="baja : ${bajas}" th:id="'baja-row-' + ${baja.idBaja}"
-            class="baja-row list-group-item list-group-item-action px-3 py-0 border-start border-4" th:classappend="${baja.estado == 'EJECUTADA'} ? 'border-primary' :
-                         (${baja.estado == 'APROBADA'} ? 'border-success' :
-                         (${baja.estado == 'PENDIENTE'} ? 'border-warning' : 'border-danger'))"
-            th:data-id="${baja.idBaja}" th:data-numero="${baja.numeroResolucion}" th:data-motivo="${baja.motivo}"
-            th:data-estado="${baja.estado}" th:data-fecha="${baja.fechaSolicitud}"
-            th:data-fecha-aprobacion="${baja.fechaAprobacion}" th:data-resolucion="${baja.acta}" th:data-responsable="${baja.responsable != null ?
-           (baja.responsable.persona.nombre + ' ' + baja.responsable.persona.paterno) : ''}"
-            th:data-oficina="${baja.oficina != null ? baja.oficina.nombre : ''}" th:data-aprobador="${baja.aprobador != null ?
-           (baja.aprobador.persona.nombre + ' ' + baja.aprobador.persona.paterno) : ''}"
-            th:data-observacion="${baja.observacion}"
-            th:data-num-activos="${baja.detalles != null ? #lists.size(baja.detalles) : 0}"
-            th:data-fecha-reg="${baja._fechaRegistro}" th:data-usuario-reg="${baja._registroIdUsuario}"
-            th:data-fecha-mod="${baja._fechaModificacion}" th:data-usuario-mod="${baja._modificacionIdUsuario}"
+        <div th:each="baja : ${bajas}" th:id="'baja-row-' + ${baja.idBajaActivo}"
+            th:with="motivoLabel=${baja.causa == 'ROBO' ? 'Robo' : (baja.causa == 'EXTRAVIO' ? 'Extravío' : (baja.causa == 'DANADO' ? 'Dañado' : (baja.causa == 'FIN_VIDA_UTIL' ? 'Cumplió vida útil' : baja.causa)))}"
+            class="baja-row list-group-item list-group-item-action px-3 py-0 border-start border-4 border-danger"
+            th:data-id="${baja.idBajaActivo}"
+            th:data-numero="${baja.hr}"
+            th:data-motivo="${motivoLabel}"
+            th:data-fecha="${baja.fechaBaja}"
+            th:data-codigo="${baja.activo != null ? baja.activo.codigo : ''}"
+            th:data-activo="${baja.activo != null ? baja.activo.descripcion : ''}"
+            th:data-responsable="${baja.responsable != null and baja.responsable.persona != null ? baja.responsable.persona.nombreCompleto : ''}"
+            th:data-oficina="${baja.responsable != null and baja.responsable.oficina != null ? baja.responsable.oficina.nombre : ''}"
+            th:data-descripcion="${baja.descripcion}"
+            th:data-informe="${baja.informePath}"
+            th:data-informe-nombre="${baja.informeNombre}"
+            th:data-fecha-reg="${baja.registro != null ? #dates.format(baja.registro, 'dd/MM/yyyy HH:mm') : ''}"
+            th:data-usuario-reg="${baja.registroIdUsuario}"
             style="cursor:pointer; transition:background 0.15s">
 
             <div class="row g-0 align-items-center py-3">
-                <!-- N° Resolución -->
+                <!-- N° Documento -->
                 <div class="col-12 col-lg-2 mb-1 mb-lg-0">
                     <div class="d-flex align-items-center gap-2">
                         <div class="avatar avatar-xs bg-label-danger rounded">
                             <i class="bx bx-trash small"></i>
                         </div>
-                        <div>
-                            <div class="fw-semibold text-danger small" th:text="${baja.numeroResolucion ?: '—'}">—</div>
-                            <div class="text-muted" style="font-size:0.7rem" th:text="${baja.acta ?: ''}"></div>
-                        </div>
+                        <div class="fw-semibold text-danger small" th:text="${baja.hr ?: '—'}">—</div>
                     </div>
                 </div>
 
@@ -70,54 +62,40 @@
                 <div class="col-6 col-lg-2 mb-1 mb-lg-0">
                     <div class="text-muted small">
                         <i class="bx bx-calendar me-1"></i>
-                        <span th:if="${baja.fechaSolicitud != null}"
-                            th:text="${#temporals.format(baja.fechaSolicitud, 'dd/MM/yyyy')}">—</span>
-                        <span th:unless="${baja.fechaSolicitud != null}">—</span>
-                    </div>
-                    <div class="text-muted" style="font-size:0.7rem" th:if="${baja.fechaAprobacion != null}">
-                        Aprobado: <span th:text="${#temporals.format(baja.fechaAprobacion, 'dd/MM/yyyy')}"></span>
+                        <span th:text="${baja.fechaBaja ?: '—'}">—</span>
                     </div>
                 </div>
 
                 <!-- Motivo -->
                 <div class="col-6 col-lg-2 mb-1 mb-lg-0">
-                    <span class="badge bg-label-danger" th:text="${baja.motivo ?: '—'}">—</span>
+                    <span class="badge bg-label-danger" th:text="${motivoLabel ?: '—'}">—</span>
+                </div>
+
+                <!-- Activo -->
+                <div class="col-12 col-lg-3 mb-1 mb-lg-0">
+                    <div class="small">
+                        <code class="text-primary" th:text="${baja.activo != null ? baja.activo.codigo : '—'}">—</code>
+                    </div>
+                    <div class="small text-muted text-truncate" style="max-width:260px"
+                         th:text="${baja.activo != null ? baja.activo.descripcion : ''}"></div>
                 </div>
 
                 <!-- Responsable -->
-                <div class="col-12 col-lg-3 mb-1 mb-lg-0">
-                    <div class="d-flex align-items-center gap-2" th:if="${baja.responsable != null}">
+                <div class="col-9 col-lg-2 mb-1 mb-lg-0">
+                    <div class="d-flex align-items-center gap-2" th:if="${baja.responsable != null and baja.responsable.persona != null}">
                         <i class="bx bx-user text-muted small"></i>
-                        <span class="small text-truncate" style="max-width:180px"
-                            th:text="${baja.responsable.persona.nombre + ' ' + baja.responsable.persona.paterno}">—</span>
+                        <span class="small text-truncate" style="max-width:160px"
+                            th:text="${baja.responsable.persona.nombreCompleto}">—</span>
                     </div>
-                    <span th:unless="${baja.responsable != null}" class="text-muted small">—</span>
+                    <span th:unless="${baja.responsable != null and baja.responsable.persona != null}" class="text-muted small">—</span>
                 </div>
 
-                <!-- Oficina -->
-                <div class="col-6 col-lg-1 mb-1 mb-lg-0">
-                    <div class="small text-muted text-truncate" style="max-width:100px"
-                        th:text="${baja.oficina != null ? baja.oficina.nombre : '—'}">—</div>
-                </div>
-
-                <!-- Num activos -->
-                <div class="col-3 col-lg-1 mb-1 mb-lg-0 text-lg-center">
-                    <span class="badge bg-label-danger rounded-pill">
-                        <i class="bx bx-box me-1"></i>
-                        <span th:text="${baja.detalles != null ? #lists.size(baja.detalles) : 0}">0</span>
-                    </span>
-                </div>
-
-                <!-- Estado -->
-                <div
-                    class="col-3 col-lg-1 text-lg-center d-flex align-items-center justify-content-end justify-content-lg-center gap-2">
-                    <span class="badge" th:classappend="${baja.estado == 'EJECUTADA'} ? 'bg-primary' :
-                            (${baja.estado == 'APROBADA'} ? 'bg-success' :
-                            (${baja.estado == 'PENDIENTE'} ? 'bg-warning text-dark' : 'bg-danger'))"
-                        th:text="${baja.estado ?: '—'}">—</span>
-                    <a th:href="@{/administracion/baja/{id}/pdf(id=${baja.idBaja})}" target="_blank"
-                        class="btn btn-sm btn-icon btn-outline-danger py-0 px-1" onclick="event.stopPropagation()"><i
-                            class="bx bxs-file-pdf small"></i></a>
+                <!-- Informe -->
+                <div class="col-3 col-lg-1 text-lg-center d-flex align-items-center justify-content-end justify-content-lg-center gap-2">
+                    <a th:if="${baja.informePath != null}" th:href="${baja.informePath}" target="_blank"
+                        class="btn btn-sm btn-icon btn-outline-danger py-0 px-1" onclick="event.stopPropagation()"
+                        title="Ver informe adjunto"><i class="bx bxs-file-pdf small"></i></a>
+                    <span th:unless="${baja.informePath != null}" class="text-muted small" title="Sin informe">—</span>
                     <i class="bx bx-chevron-right text-muted ms-1"></i>
                 </div>
             </div>
@@ -138,5 +116,7 @@
     }
 </style>
 <script>
-    $(document).on('click', '.baja-row', function () { abrirModalBaja($(this).data('id')); });
+    $(document).off('click.bajaRow').on('click.bajaRow', '.baja-row', function () {
+        if (typeof abrirModalBaja === 'function') abrirModalBaja($(this));
+    });
 </script>

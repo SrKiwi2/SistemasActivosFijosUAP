@@ -6,6 +6,7 @@ import java.util.List;
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -42,6 +43,13 @@ public class Ingreso extends AuditoriaConfig{
 
     private String fechaIngreso;
     private String fechaFin;
+
+    // Nota del inmediato superior que autoriza el ingreso del bien ajeno (adjunto, una por ingreso).
+    @Column(name = "nota_path", length = 512)
+    private String notaPath;
+
+    @Column(name = "nota_nombre", length = 255)
+    private String notaNombre;
 
     @OneToMany(mappedBy = "ingreso", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<IngresoDetalle> detalles = new ArrayList<>();

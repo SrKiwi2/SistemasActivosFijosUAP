@@ -2,6 +2,7 @@ package com.usic.SistemasActivosFijosUAP.model.entity;
 
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -28,4 +29,14 @@ public class IngresoDetalle extends AuditoriaConfig{
 
     private String descripcion;
     private String estadoActivo;
+
+    // Datos del activo ajeno
+    private String marca;
+    private String modelo;
+    private String serie;
+    private Integer cantidad;
+
+    // Fotografía del activo (URL pública relativa: /uploads/ajenos/fotos/...)
+    @Column(name = "foto_path", length = 512)
+    private String fotoPath;
 }
