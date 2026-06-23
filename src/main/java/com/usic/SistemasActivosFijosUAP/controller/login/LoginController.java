@@ -15,7 +15,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.Set;
+
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
+import com.usic.SistemasActivosFijosUAP.model.IService.IOpcionMenuService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
@@ -29,6 +32,7 @@ public class LoginController {
     
     private static final Logger logger = LoggerFactory.getLogger(LoginController.class);
     private final IUsuarioService usuarioService;
+    private final IOpcionMenuService opcionMenuService;
     private final PasswordEncoder passwordEncoder;
 
     @GetMapping(value = "/login")
@@ -63,6 +67,11 @@ public class LoginController {
                     : "";
 
             session.setAttribute("nombre_rol", rol);
+
+            // Permisos de menú (opciones del sidebar) que verá este usuario.
+            Set<String> opciones = opcionMenuService.opcionesEfectivas(usuario_);
+            session.setAttribute("opciones", opciones);
+
             flash.addAttribute("success", usuario_.getPersona().getNombre());
 
             logger.info("Usuario inició sesión: {} - Rol: {}", 

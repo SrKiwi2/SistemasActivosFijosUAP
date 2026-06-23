@@ -1,0 +1,89 @@
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="ti ti-send me-1"></i> Comunicados enviados</h5>
+        <button type="button" class="btn btn-primary" onclick="cargarFormulario()"
+                data-bs-toggle="modal" data-bs-target="#modalFormularioComunicado">
+            <i class="ti ti-plus me-1"></i> Nuevo comunicado
+        </button>
+    </div>
+    <div class="card-datatable table-responsive pt-0">
+        <table class="datatables-basic table table-hover" id="data-table-comunicados">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Título</th>
+                    <th>Destino</th>
+                    <th class="text-center">Destinatarios</th>
+                    <th class="text-center">Recibieron</th>
+                    <th class="text-center">Leyeron</th>
+                    <th style="min-width:120px">% Lectura</th>
+                    <th class="text-center">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="c : ${comunicados}">
+                    <td th:text="${c.fecha}"></td>
+                    <td>
+                        <span th:switch="${c.tipo}" class="badge">
+                            <span th:case="'URGENTE'" class="badge bg-label-danger">Urgente</span>
+                            <span th:case="'TRABAJO'" class="badge bg-label-primary">Trabajo</span>
+                            <span th:case="'AVISO'"   class="badge bg-label-info">Aviso</span>
+                            <span th:case="*"         class="badge bg-label-secondary">General</span>
+                        </span>
+                    </td>
+                    <td>
+                        <i th:if="${c.importante}" class="ti ti-star-filled text-warning me-1"
+                           title="Importante"></i>
+                        <span th:text="${c.titulo}"></span>
+                    </td>
+                    <td><small class="text-muted" th:text="${c.alcanceDetalle}"></small></td>
+                    <td class="text-center" th:text="${c.total}"></td>
+                    <td class="text-center">
+                        <span class="badge bg-label-secondary" th:text="${c.recibieron}"></span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-label-success" th:text="${c.leyeron}"></span>
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="progress flex-grow-1" style="height:8px;">
+                                <div class="progress-bar bg-success" role="progressbar"
+                                     th:style="'width:' + ${c.pct} + '%'"
+                                     th:aria-valuenow="${c.pct}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <small class="ms-2 text-muted" th:text="${c.pct} + '%'"></small>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                th:onclick="'verDetalle(' + ${c.id} + ')'">
+                            <i class="ti ti-eye ti-xs"></i> Ver
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    $('#data-table-comunicados').DataTable({
+        order: [],
+        language: {
+            "sProcessing": "Procesando...",
+            "sLengthMenu": "Mostrar _MENU_ registros",
+            "sZeroRecords": "No se encontraron comunicados",
+            "sEmptyTable": "Aún no se ha enviado ningún comunicado",
+            "sInfo": "Mostrando del _START_ al _END_ de _TOTAL_ comunicados",
+            "sInfoEmpty": "Mostrando 0 a 0 de 0 comunicados",
+            "sInfoFiltered": "(filtrado de _MAX_ comunicados)",
+            "sSearch": "Buscar:",
+            "sLoadingRecords": "Cargando...",
+            "oPaginate": {
+                "sFirst": "Primero", "sLast": "Último",
+                "sNext": "Siguiente", "sPrevious": "Anterior"
+            }
+        }
+    });
+</script>

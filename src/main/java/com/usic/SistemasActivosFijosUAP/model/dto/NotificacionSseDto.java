@@ -12,6 +12,7 @@ public class NotificacionSseDto {
     private String mensaje;
     private String referenciaId;
     private String urlDestino;
-    private String fechaCreacion;  // formateado para mostrar
-    private long   noLeidasTotal;  // conteo actualizado del usuario
+    private String  fechaCreacion;  // formateado para mostrar
+    private long    noLeidasTotal;  // conteo actualizado del usuario
+    private boolean importante;     // comunicado destacado/urgente
 }

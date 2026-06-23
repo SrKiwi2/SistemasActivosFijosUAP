@@ -7,6 +7,12 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalPermisosUsuario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" id="contenidoModalPermisos"></div>
+    </div>
+</div>
+
 <script>
     $(document).ready(function () {
         cargarTabla();
@@ -41,6 +47,10 @@
 
     function cargarFormularioEdit(id) {
         cargarFormularioEditAlert(id, "/administracion/usuario/formulario-edit", "#contenidoModalUsuario", "#formularioUsuario");
+    }
+
+    function cargarPermisos(id) {
+        cargarFormularioEditAlert(id, "/administracion/usuario/permisos", "#contenidoModalPermisos", "#formularioPermisos");
     }
 
     function eliminar(nombre, id) {

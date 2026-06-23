@@ -20,6 +20,14 @@ public interface IUsuarioDao extends JpaRepository <Usuario, Long>{
     @Query("SELECT u FROM Usuario u WHERE u.estado = 'ACTIVO'")
     List<Usuario> listarUsuarios();
 
+    // Usuarios activos con persona y rol cargados (para selectores del módulo de comunicados).
+    @Query("SELECT u FROM Usuario u " +
+        "JOIN FETCH u.persona p " +
+        "LEFT JOIN FETCH u.rol r " +
+        "WHERE u.estado = 'ACTIVO' " +
+        "ORDER BY p.nombre ASC")
+    List<Usuario> listarConPersona();
+
     boolean existsByUsuario(String usuario);
 
     @Query("""
@@ -44,4 +52,12 @@ public interface IUsuarioDao extends JpaRepository <Usuario, Long>{
         @Param("nombreRol") String nombreRol,
         @Param("estado")    String estado
     );
+
+    // Usuarios ACTIVOS cuya persona es responsable de una oficina (audiencia "por
+    // sección/oficina" de un comunicado).
+    @Query("SELECT DISTINCT u FROM Usuario u, Responsable r " +
+        "WHERE r.persona = u.persona " +
+        "AND r.oficina.idOficina = :idOficina " +
+        "AND u.estado = 'ACTIVO'")
+    List<Usuario> findActivosPorOficina(@Param("idOficina") Long idOficina);
 }

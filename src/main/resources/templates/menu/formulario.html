@@ -1,0 +1,135 @@
+<div class="modal-header">
+    <h4 class="modal-title" th:text="${edit} ? 'Editar opción de menú' : 'Nueva opción de menú'"></h4>
+    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+</div>
+
+<form id="formularioMenu" method="post" th:action="@{/administracion/menu/guardar}" novalidate>
+
+    <input type="hidden" th:if="${edit}" name="idOpcion" th:value="${nodo.idOpcion}">
+
+    <div class="modal-body">
+        <div class="row g-3">
+
+            <div class="col-md-4">
+                <label class="form-label">Tipo</label>
+                <select id="menuTipo" name="tipo" class="form-select" onchange="ajustarMenuForm()" required>
+                    <option value="SECCION" th:selected="${nodo.tipo == 'SECCION'}">Sección (encabezado)</option>
+                    <option value="GRUPO"   th:selected="${nodo.tipo == 'GRUPO'}">Grupo (desplegable)</option>
+                    <option value="ITEM"    th:selected="${nodo.tipo == 'ITEM'}">Ítem (opción navegable)</option>
+                </select>
+            </div>
+
+            <div class="col-md-8">
+                <label class="form-label">Descripción (texto visible)</label>
+                <input type="text" name="descripcion" class="form-control" th:value="${nodo.descripcion}"
+                       placeholder="Ej. Usuarios y Accesos" required>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Código (único)</label>
+                <input type="text" name="codigo" class="form-control" th:value="${nodo.codigo}"
+                       placeholder="Ej. opcion_rol / grp_usuarios / sec_admin" required>
+                <small class="text-muted">Para ítems es la llave de permiso (opcion_xxx).</small>
+            </div>
+
+            <!-- Padre: SECCIÓN para un GRUPO -->
+            <div class="col-md-6 campo-padre-seccion">
+                <label class="form-label">Sección padre</label>
+                <select name="idPadre" class="form-select">
+                    <option value="">— Seleccione —</option>
+                    <option th:each="s : ${secciones}" th:value="${s.idOpcion}" th:text="${s.descripcion}"
+                            th:selected="${idPadreActual != null and idPadreActual == s.idOpcion}"></option>
+                </select>
+            </div>
+
+            <!-- Padre: GRUPO para un ÍTEM -->
+            <div class="col-md-6 campo-padre-item">
+                <label class="form-label">Grupo padre</label>
+                <select name="idPadre" class="form-select">
+                    <option value="">— Seleccione —</option>
+                    <option th:each="g : ${grupos}" th:value="${g.idOpcion}"
+                            th:text="${(g.seccion != null ? g.seccion + ' › ' : '') + g.descripcion}"
+                            th:selected="${idPadreActual != null and idPadreActual == g.idOpcion}"></option>
+                </select>
+            </div>
+
+            <!-- Visual: GRUPO e ÍTEM -->
+            <div class="col-md-6 campo-visual">
+                <label class="form-label">Ícono (Tabler)</label>
+                <input type="text" name="icono" class="form-control" th:value="${nodo.icono}"
+                       placeholder="Ej. ti ti-users-group">
+                <small class="text-muted">Clase completa, ver tabler-icons.io.</small>
+            </div>
+            <div class="col-md-6 campo-visual">
+                <label class="form-label">Color</label>
+                <select name="colorClase" class="form-select">
+                    <option value="">— Predeterminado —</option>
+                    <option value="blue"   th:selected="${nodo.colorClase == 'blue'}">Azul</option>
+                    <option value="green"  th:selected="${nodo.colorClase == 'green'}">Verde</option>
+                    <option value="teal"   th:selected="${nodo.colorClase == 'teal'}">Teal</option>
+                    <option value="orange" th:selected="${nodo.colorClase == 'orange'}">Naranja</option>
+                    <option value="purple" th:selected="${nodo.colorClase == 'purple'}">Morado</option>
+                    <option value="amber"  th:selected="${nodo.colorClase == 'amber'}">Ámbar</option>
+                    <option value="cyan"   th:selected="${nodo.colorClase == 'cyan'}">Cian</option>
+                    <option value="red"    th:selected="${nodo.colorClase == 'red'}">Rojo</option>
+                </select>
+            </div>
+
+            <!-- Solo ÍTEM -->
+            <div class="col-md-6 campo-item">
+                <label class="form-label">URL (navegación)</label>
+                <input type="text" name="url" class="form-control" th:value="${nodo.url}"
+                       placeholder="Ej. /administracion/rol/vista">
+            </div>
+            <div class="col-md-6 campo-item">
+                <label class="form-label">rutaBase (bloqueo de acceso)</label>
+                <input type="text" name="rutaBase" class="form-control" th:value="${nodo.rutaBase}"
+                       placeholder="Ej. /administracion/rol">
+            </div>
+            <div class="col-md-6 campo-item">
+                <label class="form-label">Insignia (opcional)</label>
+                <input type="text" name="badge" class="form-control" th:value="${nodo.badge}"
+                       placeholder="Ej. PEND.">
+            </div>
+
+            <div class="col-12">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="visible" value="true" id="menuVisible"
+                           th:checked="${nodo.visible == null or nodo.visible}">
+                    <label class="form-check-label" for="menuVisible">Visible en el menú</label>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="modal-footer">
+        <a type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</a>
+        <button type="submit" class="btn btn-success"><i class="fa-solid fa-floppy-disk me-1"></i> Guardar</button>
+    </div>
+</form>
+
+<script>
+    function ajustarMenuForm() {
+        const tipo = document.getElementById('menuTipo').value;
+
+        const padreSeccion = document.querySelector('#formularioMenu .campo-padre-seccion');
+        const padreItem = document.querySelector('#formularioMenu .campo-padre-item');
+        const visuales = document.querySelectorAll('#formularioMenu .campo-visual');
+        const soloItem = document.querySelectorAll('#formularioMenu .campo-item');
+
+        const mostrar = (el, on) => {
+            el.style.display = on ? '' : 'none';
+            // Los inputs deshabilitados no se envían (clave para idPadre duplicado).
+            el.querySelectorAll('select, input').forEach(c => c.disabled = !on);
+        };
+
+        mostrar(padreSeccion, tipo === 'GRUPO');
+        mostrar(padreItem, tipo === 'ITEM');
+        visuales.forEach(el => mostrar(el, tipo === 'GRUPO' || tipo === 'ITEM'));
+        soloItem.forEach(el => mostrar(el, tipo === 'ITEM'));
+    }
+
+    ajustarMenuForm();
+    manejarEnvioFormulario('#formularioMenu');
+</script>

@@ -1,0 +1,73 @@
+<h4 class="py-3 mb-4">
+    <span class="text-muted fw-light">Administración del Sistema /</span> Comunicados
+</h4>
+
+<div id="tablaRegistro"></div>
+
+<!-- Modal: redactar / enviar comunicado -->
+<div class="modal fade" id="modalFormularioComunicado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" id="contenidoModalComunicado"></div>
+    </div>
+</div>
+
+<!-- Modal: detalle / control de lecturas -->
+<div class="modal fade" id="modalDetalleComunicado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content" id="contenidoModalDetalle"></div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        cargarTabla();
+    });
+
+    function cargarTabla() {
+        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
+        $.ajax({
+            type: 'POST',
+            url: "/administracion/comunicados/tabla",
+            success: function (response) {
+                $("#tablaRegistro").html(response);
+            },
+            error: function () {
+                $("#tablaRegistro").html(`
+                    <div class="alert alert-danger m-3">
+                    Ocurrió un error al cargar los comunicados.
+                    <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
+                    </div>`);
+            },
+            complete: function () {
+                hideGlobalLoader();
+            }
+        });
+    }
+
+    function cargarFormulario() {
+        cargarFormularioAlert(
+            "/administracion/comunicados/formulario",
+            "#contenidoModalComunicado",
+            "#formularioComunicado");
+    }
+
+    function verDetalle(id) {
+        $.ajax({
+            url: "/adm/cargar-datos",
+            method: "GET",
+            success: function () {
+                $.ajax({
+                    type: 'POST',
+                    url: "/administracion/comunicados/detalle/" + id,
+                    success: function (response) {
+                        $("#contenidoModalDetalle").html(response);
+                        new bootstrap.Modal(document.getElementById('modalDetalleComunicado')).show();
+                    },
+                    error: function () {
+                        Swal.fire('Error', 'No se pudo cargar el detalle del comunicado.', 'error');
+                    }
+                });
+            }
+        });
+    }
+</script>

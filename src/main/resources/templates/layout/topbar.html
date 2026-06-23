@@ -66,7 +66,7 @@
                    title="Notificaciones">
 
                     <!-- Ícono campana -->
-                    <i class="ti ti-bell ti-md"></i>
+                    <i class="ti ti-bell ti-md" id="iconoCampana"></i>
 
                     <!-- Badge contador — oculto si es 0 -->
                     <span id="badge-notif"
@@ -187,6 +187,39 @@
 
 
 <!-- ══════════════════════════════════════════════════════════════════════════
+     EXTRAS DE NOTIFICACIÓN (modal historial + toast + estilos)
+     Fragmento aparte: se incluye a nivel de <body> en el layout para que el
+     modal y el toast funcionen (no quedan dentro de la <nav>).
+     ══════════════════════════════════════════════════════════════════════════ -->
+<th:block th:fragment="notif-extra">
+
+<style>
+    /* Sacudida de la campana al llegar una notificación nueva */
+    @keyframes campanaShake {
+        0%, 100% { transform: rotate(0); }
+        15% { transform: rotate(13deg); }
+        30% { transform: rotate(-11deg); }
+        45% { transform: rotate(9deg); }
+        60% { transform: rotate(-6deg); }
+        75% { transform: rotate(3deg); }
+    }
+    #iconoCampana.campana-shake {
+        animation: campanaShake .9s ease-in-out 2;
+        transform-origin: top center;
+    }
+    /* Pulso sutil del badge mientras haya notificaciones sin confirmar */
+    @keyframes notifPulse {
+        0%   { box-shadow: 0 0 0 0 rgba(220,53,69,.55); }
+        70%  { box-shadow: 0 0 0 7px rgba(220,53,69,0); }
+        100% { box-shadow: 0 0 0 0 rgba(220,53,69,0); }
+    }
+    #badge-notif.notif-pulse { animation: notifPulse 1.7s ease-out infinite; }
+    @media (prefers-reduced-motion: reduce) {
+        #iconoCampana.campana-shake, #badge-notif.notif-pulse { animation: none; }
+    }
+</style>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
      MODAL HISTORIAL COMPLETO DE NOTIFICACIONES
      ══════════════════════════════════════════════════════════════════════════ -->
 <div class="modal fade"
@@ -291,3 +324,5 @@
         </div>
     </div>
 </div>
+
+</th:block>

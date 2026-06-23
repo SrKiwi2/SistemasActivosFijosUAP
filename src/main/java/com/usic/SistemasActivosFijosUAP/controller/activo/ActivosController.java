@@ -1114,8 +1114,10 @@ public class ActivosController {
 
         try {
             ConfiguracionGestion config = configuracionGestionService.findById(idConfig);
-            String prefijo        = config.getPrefijoDocumento();
-            String codigoCompleto = prefijo + " " + nroDoc; // "Prev. 1234"
+            String prefijo        = config.getPrefijoDocumento() != null ? config.getPrefijoDocumento().trim() : "";
+            String nro            = nroDoc != null ? nroDoc.trim() : "";
+            // Identificador entre paréntesis: "(Prev. 1234)" / "(Pre: 1234)"
+            String codigoCompleto = "(" + prefijo + " " + nro + ")";
 
             List<Activo> activos = new ArrayList<>();
             for (String enc : idsEnc) {
@@ -1159,7 +1161,7 @@ public class ActivosController {
                 }
             }
 
-            asignacion.setCodigoDocumento(nroDoc);
+            asignacion.setCodigoDocumento(nro);
             asignacion.setCodigoCompleto(codigoCompleto);
             asignacionActivoService.save(asignacion);
 

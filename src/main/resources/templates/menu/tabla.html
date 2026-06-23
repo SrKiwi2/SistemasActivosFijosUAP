@@ -1,0 +1,84 @@
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="mb-0">Estructura del Menú</h5>
+            <small class="text-muted">Secciones › Grupos › Ítems. El orden y la visibilidad se reflejan en el sidebar.</small>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="cargarFormulario()"
+            data-bs-toggle="modal" data-bs-target="#modalFormularioMenu">
+            <i class="fa-solid fa-plus"></i> Agregar opción
+        </button>
+    </div>
+
+    <div class="card-body">
+
+        <style>
+            .menu-node { border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:.5rem .75rem; margin-bottom:.4rem; display:flex; align-items:center; gap:.6rem; }
+            .menu-node.oculto { opacity:.5; }
+            .menu-node .acciones { margin-left:auto; display:flex; gap:.25rem; flex-wrap:wrap; }
+            .nivel-grupo { margin-left:1.5rem; }
+            .nivel-item  { margin-left:3rem; }
+            .menu-node .ico-prev { width:30px; height:30px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; background:rgba(26,86,160,.1); color:#1a56a0; flex-shrink:0; }
+        </style>
+
+        <div th:if="${#lists.isEmpty(arbol)}" class="alert alert-info">
+            No hay opciones registradas todavía.
+        </div>
+
+        <th:block th:each="seccion : ${arbol}">
+
+            <!-- SECCIÓN -->
+            <div class="menu-node" th:classappend="${seccion.visible} ? '' : 'oculto'">
+                <span class="badge bg-label-secondary">SECCIÓN</span>
+                <strong th:text="${seccion.descripcion}"></strong>
+                <code class="text-muted small" th:text="${seccion.codigo}"></code>
+                <span class="badge bg-label-warning" th:if="${!seccion.visible}">oculto</span>
+                <div class="acciones">
+                    <button class="btn btn-xs btn-icon btn-outline-secondary" title="Subir" th:onclick="'subirOpcion(' + ${seccion.idOpcion} + ')'"><i class="fa-solid fa-arrow-up"></i></button>
+                    <button class="btn btn-xs btn-icon btn-outline-secondary" title="Bajar" th:onclick="'bajarOpcion(' + ${seccion.idOpcion} + ')'"><i class="fa-solid fa-arrow-down"></i></button>
+                    <button class="btn btn-xs btn-icon btn-outline-primary" title="Editar" th:onclick="'cargarFormularioEdit(' + ${seccion.idOpcion} + ')'" data-bs-toggle="modal" data-bs-target="#modalFormularioMenu"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn btn-xs btn-icon btn-outline-info" title="Mostrar/Ocultar" th:onclick="'toggleOpcion(' + ${seccion.idOpcion} + ')'"><i class="fa-solid fa-eye"></i></button>
+                    <button class="btn btn-xs btn-icon btn-outline-danger" title="Eliminar" th:onclick="'eliminarOpcion(\'' + ${seccion.descripcion} + '\',' + ${seccion.idOpcion} + ')'"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+
+            <!-- GRUPOS -->
+            <th:block th:each="grupo : ${seccion.hijos}">
+                <div class="menu-node nivel-grupo" th:classappend="${grupo.visible} ? '' : 'oculto'">
+                    <span class="ico-prev"><i th:class="${grupo.icono}"></i></span>
+                    <span class="badge bg-label-primary">GRUPO</span>
+                    <strong th:text="${grupo.descripcion}"></strong>
+                    <code class="text-muted small" th:text="${grupo.codigo}"></code>
+                    <span class="badge bg-label-warning" th:if="${!grupo.visible}">oculto</span>
+                    <div class="acciones">
+                        <button class="btn btn-xs btn-icon btn-outline-secondary" title="Subir" th:onclick="'subirOpcion(' + ${grupo.idOpcion} + ')'"><i class="fa-solid fa-arrow-up"></i></button>
+                        <button class="btn btn-xs btn-icon btn-outline-secondary" title="Bajar" th:onclick="'bajarOpcion(' + ${grupo.idOpcion} + ')'"><i class="fa-solid fa-arrow-down"></i></button>
+                        <button class="btn btn-xs btn-icon btn-outline-primary" title="Editar" th:onclick="'cargarFormularioEdit(' + ${grupo.idOpcion} + ')'" data-bs-toggle="modal" data-bs-target="#modalFormularioMenu"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn btn-xs btn-icon btn-outline-info" title="Mostrar/Ocultar" th:onclick="'toggleOpcion(' + ${grupo.idOpcion} + ')'"><i class="fa-solid fa-eye"></i></button>
+                        <button class="btn btn-xs btn-icon btn-outline-danger" title="Eliminar" th:onclick="'eliminarOpcion(\'' + ${grupo.descripcion} + '\',' + ${grupo.idOpcion} + ')'"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+
+                <!-- ÍTEMS -->
+                <div class="menu-node nivel-item" th:each="item : ${grupo.hijos}" th:classappend="${item.visible} ? '' : 'oculto'">
+                    <span class="ico-prev"><i th:class="${item.icono}"></i></span>
+                    <span class="badge bg-label-success">ÍTEM</span>
+                    <span th:text="${item.descripcion}"></span>
+                    <span class="badge bg-label-warning" th:if="${item.badge != null}" th:text="${item.badge}"></span>
+                    <code class="text-muted small" th:text="${item.codigo}"></code>
+                    <small class="text-muted" th:if="${item.url != null}" th:text="${item.url}"></small>
+                    <span class="badge bg-label-secondary" th:if="${!item.visible}">oculto</span>
+                    <div class="acciones">
+                        <button class="btn btn-xs btn-icon btn-outline-secondary" title="Subir" th:onclick="'subirOpcion(' + ${item.idOpcion} + ')'"><i class="fa-solid fa-arrow-up"></i></button>
+                        <button class="btn btn-xs btn-icon btn-outline-secondary" title="Bajar" th:onclick="'bajarOpcion(' + ${item.idOpcion} + ')'"><i class="fa-solid fa-arrow-down"></i></button>
+                        <button class="btn btn-xs btn-icon btn-outline-primary" title="Editar" th:onclick="'cargarFormularioEdit(' + ${item.idOpcion} + ')'" data-bs-toggle="modal" data-bs-target="#modalFormularioMenu"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn btn-xs btn-icon btn-outline-info" title="Mostrar/Ocultar" th:onclick="'toggleOpcion(' + ${item.idOpcion} + ')'"><i class="fa-solid fa-eye"></i></button>
+                        <button class="btn btn-xs btn-icon btn-outline-danger" title="Eliminar" th:onclick="'eliminarOpcion(\'' + ${item.descripcion} + '\',' + ${item.idOpcion} + ')'"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            </th:block>
+
+        </th:block>
+
+    </div>
+</div>

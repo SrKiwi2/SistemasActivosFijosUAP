@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="780" viewBox="0 0 980 780" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#555"/>
+    </marker>
+  </defs>
+
+  <rect width="980" height="780" fill="#FFFFFF"/>
+
+  <!-- Title -->
+  <text x="490" y="34" text-anchor="middle" font-size="19" font-weight="700" fill="#1a1a1a">Arquitectura en capas del sistema SCIAF</text>
+
+  <!-- Left vertical caption -->
+  <text x="28" y="345" text-anchor="middle" font-size="11" fill="#8a8a8a" transform="rotate(-90 28 345)">Flujo de dependencia (descendente)</text>
+
+  <!-- Actor -->
+  <rect x="230" y="58" width="150" height="34" rx="17" fill="#F2F4F7" stroke="#9aa3ad" stroke-width="1.2"/>
+  <text x="305" y="80" text-anchor="middle" font-size="12.5" fill="#333">Usuario (navegador)</text>
+
+  <!-- ===================== LAYER STACK ===================== -->
+  <!-- L1 Presentación -->
+  <rect x="70" y="120" width="470" height="66" rx="8" fill="#E8F0FE" stroke="#3B6FB5" stroke-width="1.6"/>
+  <text x="305" y="148" text-anchor="middle" font-size="14" font-weight="700" fill="#1a1a1a">Capa de Presentación</text>
+  <text x="305" y="168" text-anchor="middle" font-size="10.5" fill="#555">Vistas Thymeleaf (HTML) &#183; CSS/JS &#183; Portal público</text>
+
+  <!-- L2 Controlador -->
+  <rect x="70" y="216" width="470" height="66" rx="8" fill="#E3F2EF" stroke="#2E8B7F" stroke-width="1.6"/>
+  <text x="305" y="244" text-anchor="middle" font-size="14" font-weight="700" fill="#1a1a1a">Capa de Controlador</text>
+  <text x="305" y="264" text-anchor="middle" font-size="10.5" fill="#555">Controllers MVC y REST (paquete controller/)</text>
+
+  <!-- L3 Servicio -->
+  <rect x="70" y="312" width="470" height="66" rx="8" fill="#FDF3DC" stroke="#C8972B" stroke-width="1.6"/>
+  <text x="305" y="340" text-anchor="middle" font-size="14" font-weight="700" fill="#1a1a1a">Capa de Servicio (Lógica de negocio)</text>
+  <text x="305" y="360" text-anchor="middle" font-size="10.5" fill="#555">IService / ServiceImpl &#183; model/service &#183; reglas y roles</text>
+
+  <!-- L4 Persistencia -->
+  <rect x="70" y="408" width="470" height="66" rx="8" fill="#F7E6E6" stroke="#B5564A" stroke-width="1.6"/>
+  <text x="305" y="436" text-anchor="middle" font-size="14" font-weight="700" fill="#1a1a1a">Capa de Persistencia</text>
+  <text x="305" y="456" text-anchor="middle" font-size="10.5" fill="#555">DAO / Repository (Spring Data JPA)</text>
+
+  <!-- L5 Datos -->
+  <rect x="70" y="504" width="470" height="66" rx="8" fill="#ECE4F5" stroke="#7B5BA6" stroke-width="1.6"/>
+  <text x="305" y="532" text-anchor="middle" font-size="14" font-weight="700" fill="#1a1a1a">Capa de Datos</text>
+  <text x="305" y="552" text-anchor="middle" font-size="10.5" fill="#555">Entidades JPA &#183; Base de datos PostgreSQL</text>
+
+  <!-- Dependency arrows (down) -->
+  <line x1="305" y1="92"  x2="305" y2="117" stroke="#555" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <line x1="305" y1="186" x2="305" y2="213" stroke="#555" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <line x1="305" y1="282" x2="305" y2="309" stroke="#555" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <line x1="305" y1="378" x2="305" y2="405" stroke="#555" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <line x1="305" y1="474" x2="305" y2="501" stroke="#555" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- PostgreSQL cylinder -->
+  <line x1="230" y1="570" x2="230" y2="600" stroke="#555" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <path d="M160,614 a70,14 0 0,0 140,0 l0,52 a70,14 0 0,1 -140,0 z" fill="#DCD3EB" stroke="#7B5BA6" stroke-width="1.4"/>
+  <ellipse cx="230" cy="614" rx="70" ry="14" fill="#E7E0F2" stroke="#7B5BA6" stroke-width="1.4"/>
+  <text x="230" y="648" text-anchor="middle" font-size="12.5" font-weight="700" fill="#3d2f5c">PostgreSQL</text>
+
+  <!-- ===================== INTEROPERABILITY (transversal) ===================== -->
+  <rect x="600" y="216" width="330" height="354" rx="10" fill="#EBEFF3" stroke="#44617A" stroke-width="2" stroke-dasharray="6 3"/>
+  <text x="765" y="242" text-anchor="middle" font-size="14.5" font-weight="700" fill="#22384a">Capa de Interoperabilidad</text>
+  <text x="765" y="260" text-anchor="middle" font-size="10.5" fill="#4a6072">(transversal &#183; puente DBF &#8644; PostgreSQL)</text>
+
+  <!-- Lectura -->
+  <rect x="620" y="276" width="290" height="62" rx="7" fill="#FFFFFF" stroke="#44617A" stroke-width="1.3"/>
+  <text x="765" y="300" text-anchor="middle" font-size="12" font-weight="700" fill="#22384a">Lectura &#8226; JavaDbfService</text>
+  <text x="765" y="320" text-anchor="middle" font-size="10" fill="#555">DBF &#8594; DTOs &#8594; sincroniza a PostgreSQL</text>
+
+  <!-- Escritura -->
+  <rect x="620" y="348" width="290" height="74" rx="7" fill="#FFFFFF" stroke="#44617A" stroke-width="1.3"/>
+  <text x="765" y="372" text-anchor="middle" font-size="12" font-weight="700" fill="#22384a">Escritura &#8226; DbfWriter / DbfColaService</text>
+  <text x="765" y="390" text-anchor="middle" font-size="10" fill="#555">modo cola: deja orden JSON en _cola/</text>
+  <text x="765" y="406" text-anchor="middle" font-size="10" fill="#555">(acciones deliberadas: alta, edición, baja, transf.)</text>
+
+  <!-- Sincronización -->
+  <rect x="620" y="432" width="290" height="62" rx="7" fill="#FFFFFF" stroke="#44617A" stroke-width="1.3"/>
+  <text x="765" y="456" text-anchor="middle" font-size="12" font-weight="700" fill="#22384a">Sincronización &#8226; SyncScheduler</text>
+  <text x="765" y="476" text-anchor="middle" font-size="10" fill="#555">detección de cambios &#183; push SSE en tiempo real</text>
+
+  <!-- Connectors layer-stack <-> interoperability -->
+  <line x1="540" y1="345" x2="600" y2="345" stroke="#44617A" stroke-width="1.6" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text x="570" y="338" text-anchor="middle" font-size="9.5" fill="#44617A">invoca</text>
+
+  <line x1="540" y1="537" x2="600" y2="537" stroke="#44617A" stroke-width="1.6" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text x="570" y="530" text-anchor="middle" font-size="9.5" fill="#44617A">sincroniza</text>
+
+  <!-- ===================== VSIAF DBF ===================== -->
+  <line x1="765" y1="570" x2="765" y2="600" stroke="#C77B2C" stroke-width="1.8" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text x="812" y="588" text-anchor="middle" font-size="9.5" fill="#a85f12">lee / escribe</text>
+
+  <rect x="600" y="602" width="330" height="122" rx="10" fill="#FBEDD9" stroke="#C77B2C" stroke-width="1.8"/>
+  <text x="765" y="628" text-anchor="middle" font-size="13.5" font-weight="700" fill="#7a4a12">Sistema legado VSIAF</text>
+  <text x="765" y="650" text-anchor="middle" font-size="10.5" fill="#5a4020">Archivos DBF (FoxPro) &#183; índice .CDX</text>
+  <text x="765" y="670" text-anchor="middle" font-size="10.5" fill="#5a4020">Montaje CIFS: /mnt/dbfwin &#183; /mnt/vsiaf_transferencias</text>
+  <text x="765" y="694" text-anchor="middle" font-size="10.5" font-weight="600" fill="#7a4a12">Worker VFPOLEDB (VM Windows) — preserva el .CDX</text>
+  <text x="765" y="712" text-anchor="middle" font-size="10" fill="#5a4020">procesa las órdenes de _cola/ contra los DBF</text>
+
+  <!-- Footnote -->
+  <text x="20" y="758" font-size="10" fill="#777" font-style="italic">Las flechas verticales indican dependencia descendente; la Capa de Interoperabilidad opera de forma transversal sobre las capas de servicio y datos. Elaboración propia.</text>
+</svg>

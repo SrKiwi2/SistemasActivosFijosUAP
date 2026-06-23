@@ -29,7 +29,8 @@ import lombok.Setter;
         @Index(name = "idx_notif_leida",     columnList = "leida"),
         @Index(name = "idx_notif_tipo",      columnList = "tipo"),
         @Index(name = "idx_notif_fecha",     columnList = "fecha_creacion"),
-        @Index(name = "idx_notif_referencia",columnList = "referencia_id")
+        @Index(name = "idx_notif_referencia",columnList = "referencia_id"),
+        @Index(name = "idx_notif_comunicado",columnList = "id_comunicado")
     }
 )
 @Getter @Setter
@@ -44,6 +45,13 @@ public class Notificacion extends AuditoriaConfig {
     @JoinColumn(name = "id_usuario", nullable = false,
                 foreignKey = @ForeignKey(name = "fk_notif_usuario"))
     private Usuario usuario;
+
+    // Comunicado del que proviene esta notificación (null si la generó el sistema,
+    // p.ej. transferencias). Permite el panel de control de lecturas del emisor.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_comunicado",
+                foreignKey = @ForeignKey(name = "fk_notif_comunicado"))
+    private Comunicado comunicado;
 
     // Tipo de notificación — extensible a futuro
     @Enumerated(EnumType.STRING)
@@ -69,6 +77,17 @@ public class Notificacion extends AuditoriaConfig {
     @Column(name = "url_destino", length = 512)
     private String urlDestino;
 
+    // Entregada = "le llegó" al cliente del destinatario (recibido por el navegador,
+    // vía SSE o al cargar la lista). Distinto de leída (confirmación explícita).
+    // default false: permite que hbm2ddl agregue la columna a tablas ya pobladas.
+    @Column(name = "entregada", nullable = false,
+            columnDefinition = "boolean not null default false")
+    private boolean entregada = false;
+
+    @Column(name = "fecha_entrega")
+    private LocalDateTime fechaEntrega;
+
+    // Leída = el usuario confirmó la lectura explícitamente (acuse de recibo).
     @Column(name = "leida", nullable = false)
     private boolean leida = false;
 
@@ -80,10 +99,16 @@ public class Notificacion extends AuditoriaConfig {
 
     // Enum de tipos
     public enum TipoNotificacion {
+        // Generadas por el sistema
         TRANSFERENCIA_NUEVA,
         TRANSFERENCIA_APROBADA,
         TRANSFERENCIA_ERROR,
         SYNC_COMPLETADO,
-        SISTEMA
+        SISTEMA,
+        // Comunicados emitidos por administrador/responsable
+        AVISO,
+        TRABAJO,
+        URGENTE,
+        GENERAL
     }
 }

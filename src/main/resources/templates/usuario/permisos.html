@@ -1,0 +1,95 @@
+<div class="modal-header">
+    <h4 class="modal-title">
+        <i class="fa-solid fa-list-check me-1"></i>
+        Permisos de Menú
+        <span class="text-muted fw-light" th:if="${usuario != null && usuario.persona != null}"
+              th:text="' — ' + ${usuario.persona.nombreCompleto}"></span>
+    </h4>
+    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+</div>
+
+<form id="formularioPermisos" method="post" th:action="@{/administracion/usuario/guardar-permisos}" novalidate>
+
+    <input type="hidden" name="idUsuario" th:value="${usuario.idUsuario}">
+
+    <div class="modal-body" style="max-height:65vh; overflow-y:auto;">
+
+        <!-- Aviso: el usuario aún no tiene permisos propios (se muestra la plantilla de su rol) -->
+        <div class="alert alert-info py-2" th:if="${usaPlantilla}">
+            <i class="fa-solid fa-circle-info me-1"></i>
+            Este usuario no tiene permisos propios todavía. Se muestran pre-marcadas las opciones por
+            defecto de su rol <strong th:text="${usuario.rol != null ? usuario.rol.nombre : ''}"></strong>.
+            Al guardar quedarán como permisos individuales.
+        </div>
+
+        <!-- Barra de acciones rápidas -->
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="aplicarPlantillaRol()">
+                <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Cargar plantilla del rol
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-success" onclick="marcarTodosPermisos(true)">
+                <i class="fa-solid fa-check-double me-1"></i> Marcar todos
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="marcarTodosPermisos(false)">
+                <i class="fa-solid fa-eraser me-1"></i> Quitar todos
+            </button>
+        </div>
+
+        <!-- Catálogo agrupado: sección → grupo → opciones -->
+        <div th:each="secc : ${agrupado}" class="mb-3">
+            <h6 class="text-uppercase text-primary fw-bold border-bottom pb-1 mb-2" th:text="${secc.key}"></h6>
+
+            <div th:each="grp : ${secc.value}" class="ms-1 mb-2">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="fw-semibold small text-muted" th:text="${grp.key}"></span>
+                    <a href="javascript:void(0);" class="small text-decoration-none"
+                       th:attr="data-grupo=${grp.key}" onclick="alternarGrupo(this)">marcar/desmarcar</a>
+                </div>
+                <div class="row g-1 mt-1">
+                    <div class="col-12 col-md-6" th:each="o : ${grp.value}">
+                        <div class="form-check">
+                            <input class="form-check-input chk-permiso" type="checkbox" name="codigos"
+                                   th:value="${o.codigo}" th:id="${'chk_' + o.codigo}"
+                                   th:attr="data-grupo=${grp.key}"
+                                   th:checked="${marcados.contains(o.codigo)}">
+                            <label class="form-check-label" th:for="${'chk_' + o.codigo}"
+                                   th:text="${o.descripcion}"></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="modal-footer">
+        <a type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</a>
+        <button type="submit" class="btn btn-success">
+            <i class="fa-solid fa-floppy-disk me-1"></i> Guardar Permisos
+        </button>
+    </div>
+</form>
+
+<script th:inline="javascript">
+    // Códigos de la plantilla del rol del usuario (para el botón "Cargar plantilla del rol").
+    const PLANTILLA_ROL = /*[[${plantillaRol}]]*/ [];
+
+    function aplicarPlantillaRol() {
+        $('.chk-permiso').each(function () {
+            $(this).prop('checked', PLANTILLA_ROL.indexOf($(this).val()) !== -1);
+        });
+    }
+
+    function marcarTodosPermisos(valor) {
+        $('.chk-permiso').prop('checked', valor);
+    }
+
+    function alternarGrupo(enlace) {
+        const grupo = enlace.getAttribute('data-grupo');
+        const casillas = $('.chk-permiso[data-grupo="' + grupo + '"]');
+        const todasMarcadas = casillas.length === casillas.filter(':checked').length;
+        casillas.prop('checked', !todasMarcadas);
+    }
+
+    manejarEnvioFormulario('#formularioPermisos');
+</script>

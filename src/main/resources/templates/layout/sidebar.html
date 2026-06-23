@@ -419,338 +419,58 @@
 
     <!--
         ════════════════════════════════════════════════════════════════════
-        MATRIZ DE ROLES (mismo mecanismo de siempre: session.nombre_rol).
-        Se calcula una sola vez con th:with para no repetir la condición.
+        VISIBILIDAD POR PERMISO DE MENÚ (session.opciones = Set<String> de
+        códigos "opcion_xxx", cargado en el login por OpcionMenuServiceImpl).
 
-          · ADMINISTRADOR  → ve TODO.
-          · SUPER USUARIO  → todo lo de Activos Fijos (NO "Administración del
-                             Sistema": cuentas, roles, personas).
-          · APOYO          → solo "Seguimiento y Consultas" + "Reportes".
-          · RECEPCION      → no usa este sidebar (se redirige a otra vista).
+          · Cada ítem hoja se muestra si su código está en session.opciones.
+          · Cada grupo (menú desplegable) se muestra si tiene ≥1 hijo permitido.
+          · Cada encabezado de sección se muestra si tiene ≥1 grupo visible.
 
-        verActivos  = ADMIN o SUPER USUARIO   (operativo de activos)
-        verConsulta = ADMIN o SUPER USUARIO o APOYO   (consulta / seguimiento)
+        Los booleanos gXxx / secXxx se calculan una sola vez con th:with.
         ════════════════════════════════════════════════════════════════════
     -->
-    <ul class="menu-inner py-1"
-        th:with="rol=${session.nombre_rol},
-                 esAdmin=${rol == 'ADMINISTRADOR'},
-                 esEncargada=${rol == 'SUPER USUARIO'},
-                 esApoyo=${rol == 'APOYO'},
-                 verActivos=${esAdmin or esEncargada},
-                 verConsulta=${esAdmin or esEncargada or esApoyo}">
+    <!--
+        ════════════════════════════════════════════════════════════════════
+        SIDEBAR DINÁMICO — se renderiza desde la tabla opcion_menu (BD).
+        MenuModelAdvice expone ${menuArbol}: el árbol SECCION → GRUPO → ITEM
+        YA filtrado por los permisos de la sesión (session.opciones).
 
-        <!-- ══════════════ 1 · ADMINISTRACIÓN DEL SISTEMA (solo ADMIN) ══════════════ -->
-        <li class="menu-header small text-uppercase" th:if="${esAdmin}">
-            <span class="menu-header-text">Administración del Sistema</span>
-        </li>
+        Se conserva el id="${item.codigo}" en cada hoja para que el diccionario
+        rutasMenu de script.html siga manejando la navegación (eso cambia en el
+        paso 3). El diseño (clases sm-gi/gi-*, sm-si/si-*, badges) es idéntico.
+        ════════════════════════════════════════════════════════════════════
+    -->
+    <ul class="menu-inner py-1">
 
-        <li class="menu-item" id="opcion_admin" th:if="${esAdmin}">
-            <a href="#" class="menu-link menu-toggle">
-                <span class="sm-gi gi-purple menu-icon"><i class="ti ti-users-group"></i></span>
-                <div>Usuarios y Accesos</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item" id="opcion_rol">
-                    <a class="menu-link">
-                        <span class="sm-si si-purple"><i class="ti ti-shield-lock"></i></span>
-                        <div>Rol</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_persona">
-                    <a class="menu-link">
-                        <span class="sm-si si-blue"><i class="ti ti-id-badge-2"></i></span>
-                        <div>Persona</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_usuario">
-                    <a class="menu-link">
-                        <span class="sm-si si-cyan"><i class="ti ti-user-cog"></i></span>
-                        <div>Usuario</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_responsable">
-                    <a class="menu-link">
-                        <span class="sm-si si-teal"><i class="ti ti-user-check"></i></span>
-                        <div>Responsables</div>
-                    </a>
-                </li>
-            </ul>
-        </li>
+        <th:block th:each="seccion : ${menuArbol}">
 
-        <!-- ══════════════ 2 · CATÁLOGOS (ADMIN + SUPER USUARIO) ══════════════ -->
-        <li class="menu-header small text-uppercase" th:if="${verActivos}">
-            <span class="menu-header-text">Catálogos</span>
-        </li>
+            <li class="menu-header small text-uppercase">
+                <span class="menu-header-text" th:text="${seccion.descripcion}"></span>
+            </li>
 
-        <li class="menu-item" th:if="${verActivos}">
-            <a href="#" class="menu-link menu-toggle">
-                <span class="sm-gi gi-teal menu-icon"><i class="ti ti-adjustments-horizontal"></i></span>
-                <div>Clasificación Contable</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item" id="opcion_contable">
-                    <a class="menu-link">
-                        <span class="sm-si si-teal"><i class="ti ti-category-2"></i></span>
-                        <div>Grupo Contable</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_auxiliar">
-                    <a class="menu-link">
-                        <span class="sm-si si-blue"><i class="ti ti-folders"></i></span>
-                        <div>Auxiliar</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_of">
-                    <a class="menu-link">
-                        <span class="sm-si si-amber"><i class="ti ti-building-bank"></i></span>
-                        <div>Organismo Financiador</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_estadoA">
-                    <a class="menu-link">
-                        <span class="sm-si si-green"><i class="ti ti-badge"></i></span>
-                        <div>Estado del Activo</div>
-                    </a>
-                </li>
-            </ul>
-        </li>
+            <li class="menu-item" th:each="grupo : ${seccion.hijos}">
+                <a href="#" class="menu-link menu-toggle">
+                    <span class="sm-gi menu-icon" th:classappend="${'gi-' + grupo.colorClase}">
+                        <i th:class="${grupo.icono}"></i>
+                    </span>
+                    <div th:text="${grupo.descripcion}"></div>
+                </a>
+                <ul class="menu-sub">
+                    <li class="menu-item" th:each="item : ${grupo.hijos}" th:id="${item.codigo}"
+                        th:attr="data-url=${item.url}">
+                        <a class="menu-link">
+                            <span class="sm-si" th:classappend="${'si-' + item.colorClase}">
+                                <i th:class="${item.icono}"></i>
+                            </span>
+                            <div th:text="${item.descripcion}"></div>
+                            <span th:if="${item.badge != null and !item.badge.isEmpty()}"
+                                  class="sm-badge sm-bd-warn" th:text="${item.badge}"></span>
+                        </a>
+                    </li>
+                </ul>
+            </li>
 
-        <li class="menu-item" th:if="${verActivos}">
-            <a href="#" class="menu-link menu-toggle">
-                <span class="sm-gi gi-blue menu-icon"><i class="ti ti-map-2"></i></span>
-                <div>Ámbito Geográfico</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item" id="opcion_entidad">
-                    <a class="menu-link">
-                        <span class="sm-si si-blue"><i class="ti ti-building-community"></i></span>
-                        <div>Entidad</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_municipio">
-                    <a class="menu-link">
-                        <span class="sm-si si-cyan"><i class="ti ti-map-pin"></i></span>
-                        <div>Municipio</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_predio">
-                    <a class="menu-link">
-                        <span class="sm-si si-teal"><i class="ti ti-home-2"></i></span>
-                        <div>Predio</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_oficina">
-                    <a class="menu-link">
-                        <span class="sm-si si-purple"><i class="ti ti-door"></i></span>
-                        <div>Oficinas</div>
-                    </a>
-                </li>
-            </ul>
-        </li>
-
-        <!-- ══════════════ 3 · OPERACIONES DE ACTIVOS (ADMIN + SUPER USUARIO) ══════════════ -->
-        <li class="menu-header small text-uppercase" th:if="${verActivos}">
-            <span class="menu-header-text">Operaciones de Activos</span>
-        </li>
-
-        <li class="menu-item" th:if="${verActivos}">
-            <a href="#" class="menu-link menu-toggle">
-                <span class="sm-gi gi-green menu-icon"><i class="ti ti-packages"></i></span>
-                <div>Administración de Activos</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item" id="opcion_activo">
-                    <a class="menu-link">
-                        <span class="sm-si si-green"><i class="ti ti-clipboard-list"></i></span>
-                        <div>Registro Activos</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_activop">
-                    <a class="menu-link">
-                        <span class="sm-si si-amber"><i class="ti ti-clock-exclamation"></i></span>
-                        <div>Registro Activos Pendientes</div>
-                        <span class="sm-badge sm-bd-warn">PEND.</span>
-                    </a>
-                </li>
-            </ul>
-        </li>
-
-        <li class="menu-item" th:if="${verActivos}">
-            <a href="#" class="menu-link menu-toggle">
-                <span class="sm-gi gi-green menu-icon"><i class="ti ti-arrows-exchange"></i></span>
-                <div>Transferencia de Activos</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item" id="opcion_trInterna">
-                    <a class="menu-link">
-                        <span class="sm-si si-green"><i class="ti ti-building"></i></span>
-                        <div>Transferencia interna</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_trExterna">
-                    <a class="menu-link">
-                        <span class="sm-si si-amber"><i class="ti ti-truck-delivery"></i></span>
-                        <div>Transferencia externa</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_trLondra">
-                    <a class="menu-link">
-                        <span class="sm-si si-amber"><i class="ti ti-truck-delivery"></i></span>
-                        <div>Transferencia Londra</div>
-                    </a>
-                </li>
-            </ul>
-        </li>
-
-        <li class="menu-item" th:if="${verActivos}">
-            <a href="#" class="menu-link menu-toggle">
-                <span class="sm-gi gi-blue menu-icon"><i class="ti ti-clipboard-plus"></i></span>
-                <div>Asignación de Activos</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item" id="opcion_ActivoAj">
-                    <a class="menu-link">
-                        <span class="sm-si si-blue"><i class="ti ti-timeline"></i></span>
-                        <div>Asignar Activos</div>
-                    </a>
-                </li>
-            </ul>
-        </li>
-
-        <li class="menu-item" th:if="${verActivos}">
-            <a href="#" class="menu-link menu-toggle">
-                <span class="sm-gi gi-orange menu-icon"><i class="ti ti-box-multiple"></i></span>
-                <div>Bajas e Ingresos</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item" id="opcion_baja_modulo">
-                    <a class="menu-link">
-                        <span class="sm-si si-red"><i class="ti ti-trash"></i></span>
-                        <div>Baja de Activos</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_ingreso_modulo">
-                    <a class="menu-link">
-                        <span class="sm-si si-green"><i class="ti ti-package-import"></i></span>
-                        <div>Ingreso de Bienes Ajenos</div>
-                    </a>
-                </li>
-            </ul>
-        </li>
-
-        <!-- ══════════════ 4 · HOJAS DE RUTA (ADMIN + SUPER USUARIO) ══════════════ -->
-        <li class="menu-header small text-uppercase" th:if="${verActivos}">
-            <span class="menu-header-text">Hojas de Ruta</span>
-        </li>
-
-        <li class="menu-item" th:if="${verActivos}">
-            <a href="#" class="menu-link menu-toggle">
-                <span class="sm-gi gi-orange menu-icon"><i class="ti ti-file-description"></i></span>
-                <div>Hojas de Ruta</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item" id="opcion_hr_seguimiento">
-                    <a class="menu-link">
-                        <span class="sm-si si-blue"><i class="ti ti-zoom-check"></i></span>
-                        <div>Búsqueda y Seguimiento</div>
-                    </a>
-                </li>
-            </ul>
-        </li>
-
-        <!-- ══════════════ 5 · SEGUIMIENTO Y CONSULTAS (ADMIN + SUPER USUARIO + APOYO) ══════════════ -->
-        <li class="menu-header small text-uppercase" th:if="${verConsulta}">
-            <span class="menu-header-text">Seguimiento y Consultas</span>
-        </li>
-
-        <li class="menu-item" th:if="${verConsulta}">
-            <a href="#" class="menu-link menu-toggle">
-                <span class="sm-gi gi-orange menu-icon"><i class="ti ti-route"></i></span>
-                <div>Movimientos</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item" id="opcion_aan">
-                    <a class="menu-link">
-                        <span class="sm-si si-green"><i class="ti ti-clipboard-check"></i></span>
-                        <div>Asignaciones</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_ta">
-                    <a class="menu-link">
-                        <span class="sm-si si-blue"><i class="ti ti-arrows-exchange-2"></i></span>
-                        <div>Transferencias</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_ActivoIngreso">
-                    <a class="menu-link">
-                        <span class="sm-si si-orange"><i class="ti ti-arrow-down-circle"></i></span>
-                        <div>Ingresos</div>
-                    </a>
-                </li>
-                <li class="menu-item" id="opcion_ba">
-                    <a class="menu-link">
-                        <span class="sm-si si-red"><i class="ti ti-trash"></i></span>
-                        <div>Bajas</div>
-                    </a>
-                </li>
-            </ul>
-        </li>
-
-        <li class="menu-item" th:if="${verConsulta}">
-            <a href="#" class="menu-link menu-toggle">
-                <span class="sm-gi gi-blue menu-icon"><i class="ti ti-history"></i></span>
-                <div>Historial</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item" id="opcion_historialA">
-                    <a class="menu-link">
-                        <span class="sm-si si-blue"><i class="ti ti-timeline"></i></span>
-                        <div>Historial Activo</div>
-                    </a>
-                </li>
-            </ul>
-        </li>
-
-        <!-- ══════════════ 6 · REPORTES Y CONSULTAS (ADMIN + SUPER USUARIO + APOYO) ══════════════
-             Vista unificada: una sola "Consulta de Activos" con filtros
-             (texto, código, predio→oficina, responsable, fecha) + exportación a
-             Excel, que cubre buscar/por-oficina/por-responsable/por-predio y los
-             reportes. Reusa el endpoint server-side /administracion/activo/datatables. -->
-        <li class="menu-header small text-uppercase" th:if="${verConsulta}">
-            <span class="menu-header-text">Reportes y Consultas</span>
-        </li>
-
-        <li class="menu-item" th:if="${verConsulta}">
-            <a href="#" class="menu-link menu-toggle">
-                <span class="sm-gi gi-blue menu-icon"><i class="ti ti-zoom-scan"></i></span>
-                <div>Consulta de Activos</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item" id="opcion_consulta_activo">
-                    <a class="menu-link">
-                        <span class="sm-si si-blue"><i class="ti ti-search"></i></span>
-                        <div>Buscar / Filtrar Activos</div>
-                    </a>
-                </li>
-            </ul>
-        </li>
-
-        <!-- Conciliación BD ↔ VSIAF (divergencias). Solo ADMIN / SUPER USUARIO. -->
-        <li class="menu-item" th:if="${verActivos}">
-            <a href="#" class="menu-link menu-toggle">
-                <span class="sm-gi gi-blue menu-icon"><i class="ti ti-git-compare"></i></span>
-                <div>Conciliación VSIAF</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item" id="opcion_conciliacion">
-                    <a class="menu-link">
-                        <span class="sm-si si-blue"><i class="ti ti-arrows-diff"></i></span>
-                        <div>BD ↔ VSIAF (divergencias)</div>
-                    </a>
-                </li>
-            </ul>
-        </li>
+        </th:block>
 
     </ul>
 </aside>

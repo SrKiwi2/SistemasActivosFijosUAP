@@ -55,57 +55,26 @@
                 cargarContenido("/adm/inicio");
             }
 
-            // 2. Diccionario: Mapeamos cada ID con su URL correspondiente
-            const rutasMenu = {
-                "opcion_rol": "/administracion/rol/vista",
-                "opcion_usuario": "/administracion/usuario/vista",
-                "opcion_persona": "/administracion/persona/vista",
-                "opcion_nacionalidad": "/administracion/nacionalidad/vista",
-                "opcion_genero": "/administracion/genero/vista",
-                "opcion_entidad": "/administracion/entidad/vista",
-                "opcion_municipio": "/administracion/municipio/vista",
-                "opcion_predio": "/administracion/predio/vista",
-                "opcion_oficina": "/administracion/oficina/vista",
-                "opcion_activo": "/administracion/activo/vista",
-                "opcion_activop": "/administracion/activo/vistap",
-                "opcion_contable": "/administracion/grupoc/vista",
-                "opcion_auxiliar": "/administracion/auxiliar/vista",
-                "opcion_of": "/administracion/organismo/vista",
-                "opcion_estadoA": "/administracion/estadoa/vista",
-                "opcion_responsable": "/administracion/responsable/vista",
-                "opcion_aan": "/administracion/asignacion/vista",
-                "opcion_ta": "/administracion/transferencia/vista",
-                "opcion_ba": "/administracion/baja/modulo",
-                "opcion_trInterna": "/administracion/trasnferencia/trasnferenciaInterna",
-                "opcion_trExterna": "/administracion/trasnferencia/trasnferenciaExterna",
-                "opcion_historialA": "/administracion/historial/vista",
-                "opcion_ActivoAj": "/administracion/asignar/asignacionActivo",
-                "opcion_ActivoIngreso": "/administracion/ingreso/vista",
-                "opcion_baja_modulo": "/administracion/baja/modulo",
-                "opcion_ingreso_modulo": "/administracion/ingreso/modulo",
-                "opcion_trLondra": "/administracion/transferenciasLondra/vista",
-                "opcion_hr_seguimiento": "/administracion/hoja-ruta/seguimiento",
-                "opcion_consulta_activo": "/administracion/consulta/activos/vista",
-                "opcion_conciliacion": "/administracion/conciliacion/vista"
-            };
-
-            // 3. EVENTO MAESTRO: Detecta clics en cualquier ID que exista en nuestro diccionario
+            // Navegación del menú: cada ítem del sidebar trae su URL en data-url
+            // (renderizado dinámicamente desde la tabla opcion_menu). Ya no se
+            // mantiene un diccionario hardcodeado: agregar una opción no requiere
+            // tocar este JS.
             $(".menu-item").click(function (e) {
-                const idSeleccionado = $(this).attr("id");
+                const url = $(this).attr("data-url");
 
-                // Si el elemento clickeado está en nuestro diccionario, ejecutamos la acción
-                if (idSeleccionado && rutasMenu[idSeleccionado]) {
-                    e.preventDefault();
-
-                    // Cargar el contenido de la URL
-                    cargarContenido(rutasMenu[idSeleccionado]);
-
-                    // Quitar la clase 'active' de todos los demás menús
-                    $(".menu-item").removeClass("active");
-
-                    // Poner la clase 'active' SÓLO al elemento clickeado
-                    $(this).addClass("active");
+                // Grupos / encabezados no tienen data-url: solo despliegan submenú.
+                if (!url) {
+                    return;
                 }
+
+                e.preventDefault();
+
+                // Cargar el contenido de la URL
+                cargarContenido(url);
+
+                // Resaltar solo el ítem seleccionado
+                $(".menu-item").removeClass("active");
+                $(this).addClass("active");
             });
 
             function cargarContenido(url) {

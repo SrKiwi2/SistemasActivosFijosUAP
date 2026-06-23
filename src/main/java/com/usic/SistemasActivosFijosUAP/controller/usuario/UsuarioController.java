@@ -4,8 +4,11 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,9 +25,11 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
+import com.usic.SistemasActivosFijosUAP.model.IService.IOpcionMenuService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IRolService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
+import com.usic.SistemasActivosFijosUAP.model.entity.OpcionMenu;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Rol;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
@@ -44,6 +49,7 @@ public class UsuarioController {
     private final IUsuarioService usuarioService;
     private final IPersonaService personaService;
     private final IRolService rolService;
+    private final IOpcionMenuService opcionMenuService;
     private final GeneradorUsuarios generadorUsuarios;
 
     @ValidarUsuarioAutenticado
@@ -216,6 +222,86 @@ public class UsuarioController {
             e.printStackTrace();
             response.put("ok", false);
             response.put("msg", "Error al modificar: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    /**
+     * Carga el formulario de asignación de menús (opciones del sidebar) de un
+     * usuario. Las casillas vienen pre-marcadas con los permisos ya asignados;
+     * si el usuario aún no tiene ninguno, se pre-marca la plantilla de su rol.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/permisos/{id_usuario}")
+    public String permisos(Model model, @PathVariable("id_usuario") String idUsuario) throws Exception {
+
+        Long id = Long.parseLong(Encriptar.decrypt(idUsuario));
+        Usuario usuario = usuarioService.findById(id);
+
+        String rolNombre = (usuario != null && usuario.getRol() != null) ? usuario.getRol().getNombre() : "";
+
+        Set<String> asignados = opcionMenuService.codigosPorUsuario(id);
+        Set<String> plantillaRol = opcionMenuService.plantillaPorRol(rolNombre);
+        Set<String> marcados = asignados.isEmpty() ? plantillaRol : asignados;
+
+        // Catálogo agrupado por sección → grupo (orden preservado).
+        Map<String, Map<String, List<OpcionMenu>>> agrupado = new LinkedHashMap<>();
+        for (OpcionMenu opcion : opcionMenuService.listarItems()) {
+            agrupado
+                .computeIfAbsent(opcion.getSeccion(), k -> new LinkedHashMap<>())
+                .computeIfAbsent(opcion.getGrupo(), k -> new ArrayList<>())
+                .add(opcion);
+        }
+
+        model.addAttribute("usuario", usuario);
+        model.addAttribute("agrupado", agrupado);
+        model.addAttribute("marcados", marcados);
+        model.addAttribute("plantillaRol", plantillaRol);
+        model.addAttribute("usaPlantilla", asignados.isEmpty());
+
+        return "usuario/permisos";
+    }
+
+    /**
+     * Guarda los menús asignados a un usuario. Una lista vacía equivale a
+     * "sin asignación explícita", por lo que el usuario volverá a la plantilla
+     * de su rol en el próximo inicio de sesión.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/guardar-permisos")
+    public ResponseEntity<Map<String, Object>> guardarPermisos(
+            HttpServletRequest request,
+            @RequestParam("idUsuario") Long idUsuario,
+            @RequestParam(value = "codigos", required = false) List<String> codigos) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            Usuario usuario = usuarioService.findById(idUsuario);
+            if (usuario == null) {
+                response.put("ok", false);
+                response.put("msg", "El usuario no existe");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            List<OpcionMenu> opciones = opcionMenuService.buscarPorCodigos(codigos);
+            usuario.setOpciones(new HashSet<>(opciones));
+
+            Usuario usuarioLogueado = (Usuario) request.getSession().getAttribute("usuario");
+            if (usuarioLogueado != null) {
+                usuario.setModificacionIdUsuario(usuarioLogueado.getIdUsuario());
+            }
+
+            usuarioService.save(usuario);
+
+            response.put("ok", true);
+            response.put("msg", "Permisos de menú actualizados correctamente");
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("ok", false);
+            response.put("msg", "Error al guardar permisos: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }

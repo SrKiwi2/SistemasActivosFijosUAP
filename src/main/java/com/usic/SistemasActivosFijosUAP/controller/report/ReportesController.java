@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.controller.formularios.PdfAsignacionActivoCompleto;
+import com.usic.SistemasActivosFijosUAP.controller.formularios.WordAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IConfiguracionGestionService;
@@ -42,7 +43,11 @@ public class ReportesController {
     private final IAsignacionActivoService asignacionActivoService;
     private final IConfiguracionGestionService configuracionGestionService;
     private final PdfAsignacionActivoCompleto pdfAsignacionActivoCompleto;
+    private final WordAsignacionActivoService wordAsignacionActivoService;
     private final TransferenciaService transferenciaService;
+
+    // Tipo MIME para documentos Word (.docx)
+    private static final String DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
     @PostMapping("/generar-asignacion")
     public ResponseEntity<byte[]> generarReporte(
@@ -131,13 +136,13 @@ public class ReportesController {
                 );
             }
  
-            byte[] pdfBytes = pdfAsignacionActivoCompleto.generarActaAsignacion(asignacion, config);
- 
+            byte[] docxBytes = wordAsignacionActivoService.generarActaAsignacion(asignacion, config);
+
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDispositionFormData("attachment", "Acta_" + nroPreventivo + ".pdf");
- 
-            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+            headers.setContentType(MediaType.parseMediaType(DOCX_MIME));
+            headers.setContentDispositionFormData("attachment", "Acta_" + nroPreventivo + ".docx");
+
+            return new ResponseEntity<>(docxBytes, headers, HttpStatus.OK);
  
         } catch (Exception e) {
             e.printStackTrace();
@@ -172,15 +177,15 @@ public class ReportesController {
                         return c;
                     });
 
-            byte[] pdfBytes = pdfAsignacionActivoCompleto
+            byte[] docxBytes = wordAsignacionActivoService
                     .generarActaAsignacion(asignacion, config);
 
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentType(MediaType.parseMediaType(DOCX_MIME));
             headers.setContentDispositionFormData("attachment",
-                    "Acta_" + asignacion.getCodigoDocumento() + ".pdf");
+                    "Acta_" + asignacion.getCodigoDocumento() + ".docx");
 
-            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+            return new ResponseEntity<>(docxBytes, headers, HttpStatus.OK);
 
         } catch (Exception e) {
             e.printStackTrace();

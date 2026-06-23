@@ -8,6 +8,12 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class MvcConfig implements WebMvcConfigurer{
 
+    private final PermisoOpcionInterceptor permisoOpcionInterceptor;
+
+    public MvcConfig(PermisoOpcionInterceptor permisoOpcionInterceptor) {
+        this.permisoOpcionInterceptor = permisoOpcionInterceptor;
+    }
+
     @Override
     public void addInterceptors(InterceptorRegistry interceptorRegistry) {
         interceptorRegistry.addInterceptor(new UsuarioAutenticadoInterceptor())
@@ -17,6 +23,10 @@ public class MvcConfig implements WebMvcConfigurer{
                 "/css/**",
                 "/js/**"
             );
+
+        // Bloqueo por permiso de menú (Fase 3): solo aplica a las rutas del módulo.
+        interceptorRegistry.addInterceptor(permisoOpcionInterceptor)
+            .addPathPatterns("/administracion/**");
     }
 
     @Configuration

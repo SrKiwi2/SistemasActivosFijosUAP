@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="1450" viewBox="0 0 1060 1450" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="a"  viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker>
+    <marker id="at" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2E8B7F"/></marker>
+  </defs>
+  <rect width="1060" height="1450" fill="#FFFFFF"/>
+
+  <!-- zone tints -->
+  <rect x="20" y="66" width="1020" height="394" fill="#FFF8F5"/>
+  <rect x="20" y="460" width="1020" height="965" fill="#F5FAFE"/>
+  <line x1="20" y1="460" x2="1040" y2="460" stroke="#bbb" stroke-width="1.4" stroke-dasharray="7 4"/>
+
+  <text x="530" y="38" text-anchor="middle" font-size="20" font-weight="700" fill="#1a1a1a">Ciclo completo: cola JSON &#8594; worker PowerShell &#8594; DBF / .CDX</text>
+  <text x="34" y="84" font-size="12.5" font-weight="700" fill="#E95420">&#9650; VM Ubuntu &#183; SCIAF (genera la cola)</text>
+  <text x="34" y="480" font-size="12.5" font-weight="700" fill="#0078D4">&#9660; VM Windows &#183; VSIAF + Worker PowerShell</text>
+
+  <!-- ================= ARROWS (under shapes) ================= -->
+  <g stroke="#555" stroke-width="1.5" fill="none">
+    <line x1="380" y1="242" x2="380" y2="278" marker-end="url(#a)"/>      <!-- decision2 Si -> p3 -->
+    <line x1="380" y1="336" x2="380" y2="386" marker-end="url(#a)"/>      <!-- p3 -> cola -->
+    <line x1="380" y1="440" x2="380" y2="480" marker-end="url(#a)"/>      <!-- cola -> p5 -->
+    <line x1="380" y1="538" x2="380" y2="564" marker-end="url(#a)"/>      <!-- p5 -> d6 -->
+    <line x1="380" y1="658" x2="380" y2="688" marker-end="url(#a)"/>      <!-- d6 Si -> p7 -->
+    <line x1="380" y1="746" x2="380" y2="770" marker-end="url(#a)"/>      <!-- p7 -> d8 -->
+    <line x1="380" y1="1050" x2="380" y2="1082" marker-end="url(#a)"/>    <!-- p9 -> d10 -->
+    <line x1="380" y1="1340" x2="380" y2="1368" marker-end="url(#a)"/>    <!-- log -> end -->
+    <!-- legacy No path -->
+    <line x1="286" y1="196" x2="242" y2="196" marker-end="url(#a)"/>
+    <line x1="135" y1="224" x2="135" y2="248" marker-end="url(#a)"/>
+    <!-- d6 No loop -->
+    <polyline points="286,612 150,612 150,510 218,510" marker-end="url(#a)"/>
+    <!-- d8 INSERT / UPDATE -->
+    <line x1="286" y1="818" x2="200" y2="888" marker-end="url(#a)"/>
+    <line x1="474" y1="818" x2="560" y2="888" marker-end="url(#a)"/>
+    <line x1="185" y1="950" x2="300" y2="986" marker-end="url(#a)"/>
+    <line x1="595" y1="950" x2="460" y2="986" marker-end="url(#a)"/>
+    <!-- d10 Si/No -->
+    <line x1="286" y1="1130" x2="200" y2="1198" marker-end="url(#a)"/>
+    <line x1="474" y1="1130" x2="600" y2="1198" marker-end="url(#a)"/>
+    <line x1="190" y1="1254" x2="320" y2="1288" marker-end="url(#a)"/>
+    <line x1="605" y1="1254" x2="450" y2="1288" marker-end="url(#a)"/>
+    <!-- loop back from END -->
+    <polyline points="530,1393 1015,1393 1015,510 542,510" marker-end="url(#a)"/>
+  </g>
+  <!-- monitoring dashed link -->
+  <path d="M560,1019 C660,1040 700,1080 768,1118" stroke="#2E8B7F" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-end="url(#at)"/>
+
+  <!-- arrow labels -->
+  <g font-size="10.5" fill="#666">
+    <text x="392" y="262">Sí</text>
+    <text x="262" y="188">No</text>
+    <text x="158" y="600">No · espera</text>
+    <text x="392" y="678">Sí</text>
+    <text x="225" y="858">INSERT</text>
+    <text x="500" y="858">UPDATE</text>
+    <text x="232" y="1168">Sí</text>
+    <text x="498" y="1168">No</text>
+    <text x="1022" y="760" transform="rotate(-90 1022 760)" fill="#888">vuelve al sondeo</text>
+  </g>
+
+  <!-- ================= SHAPES ================= -->
+  <!-- START -->
+  <rect x="220" y="78" width="320" height="54" rx="27" fill="#D6E4F0" stroke="#336791" stroke-width="1.6"/>
+  <text x="380" y="100" text-anchor="middle" font-size="12" font-weight="700" fill="#23496b">Inicio &#8212; Acción deliberada del usuario</text>
+  <text x="380" y="118" text-anchor="middle" font-size="10.5" fill="#23496b">(alta &#183; edición &#183; baja &#183; transferencia)</text>
+
+  <!-- DECISION write.mode -->
+  <polygon points="380,150 474,196 380,242 286,196" fill="#FFF3CD" stroke="#C8972B" stroke-width="1.5"/>
+  <text x="380" y="192" text-anchor="middle" font-size="11" font-weight="700" fill="#8a6516">¿write.mode</text>
+  <text x="380" y="206" text-anchor="middle" font-size="11" font-weight="700" fill="#8a6516">= cola?</text>
+
+  <!-- legacy dead-end -->
+  <rect x="30" y="168" width="210" height="56" rx="5" fill="#F3F4F6" stroke="#999" stroke-width="1.3"/>
+  <text x="135" y="190" text-anchor="middle" font-size="10.5" fill="#555">Escritura directa de bytes</text>
+  <text x="135" y="206" text-anchor="middle" font-size="10.5" fill="#555">al DBF (modo legacy)</text>
+  <rect x="30" y="248" width="210" height="52" rx="26" fill="#FBECEA" stroke="#C0392B" stroke-width="1.3"/>
+  <text x="135" y="269" text-anchor="middle" font-size="10" fill="#9a2b22">Rompe el índice .CDX &#8594;</text>
+  <text x="135" y="284" text-anchor="middle" font-size="10" fill="#9a2b22">reindexar (no usado en prod)</text>
+
+  <!-- P3 -->
+  <rect x="220" y="280" width="320" height="56" rx="5" fill="#EAF0F6" stroke="#44617A" stroke-width="1.4"/>
+  <text x="380" y="304" text-anchor="middle" font-size="12" font-weight="700" fill="#22384a">DbfColaService genera la orden</text>
+  <text x="380" y="322" text-anchor="middle" font-size="10.5" fill="#555">INSERT o UPDATE (con clave)</text>
+
+  <!-- COLA parallelogram -->
+  <polygon points="252,386 532,386 492,440 212,440" fill="#FFF3CD" stroke="#C8972B" stroke-width="1.5"/>
+  <text x="372" y="408" text-anchor="middle" font-size="11.5" font-weight="700" fill="#8a6516">Escribe archivo .json en _cola/</text>
+  <text x="372" y="426" text-anchor="middle" font-size="10" fill="#7a5b00">(vía montaje CIFS  /mnt/dbfwin)</text>
+
+  <!-- P5 worker poll -->
+  <rect x="218" y="480" width="324" height="56" rx="5" fill="#DCE6F5" stroke="#1F5FA8" stroke-width="1.5"/>
+  <text x="380" y="504" text-anchor="middle" font-size="12" font-weight="700" fill="#143d6b">Worker PowerShell sondea _cola/</text>
+  <text x="380" y="522" text-anchor="middle" font-size="10.5" fill="#234">(tarea programada permanente)</text>
+
+  <!-- DECISION hay ordenes -->
+  <polygon points="380,566 474,612 380,658 286,612" fill="#FFF3CD" stroke="#C8972B" stroke-width="1.5"/>
+  <text x="380" y="608" text-anchor="middle" font-size="11" font-weight="700" fill="#8a6516">¿Hay órdenes</text>
+  <text x="380" y="622" text-anchor="middle" font-size="11" font-weight="700" fill="#8a6516">pendientes?</text>
+
+  <!-- P7 -->
+  <rect x="210" y="688" width="340" height="56" rx="5" fill="#DCE6F5" stroke="#1F5FA8" stroke-width="1.4"/>
+  <text x="380" y="712" text-anchor="middle" font-size="12" font-weight="700" fill="#143d6b">Lee la orden JSON y abre</text>
+  <text x="380" y="730" text-anchor="middle" font-size="10.5" fill="#234">conexión VFPOLEDB (OLE DB FoxPro)</text>
+
+  <!-- DECISION tipo -->
+  <polygon points="380,770 474,818 380,864 286,818" fill="#FFF3CD" stroke="#C8972B" stroke-width="1.5"/>
+  <text x="380" y="814" text-anchor="middle" font-size="11" font-weight="700" fill="#8a6516">¿Tipo de</text>
+  <text x="380" y="828" text-anchor="middle" font-size="11" font-weight="700" fill="#8a6516">operación?</text>
+
+  <!-- INSERT -->
+  <rect x="60" y="888" width="250" height="60" rx="5" fill="#EAF0F6" stroke="#44617A" stroke-width="1.4"/>
+  <text x="185" y="912" text-anchor="middle" font-size="11.5" font-weight="700" fill="#22384a">INSERT if-not-exists</text>
+  <text x="185" y="930" text-anchor="middle" font-size="10.5" fill="#555">(chequea existencia por índice)</text>
+  <!-- UPDATE -->
+  <rect x="450" y="888" width="250" height="60" rx="5" fill="#EAF0F6" stroke="#44617A" stroke-width="1.4"/>
+  <text x="575" y="912" text-anchor="middle" font-size="11.5" font-weight="700" fill="#22384a">UPDATE SET / WHERE</text>
+  <text x="575" y="930" text-anchor="middle" font-size="10.5" fill="#555">por clave (soporta cambio de clave)</text>
+
+  <!-- P9 KEY -->
+  <rect x="200" y="986" width="360" height="64" rx="6" fill="#DCE6F5" stroke="#1F5FA8" stroke-width="2.4"/>
+  <text x="380" y="1012" text-anchor="middle" font-size="12.5" font-weight="700" fill="#143d6b">VFPOLEDB aplica el cambio al DBF</text>
+  <text x="380" y="1032" text-anchor="middle" font-size="11.5" font-weight="700" fill="#C0392B">&#8594; mantiene el índice .CDX (sin reindexar)</text>
+
+  <!-- DECISION exito -->
+  <polygon points="380,1084 474,1130 380,1176 286,1130" fill="#FFF3CD" stroke="#C8972B" stroke-width="1.5"/>
+  <text x="380" y="1126" text-anchor="middle" font-size="11" font-weight="700" fill="#8a6516">¿Operación</text>
+  <text x="380" y="1140" text-anchor="middle" font-size="11" font-weight="700" fill="#8a6516">exitosa?</text>
+
+  <!-- _hechos -->
+  <polygon points="98,1198 310,1198 282,1252 70,1252" fill="#D7E8D5" stroke="#3a8a4f" stroke-width="1.5"/>
+  <text x="190" y="1230" text-anchor="middle" font-size="11.5" font-weight="700" fill="#2c6b3c">Mueve la orden a _hechos/</text>
+  <!-- _errores -->
+  <polygon points="488,1198 750,1198 722,1252 460,1252" fill="#F6D9D6" stroke="#C0392B" stroke-width="1.5"/>
+  <text x="605" y="1224" text-anchor="middle" font-size="11.5" font-weight="700" fill="#9a2b22">Mueve la orden a _errores/</text>
+  <text x="605" y="1242" text-anchor="middle" font-size="10" fill="#9a2b22">+ archivo .error.txt</text>
+
+  <!-- log -->
+  <rect x="230" y="1288" width="300" height="52" rx="5" fill="#ECEFF1" stroke="#666" stroke-width="1.4"/>
+  <text x="380" y="1319" text-anchor="middle" font-size="11.5" font-weight="700" fill="#444">Registra el resultado en worker.log</text>
+
+  <!-- END -->
+  <rect x="230" y="1368" width="300" height="52" rx="26" fill="#D6E4F0" stroke="#336791" stroke-width="1.6"/>
+  <text x="380" y="1399" text-anchor="middle" font-size="11.5" font-weight="700" fill="#23496b">Fin del ciclo &#8594; vuelve al sondeo</text>
+
+  <!-- MONITORING note -->
+  <rect x="768" y="1078" width="248" height="170" rx="8" fill="#E3F2EF" stroke="#2E8B7F" stroke-width="1.6" stroke-dasharray="6 3"/>
+  <text x="892" y="1102" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1f6b60">Panel de monitoreo (SCIAF)</text>
+  <text x="892" y="1126" text-anchor="middle" font-size="10.5" fill="#33635a">El Nivel 3 detecta el cambio</text>
+  <text x="892" y="1144" text-anchor="middle" font-size="10.5" fill="#33635a">en el DBF, actualiza PostgreSQL</text>
+  <text x="892" y="1162" text-anchor="middle" font-size="10.5" fill="#33635a">y emite un evento SSE.</text>
+  <text x="892" y="1186" text-anchor="middle" font-size="10.5" fill="#33635a">Conciliación BD&#8596;DBF y las</text>
+  <text x="892" y="1204" text-anchor="middle" font-size="10.5" fill="#33635a">notificaciones reflejan el</text>
+  <text x="892" y="1222" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1f6b60">estado en tiempo real.</text>
+
+  <text x="20" y="1442" font-size="10" fill="#777" font-style="italic">El worker procesa las órdenes de forma asíncrona y desacoplada del SCIAF; el panel de monitoreo refleja el resultado vía sincronización y SSE. Elaboración propia.</text>
+</svg>

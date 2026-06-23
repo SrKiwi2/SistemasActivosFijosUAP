@@ -1,0 +1,125 @@
+<div class="modal-header">
+    <h4 class="modal-title"><i class="ti ti-send me-1"></i> Nuevo comunicado</h4>
+    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+</div>
+
+<form id="formularioComunicado" method="post"
+      th:action="@{/administracion/comunicados/enviar}" novalidate>
+
+    <div class="modal-body">
+        <div class="row g-3">
+
+            <div class="col-md-5">
+                <label class="form-label">Tipo</label>
+                <select name="tipo" class="form-select" required>
+                    <option value="AVISO">Aviso</option>
+                    <option value="TRABAJO">Trabajo / tarea</option>
+                    <option value="URGENTE">Urgente</option>
+                    <option value="GENERAL" selected>General</option>
+                </select>
+            </div>
+
+            <div class="col-md-7 d-flex align-items-end">
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" name="importante" value="true"
+                           id="comImportante">
+                    <label class="form-check-label" for="comImportante">
+                        <i class="ti ti-star-filled text-warning"></i>
+                        Marcar como importante (destacado)
+                    </label>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Título <span class="text-danger">*</span></label>
+                <input type="text" name="titulo" class="form-control" maxlength="255"
+                       placeholder="Ej. Inventario físico la próxima semana" required>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Mensaje</label>
+                <textarea name="mensaje" class="form-control" rows="4"
+                          placeholder="Detalle del comunicado..."></textarea>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">URL de destino (opcional)</label>
+                <input type="text" name="urlDestino" class="form-control"
+                       placeholder="Ej. /administracion/activo/vista">
+                <small class="text-muted">Si la indica, el destinatario podrá ir directo a esa pantalla.</small>
+            </div>
+
+            <hr class="my-1">
+
+            <div class="col-12">
+                <label class="form-label d-block">Destinatarios</label>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="alcance" id="alcTodos" value="TODOS"
+                           onchange="ajustarAlcance()">
+                    <label class="btn btn-outline-primary" for="alcTodos">
+                        <i class="ti ti-users me-1"></i> Todos
+                    </label>
+
+                    <input type="radio" class="btn-check" name="alcance" id="alcUsuarios" value="USUARIOS"
+                           checked onchange="ajustarAlcance()">
+                    <label class="btn btn-outline-primary" for="alcUsuarios">
+                        <i class="ti ti-user me-1"></i> Usuarios específicos
+                    </label>
+
+                    <input type="radio" class="btn-check" name="alcance" id="alcOficina" value="OFICINA"
+                           onchange="ajustarAlcance()">
+                    <label class="btn btn-outline-primary" for="alcOficina">
+                        <i class="ti ti-building me-1"></i> Por oficina / sección
+                    </label>
+                </div>
+            </div>
+
+            <!-- Selección de usuarios -->
+            <div class="col-12 campo-usuarios">
+                <label class="form-label">Seleccione usuario(s)</label>
+                <select name="idsUsuarios" class="form-select select2" multiple>
+                    <option th:each="u : ${usuarios}" th:value="${u.id}"
+                            th:text="${u.nombre} + (${u.rol} != '' ? ' (' + ${u.rol} + ')' : '')"></option>
+                </select>
+            </div>
+
+            <!-- Selección de oficina -->
+            <div class="col-12 campo-oficina">
+                <label class="form-label">Seleccione la oficina / sección</label>
+                <select name="idOficina" class="form-select select2">
+                    <option value="">— Seleccione —</option>
+                    <option th:each="o : ${oficinas}" th:value="${o.id}" th:text="${o.nombre}"></option>
+                </select>
+                <small class="text-muted">Llega a los usuarios responsables de esa oficina.</small>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="modal-footer">
+        <a type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</a>
+        <button type="submit" class="btn btn-success">
+            <i class="ti ti-send me-1"></i> Enviar comunicado
+        </button>
+    </div>
+</form>
+
+<script>
+    function ajustarAlcance() {
+        const alcance = document.querySelector('#formularioComunicado input[name="alcance"]:checked').value;
+        const campoUsuarios = document.querySelector('#formularioComunicado .campo-usuarios');
+        const campoOficina  = document.querySelector('#formularioComunicado .campo-oficina');
+
+        const mostrar = (el, on) => {
+            el.style.display = on ? '' : 'none';
+            // Deshabilitar los inputs ocultos para que no se envíen (evita binding inválido).
+            el.querySelectorAll('select, input').forEach(c => c.disabled = !on);
+        };
+
+        mostrar(campoUsuarios, alcance === 'USUARIOS');
+        mostrar(campoOficina,  alcance === 'OFICINA');
+    }
+
+    ajustarAlcance();
+    manejarEnvioFormulario('#formularioComunicado');
+</script>

@@ -80,6 +80,9 @@
 
     <div id="globalLoader" aria-live="polite" aria-busy="true"></div>
 
+    <!-- Modal historial + toast + estilos de la campana de notificaciones -->
+    <th:block th:replace="~{layout/topbar :: notif-extra}"></th:block>
+
     <div th:replace="~{layout/script :: script}"></div>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" />

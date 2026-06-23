@@ -8,12 +8,13 @@
 
     // ── Config ────────────────────────────────────────────────────────────────
     const API = {
-        noLeidas:  '/api/notificaciones/no-leidas',
-        conteo:    '/api/notificaciones/conteo',
-        historial: '/api/notificaciones/historial',
-        leer:      (id) => `/api/notificaciones/${id}/leer`,
-        leerTodas: '/api/notificaciones/leer-todas',
-        sseUsuario:'/api/eventos/sse/usuario'
+        noLeidas:   '/api/notificaciones/no-leidas',
+        conteo:     '/api/notificaciones/conteo',
+        historial:  '/api/notificaciones/historial',
+        leer:       (id) => `/api/notificaciones/${id}/leer`,
+        leerTodas:  '/api/notificaciones/leer-todas',
+        entregadas: '/api/notificaciones/entregadas',
+        sseUsuario: '/api/eventos/sse/usuario'
     };
 
     const PAGE_SIZE = 15;
@@ -23,6 +24,7 @@
 
     // ── Referencias DOM ───────────────────────────────────────────────────────
     const badge          = document.getElementById('badge-notif');
+    const iconoCampana   = document.getElementById('iconoCampana');
     const listaEl        = document.getElementById('lista-notificaciones');
     const vacioEl        = document.getElementById('notif-vacio');
     const countTextoEl   = document.getElementById('notif-count-texto');
@@ -46,14 +48,60 @@
             badge.textContent   = count > 99 ? '99+' : count;
             badge.style.cssText = ''; // limpia display:none!important
             badge.style.display = 'inline-block';
+            badge.classList.add('notif-pulse');
             if (countTextoEl) countTextoEl.textContent =
                 count + ' notificación' + (count > 1 ? 'es' : '') + ' sin leer';
             if (btnMarcarTodas) btnMarcarTodas.style.display = '';
         } else {
             badge.style.cssText = 'display:none!important';
+            badge.classList.remove('notif-pulse');
+            detenerShake();
             if (countTextoEl) countTextoEl.textContent = 'Sin notificaciones nuevas';
             if (btnMarcarTodas) btnMarcarTodas.style.display = 'none';
         }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  ANIMACIÓN DE LA CAMPANA
+    // ════════════════════════════════════════════════════════════════
+    function dispararShake() {
+        if (!iconoCampana) return;
+        iconoCampana.classList.remove('campana-shake');
+        void iconoCampana.offsetWidth;            // reinicia la animación
+        iconoCampana.classList.add('campana-shake');
+        setTimeout(detenerShake, 2000);
+    }
+
+    function detenerShake() {
+        if (iconoCampana) iconoCampana.classList.remove('campana-shake');
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  ACUSE DE ENTREGA ("le llegó")
+    // ════════════════════════════════════════════════════════════════
+    function marcarEntregadas(ids) {
+        if (!ids || !ids.length) return;
+        fetch(API.entregadas, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ids)
+        }).catch(() => {});
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  CONFIRMAR LECTURA (acuse explícito)
+    // ════════════════════════════════════════════════════════════════
+    function confirmarLectura(id) {
+        fetch(API.leer(id), {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+            if (d) actualizarBadge(d.noLeidasRestantes || 0);
+            cargarNoLeidas();
+        })
+        .catch(() => {});
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -64,8 +112,11 @@
             .then(r => r.ok ? r.json() : null)
             .then(data => {
                 if (!data) return;
-                renderListaNoLeidas(data.notificaciones || []);
+                const notifs = data.notificaciones || [];
+                renderListaNoLeidas(notifs);
                 actualizarBadge(data.total || 0);
+                // Acuse de entrega: el cliente ya las "recibió".
+                marcarEntregadas(notifs.map(n => n.id));
             })
             .catch(() => {});
     }
@@ -81,57 +132,56 @@
         if (vacioEl) vacioEl.style.display = 'none';
 
         notifs.slice(0, 8).forEach(n => {
+            const tieneUrl = n.urlDestino && n.urlDestino !== '#';
             const li = document.createElement('li');
-            li.className = 'list-group-item list-group-item-action notif-item px-3 py-2 '
+            li.className = 'list-group-item notif-item px-3 py-2 '
                 + (n.leida ? '' : 'bg-light');
-            li.style.cursor = 'pointer';
             li.innerHTML =
                 '<div class="d-flex gap-2 align-items-start">'
                 + '<div class="flex-shrink-0 mt-1">' + iconoPorTipo(n.tipo) + '</div>'
-                + '<div class="flex-grow-1 overflow-hidden">'
+                + '<div class="flex-grow-1 overflow-hidden' + (tieneUrl ? ' notif-cuerpo" style="cursor:pointer"' : '"') + '>'
                     + '<div class="d-flex justify-content-between">'
-                        + '<small class="fw-semibold text-truncate" style="max-width:220px">'
+                        + '<small class="fw-semibold text-truncate" style="max-width:200px">'
                         +   escHtml(n.titulo) + '</small>'
                         + '<span class="text-muted ms-1 flex-shrink-0" style="font-size:.65rem">'
                         +   (n.fechaCreacion || '') + '</span>'
                     + '</div>'
                     + '<small class="text-muted d-block text-truncate">'
                     +   escHtml(n.mensaje) + '</small>'
+                    + '<div class="mt-1 d-flex gap-2">'
+                        + '<button type="button" class="btn btn-xs btn-outline-success py-0 px-2 notif-confirmar"'
+                        +   ' style="font-size:.7rem"><i class="ti ti-check ti-xs me-1"></i>Confirmar</button>'
+                        + (tieneUrl
+                            ? '<button type="button" class="btn btn-xs btn-outline-primary py-0 px-2 notif-ir"'
+                              + ' style="font-size:.7rem"><i class="ti ti-arrow-right ti-xs me-1"></i>Ir</button>'
+                            : '')
+                    + '</div>'
                 + '</div>'
-                + (!n.leida
-                    ? '<div class="flex-shrink-0 ms-1">'
-                      + '<span class="badge bg-primary rounded-circle p-1"'
-                      + ' style="width:8px;height:8px;display:block"></span></div>'
-                    : '')
+                + '<div class="flex-shrink-0 ms-1">'
+                  + '<span class="badge bg-primary rounded-circle p-1"'
+                  + ' style="width:8px;height:8px;display:block"></span></div>'
                 + '</div>';
-            li.addEventListener('click', () => onClickNotificacion(n));
+
+            // Confirmar lectura (acuse explícito) — no navega.
+            li.querySelector('.notif-confirmar')
+                ?.addEventListener('click', e => { e.stopPropagation(); confirmarLectura(n.id); });
+
+            // Ir al destino — NO confirma (sigue sin leer hasta el acuse).
+            const irFn = () => {
+                cerrarDropdown();
+                setTimeout(() => { window.location.href = n.urlDestino; }, 150);
+            };
+            li.querySelector('.notif-ir')?.addEventListener('click', e => { e.stopPropagation(); irFn(); });
+            li.querySelector('.notif-cuerpo')?.addEventListener('click', irFn);
+
             listaEl.insertBefore(li, vacioEl);
         });
     }
 
-    function onClickNotificacion(n) {
-        // 1. Cerrar dropdown primero
+    function cerrarDropdown() {
         const btnCampana = document.getElementById('btnCampana');
         if (btnCampana) {
-            try {
-                bootstrap.Dropdown.getInstance(btnCampana)?.hide();
-            } catch(e) {}
-        }
-
-        // 2. Marcar leída en background — NO seguir su respuesta
-        if (!n.leida) {
-            fetch(API.leer(n.id), {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            }).catch(() => {});
-        }
-
-        // 3. Navegar solo si hay URL — con pequeño delay para que cierre el dropdown
-        if (n.urlDestino && n.urlDestino !== '#') {
-            setTimeout(() => { window.location.href = n.urlDestino; }, 150);
-        } else {
-            // Sin URL → solo refrescar lista
-            cargarNoLeidas();
+            try { bootstrap.Dropdown.getInstance(btnCampana)?.hide(); } catch (e) {}
         }
     }
 
@@ -156,10 +206,13 @@
     // ════════════════════════════════════════════════════════════════
     //  TOAST
     // ════════════════════════════════════════════════════════════════
-    function mostrarToast(titulo, mensaje) {
+    function mostrarToast(titulo, mensaje, importante) {
         if (!toastEl) return;
         if (toastTitulo)  toastTitulo.textContent  = titulo  || 'Notificación';
         if (toastMensaje) toastMensaje.textContent = mensaje || '';
+        // Resalta en rojo los comunicados importantes/urgentes.
+        toastEl.classList.toggle('text-bg-danger', !!importante);
+        toastEl.classList.toggle('text-bg-primary', !importante);
         bootstrap.Toast.getOrCreateInstance(toastEl).show();
 
         // Sonido sutil
@@ -254,27 +307,46 @@
                 + '<small class="text-muted d-block mt-1">' + escHtml(n.mensaje) + '</small>'
                 + (n.fechaLectura
                     ? '<small class="text-success d-block mt-1" style="font-size:.65rem">'
-                      + '<i class="ti ti-circle-check ti-xs me-1"></i>Leída el '
+                      + '<i class="ti ti-circle-check ti-xs me-1"></i>Confirmada el '
                       + n.fechaLectura + '</small>'
                     : '')
-                + (!n.leida && n.urlDestino
-                    ? '<button class="btn btn-xs btn-outline-primary mt-2 py-0 px-2 '
-                      + 'btn-historial-ir" data-id="' + n.id + '" '
-                      + 'data-url="' + escHtml(n.urlDestino) + '" '
+                + '<div class="mt-2 d-flex gap-2">'
+                + (!n.leida
+                    ? '<button class="btn btn-xs btn-outline-success py-0 px-2 btn-historial-confirmar" '
+                      + 'data-id="' + n.id + '" style="font-size:.7rem">'
+                      + '<i class="ti ti-check ti-xs me-1"></i>Confirmar lectura</button>'
+                    : '')
+                + (n.urlDestino && n.urlDestino !== '#'
+                    ? '<button class="btn btn-xs btn-outline-primary py-0 px-2 '
+                      + 'btn-historial-ir" data-url="' + escHtml(n.urlDestino) + '" '
                       + 'style="font-size:.7rem">'
                       + '<i class="ti ti-arrow-right ti-xs me-1"></i>Ir</button>'
                     : '')
+                + '</div>'
             + '</div>'
             + '</div>';
+
+        li.querySelector('.btn-historial-confirmar')
+            ?.addEventListener('click', e => {
+                e.stopPropagation();
+                const id = parseInt(e.currentTarget.dataset.id);
+                fetch(API.leer(id), { method: 'POST' })
+                    .finally(() => { actualizarConteoYRecargarHistorial(); });
+            });
 
         li.querySelector('.btn-historial-ir')
             ?.addEventListener('click', e => {
                 e.stopPropagation();
-                const btn = e.currentTarget;
-                fetch(API.leer(parseInt(btn.dataset.id)), { method: 'POST' })
-                    .finally(() => { if (btn.dataset.url) window.location.href = btn.dataset.url; });
+                // Ir NO confirma la lectura (acuse explícito).
+                window.location.href = e.currentTarget.dataset.url;
             });
         return li;
+    }
+
+    function actualizarConteoYRecargarHistorial() {
+        fetch(API.conteo).then(r => r.json())
+            .then(d => actualizarBadge(d.noLeidas || 0)).catch(() => {});
+        cargarHistorial(historialPagina);
     }
 
     // Eventos historial
@@ -297,9 +369,11 @@
             try {
                 const data = JSON.parse(e.data);
                 actualizarBadge(data.noLeidasTotal || 0);
+                dispararShake();
                 cargarNoLeidas();
-                mostrarToast(data.titulo, data.mensaje);
-                if (typeof window.cargarTabla === 'function') window.cargarTabla();
+                mostrarToast(data.titulo, data.mensaje, data.importante);
+                // Acuse de entrega inmediato de la notificación recibida.
+                if (data.idNotificacion) marcarEntregadas([data.idNotificacion]);
             } catch (err) {}
         });
 
@@ -334,6 +408,10 @@
             'TRANSFERENCIA_ERROR':    '<span class="badge bg-label-danger p-1"><i class="ti ti-alert-triangle ti-xs"></i></span>',
             'SYNC_COMPLETADO':        '<span class="badge bg-label-info p-1"><i class="ti ti-refresh ti-xs"></i></span>',
             'SISTEMA':                '<span class="badge bg-label-secondary p-1"><i class="ti ti-settings ti-xs"></i></span>',
+            'AVISO':                  '<span class="badge bg-label-info p-1"><i class="ti ti-info-circle ti-xs"></i></span>',
+            'TRABAJO':                '<span class="badge bg-label-primary p-1"><i class="ti ti-clipboard-text ti-xs"></i></span>',
+            'URGENTE':                '<span class="badge bg-label-danger p-1"><i class="ti ti-alert-octagon ti-xs"></i></span>',
+            'GENERAL':                '<span class="badge bg-label-secondary p-1"><i class="ti ti-bell ti-xs"></i></span>',
         };
         return m[tipo] || m['SISTEMA'];
     }
@@ -353,14 +431,20 @@
         .then(data => actualizarBadge(data.noLeidas || 0))
         .catch(() => {});
 
-    // Cargar lista al abrir dropdown
+    // Cargar lista al abrir dropdown y detener la sacudida (ya las "vio").
     document.getElementById('btnCampana')
-        ?.addEventListener('show.bs.dropdown', cargarNoLeidas);
+        ?.addEventListener('show.bs.dropdown', () => {
+            detenerShake();
+            cargarNoLeidas();
+        });
 
     // Conectar SSE autenticado
     conectarSseUsuario();
 
     // Exponer para pruebas desde consola
-    window._notif = { cargarNoLeidas, actualizarBadge, mostrarToast, cargarHistorial };
+    window._notif = {
+        cargarNoLeidas, actualizarBadge, mostrarToast,
+        cargarHistorial, confirmarLectura, dispararShake
+    };
 
 })();

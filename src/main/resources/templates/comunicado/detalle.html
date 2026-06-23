@@ -1,0 +1,112 @@
+<div class="modal-header">
+    <h5 class="modal-title">
+        <i class="ti ti-clipboard-check me-1 text-primary"></i>
+        Control de lectura
+    </h5>
+    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+</div>
+
+<div class="modal-body">
+
+    <!-- Resumen del comunicado -->
+    <div class="card border mb-3">
+        <div class="card-body py-3">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h6 class="mb-1">
+                        <i th:if="${detalle.importante}" class="ti ti-star-filled text-warning me-1"></i>
+                        <span th:text="${detalle.titulo}"></span>
+                    </h6>
+                    <p class="mb-1 text-muted small" th:text="${detalle.mensaje}"></p>
+                </div>
+                <span class="badge bg-label-secondary" th:text="${detalle.tipo}"></span>
+            </div>
+            <div class="d-flex flex-wrap gap-3 mt-2 small text-muted">
+                <span><i class="ti ti-user me-1"></i>Emisor: <span th:text="${detalle.emisor}"></span></span>
+                <span><i class="ti ti-calendar me-1"></i><span th:text="${detalle.fechaEnvio}"></span></span>
+                <span><i class="ti ti-target me-1"></i><span th:text="${detalle.alcanceDetalle}"></span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjetas de estadísticas -->
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+            <div class="card border text-center"><div class="card-body py-3">
+                <h4 class="mb-0" th:text="${detalle.totalDestinatarios}"></h4>
+                <small class="text-muted">Destinatarios</small>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border text-center"><div class="card-body py-3">
+                <h4 class="mb-0 text-info" th:text="${detalle.recibieron}"></h4>
+                <small class="text-muted">Recibieron</small>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border text-center"><div class="card-body py-3">
+                <h4 class="mb-0 text-success" th:text="${detalle.leyeron}"></h4>
+                <small class="text-muted">Confirmaron</small>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border text-center"><div class="card-body py-3">
+                <h4 class="mb-0 text-warning" th:text="${detalle.totalDestinatarios - detalle.leyeron}"></h4>
+                <small class="text-muted">Sin leer</small>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="d-flex align-items-center mb-3">
+        <div class="progress flex-grow-1" style="height:10px;">
+            <div class="progress-bar bg-success" role="progressbar"
+                 th:style="'width:' + ${detalle.porcentajeLectura} + '%'"
+                 th:aria-valuenow="${detalle.porcentajeLectura}"
+                 aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+        <span class="ms-2 fw-semibold" th:text="${detalle.porcentajeLectura} + '% leído'"></span>
+    </div>
+
+    <!-- Detalle por destinatario -->
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Destinatario</th>
+                    <th>Usuario</th>
+                    <th class="text-center">Recibió</th>
+                    <th class="text-center">Confirmó lectura</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="d, it : ${detalle.destinatarios}">
+                    <td th:text="${it.index + 1}"></td>
+                    <td th:text="${d.nombre}"></td>
+                    <td><small class="text-muted" th:text="${d.usuario}"></small></td>
+                    <td class="text-center">
+                        <span th:if="${d.entregada}" class="text-info" th:title="${d.fechaEntrega}">
+                            <i class="ti ti-check"></i>
+                            <small th:text="${d.fechaEntrega}"></small>
+                        </span>
+                        <span th:unless="${d.entregada}" class="text-muted">
+                            <i class="ti ti-clock"></i> Pendiente
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <span th:if="${d.leida}" class="text-success" th:title="${d.fechaLectura}">
+                            <i class="ti ti-checks"></i>
+                            <small th:text="${d.fechaLectura}"></small>
+                        </span>
+                        <span th:unless="${d.leida}" class="badge bg-label-warning">No leído</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<div class="modal-footer">
+    <a type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</a>
+</div>

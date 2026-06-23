@@ -1,0 +1,281 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1340" height="1000" viewBox="0 0 1340 1000" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="darrow" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#C0392B"/>
+    </marker>
+  </defs>
+  <rect width="1340" height="1000" fill="#FFFFFF"/>
+  <text x="670" y="30" text-anchor="middle" font-size="20" font-weight="700" fill="#1a1a1a">Modelo Entidad-Relación (entidades principales)</text>
+
+  <!-- ============ RELATIONSHIP LINES (drawn first, under boxes) ============ -->
+  <g stroke="#6b7280" stroke-width="1.4" fill="none">
+    <!-- location chain -->
+    <line x1="640" y1="360" x2="587" y2="313"/>            <!-- Activo-Oficina -->
+    <line x1="587" y1="215" x2="587" y2="153"/>            <!-- Oficina-Predio -->
+    <line x1="500" y1="96"  x2="460" y2="96"/>             <!-- Predio-Entidad -->
+    <line x1="675" y1="96"  x2="715" y2="96"/>             <!-- Predio-Municipio -->
+    <!-- people -->
+    <line x1="760" y1="378" x2="895" y2="240"/>            <!-- Activo-Responsable -->
+    <line x1="1085" y1="215" x2="1150" y2="119"/>          <!-- Responsable-Persona -->
+    <line x1="1085" y1="255" x2="1150" y2="243"/>          <!-- Responsable-Cargo -->
+    <line x1="895" y1="285" x2="675" y2="285"/>            <!-- Responsable-Oficina -->
+    <!-- classification (radiate from Activo left) -->
+    <line x1="560" y1="400" x2="225" y2="150"/>            <!-- Activo-EstadoActivo -->
+    <line x1="560" y1="424" x2="225" y2="279"/>            <!-- Activo-GrupoContable -->
+    <line x1="560" y1="464" x2="245" y2="407"/>            <!-- Activo-OrganismoFinanciero -->
+    <line x1="560" y1="496" x2="230" y2="520"/>            <!-- Activo-Auxiliar -->
+    <line x1="140" y1="486" x2="140" y2="328"/>            <!-- Auxiliar-GrupoContable -->
+    <!-- operations on Activo -->
+    <line x1="860" y1="404" x2="775" y2="420"/>            <!-- DetAsig-Activo -->
+    <line x1="1065" y1="404" x2="1110" y2="404"/>          <!-- DetAsig-Asignacion -->
+    <line x1="860" y1="531" x2="775" y2="495"/>            <!-- TransfDet-Activo -->
+    <line x1="1065" y1="531" x2="1110" y2="547"/>          <!-- TransfDet-Transferencia -->
+    <line x1="860" y1="677" x2="775" y2="510"/>            <!-- Baja-Activo -->
+    <line x1="692" y1="600" x2="692" y2="522"/>            <!-- Historial-Activo -->
+    <!-- external Londra -->
+    <line x1="330" y1="769" x2="275" y2="777"/>            <!-- Cabecera-DetalleLondra -->
+    <line x1="430" y1="818" x2="437" y2="850"/>            <!-- Cabecera-Accion -->
+  </g>
+  <!-- conceptual (no FK) link Londra detalle -> Activo by code -->
+  <path d="M250,720 L640,524" stroke="#C0392B" stroke-width="1.4" stroke-dasharray="6 4" fill="none" marker-end="url(#darrow)"/>
+  <text x="455" y="612" text-anchor="middle" font-size="10" fill="#C0392B" font-style="italic">vínculo por código (sin FK)</text>
+
+  <!-- cardinality labels -->
+  <g font-size="10.5" fill="#888">
+    <text x="628" y="352">N</text><text x="592" y="307">1</text>
+    <text x="575" y="208">N</text><text x="575" y="166">1</text>
+    <text x="492" y="90">N</text><text x="468" y="90">1</text>
+    <text x="683" y="90">N</text><text x="704" y="90">1</text>
+    <text x="772" y="392">N</text><text x="880" y="248">1</text>
+    <text x="240" y="160">1</text><text x="540" y="396">N</text>
+    <text x="240" y="289">1</text><text x="540" y="436">N</text>
+    <text x="258" y="417">1</text><text x="540" y="474">N</text>
+    <text x="244" y="514">1</text><text x="540" y="506">N</text>
+    <text x="845" y="400">N</text><text x="788" y="416">1</text>
+    <text x="845" y="527">N</text><text x="788" y="500">1</text>
+    <text x="845" y="673">N</text><text x="788" y="506">1</text>
+    <text x="680" y="596">N</text><text x="680" y="538">1</text>
+    <text x="318" y="765">1</text><text x="283" y="773">N</text>
+    <text x="418" y="814">1</text><text x="442" y="846">N</text>
+  </g>
+
+  <!-- ============ ENTITY BOXES ============ -->
+  <!-- ===== CENTRAL AGGREGATE: Activo ===== -->
+  <g>
+    <rect x="560" y="360" width="215" height="162" rx="6" fill="#FDECEA" stroke="#C0392B" stroke-width="2.6"/>
+    <rect x="560" y="360" width="215" height="26" rx="6" fill="#C0392B"/>
+    <text x="667" y="378" text-anchor="middle" font-size="14" font-weight="700" fill="#FFFFFF">Activo  (agregado central)</text>
+    <text x="570" y="402" font-size="11" font-weight="700" fill="#C0392B" text-decoration="underline">PK idActivo</text>
+    <text x="570" y="418" font-size="11" fill="#333">codigo</text>
+    <text x="570" y="434" font-size="11" fill="#333">descripcion</text>
+    <text x="570" y="450" font-size="11" fill="#333">costo</text>
+    <text x="570" y="466" font-size="11" fill="#333">depreciacionAcum</text>
+    <text x="570" y="482" font-size="11" fill="#333">vidaUtil</text>
+    <text x="570" y="498" font-size="11" fill="#333">fechaAdquisicion</text>
+    <text x="570" y="514" font-size="11" fill="#333">estado</text>
+  </g>
+
+  <!-- ===== CLASIFICACIÓN CONTABLE (teal) ===== -->
+  <g>
+    <rect x="60" y="110" width="165" height="82" rx="6" fill="#E3F2EF" stroke="#2E8B7F" stroke-width="1.4"/>
+    <rect x="60" y="110" width="165" height="24" rx="6" fill="#2E8B7F"/>
+    <text x="142" y="127" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">EstadoActivo</text>
+    <text x="70" y="151" font-size="11" font-weight="700" fill="#1f6b60" text-decoration="underline">PK idEstadoActivo</text>
+    <text x="70" y="167" font-size="11" fill="#333">nombre</text>
+    <text x="70" y="183" font-size="11" fill="#333">descripcion</text>
+  </g>
+  <g>
+    <rect x="60" y="230" width="165" height="98" rx="6" fill="#E3F2EF" stroke="#2E8B7F" stroke-width="1.4"/>
+    <rect x="60" y="230" width="165" height="24" rx="6" fill="#2E8B7F"/>
+    <text x="142" y="247" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">GrupoContable</text>
+    <text x="70" y="271" font-size="11" font-weight="700" fill="#1f6b60" text-decoration="underline">PK idGrupoContable</text>
+    <text x="70" y="287" font-size="11" fill="#333">codigo</text>
+    <text x="70" y="303" font-size="11" fill="#333">nombre</text>
+    <text x="70" y="319" font-size="11" fill="#333">vidaUtil</text>
+  </g>
+  <g>
+    <rect x="60" y="366" width="185" height="82" rx="6" fill="#E3F2EF" stroke="#2E8B7F" stroke-width="1.4"/>
+    <rect x="60" y="366" width="185" height="24" rx="6" fill="#2E8B7F"/>
+    <text x="152" y="383" text-anchor="middle" font-size="12" font-weight="700" fill="#FFFFFF">OrganismoFinanciero</text>
+    <text x="70" y="407" font-size="11" font-weight="700" fill="#1f6b60" text-decoration="underline">PK idOrganismoFinanciero</text>
+    <text x="70" y="423" font-size="11" fill="#333">codigo</text>
+    <text x="70" y="439" font-size="11" fill="#333">nombre</text>
+  </g>
+  <g>
+    <rect x="60" y="486" width="170" height="114" rx="6" fill="#E3F2EF" stroke="#2E8B7F" stroke-width="1.4"/>
+    <rect x="60" y="486" width="170" height="24" rx="6" fill="#2E8B7F"/>
+    <text x="145" y="503" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">Auxiliar</text>
+    <text x="70" y="527" font-size="11" font-weight="700" fill="#1f6b60" text-decoration="underline">PK idAuxiliar</text>
+    <text x="70" y="543" font-size="11" fill="#333">codigo</text>
+    <text x="70" y="559" font-size="11" fill="#333">descripcion</text>
+    <text x="70" y="575" font-size="11" fill="#7a5b00" font-style="italic">FK id_predio</text>
+    <text x="70" y="591" font-size="11" fill="#7a5b00" font-style="italic">FK id_grupo_contable</text>
+  </g>
+
+  <!-- ===== UBICACIÓN (blue) ===== -->
+  <g>
+    <rect x="300" y="55" width="160" height="82" rx="6" fill="#E8F0FE" stroke="#3B6FB5" stroke-width="1.4"/>
+    <rect x="300" y="55" width="160" height="24" rx="6" fill="#3B6FB5"/>
+    <text x="380" y="72" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">Entidad</text>
+    <text x="310" y="96" font-size="11" font-weight="700" fill="#2b517f" text-decoration="underline">PK idEntidad</text>
+    <text x="310" y="112" font-size="11" fill="#333">codigo</text>
+    <text x="310" y="128" font-size="11" fill="#333">nombre</text>
+  </g>
+  <g>
+    <rect x="500" y="55" width="175" height="98" rx="6" fill="#E8F0FE" stroke="#3B6FB5" stroke-width="1.4"/>
+    <rect x="500" y="55" width="175" height="24" rx="6" fill="#3B6FB5"/>
+    <text x="587" y="72" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">Predio</text>
+    <text x="510" y="96" font-size="11" font-weight="700" fill="#2b517f" text-decoration="underline">PK idPredio</text>
+    <text x="510" y="112" font-size="11" fill="#333">nombre</text>
+    <text x="510" y="128" font-size="11" fill="#2b517f" font-style="italic">FK entidad_id</text>
+    <text x="510" y="144" font-size="11" fill="#2b517f" font-style="italic">FK id_municipio</text>
+  </g>
+  <g>
+    <rect x="715" y="55" width="160" height="82" rx="6" fill="#E8F0FE" stroke="#3B6FB5" stroke-width="1.4"/>
+    <rect x="715" y="55" width="160" height="24" rx="6" fill="#3B6FB5"/>
+    <text x="795" y="72" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">Municipio</text>
+    <text x="725" y="96" font-size="11" font-weight="700" fill="#2b517f" text-decoration="underline">PK idMunicipio</text>
+    <text x="725" y="112" font-size="11" fill="#333">nombre</text>
+    <text x="725" y="128" font-size="11" fill="#2b517f" font-style="italic">FK id_entidad</text>
+  </g>
+  <g>
+    <rect x="500" y="215" width="175" height="98" rx="6" fill="#E8F0FE" stroke="#3B6FB5" stroke-width="1.4"/>
+    <rect x="500" y="215" width="175" height="24" rx="6" fill="#3B6FB5"/>
+    <text x="587" y="232" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">Oficina</text>
+    <text x="510" y="256" font-size="11" font-weight="700" fill="#2b517f" text-decoration="underline">PK idOficina</text>
+    <text x="510" y="272" font-size="11" fill="#333">codigo</text>
+    <text x="510" y="288" font-size="11" fill="#333">nombre</text>
+    <text x="510" y="304" font-size="11" fill="#2b517f" font-style="italic">FK id_predio</text>
+  </g>
+
+  <!-- ===== PERSONAS / RESPONSABLES (purple) ===== -->
+  <g>
+    <rect x="895" y="190" width="190" height="114" rx="6" fill="#EEE4F5" stroke="#8E5BA6" stroke-width="1.4"/>
+    <rect x="895" y="190" width="190" height="24" rx="6" fill="#8E5BA6"/>
+    <text x="990" y="207" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">Responsable</text>
+    <text x="905" y="231" font-size="11" font-weight="700" fill="#5e3a73" text-decoration="underline">PK idResponsable</text>
+    <text x="905" y="247" font-size="11" fill="#333">codigo</text>
+    <text x="905" y="263" font-size="11" fill="#6b3f80" font-style="italic">FK id_persona</text>
+    <text x="905" y="279" font-size="11" fill="#6b3f80" font-style="italic">FK id_oficina</text>
+    <text x="905" y="295" font-size="11" fill="#6b3f80" font-style="italic">FK id_cargo</text>
+  </g>
+  <g>
+    <rect x="1150" y="70" width="160" height="98" rx="6" fill="#EEE4F5" stroke="#8E5BA6" stroke-width="1.4"/>
+    <rect x="1150" y="70" width="160" height="24" rx="6" fill="#8E5BA6"/>
+    <text x="1230" y="87" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">Persona</text>
+    <text x="1160" y="111" font-size="11" font-weight="700" fill="#5e3a73" text-decoration="underline">PK idPersona</text>
+    <text x="1160" y="127" font-size="11" fill="#333">ci</text>
+    <text x="1160" y="143" font-size="11" fill="#333">nombres</text>
+    <text x="1160" y="159" font-size="11" fill="#333">apellidos</text>
+  </g>
+  <g>
+    <rect x="1150" y="210" width="150" height="66" rx="6" fill="#EEE4F5" stroke="#8E5BA6" stroke-width="1.4"/>
+    <rect x="1150" y="210" width="150" height="24" rx="6" fill="#8E5BA6"/>
+    <text x="1225" y="227" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">Cargo</text>
+    <text x="1160" y="251" font-size="11" font-weight="700" fill="#5e3a73" text-decoration="underline">PK idCargo</text>
+    <text x="1160" y="267" font-size="11" fill="#333">nombre</text>
+  </g>
+
+  <!-- ===== OPERACIONES SOBRE EL ACTIVO (amber) ===== -->
+  <g>
+    <rect x="860" y="355" width="205" height="98" rx="6" fill="#FDF6E3" stroke="#C8972B" stroke-width="1.4"/>
+    <rect x="860" y="355" width="205" height="24" rx="6" fill="#C8972B"/>
+    <text x="962" y="372" text-anchor="middle" font-size="12" font-weight="700" fill="#FFFFFF">DetalleAsignacionActivo</text>
+    <text x="870" y="396" font-size="11" font-weight="700" fill="#8a6516" text-decoration="underline">PK id</text>
+    <text x="870" y="412" font-size="11" fill="#8a6516" font-style="italic">FK id_asignacion_activo</text>
+    <text x="870" y="428" font-size="11" fill="#8a6516" font-style="italic">FK id_activo</text>
+    <text x="870" y="444" font-size="11" fill="#333">cantidad</text>
+  </g>
+  <g>
+    <rect x="1110" y="355" width="190" height="98" rx="6" fill="#FDF6E3" stroke="#C8972B" stroke-width="1.4"/>
+    <rect x="1110" y="355" width="190" height="24" rx="6" fill="#C8972B"/>
+    <text x="1205" y="372" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">AsignacionActivo</text>
+    <text x="1120" y="396" font-size="11" font-weight="700" fill="#8a6516" text-decoration="underline">PK id</text>
+    <text x="1120" y="412" font-size="11" fill="#333">fecha</text>
+    <text x="1120" y="428" font-size="11" fill="#333">estado</text>
+    <text x="1120" y="444" font-size="11" fill="#8a6516" font-style="italic">FK id_responsable</text>
+  </g>
+  <g>
+    <rect x="860" y="490" width="205" height="82" rx="6" fill="#FDF6E3" stroke="#C8972B" stroke-width="1.4"/>
+    <rect x="860" y="490" width="205" height="24" rx="6" fill="#C8972B"/>
+    <text x="962" y="507" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">TransferenciaDetalle</text>
+    <text x="870" y="531" font-size="11" font-weight="700" fill="#8a6516" text-decoration="underline">PK id</text>
+    <text x="870" y="547" font-size="11" fill="#8a6516" font-style="italic">FK id_transferencia</text>
+    <text x="870" y="563" font-size="11" fill="#8a6516" font-style="italic">FK id_activo</text>
+  </g>
+  <g>
+    <rect x="1110" y="490" width="190" height="114" rx="6" fill="#FDF6E3" stroke="#C8972B" stroke-width="1.4"/>
+    <rect x="1110" y="490" width="190" height="24" rx="6" fill="#C8972B"/>
+    <text x="1205" y="507" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">Transferencia</text>
+    <text x="1120" y="531" font-size="11" font-weight="700" fill="#8a6516" text-decoration="underline">PK id</text>
+    <text x="1120" y="547" font-size="11" fill="#333">fecha</text>
+    <text x="1120" y="563" font-size="11" fill="#333">estado</text>
+    <text x="1120" y="579" font-size="11" fill="#8a6516" font-style="italic">FK id_resp_origen</text>
+    <text x="1120" y="595" font-size="11" fill="#8a6516" font-style="italic">FK id_resp_destino</text>
+  </g>
+  <g>
+    <rect x="860" y="620" width="195" height="114" rx="6" fill="#FDF6E3" stroke="#C8972B" stroke-width="1.4"/>
+    <rect x="860" y="620" width="195" height="24" rx="6" fill="#C8972B"/>
+    <text x="957" y="637" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">BajaActivo</text>
+    <text x="870" y="661" font-size="11" font-weight="700" fill="#8a6516" text-decoration="underline">PK id</text>
+    <text x="870" y="677" font-size="11" fill="#8a6516" font-style="italic">FK id_activo</text>
+    <text x="870" y="693" font-size="11" fill="#8a6516" font-style="italic">FK id_responsable</text>
+    <text x="870" y="709" font-size="11" fill="#333">motivo</text>
+    <text x="870" y="725" font-size="11" fill="#333">fecha</text>
+  </g>
+  <g>
+    <rect x="585" y="600" width="215" height="114" rx="6" fill="#FDF6E3" stroke="#C8972B" stroke-width="1.4"/>
+    <rect x="585" y="600" width="215" height="24" rx="6" fill="#C8972B"/>
+    <text x="692" y="617" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">HistorialActivo</text>
+    <text x="595" y="641" font-size="11" font-weight="700" fill="#8a6516" text-decoration="underline">PK id</text>
+    <text x="595" y="657" font-size="11" fill="#8a6516" font-style="italic">FK id_activo</text>
+    <text x="595" y="673" font-size="11" fill="#8a6516" font-style="italic">FK id_transferencia</text>
+    <text x="595" y="689" font-size="11" fill="#333">tipoCambio</text>
+    <text x="595" y="705" font-size="11" fill="#333">fecha</text>
+  </g>
+
+  <!-- ===== INTEGRACIÓN LONDRA (blue-gray) ===== -->
+  <g>
+    <rect x="60" y="720" width="215" height="114" rx="6" fill="#ECEFF1" stroke="#607D8B" stroke-width="1.4"/>
+    <rect x="60" y="720" width="215" height="24" rx="6" fill="#607D8B"/>
+    <text x="167" y="737" text-anchor="middle" font-size="12" font-weight="700" fill="#FFFFFF">TransferenciaDetalleLondra</text>
+    <text x="70" y="761" font-size="11" font-weight="700" fill="#455a64" text-decoration="underline">PK id</text>
+    <text x="70" y="777" font-size="11" fill="#455a64" font-style="italic">FK id_cabecera</text>
+    <text x="70" y="793" font-size="11" fill="#333">codActivo</text>
+    <text x="70" y="809" font-size="11" fill="#333">descripcion</text>
+    <text x="70" y="825" font-size="11" fill="#333">cantidad</text>
+  </g>
+  <g>
+    <rect x="330" y="720" width="200" height="98" rx="6" fill="#ECEFF1" stroke="#607D8B" stroke-width="1.4"/>
+    <rect x="330" y="720" width="200" height="24" rx="6" fill="#607D8B"/>
+    <text x="430" y="737" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">TransferenciaCabecera</text>
+    <text x="340" y="761" font-size="11" font-weight="700" fill="#455a64" text-decoration="underline">PK id</text>
+    <text x="340" y="777" font-size="11" fill="#333">codTransferencia</text>
+    <text x="340" y="793" font-size="11" fill="#333">estado</text>
+    <text x="340" y="809" font-size="11" fill="#333">fecha</text>
+  </g>
+  <g>
+    <rect x="330" y="850" width="215" height="98" rx="6" fill="#ECEFF1" stroke="#607D8B" stroke-width="1.4"/>
+    <rect x="330" y="850" width="215" height="24" rx="6" fill="#607D8B"/>
+    <text x="437" y="867" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">TransferenciaAccion</text>
+    <text x="340" y="891" font-size="11" font-weight="700" fill="#455a64" text-decoration="underline">PK id</text>
+    <text x="340" y="907" font-size="11" fill="#455a64" font-style="italic">FK id_cabecera</text>
+    <text x="340" y="923" font-size="11" fill="#333">accion (aprobar/rechazar/observar)</text>
+    <text x="340" y="939" font-size="11" fill="#333">usuario, fecha</text>
+  </g>
+
+  <!-- ============ LEGEND ============ -->
+  <g>
+    <rect x="585" y="735" width="258" height="150" rx="6" fill="#FFFFFF" stroke="#bbb" stroke-width="1"/>
+    <text x="599" y="755" font-size="11.5" font-weight="700" fill="#333">Leyenda</text>
+    <rect x="599" y="763" width="14" height="12" fill="#FDECEA" stroke="#C0392B" stroke-width="1.6"/><text x="620" y="773" font-size="10.5" fill="#333">Activo (agregado central)</text>
+    <rect x="599" y="781" width="14" height="12" fill="#E3F2EF" stroke="#2E8B7F"/><text x="620" y="791" font-size="10.5" fill="#333">Clasificación contable</text>
+    <rect x="599" y="799" width="14" height="12" fill="#E8F0FE" stroke="#3B6FB5"/><text x="620" y="809" font-size="10.5" fill="#333">Ubicación</text>
+    <rect x="599" y="817" width="14" height="12" fill="#EEE4F5" stroke="#8E5BA6"/><text x="620" y="827" font-size="10.5" fill="#333">Personas / responsables</text>
+    <rect x="599" y="835" width="14" height="12" fill="#FDF6E3" stroke="#C8972B"/><text x="620" y="845" font-size="10.5" fill="#333">Operaciones sobre el activo</text>
+    <rect x="599" y="853" width="14" height="12" fill="#ECEFF1" stroke="#607D8B"/><text x="620" y="863" font-size="10.5" fill="#333">Integración Londra (externa)</text>
+    <text x="599" y="879" font-size="9.5" fill="#888">PK = clave primaria · FK = clave foránea · 1/N = cardinalidad</text>
+  </g>
+
+  <text x="20" y="985" font-size="10" fill="#777" font-style="italic">Las relaciones N:1 convergen en Activo como agregado central. La integración Londra se vincula a los activos por código (no por clave foránea). Elaboración propia.</text>
+</svg>

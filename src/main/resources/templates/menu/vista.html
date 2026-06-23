@@ -1,0 +1,101 @@
+<h4 class="py-3 mb-4"><span class="text-muted fw-light">Administración del Sistema /</span> Gestión de Menú</h4>
+<div id="tablaRegistro"></div>
+
+<div class="modal fade" id="modalFormularioMenu" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" id="contenidoModalMenu"></div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        cargarTabla();
+    });
+
+    function cargarTabla() {
+        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
+        $.ajax({
+            type: 'POST',
+            url: "/administracion/menu/tabla",
+            success: function (response) {
+                $("#tablaRegistro").html(response);
+            },
+            error: function () {
+                $("#tablaRegistro").html(`
+                    <div class="alert alert-danger m-3">
+                    Ocurrió un error al cargar el menú.
+                    <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
+                    </div>`);
+            },
+            complete: function () {
+                hideGlobalLoader();
+            }
+        });
+    }
+
+    function cargarFormulario() {
+        cargarFormularioAlert("/administracion/menu/formulario", "#contenidoModalMenu", "#formularioMenu");
+    }
+
+    function cargarFormularioEdit(id) {
+        cargarFormularioEditAlert(id, "/administracion/menu/formulario-edit", "#contenidoModalMenu", "#formularioMenu");
+    }
+
+    function accionMenu(url, okMsg) {
+        $.ajax({
+            url: "/adm/cargar-datos",
+            method: "GET",
+            success: function () {
+                $.ajax({
+                    type: 'POST',
+                    url: url,
+                    dataType: 'json',
+                    success: function (resp) {
+                        cargarTabla();
+                        if (!resp.ok) {
+                            Swal.fire('Atención', resp.msg || 'No se pudo completar la acción.', 'warning');
+                        }
+                    },
+                    error: function () {
+                        Swal.fire('Error', 'No se pudo completar la acción.', 'error');
+                    }
+                });
+            }
+        });
+    }
+
+    function subirOpcion(id) { accionMenu("/administracion/menu/subir/" + id); }
+    function bajarOpcion(id) { accionMenu("/administracion/menu/bajar/" + id); }
+    function toggleOpcion(id) { accionMenu("/administracion/menu/toggle/" + id); }
+
+    function eliminarOpcion(nombre, id) {
+        Swal.fire({
+            title: 'Eliminar opción',
+            text: '¿Eliminar "' + nombre + '"?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    type: 'POST',
+                    url: "/administracion/menu/eliminar/" + id,
+                    dataType: 'json',
+                    success: function (resp) {
+                        cargarTabla();
+                        if (resp.ok) {
+                            Swal.fire('Eliminada!', resp.msg, 'success');
+                        } else {
+                            Swal.fire('No se puede eliminar', resp.msg, 'warning');
+                        }
+                    },
+                    error: function () {
+                        Swal.fire('Error', 'No se pudo eliminar.', 'error');
+                    }
+                });
+            }
+        });
+    }
+</script>

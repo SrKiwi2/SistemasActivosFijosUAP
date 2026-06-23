@@ -483,7 +483,7 @@
                     <div>
                         <span id="previewPrefijoBadge" class="badge me-1"
                             style="background:#ffc107; color:#000; font-size:0.78rem; font-weight:700; border-radius:4px;">
-                            PREV. 1234
+                            (PREV. 1234)
                         </span>
                         <span class="text-muted fst-italic" style="font-size:0.8rem;">
                             [descripción original del activo]
@@ -497,8 +497,7 @@
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" id="btnConfirmarAsignacion" class="btn btn-dark btn-sm px-4 fw-bold"
                     onclick="confirmarAsignacion()" disabled>
-                    <i class="fa-solid fa-check me-1"></i> Aplicar a
-                    <span id="lblBtnTotal">0</span> activos
+                    <i class="fa-solid fa-check me-1"></i>Aplicar a&nbsp;<span id="lblBtnTotal">0</span>&nbsp;activo(s)
                 </button>
             </div>
         </div>
@@ -903,7 +902,7 @@
             $('#btnConfirmarAsignacion').prop('disabled', !ok);
 
             if (ok) {
-                const etiqueta = `${cfg.prefijoDocumento} ${nro}`;
+                const etiqueta = `(${(cfg.prefijoDocumento || '').trim()} ${nro})`;
                 $('#previewPrefijoBadge').text(etiqueta);
                 $('#previewDesc').fadeIn(150);
             } else {
@@ -1052,7 +1051,7 @@
         // REPORTE — recibe idAsignacionActivo ya existente, NO crea datos
         // ────────────────────────────────────────────────
         function descargarReporte(idAsignacionActivo, codigoCompleto) {
-            const form = $('<form>', { action: '/reportes/generar-asignacion', method: 'POST', target: '_blank' });
+            const form = $('<form>', { action: '/reportes/regenerar-asignacion', method: 'POST', target: '_blank' });
             form.append($('<input>', { type: 'hidden', name: 'idAsignacionActivo', value: idAsignacionActivo }));
             form.append($('<input>', { type: 'hidden', name: 'codigoCompleto', value: codigoCompleto }));
             $('body').append(form);
