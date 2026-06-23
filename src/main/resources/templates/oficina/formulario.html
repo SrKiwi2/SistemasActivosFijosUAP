@@ -1,6 +1,125 @@
-<div class="modal-header">
-    <h4 class="modal-title" th:text="${edit}? 'Modificar Oficina' : 'Registrar Oficina'"></h4>
-    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+<!-- ═══════════════════════════════════════════════════════
+     FRAGMENTO: oficina/formulario.html
+       1. Rediseño: header con identidad visual + secciones limpias
+       2. Validación cliente (sin campos vacíos) con feedback inline
+       3. Envío AJAX propio: botón con estado "Registrando…", anti
+          doble-click y bloqueo de cierre mientras se guarda
+     ═══════════════════════════════════════════════════════ -->
+
+<style>
+    /* ── Secciones del formulario ─────────────────────── */
+    #modalFormularioOficina .frm-section {
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        overflow: visible;
+        margin-bottom: 1rem;
+    }
+
+    #modalFormularioOficina .frm-section-header {
+        padding: 0.65rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: rgba(26, 86, 160, 0.06);
+        color: #1a56a0;
+        border-bottom: 1px solid rgba(26, 86, 160, 0.12);
+        border-radius: 10px 10px 0 0;
+    }
+
+    #modalFormularioOficina .frm-section-body {
+        padding: 1.1rem 1rem 0.85rem;
+    }
+
+    /* ── Etiquetas ────────────────────────────────────── */
+    #modalFormularioOficina .frm-label {
+        font-size: 0.73rem;
+        font-weight: 700;
+        color: #566a7f;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        margin-bottom: 0.35rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    #modalFormularioOficina .frm-label i {
+        color: #1a56a0;
+        width: 14px;
+        text-align: center;
+    }
+
+    /* ── Tamaño cómodo de los controles ───────────────── */
+    #modalFormularioOficina .form-control,
+    #modalFormularioOficina .form-select {
+        height: 42px;
+        font-size: 0.9rem;
+    }
+
+    #modalFormularioOficina textarea.form-control {
+        height: auto;
+        min-height: 70px;
+    }
+
+    /* ── Select2 dentro del modal ─────────────────────── */
+    #modalFormularioOficina .modal-content,
+    #modalFormularioOficina .modal-body {
+        overflow: visible !important;
+    }
+
+    #modalFormularioOficina .select2-container {
+        width: 100% !important;
+    }
+
+    #modalFormularioOficina .select2-selection--single {
+        height: 42px !important;
+        border-radius: 0.375rem !important;
+        border-color: #d9dee3 !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+
+    #modalFormularioOficina .select2-selection__rendered {
+        line-height: 40px !important;
+        font-size: 0.9rem !important;
+        padding-left: 12px !important;
+    }
+
+    #modalFormularioOficina .select2-selection__arrow {
+        height: 40px !important;
+    }
+
+    #modalFormularioOficina .select2-dropdown {
+        z-index: 1060 !important;
+        font-size: 0.875rem;
+    }
+
+    /* Marca el select2 en rojo cuando el select oculto es inválido */
+    #modalFormularioOficina select.is-invalid + .select2-container .select2-selection--single {
+        border-color: #dc3545 !important;
+    }
+</style>
+
+<!-- ── Header ─────────────────────────────────────────── -->
+<div class="modal-header border-0 py-3 px-4"
+    style="background:linear-gradient(90deg,rgba(26,86,160,0.07) 0%,transparent 100%);border-bottom:2px solid #1a56a0 !important;">
+    <div class="d-flex align-items-center gap-2">
+        <div style="width:34px;height:34px;background:rgba(26,86,160,0.12);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#1a56a0;font-size:1rem;flex-shrink:0;">
+            <i class="fa-solid fa-building"></i>
+        </div>
+        <div>
+            <h6 class="modal-title fw-bold mb-0" style="color:#1a56a0;"
+                th:text="${edit} ? 'Modificar Oficina' : 'Registrar Oficina'">Oficina</h6>
+            <small class="text-muted" style="font-size:0.7rem;">
+                Complete los datos de la oficina y su predio
+            </small>
+        </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
 
 <form id="formularioOficina" method="post"
@@ -10,97 +129,221 @@
     <!-- Campo oculto para ID (solo en edición) -->
     <input type="hidden" th:if="${edit != null}" th:field="*{idOficina}" name="idOficina">
 
-    <div class="modal-body">
-        <div class="row">
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label">Predio</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-building"></i></span>
-                    <select class="select2 form-select" th:field="*{predio.idPredio}" id="selectPredio" required>
-                        <option value="">Seleccione...</option>
-                        <option th:each="p : ${predios}" th:value="${p.idPredio}"
-                            th:text="${p.descrip} + ' - ' + ${p.codigo}"></option>
-                    </select>
-                </div>
-                <div class="invalid-feedback">Debe seleccionar un predio.</div>
+    <!-- ── Body ───────────────────────────────────────── -->
+    <div class="modal-body px-4 pt-3 pb-2" style="background:#f8f9fb;">
+        <div class="frm-section">
+            <div class="frm-section-header">
+                <i class="fa-solid fa-circle-info"></i> Datos de la Oficina
             </div>
+            <div class="frm-section-body">
+                <div class="row g-3">
 
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label">Código oficina</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-hashtag"></i></span>
-                    <input type="number" th:field="*{codOfi}" class="form-control" id="inputCodOfi" min="1" max="32767"
-                        step="1" required placeholder="Ej: 1" />
-                </div>
-                <div class="invalid-feedback">Por favor introduzca un código válido (1-32767).</div>
-            </div>
+                    <!-- Predio -->
+                    <div class="col-12">
+                        <label class="frm-label" for="selectPredio">
+                            <i class="fa-solid fa-building"></i> Predio <span class="text-danger">*</span>
+                        </label>
+                        <select class="select2 form-select" th:field="*{predio.idPredio}" id="selectPredio" required>
+                            <option value="">Seleccione un predio…</option>
+                            <option th:each="p : ${predios}" th:value="${p.idPredio}"
+                                th:text="${p.descrip} + ' - ' + ${p.codigo}"></option>
+                        </select>
+                        <div class="invalid-feedback">Debe seleccionar un predio.</div>
+                    </div>
 
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label">Nombre Oficina</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fa-regular fa-building"></i></span>
-                    <input type="text" th:field="*{nombre}" class="form-control"
-                        placeholder="Ej: Dirección de Recursos Humanos" required maxlength="255" />
+                    <!-- Código oficina -->
+                    <div class="col-12 col-md-4">
+                        <label class="frm-label" for="inputCodOfi">
+                            <i class="fa-solid fa-hashtag"></i> Código <span class="text-danger">*</span>
+                        </label>
+                        <input type="number" th:field="*{codOfi}" class="form-control" id="inputCodOfi" min="1"
+                            max="32767" step="1" required placeholder="Ej: 1" />
+                        <div class="invalid-feedback">Introduzca un código válido (1–32767).</div>
+                        <small class="text-muted" style="font-size:0.7rem;">Se autocompleta al elegir el predio.</small>
+                    </div>
+
+                    <!-- Nombre Oficina -->
+                    <div class="col-12 col-md-8">
+                        <label class="frm-label" for="inputNombre">
+                            <i class="fa-regular fa-building"></i> Nombre de la Oficina <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" th:field="*{nombre}" class="form-control" id="inputNombre"
+                            placeholder="Ej: Dirección de Recursos Humanos" required maxlength="255" />
+                        <div class="invalid-feedback">Introduzca el nombre de la oficina.</div>
+                    </div>
+
+                    <!-- Observaciones -->
+                    <div class="col-12">
+                        <label class="frm-label" for="inputObserv">
+                            <i class="fa-regular fa-note-sticky"></i> Observaciones
+                            <span class="text-muted fw-normal" style="text-transform:none;letter-spacing:0;">(opcional)</span>
+                        </label>
+                        <textarea th:field="*{observ}" class="form-control" id="inputObserv" rows="2"
+                            maxlength="255" placeholder="Información adicional…"></textarea>
+                    </div>
+
                 </div>
-                <div class="invalid-feedback">Por favor introduzca un nombre válido.</div>
             </div>
         </div>
     </div>
 
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+    <!-- ── Footer ─────────────────────────────────────── -->
+    <div class="modal-footer border-0 bg-light py-2 px-4">
+        <small class="text-muted me-auto" style="font-size:0.72rem;">
+            <i class="fa-solid fa-circle-info me-1"></i>
+            Los campos con <span class="text-danger">*</span> son obligatorios
+        </small>
+        <button type="button" class="btn btn-outline-secondary btn-sm px-4" data-bs-dismiss="modal"
+            id="btnCancelarOficina">
             <i class="fa-solid fa-xmark me-1"></i> Cancelar
         </button>
-        <button type="submit" class="btn btn-success">
+        <button type="submit" class="btn btn-success btn-sm px-4 fw-bold" id="btnGuardarOficina">
             <i class="fa-solid fa-floppy-disk me-1"></i>
-            <span th:text="${edit}? 'Guardar cambios' : 'Guardar registro'"></span>
+            <span th:text="${edit}? 'Guardar cambios' : 'Guardar registro'">Guardar</span>
         </button>
     </div>
 </form>
 
 <script>
-    manejarEnvioFormulario('#formularioOficina');
+    (function () {
+        const $form = $('#formularioOficina');
+        const $btnGuardar = $('#btnGuardarOficina');
+        const $btnCancelar = $('#btnCancelarOficina');
+        const $btnClose = $('#modalFormularioOficina .btn-close');
+        const esEdicion = $form.find('input[name="idOficina"]').length > 0;
+        const htmlBtnOriginal = $btnGuardar.html();
+        const $modal = $('#modalFormularioOficina');
+        let enviando = false;
 
-    $(document).ready(function () {
-        // Escucha los cambios en el select del predio
-        $('#selectPredio').on('change', function () {
-            var idPredio = $(this).val();
-            var $inputCodOfi = $('#inputCodOfi');
-
-            // Si se seleccionó un predio
-            if (idPredio) {
-                // Deshabilitar temporalmente el campo mientras se carga
-                $inputCodOfi.prop('disabled', true).val('Cargando...');
-
-                // Llama al endpoint REST creado
-                $.ajax({
-                    url: '/administracion/oficina/siguiente-codigo/' + idPredio,
-                    type: 'GET',
-                    dataType: 'json',
-                    success: function (siguienteCodigo) {
-                        // Si la petición es exitosa, establece el valor
-                        $inputCodOfi.val(siguienteCodigo);
-                    },
-                    error: function (xhr, status, error) {
-                        console.error("Error al obtener el siguiente código:", error);
-                        // Opcional: mostrar un mensaje de error al usuario
-                        $inputCodOfi.val('');
-                        alert('Error al obtener el código correlativo.');
-                    },
-                    complete: function () {
-                        // Vuelve a habilitar el campo al finalizar (éxito o error)
-                        $inputCodOfi.prop('disabled', false);
-                    }
-                });
-            } else {
-                // Si no se seleccionó nada, vaciar el campo
-                $inputCodOfi.val('');
-            }
+        // Impide cerrar el modal (Esc / clic en el fondo) mientras se guarda.
+        // Namespace + off para no acumular handlers en el modal persistente.
+        $modal.off('hide.bs.modal.oficinaGuard').on('hide.bs.modal.oficinaGuard', function (e) {
+            if (enviando) e.preventDefault();
         });
 
-        // IMPORTANTE: En modo de EDICIÓN, si ya tienes un valor, no lo sobrescribas.
-        // Solo aplica esta lógica si es un NUEVO registro (y no estás en modo edición)
-        // o si el campo codOfi está vacío.
+        /* ── Validación de un campo individual ──────────── */
+        function marcar($el, invalido) {
+            $el.toggleClass('is-invalid', invalido);
+            return !invalido;
+        }
 
-    });
+        function validar() {
+            let ok = true;
+
+            // Predio
+            ok = marcar($('#selectPredio'), !$('#selectPredio').val()) && ok;
+
+            // Código (1–32767)
+            const cod = parseInt($('#inputCodOfi').val(), 10);
+            ok = marcar($('#inputCodOfi'), isNaN(cod) || cod < 1 || cod > 32767) && ok;
+
+            // Nombre
+            ok = marcar($('#inputNombre'), !$('#inputNombre').val().trim()) && ok;
+
+            return ok;
+        }
+
+        // Limpia el error de un campo apenas el usuario lo corrige
+        $form.on('input change', '#selectPredio, #inputCodOfi, #inputNombre', function () {
+            $(this).removeClass('is-invalid');
+        });
+
+        /* ── Bloqueo / desbloqueo de controles mientras guarda ── */
+        function bloquear(texto) {
+            enviando = true;
+            $btnGuardar.prop('disabled', true)
+                .html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' + texto);
+            $btnCancelar.prop('disabled', true);
+            $btnClose.prop('disabled', true).css('pointer-events', 'none');
+        }
+
+        function desbloquear() {
+            enviando = false;
+            $btnGuardar.prop('disabled', false).html(htmlBtnOriginal);
+            $btnCancelar.prop('disabled', false);
+            $btnClose.prop('disabled', false).css('pointer-events', '');
+        }
+
+        /* ── Envío del formulario ───────────────────────── */
+        $form.on('submit', function (event) {
+            event.preventDefault();
+            if (enviando) return;            // anti doble-click / doble Enter
+
+            if (!validar()) {
+                // Lleva el foco al primer campo con error
+                $form.find('.is-invalid').first().trigger('focus');
+                return;
+            }
+
+            bloquear(esEdicion ? 'Guardando…' : 'Registrando…');
+
+            $.ajax({
+                type: 'POST',
+                url: $form.attr('action'),
+                data: $form.serialize(),
+                dataType: 'json',
+                success: function (res) {
+                    if (res && res.ok) {
+                        enviando = false;          // libera la guarda de cierre
+                        $modal.modal('hide');
+                        cargarTabla();
+                        Swal.fire({
+                            toast: true, position: 'top-end', icon: 'success',
+                            title: res.msg || (esEdicion ? 'Oficina modificada' : 'Oficina registrada'),
+                            showConfirmButton: false, timer: 2600, timerProgressBar: true
+                        });
+                    } else {
+                        desbloquear();
+                        let msg = (res && res.msg) || 'No se pudo completar la operación.';
+                        if (res && res.errors && res.errors.length) {
+                            msg = res.errors.map(e => e.message).join('<br>');
+                        }
+                        const icon = msg.includes('DBF') ? 'warning' : 'error';
+                        Swal.fire('Atención', msg, icon);
+                    }
+                },
+                error: function (xhr) {
+                    desbloquear();
+                    let msg = 'Error de conexión con el servidor.';
+                    if (xhr.responseJSON && xhr.responseJSON.msg) {
+                        msg = xhr.responseJSON.msg;
+                    } else if (xhr.status === 500) {
+                        msg = 'Error interno del servidor (500). Revise los registros.';
+                    } else if (xhr.status === 400) {
+                        msg = 'Solicitud incorrecta (400). Verifique los datos.';
+                    }
+                    Swal.fire('Error', msg, 'error');
+                }
+            });
+        });
+
+        /* ── Autocompletar código correlativo al elegir predio ── */
+        $('#selectPredio').on('change', function () {
+            const idPredio = $(this).val();
+            const $inputCodOfi = $('#inputCodOfi');
+
+            if (!idPredio) {
+                if (!esEdicion) $inputCodOfi.val('');
+                return;
+            }
+
+            $inputCodOfi.prop('disabled', true).val('Cargando…');
+
+            $.ajax({
+                url: '/administracion/oficina/siguiente-codigo/' + idPredio,
+                type: 'GET',
+                dataType: 'json',
+                success: function (siguienteCodigo) {
+                    $inputCodOfi.val(siguienteCodigo).removeClass('is-invalid');
+                },
+                error: function () {
+                    $inputCodOfi.val('');
+                    Swal.fire('Atención', 'No se pudo obtener el código correlativo.', 'warning');
+                },
+                complete: function () {
+                    $inputCodOfi.prop('disabled', false);
+                }
+            });
+        });
+    })();
 </script>
