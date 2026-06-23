@@ -11,9 +11,9 @@
 [![Thymeleaf](https://img.shields.io/badge/Thymeleaf-005F0F?style=for-the-badge&logo=thymeleaf&logoColor=white)](https://www.thymeleaf.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![DBF](https://img.shields.io/badge/Interop-VSIAF_DBF-8B0000?style=for-the-badge&logo=databricks&logoColor=white)]()
-[![Servidor Privado](https://img.shields.io/badge/Deploy-Servidor_Institucional-2C3E50?style=for-the-badge&logo=linux&logoColor=white)](http://sayove.uap.edu.bo)
+[![Servidor Privado](https://img.shields.io/badge/Deploy-Servidor_Institucional-2C3E50?style=for-the-badge&logo=linux&logoColor=white)](http://sciaf.uap.edu.bo)
 
-[🌐 Ver Sistema](http://sayove.uap.edu.bo) · [🐛 Reportar Bug](https://github.com/Srkiwi2/NOMBRE_REPO/issues) · [✨ Solicitar Feature](https://github.com/Srkiwi2/NOMBRE_REPO/issues)
+[🌐 Ver Sistema](http://sciaf.uap.edu.bo) · [🐛 Reportar Bug](https://github.com/Srkiwi2/NOMBRE_REPO/issues) · [✨ Solicitar Feature](https://github.com/Srkiwi2/NOMBRE_REPO/issues)
 
 </div>
 
@@ -187,7 +187,7 @@ activos-fijos/
 
 El sistema está desplegado en el servidor institucional:
 
-**👉 [http://sayove.uap.edu.bo](http://sayove.uap.edu.bo)**
+**👉 [http://sciaf.uap.edu.bo](http://sciaf.uap.edu.bo)**
 
 > 🔒 El acceso está restringido al personal autorizado de la institución.
 
