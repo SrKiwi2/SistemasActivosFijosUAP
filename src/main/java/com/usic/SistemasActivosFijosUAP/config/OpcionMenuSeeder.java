@@ -99,6 +99,7 @@ public class OpcionMenuSeeder {
 
         { "opcion_consulta_activo","grp_consulta",     "Buscar / Filtrar Activos",     "ti ti-search",           "blue",   "/administracion/consulta/activos/vista",             "/administracion/consulta",              "" },
         { "opcion_conciliacion",   "grp_conciliacion", "BD ↔ VSIAF (divergencias)",    "ti ti-arrows-diff",      "blue",   "/administracion/conciliacion/vista",                 "/administracion/conciliacion",          "" },
+        { "opcion_correlativo",    "grp_conciliacion", "Revisión de correlativos",     "ti ti-list-numbers",     "teal",   "/administracion/correlativo/vista",                  "/administracion/correlativo",           "" },
     };
 
     @Bean

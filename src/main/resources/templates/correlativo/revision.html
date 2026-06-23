@@ -1,0 +1,331 @@
+<!-- =====================================================================
+     REVISIÓN DE CORRELATIVOS  ·  solo lectura  ·  Fragmento SPA
+     Por municipio + predio + grupo contable: lista los activos ya
+     codificados (código + descripción + oficina) ordenados por su
+     correlativo y muestra cuál sería el SIGUIENTE código a asignar.
+     Pensado para revisar/comparar con el VSIAF.
+     Datos: GET /administracion/correlativo/datos?predioId&grupoId
+====================================================================== -->
+
+<div id="corr-wrap">
+
+    <style>
+        #corr-wrap .corr-cod      { font-family:'JetBrains Mono',monospace; font-weight:600; color:#1a56a0; }
+        #corr-wrap .corr-next     { font-family:'JetBrains Mono',monospace; font-weight:700; }
+        #corr-wrap table td       { vertical-align:middle; font-size:.86rem; }
+        #corr-wrap .corr-card     { border:none; border-radius:12px; }
+        #corr-wrap .corr-card .num{ font-size:1.5rem; font-weight:700; line-height:1.1; word-break:break-all; }
+        #corr-wrap .corr-card .lbl{ font-size:.72rem; text-transform:uppercase; letter-spacing:.4px; color:#8592a3; }
+        #corr-wrap .badge-pref-mal{ background:#f8d7da; color:#a3232f; }
+        #corr-wrap .badge-hueco   { background:#fff3cd; color:#8a6d00; font-family:'JetBrains Mono',monospace; }
+        #corr-wrap tr.fila-mal td { background:#fdf1f2; }
+        #corr-wrap .estado-pill   { font-size:.7rem; padding:.2rem .5rem; border-radius:10px; }
+    </style>
+
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
+        <div>
+            <h4 class="py-2 mb-1">
+                <span class="text-muted fw-light">Reportes y Consultas /</span> REVISIÓN DE CORRELATIVOS
+            </h4>
+            <p class="text-muted mb-2" style="font-size:.9rem; max-width:820px;">
+                Elegí <b>municipio</b>, <b>predio</b> y <b>grupo contable</b> para listar los activos ya
+                registrados de esa combinación, ordenados por su correlativo. Se muestra cuál sería el
+                <b>siguiente código</b> a asignar
+                (<span class="corr-cod">municipio-predio-grupo-correlativo</span>), los
+                <b>huecos</b> de la serie y los códigos cuyo prefijo no coincide. Útil para
+                <b>comparar con el VSIAF</b> y confirmar que se están colocando los códigos correctos.
+                Este módulo <b>no modifica</b> nada.
+            </p>
+        </div>
+    </div>
+
+    <!-- Filtros en cascada -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold mb-1">Municipio</label>
+                    <select id="corr-municipio" class="form-select form-select-sm">
+                        <option value="">— Seleccione —</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold mb-1">Predio</label>
+                    <select id="corr-predio" class="form-select form-select-sm" disabled>
+                        <option value="">— Seleccione municipio —</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold mb-1">Grupo contable</label>
+                    <select id="corr-grupo" class="form-select form-select-sm">
+                        <option value="">— Seleccione —</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-2 d-grid">
+                    <button type="button" class="btn btn-sm btn-primary" id="corr-btn-cargar" disabled>
+                        <i class="ti ti-search me-1"></i> Revisar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estado de carga -->
+    <div id="corr-loading" class="text-center text-muted py-4" style="display:none;">
+        <div class="spinner-border text-primary" role="status"></div>
+        <div class="mt-2">Calculando correlativos…</div>
+    </div>
+
+    <!-- Mensaje (vacío / error) -->
+    <div id="corr-msg" class="alert alert-info" style="display:none;"></div>
+
+    <!-- Resultados -->
+    <div id="corr-result" style="display:none;">
+
+        <!-- Tarjetas de resumen -->
+        <div class="row g-3 mb-3">
+            <div class="col-6 col-md"><div class="card corr-card shadow-sm"><div class="card-body py-3">
+                <div class="num corr-cod" id="corr-prefijo">—</div><div class="lbl">Prefijo (mun-pred-grupo)</div></div></div></div>
+            <div class="col-6 col-md"><div class="card corr-card shadow-sm"><div class="card-body py-3">
+                <div class="num text-dark" id="corr-total">—</div><div class="lbl">Activos registrados</div></div></div></div>
+            <div class="col-6 col-md"><div class="card corr-card shadow-sm"><div class="card-body py-3">
+                <div class="num text-dark" id="corr-max">—</div><div class="lbl">Correlativo máximo</div></div></div></div>
+            <div class="col-6 col-md"><div class="card corr-card shadow-sm"><div class="card-body py-3">
+                <div class="num text-success corr-next" id="corr-siguiente">—</div><div class="lbl">Siguiente código</div></div></div></div>
+        </div>
+
+        <!-- Aviso si la función de BD no coincide con el cálculo real -->
+        <div id="corr-aviso-funcion" class="alert alert-warning d-flex align-items-start gap-2" style="display:none;">
+            <i class="ti ti-alert-triangle mt-1"></i>
+            <div>
+                El siguiente código según la función del sistema
+                (<span class="corr-cod" id="corr-funcion-val">—</span>) <b>no coincide</b> con el calculado a
+                partir de los datos reales (<span class="corr-cod" id="corr-real-val">—</span>).
+                Puede haber códigos mal asignados en esta serie.
+            </div>
+        </div>
+
+        <!-- Huecos en la serie -->
+        <div id="corr-huecos-box" class="alert alert-warning" style="display:none;">
+            <div class="fw-semibold mb-1">
+                <i class="ti ti-number me-1"></i>
+                Huecos en la serie (<span id="corr-huecos-n">0</span>) — correlativos faltantes:
+            </div>
+            <div id="corr-huecos-list" class="d-flex flex-wrap gap-1"></div>
+        </div>
+
+        <!-- Prefijos no coincidentes -->
+        <div id="corr-mal-box" class="alert alert-danger" style="display:none;">
+            <i class="ti ti-alert-octagon me-1"></i>
+            Hay <b id="corr-mal-n">0</b> código(s) cuyo prefijo <b>no coincide</b> con
+            <span class="corr-cod" id="corr-mal-prefijo">—</span> (resaltados en rojo en la tabla).
+        </div>
+
+        <!-- Tabla -->
+        <div class="card shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:70px;">#</th>
+                            <th style="width:200px;">Código</th>
+                            <th>Descripción</th>
+                            <th style="width:240px;">Oficina</th>
+                            <th style="width:120px;">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corr-tbody"></tbody>
+                    <tfoot>
+                        <tr class="table-success">
+                            <td class="text-muted">próx.</td>
+                            <td class="corr-next text-success" id="corr-foot-codigo">—</td>
+                            <td colspan="3" class="text-muted fst-italic">
+                                Siguiente código a asignar para esta combinación.
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const $mun    = document.getElementById('corr-municipio');
+    const $pred   = document.getElementById('corr-predio');
+    const $grp    = document.getElementById('corr-grupo');
+    const $btn    = document.getElementById('corr-btn-cargar');
+    const $loading= document.getElementById('corr-loading');
+    const $msg    = document.getElementById('corr-msg');
+    const $result = document.getElementById('corr-result');
+
+    const esc = s => (s == null ? '' : String(s).replace(/[&<>"']/g,
+        c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
+    function showMsg(text, tipo) {
+        $msg.className = 'alert alert-' + (tipo || 'info');
+        $msg.textContent = text;
+        $msg.style.display = 'block';
+    }
+    function hideMsg() { $msg.style.display = 'none'; }
+
+    function refreshBtn() {
+        $btn.disabled = !($pred.value && $grp.value);
+    }
+
+    // ── Carga de catálogos ────────────────────────────────────────────────
+    async function cargarMunicipios() {
+        try {
+            const r = await fetch('/api/municipios/listar');
+            const data = await r.json();
+            data.sort((a, b) => String(a.codigo || '').localeCompare(String(b.codigo || '')));
+            for (const m of data) {
+                const o = document.createElement('option');
+                o.value = m.idMunicipio;
+                o.textContent = (m.codigo ? m.codigo + ' · ' : '') + (m.nombre || '');
+                $mun.appendChild(o);
+            }
+        } catch (e) { showMsg('No se pudieron cargar los municipios.', 'danger'); }
+    }
+
+    async function cargarGrupos() {
+        try {
+            const r = await fetch('/api/grupos/listar');
+            const data = await r.json();
+            data.sort((a, b) => (a.codDbf || 0) - (b.codDbf || 0));
+            for (const g of data) {
+                const o = document.createElement('option');
+                o.value = g.idGrupoContable;
+                const cod = (g.codDbf != null) ? String(g.codDbf).padStart(2, '0') : '--';
+                o.textContent = cod + ' · ' + (g.nombre || '');
+                $grp.appendChild(o);
+            }
+        } catch (e) { showMsg('No se pudieron cargar los grupos contables.', 'danger'); }
+    }
+
+    async function cargarPredios(municipioId) {
+        $pred.innerHTML = '<option value="">— Seleccione —</option>';
+        $pred.disabled = true;
+        if (!municipioId) { $pred.innerHTML = '<option value="">— Seleccione municipio —</option>'; refreshBtn(); return; }
+        try {
+            const r = await fetch('/api/buscar_predios?municipioId=' + encodeURIComponent(municipioId));
+            const data = await r.json();
+            data.sort((a, b) => String(a.codigo || '').localeCompare(String(b.codigo || '')));
+            for (const p of data) {
+                const o = document.createElement('option');
+                o.value = p.id;
+                o.textContent = (p.codigo ? p.codigo + ' · ' : '') + (p.descrip || '');
+                $pred.appendChild(o);
+            }
+            $pred.disabled = false;
+        } catch (e) { showMsg('No se pudieron cargar los predios.', 'danger'); }
+        refreshBtn();
+    }
+
+    // ── Render de resultados ──────────────────────────────────────────────
+    function estadoPill(estado) {
+        const e = (estado || '').toUpperCase();
+        let cls = 'bg-secondary';
+        if (e === 'ACTIVO')    cls = 'bg-success';
+        else if (e === 'PENDIENTE') cls = 'bg-warning text-dark';
+        else if (e === 'ELIMINADO') cls = 'bg-danger';
+        return '<span class="estado-pill text-white ' + cls + '">' + esc(e || '—') + '</span>';
+    }
+
+    function render(d) {
+        document.getElementById('corr-prefijo').textContent    = d.prefijo;
+        document.getElementById('corr-total').textContent      = d.totalRegistros;
+        document.getElementById('corr-max').textContent        = d.correlativoMax;
+        document.getElementById('corr-siguiente').textContent  = d.siguienteCodigoReal;
+        document.getElementById('corr-foot-codigo').textContent= d.siguienteCodigoReal;
+
+        // Aviso función vs real
+        const $avFn = document.getElementById('corr-aviso-funcion');
+        if (d.siguienteCodigoFuncion && !d.coincideFuncion) {
+            document.getElementById('corr-funcion-val').textContent = d.siguienteCodigoFuncion;
+            document.getElementById('corr-real-val').textContent    = d.siguienteCodigoReal;
+            $avFn.style.display = 'flex';
+        } else {
+            $avFn.style.display = 'none';
+        }
+
+        // Huecos
+        const $hb = document.getElementById('corr-huecos-box');
+        if (d.huecos && d.huecos.length) {
+            document.getElementById('corr-huecos-n').textContent = d.huecos.length;
+            document.getElementById('corr-huecos-list').innerHTML =
+                d.huecos.map(n => '<span class="badge badge-hueco">' +
+                    String(n).padStart(5, '0') + '</span>').join('');
+            $hb.style.display = 'block';
+        } else {
+            $hb.style.display = 'none';
+        }
+
+        // Prefijos malos
+        const $mb = document.getElementById('corr-mal-box');
+        if (d.conPrefijoIncorrecto > 0) {
+            document.getElementById('corr-mal-n').textContent = d.conPrefijoIncorrecto;
+            document.getElementById('corr-mal-prefijo').textContent = d.prefijo;
+            $mb.style.display = 'block';
+        } else {
+            $mb.style.display = 'none';
+        }
+
+        // Tabla
+        const tbody = document.getElementById('corr-tbody');
+        if (!d.items.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">' +
+                'No hay activos registrados para esta combinación todavía. ' +
+                'El siguiente código sería <b>' + esc(d.siguienteCodigoReal) + '</b>.</td></tr>';
+        } else {
+            tbody.innerHTML = d.items.map(it => {
+                const filaMal = it.prefijoOk ? '' : ' class="fila-mal"';
+                const corr = (it.correlativo != null) ? String(it.correlativo).padStart(5, '0')
+                                                       : '<span class="text-danger">?</span>';
+                const ofi  = (it.codOfi != null ? '<span class="text-muted">(' + esc(it.codOfi) + ')</span> ' : '')
+                           + esc(it.oficina);
+                const flag = it.prefijoOk ? '' :
+                    ' <span class="badge badge-pref-mal ms-1" title="El prefijo no coincide con ' +
+                    esc(d.prefijo) + '">prefijo ≠</span>';
+                return '<tr' + filaMal + '>' +
+                    '<td>' + corr + '</td>' +
+                    '<td class="corr-cod">' + esc(it.codigo) + flag + '</td>' +
+                    '<td>' + esc(it.descripcion) + '</td>' +
+                    '<td>' + ofi + '</td>' +
+                    '<td>' + estadoPill(it.estado) + '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        $result.style.display = 'block';
+    }
+
+    async function cargar() {
+        hideMsg();
+        $result.style.display = 'none';
+        $loading.style.display = 'block';
+        try {
+            const url = '/administracion/correlativo/datos?predioId=' +
+                encodeURIComponent($pred.value) + '&grupoId=' + encodeURIComponent($grp.value);
+            const r = await fetch(url);
+            const d = await r.json();
+            if (!d.ok) { showMsg(d.message || 'No se pudo calcular la revisión.', 'warning'); return; }
+            render(d);
+        } catch (e) {
+            showMsg('Error consultando los datos: ' + (e.message || e), 'danger');
+        } finally {
+            $loading.style.display = 'none';
+        }
+    }
+
+    // ── Eventos ───────────────────────────────────────────────────────────
+    $mun.addEventListener('change', () => { cargarPredios($mun.value); });
+    $pred.addEventListener('change', refreshBtn);
+    $grp.addEventListener('change', refreshBtn);
+    $btn.addEventListener('click', cargar);
+
+    cargarMunicipios();
+    cargarGrupos();
+})();
+</script>

@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.usic.SistemasActivosFijosUAP.model.dto.CorrelativoActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.hardware.ActivoMantenimientoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.DivergenciaActivoDto;
 import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
@@ -84,6 +85,31 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
     Optional<Activo> fetchFullByCodigo(@Param("codigo") String codigo);
 
     Optional<Activo> findByOficinaAndCodigo(Oficina oficina, String codigo);
+
+    /**
+     * Lista, para una combinación predio + grupo contable, los activos ya
+     * registrados con su código, descripción y oficina, ordenados por código
+     * (que dentro de un mismo prefijo equivale al orden correlativo, porque el
+     * correlativo va con relleno a 5 dígitos). Alimenta la pantalla de revisión
+     * de correlativos (comparación con el VSIAF).
+     *
+     * El predio determina al municipio (FK), por eso filtrar por predio + grupo
+     * basta para fijar el prefijo {@code municipio-predio-grupo}.
+     */
+    @Query("""
+            SELECT new com.usic.SistemasActivosFijosUAP.model.dto.CorrelativoActivoDTO(
+                a.idActivo, a.codigo, a.descripcion, o.nombre, o.codOfi, a.estado)
+            FROM Activo a
+            JOIN a.oficina        o
+            JOIN o.predio         p
+            JOIN a.grupoContable  g
+            WHERE p.idPredio = :predioId
+              AND g.idGrupoContable = :grupoId
+            ORDER BY a.codigo ASC
+            """)
+    List<CorrelativoActivoDTO> listarParaRevisionCorrelativo(
+            @Param("predioId") Long predioId,
+            @Param("grupoId")  Long grupoId);
 
         @Query("""
     SELECT a.codigo FROM Activo a
