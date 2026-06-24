@@ -53,6 +53,18 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         "opcion_comunicados"
     );
 
+    /**
+     * Opción que habilita el módulo de Hojas de Ruta para RECEPCION. La página de
+     * registro ({@code /administracion/hoja-ruta/vista}) es independiente (sin
+     * sidebar), pero el {@code PermisoOpcionInterceptor} igual exige un permiso
+     * cuyo {@code rutaBase} cubra {@code /administracion/hoja-ruta}. El ítem
+     * {@code opcion_hr_seguimiento} tiene ese rutaBase y engloba todo el módulo
+     * (registro + AJAX), así que basta otorgarlo para desbloquear a RECEPCION.
+     */
+    private static final Set<String> CODIGOS_RECEPCION = Set.of(
+        "opcion_hr_seguimiento"
+    );
+
     @Override
     public List<OpcionMenu> findAll() {
         return opcionMenuDao.findAll();
@@ -136,6 +148,14 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
                 // Por defecto solo el módulo de comunicados (envío/control de lecturas).
                 return todos.stream()
                         .filter(CODIGOS_RESPONSABLE::contains)
+                        .collect(Collectors.toCollection(HashSet::new));
+
+            case "RECEPCION":
+                // Registra hojas de ruta en /administracion/hoja-ruta/vista (página
+                // independiente, sin sidebar). Solo necesita el permiso que cubre el
+                // módulo para pasar el PermisoOpcionInterceptor.
+                return todos.stream()
+                        .filter(CODIGOS_RECEPCION::contains)
                         .collect(Collectors.toCollection(HashSet::new));
 
             default:
