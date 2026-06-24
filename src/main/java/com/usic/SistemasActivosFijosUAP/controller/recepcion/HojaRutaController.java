@@ -47,6 +47,9 @@ public class HojaRutaController {
     private final ISolictanteService solicitanteService;
     private final IUnidadService unidadService;
 
+    /** Unidad que recibe las hojas de ruta al registrarse (sección de Activos Fijos). */
+    private static final String UNIDAD_ACTIVOS_FIJOS = "ACTIVOS FIJOS";
+
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
     public String inicio(Model model, HttpServletRequest request) {
@@ -206,6 +209,21 @@ public class HojaRutaController {
         }
     }
 
+    /**
+     * Devuelve la unidad "ACTIVOS FIJOS" (destino de la recepción inicial de toda HR).
+     * Si aún no existe en el catálogo de unidades, la crea una sola vez.
+     */
+    private Unidad obtenerOCrearUnidadActivosFijos(Long idUsuario) {
+        return unidadService.findByNombre(UNIDAD_ACTIVOS_FIJOS)
+                .orElseGet(() -> {
+                    Unidad nueva = new Unidad();
+                    nueva.setNombre(UNIDAD_ACTIVOS_FIJOS);
+                    nueva.setEstado("ACTIVO");
+                    nueva.setRegistroIdUsuario(idUsuario);
+                    return unidadService.save(nueva);
+                });
+    }
+
     // Registrar nueva hoja de ruta
     @ValidarUsuarioAutenticado
     @PostMapping("/registrar")
@@ -270,7 +288,9 @@ public class HojaRutaController {
             primerMovimiento.setEstadoMovimiento("1");
             primerMovimiento.setSolicitante(solicitante);
             primerMovimiento.setUnidadOrigen(unidadOrigen);
-            primerMovimiento.setUnidadDestino(unidadOrigen); // Mismo origen al inicio
+            // El registro de la HR representa su RECEPCIÓN en la sección: el documento
+            // llega desde la unidad de origen hacia ACTIVOS FIJOS (no se queda en su origen).
+            primerMovimiento.setUnidadDestino(obtenerOCrearUnidadActivosFijos(usuarioLogueado.getIdUsuario()));
             primerMovimiento.setObservacion("Registro inicial");
             primerMovimiento.setEstado("ACTIVO");
             primerMovimiento.setRegistroIdUsuario(usuarioLogueado.getIdUsuario());
