@@ -26,13 +26,29 @@ public class CorrelativoActivoDTO {
     private Short   codOfi;
     private String  estado;
 
+    // Ubicación FÍSICA actual (FK). El código no cambia al transferir, así que
+    // esto permite detectar activos cuyo correlativo pertenece a este prefijo
+    // pero que hoy están en otro predio.
+    private String  predioActualCodigo;
+    private String  predioActualNombre;
+
+    /** Constructor original (6 args) — consulta antigua por FK. */
     public CorrelativoActivoDTO(Long idActivo, String codigo, String descripcion,
                                 String oficinaNombre, Short codOfi, String estado) {
-        this.idActivo      = idActivo;
-        this.codigo        = codigo;
-        this.descripcion   = descripcion;
-        this.oficinaNombre = oficinaNombre;
-        this.codOfi        = codOfi;
-        this.estado        = estado;
+        this(idActivo, codigo, descripcion, oficinaNombre, codOfi, estado, null, null);
+    }
+
+    /** Constructor con ubicación actual (8 args) — consulta por prefijo de código. */
+    public CorrelativoActivoDTO(Long idActivo, String codigo, String descripcion,
+                                String oficinaNombre, Short codOfi, String estado,
+                                String predioActualCodigo, String predioActualNombre) {
+        this.idActivo           = idActivo;
+        this.codigo             = codigo;
+        this.descripcion        = descripcion;
+        this.oficinaNombre      = oficinaNombre;
+        this.codOfi             = codOfi;
+        this.estado             = estado;
+        this.predioActualCodigo = predioActualCodigo;
+        this.predioActualNombre = predioActualNombre;
     }
 }

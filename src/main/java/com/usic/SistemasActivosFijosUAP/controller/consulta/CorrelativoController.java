@@ -99,20 +99,24 @@ public class CorrelativoController {
 
             String prefijo = String.join("-", munCod, predCod, grpCod);
 
-            // Activos ya registrados para este predio + grupo, ordenados correlativamente.
+            // Activos cuyo CÓDIGO pertenece a este prefijo (mun-pred-grupo), sin importar
+            // dónde estén físicamente hoy. El código es inmutable, así que este criterio
+            // coincide con el generador de la BD y evita los falsos "huecos" por transferencias.
             List<CorrelativoActivoDTO> registros =
-                    activoDao.listarParaRevisionCorrelativo(predioId, grupoId);
+                    activoDao.listarPorPrefijoCodigo(prefijo);
 
             List<Map<String, Object>> items = new ArrayList<>();
-            long maxCorrelativo = 0;          // máximo sobre códigos con prefijo correcto
+            long maxCorrelativo = 0;          // máximo sobre códigos con formato válido
             int  conPrefijoOk   = 0;
             int  conPrefijoMal  = 0;
+            int  transferidos   = 0;          // su código es de este prefijo pero hoy están en otro predio
             List<Long> correlativosOk = new ArrayList<>();
 
             for (CorrelativoActivoDTO r : registros) {
                 Long correlativo = extraerCorrelativo(r.getCodigo());
                 boolean formatoOk = correlativo != null;
-                boolean prefijoOk = formatoOk && r.getCodigo().startsWith(prefijo + "-");
+                // Todos los registros ya vienen filtrados por prefijo textual del código.
+                boolean prefijoOk = formatoOk;
 
                 if (prefijoOk) {
                     conPrefijoOk++;
@@ -121,6 +125,10 @@ public class CorrelativoController {
                 } else {
                     conPrefijoMal++;
                 }
+
+                boolean transferido = r.getPredioActualCodigo() != null
+                        && !predCod.equals(r.getPredioActualCodigo());
+                if (transferido) transferidos++;
 
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("idActivo",    r.getIdActivo());
@@ -132,6 +140,9 @@ public class CorrelativoController {
                 item.put("estado",      r.getEstado());
                 item.put("prefijoOk",   prefijoOk);
                 item.put("formatoOk",   formatoOk);
+                item.put("transferido",        transferido);
+                item.put("predioActualCodigo", r.getPredioActualCodigo());
+                item.put("predioActualNombre", r.getPredioActualNombre());
                 items.add(item);
             }
 
@@ -175,6 +186,7 @@ public class CorrelativoController {
             resp.put("totalRegistros",         registros.size());
             resp.put("conPrefijoCorrecto",     conPrefijoOk);
             resp.put("conPrefijoIncorrecto",   conPrefijoMal);
+            resp.put("transferidos",           transferidos);
             resp.put("correlativoMax",         maxCorrelativo);
             resp.put("siguienteCorrelativo",   siguienteReal);
             resp.put("siguienteCodigoReal",    siguienteCodigoReal);
@@ -191,6 +203,30 @@ public class CorrelativoController {
             return ResponseEntity.internalServerError().body(Map.of(
                     "ok", false,
                     "message", "No se pudo calcular la revisión: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Chequeo GLOBAL de códigos duplicados (no debería existir ninguno: el código
+     * es único). Sirve además como verificación previa a aplicar el índice único.
+     * GET /administracion/correlativo/duplicados
+     */
+    @ValidarUsuarioAutenticado
+    @GetMapping(value = "/duplicados", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> duplicados() {
+        try {
+            List<String> dup = activoDao.findCodigosDuplicados();
+            Map<String, Object> resp = new LinkedHashMap<>();
+            resp.put("ok", true);
+            resp.put("total", dup.size());
+            resp.put("codigos", dup);
+            return ResponseEntity.ok(resp);
+        } catch (Exception e) {
+            log.error("Error consultando códigos duplicados: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "ok", false, "message", "No se pudo verificar duplicados: " + e.getMessage()));
         }
     }
 

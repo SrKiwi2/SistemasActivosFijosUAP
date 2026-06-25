@@ -59,6 +59,8 @@ import com.usic.SistemasActivosFijosUAP.model.dto.DetalleActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DetalleRegistroItem;
 import com.usic.SistemasActivosFijosUAP.model.dto.EditarActivoPendienteRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.EditarLoteRequest;
+import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
+import com.usic.SistemasActivosFijosUAP.model.dto.RegistroHuecoRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.RegistroMasivoRequest;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
@@ -112,6 +114,7 @@ public class ActivosController {
     private final ITransferenciaDao transferenciaDao;
 
     private final ActivoSyncService activoSyncService;
+    private final SseEmitterRegistry sseRegistry;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -387,16 +390,16 @@ public class ActivosController {
                     StringBuilder descFinal = new StringBuilder(descBase);
 
                     if (detalle.getSerie() != null && !detalle.getSerie().trim().isEmpty()) {
-                        descFinal.append(" ").append(detalle.getSerie().trim());
+                        descFinal.append(" S/N:").append(detalle.getSerie().trim());
                     }
                     if (detalle.getMarca() != null && !detalle.getMarca().trim().isEmpty()) {
-                        descFinal.append(" ").append(detalle.getMarca().trim());
+                        descFinal.append(" MARCA:").append(detalle.getMarca().trim());
                     }
                     if (detalle.getModelo() != null && !detalle.getModelo().trim().isEmpty()) {
-                        descFinal.append(" ").append(detalle.getModelo().trim());
+                        descFinal.append(" MOD:").append(detalle.getModelo().trim());
                     }
                     if (detalle.getColor() != null && !detalle.getColor().trim().isEmpty()) {
-                        descFinal.append(" ").append(detalle.getColor().trim());
+                        descFinal.append(" COLOR:").append(detalle.getColor().trim());
                     }
                     a.setDescripcion(descFinal.toString().toUpperCase());
 
@@ -428,6 +431,7 @@ public class ActivosController {
                 correlativosActuales.put(keyMap, correlativoActual);
             }
 
+            notificarCambioPendientes("registro");
             return ResponseEntity.ok(Map.of(
                 "ok", true,
                 "msg", "Se registraron " + totalCreados + " activos correctamente.",
@@ -451,6 +455,40 @@ public class ActivosController {
 
     private String construirCodigo(String mun, String pred, String grup, long numero) {
         return String.format("%s-%s-%s-%05d", mun, pred, grup, numero);
+    }
+
+    /**
+     * Campos obligatorios que un activo debe tener completos antes de poder
+     * asignarle un documento (PREV) o subirlo al VSIAF. El único campo opcional
+     * es el Auxiliar. Costo y Vida útil deben ser mayores a 0.
+     *
+     * @return lista de etiquetas de los campos faltantes (vacía si está completo).
+     */
+    private static List<String> camposFaltantesVsiaf(Activo a) {
+        List<String> f = new ArrayList<>();
+        if (a == null) { f.add("Activo"); return f; }
+        if (a.getOficina() == null || a.getOficina().getPredio() == null) f.add("Oficina");
+        if (a.getResponsable() == null)            f.add("Responsable");
+        if (a.getGrupoContable() == null)          f.add("Grupo contable");
+        if (a.getOrganismoFinanciero() == null)    f.add("Financiador");
+        if (a.getDescripcion() == null || a.getDescripcion().trim().isEmpty()) f.add("Descripción");
+        if (a.getFechaAdquisicion() == null)       f.add("Fecha de adquisición");
+        if (a.getCosto() == null || a.getCosto() <= 0) f.add("Costo");
+        if (a.getVidaUtil() == null || a.getVidaUtil().signum() <= 0) f.add("Vida útil");
+        return f;
+    }
+
+    /**
+     * Avisa por SSE a todas las pestañas conectadas que la lista de pendientes
+     * cambió, para que refresquen en vivo. Nunca propaga errores al flujo principal.
+     */
+    private void notificarCambioPendientes(String tipo) {
+        try {
+            sseRegistry.broadcast("pendientes-cambio",
+                Map.of("tipo", tipo, "ts", System.currentTimeMillis()));
+        } catch (Exception e) {
+            log.warn("No se pudo emitir SSE pendientes-cambio: {}", e.getMessage());
+        }
     }
 
     @ValidarUsuarioAutenticado
@@ -1132,6 +1170,21 @@ public class ActivosController {
                     .body(Map.of("ok", false, "msg", "No hay activos pendientes."));
             }
 
+            // No se puede asignar documento si algún activo tiene datos obligatorios incompletos
+            List<String> incompletos = new ArrayList<>();
+            for (Activo a : activos) {
+                List<String> falt = camposFaltantesVsiaf(a);
+                if (!falt.isEmpty()) {
+                    incompletos.add(a.getCodigo() + " (falta: " + String.join(", ", falt) + ")");
+                }
+            }
+            if (!incompletos.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "ok", false,
+                    "msg", "No se puede asignar el documento: hay activos con datos incompletos.",
+                    "incompletos", incompletos));
+            }
+
             for (Activo a : activos) {
                 if (!a.getDescripcion().startsWith(codigoCompleto)) {
                     String nueva = codigoCompleto + " " + a.getDescripcion();
@@ -1167,6 +1220,7 @@ public class ActivosController {
 
             String idEnc = Encriptar.encrypt(String.valueOf(asignacion.getIdAsignacionActivo()));
 
+            notificarCambioPendientes("asignacion-doc");
             return ResponseEntity.ok(Map.of(
                 "ok",             true,
                 "msg",            "Documento asignado a " + activos.size() + " activo(s).",
@@ -1256,6 +1310,7 @@ public class ActivosController {
             resp.put("detallesError", errores);
 
         resp.put("msg", String.format("Lote actualizado: %d activo(s). Errores: %d.", actualizados, errores.size()));
+        if (actualizados > 0) notificarCambioPendientes("edicion-lote");
         return ResponseEntity.ok(resp);
     }
 
@@ -1365,11 +1420,16 @@ public class ActivosController {
                 item.setEncryptedActivoId(
                     Encriptar.encrypt(String.valueOf(det.getActivo().getIdActivo())));
                 item.setCodigoSnapshot(det.getCodigoActivoSnapshot());
+                List<String> faltantes = camposFaltantesVsiaf(det.getActivo());
+                item.setFaltantes(faltantes);
+                item.setCompleto(faltantes.isEmpty());
                 items.add(item);
             }
 
             dto.setItems(items);
-            dto.setTotalActivos(asig.getDetalles().size());
+            dto.setTotalActivos((int) asig.getDetalles().stream()
+                .filter(d -> !"CANCELADO".equalsIgnoreCase(d.getActivo().getEstado()))
+                .count());
             dto.setTotalPendientes(items.size());
             dto.setTotalSincronizados(
                 asig.getDetalles().stream()
@@ -1379,14 +1439,22 @@ public class ActivosController {
         }
 
         List<Activo> sinAsignacion = activoService.listarActivosPendientes();
-        List<String> sinAsignacionIds = new ArrayList<>();
+        List<ActivoPendienteItemDTO> sinAsignacionItems = new ArrayList<>();
         for (Activo a : sinAsignacion) {
-            sinAsignacionIds.add(Encriptar.encrypt(String.valueOf(a.getIdActivo())));
+            ActivoPendienteItemDTO item = new ActivoPendienteItemDTO();
+            item.setActivo(a);
+            item.setEncryptedActivoId(Encriptar.encrypt(String.valueOf(a.getIdActivo())));
+            List<String> faltantes = camposFaltantesVsiaf(a);
+            item.setFaltantes(faltantes);
+            item.setCompleto(faltantes.isEmpty());
+            sinAsignacionItems.add(item);
         }
 
+        long sinAsignacionIncompletos = sinAsignacionItems.stream().filter(i -> !i.isCompleto()).count();
+
         model.addAttribute("asignaciones", dtos);
-        model.addAttribute("sinAsignacion", sinAsignacion);
-        model.addAttribute("sinAsignacionIds", sinAsignacionIds);
+        model.addAttribute("sinAsignacionItems", sinAsignacionItems);
+        model.addAttribute("sinAsignacionIncompletos", sinAsignacionIncompletos);
         return "activo/tabla_registros_pendientes";
     }
 
@@ -1500,6 +1568,12 @@ public class ActivosController {
                 return Map.of("ok", false, "message", "El activo no está en estado PENDIENTE.");
             }
 
+            List<String> falt = camposFaltantesVsiaf(a);
+            if (!falt.isEmpty()) {
+                return Map.of("ok", false,
+                    "message", "No se puede subir al VSIAF: datos incompletos (falta " + String.join(", ", falt) + ").");
+            }
+
             Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
             String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
 
@@ -1517,6 +1591,7 @@ public class ActivosController {
             a.setApiEstado(Short.valueOf("1"));
             activoService.save(a);
 
+            notificarCambioPendientes("aprobacion");
             return Map.of("ok", true, "id", id, "message", "Activo aprobado y sincronizado.");
             
         } catch (Exception e) {
@@ -1544,6 +1619,13 @@ public class ActivosController {
     
                 if (a == null || !"PENDIENTE".equalsIgnoreCase(a.getEstado())) {
                     errores++;
+                    continue;
+                }
+                // Bloqueo por datos obligatorios incompletos (no se sube al VSIAF)
+                List<String> falt = camposFaltantesVsiaf(a);
+                if (!falt.isEmpty()) {
+                    errores++;
+                    detallesError.add("Activo " + a.getCodigo() + ": datos incompletos (" + String.join(", ", falt) + ").");
                     continue;
                 }
                 if (a.getOficina() == null || a.getOficina().getPredio() == null) {
@@ -1602,8 +1684,171 @@ public class ActivosController {
         result.put("errores", errores);
         result.put("detalles", detallesError);
         result.put("msg", String.format("Proceso finalizado. Éxitos: %d | Errores: %d", exitos, errores));
-    
+
+        if (exitos > 0) notificarCambioPendientes("aprobacion-masiva");
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Cancela activos PENDIENTES (que nunca se subieron al VSIAF): los marca como
+     * CANCELADO y LIBERA su código — lo respalda en {@code codigoAnulado} y deja
+     * {@code codigo = NULL}, para que ese correlativo vuelva a estar disponible para
+     * nuevos registros. No toca el VSIAF. Es irreversible.
+     *
+     * Requiere la migración de la Fase 2 aplicada (codigo nullable + UNIQUE); de lo
+     * contrario, dejar codigo en NULL fallará por la restricción NOT NULL de la BD.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/api/cancelar-pendientes")
+    @ResponseBody
+    public ResponseEntity<?> cancelarPendientes(@RequestBody List<String> idsEnc, HttpServletRequest request) {
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+
+        int cancelados = 0;
+        int errores = 0;
+        List<String> codigosLiberados = new ArrayList<>();
+        List<String> detallesError = new ArrayList<>();
+
+        for (String idEnc : idsEnc) {
+            try {
+                Long id = Long.valueOf(Encriptar.decrypt(idEnc));
+                Activo a = activoService.findById(id);
+
+                if (a == null) { errores++; continue; }
+                if (!"PENDIENTE".equalsIgnoreCase(a.getEstado())) {
+                    errores++;
+                    detallesError.add("El activo " + (a.getCodigo() != null ? a.getCodigo() : idEnc)
+                        + " ya no está PENDIENTE; no se canceló.");
+                    continue;
+                }
+
+                String original = a.getCodigo();
+                a.setCodigoAnulado(original);   // respaldo para auditoría
+                a.setCodigo(null);              // libera el correlativo
+                a.setEstado("CANCELADO");
+                a.setApiEstado(Short.valueOf("0"));   // no va al DBF
+                a.setFecMod(LocalDate.now());
+                a.setFechaUlt(LocalDate.now());
+                a.setUsuMod(usuarioNombre);
+
+                activoService.save(a);
+                cancelados++;
+                if (original != null) codigosLiberados.add(original);
+
+            } catch (Exception e) {
+                log.error("[CANCELAR] Error cancelando id {}: {}", idEnc, e.getMessage());
+                errores++;
+                detallesError.add("Error en un activo: " + e.getMessage());
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("ok", true);
+        result.put("cancelados", cancelados);
+        result.put("errores", errores);
+        result.put("codigosLiberados", codigosLiberados);
+        result.put("detalles", detallesError);
+        result.put("msg", "Se cancelaron " + cancelados + " activo(s)."
+            + (cancelados > 0 ? " Sus códigos quedaron disponibles para nuevos registros." : "")
+            + (errores > 0 ? " (" + errores + " no se pudieron cancelar)" : ""));
+        if (cancelados > 0) notificarCambioPendientes("cancelacion");
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Registra UN activo en un código puntual (un "hueco" libre de la serie), elegido
+     * desde el módulo de revisión de correlativos. El código viene fijo; se valida que
+     * su prefijo corresponda al predio/grupo de la oficina elegida y que no esté tomado.
+     * El índice único uk_activo_codigo es la red final ante carreras de concurrencia.
+     * El activo queda PENDIENTE (igual que el registro normal).
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/registrar-en-hueco")
+    @ResponseBody
+    public ResponseEntity<?> registrarEnHueco(@RequestBody RegistroHuecoRequest req, HttpServletRequest httpReq) {
+        Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
+        String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+        try {
+            String codigo = (req.getCodigo() != null) ? req.getCodigo().trim() : "";
+            if (!codigo.matches("^[^-]+-[^-]+-[0-9]+-[0-9]+$")) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Código con formato inválido."));
+            }
+            if (req.getIdOficina() == null || req.getIdResponsable() == null || req.getIdGrupoContable() == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Oficina, responsable y grupo son obligatorios."));
+            }
+            if (req.getDescripcion() == null || req.getDescripcion().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "La descripción es obligatoria."));
+            }
+
+            Oficina oficina = oficinaService.findById(req.getIdOficina());
+            Responsable responsable = responsableService.findById(req.getIdResponsable());
+            GrupoContable grupo = grupoContableService.findById(req.getIdGrupoContable());
+            if (oficina == null || responsable == null || grupo == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Oficina, responsable o grupo inexistente."));
+            }
+            if (oficina.getPredio() == null || oficina.getPredio().getMunicipio() == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "La oficina no tiene predio/municipio configurado."));
+            }
+
+            // El prefijo del código debe corresponder al predio/municipio de la oficina y al grupo.
+            String prefijoEsperado = String.join("-",
+                    oficina.getPredio().getMunicipio().getCodigo(),
+                    oficina.getPredio().getCodigo(),
+                    String.format("%02d", grupo.getCodDbf()));
+            String prefijoCodigo = codigo.substring(0, codigo.lastIndexOf('-'));
+            if (!prefijoEsperado.equals(prefijoCodigo)) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "El código no corresponde al predio/grupo de la oficina elegida (esperado " + prefijoEsperado + ")."));
+            }
+
+            // ¿el código ya está tomado? (el UNIQUE atrapa la carrera; esto da un mensaje claro)
+            if (activoService.findByCodigo(codigo).isPresent()) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "El código " + codigo + " ya fue tomado. Elige otro hueco."));
+            }
+
+            Auxiliar auxiliar = (req.getIdAuxiliar() != null) ? auxiliarService.findById(req.getIdAuxiliar()) : null;
+            OrganismoFinanciero orgFin = (req.getIdOrganismoFinanciero() != null)
+                    ? organismoFinancieroService.findById(req.getIdOrganismoFinanciero()) : null;
+
+            Activo a = new Activo();
+            a.setCodigo(codigo);
+            a.setDescripcion(req.getDescripcion().trim().toUpperCase());
+            if (req.getFechaAdquisicion() != null && !req.getFechaAdquisicion().isBlank()) {
+                a.setFechaAdquisicion(LocalDate.parse(req.getFechaAdquisicion()));
+            }
+            a.setVidaUtil(req.getVidaUtil() != null ? BigDecimal.valueOf(req.getVidaUtil()) : BigDecimal.ZERO);
+            a.setCosto(req.getCosto() != null ? req.getCosto() : 0.0);
+            a.setResponsable(responsable);
+            a.setOrganismoFinanciero(orgFin);
+            if (orgFin != null) a.setOrgFinCode(orgFin.getCodOf());
+            a.setGrupoContable(grupo);
+            a.setOficina(oficina);
+            a.setAuxiliar(auxiliar);
+            a.setEstado("PENDIENTE");
+            a.setApiEstado(Short.valueOf("3"));
+            a.setVidaUtilAnterior(0);
+            a.setEstadoActivo(estadoActivoService.findById(1L));
+            a.setCostoAnterior(0.0);
+            a.setDepreciacionAcum(0.0);
+            a.setUsuario(usuarioNombre);
+            a.setFecMod(LocalDate.now());
+            a.setFechaUlt(LocalDate.now());
+
+            activoService.save(a);
+
+            notificarCambioPendientes("registro-hueco");
+            return ResponseEntity.ok(Map.of("ok", true, "codigo", codigo,
+                    "msg", "Activo registrado con el código " + codigo + " (queda PENDIENTE)."));
+
+        } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false,
+                    "msg", "El código acaba de ser tomado por otro registro. Elige otro hueco."));
+        } catch (Exception e) {
+            log.error("Error registrando en hueco", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
     }
 
     @PostMapping(value = "/generar-correlativo", produces = MediaType.APPLICATION_JSON_VALUE)

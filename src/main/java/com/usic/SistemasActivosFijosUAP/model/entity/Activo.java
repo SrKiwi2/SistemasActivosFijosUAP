@@ -21,6 +21,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.NamedAttributeNode;
 import jakarta.persistence.NamedEntityGraph;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -29,6 +30,11 @@ import lombok.Setter;
 @Entity
 @Table(
     name = "activo",
+    uniqueConstraints = {
+        // El código es único a nivel institución. Los CANCELADO liberan su código
+        // (queda NULL) y en Postgres múltiples NULL no chocan en un UNIQUE.
+        @UniqueConstraint(name = "uk_activo_codigo", columnNames = "codigo")
+    },
     indexes = {
         @Index(name = "idx_activo_codigo", columnList = "codigo"),
         @Index(name = "idx_activo_codigosec", columnList = "codigo_sec"),
@@ -55,11 +61,18 @@ public class Activo extends AuditoriaConfig{
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idActivo;
 
-    // DBF: CODIGO (Text) — suele ser único a nivel institución
-    @NotBlank
+    // DBF: CODIGO (Text) — único a nivel institución (uk_activo_codigo).
+    // Nullable a propósito: al CANCELAR un activo se libera el código (se mueve a
+    // 'codigoAnulado' y este queda en NULL), para que el correlativo vuelva a estar
+    // disponible. No lleva @NotBlank por eso; la app siempre lo setea en activos vivos.
     @Size(max = 60)
-    @Column(name = "codigo", length = 60, nullable = false)
+    @Column(name = "codigo", length = 60)
     private String codigo;
+
+    // Respaldo del código original cuando el activo se CANCELA (auditoría / reverso).
+    @Size(max = 60)
+    @Column(name = "codigo_anulado", length = 60)
+    private String codigoAnulado;
 
     // DBF: CODIGOSEC (Text)
     @Size(max = 60)

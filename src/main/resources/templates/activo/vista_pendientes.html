@@ -93,6 +93,17 @@
         transform: translateY(-1px);
     }
 
+    #barraMasiva .btn-barra-cancel {
+        background: #dc2626;
+        color: #fff;
+        font-weight: 700;
+    }
+
+    #barraMasiva .btn-barra-cancel:hover {
+        background: #ef4444;
+        transform: translateY(-1px);
+    }
+
     #barraMasiva .btn-barra-clear:hover {
         background: rgba(255, 255, 255, 0.25);
     }
@@ -328,10 +339,28 @@
         <button id="btnProcesarMasivo" class="btn-barra btn-barra-sync">
             <i class="fa-solid fa-cloud-arrow-up"></i> Subir al VSIAF
         </button>
+        <button id="btnCancelarSeleccionados" class="btn-barra btn-barra-cancel"
+            title="Cancelar y liberar sus códigos">
+            <i class="fa-solid fa-ban"></i> Cancelar
+        </button>
         <button class="btn-barra btn-barra-clear" onclick="limpiarSeleccion()" title="Desmarcar todos">
             <i class="fa-solid fa-xmark"></i>
         </button>
     </div>
+</div>
+
+<!-- ================================================ -->
+<!-- AVISO DE CAMBIOS EN VIVO (SSE)                   -->
+<!-- ================================================ -->
+<div id="pendRefreshBanner" class="d-none align-items-center gap-2 mb-3"
+     style="background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:10px;padding:.6rem .9rem;font-size:.85rem;">
+    <i class="fa-solid fa-rotate"></i>
+    <span class="flex-grow-1">Otro usuario actualizó los pendientes.</span>
+    <button id="pendRefreshBtn" class="btn btn-sm btn-primary">
+        <i class="fa-solid fa-arrows-rotate me-1"></i>Actualizar
+    </button>
+    <button id="pendRefreshClose" class="btn btn-sm btn-link text-muted text-decoration-none p-0 px-1"
+        title="Descartar">✕</button>
 </div>
 
 <!-- ================================================ -->
@@ -563,7 +592,10 @@
 
             <!-- Footer -->
             <div class="modal-footer border-0 bg-light py-2">
-                <small class="text-muted me-auto" id="editPendFooterInfo"></small>
+                <div class="me-auto d-flex flex-column" style="gap:1px;">
+                    <small id="editPendValidHint"></small>
+                    <small class="text-muted" id="editPendFooterInfo"></small>
+                </div>
                 <button type="button" class="btn btn-outline-secondary btn-sm px-4"
                     data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" id="btnGuardarEdicionPend" class="btn btn-warning btn-sm px-4 fw-bold text-dark"
@@ -609,14 +641,20 @@
 <script>
 
     (function () {
+        let _ignoreSseUntil = 0;
+        let _sseReloadTimer = null;
+
         $(document).ready(function () {
             cargarTabla();
+            iniciarSsePendientes();
         });
 
         // ────────────────────────────────────────────────
         // CARGA DE TABLA
         // ────────────────────────────────────────────────
         function cargarTabla() {
+            _ignoreSseUntil = Date.now() + 3000;             // evita el eco SSE de mi propia recarga
+            $('#pendRefreshBanner').addClass('d-none').removeClass('d-flex');
             showGlobalLoader({ texto: 'Cargando asignaciones...' });
             $.ajax({
                 type: 'POST',
@@ -639,6 +677,36 @@
                 }
             });
         }
+
+        // ────────────────────────────────────────────────
+        // ACTUALIZACIÓN EN VIVO (SSE) — refleja cambios de otros usuarios
+        // ────────────────────────────────────────────────
+        function iniciarSsePendientes() {
+            try {
+                if (window._pendientesSse) { try { window._pendientesSse.close(); } catch (e) {} }
+                const es = new EventSource('/api/eventos/stream');
+                window._pendientesSse = es;
+                es.addEventListener('pendientes-cambio', function () {
+                    if (Date.now() < _ignoreSseUntil) return;   // ignora el eco de mi propia acción
+                    const ocupado = document.querySelector('.modal.show') || $('.chk-item:checked').length > 0;
+                    if (ocupado) {
+                        // No interrumpir: solo avisar para que el usuario recargue cuando quiera
+                        $('#pendRefreshBanner').removeClass('d-none').addClass('d-flex');
+                    } else {
+                        clearTimeout(_sseReloadTimer);
+                        _sseReloadTimer = setTimeout(cargarTabla, 1200);
+                    }
+                });
+                // onerror: el navegador reintenta solo; no hacemos nada
+            } catch (e) {
+                /* SSE no disponible: la vista sigue funcionando con recarga manual */
+            }
+        }
+
+        $('#pendRefreshBtn').off('click').on('click', function () { cargarTabla(); });
+        $('#pendRefreshClose').off('click').on('click', function () {
+            $('#pendRefreshBanner').addClass('d-none').removeClass('d-flex');
+        });
 
         const _anclaSeleccion = {};
 
@@ -747,18 +815,20 @@
 
             // Botón barra: Asignar documento (selección manual)
             $('#btnAsignarPrev').off('click').on('click', function () {
-                const ids = getIdsSeleccionados();
-                if (ids.length === 0) {
+                const items = mapChkItems($('.chk-item:checked'));
+                if (items.length === 0) {
                     Swal.fire('Atención', 'Seleccione al menos un activo.', 'warning'); return;
                 }
-                abrirModalAsignarDoc(ids, null);
+                if (bloquearSiIncompletos(items, 'asignar el documento (PREV)')) return;
+                abrirModalAsignarDoc(items.map(i => i.id), null);
             });
 
             // Botón barra: Sincronizar masivo (selección manual)
             $('#btnProcesarMasivo').off('click').on('click', function () {
-                const ids = getIdsSeleccionados();
-                if (ids.length === 0) return;
-                confirmarSincronizar(ids);
+                const items = mapChkItems($('.chk-item:checked'));
+                if (items.length === 0) return;
+                if (bloquearSiIncompletos(items, 'subir al VSIAF')) return;
+                confirmarSincronizar(items.map(i => i.id));
             });
 
             initSeleccionRapida();
@@ -772,6 +842,41 @@
             const ids = [];
             $('.chk-item:checked').each(function () { ids.push($(this).val()); });
             return ids;
+        }
+
+        // Mapea un conjunto de checkboxes a objetos con su estado de completitud
+        function mapChkItems($chks) {
+            return $chks.map(function () {
+                const c = $(this).data('completo');
+                return {
+                    id: this.value,
+                    completo: c === true || c === 'true',
+                    codigo: $(this).data('codigo') || '—',
+                    faltantes: $(this).data('faltantes') || 'datos obligatorios'
+                };
+            }).get();
+        }
+
+        // Si hay activos incompletos en la selección, muestra el detalle y bloquea (return true)
+        function bloquearSiIncompletos(items, accion) {
+            const incompletos = items.filter(it => !it.completo);
+            if (incompletos.length === 0) return false;
+            const filas = incompletos.map(it =>
+                `<li style="margin-bottom:3px;"><b style="font-family:monospace;color:#dc2626;">${it.codigo}</b> — falta: ${it.faltantes}</li>`
+            ).join('');
+            Swal.fire({
+                icon: 'error',
+                title: 'Hay activos con datos incompletos',
+                html: `<div style="text-align:left;font-size:0.85rem;">
+                         No se puede <b>${accion}</b> porque ${incompletos.length} activo(s) tienen datos sin completar:
+                         <ul style="margin:.5rem 0 0;padding-left:1.2rem;max-height:220px;overflow:auto;">${filas}</ul>
+                         <div style="margin-top:.65rem;color:#64748b;">
+                           Edítalos con <i class="fa-solid fa-pen-to-square"></i> y completa los campos marcados en rojo.
+                         </div>
+                       </div>`,
+                confirmButtonColor: '#ef4444'
+            });
+            return true;
         }
 
         function limpiarSeleccion() {
@@ -796,28 +901,26 @@
 
         /** Abre el modal para todos los PENDIENTES de un grupo (idx numérico o 'sin') */
         function abrirModalAsignarDocGrupo(idx) {
-            const ids = [];
-            $(`.chk-item[data-grupo="${idx}"][data-estado="PENDIENTE"]`).each(function () {
-                ids.push($(this).val());
-            });
-            if (ids.length === 0) {
+            const $chks = $(`.chk-item[data-grupo="${idx}"][data-estado="PENDIENTE"]`);
+            if ($chks.length === 0) {
                 Swal.fire('Información', 'No hay activos pendientes en este grupo.', 'info');
                 return;
             }
-            abrirModalAsignarDoc(ids, idx);
+            const items = mapChkItems($chks);
+            if (bloquearSiIncompletos(items, 'asignar el documento (PREV)')) return;
+            abrirModalAsignarDoc(items.map(i => i.id), idx);
         }
 
         /** Sincroniza todos los PENDIENTES de un grupo (idx numérico o 'sin') */
         function sincronizarGrupo(idx) {
-            const ids = [];
-            $(`.chk-item[data-grupo="${idx}"][data-estado="PENDIENTE"]`).each(function () {
-                ids.push($(this).val());
-            });
-            if (ids.length === 0) {
+            const $chks = $(`.chk-item[data-grupo="${idx}"][data-estado="PENDIENTE"]`);
+            if ($chks.length === 0) {
                 Swal.fire('Información', 'No hay activos pendientes en este grupo.', 'info');
                 return;
             }
-            confirmarSincronizar(ids);
+            const items = mapChkItems($chks);
+            if (bloquearSiIncompletos(items, 'subir al VSIAF')) return;
+            confirmarSincronizar(items.map(i => i.id));
         }
 
 
@@ -1063,6 +1166,20 @@
         // ────────────────────────────────────────────────
         // MODAL DETALLE ACTIVO (render + aprobar individual)
         // ────────────────────────────────────────────────
+        // Campos obligatorios faltantes según el JSON de /api/detalle (mismo criterio que el backend)
+        function faltantesDetalle(d) {
+            const f = [];
+            if (!d.oficina)             f.push('Oficina');
+            if (!d.responsable)         f.push('Responsable');
+            if (!d.grupoContable)       f.push('Grupo contable');
+            if (!d.organismoFinanciero) f.push('Financiador');
+            if (!d.descripcion || !String(d.descripcion).trim()) f.push('Descripción');
+            if (!d.fechaAdquisicion)    f.push('Fecha de adquisición');
+            if (!(d.costo && parseFloat(d.costo) > 0))       f.push('Costo');
+            if (!(d.vidaUtil && parseFloat(d.vidaUtil) > 0)) f.push('Vida útil');
+            return f;
+        }
+
         function renderDetalleHtml(d) {
             const safe = v => (v != null && v !== 'null' && v !== '') ? v : '<span class="text-muted fst-italic small">No definido</span>';
             const fmtMoney = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' });
@@ -1157,7 +1274,23 @@
                 if (!d.estado) d.estado = d.estadoActivo?.nombre ?? 'PENDIENTE';
 
                 $('#modalDetalleBody').html(renderDetalleHtml(d));
-                $('#btnAprobarModal').prop('disabled', d.estado !== 'PENDIENTE').off('click').on('click', async function () {
+
+                // Gate: no aprobar si el activo tiene datos obligatorios incompletos
+                const falt = faltantesDetalle(d);
+                const incompleto = d.estado === 'PENDIENTE' && falt.length > 0;
+                if (incompleto) {
+                    $('#modalDetalleBody').append(
+                        `<div class="alert alert-danger mt-3 mb-0 py-2" style="font-size:0.85rem;">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                            <b>Datos incompletos:</b> falta ${falt.join(', ')}.
+                            Edita el activo para completarlos antes de subir al VSIAF.
+                        </div>`);
+                }
+
+                $('#btnAprobarModal')
+                    .prop('disabled', d.estado !== 'PENDIENTE' || incompleto)
+                    .attr('title', incompleto ? ('Datos incompletos: ' + falt.join(', ')) : '')
+                    .off('click').on('click', async function () {
                     if (!confirm('¿Aprobar individualmente este activo?')) return;
                     const $btn = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Procesando...');
                     try {
@@ -1196,6 +1329,60 @@
             }
             abrirModalEditarPendientes(ids);
         });
+
+        // ── Cancelar seleccionados: marca CANCELADO y libera sus códigos ─────────
+        $('#btnCancelarSeleccionados').off('click').on('click', function () {
+            const ids = getIdsSeleccionados();
+            if (ids.length === 0) {
+                Swal.fire('Atención', 'Seleccione al menos un activo PENDIENTE.', 'warning');
+                return;
+            }
+            Swal.fire({
+                icon: 'warning',
+                title: `¿Cancelar ${ids.length} activo(s)?`,
+                html: `<div style="text-align:left;font-size:0.88rem;">
+                         Se marcarán como <b>CANCELADO</b> y <b>se liberarán sus códigos</b>,
+                         que volverán a estar disponibles para nuevos registros.
+                         <div style="margin-top:.55rem;color:#b91c1c;">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i>Esta acción no se puede deshacer.
+                         </div>
+                       </div>`,
+                showCancelButton: true,
+                confirmButtonText: '<i class="fa-solid fa-ban me-1"></i> Sí, cancelar',
+                confirmButtonColor: '#dc2626',
+                cancelButtonText: 'No'
+            }).then(res => {
+                if (res.isConfirmed) ejecutarCancelacion(ids);
+            });
+        });
+
+        function ejecutarCancelacion(ids) {
+            showGlobalLoader({ texto: 'Cancelando y liberando códigos...' });
+            $.ajax({
+                url: '/administracion/activo/api/cancelar-pendientes',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(ids),
+                success: function (res) {
+                    hideGlobalLoader();
+                    if (res.ok) {
+                        let msg = `Se cancelaron <b>${res.cancelados}</b> activo(s) y sus códigos quedaron disponibles.`;
+                        let icon = 'success';
+                        if (res.errores > 0) {
+                            msg += `<br><br><span class="text-danger fw-bold"><i class="fa-solid fa-triangle-exclamation"></i> ${res.errores} no se pudieron cancelar.</span>`;
+                            icon = 'warning';
+                        }
+                        Swal.fire({ title: 'Listo', html: msg, icon }).then(() => { limpiarSeleccion(); cargarTabla(); });
+                    } else {
+                        Swal.fire('Error', res.msg || 'No se pudo cancelar.', 'error');
+                    }
+                },
+                error: function () {
+                    hideGlobalLoader();
+                    Swal.fire('Error de Servidor', 'No se pudo completar la cancelación.', 'error');
+                }
+            });
+        }
 
         // ── Entrada botón ✏ individual ──────────────────────────────────────────
         $(document).off('click', '.btn-editar').on('click', '.btn-editar:not(:disabled)', function () {
@@ -1236,6 +1423,8 @@
 
                 const esUnitario = idsEnc.length === 1;
                 const esTodoIgual = esUnitario || comprobarDatosIgualesEP(activos.map(a => a.datos));
+                // En modo "datos distintos" los vacíos significan "no cambiar", así que no se valida en rojo
+                _EP.validable = esTodoIgual;
 
                 // Valores de referencia para pre-cargar los selects dependientes
                 const ref = esUnitario || esTodoIgual
@@ -1324,6 +1513,7 @@
                 // ── 7. Inicializar Select2 + cascadas ─────────────────────────
                 initSelectsEP();
                 initCascadasEditPend(pre);
+                epIniciarValidacion();
 
             } catch (e) {
                 console.error('Error en abrirModalEditarPendientes:', e);
@@ -1409,7 +1599,7 @@
                 pre.grpId, '— Seleccione grupo —');
             const optsOrg = buildOpts(orgFin,
                 'idOrganismoFinanciero', o => `${o.sigla ? o.sigla + ' - ' : ''}${o.descripcion}`,
-                pre.orgFinId, '— Sin financiamiento —');
+                pre.orgFinId, '— Seleccione financiador —');
             const optsMun = buildOpts(municipios,
                 'idMunicipio', 'nombre',
                 pre.munId, '— Seleccione municipio —');
@@ -1483,7 +1673,7 @@
                 <select id="epAuxiliar" class="form-select form-select-sm ep-select2" ${(!pre.grpId || !pre.predId) ? 'disabled' : ''}>${optsAux}</select>
             </div>
             <div class="col-md-4 col-sm-6">
-                <label class="ep-label"><i class="fa-solid fa-hand-holding-dollar me-1"></i>Financiador <span class="text-muted fw-normal">(opcional)</span></label>
+                <label class="ep-label"><i class="fa-solid fa-hand-holding-dollar me-1"></i>Financiador <span class="text-danger">*</span></label>
                 <select id="epOrgFin" class="form-select form-select-sm ep-select2">${optsOrg}</select>
             </div>
 
@@ -1548,6 +1738,18 @@
             #modalEditarPendientes .select2-selection__rendered { line-height: 29px !important; font-size: 0.82rem; }
             #modalEditarPendientes .select2-selection__arrow { height: 29px !important; }
             #modalEditarPendientes .select2-results__option { font-size: 0.82rem; }
+
+            /* Campos obligatorios vacíos — resaltado rojo */
+            #modalEditarPendientes .ep-invalid {
+                border-color: #ef4444 !important;
+                background-color: #fff5f5 !important;
+                box-shadow: 0 0 0 1px rgba(239,68,68,0.15) !important;
+            }
+            #modalEditarPendientes .ep-invalid-s2 .select2-selection {
+                border-color: #ef4444 !important;
+                background-color: #fff5f5 !important;
+                box-shadow: 0 0 0 1px rgba(239,68,68,0.15) !important;
+            }
         `;
             document.head.appendChild(s);
         })();
@@ -1692,6 +1894,68 @@
                 language: { noResults: () => 'Sin resultados', searching: () => 'Buscando...' }
             });
             if (disabled) $sel.prop('disabled', true);
+        }
+
+        // ── Validación visual: resalta en rojo los campos obligatorios vacíos ──
+        const EP_REQ_SELECTS = ['#epMunicipio', '#epPredio', '#epOficina', '#epResponsable', '#epGrupo', '#epOrgFin'];
+
+        function epMarcarInvalido($el, invalido) {
+            if ($el.hasClass('ep-select2')) {
+                $el.next('.select2-container').toggleClass('ep-invalid-s2', invalido);
+            } else {
+                $el.toggleClass('ep-invalid', invalido);
+            }
+        }
+
+        function epValidarCampos() {
+            const $hint = $('#editPendValidHint');
+
+            // En modo lote con datos distintos no se valida (los vacíos = "no cambiar")
+            if (!_EP.validable) {
+                EP_REQ_SELECTS.concat(['#epFecha', '#epCosto', '#epVidaUtil', '#epDescripcion'])
+                    .forEach(s => epMarcarInvalido($(s), false));
+                $hint.html('<i class="fa-solid fa-circle-info text-muted me-1"></i>Completa solo lo que quieras uniformizar.');
+                return 0;
+            }
+
+            let faltan = 0;
+
+            EP_REQ_SELECTS.forEach(s => {
+                const $e = $(s);
+                const bad = !$e.val();
+                epMarcarInvalido($e, bad);
+                if (bad) faltan++;
+            });
+
+            const $f = $('#epFecha');
+            const badF = !$f.val();
+            epMarcarInvalido($f, badF); if (badF) faltan++;
+
+            const $c = $('#epCosto');
+            const badC = !($c.val() && parseFloat($c.val()) > 0);
+            epMarcarInvalido($c, badC); if (badC) faltan++;
+
+            const $vu = $('#epVidaUtil');
+            const badVu = !($vu.val() && parseFloat($vu.val()) > 0);
+            epMarcarInvalido($vu, badVu); if (badVu) faltan++;
+
+            const $d = $('#epDescripcion');
+            const badD = !$d.val().trim();
+            epMarcarInvalido($d, badD); if (badD) faltan++;
+
+            if (faltan === 0) {
+                $hint.html('<i class="fa-solid fa-circle-check text-success me-1"></i><span class="text-success fw-bold">Completo · listo para subir al VSIAF</span>');
+            } else {
+                $hint.html(`<i class="fa-solid fa-triangle-exclamation text-danger me-1"></i><span class="text-danger fw-bold">Faltan ${faltan} campo(s) por completar</span>`);
+            }
+            return faltan;
+        }
+
+        function epIniciarValidacion() {
+            const $modal = $('#modalEditarPendientes');
+            $modal.off('change.epval input.epval', '#formEditPend :input')
+                  .on('change.epval input.epval', '#formEditPend :input', epValidarCampos);
+            epValidarCampos();
         }
 
         // ── Guardar ───────────────────────────────────────────────────────────

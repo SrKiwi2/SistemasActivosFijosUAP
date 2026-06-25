@@ -111,6 +111,35 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
             @Param("predioId") Long predioId,
             @Param("grupoId")  Long grupoId);
 
+    /**
+     * Lista los activos cuyo CÓDIGO pertenece al prefijo municipio-predio-grupo,
+     * sin importar dónde estén físicamente ahora (FK). Como el código es inmutable,
+     * este criterio coincide con el generador de correlativos de la BD y evita los
+     * falsos "huecos" que produce filtrar por la ubicación actual. Incluye el predio
+     * ACTUAL para poder marcar los transferidos.
+     */
+    @Query("""
+            SELECT new com.usic.SistemasActivosFijosUAP.model.dto.CorrelativoActivoDTO(
+                a.idActivo, a.codigo, a.descripcion, o.nombre, o.codOfi, a.estado,
+                p.codigo, p.descrip)
+            FROM Activo a
+            LEFT JOIN a.oficina o
+            LEFT JOIN o.predio  p
+            WHERE a.codigo LIKE CONCAT(:prefijo, '-%')
+            ORDER BY a.codigo ASC
+            """)
+    List<CorrelativoActivoDTO> listarPorPrefijoCodigo(@Param("prefijo") String prefijo);
+
+    /** Códigos que aparecen más de una vez (no debería haber ninguno: el código es único). */
+    @Query("""
+            SELECT a.codigo FROM Activo a
+            WHERE a.codigo IS NOT NULL AND a.codigo <> ''
+            GROUP BY a.codigo
+            HAVING COUNT(a.idActivo) > 1
+            ORDER BY a.codigo
+            """)
+    List<String> findCodigosDuplicados();
+
         @Query("""
     SELECT a.codigo FROM Activo a
     WHERE a.codigo = :base
@@ -130,7 +159,7 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
             SELECT new com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.DivergenciaActivoDto(
                 a.idActivo, a.codigo, a.nombre, a.descripcion, a.estado, a.fechaUltimaSync)
             FROM Activo a
-            WHERE a.estado <> 'ELIMINADO' AND a.codigo IS NOT NULL
+            WHERE a.estado NOT IN ('ELIMINADO', 'CANCELADO') AND a.codigo IS NOT NULL
             """)
     List<DivergenciaActivoDto> listarParaConciliacion();
 

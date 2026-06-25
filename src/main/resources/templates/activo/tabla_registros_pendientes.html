@@ -202,6 +202,37 @@
         color: #8592a3;
     }
 
+    /* Activo PENDIENTE con datos obligatorios faltantes */
+    .estado-incompleto {
+        background: #fee2e2;
+        color: #dc2626;
+        cursor: help;
+    }
+
+    /* Badge de estado en la cabecera de la asignación */
+    .asig-status-badge {
+        font-size: 0.68rem;
+        font-weight: 700;
+        border-radius: 0.35rem;
+        padding: 0.28rem 0.6rem;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .asig-status-incompleto {
+        background: #fee2e2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+    }
+
+    .asig-status-porsubir {
+        background: #fff2d6;
+        color: #b7791f;
+        border: 1px solid #fde9b8;
+    }
+
     .btn-row-action {
         font-size: 0.72rem;
         padding: 0.28rem 0.6rem;
@@ -513,7 +544,7 @@
 <div id="lista-asignaciones" class="d-flex flex-column gap-3 animate__animated animate__fadeIn">
 
     <!-- ESTADO VACÍO -->
-    <div th:if="${#lists.isEmpty(asignaciones) and #lists.isEmpty(sinAsignacion)}" class="empty-state">
+    <div th:if="${#lists.isEmpty(asignaciones) and #lists.isEmpty(sinAsignacionItems)}" class="empty-state">
         <div class="empty-state-icon"><i class="fa-solid fa-check-double"></i></div>
         <h6 class="text-muted mb-1">Todo al día</h6>
         <p class="text-muted small mb-0">No hay activos pendientes por sincronizar.</p>
@@ -590,7 +621,17 @@
                 </div>
             </div>
 
-            <div class="asig-header-actions">
+            <div class="asig-header-actions d-flex align-items-center gap-2">
+                <span th:if="${dto.totalIncompletos > 0}" class="asig-status-badge asig-status-incompleto"
+                    th:title="${dto.totalIncompletos} + ' activo(s) con datos incompletos — complétalos antes de asignar PREV o subir al VSIAF'">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span th:text="${dto.totalIncompletos} + ' incompleto' + (${dto.totalIncompletos != 1} ? 's' : '')">2 incompletos</span>
+                </span>
+                <span th:if="${dto.totalIncompletos == 0 and dto.totalListosParaSubir > 0}"
+                    class="asig-status-badge asig-status-porsubir" title="Completos, pendientes de subir al VSIAF">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span th:text="${dto.totalListosParaSubir} + ' por subir'">3 por subir</span>
+                </span>
                 <span class="select-hint d-none d-xl-inline" th:if="${dto.totalPendientes > 0}">
                     <i class="fa-regular fa-hand-pointer me-1"></i> Selecciona para procesar
                 </span>
@@ -622,7 +663,9 @@
                             <td>
                                 <input class="form-check-input chk-masivo chk-item" type="checkbox"
                                     th:value="${item.encryptedActivoId}"
-                                    th:attr="data-grupo=${idx.index}, data-estado=${item.activo.estado}, data-desc=${item.activo?.descripcion}"
+                                    th:attr="data-grupo=${idx.index}, data-estado=${item.activo.estado}, data-desc=${item.activo?.descripcion},
+                                             data-completo=${item.completo}, data-codigo=${item.activo.codigo},
+                                             data-faltantes=${#strings.listJoin(item.faltantes, ' · ')}"
                                     th:disabled="${item.activo.estado != 'PENDIENTE'}">
                             </td>
                             <td class="text-muted" th:text="${iIdx.index + 1}">1</td>
@@ -647,11 +690,19 @@
                                     th:text="${item.activo.oficina?.nombre}">Oficina</span>
                             </td>
                             <td>
-                                <span class="estado-chip"
-                                    th:classappend="${item.activo.estado == 'PENDIENTE'} ? ' estado-pendiente'
-                                                       : (${item.activo.estado == 'ACTIVO'} ? ' estado-activo' : ' estado-otros')">
+                                <span th:if="${item.activo.estado == 'PENDIENTE' and !item.completo}"
+                                    class="estado-chip estado-incompleto" data-bs-toggle="tooltip" data-bs-placement="top"
+                                    th:attr="title='Faltan: ' + ${#strings.listJoin(item.faltantes, ' · ')}">
+                                    <i class="fa-solid fa-triangle-exclamation me-1"></i>INCOMPLETO
+                                </span>
+                                <span th:if="${item.activo.estado == 'PENDIENTE' and item.completo}"
+                                    class="estado-chip estado-pendiente" title="Completo — pendiente de subir al VSIAF">
+                                    <i class="fa-solid fa-cloud-arrow-up me-1"></i>POR SUBIR
+                                </span>
+                                <span th:unless="${item.activo.estado == 'PENDIENTE'}" class="estado-chip"
+                                    th:classappend="${item.activo.estado == 'ACTIVO'} ? ' estado-activo' : ' estado-otros'">
                                     <i class="fa-solid fa-circle me-1" style="font-size:0.55em;"></i>
-                                    <span th:text="${item.activo.estado}">PENDIENTE</span>
+                                    <span th:text="${item.activo.estado}">ACTIVO</span>
                                 </span>
                             </td>
                             <td class="text-center">
@@ -690,7 +741,7 @@
 
 
     <!-- ── ACTIVOS SIN ASIGNACIÓN (huérfanos: registrados individualmente) ── -->
-    <div th:if="${not #lists.isEmpty(sinAsignacion)}" class="asignacion-card sin-asig-section is-expanded"
+    <div th:if="${not #lists.isEmpty(sinAsignacionItems)}" class="asignacion-card sin-asig-section is-expanded"
         id="asig-card-sin">
 
         <div class="asig-header" onclick="toggleAsignacionCard(this.closest('.asignacion-card'))">
@@ -708,8 +759,15 @@
                     Selecciónalos para asignarles un documento o sincronizarlos directamente.
                 </span>
             </div>
-            <span class="asig-count-badge ms-auto" style="background:#ffc107; color:#000;" th:text="${#lists.size(sinAsignacion)} + ' activo'
-                           + (${#lists.size(sinAsignacion) != 1} ? 's' : '')">0 activos</span>
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <span th:if="${sinAsignacionIncompletos > 0}" class="asig-status-badge asig-status-incompleto"
+                    th:title="${sinAsignacionIncompletos} + ' activo(s) con datos incompletos'">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span th:text="${sinAsignacionIncompletos} + ' incompleto' + (${sinAsignacionIncompletos != 1} ? 's' : '')">2 incompletos</span>
+                </span>
+                <span class="asig-count-badge" style="background:#ffc107; color:#000;" th:text="${#lists.size(sinAsignacionItems)} + ' activo'
+                               + (${#lists.size(sinAsignacionItems) != 1} ? 's' : '')">0 activos</span>
+            </div>
         </div>
 
         <div class="asig-body">
@@ -732,54 +790,63 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="activo, iIdx : ${sinAsignacion}">
+                        <tr th:each="item, iIdx : ${sinAsignacionItems}">
                             <td>
                                 <input class="form-check-input chk-masivo chk-item" type="checkbox"
-                                    th:value="${sinAsignacionIds[__${iIdx.index}__]}" data-grupo="sin"
-                                    th:attr="data-estado=${activo.estado}, data-desc=${activo?.descripcion}"
-                                    th:disabled="${activo?.estado != 'PENDIENTE'}">
+                                    th:value="${item.encryptedActivoId}" data-grupo="sin"
+                                    th:attr="data-estado=${item.activo.estado}, data-desc=${item.activo?.descripcion},
+                                             data-completo=${item.completo}, data-codigo=${item.activo.codigo},
+                                             data-faltantes=${#strings.listJoin(item.faltantes, ' · ')}"
+                                    th:disabled="${item.activo?.estado != 'PENDIENTE'}">
                             </td>
                             <td class="text-muted" th:text="${iIdx.index + 1}">1</td>
-                            <td><span class="sub-code" th:text="${activo.codigo}">CÓD</span></td>
+                            <td><span class="sub-code" th:text="${item.activo.codigo}">CÓD</span></td>
                             <td>
-                                <div class="sub-desc" data-bs-toggle="tooltip" th:attr="title=${activo.descripcion}"
-                                    th:text="${activo.descripcion}">Descripción...</div>
+                                <div class="sub-desc" data-bs-toggle="tooltip" th:attr="title=${item.activo.descripcion}"
+                                    th:text="${item.activo.descripcion}">Descripción...</div>
                             </td>
-                            <td><span class="sub-date" th:text="${activo.fechaAdquisicion}">—</span></td>
+                            <td><span class="sub-date" th:text="${item.activo.fechaAdquisicion}">—</span></td>
                             <td class="d-none d-md-table-cell">
-                                <span th:if="${activo.responsable?.persona != null}"
-                                    th:text="${activo.responsable.persona.nombre + ' ' + activo.responsable.persona.paterno}"
+                                <span th:if="${item.activo.responsable?.persona != null}"
+                                    th:text="${item.activo.responsable.persona.nombre + ' ' + item.activo.responsable.persona.paterno}"
                                     class="text-truncate d-inline-block" style="max-width:130px;"></span>
-                                <span th:unless="${activo.responsable?.persona != null}"
+                                <span th:unless="${item.activo.responsable?.persona != null}"
                                     class="text-muted fst-italic small">—</span>
                             </td>
                             <td class="d-none d-lg-table-cell">
-                                <span th:text="${activo.oficina?.nombre}" class="text-truncate d-inline-block"
+                                <span th:text="${item.activo.oficina?.nombre}" class="text-truncate d-inline-block"
                                     style="max-width:130px;"></span>
                             </td>
                             <td>
-                                <span class="estado-chip"
-                                    th:classappend="${activo?.estado == 'PENDIENTE'} ? ' estado-pendiente'
-                                                       : (${activo?.estado == 'ACTIVO'} ? ' estado-activo' : ' estado-otros')">
+                                <span th:if="${item.activo.estado == 'PENDIENTE' and !item.completo}"
+                                    class="estado-chip estado-incompleto" data-bs-toggle="tooltip" data-bs-placement="top"
+                                    th:attr="title='Faltan: ' + ${#strings.listJoin(item.faltantes, ' · ')}">
+                                    <i class="fa-solid fa-triangle-exclamation me-1"></i>INCOMPLETO
+                                </span>
+                                <span th:if="${item.activo.estado == 'PENDIENTE' and item.completo}"
+                                    class="estado-chip estado-pendiente" title="Completo — pendiente de subir al VSIAF">
+                                    <i class="fa-solid fa-cloud-arrow-up me-1"></i>POR SUBIR
+                                </span>
+                                <span th:unless="${item.activo.estado == 'PENDIENTE'}" class="estado-chip"
+                                    th:classappend="${item.activo.estado == 'ACTIVO'} ? ' estado-activo' : ' estado-otros'">
                                     <i class="fa-solid fa-circle me-1" style="font-size:0.55em;"></i>
-                                    <span th:text="${activo.estado}">PENDIENTE</span>
+                                    <span th:text="${item.activo.estado}">ACTIVO</span>
                                 </span>
                             </td>
                             <td class="text-center">
                                 <div class="d-flex gap-1 justify-content-center">
                                     <button type="button" class="btn-row-action btn-row-ver btn-ver"
-                                        th:attr="data-id=${sinAsignacionIds[__${iIdx.index}__]}" title="Ver detalle">
+                                        th:attr="data-id=${item.encryptedActivoId}" title="Ver detalle">
                                         <i class="fa-regular fa-eye"></i>
                                     </button>
                                     <button type="button" class="btn-row-action btn-row-edit btn-editar"
-                                        th:attr="data-id=${sinAsignacionIds[__${iIdx.index}__]}"
-                                        th:disabled="${activo?.estado != 'PENDIENTE'}" title="Editar activo">
+                                        th:attr="data-id=${item.encryptedActivoId}"
+                                        th:disabled="${item.activo?.estado != 'PENDIENTE'}" title="Editar activo">
                                         <i class="fa-solid fa-pen-to-square"></i>
                                     </button>
 
-                                    <!-- En la tabla de asignaciones (dentro de <td class="text-center">) -->
                                     <button type="button" class="btn-row-action btn-row-similar btn-similar"
-                                        th:attr="data-grupo=${idx.index}, data-desc=${item.activo?.descripcion}"
+                                        th:attr="data-grupo='sin', data-desc=${item.activo?.descripcion}"
                                         th:disabled="${item.activo.estado != 'PENDIENTE'}"
                                         title="Seleccionar todos con esta misma descripción">
                                         <i class="fa-solid fa-layer-group"></i>
