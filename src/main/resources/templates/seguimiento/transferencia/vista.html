@@ -338,8 +338,8 @@
             </div>
 
             <div class="modal-footer bg-light border-top">
-                <a id="trf-btn-modal-pdf" href="#" target="_blank" class="btn btn-danger btn-sm">
-                    <i class="bx bxs-file-pdf me-1"></i>Descargar PDF
+                <a id="trf-btn-modal-pdf" href="#" target="_blank" class="btn btn-primary btn-sm">
+                    <i class="bx bxs-file-doc me-1"></i>Descargar Word
                 </a>
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
                     <i class="bx bx-x me-1"></i>Cerrar
@@ -439,7 +439,7 @@
         $('#trf-aud-usuario-reg').text(data.usuarioReg || '—');
         $('#trf-aud-fecha-mod').text(data.fechaMod || '—');
         $('#trf-aud-usuario-mod').text(data.usuarioMod || '—');
-        $('#trf-btn-modal-pdf').attr('href', `/administracion/transferencia/${id}/pdf`);
+        $('#trf-btn-modal-pdf').attr('href', `/seguimiento-activo/transferencia/${id}/pdf`);
 
         cargarActivosTransferencia(id);
 

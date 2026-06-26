@@ -132,10 +132,10 @@
                             (${trf.estadoProceso == 'EN_PROCESO'} ? 'bg-warning text-dark' : 'bg-danger'))"
                         th:text="${trf.estadoProceso ?: '—'}">—</span>
 
-                    <a th:href="@{/administracion/transferencia/{id}/pdf(id=${trf.idTransferencia})}" target="_blank"
-                        class="btn btn-sm btn-icon btn-outline-danger py-0 px-1" title="PDF"
+                    <a th:href="@{/seguimiento-activo/transferencia/{id}/pdf(id=${trf.idTransferencia})}" target="_blank"
+                        class="btn btn-sm btn-icon btn-outline-primary py-0 px-1" title="Word"
                         onclick="event.stopPropagation()">
-                        <i class="bx bxs-file-pdf small"></i>
+                        <i class="bx bxs-file-doc small"></i>
                     </a>
 
                     <i class="bx bx-chevron-right text-muted ms-1"></i>

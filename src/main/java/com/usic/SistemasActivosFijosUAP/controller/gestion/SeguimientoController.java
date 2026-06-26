@@ -40,6 +40,7 @@ import com.usic.SistemasActivosFijosUAP.model.service.interno.PdfInternoAsignaci
 import com.usic.SistemasActivosFijosUAP.model.service.interno.PdfInternoBajaActivoService;
 import com.usic.SistemasActivosFijosUAP.model.service.interno.PdfInternoIngresoActivoAjenoService;
 import com.usic.SistemasActivosFijosUAP.model.service.interno.PdfInternoTransferenciaService;
+import com.usic.SistemasActivosFijosUAP.model.service.interno.WordInternoTransferenciaService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +58,7 @@ public class SeguimientoController {
     
     private final PdfInternoAsignacionService pdfInternoAsignacionService;
     private final PdfInternoTransferenciaService pdfInternoTransferenciaService;
+    private final WordInternoTransferenciaService wordInternoTransferenciaService;
     private final PdfInternoIngresoActivoAjenoService pdfInternoIngresoActivoAjenoService;
     private final PdfInternoBajaActivoService pdfInternoBajaActivoService;
 
@@ -165,22 +167,23 @@ public class SeguimientoController {
 
         try {
 
-            byte[] pdfBytes = pdfInternoTransferenciaService.pdfTransferenciaActivo( usuario_encontrado,
+            byte[] wordBytes = wordInternoTransferenciaService.wordTransferenciaActivo( usuario_encontrado,
                 unidadOrigen,  t.getResponsableOrigen(),  fechaTransferencia,
                 unidadDestino, t.getResponsableDestino(), fechaRecepcion,
                 activos
             );
 
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentType(MediaType.parseMediaType(
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
             headers.setContentDisposition(
-                    ContentDisposition.inline()
-                            .filename("Transferencia_activos_" +fechaTransferencia+"_"+t.getResponsableDestino().getPersona().getNombreCompleto()+ ".pdf")
+                    ContentDisposition.attachment()
+                            .filename("Transferencia_activos_" +fechaTransferencia+"_"+t.getResponsableDestino().getPersona().getNombreCompleto()+ ".docx")
                             .build()
             );
-            headers.setContentLength(pdfBytes.length);
+            headers.setContentLength(wordBytes.length);
 
-            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+            return new ResponseEntity<>(wordBytes, headers, HttpStatus.OK);
 
         } catch (Exception ex) {
             String errorMsg = "Error procesando: " + ex.getMessage();
