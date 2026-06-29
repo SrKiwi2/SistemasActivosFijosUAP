@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -56,19 +55,18 @@ public class PublicoController {
 
         Map<String, Object> resp = new HashMap<>();
         try {
-            Optional<HojaRuta> opt = hojaRutaService.findByCodigo(codigo.trim());
+            // Búsqueda exacta por la combinación única tipo+código+gestión (igual que el
+            // módulo interno). NO usar findByCodigo: el código puede repetirse entre
+            // tipos/gestiones, y la query derivada lanzaría NonUniqueResultException.
+            HojaRuta hr = hojaRutaService.findByTipoAndCodigoAndGestion(
+                    tipo.trim(), codigo.trim(), gestion);
 
-            // Coincidencia estricta: tipo y gestión deben corresponder al código.
-            if (opt.isEmpty()
-                    || opt.get().getTipo() == null
-                    || !opt.get().getTipo().equalsIgnoreCase(tipo.trim())
-                    || !gestion.equals(opt.get().getGestion())) {
+            if (hr == null) {
                 resp.put("ok", false);
                 resp.put("msg", "No se encontró una hoja de ruta con esos datos.");
                 return ResponseEntity.ok(resp);
             }
 
-            HojaRuta hr = opt.get();
             List<Movimiento> movimientos = movimientoService.findByHojaRuta(hr.getIdHojaRuta());
 
             Map<String, Object> hojaData = new HashMap<>();
