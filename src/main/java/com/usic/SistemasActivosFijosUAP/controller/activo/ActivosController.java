@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -17,6 +18,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -49,6 +51,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOrganismoFinancieroService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
+import com.usic.SistemasActivosFijosUAP.model.dao.IHistorialActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoFormDTO;
@@ -61,6 +64,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.EditarActivoPendienteRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.EditarLoteRequest;
 import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.model.dto.RegistroHuecoRequest;
+import com.usic.SistemasActivosFijosUAP.model.dto.RegistroHuecosLoteRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.RegistroMasivoRequest;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
@@ -69,6 +73,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
 import com.usic.SistemasActivosFijosUAP.model.entity.DetalleAsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
+import com.usic.SistemasActivosFijosUAP.model.entity.HistorialActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
@@ -115,6 +120,16 @@ public class ActivosController {
 
     private final ActivoSyncService activoSyncService;
     private final SseEmitterRegistry sseRegistry;
+
+    private final PasswordEncoder passwordEncoder;
+    private final IHistorialActivoDao historialActivoDao;
+
+    /**
+     * Código del permiso (opcion_menu oculto) que habilita el cambio urgente del
+     * código de un activo. Un ADMINISTRADOR / SUPER USUARIO lo otorga desde la
+     * pantalla de permisos por usuario. Ver {@code OpcionMenuSeeder.PERMISOS}.
+     */
+    private static final String PERMISO_EDITAR_CODIGO = "opcion_activo_editar_codigo";
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -191,7 +206,7 @@ public class ActivosController {
 
     @ValidarUsuarioAutenticado
     @GetMapping("/formulario")
-    public String formulario_activo(Model model, Activo activo) {
+    public String formulario_activo(Model model, Activo activo, HttpServletRequest request) {
         model.addAttribute("municipios", municipioService.findAll());
         model.addAttribute("predios", predioServicio.findAll());
         model.addAttribute("grupos", grupoContableService.listarGruposContables());
@@ -199,7 +214,24 @@ public class ActivosController {
         model.addAttribute("responsables", responsableService.listarResponsables());
         model.addAttribute("financiadores", organismoFinancieroService.findAll());
         model.addAttribute("auxiliares", auxiliarService.findAll());
+        // Habilita (o no) el botón de "modificar código urgente" según el permiso del usuario.
+        model.addAttribute("puedeEditarCodigo", tienePermisoEditarCodigo(request));
         return "activo/formulario";
+    }
+
+    /**
+     * ¿El usuario en sesión puede ejecutar el cambio urgente de código de un activo?
+     * Se apoya en {@code session.opciones} (los permisos efectivos calculados al
+     * login). ADMINISTRADOR ya tiene todos los códigos; a otros roles (p. ej. APOYO)
+     * se les debe otorgar explícitamente {@link #PERMISO_EDITAR_CODIGO}.
+     */
+    private boolean tienePermisoEditarCodigo(HttpServletRequest request) {
+        if (request == null || request.getSession(false) == null) return false;
+        Object opciones = request.getSession().getAttribute("opciones");
+        if (opciones instanceof Set<?> set) {
+            return set.contains(PERMISO_EDITAR_CODIGO);
+        }
+        return false;
     }
 
     @ValidarUsuarioAutenticado
@@ -626,6 +658,161 @@ public class ActivosController {
         } catch (Exception e) {
             log.error("Error fatal modificando activo", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Cambio URGENTE del código de un activo. A diferencia de {@link #modificar_activo}
+     * (donde el código va bloqueado), esta acción sí reemplaza el código, pero exige:
+     *   1. Que el usuario tenga el permiso {@link #PERMISO_EDITAR_CODIGO} (lo otorga
+     *      un ADMINISTRADOR / SUPER USUARIO desde la pantalla de permisos).
+     *   2. Re-confirmar su propia contraseña (re-autenticación).
+     *   3. Un motivo obligatorio.
+     * Valida formato y unicidad del nuevo código, actualiza BD y —si el activo ya
+     * estaba ACTIVO— el DBF/VSIAF (localizando el registro por el código original),
+     * y deja constancia en {@code historial_activo}.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/modificar-codigo-urgente")
+    @ResponseBody
+    @Transactional
+    public ResponseEntity<?> modificarCodigoUrgente(
+            HttpServletRequest request,
+            @RequestParam("idActivo") Long idActivo,
+            @RequestParam("nuevoCodigo") String nuevoCodigoRaw,
+            @RequestParam("password") String password,
+            @RequestParam("motivo") String motivo) {
+
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "msg", "Sesión expirada. Vuelva a iniciar sesión."));
+        }
+
+        // 1. Permiso explícito.
+        if (!tienePermisoEditarCodigo(request)) {
+            log.warn("[CODIGO-URGENTE] Usuario '{}' intentó cambiar código sin permiso.", usuario.getUsuario());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("ok", false, "msg", "No tiene autorización para modificar el código de un activo. "
+                            + "Solicite a un administrador que lo habilite."));
+        }
+
+        // 2. Motivo obligatorio.
+        if (motivo == null || motivo.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "El motivo del cambio es obligatorio."));
+        }
+        String motivoLimpio = motivo.trim();
+
+        // 3. Re-autenticación con la contraseña del propio usuario.
+        if (password == null || !passwordEncoder.matches(password, usuario.getPassword())) {
+            log.warn("[CODIGO-URGENTE] Contraseña incorrecta para usuario '{}'.", usuario.getUsuario());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "msg", "Contraseña incorrecta."));
+        }
+
+        try {
+            Activo activo = activoService.findById(idActivo);
+            if (activo == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Activo no encontrado."));
+            }
+
+            String codigoOriginal = activo.getCodigo();
+            String nuevoCodigo = (nuevoCodigoRaw == null) ? "" : nuevoCodigoRaw.trim().toUpperCase();
+
+            // 4. Validaciones del nuevo código.
+            if (nuevoCodigo.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "El nuevo código es obligatorio."));
+            }
+            if (nuevoCodigo.equalsIgnoreCase(codigoOriginal)) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "El nuevo código es igual al actual."));
+            }
+            if (!nuevoCodigo.matches("^[^-]+-[^-]+-[0-9]+-[0-9]+$")) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "Formato de código inválido. Use el formato MUN-PREDIO-GRUPO-CORRELATIVO."));
+            }
+            if (activoService.findByCodigo(nuevoCodigo).isPresent()) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "El código " + nuevoCodigo + " ya está en uso por otro activo."));
+            }
+
+            boolean estabaActivo = "ACTIVO".equalsIgnoreCase(activo.getEstado());
+
+            // 5. Aplicar el cambio en BD.
+            activo.setCodigo(nuevoCodigo);
+            activo.setUsuMod(usuario.getUsuario());
+            activo.setUsuario(usuario.getUsuario());
+            activo.setFecMod(LocalDate.now());
+            activo.setFechaUlt(LocalDate.now());
+            activo.setModificacion(new Date());
+            activo.setModificacionIdUsuario(usuario.getIdUsuario());
+            activo.setApiEstado(Short.valueOf("3"));
+            activoService.save(activo);
+            log.info("[CODIGO-URGENTE] Usuario '{}' cambió código '{}' → '{}'. Motivo: {}",
+                    usuario.getUsuario(), codigoOriginal, nuevoCodigo, motivoLimpio);
+
+            // 6. Auditoría en historial_activo.
+            registrarHistorialCambioCodigo(activo, codigoOriginal, nuevoCodigo, motivoLimpio, usuario);
+
+            // 7. Sincronizar DBF/VSIAF sólo si el activo ya estaba publicado (ACTIVO).
+            if (estabaActivo) {
+                try {
+                    if (activo.getOficina() == null
+                            || activo.getOficina().getPredio() == null
+                            || activo.getOficina().getPredio().getEntidad() == null) {
+                        return ResponseEntity.ok(Map.of("ok", true, "codigo", nuevoCodigo,
+                                "msg", "Código actualizado en BD. No se sincronizó VSIAF por faltar datos de la oficina."));
+                    }
+                    String entidadCode = activo.getOficina().getPredio().getEntidad().getEntidadCodigo();
+                    String unidadCode = activo.getOficina().getPredio().getUnidad();
+
+                    actualDbfWriterService.actualizarDesdeActivo(
+                            codigoOriginal, activo, entidadCode, unidadCode, usuario.getUsuario());
+
+                    return ResponseEntity.ok(Map.of("ok", true, "codigo", nuevoCodigo,
+                            "msg", "Código actualizado correctamente en BD y VSIAF. Cambio registrado en el historial."));
+                } catch (Exception e) {
+                    log.error("[CODIGO-URGENTE] Error sincronizando DBF: {}", e.getMessage());
+                    return ResponseEntity.ok(Map.of("ok", true, "codigo", nuevoCodigo,
+                            "msg", "Código actualizado en BD, pero falló la sincronización con VSIAF: " + e.getMessage()));
+                }
+            }
+
+            return ResponseEntity.ok(Map.of("ok", true, "codigo", nuevoCodigo,
+                    "msg", "Código actualizado (activo PENDIENTE, no requiere sincronizar VSIAF)."));
+
+        } catch (Exception e) {
+            log.error("[CODIGO-URGENTE] Error fatal cambiando código del activo {}", idActivo, e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
+        }
+    }
+
+    /** Registra el cambio de código en {@code historial_activo} sin romper el flujo principal. */
+    private void registrarHistorialCambioCodigo(Activo activo, String codigoAnterior, String codigoNuevo,
+                                                String motivo, Usuario usuario) {
+        try {
+            HistorialActivo h = new HistorialActivo();
+            h.setActivo(activo);
+            h.setCodigoActivo(codigoNuevo);
+            h.setTipoEvento("CAMBIO_CODIGO");
+            h.setFechaEvento(LocalDateTime.now());
+            h.setIdUsuario(usuario.getIdUsuario());
+            h.setNombreUsuario(usuario.getUsuario());
+            h.setDescripcionEvento(String.format(
+                    "Cambio URGENTE de código: '%s' → '%s'. Motivo: %s",
+                    codigoAnterior, codigoNuevo, motivo));
+            if (activo.getOficina() != null) {
+                h.setOficinaAnterior(activo.getOficina());
+                h.setOficinaNueva(activo.getOficina());
+                h.setNombreOficinaAnterior(activo.getOficina().getNombre());
+                h.setNombreOficinaNueva(activo.getOficina().getNombre());
+            }
+            if (activo.getResponsable() != null) {
+                h.setResponsableAnterior(activo.getResponsable());
+                h.setResponsableNuevo(activo.getResponsable());
+            }
+            historialActivoDao.save(h);
+        } catch (Exception e) {
+            log.warn("[CODIGO-URGENTE] No se pudo registrar el historial del cambio de código: {}", e.getMessage());
         }
     }
 
@@ -1847,6 +2034,146 @@ public class ActivosController {
                     "msg", "El código acaba de ser tomado por otro registro. Elige otro hueco."));
         } catch (Exception e) {
             log.error("Error registrando en hueco", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Registra en LOTE varios activos en huecos de una misma serie. Todos comparten
+     * oficina + responsable + grupo (modelo confirmado con el área), de modo que luego
+     * se puede emitir UN acta de asignación reutilizando {@code /reportes/generar-asignacion}
+     * con los ids devueltos en {@code idsParaReporte} (igual que el registro masivo).
+     *
+     * Valida ítem por ítem: formato del código, prefijo == predio/grupo de la oficina y
+     * que el código esté libre. Si algún ítem falla, se omite y se reporta, pero los
+     * válidos sí se registran. Cada activo queda PENDIENTE.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/registrar-huecos-lote")
+    @ResponseBody
+    public ResponseEntity<?> registrarHuecosLote(@RequestBody RegistroHuecosLoteRequest req,
+                                                 HttpServletRequest httpReq) {
+        Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
+        String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+        try {
+            if (req.getItems() == null || req.getItems().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No hay huecos seleccionados."));
+            }
+            if (req.getIdOficina() == null || req.getIdResponsable() == null || req.getIdGrupoContable() == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Oficina, responsable y grupo son obligatorios."));
+            }
+
+            Oficina oficina = oficinaService.findById(req.getIdOficina());
+            Responsable responsable = responsableService.findById(req.getIdResponsable());
+            GrupoContable grupo = grupoContableService.findById(req.getIdGrupoContable());
+            if (oficina == null || responsable == null || grupo == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Oficina, responsable o grupo inexistente."));
+            }
+            if (oficina.getPredio() == null || oficina.getPredio().getMunicipio() == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "La oficina no tiene predio/municipio configurado."));
+            }
+
+            String prefijoEsperado = String.join("-",
+                    oficina.getPredio().getMunicipio().getCodigo(),
+                    oficina.getPredio().getCodigo(),
+                    String.format("%02d", grupo.getCodDbf()));
+
+            OrganismoFinanciero orgFin = (req.getIdOrganismoFinanciero() != null)
+                    ? organismoFinancieroService.findById(req.getIdOrganismoFinanciero()) : null;
+            LocalDate fechaAdq = (req.getFechaAdquisicion() != null && !req.getFechaAdquisicion().isBlank())
+                    ? LocalDate.parse(req.getFechaAdquisicion()) : null;
+
+            // El auxiliar es POR ACTIVO; cacheo los resueltos para no repetir lookups.
+            Map<Long, Auxiliar> auxCache = new HashMap<>();
+
+            List<String> idsReporte = new ArrayList<>();
+            List<String> errores = new ArrayList<>();
+            java.util.Set<String> vistos = new java.util.HashSet<>();   // evita códigos repetidos en el mismo payload
+            int totalCreados = 0;
+
+            for (RegistroHuecosLoteRequest.Item it : req.getItems()) {
+                String codigo = (it.getCodigo() != null) ? it.getCodigo().trim() : "";
+                try {
+                    if (!codigo.matches("^[^-]+-[^-]+-[0-9]+-[0-9]+$")) {
+                        errores.add("Código con formato inválido: " + codigo); continue;
+                    }
+                    if (!vistos.add(codigo)) {
+                        errores.add("Código repetido en la selección: " + codigo); continue;
+                    }
+                    String prefijoCodigo = codigo.substring(0, codigo.lastIndexOf('-'));
+                    if (!prefijoEsperado.equals(prefijoCodigo)) {
+                        errores.add("El código " + codigo + " no corresponde al predio/grupo de la oficina (esperado " + prefijoEsperado + ").");
+                        continue;
+                    }
+                    if (it.getDescripcion() == null || it.getDescripcion().trim().isEmpty()) {
+                        errores.add("Falta la descripción del activo con código " + codigo + "."); continue;
+                    }
+                    if (activoService.findByCodigo(codigo).isPresent()) {
+                        errores.add("El código " + codigo + " ya fue tomado."); continue;
+                    }
+
+                    StringBuilder descFinal = new StringBuilder(it.getDescripcion().trim());
+                    if (it.getSerie()  != null && !it.getSerie().trim().isEmpty())  descFinal.append(" S/N:").append(it.getSerie().trim());
+                    if (it.getMarca()  != null && !it.getMarca().trim().isEmpty())  descFinal.append(" MARCA:").append(it.getMarca().trim());
+                    if (it.getModelo() != null && !it.getModelo().trim().isEmpty()) descFinal.append(" MOD:").append(it.getModelo().trim());
+                    if (it.getColor()  != null && !it.getColor().trim().isEmpty())  descFinal.append(" COLOR:").append(it.getColor().trim());
+
+                    // Auxiliar por activo (opcional)
+                    Auxiliar auxiliar = null;
+                    if (it.getIdAuxiliar() != null) {
+                        auxiliar = auxCache.computeIfAbsent(it.getIdAuxiliar(), auxiliarService::findById);
+                        if (auxiliar == null) { errores.add("Auxiliar inexistente para el código " + codigo + "."); continue; }
+                    }
+
+                    Activo a = new Activo();
+                    a.setCodigo(codigo);
+                    a.setDescripcion(descFinal.toString().toUpperCase());
+                    a.setFechaAdquisicion(fechaAdq);
+                    a.setVidaUtil(req.getVidaUtil() != null ? BigDecimal.valueOf(req.getVidaUtil()) : BigDecimal.ZERO);
+                    a.setCosto(req.getCosto() != null ? req.getCosto() : 0.0);
+                    a.setResponsable(responsable);
+                    a.setOrganismoFinanciero(orgFin);
+                    if (orgFin != null) a.setOrgFinCode(orgFin.getCodOf());
+                    a.setGrupoContable(grupo);
+                    a.setOficina(oficina);
+                    a.setAuxiliar(auxiliar);
+                    a.setEstado("PENDIENTE");
+                    a.setApiEstado(Short.valueOf("3"));
+                    a.setVidaUtilAnterior(0);
+                    a.setEstadoActivo(estadoActivoService.findById(1L));
+                    a.setCostoAnterior(0.0);
+                    a.setDepreciacionAcum(0.0);
+                    a.setUsuario(usuarioNombre);
+                    a.setFecMod(LocalDate.now());
+                    a.setFechaUlt(LocalDate.now());
+
+                    activoService.save(a);
+                    idsReporte.add(Encriptar.encrypt(String.valueOf(a.getIdActivo())));
+                    totalCreados++;
+
+                } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+                    errores.add("El código " + codigo + " acaba de ser tomado por otro registro.");
+                } catch (Exception ex) {
+                    errores.add("Error con el código " + codigo + ": " + ex.getMessage());
+                }
+            }
+
+            if (totalCreados > 0) notificarCambioPendientes("registro-hueco-lote");
+
+            Map<String, Object> resp = new LinkedHashMap<>();
+            resp.put("ok", totalCreados > 0);
+            resp.put("totalCreados", totalCreados);
+            resp.put("totalErrores", errores.size());
+            resp.put("errores", errores);
+            resp.put("idsParaReporte", idsReporte);
+            resp.put("msg", totalCreados > 0
+                    ? ("Se registraron " + totalCreados + " activo(s) en lote (PENDIENTE)."
+                        + (errores.isEmpty() ? "" : " " + errores.size() + " no se pudieron registrar."))
+                    : "No se registró ningún activo. Revisá los errores.");
+            return ResponseEntity.ok(resp);
+
+        } catch (Exception e) {
+            log.error("Error registrando huecos en lote", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
         }
     }

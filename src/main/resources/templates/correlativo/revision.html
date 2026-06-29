@@ -1,9 +1,9 @@
 <!-- =====================================================================
-     REVISIÓN DE CORRELATIVOS  ·  solo lectura  ·  Fragmento SPA
+     REVISIÓN DE CORRELATIVOS  ·  Fragmento SPA
      Por municipio + predio + grupo contable: lista los activos ya
-     codificados (código + descripción + oficina) ordenados por su
-     correlativo y muestra cuál sería el SIGUIENTE código a asignar.
-     Pensado para revisar/comparar con el VSIAF.
+     codificados, muestra el SIGUIENTE código a asignar y los CÓDIGOS
+     FALTANTES (huecos) de la serie, que se pueden reutilizar registrando
+     activos nuevos —de a uno o en LOTE (con su acta de asignación)—.
      Datos: GET /administracion/correlativo/datos?predioId&grupoId
 ====================================================================== -->
 
@@ -19,11 +19,30 @@
         #corr-wrap .badge-pref-mal{ background:#f8d7da; color:#a3232f; }
         #corr-wrap .badge-transf  { background:#e0f2fe; color:#0369a1; font-family:'JetBrains Mono',monospace; font-weight:600; }
         #corr-wrap .badge-hueco   { background:#fff3cd; color:#8a6d00; font-family:'JetBrains Mono',monospace; }
-        #corr-wrap .corr-hueco-btn{ border:none; cursor:pointer; transition:all .12s; }
-        #corr-wrap .corr-hueco-btn:hover { background:#ffe69c; transform:translateY(-1px); box-shadow:0 2px 6px rgba(0,0,0,.15); }
-        #corr-wrap #modalRegHueco .form-label { font-size:.78rem; }
+        #corr-wrap .corr-hueco-chip{ border:1px solid #ffe08a; cursor:pointer; transition:all .12s; user-select:none; padding:.35rem .55rem; }
+        #corr-wrap .corr-hueco-chip:hover { background:#ffe69c; transform:translateY(-1px); box-shadow:0 2px 6px rgba(0,0,0,.12); }
+        #corr-wrap .corr-hueco-chip.selected { background:#198754; color:#fff; border-color:#157347; }
+        #corr-wrap .corr-actionbar{ position:sticky; bottom:0; z-index:5; background:#0d6efd; color:#fff;
+                                    border-radius:10px; box-shadow:0 4px 14px rgba(13,110,253,.35); }
+        #corr-wrap #modalRegLote .form-label { font-size:.78rem; margin-bottom:.15rem; }
+        /* Tarjeta por activo (vista cómoda) */
+        #corr-wrap .rl-card{ background:#fbfcfe; }
+        #corr-wrap .rl-card:nth-child(even){ background:#f3f6fb; }
+        #corr-wrap .rl-card .form-label{ font-size:.74rem; color:#5b6b7f; }
+        #corr-wrap .rl-card .corr-cod{ color:#fff; }
+        #corr-wrap .rl-copydown{ line-height:1; text-decoration:none; }
+        #corr-wrap .rl-copydown:hover{ color:#0d6efd; }
+        /* Select2 a lo ancho de su columna dentro del modal */
+        #modalRegLote .select2-container{ width:100% !important; }
+        /* Resaltado de obligatorios vacíos (también para los Select2) */
+        #modalRegLote select.is-invalid + .select2-container .select2-selection{ border-color:#dc3545 !important; }
+        #modalRegLote .form-control.is-invalid{ border-color:#dc3545; background-image:none; }
         #corr-wrap tr.fila-mal td { background:#fdf1f2; }
         #corr-wrap .estado-pill   { font-size:.7rem; padding:.2rem .5rem; border-radius:10px; }
+        #corr-wrap .help-step     { font-size:.82rem; }
+        #corr-wrap .help-step .n  { display:inline-flex; width:22px; height:22px; border-radius:50%;
+                                    background:#0d6efd; color:#fff; align-items:center; justify-content:center;
+                                    font-weight:700; font-size:.72rem; margin-right:.4rem; }
     </style>
 
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
@@ -31,15 +50,26 @@
             <h4 class="py-2 mb-1">
                 <span class="text-muted fw-light">Reportes y Consultas /</span> REVISIÓN DE CORRELATIVOS
             </h4>
-            <p class="text-muted mb-2" style="font-size:.9rem; max-width:820px;">
-                Elegí <b>municipio</b>, <b>predio</b> y <b>grupo contable</b> para listar los activos de esa serie.
-                La lista se arma por el <b>prefijo del código</b> (que es inmutable), así que
-                <b>incluye los activos transferidos</b> a otro predio — los verás marcados. Se muestra cuál sería el
-                <b>siguiente código</b> a asignar
-                (<span class="corr-cod">municipio-predio-grupo-correlativo</span>) y los
-                <b>huecos</b> reales de la serie. Útil para <b>comparar con el VSIAF</b>.
-                Este módulo <b>no modifica</b> nada.
+            <p class="text-muted mb-2" style="font-size:.9rem; max-width:880px;">
+                Elegí <b>municipio</b>, <b>predio</b> y <b>grupo contable</b> y tocá <b>Revisar</b>. Vas a ver
+                todos los activos de esa serie, cuál es el <b>siguiente código</b> a usar y los
+                <b>códigos faltantes (huecos)</b> que quedaron libres en el medio. Los huecos se pueden
+                <b>reutilizar</b> registrando activos nuevos: uno o varios a la vez (en lote, con su acta).
             </p>
+        </div>
+    </div>
+
+    <!-- Mini guía de uso -->
+    <div class="card shadow-sm mb-3 border-0" style="background:#f3f7ff;">
+        <div class="card-body py-2">
+            <div class="row g-2">
+                <div class="col-12 col-md-4 help-step"><span class="n">1</span>
+                    <b>Revisá</b> la serie: elegí municipio, predio y grupo, y tocá <i>Revisar</i>.</div>
+                <div class="col-12 col-md-4 help-step"><span class="n">2</span>
+                    <b>Seleccioná</b> los códigos faltantes (huecos) que querés usar — se ponen en verde.</div>
+                <div class="col-12 col-md-4 help-step"><span class="n">3</span>
+                    <b>Registrá el lote</b>: cargás oficina/responsable una vez y el detalle de cada activo. Se genera el acta.</div>
+            </div>
         </div>
     </div>
 
@@ -95,37 +125,51 @@
         <!-- Tarjetas de resumen -->
         <div class="row g-3 mb-3">
             <div class="col-6 col-md"><div class="card corr-card shadow-sm"><div class="card-body py-3">
-                <div class="num corr-cod" id="corr-prefijo">—</div><div class="lbl">Prefijo (mun-pred-grupo)</div></div></div></div>
+                <div class="num corr-cod" id="corr-prefijo">—</div><div class="lbl">Serie (municipio-predio-grupo)</div></div></div></div>
             <div class="col-6 col-md"><div class="card corr-card shadow-sm"><div class="card-body py-3">
                 <div class="num text-dark" id="corr-total">—</div><div class="lbl">Activos registrados</div></div></div></div>
             <div class="col-6 col-md"><div class="card corr-card shadow-sm"><div class="card-body py-3">
-                <div class="num text-dark" id="corr-max">—</div><div class="lbl">Correlativo máximo</div></div></div></div>
+                <div class="num text-dark" id="corr-max">—</div><div class="lbl">Último correlativo usado</div></div></div></div>
             <div class="col-6 col-md"><div class="card corr-card shadow-sm"><div class="card-body py-3">
-                <div class="num text-success corr-next" id="corr-siguiente">—</div><div class="lbl">Siguiente código</div></div></div></div>
+                <div class="num text-success corr-next" id="corr-siguiente">—</div><div class="lbl">Siguiente código libre</div></div></div></div>
         </div>
 
         <!-- Aviso si la función de BD no coincide con el cálculo real -->
         <div id="corr-aviso-funcion" class="alert alert-warning d-flex align-items-start gap-2" style="display:none;">
             <i class="ti ti-alert-triangle mt-1"></i>
             <div>
-                El siguiente código según la función del sistema
+                El siguiente código según el generador del sistema
                 (<span class="corr-cod" id="corr-funcion-val">—</span>) <b>no coincide</b> con el calculado a
                 partir de los datos reales (<span class="corr-cod" id="corr-real-val">—</span>).
-                Puede haber códigos mal asignados en esta serie.
+                Puede haber un código mal formado en esta serie — avisá a sistemas antes de seguir registrando.
             </div>
         </div>
 
-        <!-- Huecos en la serie -->
-        <div id="corr-huecos-box" class="alert alert-warning" style="display:none;">
-            <div class="fw-semibold mb-1">
-                <i class="ti ti-number me-1"></i>
-                Huecos en la serie (<span id="corr-huecos-n">0</span>) — correlativos faltantes:
+        <!-- Huecos en la serie (seleccionables) -->
+        <div id="corr-huecos-box" class="card shadow-sm mb-3" style="display:none;">
+            <div class="card-header bg-warning-subtle d-flex flex-wrap align-items-center gap-2 py-2">
+                <span class="fw-semibold"><i class="ti ti-number me-1"></i>
+                    Códigos faltantes (huecos): <span id="corr-huecos-n">0</span></span>
+                <span class="text-muted" style="font-size:.8rem;">— números que quedaron libres en la serie. Tocá los que quieras reutilizar.</span>
+                <div class="ms-auto d-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="corr-sel-todos">
+                        <i class="ti ti-checks me-1"></i> Seleccionar todos</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="corr-sel-limpiar">
+                        <i class="ti ti-eraser me-1"></i> Limpiar</button>
+                </div>
             </div>
-            <div class="text-muted mb-2" style="font-size:.8rem;">
-                <i class="ti ti-info-circle me-1"></i>
-                Hacé clic en un hueco para <b>registrar un activo</b> con ese código.
+            <div class="card-body">
+                <div id="corr-huecos-list" class="d-flex flex-wrap gap-2"></div>
             </div>
-            <div id="corr-huecos-list" class="d-flex flex-wrap gap-1"></div>
+            <!-- Barra de acción (aparece al seleccionar) -->
+            <div id="corr-actionbar" class="corr-actionbar d-flex flex-wrap align-items-center gap-2 px-3 py-2 m-2"
+                 style="display:none;">
+                <i class="ti ti-checkbox"></i>
+                <b><span id="corr-sel-count">0</span></b> hueco(s) seleccionado(s)
+                <button type="button" class="btn btn-sm btn-light fw-semibold ms-auto" id="corr-btn-lote">
+                    <i class="ti ti-package me-1"></i> Registrar lote
+                </button>
+            </div>
         </div>
 
         <!-- Activos transferidos: su código pertenece a esta serie pero hoy están en otro predio -->
@@ -157,7 +201,7 @@
                             <td class="text-muted">próx.</td>
                             <td class="corr-next text-success" id="corr-foot-codigo">—</td>
                             <td colspan="3" class="text-muted fst-italic">
-                                Siguiente código a asignar para esta combinación.
+                                Siguiente código libre para esta serie (si no reutilizás un hueco).
                             </td>
                         </tr>
                     </tfoot>
@@ -166,72 +210,91 @@
         </div>
     </div>
 
-    <!-- ===== MODAL: registrar un activo en un hueco ===== -->
-    <div class="modal fade" id="modalRegHueco" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+    <!-- ===== MODAL: registrar un LOTE de activos en huecos ===== -->
+    <div class="modal fade" id="modalRegLote" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h6 class="modal-title">
-                        <i class="ti ti-plus me-1"></i>
-                        Registrar activo en el código <span id="rh-codigo" class="corr-cod"></span>
+                        <i class="ti ti-package me-1"></i>
+                        Registrar lote · <span id="rl-n">0</span> activo(s) en la serie <span id="rl-prefijo" class="corr-cod"></span>
                     </h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="rh-context" class="alert alert-light border small mb-3"></div>
-                    <div class="row g-3">
+                    <div id="rl-context" class="alert alert-light border small mb-3"></div>
+
+                    <!-- Datos compartidos por todo el lote -->
+                    <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+                        <div class="fw-semibold text-primary" style="font-size:.85rem;">
+                            <i class="ti ti-users me-1"></i> Datos comunes del lote (se aplican a todos los activos)
+                        </div>
+                        <span class="text-muted" style="font-size:.78rem;">
+                            Solo <b>Oficina</b> y <b>Responsable</b> son obligatorios. Financiador, fecha, costo y vida útil
+                            son <b>opcionales</b> y se pueden completar después (el activo queda PENDIENTE).
+                        </span>
+                    </div>
+                    <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold mb-1">Oficina <span class="text-danger">*</span></label>
-                            <select id="rh-oficina" class="form-select form-select-sm">
+                            <select id="rl-oficina" class="form-select form-select-sm">
                                 <option value="">— Seleccione oficina —</option>
                             </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold mb-1">Responsable <span class="text-danger">*</span></label>
-                            <select id="rh-responsable" class="form-select form-select-sm" disabled>
+                            <select id="rl-responsable" class="form-select form-select-sm" disabled>
                                 <option value="">— Seleccione oficina primero —</option>
                             </select>
                         </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold mb-1">Descripción <span class="text-danger">*</span></label>
-                            <textarea id="rh-descripcion" class="form-control form-control-sm" rows="2"
-                                placeholder="Descripción del activo..."></textarea>
-                        </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold mb-1">Fecha Adq.</label>
-                            <input type="date" id="rh-fecha" class="form-control form-control-sm">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold mb-1">Costo (Bs.)</label>
-                            <input type="number" id="rh-costo" class="form-control form-control-sm" step="0.01" min="0">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold mb-1">Vida útil (años)</label>
-                            <input type="number" id="rh-vida" class="form-control form-control-sm" step="1" min="0">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold mb-1">Auxiliar <span class="text-muted fw-normal">(opc.)</span></label>
-                            <select id="rh-auxiliar" class="form-select form-select-sm">
-                                <option value="">— Sin auxiliar —</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
                             <label class="form-label fw-semibold mb-1">Financiador <span class="text-muted fw-normal">(opc.)</span></label>
-                            <select id="rh-orgfin" class="form-select form-select-sm">
+                            <select id="rl-orgfin" class="form-select form-select-sm">
                                 <option value="">— Sin financiador —</option>
                             </select>
                         </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold mb-1">Fecha Adq. <span class="text-muted fw-normal">(opc.)</span></label>
+                            <input type="date" id="rl-fecha" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold mb-1">Costo (Bs.) <span class="text-muted fw-normal">(opc.)</span></label>
+                            <input type="number" id="rl-costo" class="form-control form-control-sm" step="0.01" min="0">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold mb-1">Vida útil <span class="text-muted fw-normal">(opc.)</span></label>
+                            <input type="number" id="rl-vida" class="form-control form-control-sm" step="1" min="0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold mb-1">Nro documento (acta)</label>
+                            <input type="text" id="rl-nro" class="form-control form-control-sm" value="S/N"
+                                   placeholder="Nro preventivo / S/N">
+                        </div>
                     </div>
+
+                    <!-- Detalle por activo (una tarjeta por hueco) -->
+                    <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+                        <div class="fw-semibold text-primary" style="font-size:.85rem;">
+                            <i class="ti ti-list-details me-1"></i> Detalle por activo
+                        </div>
+                        <span class="text-muted" style="font-size:.78rem;">
+                            La descripción es obligatoria; el resto opcional. El <b>auxiliar es por activo</b>.
+                            El botón <i class="ti ti-arrow-bar-to-down"></i> de cada campo lo copia a los activos de abajo.
+                        </span>
+                    </div>
+                    <div id="rl-detalle"></div>
                     <div class="text-muted mt-2" style="font-size:.78rem;">
                         <i class="ti ti-info-circle me-1"></i>
-                        El activo se crea <b>PENDIENTE</b> con este código fijo. Financiador, fecha y costo
-                        se pueden completar después desde la vista de pendientes.
+                        Los activos se crean <b>PENDIENTE</b> con su código fijo. Al guardar se descarga el
+                        <b>acta de asignación</b> (.docx). Los campos opcionales (auxiliar, serie, marca, modelo,
+                        color, financiador, fecha, costo, vida útil) podés <b>completarlos después</b> desde la
+                        vista de pendientes, antes de aprobarlos.
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-sm btn-success" id="rh-guardar">
-                        <i class="ti ti-device-floppy me-1"></i> Registrar
+                    <button type="button" class="btn btn-sm btn-success" id="rl-guardar">
+                        <i class="ti ti-device-floppy me-1"></i> Registrar lote y generar acta
                     </button>
                 </div>
             </div>
@@ -249,8 +312,11 @@
     const $msg    = document.getElementById('corr-msg');
     const $result = document.getElementById('corr-result');
 
-    let _ctx = null;     // contexto de la última serie cargada (para registrar en un hueco)
-    let _rhModal = null;
+    let _ctx = null;            // contexto de la última serie cargada
+    let _sel = new Set();       // códigos de huecos seleccionados
+    let _rlModal = null;
+    let _catCargado = false;    // catálogos del modal (oficina/orgfin/meta/aux) ya cargados para esta serie
+    let _auxOptionsHtml = '<option value="">— Sin auxiliar —</option>';  // opciones para el select de auxiliar POR fila
 
     const esc = s => (s == null ? '' : String(s).replace(/[&<>"']/g,
         c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
@@ -261,12 +327,9 @@
         $msg.style.display = 'block';
     }
     function hideMsg() { $msg.style.display = 'none'; }
+    function refreshBtn() { $btn.disabled = !($pred.value && $grp.value); }
 
-    function refreshBtn() {
-        $btn.disabled = !($pred.value && $grp.value);
-    }
-
-    // ── Carga de catálogos ────────────────────────────────────────────────
+    // ── Carga de catálogos de filtros ─────────────────────────────────────
     async function cargarMunicipios() {
         try {
             const r = await fetch('/api/municipios/listar');
@@ -280,7 +343,6 @@
             }
         } catch (e) { showMsg('No se pudieron cargar los municipios.', 'danger'); }
     }
-
     async function cargarGrupos() {
         try {
             const r = await fetch('/api/grupos/listar');
@@ -295,7 +357,6 @@
             }
         } catch (e) { showMsg('No se pudieron cargar los grupos contables.', 'danger'); }
     }
-
     async function cargarPredios(municipioId) {
         $pred.innerHTML = '<option value="">— Seleccione —</option>';
         $pred.disabled = true;
@@ -328,11 +389,16 @@
     function render(d) {
         document.getElementById('corr-prefijo').textContent    = d.prefijo;
         document.getElementById('corr-total').textContent      = d.totalRegistros;
-        document.getElementById('corr-max').textContent        = d.correlativoMax;
+        document.getElementById('corr-max').textContent        = (d.correlativoMax != null ? String(d.correlativoMax).padStart(5,'0') : '—');
         document.getElementById('corr-siguiente').textContent  = d.siguienteCodigoReal;
         document.getElementById('corr-foot-codigo').textContent= d.siguienteCodigoReal;
 
-        // Contexto para "registrar en hueco"
+        // Reset selección al recargar
+        _sel = new Set();
+        _catCargado = false;
+        actualizarActionbar();
+
+        // Contexto de la serie
         _ctx = {
             prefijo:     d.prefijo,
             predioId:    $pred.value,
@@ -348,11 +414,9 @@
             document.getElementById('corr-funcion-val').textContent = d.siguienteCodigoFuncion;
             document.getElementById('corr-real-val').textContent    = d.siguienteCodigoReal;
             $avFn.style.display = 'flex';
-        } else {
-            $avFn.style.display = 'none';
-        }
+        } else { $avFn.style.display = 'none'; }
 
-        // Huecos
+        // Huecos (chips seleccionables)
         const $hb = document.getElementById('corr-huecos-box');
         if (d.huecos && d.huecos.length) {
             document.getElementById('corr-huecos-n').textContent = d.huecos.length;
@@ -360,25 +424,21 @@
                 d.huecos.map(n => {
                     const corr = String(n).padStart(5, '0');
                     const codigo = d.prefijo + '-' + corr;
-                    return '<button type="button" class="badge badge-hueco corr-hueco-btn" ' +
+                    return '<button type="button" class="badge badge-hueco corr-hueco-chip" ' +
                         'data-codigo="' + esc(codigo) + '" ' +
-                        'title="Registrar un activo con el código ' + esc(codigo) + '">' +
+                        'title="' + esc(codigo) + ' — tocá para seleccionar/quitar">' +
                         corr + ' <i class="ti ti-plus"></i></button>';
                 }).join('');
             $hb.style.display = 'block';
-        } else {
-            $hb.style.display = 'none';
-        }
+        } else { $hb.style.display = 'none'; }
 
-        // Transferidos (su código es de esta serie pero hoy están en otro predio)
+        // Transferidos
         const $tb = document.getElementById('corr-transf-box');
         if (d.transferidos > 0) {
             document.getElementById('corr-transf-n').textContent = d.transferidos;
             document.getElementById('corr-transf-prefijo').textContent = d.prefijo;
             $tb.style.display = 'flex';
-        } else {
-            $tb.style.display = 'none';
-        }
+        } else { $tb.style.display = 'none'; }
 
         // Tabla
         const tbody = document.getElementById('corr-tbody');
@@ -428,7 +488,7 @@
         }
     }
 
-    // ── Chequeo global de duplicados (al abrir el módulo) ─────────────────
+    // ── Chequeo global de duplicados ──────────────────────────────────────
     async function cargarDuplicados() {
         const box = document.getElementById('corr-dup-box');
         const txt = document.getElementById('corr-dup-text');
@@ -449,29 +509,90 @@
         } catch (e) { box.style.display = 'none'; }
     }
 
-    // ── Registrar un activo en un hueco ───────────────────────────────────
-    async function openRegistroHueco(codigo) {
-        if (!_ctx) return;
-        document.getElementById('rh-codigo').textContent = codigo;
-        document.getElementById('rh-context').innerHTML =
-            'Municipio <b>' + esc(_ctx.munNombre) + '</b> · Predio <b>' + esc(_ctx.predNombre) +
-            '</b> · Grupo <b>' + esc(_ctx.grupoNombre) + '</b>';
+    // ── Selección de huecos ───────────────────────────────────────────────
+    function actualizarActionbar() {
+        const bar = document.getElementById('corr-actionbar');
+        document.getElementById('corr-sel-count').textContent = _sel.size;
+        bar.style.display = _sel.size ? 'flex' : 'none';
+    }
+    function toggleHueco(chip) {
+        const cod = chip.dataset.codigo;
+        if (_sel.has(cod)) { _sel.delete(cod); chip.classList.remove('selected'); }
+        else { _sel.add(cod); chip.classList.add('selected'); }
+        actualizarActionbar();
+    }
 
-        // reset
-        document.getElementById('rh-descripcion').value = '';
-        document.getElementById('rh-fecha').value = '';
-        document.getElementById('rh-costo').value = '';
-        document.getElementById('rh-vida').value = '';
-        const $resp = document.getElementById('rh-responsable');
+    document.getElementById('corr-huecos-list').addEventListener('click', function (ev) {
+        const chip = ev.target.closest('.corr-hueco-chip');
+        if (chip) toggleHueco(chip);
+    });
+    document.getElementById('corr-sel-todos').addEventListener('click', function () {
+        document.querySelectorAll('#corr-huecos-list .corr-hueco-chip').forEach(chip => {
+            _sel.add(chip.dataset.codigo); chip.classList.add('selected');
+        });
+        actualizarActionbar();
+    });
+    document.getElementById('corr-sel-limpiar').addEventListener('click', function () {
+        _sel = new Set();
+        document.querySelectorAll('#corr-huecos-list .corr-hueco-chip.selected')
+            .forEach(chip => chip.classList.remove('selected'));
+        actualizarActionbar();
+    });
+
+    // ── Helpers del modal: Select2 (buscador) + validación en rojo ────────
+    const HAS_S2 = !!(window.jQuery && window.jQuery.fn && window.jQuery.fn.select2);
+
+    function s2(id, placeholder) { s2el(document.getElementById(id), placeholder); }
+    function s2el(el, placeholder) {
+        if (!HAS_S2 || !el) return;
+        const $el = window.jQuery(el);
+        if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+        $el.select2({
+            dropdownParent: window.jQuery('#modalRegLote'),
+            width: '100%',
+            placeholder: placeholder || '',
+            allowClear: false
+        });
+    }
+    function setSelVal(id, val) {
+        const el = document.getElementById(id);
+        el.value = (val == null ? '' : val);
+        if (HAS_S2 && window.jQuery('#' + id).hasClass('select2-hidden-accessible'))
+            window.jQuery('#' + id).trigger('change.select2');
+    }
+    function resetResponsable() {
+        const $resp = document.getElementById('rl-responsable');
         $resp.innerHTML = '<option value="">— Seleccione oficina primero —</option>';
         $resp.disabled = true;
-        document.getElementById('rh-guardar').dataset.codigo = codigo;
+        s2('rl-responsable', '— Seleccione oficina primero —');
+    }
+    // Marca en rojo los obligatorios vacíos (oficina, responsable, descripción de cada fila).
+    function revalidar() {
+        let ok = true;
+        ['rl-oficina', 'rl-responsable'].forEach(id => {
+            const el = document.getElementById(id);
+            const vacio = !el.value;
+            el.classList.toggle('is-invalid', vacio);
+            if (vacio) ok = false;
+        });
+        document.querySelectorAll('#rl-detalle .rl-desc').forEach(inp => {
+            const vacio = !inp.value.trim();
+            inp.classList.toggle('is-invalid', vacio);
+            if (vacio) ok = false;
+        });
+        return ok;
+    }
+    function toastMini(msg) {
+        if (window.Swal) Swal.fire({ toast: true, position: 'top-end', timer: 1100,
+            showConfirmButton: false, icon: 'success', title: msg });
+    }
 
-        const $ofi = document.getElementById('rh-oficina');
-        const $aux = document.getElementById('rh-auxiliar');
-        const $org = document.getElementById('rh-orgfin');
+    // ── Modal de lote ─────────────────────────────────────────────────────
+    async function cargarCatalogosLote() {
+        if (_catCargado) return;
+        const $ofi = document.getElementById('rl-oficina');
+        const $org = document.getElementById('rl-orgfin');
         $ofi.innerHTML = '<option value="">Cargando…</option>';
-
         try {
             const [ofis, auxs, orgs, meta] = await Promise.all([
                 fetch('/api/buscar_oficinas?predioId=' + encodeURIComponent(_ctx.predioId)).then(r => r.json()).catch(() => []),
@@ -481,81 +602,237 @@
             ]);
             $ofi.innerHTML = '<option value="">— Seleccione oficina —</option>' +
                 (ofis || []).map(o => '<option value="' + (o.id || o.idOficina) + '">' + esc(o.nombre) + '</option>').join('');
-            $aux.innerHTML = '<option value="">— Sin auxiliar —</option>' +
-                (auxs || []).map(a => '<option value="' + (a.id || a.idAuxiliar) + '">' + esc(a.nombre || a.text) + '</option>').join('');
             $org.innerHTML = '<option value="">— Sin financiador —</option>' +
                 (orgs || []).map(o => '<option value="' + o.idOrganismoFinanciero + '">' + esc((o.sigla ? o.sigla + ' - ' : '') + o.descripcion) + '</option>').join('');
-            if (meta && meta.vidaUtil) document.getElementById('rh-vida').value = meta.vidaUtil;
+            // Auxiliar es POR fila: dejo precalculadas las <option> para todos los selects de la tabla.
+            _auxOptionsHtml = '<option value="">— Sin auxiliar —</option>' +
+                (auxs || []).map(a => '<option value="' + (a.id || a.idAuxiliar) + '">' + esc(a.nombre || a.text) + '</option>').join('');
+            if (meta && meta.vidaUtil) document.getElementById('rl-vida').value = meta.vidaUtil;
+            // Buscadores en los selects comunes
+            s2('rl-oficina', '🔍 Buscar oficina…');
+            s2('rl-orgfin',  '— Sin financiador —');
+            _catCargado = true;
         } catch (e) {
             $ofi.innerHTML = '<option value="">Error al cargar</option>';
         }
-
-        if (!_rhModal) _rhModal = new bootstrap.Modal(document.getElementById('modalRegHueco'));
-        _rhModal.show();
     }
 
-    document.getElementById('rh-oficina').addEventListener('change', async function () {
-        const $resp = document.getElementById('rh-responsable');
-        const ofiId = this.value;
-        if (!ofiId) { $resp.innerHTML = '<option value="">— Seleccione oficina primero —</option>'; $resp.disabled = true; return; }
-        $resp.innerHTML = '<option value="">Cargando…</option>'; $resp.disabled = true;
+    // Etiqueta + control (input o select) con botón "copiar a los de abajo" en la etiqueta.
+    function campo(col, label, requerido, esSelect, placeholder) {
+        const control = esSelect
+            ? '<select class="form-select form-select-sm rl-' + col + '">' + _auxOptionsHtml + '</select>'
+            : '<input type="text" class="form-control form-control-sm rl-' + col + '"' +
+                (placeholder ? ' placeholder="' + placeholder + '"' : '') + '>';
+        return '<label class="form-label fw-semibold d-flex align-items-center mb-1">' +
+                label + (requerido ? ' <span class="text-danger ms-1">*</span>' : '') +
+                '<button type="button" class="btn btn-link btn-sm p-0 ms-auto rl-copydown" data-col="' + col + '"' +
+                    ' tabindex="-1" title="Copiar este valor a los activos de abajo">' +
+                    '<i class="ti ti-arrow-bar-to-down"></i></button>' +
+                '</label>' + control;
+    }
+    // Una tarjeta por activo (vista cómoda, campos grandes y etiquetados).
+    function tarjetaDetalle(codigo) {
+        const corr = codigo.split('-').pop();
+        return '<div class="rl-card border rounded p-2 mb-2" data-codigo="' + esc(codigo) + '">' +
+            '<div class="d-flex align-items-center gap-2 mb-2">' +
+                '<span class="badge bg-primary corr-cod">' + esc(corr) + '</span>' +
+                '<span class="text-muted" style="font-size:.74rem;">' + esc(codigo) + '</span>' +
+                '<button type="button" class="btn btn-sm btn-outline-primary ms-auto rl-rowdown" tabindex="-1"' +
+                    ' title="Copiar TODOS los datos de este activo a los de abajo">' +
+                    '<i class="ti ti-copy me-1"></i>Copiar a los de abajo</button>' +
+            '</div>' +
+            '<div class="row g-2">' +
+                '<div class="col-12 col-md-4">'  + campo('aux',    'Auxiliar',    false, true,  '') + '</div>' +
+                '<div class="col-12 col-md-8">'  + campo('desc',   'Descripción', true,  false, 'Descripción del activo…') + '</div>' +
+                '<div class="col-6 col-md-3">'   + campo('serie',  'Serie',       false, false, '') + '</div>' +
+                '<div class="col-6 col-md-3">'   + campo('marca',  'Marca',       false, false, '') + '</div>' +
+                '<div class="col-6 col-md-3">'   + campo('modelo', 'Modelo',      false, false, '') + '</div>' +
+                '<div class="col-6 col-md-3">'   + campo('color',  'Color',       false, false, '') + '</div>' +
+            '</div>' +
+        '</div>';
+    }
+    // Inicializa Select2 (buscador) en el auxiliar de cada tarjeta.
+    function initAuxSelects() {
+        if (!HAS_S2) return;
+        document.querySelectorAll('#rl-detalle .rl-aux').forEach(el => s2el(el, '🔍 Buscar auxiliar…'));
+    }
+
+    // Copia el valor del campo `col` de la tarjeta `card` a todas las de abajo.
+    function copiarColumnaAbajo(card, col) {
+        const sel = '.rl-' + col;
+        const val = card.querySelector(sel).value;
+        let n = card.nextElementSibling, count = 0;
+        while (n) {
+            const el = n.querySelector(sel);
+            if (el) {
+                el.value = val;
+                if (el.tagName === 'SELECT' && HAS_S2 && window.jQuery(el).hasClass('select2-hidden-accessible'))
+                    window.jQuery(el).trigger('change.select2');
+                count++;
+            }
+            n = n.nextElementSibling;
+        }
+        return count;
+    }
+
+    async function abrirLote() {
+        if (!_ctx || !_sel.size) return;
+        const codigos = Array.from(_sel).sort();
+
+        document.getElementById('rl-n').textContent = codigos.length;
+        document.getElementById('rl-prefijo').textContent = _ctx.prefijo;
+        document.getElementById('rl-context').innerHTML =
+            'Municipio <b>' + esc(_ctx.munNombre) + '</b> · Predio <b>' + esc(_ctx.predNombre) +
+            '</b> · Grupo <b>' + esc(_ctx.grupoNombre) + '</b>. ' +
+            '<span class="text-muted">Estos ' + codigos.length + ' código(s) se asignan a la misma oficina y responsable.</span>';
+
+        // reset comunes
+        document.getElementById('rl-fecha').value = '';
+        document.getElementById('rl-costo').value = '';
+        document.getElementById('rl-nro').value = 'S/N';
+
+        await cargarCatalogosLote();    // opciones + buscadores (antes de armar tarjetas: el auxiliar va por activo)
+
+        // una tarjeta por activo (usa _auxOptionsHtml ya cargado)
+        document.getElementById('rl-detalle').innerHTML = codigos.map(tarjetaDetalle).join('');
+        initAuxSelects();               // buscador en el auxiliar de cada tarjeta
+
+        // reset de selects comunes (ya con sus opciones)
+        setSelVal('rl-oficina', '');
+        setSelVal('rl-orgfin', '');
+        resetResponsable();
+
+        if (!_rlModal) _rlModal = new bootstrap.Modal(document.getElementById('modalRegLote'));
+        _rlModal.show();
+        revalidar();   // resalta en rojo los obligatorios vacíos para guiar la carga
+    }
+
+    document.getElementById('corr-btn-lote').addEventListener('click', abrirLote);
+
+    async function onOficinaChange() {
+        const $resp = document.getElementById('rl-responsable');
+        const ofiId = document.getElementById('rl-oficina').value;
+        if (!ofiId) { resetResponsable(); revalidar(); return; }
+        $resp.innerHTML = '<option value="">Cargando…</option>'; $resp.disabled = true; s2('rl-responsable', 'Cargando…');
         try {
             const data = await fetch('/api/buscar_responsable?q=&page=1&oficinaId=' + encodeURIComponent(ofiId)).then(r => r.json());
             const lista = (data && data.results) || [];
             $resp.innerHTML = '<option value="">— Seleccione responsable —</option>' +
                 lista.map(r => '<option value="' + r.id + '">' + esc(r.text) + '</option>').join('');
             $resp.disabled = false;
-        } catch (e) { $resp.innerHTML = '<option value="">Error</option>'; }
+            s2('rl-responsable', '🔍 Buscar responsable…');
+        } catch (e) { $resp.innerHTML = '<option value="">Error</option>'; s2('rl-responsable'); }
+        revalidar();
+    }
+    if (HAS_S2) {
+        window.jQuery('#modalRegLote').on('change', '#rl-oficina', onOficinaChange);
+        window.jQuery('#modalRegLote').on('change', '#rl-responsable', revalidar);
+    } else {
+        document.getElementById('rl-oficina').addEventListener('change', onOficinaChange);
+        document.getElementById('rl-responsable').addEventListener('change', revalidar);
+    }
+
+    // Copiar-hacia-abajo (por campo y por activo) + validación en vivo de la descripción
+    document.getElementById('rl-detalle').addEventListener('click', function (ev) {
+        const colBtn = ev.target.closest('.rl-copydown');
+        const rowBtn = ev.target.closest('.rl-rowdown');
+        if (colBtn) {
+            const n = copiarColumnaAbajo(colBtn.closest('.rl-card'), colBtn.dataset.col);
+            revalidar();
+            toastMini('Copiado a ' + n + ' activo(s) de abajo.');
+        } else if (rowBtn) {
+            const card = rowBtn.closest('.rl-card');
+            let n = 0;
+            ['aux', 'desc', 'serie', 'marca', 'modelo', 'color'].forEach(c => { n = copiarColumnaAbajo(card, c); });
+            revalidar();
+            toastMini('Datos copiados a ' + n + ' activo(s) de abajo.');
+        }
+    });
+    document.getElementById('rl-detalle').addEventListener('input', function (ev) {
+        if (ev.target.classList.contains('rl-desc'))
+            ev.target.classList.toggle('is-invalid', !ev.target.value.trim());
     });
 
-    document.getElementById('rh-guardar').addEventListener('click', async function () {
-        const codigo = this.dataset.codigo;
-        const idOficina = document.getElementById('rh-oficina').value;
-        const idResponsable = document.getElementById('rh-responsable').value;
-        const descripcion = document.getElementById('rh-descripcion').value.trim();
-        if (!idOficina || !idResponsable || !descripcion) {
-            Swal.fire('Faltan datos', 'Oficina, responsable y descripción son obligatorios.', 'warning');
+    // Form-post a /reportes/generar-asignacion (mismo flujo que el registro masivo)
+    function descargarActa(ids, nro) {
+        const form = document.createElement('form');
+        form.action = '/reportes/generar-asignacion';
+        form.method = 'POST';
+        form.target = '_blank';
+        const inNro = document.createElement('input');
+        inNro.type = 'hidden'; inNro.name = 'nroPreventivo'; inNro.value = nro || 'S/N';
+        form.appendChild(inNro);
+        (Array.isArray(ids) ? ids : [ids]).forEach(id => {
+            const i = document.createElement('input');
+            i.type = 'hidden'; i.name = 'ids'; i.value = id; form.appendChild(i);
+        });
+        document.body.appendChild(form); form.submit(); form.remove();
+    }
+
+    document.getElementById('rl-guardar').addEventListener('click', async function () {
+        if (!revalidar()) {
+            Swal.fire('Faltan datos', 'Completá los campos marcados en rojo: oficina, responsable y la descripción de cada activo.', 'warning');
+            const bad = document.querySelector('#modalRegLote .is-invalid');
+            if (bad) { if (HAS_S2 && bad.tagName === 'SELECT') window.jQuery(bad).select2('open'); else bad.focus(); }
             return;
         }
-        const auxV = document.getElementById('rh-auxiliar').value;
-        const orgV = document.getElementById('rh-orgfin').value;
-        const costoV = document.getElementById('rh-costo').value;
-        const vidaV = document.getElementById('rh-vida').value;
+        const idOficina = document.getElementById('rl-oficina').value;
+        const idResponsable = document.getElementById('rl-responsable').value;
+
+        const items = [];
+        document.querySelectorAll('#rl-detalle .rl-card').forEach(card => {
+            const auxV = card.querySelector('.rl-aux').value;
+            items.push({
+                codigo:      card.dataset.codigo,
+                descripcion: card.querySelector('.rl-desc').value.trim(),
+                serie:       card.querySelector('.rl-serie').value.trim(),
+                marca:       card.querySelector('.rl-marca').value.trim(),
+                modelo:      card.querySelector('.rl-modelo').value.trim(),
+                color:       card.querySelector('.rl-color').value.trim(),
+                idAuxiliar:  auxV ? Number(auxV) : null
+            });
+        });
+        if (!items.length) { Swal.fire('Sin activos', 'No hay huecos para registrar.', 'warning'); return; }
+
+        const costoV = document.getElementById('rl-costo').value;
+        const vidaV  = document.getElementById('rl-vida').value;
+        const nro    = document.getElementById('rl-nro').value.trim() || 'S/N';
         const payload = {
-            codigo: codigo,
             idOficina: Number(idOficina),
             idResponsable: Number(idResponsable),
             idGrupoContable: Number(_ctx.grupoId),
-            idAuxiliar: auxV ? Number(auxV) : null,
-            idOrganismoFinanciero: orgV ? Number(orgV) : null,
-            descripcion: descripcion,
-            fechaAdquisicion: document.getElementById('rh-fecha').value || null,
+            idOrganismoFinanciero: document.getElementById('rl-orgfin').value ? Number(document.getElementById('rl-orgfin').value) : null,
+            fechaAdquisicion: document.getElementById('rl-fecha').value || null,
             costo: costoV ? Number(costoV) : null,
-            vidaUtil: vidaV ? Number(vidaV) : null
+            vidaUtil: vidaV ? Number(vidaV) : null,
+            items: items
         };
+
         const btn = this; const htmlBtn = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader"></i> Registrando…';
         try {
-            const r = await fetch('/administracion/activo/registrar-en-hueco', {
+            const r = await fetch('/administracion/activo/registrar-huecos-lote', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
             });
             const res = await r.json();
             if (res.ok) {
-                if (_rhModal) _rhModal.hide();
-                Swal.fire('Registrado', res.msg, 'success').then(() => cargar());
+                if (_rlModal) _rlModal.hide();
+                if (res.idsParaReporte && res.idsParaReporte.length) descargarActa(res.idsParaReporte, nro);
+                const extra = (res.totalErrores > 0)
+                    ? '<br><span class="text-danger">' + res.totalErrores + ' no se registraron:</span><br>' +
+                      '<small>' + esc((res.errores || []).join(' · ')) + '</small>'
+                    : '';
+                Swal.fire({ icon: 'success', title: 'Lote registrado',
+                    html: esc(res.msg) + extra }).then(() => cargar());
             } else {
-                Swal.fire('No se pudo registrar', res.msg || 'Error', 'warning');
+                const detalle = (res.errores && res.errores.length) ? '<br><small>' + esc(res.errores.join(' · ')) + '</small>' : '';
+                Swal.fire({ icon: 'warning', title: 'No se registró el lote', html: esc(res.msg || 'Error') + detalle });
             }
         } catch (e) {
             Swal.fire('Error', 'Fallo de servidor: ' + (e.message || e), 'error');
         } finally {
             btn.disabled = false; btn.innerHTML = htmlBtn;
         }
-    });
-
-    document.getElementById('corr-huecos-list').addEventListener('click', function (ev) {
-        const btn = ev.target.closest('.corr-hueco-btn');
-        if (btn) openRegistroHueco(btn.dataset.codigo);
     });
 
     // ── Eventos ───────────────────────────────────────────────────────────

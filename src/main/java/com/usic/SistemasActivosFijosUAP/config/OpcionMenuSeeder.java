@@ -102,6 +102,19 @@ public class OpcionMenuSeeder {
         { "opcion_correlativo",    "grp_conciliacion", "Revisión de correlativos",     "ti ti-list-numbers",     "teal",   "/administracion/correlativo/vista",                  "/administracion/correlativo",           "" },
     };
 
+    /**
+     * Permisos puros (capacidades), NO navegables. Se modelan como ITEM oculto
+     * ({@code visible=false}): aparecen como casilla asignable en la pantalla de
+     * permisos por usuario, pero NO se renderizan en el sidebar ni tienen URL.
+     * Un SUPER USUARIO/ADMINISTRADOR los otorga a un usuario (p. ej. de rol APOYO)
+     * para habilitarle una acción sensible puntual.
+     *
+     * { codigo, padreGrupo, descripcion, icono, color }
+     */
+    private static final String[][] PERMISOS = {
+        { "opcion_activo_editar_codigo", "grp_adminactivos", "Editar código de activo (urgente)", "ti ti-barcode-off", "red" },
+    };
+
     @Bean
     ApplicationRunner initOpcionesMenu(IOpcionMenuDao dao) {
         return args -> {
@@ -177,8 +190,28 @@ public class OpcionMenuSeeder {
                 total++;
             }
 
-            logger.info("Catálogo opcion_menu sincronizado: {} secciones, {} grupos, {} ítems ({} nodos).",
-                    SECCIONES.length, GRUPOS.length, ITEMS.length, total);
+            // 4) Permisos puros (ITEM oculto: asignable en permisos, NO en el sidebar)
+            for (int i = 0; i < PERMISOS.length; i++) {
+                String[] p = PERMISOS[i];
+                OpcionMenu o = obtener(dao, p[0]);
+                o.setTipo(TIPO_ITEM);
+                o.setPadre(dao.findByCodigo(p[1]));
+                o.setDescripcion(p[2]);
+                o.setIcono(p[3]);
+                o.setColorClase(p[4]);
+                o.setUrl(null);
+                o.setRutaBase(null);
+                o.setBadge(null);
+                o.setOrden(900 + i); // al final de sus hermanos del grupo
+                o.setSeccion(descSeccion.get(seccionDeGrupo.get(p[1])));
+                o.setGrupo(descGrupo.get(p[1]));
+                o.setVisible(false); // permiso puro: oculto en el sidebar, asignable en permisos
+                dao.save(o);
+                total++;
+            }
+
+            logger.info("Catálogo opcion_menu sincronizado: {} secciones, {} grupos, {} ítems, {} permisos ({} nodos).",
+                    SECCIONES.length, GRUPOS.length, ITEMS.length, PERMISOS.length, total);
         };
     }
 
