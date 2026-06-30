@@ -203,20 +203,9 @@ public class AuxiliarController {
             unidadCode = auxiliar.getPredio().getUnidad();
         }
         
-        // Verificar si ya existe en DBF
-        Short codCont = auxiliar.getGrupoContable() != null ? 
-                       Short.valueOf(auxiliar.getGrupoContable().getCodContable().toString()) : null;
-        Short codAux = auxiliar.getCodAux();
-        
-        if (codCont != null && codAux != null) {
-            if (auxiliarDbfWriterService.existsByCodContYCodAux(codCont, codAux, entidadCode, unidadCode)) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "ok", false,
-                    "msg", "Ya existe un auxiliar con CODCONT=" + codCont + " y CODAUX=" + codAux + " en el DBF"
-                ));
-            }
-        }
-        
+        // Sin escaneo de AUXILIAR.DBF por CIFS: el worker VFPOLEDB hace insert-if-not-exists
+        // por índice (.CDX), así el alta no se bloquea leyendo el DBF.
+
         // 1) Guardar en PostgreSQL
         auxiliarService.save(auxiliar);
         

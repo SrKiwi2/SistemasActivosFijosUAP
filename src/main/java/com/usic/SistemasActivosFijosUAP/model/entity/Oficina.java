@@ -71,7 +71,12 @@ public class Oficina extends AuditoriaConfig {
     
     @Column(name = "hash_datos", length = 32)
     private String hashDatos;
-    
+
+    /** true = creada en SCIAF y aún NO subida/confirmada al VSIAF (modoRapido o subida fallida).
+     *  Controla el ícono "subir a DBF" sin leer el DBF por CIFS. */
+    @Column(name = "pendiente_dbf", columnDefinition = "boolean default false", nullable = false)
+    private boolean pendienteDbf = false;
+
     public String calcularHash() {
         String datos = String.join("|",
             predio != null && predio.getIdPredio() != null 

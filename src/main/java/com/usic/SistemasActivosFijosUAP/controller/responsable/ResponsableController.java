@@ -100,10 +100,10 @@ public class ResponsableController {
             String idEnc = "";
             try { idEnc = Encriptar.encrypt(String.valueOf(row.getIdResponsable())); } catch (Exception e) {}
 
-            // "No en DBF" = registro nuevo aún pendiente de sincronizar (apiEstado 1 ó 3).
-            // Ya NO se lee RESP.DBF por CIFS en cada página; el cruce real vive en Conciliación.
-            Short api = row.getApiEstado();
-            boolean enDbf = !(api != null && (api == 1 || api == 3));
+            // "No en DBF" = registro creado en SCIAF aún NO subido/confirmado al VSIAF (pendiente_dbf).
+            // Ya NO se usa apiEstado (que espeja el DBF) ni se lee RESP.DBF por CIFS en cada página;
+            // el cruce autoritativo BD↔DBF vive en Conciliación.
+            boolean enDbf = !Boolean.TRUE.equals(row.getPendienteDbf());
 
             Map<String, Object> m = new HashMap<>();
             m.put("idEnc", idEnc);
@@ -358,6 +358,8 @@ public class ResponsableController {
             responsable.setFechaUlt(LocalDate.now());
             responsable.setUsuario(usuarioNombre);
             responsable.setApiEstado(modoRapido ? Short.valueOf("3") : Short.valueOf("1"));
+            // modoRapido difiere la escritura al DBF → queda pendiente; el alta normal se encola enseguida.
+            responsable.setPendienteDbf(modoRapido);
             responsable.setCodExp(codExp != null ? codExp : Short.valueOf("9"));
             responsable.setEstado("ACTIVO");
             
@@ -396,26 +398,9 @@ public class ResponsableController {
                 
                 String entidadCode = entidad.getEntidadCodigo();
                 String unidadCode = predio.getUnidad();
-                
-                Integer codResp = null;
-                if (codigoFuncionario != null) {
-                    String onlyDigits = codigoFuncionario.replaceAll("\\D+", "");
-                    if (!onlyDigits.isEmpty()) {
-                        codResp = Integer.valueOf(onlyDigits);
-                    }
-                }
 
-                if (codResp != null && respDbfWriterService.existsByCodResp(
-                        codResp, oficina.getCodOfi(), entidadCode, unidadCode)) {
-                    log.warn("Responsable CODRESP={} ya existe en RESP.DBF", codResp);
-                    return ResponseEntity.ok(Map.of(
-                        "ok", true,
-                        "msg", "Registrado en PostgreSQL, pero ya existía en DBF",
-                        "id", responsable.getIdResponsable(),
-                        "personaNueva", personaNueva
-                    ));
-                }
-                
+                // Sin escaneo de RESP.DBF por CIFS: el worker VFPOLEDB hace insert-if-not-exists
+                // por índice (.CDX), así el alta no se bloquea leyendo el DBF.
                 respDbfWriterService.insertarDesdeResponsable(
                     responsableCargado, entidadCode, unidadCode, usuarioNombre
                 );
@@ -514,6 +499,8 @@ public class ResponsableController {
             responsable.setCodExp(codExp);
             responsable.setFechaUlt(LocalDate.now());
             responsable.setUsuario(usuarioNombre);
+            // La edición encola el UPDATE al VSIAF enseguida → ya no queda pendiente.
+            responsable.setPendienteDbf(false);
 
             responsableService.save(responsable);
             log.info("Responsable actualizado en BD: ID={}", responsable.getIdResponsable());
@@ -767,6 +754,8 @@ public class ResponsableController {
                 responsable.setCodExp(f.getCodExp());
                 responsable.setApiEstado(f.getApiEstado());
                 responsable.setEstado("ACTIVO");
+                // Viene leído del DBF → por definición está en el VSIAF: no pendiente.
+                responsable.setPendienteDbf(false);
 
                 String nuevoHash = responsable.calcularHash();
                 if (!esNuevo && !forzarCompleto) {
@@ -996,13 +985,17 @@ public class ResponsableController {
             if (respDbfWriterService.existsByCodResp(codResp, ofi.getCodOfi(), entidad, unidad)) {
                 // Actualizar
                 respDbfWriterService.actualizarDesdeResponsable(
-                    codResp, ofi.getCodOfi(), entidad, unidad, 
+                    codResp, ofi.getCodOfi(), entidad, unidad,
                     resp, entidad, unidad, usuario
                 );
+                resp.setPendienteDbf(false);
+                responsableService.save(resp);
                 return ResponseEntity.ok(Map.of("ok", true, "msg", "Responsable actualizado en DBF."));
             }
 
             respDbfWriterService.insertarDesdeResponsable(resp, entidad, unidad, usuario);
+            resp.setPendienteDbf(false);
+            responsableService.save(resp);
             return ResponseEntity.ok(Map.of("ok", true, "msg", "Responsable insertado en DBF."));
 
         } catch (Exception e) {

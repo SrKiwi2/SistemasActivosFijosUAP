@@ -100,9 +100,9 @@ public class OficinaController {
             List<String> encryptedIds = new ArrayList<>();
             if (listasOficinas != null) {
                 for (Oficina o : listasOficinas) {
-                    // "No en DBF" = registro nuevo aún pendiente de sincronizar (apiEstado 1 ó 3)
-                    Short api = o.getApiEstado();
-                    o.setExisteEnDbf(!(api != null && (api == 1 || api == 3)));
+                    // "No en DBF" = registro creado en SCIAF aún NO subido/confirmado al VSIAF (pendiente_dbf).
+                    // Ya no se usa apiEstado (que espeja el DBF); el cruce real vive en Conciliación.
+                    o.setExisteEnDbf(!o.isPendienteDbf());
                     encryptedIds.add(o.getIdOficina() == null ? "" : Encriptar.encrypt(Long.toString(o.getIdOficina())));
                 }
             }
@@ -186,6 +186,8 @@ public class OficinaController {
         oficina.setFechaUlt(LocalDate.now());
         oficina.setUsuario(usuarioNombre);
         oficina.setApiEstado(modoRapido ? Short.valueOf("3") : Short.valueOf("1"));
+        // modoRapido difiere la escritura al DBF → queda pendiente; el alta normal se encola enseguida.
+        oficina.setPendienteDbf(modoRapido);
         if (usuario != null) oficina.setRegistroIdUsuario(usuario.getIdUsuario());
 
         Predio predioOficina = predioServicio.findById(oficina.getPredio().getIdPredio());
@@ -199,17 +201,8 @@ public class OficinaController {
             unidadCode = oficina.getPredio().getCodigo();
         }
         
-        Short codOfic = oficina.getCodOfi();
-        
-        if (!modoRapido && codOfic != null) {
-            if (oficinaDbfWriterService.existsByCodOfic(codOfic, entidadCode, unidadCode)) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "ok", false,
-                    "msg", "Ya existe una oficina con CODOFIC=" + codOfic + " en el DBF"
-                ));
-            }
-        }
-        
+        // Sin escaneo de OFICINA.DBF por CIFS: el worker VFPOLEDB hace insert-if-not-exists
+        // por índice (.CDX) y la constraint única de PG protege la BD. El alta no se bloquea leyendo el DBF.
         oficinaService.save(oficina);
         
         if (!modoRapido) {
@@ -312,7 +305,9 @@ public class OficinaController {
             oficinaOriginal.setModificacionIdUsuario(usuario.getIdUsuario());
         }
         oficinaOriginal.setEstado("ACTIVO");
-        
+        // La edición encola el UPDATE al VSIAF enseguida → ya no queda pendiente.
+        oficinaOriginal.setPendienteDbf(false);
+
         oficinaService.save(oficinaOriginal);
         
         try {
@@ -375,11 +370,15 @@ public class OficinaController {
 
             // Usamos el WriterService (el que usa RandomAccessFile o DBFWriter)
             if (oficinaDbfWriterService.existsByCodOfic(oficina.getCodOfi(), entidadCode, unidadCode)) {
+                 oficina.setPendienteDbf(false);
+                 oficinaService.save(oficina);
                  return ResponseEntity.ok(Map.of("ok", true, "msg", "La oficina ya existe en el DBF."));
             }
 
             // Insertar
             oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
+            oficina.setPendienteDbf(false);
+            oficinaService.save(oficina);
 
             return ResponseEntity.ok(Map.of("ok", true, "msg", "Oficina registrada correctamente en el DBF."));
 
@@ -460,6 +459,8 @@ public class OficinaController {
                         : f.getUsuario()));
                 oficina.setApiEstado(f.getApiEstado());
                 oficina.setEstado("ACTIVO");
+                // Viene leído del DBF → por definición está en el VSIAF: no pendiente.
+                oficina.setPendienteDbf(false);
 
                 String nuevoHash = oficina.calcularHash();
                 

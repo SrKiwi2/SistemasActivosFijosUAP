@@ -186,5 +186,5 @@ do {
             if ($conn -ne $null -and $conn.State -eq 1) { $conn.Close() }
         }
     }
-    if ($Loop) { Start-Sleep -Seconds 5 }
+    if ($Loop) { Start-Sleep -Seconds 2 }
 } while ($Loop)

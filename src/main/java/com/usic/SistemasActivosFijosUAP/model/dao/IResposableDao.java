@@ -51,6 +51,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
         String getEntidadCodigo();
         String getUnidadCodigo();
         Short  getApiEstado();
+        Boolean getPendienteDbf();
     }
 
     // total sin filtro (ACTIVO)
@@ -70,7 +71,8 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
             o.cod_ofi                 as codOfi,
             e.entidad_codigo          as entidadCodigo,
             pr.unidad                 as unidadCodigo,
-            r.api_estado              as apiEstado
+            r.api_estado              as apiEstado,
+            r.pendiente_dbf           as pendienteDbf
 
         FROM responsable r
         LEFT JOIN persona  p ON p.id_persona = r.id_persona
