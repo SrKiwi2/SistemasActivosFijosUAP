@@ -1110,7 +1110,7 @@
                         <select id="grupoCode" name="grupoContable.idGrupoContable" class="form-select select2it">
                             <option value="">Seleccione...</option>
                             <option th:each="g : ${grupos}" th:value="${g.idGrupoContable}"
-                                th:text="|${g.codContable} - ${g.nombre}|"
+                                th:text="|${(g.codContable == 15 or g.codContable == 38) ? g.codDbf : g.codContable} - ${g.nombre}|"
                                 th:data-code="${g.codDbf}"></option>
                         </select>
                     </div>
@@ -1366,7 +1366,7 @@
                             <option value="">(Seleccione Grupo)</option>
                             <option th:each="g : ${grupos}"
                                     th:value="${g.idGrupoContable}"
-                                    th:text="|${g.codContable} - ${g.nombre}|"
+                                    th:text="|${(g.codContable == 15 or g.codContable == 38) ? g.codDbf : g.codContable} - ${g.nombre}|"
                                     th:data-code="${g.codDbf}"></option>
                         </select>
                     </div>
@@ -1475,7 +1475,7 @@
                 </div>
                 <div style="font-size:0.68rem; color:#64748b; margin-top:0.3rem; padding-left:1.5rem;">
                     <i class="fa-solid fa-circle-info me-1 text-primary"></i>
-                    El botón <strong>↓</strong> al final de cada fila copia descripción, marca, modelo y color a las filas de abajo. La columna <strong>N° Serie</strong> tiene su propio botón <strong>↓</strong> (ámbar) para copiar la serie de forma independiente. Al guardar, la descripción final incluirá <code>S/N:</code>, <code>MARCA:</code>, <code>MOD:</code> y <code>COLOR:</code>.
+                    El botón <strong>↓</strong> al final de cada fila copia descripción, marca, modelo y color a las filas de abajo. La columna <strong>N° Serie</strong> tiene su propio botón <strong>↓</strong> (ámbar) para copiar la serie de forma independiente. Al guardar, la descripción final se arma en este orden: descripción + <code>COLOR</code> + <code>M:</code>(marca) + <code>MOD:</code>(modelo) + <code>S:</code>(serie).
                 </div>
             </div>
 

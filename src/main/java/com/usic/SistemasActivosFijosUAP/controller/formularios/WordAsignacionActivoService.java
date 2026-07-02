@@ -50,6 +50,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
 import com.usic.SistemasActivosFijosUAP.model.entity.DetalleAsignacionActivo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 
 /**
  * Genera el "ACTA DE ASIGNACIÓN" en formato Word (.docx) editable.
@@ -69,7 +70,16 @@ public class WordAsignacionActivoService {
     // Ancho útil = ancho de página - márgenes izq/der (1440 c/u)
     private static final int CONTENIDO_ANCHO = PAGINA_ANCHO - 1440 - 1440; // 9360
 
+    /** Sobrecarga sin usuario: mantiene compatibilidad (p.ej. tests). */
     public byte[] generarActaAsignacion(AsignacionActivo asignacion, ConfiguracionGestion config) throws IOException {
+        return generarActaAsignacion(asignacion, config, null);
+    }
+
+    /**
+     * @param nombreUsuario nombre completo del usuario que genera el acta; de él se
+     *                      derivan las iniciales del pie (ej. "KCR/A-F").
+     */
+    public byte[] generarActaAsignacion(AsignacionActivo asignacion, ConfiguracionGestion config, String nombreUsuario) throws IOException {
 
         try (XWPFDocument doc = new XWPFDocument();
              ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
@@ -130,7 +140,7 @@ public class WordAsignacionActivoService {
             for (DetalleAsignacionActivo det : asignacion.getDetalles()) {
                 Activo a = det.getActivo();
                 String codigoVisual = "148-" + a.getCodigo();
-                String ubicacion = (a.getOficina() != null) ? a.getOficina().getNombre() : "S/N";
+                String ubicacion = ubicacionConCodigo(a.getOficina());
 
                 XWPFTableRow fila = table.createRow();
                 anchosFila(fila, anchos);
@@ -178,11 +188,12 @@ public class WordAsignacionActivoService {
             celda(filaFirmas.getCell(1), linea + "Vo.Bo.", true, ParagraphAlignment.CENTER, 8, null);
             celda(filaFirmas.getCell(2), linea + "ENTREGUE CONFORME", true, ParagraphAlignment.CENTER, 8, null);
 
-            // ── 8. PIE PEQUEÑO ──────────────────────────────────────────
+            // ── 8. PIE PEQUEÑO (inferior izquierda, debajo del primer pie de firma) ──
             XWPFParagraph pie = doc.createParagraph();
+            pie.setAlignment(ParagraphAlignment.LEFT);
             pie.setSpacingBefore(200);
             run(pie, "C.c/Arch.", false, 6).addBreak();
-            run(pie, "RYEC/A-F", false, 6);
+            run(pie, iniciales(nombreUsuario) + "/A-F", false, 6);
 
             // ── 9. MEMBRETE DE FONDO + CONFIGURACIÓN DE PÁGINA ──────────
             // (al final: el sectPr debe quedar como último elemento del body)
@@ -371,6 +382,28 @@ public class WordAsignacionActivoService {
         } catch (Exception e) {
             System.err.println("No se pudo agregar el membrete al Word: " + e.getMessage());
         }
+    }
+
+    /** "Nombre Oficina (OF. 124)" — nombre + código de la oficina. */
+    private String ubicacionConCodigo(Oficina oficina) {
+        if (oficina == null) return "S/N";
+        String nombre = (oficina.getNombre() != null) ? oficina.getNombre() : "S/N";
+        return (oficina.getCodOfi() != null)
+                ? nombre + " (OF. " + oficina.getCodOfi() + ")"
+                : nombre;
+    }
+
+    /**
+     * Iniciales en mayúscula de cada palabra del nombre completo del usuario.
+     * Ej: "Ruth Yoryina Espejo Cartagena" -> "RYEC".
+     */
+    private String iniciales(String nombreCompleto) {
+        if (nombreCompleto == null || nombreCompleto.isBlank()) return "";
+        StringBuilder sb = new StringBuilder();
+        for (String parte : nombreCompleto.trim().split("\\s+")) {
+            if (!parte.isEmpty()) sb.append(Character.toUpperCase(parte.charAt(0)));
+        }
+        return sb.toString();
     }
 
     private String obtenerFechaLiteral(LocalDateTime fecha) {

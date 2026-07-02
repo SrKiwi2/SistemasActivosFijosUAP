@@ -3,7 +3,9 @@ package com.usic.SistemasActivosFijosUAP.controller.report;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -20,6 +22,7 @@ import com.usic.SistemasActivosFijosUAP.controller.formularios.WordAsignacionAct
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IConfiguracionGestionService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IHistorialActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
@@ -45,6 +48,7 @@ public class ReportesController {
     private final PdfAsignacionActivoCompleto pdfAsignacionActivoCompleto;
     private final WordAsignacionActivoService wordAsignacionActivoService;
     private final TransferenciaService transferenciaService;
+    private final IUsuarioService usuarioService;
 
     // Tipo MIME para documentos Word (.docx)
     private static final String DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -136,11 +140,14 @@ public class ReportesController {
                 );
             }
  
-            byte[] docxBytes = wordAsignacionActivoService.generarActaAsignacion(asignacion, config);
+            String nombreUsuario = (usuario != null && usuario.getPersona() != null)
+                    ? usuario.getPersona().getNombreCompleto() : null;
+
+            byte[] docxBytes = wordAsignacionActivoService.generarActaAsignacion(asignacion, config, nombreUsuario);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.parseMediaType(DOCX_MIME));
-            headers.setContentDispositionFormData("attachment", "Acta_" + nroPreventivo + ".docx");
+            headers.setContentDispositionFormData("attachment", construirNombreArchivo(asignacion) + ".docx");
 
             return new ResponseEntity<>(docxBytes, headers, HttpStatus.OK);
  
@@ -177,13 +184,20 @@ public class ReportesController {
                         return c;
                     });
 
+            String nombreUsuario = null;
+            if (asignacion.getRegistroIdUsuario() != null) {
+                nombreUsuario = usuarioService.findByIdUsuario(asignacion.getRegistroIdUsuario())
+                        .map(u -> u.getPersona() != null ? u.getPersona().getNombreCompleto() : null)
+                        .orElse(null);
+            }
+
             byte[] docxBytes = wordAsignacionActivoService
-                    .generarActaAsignacion(asignacion, config);
+                    .generarActaAsignacion(asignacion, config, nombreUsuario);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.parseMediaType(DOCX_MIME));
             headers.setContentDispositionFormData("attachment",
-                    "Acta_" + asignacion.getCodigoDocumento() + ".docx");
+                    construirNombreArchivo(asignacion) + ".docx");
 
             return new ResponseEntity<>(docxBytes, headers, HttpStatus.OK);
 
@@ -191,6 +205,52 @@ public class ReportesController {
             e.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    /**
+     * Nombre del archivo (sin extensión) de un acta de asignación:
+     * {@code asignacion_<codigoOficina> <nombreOficina>_<n auxiliar...>_<responsable>}.
+     * Ej: {@code asignacion_124 LABORATORIO HCP_3 CPU 4 MONITORES 2 DATASHOW_JUAN PEREZ}.
+     */
+    private String construirNombreArchivo(AsignacionActivo asignacion) {
+        Oficina oficina = asignacion.getOficinaDestino();
+        String codOfi    = (oficina != null && oficina.getCodOfi() != null) ? String.valueOf(oficina.getCodOfi()) : "";
+        String nombreOfi = (oficina != null && oficina.getNombre() != null) ? oficina.getNombre().trim() : "";
+        String oficinaSeg = codOfi.isEmpty() ? nombreOfi : (codOfi + " " + nombreOfi);
+
+        // Conteo por auxiliar preservando el orden de aparición: "3 CPU 4 MONITORES 2 DATASHOW"
+        Map<String, Integer> conteo = new LinkedHashMap<>();
+        if (asignacion.getDetalles() != null) {
+            for (DetalleAsignacionActivo d : asignacion.getDetalles()) {
+                Activo a = d.getActivo();
+                if (a == null || a.getAuxiliar() == null) continue;
+                String nom = a.getAuxiliar().getNombre();
+                if (nom == null || nom.isBlank()) continue;
+                conteo.merge(nom.trim().toUpperCase(), 1, Integer::sum);
+            }
+        }
+        StringBuilder auxSeg = new StringBuilder();
+        for (Map.Entry<String, Integer> e : conteo.entrySet()) {
+            if (auxSeg.length() > 0) auxSeg.append(" ");
+            auxSeg.append(e.getValue()).append(" ").append(e.getKey());
+        }
+
+        String responsable = (asignacion.getResponsable() != null && asignacion.getResponsable().getPersona() != null)
+                ? asignacion.getResponsable().getPersona().getNombreCompleto() : "";
+
+        String base = "asignacion_" + oficinaSeg + "_" + auxSeg + "_" + responsable;
+        return limpiarNombreArchivo(base);
+    }
+
+    /** Quita acentos y caracteres inválidos para nombres de archivo, colapsando espacios. */
+    private String limpiarNombreArchivo(String s) {
+        if (s == null) return "";
+        String sinAcentos = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}", "");
+        return sinAcentos
+                .replaceAll("[\\\\/:*?\"<>|\\r\\n\\t]", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
 }

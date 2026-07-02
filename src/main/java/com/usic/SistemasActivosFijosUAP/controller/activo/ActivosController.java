@@ -419,21 +419,9 @@ public class ActivosController {
                         ? detalle.getDescripcion().trim() 
                         : item.getDescripcion().trim();
 
-                    StringBuilder descFinal = new StringBuilder(descBase);
-
-                    if (detalle.getSerie() != null && !detalle.getSerie().trim().isEmpty()) {
-                        descFinal.append(" S/N:").append(detalle.getSerie().trim());
-                    }
-                    if (detalle.getMarca() != null && !detalle.getMarca().trim().isEmpty()) {
-                        descFinal.append(" MARCA:").append(detalle.getMarca().trim());
-                    }
-                    if (detalle.getModelo() != null && !detalle.getModelo().trim().isEmpty()) {
-                        descFinal.append(" MOD:").append(detalle.getModelo().trim());
-                    }
-                    if (detalle.getColor() != null && !detalle.getColor().trim().isEmpty()) {
-                        descFinal.append(" COLOR:").append(detalle.getColor().trim());
-                    }
-                    a.setDescripcion(descFinal.toString().toUpperCase());
+                    a.setDescripcion(construirDescripcionActivo(
+                            descBase, detalle.getColor(), detalle.getMarca(),
+                            detalle.getModelo(), detalle.getSerie()));
 
                     a.setFechaAdquisicion(request.getFechaAdquisicion());
                     a.setVidaUtil(item.getVidaUtil() != null ? BigDecimal.valueOf(item.getVidaUtil()) : BigDecimal.ZERO);
@@ -487,6 +475,28 @@ public class ActivosController {
 
     private String construirCodigo(String mun, String pred, String grup, long numero) {
         return String.format("%s-%s-%s-%05d", mun, pred, grup, numero);
+    }
+
+    /**
+     * Arma la descripción final del activo en el orden acordado:
+     * DESCRIPCIÓN + COLOR + M(arca) + MOD(elo) + S(erie).
+     * El COLOR se separa con espacio; marca/modelo/serie forman un bloque
+     * separado por comas con etiquetas {@code M:}, {@code MOD:} y {@code S:}.
+     * Ej: {@code AIRE ACONDICIONADO COLOR BLANCO M:IKA, MOD:AA-36FJ 36000 BTU/H, S:B2507E154702N0008}
+     */
+    private String construirDescripcionActivo(String base, String color, String marca, String modelo, String serie) {
+        StringBuilder sb = new StringBuilder(base != null ? base.trim() : "");
+        if (color != null && !color.trim().isEmpty()) {
+            sb.append(" COLOR ").append(color.trim());
+        }
+        List<String> tecnicos = new ArrayList<>();
+        if (marca  != null && !marca.trim().isEmpty())  tecnicos.add("M:" + marca.trim());
+        if (modelo != null && !modelo.trim().isEmpty()) tecnicos.add("MOD:" + modelo.trim());
+        if (serie  != null && !serie.trim().isEmpty())  tecnicos.add("S:" + serie.trim());
+        if (!tecnicos.isEmpty()) {
+            sb.append(" ").append(String.join(", ", tecnicos));
+        }
+        return sb.toString().toUpperCase();
     }
 
     /**
@@ -2112,11 +2122,9 @@ public class ActivosController {
                         errores.add("El código " + codigo + " ya fue tomado."); continue;
                     }
 
-                    StringBuilder descFinal = new StringBuilder(it.getDescripcion().trim());
-                    if (it.getSerie()  != null && !it.getSerie().trim().isEmpty())  descFinal.append(" S/N:").append(it.getSerie().trim());
-                    if (it.getMarca()  != null && !it.getMarca().trim().isEmpty())  descFinal.append(" MARCA:").append(it.getMarca().trim());
-                    if (it.getModelo() != null && !it.getModelo().trim().isEmpty()) descFinal.append(" MOD:").append(it.getModelo().trim());
-                    if (it.getColor()  != null && !it.getColor().trim().isEmpty())  descFinal.append(" COLOR:").append(it.getColor().trim());
+                    String descFinal = construirDescripcionActivo(
+                            it.getDescripcion(), it.getColor(), it.getMarca(),
+                            it.getModelo(), it.getSerie());
 
                     // Auxiliar por activo (opcional)
                     Auxiliar auxiliar = null;
@@ -2127,7 +2135,7 @@ public class ActivosController {
 
                     Activo a = new Activo();
                     a.setCodigo(codigo);
-                    a.setDescripcion(descFinal.toString().toUpperCase());
+                    a.setDescripcion(descFinal);
                     a.setFechaAdquisicion(fechaAdq);
                     a.setVidaUtil(req.getVidaUtil() != null ? BigDecimal.valueOf(req.getVidaUtil()) : BigDecimal.ZERO);
                     a.setCosto(req.getCosto() != null ? req.getCosto() : 0.0);
