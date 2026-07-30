@@ -1,5 +1,70 @@
 <style>
     /* ============================== */
+    /* AGREGAR ACTIVO MODAL           */
+    /* ============================== */
+    .modal-agregar .batch-grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+    .modal-agregar .batch-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+    .modal-agregar .batch-grid-4 > *,
+    .modal-agregar .batch-grid-2 > * {
+        min-width: 0;
+    }
+    .modal-agregar .batch-grid-4 label,
+    .modal-agregar .batch-grid-2 label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #475569;
+        display: block;
+        margin-bottom: 0.15rem;
+    }
+    .modal-agregar .txt-codigo-preview {
+        resize: none;
+        overflow-y: hidden;
+        height: 2.4rem !important;
+        transition: height 0.2s ease;
+    }
+    .modal-agregar .txt-codigo-preview.preview-expanded {
+        height: auto !important;
+        overflow-y: visible;
+    }
+    .modal-agregar .det-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.3rem;
+        height: 1.3rem;
+        font-size: 0.65rem;
+        font-weight: 700;
+        background: #0ea5e9;
+        color: #fff;
+        border-radius: 50%;
+        padding: 0 0.2rem;
+        line-height: 1;
+        margin-left: 0.2rem;
+    }
+    .inherited-badge {
+        font-size: 0.78rem;
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+        white-space: nowrap;
+    }
+
+    @media (max-width: 992px) {
+        .modal-agregar .batch-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 576px) {
+        .modal-agregar .batch-grid-4,
+        .modal-agregar .batch-grid-2 { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    /* ============================== */
     /* BARRA MASIVA FLOTANTE          */
     /* ============================== */
     #barraMasiva {
@@ -680,6 +745,196 @@
     </div>
 </div>
 
+<!-- ================================================ -->
+<!-- MODAL: AGREGAR ACTIVO(S) A ASIGNACIÓN           -->
+<!-- ================================================ -->
+<div class="modal fade modal-agregar" id="modalAgregarActivo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header" style="background: linear-gradient(135deg, #059669 0%, #047857 100%);">
+                <h5 class="modal-title fw-bold text-white">
+                    <i class="fa-solid fa-plus-circle me-2"></i>Agregar Activo(s) a Asignación
+                    <span class="badge bg-white text-success fs-6 ms-2" id="agregarCodigoAsig">—</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <input type="hidden" id="agregarIdAsigEnc">
+                <input type="hidden" id="agregarCodMun">
+                <input type="hidden" id="agregarCodPred">
+                <input type="hidden" id="agregarCodGrp">
+
+                <!-- Inherited data badges -->
+                <div class="bg-light rounded p-2 mb-3 d-flex flex-wrap gap-2 align-items-center">
+                    <span class="badge bg-secondary inherited-badge"><i class="fa-solid fa-building me-1"></i><span id="agregarPredio">—</span></span>
+                    <span class="badge bg-info text-dark inherited-badge"><i class="fa-solid fa-door-open me-1"></i><span id="agregarOficina">—</span></span>
+                    <span class="badge bg-success inherited-badge"><i class="fa-solid fa-user me-1"></i><span id="agregarResponsable">—</span></span>
+                </div>
+
+                <!-- Common fields -->
+                <div class="row g-2 mb-3 p-2 bg-light rounded border align-items-end">
+                    <div class="col-md-4 col-sm-6">
+                        <label class="small fw-bold text-muted">Financiador</label>
+                        <select id="agregarFinanciador" class="form-select form-select-sm">
+                            <option value="">Seleccione...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="small fw-bold text-muted">Fecha Adquisición</label>
+                        <input type="date" id="agregarFecha" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-5 d-flex align-items-end pb-1">
+                        <span class="badge bg-warning text-dark">PENDIENTE</span>
+                        <small class="text-muted ms-2">hasta aprobación</small>
+                    </div>
+                </div>
+
+                <!-- Location & Assignment (read-only) -->
+                <div class="batch-grid-4 mb-2">
+                    <div>
+                        <label>Municipio</label>
+                        <input type="text" id="agregarMunicipio" class="form-control form-control-sm" readonly tabindex="-1">
+                    </div>
+                    <div>
+                        <label>Predio</label>
+                        <input type="text" id="agregarPredioTxt" class="form-control form-control-sm" readonly tabindex="-1">
+                    </div>
+                    <div>
+                        <label>Oficina</label>
+                        <input type="text" id="agregarOficinaTxt" class="form-control form-control-sm" readonly tabindex="-1">
+                    </div>
+                    <div>
+                        <label>Responsable</label>
+                        <input type="text" id="agregarRespTxt" class="form-control form-control-sm" readonly tabindex="-1">
+                    </div>
+                </div>
+
+                <!-- Classification -->
+                <div class="batch-grid-2 mb-2">
+                    <div>
+                        <label>Grupo / Clasificación <span class="text-danger">*</span></label>
+                        <select id="agregarGrupo" class="form-select form-select-sm">
+                            <option value="">Seleccione...</option>
+                            <option th:each="g : ${grupos}"
+                                    th:value="${g.idGrupoContable}"
+                                    th:text="|${(g.codContable == 15 or g.codContable == 38) ? g.codDbf : g.codContable} - ${g.nombre}|"
+                                    th:data-code="${g.codDbf}"></option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Auxiliar (Opcional)</label>
+                        <select id="agregarAuxiliar" class="form-select form-select-sm">
+                            <option value="">—</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Code Preview -->
+                <div class="mb-2">
+                    <label class="small fw-bold text-muted">Código(s) que se asignará(n)</label>
+                    <div class="d-flex gap-2 align-items-start">
+                        <textarea class="form-control txt-codigo-preview font-monospace flex-grow-1"
+                                  readonly rows="2" placeholder="Seleccione Grupo..."></textarea>
+                        <button type="button" class="btn btn-sm btn-outline-secondary preview-toggle-btn"
+                                onclick="window.toggleCodigoPreview(this)" title="Expandir / colapsar">
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div class="mb-2">
+                    <label class="small fw-bold text-muted">Descripción <span class="text-danger">*</span></label>
+                    <textarea id="agregarDesc" class="form-control" rows="2" style="font-size:0.85rem;" placeholder="Descripción detallada del activo fijo..."></textarea>
+                </div>
+
+                <!-- Actions row -->
+                <div class="row g-2 mb-2 align-items-end">
+                    <div class="col-md-3 col-sm-6">
+                        <label class="small fw-bold text-muted">Costo (Bs)</label>
+                        <input type="text" id="agregarCosto" class="form-control form-control-sm text-end" placeholder="0.00">
+                    </div>
+                    <div class="col-md-2 col-sm-4">
+                        <label class="small fw-bold text-muted">Cantidad</label>
+                        <input type="number" id="agregarCantidad" class="form-control form-control-sm text-center" value="1" min="1">
+                    </div>
+                    <div class="col-md-2 col-sm-4 d-flex align-items-end pb-1">
+                        <button type="button" class="btn btn-outline-info btn-sm" id="btnDetallarAgregar"
+                                title="Detallar descripción y características de cada activo">
+                            <i class="fa-solid fa-list-check me-1"></i>Detallar
+                            <span class="det-badge" id="detBadgeAgregar">0</span>
+                        </button>
+                    </div>
+                    <div class="col-md-2 col-sm-4">
+                        <label class="small fw-bold text-muted">Vida Útil (años)</label>
+                        <input type="number" id="agregarVidaUtil" class="form-control form-control-sm text-center" value="0" disabled>
+                    </div>
+                    <div class="col-md-2 col-sm-4 d-flex align-items-end pb-1">
+                        <div class="form-check">
+                            <input type="checkbox" id="agregarAccesorio" class="form-check-input">
+                            <label class="form-check-label small">Incluye accesorio</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btnGuardarAgregarActivo">
+                    <i class="fa-solid fa-save me-2"></i> Agregar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================ -->
+<!-- MODAL: DETALLE INDIVIDUAL (AGREGAR)             -->
+<!-- ================================================ -->
+<div class="modal fade modal-agregar" id="modalDetalleAgregar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header" style="background: linear-gradient(135deg, #1a56db 0%, #1d4ed8 100%);">
+                <h6 class="modal-title text-white fw-bold">
+                    <i class="fa-solid fa-list-check me-2"></i> Detalle Individual de Activos
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-2" style="background:#f8fafc;">
+                <div class="d-flex align-items-center gap-2 mb-2 p-2 rounded" style="background:#f0f7ff;">
+                    <label class="small fw-bold" style="color:#1a56db;white-space:nowrap;">Descripción base:</label>
+                    <input type="text" id="detalleBaseDescAgregar" class="form-control form-control-sm flex-grow-1"
+                           placeholder="Descripción común para todos los activos...">
+                    <button type="button" class="btn btn-primary btn-sm" id="btnAplicarBaseDescAgregar">
+                        <i class="fa-solid fa-angles-down me-1"></i>Aplicar a todos
+                    </button>
+                </div>
+                <div style="max-height:50vh;overflow-y:auto;">
+                    <table class="table table-sm table-bordered mb-0" id="tblDetalleAgregar" style="min-width:750px;">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:36px;">#</th>
+                                <th style="min-width:130px;">Código</th>
+                                <th>Descripción *</th>
+                                <th style="min-width:130px;">N° Serie</th>
+                                <th style="min-width:90px;">Marca</th>
+                                <th style="min-width:90px;">Modelo</th>
+                                <th style="min-width:80px;">Color</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detalleBodyAgregar"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+                    <i class="fa-solid fa-check me-1"></i> Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- ================================================ -->
 <!-- JAVASCRIPT                                       -->
@@ -2140,6 +2395,328 @@
                     .html('<i class="fa-solid fa-floppy-disk me-1"></i> Guardar cambios');
             }
         }
+
+        // ── AGREGAR ACTIVO(S) A ASIGNACIÓN ──────────────────────────────
+        let _agregarDetalleData = [];
+        let _agregarPredioId = null;
+
+        function initSelect2Agregar($el) {
+            if ($el.data('select2')) $el.select2('destroy');
+            $el.select2({
+                theme: 'bootstrap-5',
+                width: '100%',
+                dropdownParent: $('#modalAgregarActivo'),
+                allowClear: true,
+                minimumInputLength: 0,
+                minimumResultsForSearch: 0,
+                language: { searching: function () { return 'Buscando...'; }, noResults: function () { return 'Sin resultados'; } },
+                matcher: function (params, data) {
+                    if (!params.term || $.trim(params.term) === '') return data;
+                    return (data.text || '').toUpperCase().indexOf(params.term.toUpperCase()) > -1 ? data : null;
+                }
+            });
+        }
+
+        window.abrirModalAgregarActivo = function (idAsigEnc) {
+            try {
+            _agregarDetalleData = [];
+            _agregarPredioId = null;
+            $('#detBadgeAgregar').text('0');
+            $('#agregarIdAsigEnc').val(idAsigEnc);
+            $('#agregarDesc, #agregarCosto, #agregarFecha').val('');
+            $('#agregarCantidad').val(1);
+            $('#agregarVidaUtil').val(0).prop('disabled', true);
+            $('#agregarAccesorio').prop('checked', false);
+            $('#modalAgregarActivo .txt-codigo-preview').val('').attr('placeholder', 'Cargando...');
+
+            // Destroy existing Select2, reset selects (keep Thymeleaf options)
+            if ($('#agregarGrupo').data('select2')) $('#agregarGrupo').select2('destroy');
+            if ($('#agregarAuxiliar').data('select2')) $('#agregarAuxiliar').select2('destroy');
+            $('#agregarGrupo').val('');
+            $('#agregarAuxiliar').empty().append('<option value="">—</option>').prop('disabled', true);
+
+            // Init grupo Select2 and ensure placeholder is shown
+            if (typeof $().select2 === 'function') {
+                initSelect2Agregar($('#agregarGrupo'));
+                $('#agregarGrupo').trigger('change');
+            }
+
+            // Load financiadores once
+            const $fin = $('#agregarFinanciador');
+            if ($fin.find('option').length <= 1) {
+                $.get('/api/organismos/listar', function (data) {
+                    $fin.empty().append('<option value="">Seleccione...</option>');
+                    data.forEach(function (o) {
+                        $fin.append('<option value="' + o.idOrganismoFinanciero + '">' + (o.sigla || o.descripcion) + '</option>');
+                    });
+                });
+            }
+
+            // Fetch assignment data
+            $.getJSON('/administracion/activo/api/datos-asignacion?idAsigEnc=' + encodeURIComponent(idAsigEnc), function (res) {
+                if (!res.ok) { Swal.fire('Error', res.msg, 'error'); return; }
+                _agregarPredioId = res.idPredio;
+                $('#agregarCodigoAsig').text(res.codigoAsignacion);
+                $('#agregarPredio').text(res.predio);
+                $('#agregarOficina').text(res.oficina);
+                $('#agregarResponsable').text(res.responsable);
+                $('#agregarMunicipio').val(res.municipio);
+                $('#agregarPredioTxt').val(res.predio);
+                $('#agregarOficinaTxt').val(res.oficina);
+                $('#agregarRespTxt').val(res.responsable);
+                $('#agregarCodMun').val(res.codMun || '');
+                $('#agregarCodPred').val(res.codPred || '');
+                // Pre-select inherited grupo via codDbf — options have data-code as integer
+                if (res.codGrp) {
+                    var codDbfNum = parseInt(res.codGrp, 10);
+                    var $grpOpt = $('#agregarGrupo').find('option').filter(function () {
+                        return parseInt($(this).data('code')) === codDbfNum;
+                    }).first();
+                    if ($grpOpt.length) {
+                        $('#agregarGrupo').val($grpOpt.val()).trigger('change');
+                    }
+                }
+            }).fail(function () {
+                $('#modalAgregarActivo .txt-codigo-preview').val('').attr('placeholder', 'Error al cargar datos');
+            });
+
+            new bootstrap.Modal(document.getElementById('modalAgregarActivo')).show();
+            } catch (e) { console.error('Error al abrir modal:', e); Swal.fire('Error', 'Error al abrir formulario: ' + e.message, 'error'); }
+        };
+
+        // ── Grupo change: vida util + auxiliares + code preview ──
+        $('#modalAgregarActivo').on('change', '#agregarGrupo', function () {
+            const grpId = $(this).val();
+            const $vida = $('#agregarVidaUtil');
+            const $aux = $('#agregarAuxiliar');
+            const $preview = $('#modalAgregarActivo .txt-codigo-preview');
+
+            // Clear aux + preview
+            if ($aux.data('select2')) $aux.select2('destroy');
+            $aux.empty().append('<option value="">—</option>').prop('disabled', true);
+
+            if (grpId) {
+                // Fetch vida util
+                $.get('/api/' + grpId + '/meta', function (meta) {
+                    if (meta && meta.vidaUtil) {
+                        $vida.val(meta.vidaUtil);
+                    }
+                });
+
+                // Load auxiliares filtered by predio + grupo
+                if (_agregarPredioId) {
+                    $.get('/api/buscar_auxiliar_lista', { predioId: _agregarPredioId, grupoId: grpId }, function (data) {
+                        $aux.empty().append('<option value="">(Opcional)</option>');
+                        if (Array.isArray(data)) {
+                            data.forEach(function (a) {
+                                $aux.append('<option value="' + a.id + '">' + a.text + '</option>');
+                            });
+                        }
+                        $aux.prop('disabled', false);
+                        initSelect2Agregar($aux);
+                    });
+                }
+
+                // Update codGrp and regenerate code preview
+                var codDbf = $(this).find('option:selected').data('code');
+                if (codDbf !== undefined) {
+                    var codGrp = String(codDbf).padStart(2, '0');
+                    $('#agregarCodGrp').val(codGrp);
+                }
+                recalcularCodigosAgregar();
+            } else {
+                $vida.val(0);
+                $('#agregarCodGrp').val('');
+                $preview.val('').attr('placeholder', 'Seleccione Grupo...');
+                if ($aux.data('select2')) $aux.select2('destroy');
+                $aux.empty().append('<option value="">—</option>').prop('disabled', true);
+            }
+        });
+
+        // ── Code preview ──
+        async function recalcularCodigosAgregar() {
+            const cant = parseInt($('#agregarCantidad').val()) || 1;
+            const codMun = $('#agregarCodMun').val();
+            const codPred = $('#agregarCodPred').val();
+            const codGrp = $('#agregarCodGrp').val();
+            const $preview = $('#modalAgregarActivo .txt-codigo-preview');
+            if (!codMun || !codPred || !codGrp) {
+                $preview.val('').attr('placeholder', 'Faltan datos de código');
+                return;
+            }
+            $preview.attr('placeholder', 'Calculando...');
+            try {
+                const r = await $.post('/administracion/activo/generar-correlativo',
+                    { mun: codMun, pred: codPred, grp: codGrp });
+                const parts = (r.codigo || '').split('-');
+                const baseNum = parseInt(parts[parts.length - 1]) || 1;
+                const codes = [];
+                for (let i = 0; i < cant; i++) {
+                    codes.push(codMun + '-' + codPred + '-' + codGrp + '-' + String(baseNum + i).padStart(5, '0'));
+                }
+                $preview.val(codes.join(', '));
+            } catch (e) {
+                $preview.val('').attr('placeholder', 'Error al generar');
+            }
+        }
+
+        $('#agregarCantidad').on('input change', function () {
+            recalcularCodigosAgregar();
+        });
+
+        // ── Detalle modal ──
+        function abrirDetalleAgregar() {
+            const cant = parseInt($('#agregarCantidad').val()) || 1;
+            const codigoPreview = $('#modalAgregarActivo .txt-codigo-preview').val() || '';
+            const codes = codigoPreview.split(',').map(function (s) { return s.trim(); });
+
+            while (_agregarDetalleData.length < cant) {
+                _agregarDetalleData.push({ descripcion: $('#agregarDesc').val(), serie: '', marca: '', modelo: '', color: '' });
+            }
+            if (_agregarDetalleData.length > cant) {
+                _agregarDetalleData = _agregarDetalleData.slice(0, cant);
+            }
+
+            const $tbody = $('#detalleBodyAgregar').empty();
+            for (let i = 0; i < cant; i++) {
+                const d = _agregarDetalleData[i] || {};
+                const cod = codes[i] || '—';
+                const $tr = $('<tr>').append(
+                    $('<td class="text-center align-middle">').text(i + 1),
+                    $('<td class="align-middle font-monospace small">').text(cod),
+                    $('<td>').append($('<input type="text" class="form-control form-control-sm det-desc">').val(d.descripcion || '')),
+                    $('<td>').append($('<input type="text" class="form-control form-control-sm det-serie" style="background:#fffbeb;">').val(d.serie || '')),
+                    $('<td>').append($('<input type="text" class="form-control form-control-sm det-marca">').val(d.marca || '')),
+                    $('<td>').append($('<input type="text" class="form-control form-control-sm det-modelo">').val(d.modelo || '')),
+                    $('<td>').append($('<input type="text" class="form-control form-control-sm det-color">').val(d.color || ''))
+                );
+                $tbody.append($tr);
+            }
+
+            new bootstrap.Modal(document.getElementById('modalDetalleAgregar')).show();
+        }
+
+        $('#btnDetallarAgregar').on('click', abrirDetalleAgregar);
+
+        $('#modalDetalleAgregar').on('hidden.bs.modal', function () {
+            _agregarDetalleData = [];
+            $('#detalleBodyAgregar tr').each(function () {
+                const $tds = $(this).find('td');
+                if ($tds.length < 4) return;
+                _agregarDetalleData.push({
+                    descripcion: $tds.eq(2).find('input').val() || '',
+                    serie:       $tds.eq(3).find('input').val() || '',
+                    marca:       $tds.eq(4).find('input').val() || '',
+                    modelo:      $tds.eq(5).find('input').val() || '',
+                    color:       $tds.eq(6).find('input').val() || ''
+                });
+            });
+            $('#detBadgeAgregar').text(_agregarDetalleData.length);
+        });
+
+        $('#btnAplicarBaseDescAgregar').on('click', function () {
+            const base = $('#detalleBaseDescAgregar').val();
+            if (!base) return;
+            $('#detalleBodyAgregar .det-desc').val(base);
+        });
+
+        // ── Submit ──
+        $('#btnGuardarAgregarActivo').on('click', function () {
+            const btn = this;
+            const desc = $('#agregarDesc').val().trim();
+            if (!desc) { Swal.fire('Validación', 'La descripción es obligatoria.', 'warning'); return; }
+
+            var grpId = $('#agregarGrupo').val();
+            if (!grpId || grpId === '') {
+                // Fallback: read from selected option directly
+                grpId = $('#agregarGrupo').find('option:selected').val();
+            }
+            if (!grpId || grpId === '') {
+                Swal.fire('Validación', 'Debe seleccionar un Grupo / Clasificación.', 'warning'); return;
+            }
+
+            if ($('#detBadgeAgregar').text() !== '0') {
+                // Data already synced on hidden.bs.modal
+            } else {
+                _agregarDetalleData = [];
+            }
+
+            const cant = parseInt($('#agregarCantidad').val()) || 1;
+            let detalles = [];
+            if (_agregarDetalleData.length > 0) {
+                detalles = _agregarDetalleData;
+            } else {
+                for (let i = 0; i < cant; i++) {
+                    detalles.push({ descripcion: desc, serie: '', marca: '', modelo: '', color: '' });
+                }
+            }
+
+            const payload = {
+                idAsigEnc: $('#agregarIdAsigEnc').val(),
+                descripcion: desc,
+                costo: parseFloat($('#agregarCosto').val()) || 0,
+                vidaUtil: parseInt($('#agregarVidaUtil').val()) || 0,
+                fechaAdquisicion: $('#agregarFecha').val() || null,
+                idOrganismoFinanciero: $('#agregarFinanciador').val() || null,
+                idGrupoContable: grpId,
+                idAuxiliar: $('#agregarAuxiliar').val() || null,
+                cantidad: cant,
+                incluyeAccesorio: $('#agregarAccesorio').is(':checked'),
+                detalles: detalles
+            };
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Guardando...';
+
+            $.ajax({
+                url: '/administracion/activo/api/agregar-activo-pendiente',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(payload),
+                success: function (res) {
+                    if (res.ok) {
+                        bootstrap.Modal.getInstance(document.getElementById('modalAgregarActivo')).hide();
+                        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.msg, showConfirmButton: false, timer: 3000 });
+                        cargarTabla();
+                    } else {
+                        Swal.fire('Error', res.msg, 'error');
+                    }
+                },
+                error: function (xhr) {
+                    const msg = xhr.responseJSON?.msg || 'Error al guardar';
+                    Swal.fire('Error', msg, 'error');
+                },
+                complete: function () {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-save me-2"></i> Agregar';
+                }
+            });
+        });
+
+        // ── Hidden modal cleanup ──
+        $('#modalAgregarActivo').on('hidden.bs.modal', function () {
+            if ($('#agregarGrupo').data('select2')) $('#agregarGrupo').select2('destroy');
+            if ($('#agregarAuxiliar').data('select2')) $('#agregarAuxiliar').select2('destroy');
+            $('.modal-backdrop').remove();
+            $('body').removeClass('modal-open');
+        });
+
+        // ── Toggle code preview (used from onclick) ──
+        window.toggleCodigoPreview = function (btn) {
+            const ta = btn.parentNode.querySelector('.txt-codigo-preview');
+            if (!ta || !ta.value) return;
+            if (ta.classList.contains('preview-expanded')) {
+                ta.classList.remove('preview-expanded');
+                ta.style.overflowY = 'hidden';
+                ta.style.setProperty('height', '2.4rem', 'important');
+                btn.classList.remove('expanded');
+            } else {
+                ta.style.overflowY = 'visible';
+                ta.style.setProperty('height', 'auto', 'important');
+                ta.classList.add('preview-expanded');
+                btn.classList.add('expanded');
+            }
+        };
 
          window.guardarEdicionPendientes  = guardarEdicionPendientes;
         window.limpiarSeleccion          = limpiarSeleccion;

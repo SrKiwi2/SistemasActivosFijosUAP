@@ -502,6 +502,33 @@ public class ActivosController {
         return sb.toString().toUpperCase();
     }
 
+    private Long toLong(Object value) {
+        if (value == null) return null;
+        if (value instanceof Number n) return n.longValue();
+        if (value instanceof String s) {
+            s = s.trim();
+            if (s.isEmpty()) return null;
+            try { return Long.parseLong(s); } catch (NumberFormatException e) { return null; }
+        }
+        return null;
+    }
+
+    private Integer toInteger(Object value, Integer defaultValue) {
+        Long l = toLong(value);
+        return l != null ? l.intValue() : defaultValue;
+    }
+
+    private Double toDouble(Object value, Double defaultValue) {
+        if (value == null) return defaultValue;
+        if (value instanceof Number n) return n.doubleValue();
+        if (value instanceof String s) {
+            s = s.trim();
+            if (s.isEmpty()) return defaultValue;
+            try { return Double.parseDouble(s); } catch (NumberFormatException e) { return defaultValue; }
+        }
+        return defaultValue;
+    }
+
     /**
      * Campos obligatorios que un activo debe tener completos antes de poder
      * asignarle un documento (PREV) o subirlo al VSIAF. El único campo opcional
@@ -1436,6 +1463,174 @@ public class ActivosController {
     }
 
     @ValidarUsuarioAutenticado
+    @GetMapping("/api/datos-asignacion")
+    @ResponseBody
+    public ResponseEntity<?> datosAsignacion(@RequestParam String idAsigEnc) throws Exception {
+        Long idAsig = Long.parseLong(Encriptar.decrypt(idAsigEnc));
+        AsignacionActivo asig = asignacionActivoService.findById(idAsig);
+        if (asig == null)
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Asignación no encontrada"));
+
+        Activo ref = null;
+        if (asig.getDetalles() != null) {
+            for (DetalleAsignacionActivo d : asig.getDetalles()) {
+                if (d.getActivo() != null) { ref = d.getActivo(); break; }
+            }
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("ok", true);
+        data.put("codigoAsignacion", asig.getCodigoCompleto());
+        if (ref != null) {
+            String[] parts = ref.getCodigo().split("-");
+            data.put("codMun", parts.length > 0 ? parts[0] : "");
+            data.put("codPred", parts.length > 1 ? parts[1] : "");
+            data.put("codGrp",  parts.length > 2 ? parts[2] : "");
+            data.put("municipio", ref.getOficina().getPredio().getMunicipio().getNombre());
+            data.put("predio", ref.getOficina().getPredio().getDescrip());
+            data.put("oficina", ref.getOficina().getNombre());
+            data.put("responsable", ref.getResponsable().getPersona().getNombreCompleto());
+            data.put("grupo", ref.getGrupoContable().getNombre());
+            data.put("idPredio", ref.getOficina().getPredio().getIdPredio());
+        }
+        return ResponseEntity.ok(data);
+    }
+
+    @SuppressWarnings("unchecked")
+    @PostMapping("/api/agregar-activo-pendiente")
+    @ResponseBody
+    public ResponseEntity<?> agregarActivoPendiente(
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) throws Exception {
+
+        String idAsigEnc = (String) body.get("idAsigEnc");
+        Long idAsig = Long.parseLong(Encriptar.decrypt(idAsigEnc));
+        AsignacionActivo asig = asignacionActivoService.findById(idAsig);
+        if (asig == null)
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Asignación no encontrada"));
+
+        String descripcion     = (String) body.get("descripcion");
+        Double costo           = toDouble(body.get("costo"), 0.0);
+        BigDecimal vidaUtil    = BigDecimal.valueOf(toDouble(body.get("vidaUtil"), 0.0));
+        LocalDate fechaAdq     = body.get("fechaAdquisicion") instanceof String ? LocalDate.parse((String) body.get("fechaAdquisicion")) : null;
+        Long idOrgFin          = toLong(body.get("idOrganismoFinanciero"));
+        Integer cantidad       = toInteger(body.get("cantidad"), 1);
+        Boolean incluyeAcc     = body.get("incluyeAccesorio") instanceof Boolean && (Boolean) body.get("incluyeAccesorio");
+        Long idGrupoContable   = toLong(body.get("idGrupoContable"));
+        Long idAuxiliar        = toLong(body.get("idAuxiliar"));
+        List<Map<String, Object>> detallesRaw = (List<Map<String, Object>>) body.get("detalles");
+
+        String codigoRef = null;
+        Responsable responsable = asig.getResponsable();
+        Oficina oficina = asig.getOficinaDestino();
+
+        if (asig.getDetalles() != null) {
+            for (DetalleAsignacionActivo d : asig.getDetalles()) {
+                if (d.getActivo() != null) {
+                    if (codigoRef == null) codigoRef = d.getActivo().getCodigo();
+                    if (responsable == null) responsable = d.getActivo().getResponsable();
+                    if (oficina == null)     oficina     = d.getActivo().getOficina();
+                    if (codigoRef != null) break;
+                }
+            }
+        }
+        if (codigoRef == null)
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No hay activo de referencia en esta asignación"));
+
+        GrupoContable grupo = idGrupoContable != null ? grupoContableService.findById(idGrupoContable) : null;
+        if (grupo == null) {
+            if (asig.getDetalles() != null) {
+                for (DetalleAsignacionActivo d : asig.getDetalles()) {
+                    if (d.getActivo() != null && d.getActivo().getGrupoContable() != null) {
+                        grupo = d.getActivo().getGrupoContable();
+                        break;
+                    }
+                }
+            }
+        }
+        if (grupo == null)
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No se pudo determinar el grupo contable"));
+
+        Auxiliar auxiliar = idAuxiliar != null ? auxiliarService.findById(idAuxiliar) : null;
+
+        String[] parts = codigoRef.split("-");
+        String codMun = parts.length > 0 ? parts[0] : "";
+        String codPred = parts.length > 1 ? parts[1] : "";
+        String codGrp = String.format("%02d", grupo.getCodDbf());
+
+        OrganismoFinanciero orgFin = idOrgFin != null ? organismoFinancieroService.findById(idOrgFin) : null;
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+
+        List<DetalleActivoDTO> detalles = new ArrayList<>();
+        if (detallesRaw != null) {
+            for (Map<String, Object> dr : detallesRaw) {
+                DetalleActivoDTO d = new DetalleActivoDTO();
+                d.setDescripcion((String) dr.get("descripcion"));
+                d.setSerie((String) dr.get("serie"));
+                d.setMarca((String) dr.get("marca"));
+                d.setModelo((String) dr.get("modelo"));
+                d.setColor((String) dr.get("color"));
+                detalles.add(d);
+            }
+        }
+        while (detalles.size() < cantidad) {
+            DetalleActivoDTO d = new DetalleActivoDTO();
+            d.setDescripcion(descripcion);
+            detalles.add(d);
+        }
+
+        List<String> codesCreados = new ArrayList<>();
+        int total = Math.min(cantidad, detalles.size());
+
+        for (int i = 0; i < total; i++) {
+            DetalleActivoDTO det = detalles.get(i);
+            String nuevoCodigo = funciones.generarCodigoPorCodes(codMun, codPred, codGrp);
+
+            Activo a = new Activo();
+            a.setCodigo(nuevoCodigo);
+            String descBase = (det.getDescripcion() != null && !det.getDescripcion().isBlank()) ? det.getDescripcion() : descripcion;
+            a.setDescripcion(construirDescripcionActivo(descBase, det.getColor(), det.getMarca(), det.getModelo(), det.getSerie(), incluyeAcc));
+            a.setFechaAdquisicion(fechaAdq);
+            a.setVidaUtil(vidaUtil);
+            a.setCosto(costo);
+            a.setResponsable(responsable);
+            a.setOrganismoFinanciero(orgFin);
+            if (orgFin != null) a.setOrgFinCode(orgFin.getCodOf());
+            a.setGrupoContable(grupo);
+            a.setAuxiliar(auxiliar);
+            a.setOficina(oficina);
+            a.setEstado("PENDIENTE");
+            a.setApiEstado((short) 3);
+            a.setVidaUtilAnterior(0);
+            a.setEstadoActivo(estadoActivoService.findById(1L));
+            a.setCostoAnterior(0.0);
+            a.setDepreciacionAcum(0.0);
+            a.setUsuario(usuarioNombre);
+            a.setFecMod(LocalDate.now());
+            a.setFechaUlt(LocalDate.now());
+            activoService.save(a);
+
+            DetalleAsignacionActivo detalleAsig = new DetalleAsignacionActivo();
+            detalleAsig.setAsignacionActivo(asig);
+            detalleAsig.setActivo(a);
+            detalleAsig.setCodigoActivoSnapshot(a.getCodigo());
+            detalleAsig.setDescripcionActivoSnapshot(a.getDescripcion());
+            detalleAsig.setCostoActivoSnapshot(BigDecimal.valueOf(a.getCosto()));
+            detalleAsig.setEstadoActivoSnapshot(a.getEstadoActivo().getNombre());
+            detalleAsignacionActivoService.save(detalleAsig);
+
+            codesCreados.add(nuevoCodigo);
+        }
+
+        notificarCambioPendientes("registro");
+        return ResponseEntity.ok(Map.of(
+            "ok", true,
+            "msg", total + " activo(s) creado(s): " + String.join(", ", codesCreados),
+            "codes", codesCreados
+        ));
+    }
+
+    @ValidarUsuarioAutenticado
     @PostMapping(value = "/api/editar-pendiente/{idEnc}",
                 consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
@@ -1595,7 +1790,8 @@ public class ActivosController {
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vistap")
-    public String vista_activo_pendiente() {
+    public String vista_activo_pendiente(Model model) {
+        model.addAttribute("grupos", grupoContableService.listarGruposContables());
         return "activo/vista_pendientes";
     }
 

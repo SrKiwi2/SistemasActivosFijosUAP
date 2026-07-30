@@ -367,6 +367,7 @@ public class CatalogoRestController {
                 Map<String, Object> r = new LinkedHashMap<>();
                 r.put("idGrupoContable", g.getIdGrupoContable());
                 r.put("nombre",          g.getNombre());
+                r.put("codContable",     g.getCodContable());
                 r.put("codDbf",          g.getCodDbf());   // usado como data-code para preview código
                 return r;
             })

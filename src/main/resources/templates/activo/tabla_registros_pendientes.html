@@ -622,6 +622,13 @@
             </div>
 
             <div class="asig-header-actions d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-success"
+                    th:title="'Agregar activo a ' + ${dto.asignacion.codigoCompleto != null ? dto.asignacion.codigoCompleto : 'esta asignación'}"
+                    th:data-id="${dto.encryptedAsignacionId}"
+                    onclick="event.stopPropagation(); window.abrirModalAgregarActivo(this.dataset.id)"
+                    style="font-size:0.78rem;">
+                    <i class="fa-solid fa-plus"></i> Agregar
+                </button>
                 <button class="btn btn-sm btn-outline-primary"
                     th:title="${dto.asignacion.codigoCompleto != null ? 'Descargar acta — ' + dto.asignacion.codigoCompleto : 'Descargar acta'}"
                     th:data-id="${dto.encryptedAsignacionId}"
