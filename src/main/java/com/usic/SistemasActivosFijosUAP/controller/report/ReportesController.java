@@ -2,6 +2,7 @@ package com.usic.SistemasActivosFijosUAP.controller.report;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -209,8 +210,9 @@ public class ReportesController {
 
     /**
      * Nombre del archivo (sin extensión) de un acta de asignación:
-     * {@code asignacion_<codigoOficina> <nombreOficina>_<n auxiliar...>_<responsable>}.
-     * Ej: {@code asignacion_124 LABORATORIO HCP_3 CPU 4 MONITORES 2 DATASHOW_JUAN PEREZ}.
+     * {@code asignacion_<dd-MM-yyyy>_<codigoOficina> <nombreOficina>_<n auxiliar...>_<responsable>}.
+     * Ej: {@code asignacion_02-07-2026_124 LABORATORIO HCP_3 CPU 4 MONITORES 2 DATASHOW_JUAN PEREZ}.
+     * La fecha corresponde a {@code fechaAsignacion} (momento en que se registra la asignación).
      */
     private String construirNombreArchivo(AsignacionActivo asignacion) {
         Oficina oficina = asignacion.getOficinaDestino();
@@ -238,7 +240,16 @@ public class ReportesController {
         String responsable = (asignacion.getResponsable() != null && asignacion.getResponsable().getPersona() != null)
                 ? asignacion.getResponsable().getPersona().getNombreCompleto() : "";
 
-        String base = "asignacion_" + oficinaSeg + "_" + auxSeg + "_" + responsable;
+        // Fecha de registro de la asignación en formato dd-MM-yyyy.
+        // fechaAsignacion se establece con LocalDateTime.now() al registrar la asignación.
+        String fechaSeg = "";
+        if (asignacion.getFechaAsignacion() != null) {
+            fechaSeg = asignacion.getFechaAsignacion().format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+        } else if (asignacion.getRegistro() != null) {
+            fechaSeg = new java.text.SimpleDateFormat("dd-MM-yyyy").format(asignacion.getRegistro());
+        }
+
+        String base = "asignacion_" + fechaSeg + "_" + oficinaSeg + "_" + auxSeg + "_" + responsable;
         return limpiarNombreArchivo(base);
     }
 

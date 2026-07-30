@@ -32,6 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ---------- Refs ----------
     const form = document.getElementById("formResponsable");
+    if (!form) return;
     const btnPreGuardar = document.getElementById("btnPreGuardar");
 
     // Modales
@@ -327,6 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // === Forzar MAYÚSCULAS en el form de Asignación ===
 document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("formResponsable");
+    if (!form) return;
 
     // Campos a forzar (ajusta la lista si quieres excluir alguno)
     const upperFields = [

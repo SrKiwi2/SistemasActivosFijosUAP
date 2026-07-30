@@ -36,6 +36,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnConfirmar = document.getElementById("btnConfirmarGuardarIngreso");
     const spinnerConfirmar = document.getElementById("spinnerConfirmarIngreso");
 
+    /* ---------- Guard: salir si no estamos en la página correcta ---------- */
+    if (!form || !contItems || !modalIngresoEl || !modalConfirmacionEl) return;
+
     /* ---------- Estado dinámico de items ---------- */
     let campoIndexA = 0;
 

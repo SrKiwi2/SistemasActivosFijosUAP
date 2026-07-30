@@ -421,7 +421,7 @@ public class ActivosController {
 
                     a.setDescripcion(construirDescripcionActivo(
                             descBase, detalle.getColor(), detalle.getMarca(),
-                            detalle.getModelo(), detalle.getSerie()));
+                            detalle.getModelo(), detalle.getSerie(), item.isIncluyeAccesorio()));
 
                     a.setFechaAdquisicion(request.getFechaAdquisicion());
                     a.setVidaUtil(item.getVidaUtil() != null ? BigDecimal.valueOf(item.getVidaUtil()) : BigDecimal.ZERO);
@@ -484,7 +484,7 @@ public class ActivosController {
      * separado por comas con etiquetas {@code M:}, {@code MOD:} y {@code S:}.
      * Ej: {@code AIRE ACONDICIONADO COLOR BLANCO M:IKA, MOD:AA-36FJ 36000 BTU/H, S:B2507E154702N0008}
      */
-    private String construirDescripcionActivo(String base, String color, String marca, String modelo, String serie) {
+    private String construirDescripcionActivo(String base, String color, String marca, String modelo, String serie, boolean incluyeAccesorio) {
         StringBuilder sb = new StringBuilder(base != null ? base.trim() : "");
         if (color != null && !color.trim().isEmpty()) {
             sb.append(" COLOR ").append(color.trim());
@@ -492,9 +492,12 @@ public class ActivosController {
         List<String> tecnicos = new ArrayList<>();
         if (marca  != null && !marca.trim().isEmpty())  tecnicos.add("M:" + marca.trim());
         if (modelo != null && !modelo.trim().isEmpty()) tecnicos.add("MOD:" + modelo.trim());
-        if (serie  != null && !serie.trim().isEmpty())  tecnicos.add("S:" + serie.trim());
+        if (serie  != null && !serie.trim().isEmpty())  tecnicos.add("N/S:" + serie.trim());
         if (!tecnicos.isEmpty()) {
             sb.append(" ").append(String.join(", ", tecnicos));
+        }
+        if (incluyeAccesorio) {
+            sb.append(" INCLUYE ACCESORIO");
         }
         return sb.toString().toUpperCase();
     }
@@ -2124,7 +2127,7 @@ public class ActivosController {
 
                     String descFinal = construirDescripcionActivo(
                             it.getDescripcion(), it.getColor(), it.getMarca(),
-                            it.getModelo(), it.getSerie());
+                            it.getModelo(), it.getSerie(), it.isIncluyeAccesorio());
 
                     // Auxiliar por activo (opcional)
                     Auxiliar auxiliar = null;

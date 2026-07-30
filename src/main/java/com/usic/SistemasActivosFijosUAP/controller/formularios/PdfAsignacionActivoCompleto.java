@@ -10,6 +10,7 @@ import java.util.Locale;
 import javax.swing.border.Border;
 import javax.swing.text.StyleConstants.ColorConstants;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.itextpdf.text.BaseColor;
@@ -29,6 +30,7 @@ import com.itextpdf.text.pdf.PdfPCell;
 import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfPageEventHelper;
 import com.itextpdf.text.pdf.PdfWriter;
+import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableEntregaService;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
@@ -38,6 +40,9 @@ import com.usic.SistemasActivosFijosUAP.model.entity.DetalleAsignacionActivo;
 @Service
 public class PdfAsignacionActivoCompleto {
     private static final String LOGO_PATH = "/static/assets/img/fondo/0.jpg";
+
+    @Autowired
+    private IResponsableEntregaService responsableEntregaService;
 
     public byte[] generarActaAsignacion(AsignacionActivo asignacion, ConfiguracionGestion config) throws DocumentException, IOException {
         
@@ -72,6 +77,23 @@ public class PdfAsignacionActivoCompleto {
         String horaLit = asignacion.getFechaAsignacion().format(DateTimeFormatter.ofPattern("HH:mm a"));
         String nombreReceptor = asignacion.getResponsable().getPersona().getNombreCompleto();
 
+        String responsableActivos = (config.getResponsableActivosNombre() != null && !config.getResponsableActivosNombre().isBlank())
+                ? config.getResponsableActivosNombre() : "Lic. Verónica Layme Cori";
+        var entrSel = responsableEntregaService.findSeleccionado();
+        String responsableEntrega;
+        String entregaArticulo;
+        if (entrSel != null) {
+            responsableEntrega = entrSel.getNombre();
+            String lic = responsableEntrega.startsWith("Lic.") ? "" : "Lic. ";
+            entregaArticulo = "M".equals(entrSel.getGenero()) ? "al " + lic : "a la " + lic;
+        } else {
+            responsableEntrega = (config.getResponsableEntregaRef() != null)
+                    ? config.getResponsableEntregaRef().getNombre()
+                    : ((config.getResponsableEntrega() != null && !config.getResponsableEntrega().isBlank())
+                        ? config.getResponsableEntrega() : "Lic. Ruth Yoryina Espejo Cartagena");
+            entregaArticulo = "a la ";
+        }
+
         Paragraph intro = new Paragraph();
         intro.setAlignment(Element.ALIGN_JUSTIFIED);
         intro.setLeading(12f);
@@ -79,9 +101,9 @@ public class PdfAsignacionActivoCompleto {
         
         intro.add(new Chunk("En la ciudad de " + config.getCiudad() + " a los " + fechaLit + ", a horas " + horaLit + 
                 " en los predios de la Universidad Amazónica de Pando en presencia de la ", fontNormal));
-        intro.add(new Chunk("Lic. Verónica Layme Cori", fontNegrita));
-        intro.add(new Chunk(" Responsable de Activos Fijos dando el visto bueno a la ", fontNormal));
-        intro.add(new Chunk("Lic. Ruth Yoryina Espejo Cartagena", fontNegrita));
+        intro.add(new Chunk(responsableActivos, fontNegrita));
+        intro.add(new Chunk(" Responsable de Activos Fijos dando el visto bueno " + entregaArticulo, fontNormal));
+        intro.add(new Chunk(responsableEntrega, fontNegrita));
         intro.add(new Chunk(", se procedió a la ", fontNormal));
         intro.add(new Chunk("ASIGNACIÓN", fontNegrita));
         intro.add(new Chunk(" de los Activos Fijos de acuerdo a las siguientes características:", fontNormal));

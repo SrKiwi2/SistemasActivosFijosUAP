@@ -46,5 +46,6 @@ public class RegistroHuecosLoteRequest {
         private String modelo;       // opcional
         private String color;        // opcional
         private Long   idAuxiliar;   // opcional, POR ACTIVO
+        private boolean incluyeAccesorio;
     }
 }

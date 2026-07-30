@@ -1,0 +1,55 @@
+<div class="modal-header">
+    <h5 class="modal-title" th:text="${edit != null ? 'Editar' : 'Nuevo'} + ' Responsable de Entrega'"></h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+    <form id="formulario" th:action="${edit != null ? '/administracion/responsable-entrega/modificar' : '/administracion/responsable-entrega/registrar'}"
+          th:object="${responsableEntrega != null ? responsableEntrega : new com.usic.SistemasActivosFijosUAP.model.entity.ResponsableEntrega()}"
+          method="post" class="needs-validation" novalidate>
+        <input type="hidden" th:if="${edit != null}" name="idResponsableEntrega" th:value="*{idResponsableEntrega}">
+        <div class="mb-3">
+            <label class="form-label small fw-bold">Nombre <span class="text-danger">*</span></label>
+            <input type="text" name="nombre" class="form-control" th:value="*{nombre}"
+                   required maxlength="255" placeholder="Nombre completo del responsable">
+            <div class="invalid-feedback">El nombre es obligatorio</div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-bold">Cargo</label>
+            <input type="text" name="cargo" class="form-control" th:value="*{cargo}"
+                   maxlength="255" placeholder="Ej: Jefe de Activos Fijos">
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-bold">Género <span class="text-danger">*</span></label>
+            <select name="genero" class="form-control" required>
+                <option value="">Seleccione...</option>
+                <option value="F" th:selected="*{genero} == 'F'">Femenino</option>
+                <option value="M" th:selected="*{genero} == 'M'">Masculino</option>
+            </select>
+            <div class="invalid-feedback">Seleccione el género</div>
+        </div>
+        <div class="text-end">
+            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary" th:text="${edit != null ? 'Guardar cambios' : 'Registrar'}">
+                Registrar
+            </button>
+        </div>
+    </form>
+</div>
+<script>
+    $('#formulario').on('submit', function (e) {
+        e.preventDefault();
+        if (!this.checkValidity()) { this.reportValidity(); return; }
+        const form = this;
+        const btn = form.querySelector('[type="submit"]');
+        const txt = btn.innerHTML;
+        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+        $.ajax({
+            url: form.action,
+            type: 'POST',
+            data: $(form).serialize(),
+            success: function (res) { if (res.ok) { $('#modalFormulario').modal('hide'); cargarTabla(); Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.msg, showConfirmButton: false, timer: 1600 }); } },
+            error: function () { Swal.fire('Error', 'No se pudo guardar', 'error'); },
+            complete: function () { btn.disabled = false; btn.innerHTML = txt; }
+        });
+    });
+</script>

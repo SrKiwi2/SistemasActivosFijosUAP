@@ -70,6 +70,7 @@ public class OpcionMenuSeeder {
         { "opcion_auxiliar",       "grp_contable",     "Auxiliar",                     "ti ti-folders",          "blue",   "/administracion/auxiliar/vista",                     "/administracion/auxiliar",              "" },
         { "opcion_of",             "grp_contable",     "Organismo Financiador",        "ti ti-building-bank",    "amber",  "/administracion/organismo/vista",                    "/administracion/organismo",             "" },
         { "opcion_estadoA",        "grp_contable",     "Estado del Activo",            "ti ti-badge",            "green",  "/administracion/estadoa/vista",                      "/administracion/estadoa",               "" },
+        { "opcion_responsable_entrega", "grp_contable", "Responsable de Entrega",       "ti ti-user-check",       "cyan",   "/administracion/responsable-entrega/vista",           "/administracion/responsable-entrega",    "" },
 
         { "opcion_entidad",        "grp_geo",          "Entidad",                      "ti ti-building-community","blue",   "/administracion/entidad/vista",                      "/administracion/entidad",               "" },
         { "opcion_municipio",      "grp_geo",          "Municipio",                    "ti ti-map-pin",          "cyan",   "/administracion/municipio/vista",                    "/administracion/municipio",             "" },

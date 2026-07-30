@@ -438,6 +438,35 @@
                                     Prefijo: <code id="infoPrefijo" class="text-danger fw-bold">—</code>
                                 </span>
                             </div>
+                            <div class="mt-1 d-flex gap-3 flex-wrap" style="font-size:0.75rem; color:#475569;">
+                                <span>
+                                    <i class="fa-solid fa-user-check text-primary me-1"></i>
+                                    Responsable AF: <strong id="infoRespAf">—</strong>
+                                </span>
+                                <span>
+                                    <i class="fa-solid fa-handshake text-primary me-1"></i>
+                                    Entrega: <strong id="infoRespEntrega">—</strong>
+                                </span>
+                            </div>
+                            <!-- Carpeta Drive editable de la gestión seleccionada -->
+                            <div class="mt-2 pt-2 border-top">
+                                <label class="form-label small fw-bold d-flex align-items-center gap-1 mb-1">
+                                    <i class="fa-brands fa-google-drive text-success"></i>
+                                    Carpeta Drive (ID o link)
+                                </label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" id="editCarpetaDrive" class="form-control form-control-sm"
+                                        placeholder="Pega el link de la carpeta o solo su ID">
+                                    <button type="button" class="btn btn-outline-success" onclick="guardarCarpetaDrive()"
+                                        title="Guardar carpeta">
+                                        <i class="fa-solid fa-save"></i>
+                                    </button>
+                                    <a id="btnAbrirCarpetaDrive" href="#" target="_blank"
+                                        class="btn btn-outline-primary d-none" title="Abrir carpeta en Drive">
+                                        <i class="fa-solid fa-up-right-from-square"></i>
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -473,6 +502,23 @@
                                     <label class="form-label small fw-bold">Responsable Activos Fijos</label>
                                     <input type="text" class="form-control form-control-sm"
                                         name="responsableActivosNombre" value="Lic. Verónica Layme Cori">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold">Responsable de Entrega</label>
+                                    <select class="form-select form-select-sm" name="idResponsableEntregaRef" id="selCreaResponsableEntrega">
+                                        <option value="">— Seleccione —</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold d-flex align-items-center gap-1">
+                                        <i class="fa-brands fa-google-drive text-success"></i>
+                                        Carpeta Drive (ID o link)
+                                    </label>
+                                    <input type="text" class="form-control form-control-sm" name="carpetaDrive"
+                                        placeholder="Pega el link de la carpeta o solo su ID">
+                                    <small class="text-muted" style="font-size:0.7rem">
+                                        Carpeta donde se suben las actas de esta gestión. Se abre con la cuenta de Google logueada.
+                                    </small>
                                 </div>
                                 <div class="col-12 mt-1">
                                     <button type="button" class="btn btn-sm btn-outline-success w-100 fw-bold"
@@ -647,6 +693,14 @@
         $(document).ready(function () {
             cargarTabla();
             iniciarSsePendientes();
+            // ── Limpieza robusta del modal de edición ──
+            $('#modalEditarPendientes').on('hidden.bs.modal', function () {
+                $('#modalEditarPendientes .ep-select2').each(function () {
+                    if ($(this).data('select2')) $(this).select2('destroy');
+                });
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open');
+            });
         });
 
         // ────────────────────────────────────────────────
@@ -988,12 +1042,55 @@
                 $('#infoCiudad').text(cfg.ciudad ?? '—');
                 $('#infoGestion').text(cfg.gestion ?? '—');
                 $('#infoPrefijo').text(cfg.prefijoDocumento ?? '—');
+                $('#infoRespAf').text(cfg.responsableActivosNombre || '—');
+                $('#infoRespEntrega').text(cfg.responsableEntrega || '—');
+                const carpeta = cfg.carpetaDrive || '';
+                $('#editCarpetaDrive').val(carpeta);
+                const $abrir = $('#btnAbrirCarpetaDrive');
+                if (carpeta) {
+                    $abrir.attr('href', 'https://drive.google.com/drive/folders/' + carpeta).removeClass('d-none');
+                } else {
+                    $abrir.addClass('d-none');
+                }
                 $('#infoConfigSeleccionada').removeClass('d-none');
             } else {
                 $('#infoConfigSeleccionada').addClass('d-none');
             }
             actualizarPreview();
         });
+
+        // Guardar/actualizar la carpeta de Drive de la gestión seleccionada
+        function guardarCarpetaDrive() {
+            const idConfig = $('#selConfigGestion').val();
+            if (!idConfig) { Swal.fire('Atención', 'Seleccione un tipo de documento primero.', 'warning'); return; }
+            const carpeta = $('#editCarpetaDrive').val().trim();
+
+            $.ajax({
+                url: '/api/configuracion/editar',
+                type: 'POST',
+                data: { idConfig: idConfig, carpetaDrive: carpeta },
+                dataType: 'json',
+                success: function (res) {
+                    const cfg = _configsCache.find(c => String(c.idConfig) === String(idConfig));
+                    if (cfg) cfg.carpetaDrive = res.carpetaDrive;
+                    $('#editCarpetaDrive').val(res.carpetaDrive || '');
+                    const $abrir = $('#btnAbrirCarpetaDrive');
+                    if (res.carpetaDrive) {
+                        $abrir.attr('href', 'https://drive.google.com/drive/folders/' + res.carpetaDrive).removeClass('d-none');
+                    } else {
+                        $abrir.addClass('d-none');
+                    }
+                    Swal.fire({
+                        toast: true, position: 'top-end', icon: 'success',
+                        title: 'Carpeta Drive actualizada', showConfirmButton: false, timer: 1600
+                    });
+                },
+                error: function (err) {
+                    const msg = err.responseJSON?.error || err.responseText || 'Error desconocido';
+                    Swal.fire('Error', msg, 'error');
+                }
+            });
+        }
 
         // Al escribir el número → actualizar preview
         function actualizarPreview() {
@@ -1013,6 +1110,25 @@
             }
         }
 
+        function cargarSelectResponsableEntrega() {
+            const $sel = $('#selCreaResponsableEntrega');
+            $sel.html('<option value="">Cargando...</option>');
+            $.ajax({
+                url: '/administracion/responsable-entrega/api/listar',
+                method: 'GET',
+                success: function (data) {
+                    $sel.empty().append('<option value="">— Seleccione —</option>');
+                    (data || []).forEach(r => {
+                        const label = r.nombre + (r.cargo ? ' (' + r.cargo + ')' : '');
+                        $sel.append('<option value="' + r.id + '">' + label + '</option>');
+                    });
+                },
+                error: function () {
+                    $sel.html('<option value="">Error al cargar</option>');
+                }
+            });
+        }
+
         function guardarNuevaConfig() {
             const form = document.getElementById('formNuevaConfig');
             if (!form.checkValidity()) { form.reportValidity(); return; }
@@ -1030,7 +1146,9 @@
                     prefijoDocumento: form.querySelector('[name="prefijoDocumento"]').value,
                     ciudad: form.querySelector('[name="ciudad"]').value,
                     estado: form.querySelector('[name="estado"]').value,
-                    responsableActivosNombre: form.querySelector('[name="responsableActivosNombre"]').value
+                    responsableActivosNombre: form.querySelector('[name="responsableActivosNombre"]').value,
+                    idResponsableEntregaRef: form.querySelector('[name="idResponsableEntregaRef"]').value || '',
+                    carpetaDrive: form.querySelector('[name="carpetaDrive"]').value
                 },
                 dataType: 'json',
                 success: function (res) {
@@ -1153,7 +1271,7 @@
         // ────────────────────────────────────────────────
         // REPORTE — recibe idAsignacionActivo ya existente, NO crea datos
         // ────────────────────────────────────────────────
-        function descargarReporte(idAsignacionActivo, codigoCompleto) {
+        window.descargarReporte = function (idAsignacionActivo, codigoCompleto) {
             const form = $('<form>', { action: '/reportes/regenerar-asignacion', method: 'POST', target: '_blank' });
             form.append($('<input>', { type: 'hidden', name: 'idAsignacionActivo', value: idAsignacionActivo }));
             form.append($('<input>', { type: 'hidden', name: 'codigoCompleto', value: codigoCompleto }));
@@ -1753,6 +1871,11 @@
         `;
             document.head.appendChild(s);
         })();
+
+        // Cargar select de responsable de entrega cuando se muestra la pestaña "Registrar nuevo"
+        $(document).off('shown.bs.tab', '#tab-crear').on('shown.bs.tab', '#tab-crear', function () {
+            cargarSelectResponsableEntrega();
+        });
 
         // ── Inicializar Select2 en todos los selects del modal ─────────────────
         function initSelectsEP() {

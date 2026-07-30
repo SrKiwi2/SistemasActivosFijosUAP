@@ -1,0 +1,70 @@
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h5 class="mb-0">Personal de Entrega</h5>
+            <small class="text-muted">Personas que figuran en el acta de asignación</small>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal" data-bs-target="#modalFormulario">
+                <i class="fa-solid fa-plus me-1"></i> Nuevo
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover" id="data-table">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:60px;">#</th>
+                        <th>Nombre</th>
+                        <th>Cargo</th>
+                        <th style="width:80px;">Género</th>
+                        <th style="width:100px;">Selección</th>
+                        <th style="width:60px;">Estado</th>
+                        <th style="width:100px;">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="r, i : ${lista}">
+                        <td class="text-center" th:text="${i.index + 1}"></td>
+                        <td th:text="${r.nombre}"></td>
+                        <td th:text="${r.cargo != null ? r.cargo : '—'}"></td>
+                        <td class="text-center" th:text="${r.genero == 'M' ? 'Masculino' : (r.genero == 'F' ? 'Femenino' : '—')}"></td>
+                        <td class="text-center">
+                            <span th:if="${r.seleccionado == true}" class="badge bg-info">
+                                <i class="fa-solid fa-check-circle me-1"></i>Seleccionado
+                            </span>
+                            <button th:if="${r.estado == 'ACTIVO' and r.seleccionado != true}"
+                                    class="btn btn-sm btn-outline-info"
+                                    th:data-id="${id_encryptado[i.index]}"
+                                    onclick="seleccionar(this.dataset.id)"
+                                    title="Usar en acta">
+                                <i class="fa-solid fa-check"></i> Seleccionar
+                            </button>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge" th:classappend="${r.estado == 'ACTIVO' ? 'bg-success' : 'bg-secondary'}"
+                                  th:text="${r.estado}"></span>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-warning"
+                                    th:data-id="${id_encryptado[i.index]}"
+                                    onclick="cargarFormularioEdit(this.dataset.id)"
+                                    title="Editar">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger"
+                                    th:if="${r.estado == 'ACTIVO'}"
+                                    th:data-nombre="${r.nombre}"
+                                    th:data-id="${id_encryptado[i.index]}"
+                                    onclick="eliminar(this.dataset.nombre, this.dataset.id)"
+                                    title="Eliminar">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -18,4 +18,5 @@ public class DetalleRegistroItem {
     private Integer cantidad;
 
     private List<DetalleActivoDTO> detalles;
+    private boolean incluyeAccesorio;
 }

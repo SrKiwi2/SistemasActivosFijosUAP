@@ -44,8 +44,10 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblWidth;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcPr;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblLayoutType;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableEntregaService;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
@@ -63,6 +65,9 @@ public class WordAsignacionActivoService {
 
     private static final String LOGO_PATH = "/static/assets/img/fondo/0.jpg";
     private static final String FUENTE = "Arial";
+
+    @Autowired
+    private IResponsableEntregaService responsableEntregaService;
 
     // Carta: 8.5" x 11" en twips (1" = 1440 twips)
     private static final int PAGINA_ANCHO = 12240;
@@ -102,14 +107,31 @@ public class WordAsignacionActivoService {
             String horaLit = asignacion.getFechaAsignacion().format(DateTimeFormatter.ofPattern("HH:mm a"));
             String nombreReceptor = asignacion.getResponsable().getPersona().getNombreCompleto();
 
-            XWPFParagraph intro = doc.createParagraph();
+            String responsableActivos = (config.getResponsableActivosNombre() != null && !config.getResponsableActivosNombre().isBlank())
+                ? config.getResponsableActivosNombre() : "Lic. Verónica Layme Cori";
+        var entrSel = responsableEntregaService.findSeleccionado();
+        String responsableEntrega;
+        String entregaArticulo;
+        if (entrSel != null) {
+            responsableEntrega = entrSel.getNombre();
+            String lic = responsableEntrega.startsWith("Lic.") ? "" : "Lic. ";
+            entregaArticulo = "M".equals(entrSel.getGenero()) ? "al " + lic : "a la " + lic;
+        } else {
+            responsableEntrega = (config.getResponsableEntregaRef() != null)
+                    ? config.getResponsableEntregaRef().getNombre()
+                    : ((config.getResponsableEntrega() != null && !config.getResponsableEntrega().isBlank())
+                        ? config.getResponsableEntrega() : "Lic. Ruth Yoryina Espejo Cartagena");
+            entregaArticulo = "a la ";
+        }
+
+        XWPFParagraph intro = doc.createParagraph();
             intro.setAlignment(ParagraphAlignment.BOTH);
             intro.setSpacingAfter(160);
             run(intro, "En la ciudad de " + config.getCiudad() + " a los " + fechaLit + ", a horas " + horaLit
                     + " en los predios de la Universidad Amazónica de Pando en presencia de la ", false, 10);
-            run(intro, "Lic. Verónica Layme Cori", true, 10);
-            run(intro, " Responsable de Activos Fijos dando el visto bueno a la ", false, 10);
-            run(intro, "Lic. Ruth Yoryina Espejo Cartagena", true, 10);
+            run(intro, responsableActivos, true, 10);
+            run(intro, " Responsable de Activos Fijos dando el visto bueno " + entregaArticulo, false, 10);
+            run(intro, responsableEntrega, true, 10);
             run(intro, ", se procedió a la ", false, 10);
             run(intro, "ASIGNACIÓN", true, 10);
             run(intro, " de los Activos Fijos de acuerdo a las siguientes características:", false, 10);

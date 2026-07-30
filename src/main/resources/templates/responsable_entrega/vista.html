@@ -1,0 +1,87 @@
+<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Responsable de Entrega</h4>
+
+<div id="tablaRegistro"></div>
+
+<div class="modal fade" id="modalFormulario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" id="contenidoModal"></div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        cargarTabla();
+    });
+
+    function initDataTable() {
+        const $tbl = $('#data-table');
+        if (!$tbl.length) return;
+        if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
+        $tbl.DataTable({
+            destroy: true,
+            language: {
+                decimal: "",
+                emptyTable: "No hay registros",
+                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                infoEmpty: "",
+                infoFiltered: "(filtrado de _MAX_ registros)",
+                infoPostFix: "",
+                thousands: ",",
+                lengthMenu: "Mostrar _MENU_ registros",
+                loadingRecords: "Cargando...",
+                processing: "Procesando...",
+                search: "Buscar:",
+                zeroRecords: "No se encontraron registros",
+                paginate: { first: "Primero", last: "Último", next: "Siguiente", previous: "Anterior" }
+            }
+        });
+    }
+
+    function cargarTabla(q) {
+        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
+        $.ajax({
+            type: 'POST',
+            url: "/administracion/responsable-entrega/tabla-registros" + (q ? ('?q=' + encodeURIComponent(q)) : ''),
+            success: function (html) { $("#tablaRegistro").html(html); initDataTable(); },
+            error: function () { $("#tablaRegistro").html('<div class="alert alert-danger m-3">Error cargando tabla</div>'); },
+            complete: hideGlobalLoader
+        });
+    }
+
+    function cargarFormulario() {
+        cargarFormularioAlert("/administracion/responsable-entrega/formulario", "#contenidoModal", "#formulario");
+    }
+
+    function cargarFormularioEdit(id) {
+        cargarFormularioEditAlert(id, "/administracion/responsable-entrega/formulario-edit", "#contenidoModal", "#formulario");
+    }
+
+    function eliminar(nombre, id) {
+        eliminarRegistroAlert(nombre, id, "/administracion/responsable-entrega/eliminar", cargarTabla);
+    }
+
+    function seleccionar(id) {
+        Swal.fire({
+            title: '¿Seleccionar este responsable?',
+            text: 'Será quien figure en el acta de asignación.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#0d6efd',
+            confirmButtonText: 'Sí, seleccionar',
+            cancelButtonText: 'Cancelar'
+        }).then(result => {
+            if (!result.isConfirmed) return;
+            $.ajax({
+                type: 'POST',
+                url: '/administracion/responsable-entrega/seleccionar/' + id,
+                success: function (res) {
+                    if (res.ok) {
+                        cargarTabla();
+                        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.msg, showConfirmButton: false, timer: 1600 });
+                    }
+                },
+                error: function () { Swal.fire('Error', 'No se pudo seleccionar', 'error'); }
+            });
+        });
+    }
+</script>

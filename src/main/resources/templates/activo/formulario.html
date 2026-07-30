@@ -355,17 +355,44 @@
     /* ═══════════════════════════════════════════════════════════
        PREVIEW CÓDIGO
     ═══════════════════════════════════════════════════════════ */
-    .txt-codigo-preview {
+    .preview-toggle-btn {
+        flex-shrink: 0;
+        height: 2.4rem;
+        width: 2.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s;
+        border-color: #bfdbfe !important;
+        color: var(--af-primary) !important;
+    }
+
+    .preview-toggle-btn.expanded {
+        transform: rotate(180deg);
+        background: var(--af-primary-light) !important;
+    }
+
+    textarea.txt-codigo-preview {
         font-family: 'Courier New', monospace !important;
-        font-size: 0.92rem !important;
+        font-size: 0.85rem !important;
         font-weight: 700 !important;
         letter-spacing: 1.5px !important;
+        min-height: 2.4rem !important;
         height: 2.4rem !important;
+        resize: none !important;
+        overflow-y: hidden;
         text-align: center !important;
         background: var(--af-primary-light) !important;
         border-color: #bfdbfe !important;
         color: var(--af-primary) !important;
         text-transform: uppercase !important;
+        line-height: 1.6 !important;
+        cursor: pointer !important;
+        transition: height 0.2s ease;
+    }
+
+    textarea.txt-codigo-preview.preview-expanded {
+        cursor: default !important;
     }
 
     .txt-codigo-preview::placeholder {
@@ -1385,10 +1412,16 @@
                     <label>
                         <i class="fa-solid fa-barcode text-primary"></i> Código que se asignará
                     </label>
-                    <input type="text"
-                           class="form-control txt-codigo-preview font-monospace"
-                           readonly
-                           placeholder="Selecciona Municipio, Predio y Grupo...">
+                    <div class="d-flex gap-2 align-items-start">
+                        <textarea class="form-control txt-codigo-preview font-monospace flex-grow-1"
+                                  readonly
+                                  rows="2"
+                                  placeholder="Selecciona Municipio, Predio y Grupo..."></textarea>
+                        <button type="button" class="btn btn-sm btn-outline-secondary preview-toggle-btn"
+                                onclick="toggleCodigoPreview(this)" title="Expandir / colapsar">
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1424,6 +1457,14 @@
                 <div class="batch-row-field" >
                     <label><i class="fa-solid fa-clock-rotate-left"></i> Vida Útil (años)</label>
                     <input type="number" class="form-control txt-vida text-center" placeholder="0" value="0" disabled>
+                </div>
+                <div class="batch-row-field d-flex align-items-center gap-2" style="justify-self:start;">
+                    <div class="form-check" style="padding-left:1.6rem;">
+                        <input type="checkbox" class="form-check-input chk-accesorio" style="cursor:pointer;">
+                        <label class="form-check-label" style="font-size:0.7rem; font-weight:700; cursor:pointer; white-space:nowrap; text-transform:uppercase; color:#64748b;">
+                            <i class="fa-solid fa-puzzle-piece me-1"></i> Incluye accesorio
+                        </label>
+                    </div>
                 </div>
                 <div class="batch-row-field batch-row-delete">
                     <button type="button" class="btn-remove-row d-flex align-items-center gap-2 border-0 bg-transparent" title="Quitar este lote">
@@ -1475,7 +1516,7 @@
                 </div>
                 <div style="font-size:0.68rem; color:#64748b; margin-top:0.3rem; padding-left:1.5rem;">
                     <i class="fa-solid fa-circle-info me-1 text-primary"></i>
-                    El botón <strong>↓</strong> al final de cada fila copia descripción, marca, modelo y color a las filas de abajo. La columna <strong>N° Serie</strong> tiene su propio botón <strong>↓</strong> (ámbar) para copiar la serie de forma independiente. Al guardar, la descripción final se arma en este orden: descripción + <code>COLOR</code> + <code>M:</code>(marca) + <code>MOD:</code>(modelo) + <code>S:</code>(serie).
+                    El botón <strong>↓</strong> al final de cada fila copia descripción, marca, modelo y color a las filas de abajo. La columna <strong>N° Serie</strong> tiene su propio botón <strong>↓</strong> (ámbar) para copiar la serie de forma independiente. Al guardar, la descripción final se arma en este orden: descripción + <code>COLOR</code> + <code>M:</code>(marca) + <code>MOD:</code>(modelo) + <code>N/S:</code>(serie).
                 </div>
             </div>
 
@@ -1854,7 +1895,9 @@
                         .append('<option value="">(Seleccione Predio primero)</option>')
                         .prop('disabled', true);
                     $btnNuevaOfi.prop('disabled', true);
-                    $row.find('.txt-codigo-preview').val('').attr('placeholder', '—');
+                    $row.find('.txt-codigo-preview').val('').attr('placeholder', '—').each(function () {
+                        this.style.height = 'auto';
+                    });
                 }
 
                 recalcularCodigosBatchDebounced();
@@ -2477,22 +2520,59 @@
 
                     currentNum += fila.cantidad;
 
+                    const txt = codigosGenerados.join(', ');
                     fila.$preview
-                        .val(codigosGenerados.join(', '))
+                        .val(txt)
                         .attr('placeholder', '')
                         .removeClass('text-muted text-danger')
-                        .addClass('text-primary');
-                        
-                    fila.$preview.attr('title', codigosGenerados.join('\n'));
+                        .addClass('text-primary')
+                        .attr('title', txt);
+                    autoResizePreview(fila.$preview);
                 });
             });
 
             await Promise.all(promesas);
         }
 
+        window.toggleCodigoPreview = function (btn) {
+            const ta = btn.parentNode.querySelector('.txt-codigo-preview');
+            if (!ta || !ta.value) return;
+            if (ta.classList.contains('preview-expanded')) {
+                ta.classList.remove('preview-expanded');
+                ta.style.overflowY = 'hidden';
+                ta.style.setProperty('height', '2.4rem', 'important');
+                btn.classList.remove('expanded');
+            } else {
+                ta.style.overflowY = 'visible';
+                ta.style.setProperty('height', 'auto', 'important');
+                void ta.offsetHeight;
+                ta.style.setProperty('height', Math.max(ta.scrollHeight, 38) + 'px', 'important');
+                ta.classList.add('preview-expanded');
+                btn.classList.add('expanded');
+            }
+        }
+
+        function autoResizePreview($el) {
+            if (!$el.length) return;
+            $el.each(function () {
+                const el = this;
+                el.classList.remove('preview-expanded');
+                el.style.overflowY = 'hidden';
+                el.style.setProperty('height', '2.4rem', 'important');
+                const btn = el.parentNode.querySelector('.preview-toggle-btn');
+                if (btn) btn.classList.remove('expanded');
+            });
+        }
+
         function recalcularCodigosBatchDebounced() {
             clearTimeout(_recalcTimer);
-            $root.find('.txt-codigo-preview').val('').attr('placeholder', 'Calculando...');
+            $root.find('.txt-codigo-preview').val('').attr('placeholder', 'Calculando...').each(function () {
+                this.classList.remove('preview-expanded');
+                this.style.overflowY = 'hidden';
+                this.style.setProperty('height', '2.4rem', 'important');
+                const btn = this.parentNode.querySelector('.preview-toggle-btn');
+                if (btn) btn.classList.remove('expanded');
+            });
             _recalcTimer = setTimeout(() => recalcularCodigosBatch(), 350);
         }
 
@@ -2751,6 +2831,7 @@
                     costo:          parseFloat($r.find('.txt-costo').val()) || 0,
                     cantidad:       cantidadAsignada,
                     vidaUtil:       parseInt($r.find('.txt-vida').val()) || 0,
+                    incluyeAccesorio: $r.find('.chk-accesorio').is(':checked'),
                     detalles:       detallesGuardados
                 };
 
@@ -3267,7 +3348,7 @@
                 return Array.from({ length: cantidad }, (_, i) => `Activo ${i + 1}`);
             }
 
-            const partes = preview.split(',').map(s => s.trim()).filter(Boolean);
+            const partes = preview.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
             if (partes.length === cantidad) return partes;
 
             const primero = partes[0] || '';

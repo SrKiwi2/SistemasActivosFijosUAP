@@ -136,6 +136,14 @@
                         <i class="bx bxs-file-pdf small"></i>
                     </a>
 
+                    <!-- Botón acción rápida: carpeta de Drive de la gestión (solo si está configurada) -->
+                    <a th:if="${asig.fechaAsignacion != null and carpetasPorGestion != null and carpetasPorGestion.containsKey(asig.fechaAsignacion.year)}"
+                        th:href="'https://drive.google.com/drive/folders/' + ${carpetasPorGestion.get(asig.fechaAsignacion.year)}"
+                        target="_blank" class="btn btn-sm btn-icon btn-outline-success py-0 px-1"
+                        title="Ver carpeta en Drive" onclick="event.stopPropagation()">
+                        <i class="bx bxs-folder-open small"></i>
+                    </a>
+
                     <i class="bx bx-chevron-right text-muted ms-1"></i>
                 </div>
 

@@ -224,13 +224,13 @@
     .asig-status-incompleto {
         background: #fee2e2;
         color: #dc2626;
-        border: 1px solid #fecaca;
+        border: none;
     }
 
     .asig-status-porsubir {
         background: #fff2d6;
         color: #b7791f;
-        border: 1px solid #fde9b8;
+        border: none;
     }
 
     .btn-row-action {
@@ -622,6 +622,14 @@
             </div>
 
             <div class="asig-header-actions d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-primary"
+                    th:title="${dto.asignacion.codigoCompleto != null ? 'Descargar acta — ' + dto.asignacion.codigoCompleto : 'Descargar acta'}"
+                    th:data-id="${dto.encryptedAsignacionId}"
+                    th:data-codigo="${dto.asignacion.codigoCompleto != null ? dto.asignacion.codigoCompleto : ''}"
+                    onclick="event.stopPropagation(); window.descargarReporte(this.dataset.id, this.dataset.codigo)"
+                    style="font-size:0.78rem;">
+                    <i class="fa-solid fa-download"></i> Acta
+                </button>
                 <span th:if="${dto.totalIncompletos > 0}" class="asig-status-badge asig-status-incompleto"
                     th:title="${dto.totalIncompletos} + ' activo(s) con datos incompletos — complétalos antes de asignar PREV o subir al VSIAF'">
                     <i class="fa-solid fa-triangle-exclamation"></i>

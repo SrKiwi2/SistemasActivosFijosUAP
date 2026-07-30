@@ -1,5 +1,6 @@
 package com.usic.SistemasActivosFijosUAP.controller.Seguimieto;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,9 +22,11 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IConfiguracionGestionService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
+import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
 import lombok.RequiredArgsConstructor;
@@ -37,6 +40,7 @@ public class CAsignacionActivoController {
 
     private final IAsignacionActivoService asignacionActivoService;
     private final IUsuarioService usuarioService;
+    private final IConfiguracionGestionService configuracionGestionService;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -83,9 +87,24 @@ public class CAsignacionActivoController {
                 }
             ));
 
-        // 4. Enviar los datos a la vista
+        // 4. Carpeta de Drive por gestión (año de la asignación), para el botón "Ver en Drive".
+        //    Solo se incluye la gestión que tenga carpeta configurada.
+        Set<Integer> gestiones = new HashSet<>();
+        for (AsignacionActivo asig : asignaciones) {
+            if (asig.getFechaAsignacion() != null) gestiones.add(asig.getFechaAsignacion().getYear());
+        }
+        Map<Integer, String> carpetasPorGestion = new HashMap<>();
+        for (Integer g : gestiones) {
+            configuracionGestionService.findByGestion(g)
+                .map(ConfiguracionGestion::getCarpetaDrive)
+                .filter(id -> id != null && !id.isBlank())
+                .ifPresent(id -> carpetasPorGestion.put(g, id));
+        }
+
+        // 5. Enviar los datos a la vista
         model.addAttribute("asignaciones", asignaciones);
         model.addAttribute("mapaUsuarios", mapaUsuarios);
+        model.addAttribute("carpetasPorGestion", carpetasPorGestion);
 
         return "/seguimiento/asignacion/tabla_registro";
     }

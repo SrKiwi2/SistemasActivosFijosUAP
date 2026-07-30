@@ -269,6 +269,8 @@ $(function () {
         </div>`;
     }
 
+    if (!$('#tablaActivos').length) return;
+
     if ($.fn.DataTable.isDataTable('#tablaActivos')) {
         $('#tablaActivos').DataTable().destroy();
     }
