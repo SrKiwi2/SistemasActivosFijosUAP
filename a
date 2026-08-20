@@ -1,0 +1,79 @@
+spring.sql.init.mode=never
+
+legacy.dbf.path=/mnt/dbfwin
+legacy.dbf.transferencias.path=/mnt/vsiaf_transferencias
+
+# Modo de escritura a los DBF del VSIAF:
+#   cola  = deja ordenes en _cola/ para el worker VFPOLEDB (mantiene el indice .CDX, sin reindexar)
+#   bytes = append crudo legacy (rompe el indice; requiere reindexar)
+legacy.dbf.write.mode=cola
+
+spring.application.name=SistemasActivosFijosUAP
+server.port=9696
+
+spring.output.ansi.enabled=ALWAYS
+
+# HIBERNATE BATCH
+spring.jpa.properties.hibernate.jdbc.batch_size=500
+spring.jpa.properties.hibernate.jdbc.batch_versioned_data=true
+spring.jpa.properties.hibernate.order_inserts=true
+spring.jpa.properties.hibernate.order_updates=true
+spring.jpa.properties.hibernate.generate_statistics=false
+
+spring.datasource.url=jdbc:postgresql://virtual.uap.edu.bo:5432/bd_a3?\
+reWriteBatchedInserts=true&\
+prepareThreshold=1&\
+preparedStatementCacheQueries=256&\
+preparedStatementCacheSizeMiB=5
+
+spring.datasource.hikari.maximum-pool-size=10
+spring.datasource.hikari.minimum-idle=5
+spring.datasource.hikari.connection-timeout=20000
+spring.datasource.hikari.idle-timeout=300000
+spring.datasource.hikari.max-lifetime=1200000
+
+# Intervalo de polling en milisegundos (20 segundos)
+sync.poll.interval.ms=20000
+# Delay inicial antes del primer poll (15 segundos, para que Spring arranque completo)
+sync.poll.initial.delay.ms=15000
+sync.poll.activo.interval.ms=60000
+sync.poll.cooldown.ms=30000
+
+spring.datasource.username=postgres
+spring.datasource.password=usic2024
+spring.datasource.driverClassName=org.postgresql.Driver
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.properties.hibernate.hbm2ddl.auto=update
+
+logging.level.root=INFO
+logging.level.com.usic.SistemasActivosFijosUAP=INFO
+
+spring.ai.openai.api-key=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
+
+spring.servlet.multipart.max-file-size=256MB
+spring.servlet.multipart.max-request-size=256MB
+
+spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation=
+
+londra.callback.url=http://192.168.20.121/Activos/TransferenciaCallback.aspx
+londra.callback.api-key=UAP-7F3D9C2A-8B61-4E5F-9A2D-3C7F91515DDE45
+
+# ── APP MOVIL (SCIAF Movil) ────────────────────────────────────────────────
+# Clave de firma de los JWT. Debe tener al menos 32 caracteres (HS256).
+# Si se cambia, todas las sesiones moviles quedan invalidadas.
+movil.jwt.secret=SCIAF-MOVIL-2026-CLAVE-HS256-CAMBIAR-EN-PRODUCCION-9f4c2b7e
+movil.jwt.access-token.horas=24
+# Roles autorizados a usar la app movil (separados por coma, en mayusculas).
+movil.roles-permitidos=ADMINISTRADOR,SUPER USUARIO,APOYO
+# Version minima de la app que el servidor acepta (para forzar actualizacion).
+movil.version.minima=1.0.0
+movil.version.actual=1.0.0
+# Origenes permitidos por CORS para /api/movil/** (WebView de Capacitor + dev).
+movil.cors.origenes=https://localhost,http://localhost,capacitor://localhost,ionic://localhost,http://localhost:5173,http://localhost:8100
+
+# ── COMPRESION HTTP ────────────────────────────────────────────────────────
+# Reduce ~70-85% el tamano de las respuestas JSON. Critico para la app movil
+# con conexiones lentas.
+server.compression.enabled=true
+server.compression.mime-types=application/json,application/xml,text/html,text/xml,text/plain,text/css,application/javascript
+server.compression.min-response-size=1024
