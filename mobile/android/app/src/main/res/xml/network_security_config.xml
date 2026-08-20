@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android bloquea el tráfico HTTP sin cifrar desde Android 9.
+
+  Producción usa https://sciaf.uap.edu.bo y no necesita ninguna excepción: la
+  regla por defecto de abajo mantiene el cifrado obligatorio para todo internet.
+
+  Las excepciones son solo para PRUEBAS contra un backend local, y están
+  limitadas a direcciones de red privada. Al pasar a producción se pueden
+  borrar sin tocar nada más.
+-->
+<network-security-config>
+
+    <base-config cleartextTrafficPermitted="false" />
+
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Backend en la PC de desarrollo (misma red que el teléfono) -->
+        <domain includeSubdomains="false">192.168.20.145</domain>
+        <!-- Punto de acceso móvil de Windows, por si el teléfono se conecta ahí -->
+        <domain includeSubdomains="false">192.168.137.1</domain>
+        <!-- Emulador de Android → localhost de la PC anfitriona -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+
+</network-security-config>

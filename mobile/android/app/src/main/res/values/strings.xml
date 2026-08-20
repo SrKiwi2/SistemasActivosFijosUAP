@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SCIAF</string>
+    <string name="title_activity_main">SCIAF</string>
+    <string name="package_name">bo.edu.uap.sciaf</string>
+    <string name="custom_url_scheme">bo.edu.uap.sciaf</string>
+</resources>

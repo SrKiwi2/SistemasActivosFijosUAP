@@ -37,6 +37,7 @@ public class OpcionMenuSeeder {
         { "sec_hojaruta",     "Hojas de Ruta" },
         { "sec_seguimiento",  "Seguimiento y Consultas" },
         { "sec_reportes",     "Reportes y Consultas" },
+        { "sec_movil",        "Aplicación Móvil" },
     };
 
     // { codigo, padreSeccion, descripcion, icono, color }
@@ -54,6 +55,7 @@ public class OpcionMenuSeeder {
         { "grp_historial",     "sec_seguimiento", "Historial",                "ti ti-history",                "blue" },
         { "grp_consulta",      "sec_reportes",    "Consulta de Activos",      "ti ti-zoom-scan",              "blue" },
         { "grp_conciliacion",  "sec_reportes",    "Conciliación VSIAF",       "ti ti-git-compare",            "blue" },
+        { "grp_movil",         "sec_movil",       "SCIAF Móvil",              "ti ti-device-mobile",          "blue" },
     };
 
     // { codigo, padreGrupo, descripcion, icono, color, url, rutaBase, badge }
@@ -114,6 +116,18 @@ public class OpcionMenuSeeder {
      */
     private static final String[][] PERMISOS = {
         { "opcion_activo_editar_codigo", "grp_adminactivos", "Editar código de activo (urgente)", "ti ti-barcode-off", "red" },
+
+        // Permisos de la app móvil (SCIAF Móvil). Se administran desde la misma
+        // pantalla de permisos por usuario que el resto: no hay un sistema de
+        // permisos aparte para el móvil.
+        { "MOV_ACCESO",             "grp_movil", "Móvil · Ingresar a la aplicación",   "ti ti-device-mobile",   "blue"  },
+        { "MOV_ESCANER",            "grp_movil", "Móvil · Escanear y consultar",       "ti ti-qrcode",          "blue"  },
+        { "MOV_BUSQUEDA",           "grp_movil", "Móvil · Buscar y explorar",          "ti ti-search",          "cyan"  },
+        { "MOV_INFORME",            "grp_movil", "Móvil · Emitir informes",            "ti ti-file-text",       "teal"  },
+        { "MOV_INVENTARIO",         "grp_movil", "Móvil · Toma de inventario",         "ti ti-clipboard-check", "green" },
+        { "MOV_ASIGNACIONES",       "grp_movil", "Móvil · Ver asignaciones",           "ti ti-clipboard-list",  "blue"  },
+        { "MOV_ASIGNACIONES_SUBIR", "grp_movil", "Móvil · Subir asignaciones al VSIAF", "ti ti-cloud-upload",   "red"   },
+        { "MOV_NOTIFICACIONES",     "grp_movil", "Móvil · Notificaciones del sistema", "ti ti-bell",            "amber" },
     };
 
     @Bean

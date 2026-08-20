@@ -5,7 +5,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IAsignacionActivoDao;
+import com.usic.SistemasActivosFijosUAP.model.dto.ResumenAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 
@@ -52,6 +55,14 @@ public class AsignacionActivoServiceImpl implements IAsignacionActivoService {
     @Override
     public List<Activo> listarPendientesSinAsignacion() {
         return dao.listarPendientesSinAsignacion();
+    }
+
+    @Override
+    public Map<Long, ResumenAsignacionDTO> resumenPorAsignacion(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return Map.of();
+        return dao.resumenPorAsignacion(ids).stream()
+                .map(ResumenAsignacionDTO::desdeFila)
+                .collect(Collectors.toMap(ResumenAsignacionDTO::getIdAsignacionActivo, r -> r));
     }
 
     @Override

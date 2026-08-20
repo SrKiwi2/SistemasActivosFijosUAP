@@ -24,10 +24,22 @@ public class UsuarioAutenticadoInterceptor implements HandlerInterceptor{
         if (handler instanceof HandlerMethod handlerMethod) {
             ValidarUsuarioAutenticado anotacion = handlerMethod.getMethodAnnotation(ValidarUsuarioAutenticado.class);
             if (anotacion != null) {
-                HttpSession session = request.getSession();
 
-                if (session.getAttribute("persona") == null) {
-                    response.sendRedirect("/form-login");
+                // getSession(false): NO crear sesión acá.
+                //
+                // Con getSession() se creaba una sesión vacía solo para comprobar que
+                // no tenía "persona" y redirigir — un desperdicio, y sobre todo un
+                // error cuando este preHandle corre en un despacho a /error (una
+                // petición que ya falló): ahí la respuesta puede estar comprometida y
+                // crear la sesión lanza IllegalStateException, que tapa el error real
+                // con "Cannot create a session after the response has been committed".
+                HttpSession session = request.getSession(false);
+
+                if (session == null || session.getAttribute("persona") == null) {
+                    // Si la respuesta ya salió no hay nada que redirigir: solo se corta.
+                    if (!response.isCommitted()) {
+                        response.sendRedirect("/form-login");
+                    }
                     return false;
                 }
             }

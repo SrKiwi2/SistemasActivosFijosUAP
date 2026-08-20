@@ -1,10 +1,13 @@
 package com.usic.SistemasActivosFijosUAP.controller.Seguimieto;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -24,10 +27,14 @@ import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IConfiguracionGestionService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
+import com.usic.SistemasActivosFijosUAP.model.dto.ResumenAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.config.Encriptar;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -101,17 +108,40 @@ public class CAsignacionActivoController {
                 .ifPresent(id -> carpetasPorGestion.put(g, id));
         }
 
-        // 5. Enviar los datos a la vista
+        // 5. Totales por asignación (costo y avance hacia el VSIAF), en una sola consulta.
+        Map<Long, ResumenAsignacionDTO> resumenes = asignacionActivoService.resumenPorAsignacion(
+            asignaciones.stream().map(AsignacionActivo::getIdAsignacionActivo).toList());
+
+        // 6. Enviar los datos a la vista
         model.addAttribute("asignaciones", asignaciones);
         model.addAttribute("mapaUsuarios", mapaUsuarios);
         model.addAttribute("carpetasPorGestion", carpetasPorGestion);
+        model.addAttribute("resumenes", resumenes);
 
         return "/seguimiento/asignacion/tabla_registro";
     }
 
+    /** Roles que pueden corregir un activo ya registrado (mismo criterio que el endpoint que lo aplica). */
+    private static final Set<String> ROLES_EDICION = Set.of("ADMINISTRADOR", "SUPER USUARIO");
+
+    /**
+     * Id cifrado del activo, para usarlo desde el navegador. Si el cifrado falla se
+     * devuelve null: la fila se muestra igual, solo pierde el botón de corregir.
+     */
+    private String cifrarId(Activo activo) {
+        if (activo == null || activo.getIdActivo() == null) return null;
+        try {
+            return Encriptar.encrypt(String.valueOf(activo.getIdActivo()));
+        } catch (Exception e) {
+            log.warn("[ASIGNACION-DETALLE] No se pudo cifrar el id del activo {}: {}",
+                     activo.getIdActivo(), e.getMessage());
+            return null;
+        }
+    }
+
     @GetMapping("/asignaciones/{id}/detalles-json")
     @ResponseBody
-    public ResponseEntity<?> obtenerDetallesAsignacionJson(@PathVariable Long id) {
+    public ResponseEntity<?> obtenerDetallesAsignacionJson(@PathVariable Long id, HttpServletRequest httpReq) {
         try {
             Optional<AsignacionActivo> asigOpt = asignacionActivoService.findByIdConDetalles(id);
 
@@ -171,10 +201,69 @@ public class CAsignacionActivoController {
                         ? activo.getFechaAdquisicion().toString()   // ISO: "2023-04-15"
                         : "—");
 
+                // Responsable actual del activo
+                map.put("responsable",
+                    activo != null && activo.getResponsable() != null
+                        && activo.getResponsable().getPersona() != null
+                        ? activo.getResponsable().getPersona().getNombreCompleto()
+                        : "—");
+
+                // Grupo contable
+                map.put("grupoContable",
+                    activo != null && activo.getGrupoContable() != null
+                        ? activo.getGrupoContable().getNombre()
+                        : "—");
+
+                // Costo: el snapshot es lo que se registró en el acta; el del activo es
+                // el de hoy. Se mandan los dos para poder avisar cuando divergen (el
+                // activo se editó después de asignarlo).
+                BigDecimal costoSnap = d.getCostoActivoSnapshot();
+                BigDecimal costoHoy  = (activo != null && activo.getCosto() != null)
+                    ? BigDecimal.valueOf(activo.getCosto()) : null;
+                map.put("costo",       costoSnap != null ? costoSnap : costoHoy);
+                map.put("costoActual", costoHoy);
+
+                // Estado de SINCRONIZACIÓN (no confundir con estadoActivo, que es la
+                // condición física del bien: BUENO / MALO / …).
+                String estadoReg = activo != null && activo.getEstado() != null
+                    ? activo.getEstado().toUpperCase() : "—";
+                map.put("estadoRegistro", estadoReg);
+
+                // Id cifrado para poder abrir la corrección desde esta pantalla.
+                map.put("idEnc", cifrarId(activo));
+                // Cancelados y bajas no se corrigen desde acá.
+                map.put("editable", "ACTIVO".equals(estadoReg) || "PENDIENTE".equals(estadoReg));
+
                 return map;
             }).toList();
 
-            return ResponseEntity.ok(listaDetalles);
+            // Totales del acta, para las tarjetas de resumen del modal.
+            Map<String, Object> resumen = new LinkedHashMap<>();
+            resumen.put("total", listaDetalles.size());
+            resumen.put("subidos", listaDetalles.stream()
+                .filter(m -> "ACTIVO".equals(m.get("estadoRegistro"))).count());
+            resumen.put("pendientes", listaDetalles.stream()
+                .filter(m -> "PENDIENTE".equals(m.get("estadoRegistro"))).count());
+            resumen.put("sinCosto", listaDetalles.stream()
+                .filter(m -> m.get("costo") == null).count());
+            resumen.put("costoTotal", listaDetalles.stream()
+                .map(m -> (BigDecimal) m.get("costo"))
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP));
+
+            // El botón de corregir se dibuja solo para quien puede usarlo. La barrera
+            // real está en el endpoint que aplica el cambio; esto es solo la interfaz.
+            Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
+            boolean puedeEditar = usuario != null && usuario.getRol() != null
+                && usuario.getRol().getNombre() != null
+                && ROLES_EDICION.contains(usuario.getRol().getNombre().trim().toUpperCase());
+
+            return ResponseEntity.ok(Map.of(
+                "ok", true,
+                "puedeEditar", puedeEditar,
+                "detalles", listaDetalles,
+                "resumen", resumen));
 
         } catch (Exception e) {
             log.error("[ASIGNACION-DETALLE] Error cargando detalles id={}: {}", id, e.getMessage());

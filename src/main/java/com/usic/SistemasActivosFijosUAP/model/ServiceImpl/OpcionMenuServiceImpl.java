@@ -48,6 +48,20 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         "opcion_historialA", "opcion_consulta_activo"
     );
 
+    /**
+     * Permisos de la app móvil que APOYO tiene por defecto.
+     *
+     * APOYO es el rol de campo: consulta, emite informes y levanta inventario,
+     * pero no modifica el maestro de activos ni recibe el flujo de auditoría.
+     * Quedan fuera a propósito {@code MOV_ASIGNACIONES_SUBIR} (escribe al VSIAF)
+     * y {@code MOV_NOTIFICACIONES}. Un ADMINISTRADOR puede otorgarlos
+     * individualmente desde la pantalla de permisos.
+     */
+    private static final Set<String> CODIGOS_MOVIL_APOYO = Set.of(
+        "MOV_ACCESO", "MOV_ESCANER", "MOV_BUSQUEDA",
+        "MOV_INFORME", "MOV_INVENTARIO", "MOV_ASIGNACIONES"
+    );
+
     /** Opciones que ve RESPONSABLE por defecto (módulo de comunicados). */
     private static final Set<String> CODIGOS_RESPONSABLE = Set.of(
         "opcion_comunicados"
@@ -139,9 +153,10 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
                         .collect(Collectors.toCollection(HashSet::new));
 
             case "APOYO":
-                // Solo lo de consulta/seguimiento/reportes que realmente existe en el catálogo.
+                // Consulta/seguimiento/reportes de la web + lo que le corresponde
+                // en la app móvil.
                 return todos.stream()
-                        .filter(CODIGOS_CONSULTA::contains)
+                        .filter(c -> CODIGOS_CONSULTA.contains(c) || CODIGOS_MOVIL_APOYO.contains(c))
                         .collect(Collectors.toCollection(HashSet::new));
 
             case "RESPONSABLE":

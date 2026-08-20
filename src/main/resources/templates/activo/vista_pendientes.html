@@ -67,12 +67,165 @@
     /* ============================== */
     /* BARRA MASIVA FLOTANTE          */
     /* ============================== */
-    #barraMasiva {
+    /* ============================== */
+    /* BARRA DE FILTRO (siempre fija) */
+    /* ============================== */
+    #barraFiltro {
         position: sticky;
-        top: 10px;
-        z-index: 1020;
+        /* El navbar es fijo (layout-navbar-fixed): la barra frena JUSTO debajo de él.
+           El valor exacto lo mide el JS (ajustarAnclajes); el fallback cubre la altura
+           estándar por si el navbar no estuviera. */
+        top: var(--barra-masiva-top, 5.1rem);
+        /* Por debajo del navbar (.layout-navbar tiene z-index:2) para no tapar sus
+           desplegables: tema, notificaciones y perfil abren hacia abajo. Con 1 sigue
+           flotando sobre el contenido, que no está posicionado. */
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        background: #fff;
+        border: 1px solid #e7e9ec;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(67, 89, 113, 0.08);
+        padding: 0.6rem 0.8rem;
+        margin-bottom: 1rem;
+    }
+
+    .filtro-input-wrap {
+        position: relative;
+        flex: 1 1 260px;
+        min-width: 200px;
+        display: flex;
+        align-items: center;
+    }
+
+    .filtro-input-wrap > .fa-magnifying-glass {
+        position: absolute;
+        left: 0.7rem;
+        color: #a1acb8;
+        font-size: 0.8rem;
+        pointer-events: none;
+    }
+
+    #filtroPendientes {
+        width: 100%;
+        border: 1px solid #d9dee3;
+        border-radius: 8px;
+        padding: 0.42rem 2rem 0.42rem 2rem;
+        font-size: 0.85rem;
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    #filtroPendientes:focus {
+        border-color: #696cff;
+        box-shadow: 0 0 0 3px rgba(105, 108, 255, 0.12);
+    }
+
+    /* El navegador ya dibuja una X en input[type=search]; se oculta para usar la propia. */
+    #filtroPendientes::-webkit-search-cancel-button { display: none; }
+
+    #filtroLimpiar {
+        position: absolute;
+        right: 0.45rem;
         border: none;
-        box-shadow: 0 6px 20px rgba(105, 108, 255, 0.35);
+        background: transparent;
+        color: #a1acb8;
+        font-size: 0.8rem;
+        cursor: pointer;
+        padding: 0.2rem 0.3rem;
+        line-height: 1;
+        border-radius: 4px;
+    }
+
+    #filtroLimpiar:hover { color: #566a7f; background: #f1f2f4; }
+
+    .filtro-chips {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+    }
+
+    .filtro-chip {
+        font-size: 0.72rem;
+        font-weight: 700;
+        border-radius: 999px;
+        padding: 0.32rem 0.75rem;
+        border: 1px solid #d9dee3;
+        background: #fff;
+        color: #697a8d;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.15s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .filtro-chip:hover { border-color: #b9c0c8; background: #f8f9fb; }
+
+    .filtro-chip.is-activo {
+        background: #696cff;
+        border-color: #696cff;
+        color: #fff;
+        box-shadow: 0 2px 6px rgba(105, 108, 255, 0.3);
+    }
+
+    .filtro-chip .chip-num {
+        font-size: 0.65rem;
+        opacity: 0.85;
+        font-variant-numeric: tabular-nums;
+    }
+
+    #filtroContador {
+        font-size: 0.72rem;
+        color: #8592a3;
+        margin-left: auto;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+
+    #filtroSinResultados {
+        text-align: center;
+        padding: 2.5rem 1rem;
+        color: #8592a3;
+    }
+
+    /* Grupo escondido por el filtro. Las filas ya no se ocultan: cuando una coincide
+       se muestra su asignación completa y se resalta la fila encontrada. */
+    .grupo-oculto { display: none !important; }
+
+    /* Fila que coincide con la búsqueda, dentro de su asignación */
+    .sub-table tbody tr.fila-coincide {
+        background: #fff8e1 !important;
+        box-shadow: inset 3px 0 0 #ffab00;
+    }
+    .sub-table tbody tr.fila-coincide .sub-code { color: #b7791f !important; }
+
+    @media (max-width: 768px) {
+        #barraFiltro { padding: 0.5rem 0.6rem; }
+        #filtroContador { margin-left: 0; width: 100%; }
+        .filtro-chip { font-size: 0.68rem; padding: 0.28rem 0.6rem; }
+    }
+
+    /* ============================== */
+    /* DOCK DE ACCIONES (fijo abajo)  */
+    /* ============================== */
+    #barraMasiva {
+        /* Fijo al viewport y anclado sobre el área de contenido (no sobre el sidebar):
+           el JS mide #contenido y escribe --dock-left / --dock-width. Antes era sticky
+           y quedaba fuera de alcance al bajar en listas largas. */
+        position: fixed;
+        bottom: 1rem;
+        left: var(--dock-left, 1.5rem);
+        width: var(--dock-width, calc(100% - 3rem));
+        /* Sobre el contenido, pero por debajo del backdrop de los modales (1050). */
+        z-index: 1030;
+        border: none;
+        /* La sombra va hacia arriba: el dock está apoyado abajo. */
+        box-shadow: 0 -6px 20px rgba(105, 108, 255, 0.28);
         border-radius: 12px;
         background: linear-gradient(90deg, #696cff 0%, #7b7eff 100%);
         color: white;
@@ -89,6 +242,23 @@
         align-items: center;
         gap: 0.6rem;
     }
+
+    /* Aviso: hay activos marcados que el filtro dejó fuera de la vista. */
+    #barraOcultos {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        background: rgba(255, 255, 255, 0.22);
+        border-radius: 6px;
+        padding: 0.25rem 0.55rem;
+        white-space: nowrap;
+        cursor: help;
+    }
+
+    /* Espacio para que el dock no tape las últimas filas de la lista. */
+    #tablaRegistro.con-dock { padding-bottom: 6rem; }
 
     #barraMasiva .barra-counter-icon {
         width: 34px;
@@ -392,6 +562,11 @@
             <div class="fw-bold" id="lblContador" style="font-size:0.95rem;">0 seleccionados</div>
             <div style="font-size:0.7rem; opacity:0.8;">activos marcados</div>
         </div>
+        <span id="barraOcultos" class="d-none"
+            title="Hay activos marcados que el filtro actual no está mostrando. Se procesarán igual.">
+            <i class="fa-solid fa-eye-slash"></i>
+            <span id="lblOcultos">0 fuera del filtro</span>
+        </span>
     </div>
 
     <div class="barra-acciones">
@@ -429,9 +604,54 @@
 </div>
 
 <!-- ================================================ -->
+<!-- BARRA DE FILTRO (fija bajo el navbar, siempre visible) -->
+<!-- ================================================ -->
+<div id="barraFiltro">
+    <div class="filtro-input-wrap">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input id="filtroPendientes" type="search" autocomplete="off"
+            placeholder="Buscar por código, descripción, responsable u oficina…"
+            aria-label="Buscar activos pendientes">
+        <button type="button" id="filtroLimpiar" class="d-none" title="Limpiar búsqueda"
+            aria-label="Limpiar búsqueda">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <div class="filtro-chips" role="group" aria-label="Filtros rápidos">
+        <button type="button" class="filtro-chip is-activo" data-chip="todos">
+            Todos <span class="chip-num" data-num="todos"></span>
+        </button>
+        <button type="button" class="filtro-chip" data-chip="incompletos"
+            title="Les falta algún dato obligatorio para subir al VSIAF">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            Incompletos <span class="chip-num" data-num="incompletos"></span>
+        </button>
+        <button type="button" class="filtro-chip" data-chip="listos"
+            title="Completos, listos para subir al VSIAF">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            Listos <span class="chip-num" data-num="listos"></span>
+        </button>
+        <button type="button" class="filtro-chip" data-chip="sincosto"
+            title="Todavía no tienen costo cargado">
+            <i class="fa-solid fa-coins"></i>
+            Sin costo <span class="chip-num" data-num="sincosto"></span>
+        </button>
+    </div>
+
+    <div id="filtroContador"></div>
+</div>
+
+<!-- ================================================ -->
 <!-- CONTENEDOR DINÁMICO DE LA TABLA                  -->
 <!-- ================================================ -->
 <div id="tablaRegistro"></div>
+
+<div id="filtroSinResultados" class="d-none">
+    <i class="fa-solid fa-magnifying-glass fa-2x mb-3 d-block" style="opacity:.35;"></i>
+    <div class="fw-bold mb-1">Ningún activo coincide con el filtro</div>
+    <div style="font-size:.85rem;">Probá con otro texto o volvé a <b>Todos</b>.</div>
+</div>
 
 
 <!-- ================================================ -->
@@ -945,16 +1165,223 @@
         let _ignoreSseUntil = 0;
         let _sseReloadTimer = null;
 
+        // ── Saneamiento del scroll al cerrar modales ──────────────────────────
+        // Bootstrap 5 bloquea el scroll con estilos INLINE en <body>
+        // (overflow:hidden + padding-right), no solo con la clase .modal-open.
+        // Si un modal se cierra mientras otro se abre, o si sobre el mismo elemento
+        // se creó más de una instancia, esos estilos quedan pegados y la página
+        // deja de desplazarse. Esto los devuelve a su lugar, pero SOLO cuando ya no
+        // queda ningún modal abierto, para no romper el que siga visible.
+        // El caso que rompe: "Detallar" abre un modal ENCIMA del de Agregar.
+        // Bootstrap 5 no soporta modales apilados — al cerrarse el de arriba guarda
+        // overflow:hidden como si fuera el valor original de la página, y al cerrarse
+        // el de abajo lo "restaura"... a hidden. Resultado: la página no scrollea más.
+        function sanearScrollModales() {
+            if (document.querySelector('.modal.show')) {
+                // Queda uno abierto (apilado): se vuelve a poner el bloqueo que
+                // Bootstrap acaba de soltar de más.
+                document.body.classList.add('modal-open');
+                document.body.style.overflow = 'hidden';
+                return;
+            }
+            document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+        }
+        window.sanearScrollModales = sanearScrollModales;
+
+        // Ancla las dos barras al layout real: la de filtro justo debajo del navbar fijo,
+        // y el dock sobre el área de contenido (no sobre el sidebar). Se recalcula al
+        // redimensionar y al plegar el menú, que cambian ambas medidas.
+        function ajustarAnclajes() {
+            const raiz = document.documentElement;
+
+            const nav = document.getElementById('layout-navbar');
+            if (nav) {
+                const abajo = nav.getBoundingClientRect().bottom;
+                if (abajo > 0) raiz.style.setProperty('--barra-masiva-top', (abajo + 8) + 'px');
+            }
+
+            const cont = document.getElementById('contenido');
+            if (cont) {
+                const r = cont.getBoundingClientRect();
+                if (r.width > 0) {
+                    raiz.style.setProperty('--dock-left', r.left + 'px');
+                    raiz.style.setProperty('--dock-width', r.width + 'px');
+                }
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // FILTRO DE LA LISTA (en el navegador: son decenas de registros,
+        // no hace falta ir al servidor)
+        // ══════════════════════════════════════════════════════════════
+        let _chipActivo = 'todos';
+
+        const normalizarBusqueda = t => window.SciafCatalogos.normalizarTexto(t);
+
+        /** Arma y cachea el texto buscable de cada fila (código, descripción, responsable, oficina). */
+        function indexarFilas() {
+            $('#tablaRegistro .sub-table tbody tr').each(function () {
+                const $tr = $(this);
+                if ($tr.data('buscar') !== undefined) return;   // ya indexada
+
+                const $chk = $tr.find('.chk-item');
+                const partes = [
+                    $chk.data('codigo'),
+                    $chk.data('desc'),
+                    $tr.find('td').eq(6).text(),   // responsable
+                    $tr.find('td').eq(7).text()    // oficina
+                ];
+                $tr.data('buscar', normalizarBusqueda(partes.join(' ')));
+                $tr.data('completo', String($chk.data('completo')) === 'true');
+                $tr.data('sincosto', $tr.find('.costo-falta').length > 0);
+                $tr.data('pendiente', String($chk.data('estado')).toUpperCase() === 'PENDIENTE');
+            });
+        }
+
+        function filaPasaChip($tr, chip) {
+            switch (chip) {
+                case 'incompletos': return $tr.data('pendiente') && !$tr.data('completo');
+                case 'listos':      return $tr.data('pendiente') && $tr.data('completo');
+                case 'sincosto':    return $tr.data('sincosto') === true;
+                default:            return true;
+            }
+        }
+
+        /**
+         * Filtra por ASIGNACIÓN, no por fila.
+         *
+         * Buscar un código y ver esa sola fila suelta no sirve: se pierde el acta a la
+         * que pertenece y no se puede trabajar con el grupo (editar en lote, asignar
+         * documento, subir junto). Así que el que coincide "trae" a su asignación
+         * entera — con todos sus activos y sus datos — y la coincidencia se resalta.
+         */
+        function aplicarFiltroPendientes() {
+            indexarFilas();
+
+            const q = normalizarBusqueda($('#filtroPendientes').val());
+            const hayFiltro = q !== '' || _chipActivo !== 'todos';
+
+            let coincidencias = 0, gruposVisibles = 0, totalFilas = 0, totalGrupos = 0;
+
+            $('#tablaRegistro .asignacion-card, #tablaRegistro .sin-asig-section').each(function () {
+                const $card = $(this);
+                const $filas = $card.find('.sub-table tbody tr');
+                totalGrupos++;
+
+                let coincideEnGrupo = 0;
+
+                $filas.each(function () {
+                    const $tr = $(this);
+                    totalFilas++;
+                    const coincide = (!q || String($tr.data('buscar')).includes(q))
+                                  && filaPasaChip($tr, _chipActivo);
+                    // La fila NUNCA se oculta: solo se marca. El grupo se muestra completo.
+                    $tr.toggleClass('fila-coincide', hayFiltro && coincide);
+                    if (coincide) coincideEnGrupo++;
+                });
+
+                coincidencias += coincideEnGrupo;
+                const mostrar = !hayFiltro || coincideEnGrupo > 0;
+                $card.toggleClass('grupo-oculto', !mostrar);
+                if (mostrar) {
+                    gruposVisibles++;
+                    // Si estaba plegado hay que abrirlo, o el activo encontrado no se ve
+                    // y la búsqueda parece no haber hecho nada.
+                    if (hayFiltro) $card.addClass('is-expanded');
+                }
+            });
+
+            // Contadores de los chips: cuántos activos coincidirían con cada uno,
+            // combinado con el texto que ya está escrito.
+            ['todos', 'incompletos', 'listos', 'sincosto'].forEach(chip => {
+                const n = $('#tablaRegistro .sub-table tbody tr').filter(function () {
+                    const $tr = $(this);
+                    return (!q || String($tr.data('buscar')).includes(q)) && filaPasaChip($tr, chip);
+                }).length;
+                $(`.chip-num[data-num="${chip}"]`).text(n === 0 ? '' : n);
+            });
+
+            $('#filtroContador').text(
+                hayFiltro
+                    ? `${coincidencias} coincidencia${coincidencias !== 1 ? 's' : ''} · ${gruposVisibles} de ${totalGrupos} asignaciones`
+                    : `${totalFilas} activo${totalFilas !== 1 ? 's' : ''} en ${totalGrupos} asignacion${totalGrupos !== 1 ? 'es' : ''}`);
+
+            $('#filtroSinResultados').toggleClass('d-none', !(hayFiltro && coincidencias === 0));
+            $('#filtroLimpiar').toggleClass('d-none', $('#filtroPendientes').val() === '');
+
+            actualizarBarra();
+        }
+
         $(document).ready(function () {
+            ajustarAnclajes();
+            // .off() antes de .on(): esta pantalla se inyecta por AJAX en #contenido, así
+            // que el script se ejecuta de nuevo cada vez que se entra. Sin quitar el
+            // handler anterior se van acumulando uno por visita (los handlers atados a
+            // elementos de la propia página no sufren esto: el elemento se recrea).
+            $(window).off('resize.pendientes').on('resize.pendientes', ajustarAnclajes);
+            // Plegar/desplegar el menú cambia el ancho del contenido, y no dispara resize.
+            $(document).off('click.pendientes').on('click.pendientes', '.layout-menu-toggle', function () {
+                setTimeout(ajustarAnclajes, 350);
+            });
+
+            // ── Filtro ──
+            let _debFiltro = null;
+            $('#filtroPendientes').on('input', function () {
+                clearTimeout(_debFiltro);
+                _debFiltro = setTimeout(aplicarFiltroPendientes, 150);
+            });
+
+            $('#filtroLimpiar').on('click', function () {
+                $('#filtroPendientes').val('').trigger('focus');
+                aplicarFiltroPendientes();
+            });
+
+            $('.filtro-chip').on('click', function () {
+                const chip = $(this).data('chip');
+                // Volver a tocar el chip activo lo apaga (equivale a "Todos").
+                _chipActivo = (_chipActivo === chip) ? 'todos' : chip;
+                $('.filtro-chip').removeClass('is-activo')
+                    .filter(`[data-chip="${_chipActivo}"]`).addClass('is-activo');
+                aplicarFiltroPendientes();
+            });
+
+            // Esc limpia la búsqueda sin sacar el foco del campo.
+            $('#filtroPendientes').on('keydown', function (e) {
+                if (e.key === 'Escape' && this.value !== '') {
+                    e.stopPropagation();
+                    this.value = '';
+                    aplicarFiltroPendientes();
+                }
+            });
+
+            // El buscador del topbar delega acá cuando esta pantalla está abierta.
+            if (typeof window.registrarBuscadorModulo === 'function') {
+                window.registrarBuscadorModulo('Activos Pendientes', function (q) {
+                    $('#filtroPendientes').val(q);
+                    aplicarFiltroPendientes();
+                    document.getElementById('barraFiltro')
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                });
+            }
+
             cargarTabla();
             iniciarSsePendientes();
-            // ── Limpieza robusta del modal de edición ──
+
+            // Un solo handler para todos los modales de la página. El retardo deja
+            // que Bootstrap termine de desmontar el backdrop antes de revisar.
+            $(document).off('hidden.bs.modal.pend')
+                       .on('hidden.bs.modal.pend', '.modal', function () {
+                setTimeout(sanearScrollModales, 200);
+            });
+
+            // El modal de edición además tiene que soltar sus Select2.
             $('#modalEditarPendientes').on('hidden.bs.modal', function () {
                 $('#modalEditarPendientes .ep-select2').each(function () {
                     if ($(this).data('select2')) $(this).select2('destroy');
                 });
-                $('.modal-backdrop').remove();
-                $('body').removeClass('modal-open');
             });
         });
 
@@ -971,6 +1398,10 @@
                 success: function (html) {
                     $('#tablaRegistro').html(html);
                     initLogicaMasiva();
+                    // La tabla vuelve completa: hay que reindexar y reaplicar el filtro
+                    // vigente, si no el texto del buscador quedaría mintiendo.
+                    aplicarFiltroPendientes();
+                    ajustarAnclajes();
                 },
                 error: function () {
                     $('#tablaRegistro').html(
@@ -1029,7 +1460,7 @@
 
                 if (e.shiftKey && _anclaSeleccion[anclaKey]) {
                     const nuevoEstado = this.checked; // estado tras el clic
-                    const $todos = $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`);
+                    const $todos = chkGrupo(grupo);
                     const arrayItems = $todos.toArray();
                     const idxActual = arrayItems.indexOf(this);
                     const idxAncla = arrayItems.indexOf(_anclaSeleccion[anclaKey]);
@@ -1042,7 +1473,7 @@
                         actualizarBarra();
                         // Sincronizar checkboxes de cabecera
                         const total = $todos.length;
-                        const marcados = $(`.chk-item[data-grupo="${grupo}"]:checked`).length;
+                        const marcados = chkGrupo(grupo).filter(':checked').length;
                         const todosMarcados = total > 0 && total === marcados;
                         $(`.chk-grupo[data-grupo="${grupo}"]`).prop('checked', todosMarcados);
                         $(`.chk-grupo-all[data-grupo="${grupo}"]`).prop('checked', todosMarcados);
@@ -1060,7 +1491,7 @@
                 const descRef = normalizeDesc($(this).data('desc'));
 
                 let contadorSeleccionados = 0;
-                $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).each(function () {
+                chkGrupo(grupo).each(function () {
                     if (normalizeDesc($(this).data('desc')) === descRef) {
                         $(this).prop('checked', true);
                         contadorSeleccionados++;
@@ -1070,8 +1501,8 @@
                 actualizarBarra();
 
                 // Sincronizar checkboxes de cabecera
-                const total = $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).length;
-                const marcados = $(`.chk-item[data-grupo="${grupo}"]:checked`).length;
+                const total = chkGrupo(grupo).length;
+                const marcados = chkGrupo(grupo).filter(':checked').length;
                 const todosMarcados = total > 0 && total === marcados;
                 $(`.chk-grupo[data-grupo="${grupo}"]`).prop('checked', todosMarcados);
                 $(`.chk-grupo-all[data-grupo="${grupo}"]`).prop('checked', todosMarcados);
@@ -1081,6 +1512,14 @@
                     title: `${contadorSeleccionados} activo${contadorSeleccionados !== 1 ? 's' : ''} con la misma descripción seleccionados`,
                     showConfirmButton: false, timer: 2200
                 });
+            });
+        }
+
+        // Casillas seleccionables de un grupo. Excluye las filas que el filtro dejó
+        // fuera: marcar "todos" no debe alcanzar lo que no se está viendo.
+        function chkGrupo(grupo) {
+            return $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).filter(function () {
+                return !$(this).closest('.asignacion-card, .sin-asig-section').hasClass('grupo-oculto');
             });
         }
 
@@ -1099,7 +1538,7 @@
             // Checkbox "todos" de un grupo (el de la cabecera interna de la sub-tabla)
             $('body').off('change', '.chk-grupo-all').on('change', '.chk-grupo-all', function () {
                 const grupo = $(this).data('grupo');
-                $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).prop('checked', $(this).is(':checked'));
+                chkGrupo(grupo).prop('checked', $(this).is(':checked'));
                 actualizarBarra();
             });
 
@@ -1107,7 +1546,7 @@
             $('body').off('change', '.chk-grupo').on('change', '.chk-grupo', function () {
                 const grupo = $(this).data('grupo');
                 const checked = $(this).is(':checked');
-                $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).prop('checked', checked);
+                chkGrupo(grupo).prop('checked', checked);
                 $(`.chk-grupo-all[data-grupo="${grupo}"]`).prop('checked', checked);
                 actualizarBarra();
             });
@@ -1116,8 +1555,8 @@
             $('body').off('change', '.chk-item').on('change', '.chk-item', function () {
                 actualizarBarra();
                 const grupo = $(this).data('grupo');
-                const total = $(`.chk-item[data-grupo="${grupo}"]:not(:disabled)`).length;
-                const checked = $(`.chk-item[data-grupo="${grupo}"]:checked`).length;
+                const total = chkGrupo(grupo).length;
+                const checked = chkGrupo(grupo).filter(':checked').length;
                 $(`.chk-grupo[data-grupo="${grupo}"]`).prop('checked', total > 0 && total === checked);
                 $(`.chk-grupo-all[data-grupo="${grupo}"]`).prop('checked', total > 0 && total === checked);
             });
@@ -1194,13 +1633,26 @@
         }
 
         function actualizarBarra() {
-            const total = $('.chk-item:checked').length;
+            const $marcados = $('.chk-item:checked');
+            const total = $marcados.length;
+
             if (total > 0) {
                 $('#lblContador').text(total + (total === 1 ? ' seleccionado' : ' seleccionados'));
                 $('#barraMasiva').removeClass('d-none');
+                $('#tablaRegistro').addClass('con-dock');
             } else {
                 $('#barraMasiva').addClass('d-none');
+                $('#tablaRegistro').removeClass('con-dock');
             }
+
+            // Si quedaron marcados activos de asignaciones que el filtro escondió, se
+            // avisa: de otro modo se sube al VSIAF algo que no está a la vista.
+            const ocultos = $marcados.filter(function () {
+                return $(this).closest('.asignacion-card, .sin-asig-section').hasClass('grupo-oculto');
+            }).length;
+
+            $('#lblOcultos').text(ocultos + ' fuera del filtro');
+            $('#barraOcultos').toggleClass('d-none', ocultos === 0);
         }
 
 
@@ -1636,7 +2088,7 @@
             $('#modalDetalleBody').html(
                 '<div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary"></div></div>'
             );
-            const modal = new bootstrap.Modal(document.getElementById('modalDetalleActivo'));
+            const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleActivo'));
             modal.show();
             $('#btnAprobarModal').prop('disabled', true);
 
@@ -1781,7 +2233,7 @@
                 <span class="text-muted">Cargando ${idsEnc.length} activo(s)...</span>
             </div>`
             );
-            new bootstrap.Modal(document.getElementById('modalEditarPendientes')).show();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarPendientes')).show();
 
             try {
                 // ── 1. Cargar activos en paralelo ──────────────────────────────
@@ -1874,7 +2326,8 @@
                     descripcion: esTodoIgual ? (ref.descripcion || '') : '',
                     costo: esTodoIgual ? (ref.costo ?? '') : '',
                     vidaUtil: esTodoIgual ? (ref.vidaUtil ?? '') : '',
-                    fechaAdquisicion: esTodoIgual ? (ref.fechaAdquisicion || '') : ''
+                    fechaAdquisicion: esTodoIgual ? (ref.fechaAdquisicion || '') : '',
+                    accesorios: estadoAccesoriosLote(activos.map(a => a.datos.descripcion || ''))
                 };
 
                 // ── 6. Renderizar formulario con TODOS los datos ya cargados ──
@@ -1898,6 +2351,9 @@
                 );
             }
         }
+
+        // Los helpers de etiqueta, código de grupo y marca de accesorios viven en
+        // /assets/js/sciaf-catalogos.js (compartidos con la vista de Asignaciones).
 
         // ── Helper: normaliza cualquier respuesta a array ──────────────────────
         function toArray(res) {
@@ -1968,21 +2424,22 @@
             const { municipios } = _EP.catalogos;
 
             const optsGrupo = buildOpts(grupos,
-                'idGrupoContable', g => `${g.nombre}`,
+                'idGrupoContable', g => etiquetaCodigo(codigoGrupoVisible(g), g.nombre),
                 pre.grpId, '— Seleccione grupo —');
             const optsOrg = buildOpts(orgFin,
-                'idOrganismoFinanciero', o => `${o.sigla ? o.sigla + ' - ' : ''}${o.descripcion}`,
+                'idOrganismoFinanciero',
+                o => etiquetaCodigo(o.codOf, `${o.sigla ? o.sigla + ' - ' : ''}${o.descripcion}`),
                 pre.orgFinId, '— Seleccione financiador —');
             const optsMun = buildOpts(municipios,
                 'idMunicipio', 'nombre',
                 pre.munId, '— Seleccione municipio —');
             const optsPred = buildOpts(predios,
                 item => item.id || item.idPredio,
-                item => item.descrip || item.nombre,
+                item => etiquetaCodigo(item.codigo, item.descrip || item.nombre),
                 pre.predId, pre.munId ? '— Seleccione predio —' : '— Seleccione municipio primero —');
             const optsOfi = buildOpts(oficinas,
                 item => item.id || item.idOficina,
-                item => item.nombre,
+                item => etiquetaCodigo(item.codigo ?? item.codOfi, item.nombre),
                 pre.ofiId, pre.predId ? '— Seleccione oficina —' : '— Seleccione predio primero —');
             const optsResp = buildOpts(responsables,
                 'id', 'text',
@@ -2083,8 +2540,25 @@
                         maxlength="1024"
                         placeholder="${!esTodoIgual && !pre.descripcion ? '(distintas — escribe para uniformizar)' : ''}"
                         >${v(pre.descripcion)}</textarea>
-                <div class="text-end">
+                <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                    <div class="form-check form-check-sm mb-0">
+                        <input class="form-check-input" type="checkbox" id="epAccesorios"
+                               ${pre.accesorios === 'todos' ? 'checked' : ''}>
+                        <label class="form-check-label" for="epAccesorios"
+                               style="font-size:0.78rem; cursor:pointer;">
+                            Incluye accesorios
+                            <span class="text-muted">— agrega «${MARCA_ACCESORIOS}» al final</span>
+                            ${pre.accesorios === 'mixto'
+                                ? '<span class="badge bg-secondary ms-1" style="font-size:0.6rem;">algunos ya la tienen</span>'
+                                : ''}
+                        </label>
+                    </div>
                     <small class="text-muted" id="epDescCount">${v(pre.descripcion).length}/1024</small>
+                </div>
+                <div id="epDescAvisoVsiaf" class="d-none mt-1"
+                     style="font-size:0.72rem; color:#a5650a;">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                    El VSIAF guarda solo los primeros <b>250</b> caracteres — lo que pase de ahí se pierde al subir.
                 </div>
             </div>
         </div>`;
@@ -2157,9 +2631,46 @@
         function initCascadasEditPend(pre) {
             const $modal = $('#modalEditarPendientes');
 
+            // ── Descripción: contador, aviso de corte del VSIAF y marca de accesorios ──
+            const $chkAcc = $('#epAccesorios');
+
+            // En lote mixto el check arranca indeterminado: si nadie lo toca, no se cambia nada.
+            _EP.accesoriosMixto = (pre.accesorios === 'mixto');
+            _EP.accesoriosTocado = false;
+            if (_EP.accesoriosMixto) $chkAcc.prop('indeterminate', true);
+
+            function epActualizarContadorDesc() {
+                const len = $('#epDescripcion').val().length;
+                $('#epDescCount').text(len + '/1024');
+                $('#epDescAvisoVsiaf').toggleClass('d-none', len <= 250);
+            }
+
             $('#epDescripcion').off('input.ep').on('input.ep', function () {
-                $('#epDescCount').text($(this).val().length + '/1024');
+                epActualizarContadorDesc();
+                // Si escribe la marca a mano (o la borra), el check sigue al texto.
+                if (!_EP.accesoriosMixto || _EP.accesoriosTocado) {
+                    $chkAcc.prop('checked', tieneAccesorios($(this).val()));
+                }
             });
+
+            $chkAcc.off('change.ep').on('change.ep', function () {
+                _EP.accesoriosTocado = true;
+                $(this).prop('indeterminate', false);
+
+                const $desc = $('#epDescripcion');
+                const texto = $desc.val();
+
+                // Con descripciones distintas el textarea está vacío a propósito: tocarlo
+                // uniformizaría todo el lote. Ahí la marca la aplica el backend, activo por activo.
+                const puedeEditarTexto = texto.trim() !== '';
+                if (puedeEditarTexto) {
+                    $desc.val(this.checked ? ponerAccesorios(texto) : quitarAccesorios(texto));
+                    epActualizarContadorDesc();
+                    epValidarCampos();
+                }
+            });
+
+            epActualizarContadorDesc();
 
             // Municipio → recarga predios
             $('#epMunicipio').off('change.ep').on('change.ep', async function () {
@@ -2178,7 +2689,8 @@
                 try {
                     const lista = toArray(await fetch(`/api/buscar_predios?municipioId=${munId}`).then(r => r.json()));
                     $pred.html('<option value="">— Seleccione predio —</option>');
-                    lista.forEach(p => $pred.append(`<option value="${p.id || p.idPredio}">${p.descrip || p.nombre}</option>`));
+                    lista.forEach(p => $pred.append(
+                        `<option value="${p.id || p.idPredio}">${etiquetaCodigo(p.codigo, p.descrip || p.nombre)}</option>`));
                     $pred.prop('disabled', false);
                 } catch { $pred.html('<option value="">Error al cargar</option>'); }
                 reinitSelectEP($pred, false);
@@ -2200,7 +2712,8 @@
                 try {
                     const lista = toArray(await fetch(`/api/buscar_oficinas?predioId=${predId}`).then(r => r.json()));
                     $ofi.html('<option value="">— Seleccione oficina —</option>');
-                    lista.forEach(o => $ofi.append(`<option value="${o.id || o.idOficina}">${o.nombre}</option>`));
+                    lista.forEach(o => $ofi.append(
+                        `<option value="${o.id || o.idOficina}">${etiquetaCodigo(o.codigo ?? o.codOfi, o.nombre)}</option>`));
                     $ofi.prop('disabled', false);
                 } catch { $ofi.html('<option value="">Error al cargar</option>'); }
                 reinitSelectEP($ofi, false);
@@ -2347,9 +2860,15 @@
                 return;
             }
 
+            // Lote mixto sin tocar el check = "no cambiar la marca" (null).
+            const incluyeAccesorios = (_EP.accesoriosMixto && !_EP.accesoriosTocado)
+                ? null
+                : $('#epAccesorios').is(':checked');
+
             const payload = {
                 activos: _EP.idsEnc.map(idEnc => ({
                     idEnc,
+                    incluyeAccesorios,
                     descripcion: $('#epDescripcion').val().trim() || null,
                     costo: parseFloat($('#epCosto').val()) || null,
                     vidaUtil: parseFloat($('#epVidaUtil').val()) || null,
@@ -2378,7 +2897,7 @@
                     $('#modalEditarPendientes .ep-select2').each(function () {
                         if ($(this).data('select2')) $(this).select2('destroy');
                     });
-                    bootstrap.Modal.getInstance(document.getElementById('modalEditarPendientes')).hide();
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarPendientes')).hide();
                     limpiarSeleccion();
                     Swal.fire({
                         toast: true, position: 'top-end', icon: 'success',
@@ -2447,7 +2966,8 @@
                 $.get('/api/organismos/listar', function (data) {
                     $fin.empty().append('<option value="">Seleccione...</option>');
                     data.forEach(function (o) {
-                        $fin.append('<option value="' + o.idOrganismoFinanciero + '">' + (o.sigla || o.descripcion) + '</option>');
+                        $fin.append('<option value="' + o.idOrganismoFinanciero + '">' +
+                            etiquetaCodigo(o.codOf, o.sigla || o.descripcion) + '</option>');
                     });
                 });
             }
@@ -2480,7 +3000,7 @@
                 $('#modalAgregarActivo .txt-codigo-preview').val('').attr('placeholder', 'Error al cargar datos');
             });
 
-            new bootstrap.Modal(document.getElementById('modalAgregarActivo')).show();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAgregarActivo')).show();
             } catch (e) { console.error('Error al abrir modal:', e); Swal.fire('Error', 'Error al abrir formulario: ' + e.message, 'error'); }
         };
 
@@ -2593,7 +3113,7 @@
                 $tbody.append($tr);
             }
 
-            new bootstrap.Modal(document.getElementById('modalDetalleAgregar')).show();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleAgregar')).show();
         }
 
         $('#btnDetallarAgregar').on('click', abrirDetalleAgregar);
@@ -2675,7 +3195,7 @@
                 data: JSON.stringify(payload),
                 success: function (res) {
                     if (res.ok) {
-                        bootstrap.Modal.getInstance(document.getElementById('modalAgregarActivo')).hide();
+                        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAgregarActivo')).hide();
                         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.msg, showConfirmButton: false, timer: 3000 });
                         cargarTabla();
                     } else {
@@ -2697,8 +3217,7 @@
         $('#modalAgregarActivo').on('hidden.bs.modal', function () {
             if ($('#agregarGrupo').data('select2')) $('#agregarGrupo').select2('destroy');
             if ($('#agregarAuxiliar').data('select2')) $('#agregarAuxiliar').select2('destroy');
-            $('.modal-backdrop').remove();
-            $('body').removeClass('modal-open');
+            // El scroll lo restaura sanearScrollModales (handler global en ready).
         });
 
         // ── Toggle code preview (used from onclick) ──

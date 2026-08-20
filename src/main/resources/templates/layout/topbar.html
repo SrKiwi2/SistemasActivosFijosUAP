@@ -9,14 +9,22 @@
     </div>
 
     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-        <!-- Search -->
-        <div class="navbar-nav align-items-center">
-            <div class="nav-item navbar-search-wrapper mb-0">
-                <a class="nav-item nav-link search-toggler d-flex align-items-center px-0"
-                   href="javascript:void(0);">
-                    <i class="ti ti-search ti-md me-2"></i>
-                    <span class="d-none d-md-inline-block text-muted">Search (Ctrl+/)</span>
-                </a>
+        <!-- Buscador global: opciones del menú + registros de la pantalla actual -->
+        <div class="navbar-nav align-items-center flex-grow-1 d-none d-md-flex">
+            <div class="nav-item navbar-search-wrapper mb-0 position-relative w-100"
+                 style="max-width: 420px;">
+                <div class="d-flex align-items-center">
+                    <i class="ti ti-search ti-md me-2 text-muted"></i>
+                    <input id="buscadorGlobal" type="search" autocomplete="off"
+                           class="form-control border-0 shadow-none bg-transparent px-0"
+                           placeholder="Buscar opción o registro (Ctrl+/)"
+                           aria-label="Buscar" aria-expanded="false" aria-controls="buscadorGlobalPanel">
+                </div>
+                <div id="buscadorGlobalPanel" class="bg-body border rounded shadow d-none"
+                     role="listbox"
+                     style="position:absolute; top:calc(100% + .4rem); left:0; right:0;
+                            min-width:340px; max-height:60vh; overflow-y:auto; z-index:1090;">
+                </div>
             </div>
         </div>
 

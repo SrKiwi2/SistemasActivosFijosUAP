@@ -19,6 +19,9 @@ public class MvcConfig implements WebMvcConfigurer{
         interceptorRegistry.addInterceptor(new UsuarioAutenticadoInterceptor())
             .excludePathPatterns(
                 "/api/eventos/**",
+                // La app móvil no usa HttpSession: se autentica por JWT en su
+                // propia cadena de seguridad (MovilSecurityConfig).
+                "/api/movil/**",
                 "/assets/**",
                 "/css/**",
                 "/js/**"

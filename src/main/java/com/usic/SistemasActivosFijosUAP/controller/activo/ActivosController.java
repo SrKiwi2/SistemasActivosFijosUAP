@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.controller.activo;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -1660,6 +1661,175 @@ public class ActivosController {
         }
     }
 
+    /** Roles autorizados a corregir un activo ya registrado (historial de asignaciones). */
+    private static final Set<String> ROLES_EDICION_REGISTRADA = Set.of("ADMINISTRADOR", "SUPER USUARIO");
+
+    /**
+     * ¿El usuario en sesión puede corregir activos ya registrados?
+     * <p>
+     * La comprobación va acá y no en {@code SeguridadConfig}: en este proyecto casi
+     * todas las rutas están en {@code permitAll()}, así que un matcher por URL no
+     * protegería nada. Ocultar el botón en la vista tampoco: cualquiera puede llamar
+     * al endpoint a mano.
+     */
+    private boolean puedeEditarRegistrado(Usuario usuario) {
+        if (usuario == null || usuario.getRol() == null || usuario.getRol().getNombre() == null) return false;
+        return ROLES_EDICION_REGISTRADA.contains(usuario.getRol().getNombre().trim().toUpperCase());
+    }
+
+    /**
+     * Corrección de un activo <b>ya registrado</b>, desde el historial de asignaciones.
+     * <p>
+     * Se diferencia de {@link #editarPendiente} en tres cosas: exige rol
+     * ADMINISTRADOR / SUPER USUARIO, propaga el cambio al VSIAF cuando el activo ya
+     * está publicado, y deja constancia en {@code historial_activo}.
+     * <p>
+     * El <b>código no se toca</b>: es la llave con la que se ubica el registro en el
+     * DBF. Para cambiarlo existe {@link #modificarCodigoUrgente}, que pide permiso
+     * explícito, contraseña y motivo.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping(value = "/api/editar-registrado/{idEnc}",
+                consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    @Transactional
+    public ResponseEntity<?> editarRegistrado(
+            @PathVariable String idEnc,
+            @RequestBody EditarActivoPendienteRequest req,
+            HttpServletRequest httpReq) {
+
+        Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "msg", "Sesión expirada. Vuelva a iniciar sesión."));
+        }
+        if (!puedeEditarRegistrado(usuario)) {
+            log.warn("[EDITAR-REGISTRADO] '{}' (rol {}) intentó corregir un activo registrado.",
+                    usuario.getUsuario(),
+                    usuario.getRol() != null ? usuario.getRol().getNombre() : "?");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("ok", false,
+                    "msg", "Solo un ADMINISTRADOR o SUPER USUARIO puede corregir un activo ya registrado."));
+        }
+
+        try {
+            Long id = Long.parseLong(Encriptar.decrypt(idEnc));
+            Activo a = activoService.findById(id);
+
+            if (a == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Activo no encontrado."));
+            }
+
+            String estado = a.getEstado() == null ? "" : a.getEstado().toUpperCase();
+            if (!"ACTIVO".equals(estado) && !"PENDIENTE".equals(estado)) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "No se puede editar un activo en estado " + estado + "."));
+            }
+
+            // Foto previa: es lo que se compara para describir el cambio en el historial.
+            String antes = resumenActivo(a);
+            String codigoOriginal = a.getCodigo();   // llave del DBF: no cambia acá
+            boolean estabaPublicado = "ACTIVO".equals(estado);
+
+            aplicarCambios(a, req);
+            a.setFecMod(LocalDate.now());
+            a.setFechaUlt(LocalDate.now());
+            a.setUsuMod(usuario.getUsuario());
+            a.setModificacion(new Date());
+            a.setModificacionIdUsuario(usuario.getIdUsuario());
+            a.setApiEstado(Short.valueOf("3"));   // 3 = modificado, pendiente de reflejar
+            activoService.save(a);
+
+            String despues = resumenActivo(a);
+            registrarHistorialEdicion(a, antes, despues, usuario);
+
+            // Un activo PENDIENTE todavía no existe en el VSIAF: no hay nada que actualizar.
+            if (!estabaPublicado) {
+                return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "NO_APLICA",
+                        "msg", "Cambios guardados. El activo sigue PENDIENTE, así que no se envió nada al VSIAF."));
+            }
+
+            if (a.getOficina() == null || a.getOficina().getPredio() == null
+                    || a.getOficina().getPredio().getEntidad() == null) {
+                log.warn("[EDITAR-REGISTRADO] Activo {} sin datos de oficina/predio/entidad: no se encoló el UPDATE.",
+                        codigoOriginal);
+                return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "ERROR",
+                        "msg", "Guardado en la base, pero NO se actualizó el VSIAF: al activo le faltan datos de "
+                             + "oficina, predio o entidad. El VSIAF quedó con la información anterior."));
+            }
+
+            try {
+                actualDbfWriterService.actualizarDesdeActivo(
+                        codigoOriginal, a,
+                        a.getOficina().getPredio().getEntidad().getEntidadCodigo(),
+                        a.getOficina().getPredio().getUnidad(),
+                        usuario.getUsuario());
+
+                notificarCambioPendientes("edicion-registrada");
+                return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "OK",
+                        "msg", "Cambios guardados y enviados al VSIAF."));
+
+            } catch (Exception e) {
+                // Importante no cantar victoria: la base cambió y el VSIAF no. Quien
+                // corrige tiene que enterarse para no dar el dato por sincronizado.
+                log.error("[EDITAR-REGISTRADO] Falló el UPDATE al VSIAF del activo {}: {}",
+                        codigoOriginal, e.getMessage());
+                return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "ERROR",
+                        "msg", "Guardado en la base, pero FALLÓ el envío al VSIAF: " + e.getMessage()
+                             + ". Los dos sistemas quedaron distintos: revisá la cola o usá Conciliación."));
+            }
+
+        } catch (Exception e) {
+            log.error("[EDITAR-REGISTRADO] Error editando activo {}", idEnc, e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
+        }
+    }
+
+    /** Línea legible con los datos que la corrección puede tocar, para comparar antes/después. */
+    private String resumenActivo(Activo a) {
+        return String.format(
+                "desc='%s' | costo=%s | vidaUtil=%s | fechaAdq=%s | grupo=%s | aux=%s | oficina=%s | resp=%s | finan=%s",
+                a.getDescripcion(),
+                a.getCosto(),
+                a.getVidaUtil(),
+                a.getFechaAdquisicion(),
+                a.getGrupoContable() != null ? a.getGrupoContable().getNombre() : "—",
+                a.getAuxiliar() != null ? a.getAuxiliar().getNombre() : "—",
+                a.getOficina() != null ? a.getOficina().getNombre() : "—",
+                a.getResponsable() != null && a.getResponsable().getPersona() != null
+                        ? a.getResponsable().getPersona().getNombreCompleto() : "—",
+                a.getOrganismoFinanciero() != null ? a.getOrganismoFinanciero().getDescripcion() : "—");
+    }
+
+    /** Deja la corrección en {@code historial_activo}. No debe romper el flujo si falla. */
+    private void registrarHistorialEdicion(Activo activo, String antes, String despues, Usuario usuario) {
+        try {
+            if (antes.equals(despues)) return;   // no hubo cambios reales que registrar
+
+            HistorialActivo h = new HistorialActivo();
+            h.setActivo(activo);
+            h.setCodigoActivo(activo.getCodigo());
+            h.setTipoEvento("EDICION");
+            h.setFechaEvento(LocalDateTime.now());
+            h.setIdUsuario(usuario.getIdUsuario());
+            h.setNombreUsuario(usuario.getUsuario());
+            h.setDescripcionEvento("Corrección desde el historial de asignaciones.\nANTES:  " + antes
+                                 + "\nDESPUÉS: " + despues);
+            if (activo.getOficina() != null) {
+                h.setOficinaAnterior(activo.getOficina());
+                h.setOficinaNueva(activo.getOficina());
+                h.setNombreOficinaAnterior(activo.getOficina().getNombre());
+                h.setNombreOficinaNueva(activo.getOficina().getNombre());
+            }
+            if (activo.getResponsable() != null) {
+                h.setResponsableAnterior(activo.getResponsable());
+                h.setResponsableNuevo(activo.getResponsable());
+            }
+            historialActivoDao.save(h);
+        } catch (Exception e) {
+            log.warn("[EDITAR-REGISTRADO] No se pudo registrar el historial de la edición: {}", e.getMessage());
+        }
+    }
+
     @ValidarUsuarioAutenticado
     @PostMapping(value = "/api/editar-lote",
                 consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -1715,6 +1885,12 @@ public class ActivosController {
             String desc = req.getDescripcion().trim();
             a.setDescripcion(desc.length() > 1024 ? desc.substring(0, 1024) : desc);
         }
+        // Se aplica DESPUÉS de la descripción, sobre el texto ya definitivo. Es idempotente,
+        // así que da igual si el front ya la escribió en el textarea: no se duplica.
+        if (req.getIncluyeAccesorios() != null) {
+            String desc = aplicarMarcaAccesorios(a.getDescripcion(), req.getIncluyeAccesorios());
+            a.setDescripcion(desc.length() > 1024 ? desc.substring(0, 1024) : desc);
+        }
         if (req.getCosto() != null)
             a.setCosto(req.getCosto());
         if (req.getVidaUtil() != null)
@@ -1748,6 +1924,27 @@ public class ActivosController {
             a.setOrganismoFinanciero(null);
             a.setOrgFinCode(null);
         }
+    }
+
+    /** Texto que se agrega al final de la descripción cuando el activo incluye accesorios. */
+    public static final String MARCA_ACCESORIOS = "INCLUYE ACCESORIOS";
+
+    /**
+     * Agrega o quita {@link #MARCA_ACCESORIOS} al final de la descripción.
+     * Es idempotente: agregar dos veces no duplica el texto, y quitar cuando no está
+     * devuelve la descripción intacta. El {@code while} limpia duplicados que hayan
+     * quedado de ediciones manuales previas.
+     */
+    private String aplicarMarcaAccesorios(String descripcion, boolean incluir) {
+        String base = descripcion == null ? "" : descripcion.trim();
+
+        while (base.toUpperCase().endsWith(MARCA_ACCESORIOS)) {
+            base = base.substring(0, base.length() - MARCA_ACCESORIOS.length()).trim();
+        }
+
+        if (!incluir)          return base;
+        if (base.isEmpty())    return MARCA_ACCESORIOS;
+        return base + " " + MARCA_ACCESORIOS;
     }
 
     private String obtenerUsuario(HttpServletRequest req) {
@@ -1848,9 +2045,26 @@ public class ActivosController {
 
         long sinAsignacionIncompletos = sinAsignacionItems.stream().filter(i -> !i.isCompleto()).count();
 
+        // Mismos totales de costo que en las asignaciones, pero para el bloque suelto
+        // (ese grupo no tiene AsignacionPendienteDTO donde calcularlos).
+        BigDecimal sinAsignacionCostoTotal = sinAsignacionItems.stream()
+            .map(ActivoPendienteItemDTO::getActivo)
+            .filter(a -> a.getCosto() != null && a.getCosto() > 0)
+            .map(a -> BigDecimal.valueOf(a.getCosto()))
+            .reduce(BigDecimal.ZERO, BigDecimal::add)
+            .setScale(2, RoundingMode.HALF_UP);
+
+        List<String> sinAsignacionCodigosSinCosto = sinAsignacionItems.stream()
+            .map(ActivoPendienteItemDTO::getActivo)
+            .filter(a -> a.getCosto() == null || a.getCosto() <= 0)
+            .map(a -> a.getCodigo() == null ? "(sin código)" : a.getCodigo())
+            .toList();
+
         model.addAttribute("asignaciones", dtos);
         model.addAttribute("sinAsignacionItems", sinAsignacionItems);
         model.addAttribute("sinAsignacionIncompletos", sinAsignacionIncompletos);
+        model.addAttribute("sinAsignacionCostoTotal", sinAsignacionCostoTotal);
+        model.addAttribute("sinAsignacionCodigosSinCosto", sinAsignacionCodigosSinCosto);
         return "activo/tabla_registros_pendientes";
     }
 

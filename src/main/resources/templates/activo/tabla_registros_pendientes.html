@@ -517,6 +517,54 @@
         font-weight: 600;
     }
 
+    /* ── Costos ─────────────────────────────────────────── */
+    .stat-costo {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-top: 0.2rem;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .costo-total {
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: var(--af-text, #384551);
+        letter-spacing: -0.01em;
+    }
+
+    /* El total todavía no es el definitivo: faltan costos por cargar. */
+    .costo-total.es-parcial { color: var(--af-warning, #b8720a); }
+
+    .costo-alerta {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #b8720a;
+        background: #fdf3e0;
+        border: 1px solid #f3ddb5;
+        border-radius: 0.35rem;
+        padding: 0.12rem 0.4rem;
+        white-space: nowrap;
+        cursor: help;
+    }
+
+    .sub-costo {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .costo-falta {
+        font-size: 0.7rem;
+        font-style: italic;
+        color: #b8720a;
+        white-space: nowrap;
+        cursor: help;
+    }
+
     /* Hint / Acciones derecha */
     .asig-header-actions {
         margin-left: auto;
@@ -619,6 +667,21 @@
                     <span style="color:#cbd5e1;">|</span>
                     <span class="text-warning" title="Pendientes"><i class="fa-regular fa-clock me-1"></i>[[${dto.totalPendientes}]]</span>
                 </div>
+
+                <!-- Total de la asignación. Mientras falten costos es parcial: se marca
+                     en ámbar y se listan los códigos que faltan. -->
+                <div class="stat-costo">
+                    <span class="costo-total" th:classappend="${dto.totalSinCosto > 0} ? ' es-parcial' : ''"
+                        th:title="${dto.totalSinCosto > 0}
+                                  ? 'Total parcial — faltan costos por cargar'
+                                  : 'Total de la asignación'"
+                        th:text="'Bs. ' + ${#numbers.formatDecimal(dto.costoTotal, 1, 'POINT', 2, 'COMMA')}">Bs. 0,00</span>
+                    <span th:if="${dto.totalSinCosto > 0}" class="costo-alerta"
+                        th:title="'Falta costo en: ' + ${#strings.listJoin(dto.codigosSinCosto, ' · ')}">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span th:text="${dto.totalSinCosto} + ' sin costo'">2 sin costo</span>
+                    </span>
+                </div>
             </div>
 
             <div class="asig-header-actions d-flex align-items-center gap-2">
@@ -667,6 +730,7 @@
                             <th>Código</th>
                             <th>Descripción</th>
                             <th>Fecha Adq.</th>
+                            <th class="text-end">Costo (Bs.)</th>
                             <th class="d-none d-md-table-cell">Responsable</th>
                             <th class="d-none d-lg-table-cell">Oficina</th>
                             <th>Estado</th>
@@ -691,6 +755,14 @@
                                     Descripción...</div>
                             </td>
                             <td><span class="sub-date" th:text="${item.activo.fechaAdquisicion}">—</span></td>
+                            <td class="text-end">
+                                <span th:if="${item.activo.costo != null and item.activo.costo > 0}"
+                                    class="sub-costo"
+                                    th:text="${#numbers.formatDecimal(item.activo.costo, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                                <span th:unless="${item.activo.costo != null and item.activo.costo > 0}"
+                                    class="costo-falta"
+                                    title="Falta el costo — sin él el activo no puede subir al VSIAF">falta</span>
+                            </td>
                             <td class="d-none d-md-table-cell">
                                 <span class="text-truncate d-inline-block" style="max-width:130px;"
                                     th:if="${item.activo.responsable?.persona != null}"
@@ -782,6 +854,18 @@
                 </span>
                 <span class="asig-count-badge" style="background:#ffc107; color:#000;" th:text="${#lists.size(sinAsignacionItems)} + ' activo'
                                + (${#lists.size(sinAsignacionItems) != 1} ? 's' : '')">0 activos</span>
+
+                <span class="costo-total"
+                    th:classappend="${#lists.size(sinAsignacionCodigosSinCosto) > 0} ? ' es-parcial' : ''"
+                    th:title="${#lists.size(sinAsignacionCodigosSinCosto) > 0}
+                              ? 'Total parcial — faltan costos por cargar'
+                              : 'Total de estos activos'"
+                    th:text="'Bs. ' + ${#numbers.formatDecimal(sinAsignacionCostoTotal, 1, 'POINT', 2, 'COMMA')}">Bs. 0,00</span>
+                <span th:if="${#lists.size(sinAsignacionCodigosSinCosto) > 0}" class="costo-alerta"
+                    th:title="'Falta costo en: ' + ${#strings.listJoin(sinAsignacionCodigosSinCosto, ' · ')}">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span th:text="${#lists.size(sinAsignacionCodigosSinCosto)} + ' sin costo'">2 sin costo</span>
+                </span>
             </div>
         </div>
 
@@ -798,6 +882,7 @@
                             <th>Código</th>
                             <th>Descripción</th>
                             <th>Fecha Adq.</th>
+                            <th class="text-end">Costo (Bs.)</th>
                             <th class="d-none d-md-table-cell">Responsable</th>
                             <th class="d-none d-lg-table-cell">Oficina</th>
                             <th>Estado</th>
@@ -821,6 +906,14 @@
                                     th:text="${item.activo.descripcion}">Descripción...</div>
                             </td>
                             <td><span class="sub-date" th:text="${item.activo.fechaAdquisicion}">—</span></td>
+                            <td class="text-end">
+                                <span th:if="${item.activo.costo != null and item.activo.costo > 0}"
+                                    class="sub-costo"
+                                    th:text="${#numbers.formatDecimal(item.activo.costo, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                                <span th:unless="${item.activo.costo != null and item.activo.costo > 0}"
+                                    class="costo-falta"
+                                    title="Falta el costo — sin él el activo no puede subir al VSIAF">falta</span>
+                            </td>
                             <td class="d-none d-md-table-cell">
                                 <span th:if="${item.activo.responsable?.persona != null}"
                                     th:text="${item.activo.responsable.persona.nombre + ' ' + item.activo.responsable.persona.paterno}"

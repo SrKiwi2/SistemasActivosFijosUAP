@@ -1,0 +1,131 @@
+/*
+ * Paleta institucional SCIAF
+ * ---------------------------------------------------------------------------
+ * Colores tomados del logo de Activos Fijos (activofijos.png):
+ *   azul  #144391   ·   rojo  #E40613
+ * y del tema web actual (sidebar):
+ *   azul  #1A56A0
+ *
+ * Regla de uso — importante:
+ *   · AZUL  = acción. Botón primario, FAB de escaneo, enlaces, selección.
+ *   · ROJO  = identidad de marca (acentos, cabeceras), NO "peligro".
+ *   · Para estados hay una escala semántica aparte (danger/warning/success),
+ *     con un rojo distinto del de marca. Si el rojo significara marca y error
+ *     a la vez, ningún usuario sabría cuándo preocuparse.
+ */
+
+:root {
+  /* ── Azul institucional — color de acción ──────────────────────────────── */
+  --ion-color-primary: #144391;
+  --ion-color-primary-rgb: 20, 67, 145;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #123b80;
+  --ion-color-primary-tint: #2c569c;
+
+  /* ── Azul del sistema web — acentos secundarios ────────────────────────── */
+  --ion-color-secondary: #1a56a0;
+  --ion-color-secondary-rgb: 26, 86, 160;
+  --ion-color-secondary-contrast: #ffffff;
+  --ion-color-secondary-contrast-rgb: 255, 255, 255;
+  --ion-color-secondary-shade: #174c8d;
+  --ion-color-secondary-tint: #3167aa;
+
+  /* ── Rojo de marca — identidad, nunca estado ───────────────────────────── */
+  --ion-color-tertiary: #e40613;
+  --ion-color-tertiary-rgb: 228, 6, 19;
+  --ion-color-tertiary-contrast: #ffffff;
+  --ion-color-tertiary-contrast-rgb: 255, 255, 255;
+  --ion-color-tertiary-shade: #c90511;
+  --ion-color-tertiary-tint: #e71f2b;
+
+  /* ── Semáforo de estado ────────────────────────────────────────────────── */
+  --ion-color-success: #12b76a;
+  --ion-color-success-rgb: 18, 183, 106;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-contrast-rgb: 255, 255, 255;
+  --ion-color-success-shade: #10a15d;
+  --ion-color-success-tint: #2abe79;
+
+  --ion-color-warning: #f79009;
+  --ion-color-warning-rgb: 247, 144, 9;
+  --ion-color-warning-contrast: #000000;
+  --ion-color-warning-contrast-rgb: 0, 0, 0;
+  --ion-color-warning-shade: #d97f08;
+  --ion-color-warning-tint: #f89b22;
+
+  --ion-color-danger: #d92d20;
+  --ion-color-danger-rgb: 217, 45, 32;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-contrast-rgb: 255, 255, 255;
+  --ion-color-danger-shade: #bf281c;
+  --ion-color-danger-tint: #dd4236;
+
+  --ion-color-medium: #6b7280;
+  --ion-color-medium-rgb: 107, 114, 128;
+  --ion-color-medium-contrast: #ffffff;
+  --ion-color-medium-contrast-rgb: 255, 255, 255;
+  --ion-color-medium-shade: #5e6471;
+  --ion-color-medium-tint: #7a808d;
+
+  --ion-color-light: #f6f8fb;
+  --ion-color-light-rgb: 246, 248, 251;
+  --ion-color-light-contrast: #111827;
+  --ion-color-light-contrast-rgb: 17, 24, 39;
+  --ion-color-light-shade: #d8dadd;
+  --ion-color-light-tint: #f7f9fb;
+
+  /* ── Superficies y texto ───────────────────────────────────────────────── */
+  --ion-background-color: #f6f8fb;
+  --ion-background-color-rgb: 246, 248, 251;
+  --ion-text-color: #111827;
+  --ion-text-color-rgb: 17, 24, 39;
+  --ion-card-background: #ffffff;
+  --ion-item-background: #ffffff;
+  --ion-toolbar-background: #ffffff;
+  --ion-tab-bar-background: #ffffff;
+
+  /* ── Tokens propios de SCIAF ───────────────────────────────────────────── */
+  --sciaf-azul: #144391;
+  --sciaf-rojo: #e40613;
+  --sciaf-azul-claro: #7ab3f0;
+  --sciaf-texto-suave: #6b7280;
+  --sciaf-borde: #e5e7eb;
+  --sciaf-radio: 16px;
+  --sciaf-sombra: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.06);
+  --sciaf-degradado: linear-gradient(135deg, #144391 0%, #1a56a0 60%, #2c569c 100%);
+
+  /* Fuente: el sistema resuelve a Roboto en Android — cero descargas. */
+  --ion-font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/*
+ * Modo oscuro. Se conservan los mismos colores de marca (una identidad que
+ * cambia de color deja de ser identidad) y solo se invierten las superficies.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ion-color-primary: #4a90d9;
+    --ion-color-primary-rgb: 74, 144, 217;
+    --ion-color-primary-shade: #417fbf;
+    --ion-color-primary-tint: #5c9bdd;
+
+    --ion-background-color: #0d1a2e;
+    --ion-background-color-rgb: 13, 26, 46;
+    --ion-text-color: #e5e9f0;
+    --ion-text-color-rgb: 229, 233, 240;
+    --ion-card-background: #132440;
+    --ion-item-background: #132440;
+    --ion-toolbar-background: #0f1e35;
+    --ion-tab-bar-background: #0f1e35;
+
+    --ion-color-light: #1b2f4f;
+    --ion-color-light-rgb: 27, 47, 79;
+    --ion-color-light-contrast: #e5e9f0;
+    --ion-color-light-contrast-rgb: 229, 233, 240;
+
+    --sciaf-texto-suave: #9aa5b8;
+    --sciaf-borde: #24354f;
+    --sciaf-sombra: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.25);
+  }
+}

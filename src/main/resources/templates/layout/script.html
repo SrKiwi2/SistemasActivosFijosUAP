@@ -42,6 +42,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <script src="../../assets/js/p-scanner.js"></script>
     <script src="/assets/js/topbar.js"></script>
+    <script src="/assets/js/sciaf-catalogos.js"></script>
 
     <script>
         $.ajaxSetup({
@@ -78,6 +79,10 @@
             });
 
             function cargarContenido(url) {
+                // Cada pantalla que sepa buscar dentro de sí misma se registra al
+                // cargarse (registrarBuscadorModulo). Al cambiar de módulo, ese
+                // buscador deja de existir.
+                window._buscadorModulo = null;
                 $.ajax({
                     url: "/adm/cargar-datos",
                     method: "GET",
@@ -109,6 +114,177 @@
                     }
                 });
             }
+
+            // Las pantallas cargadas por AJAX necesitan poder navegar igual que el sidebar.
+            window.cargarContenido = cargarContenido;
         });
+
+        // ══════════════════════════════════════════════════════════════════
+        // BUSCADOR GLOBAL DEL TOPBAR
+        // Dos cosas a la vez: las opciones del menú (siempre) y los registros de
+        // la pantalla actual (solo si esa pantalla registró su propio buscador
+        // con registrarBuscadorModulo).
+        // ══════════════════════════════════════════════════════════════════
+        (function () {
+            const $input = $('#buscadorGlobal');
+            if (!$input.length) return;
+            const $panel = $('#buscadorGlobalPanel');
+
+            /** Una pantalla declara que sabe buscar dentro de sí misma. */
+            window.registrarBuscadorModulo = function (etiqueta, fn) {
+                window._buscadorModulo = { etiqueta: etiqueta, fn: fn };
+            };
+
+            // Sin acentos y en minúsculas: buscar "asignacion" tiene que encontrar
+            // "Asignaciones", y "codigo" encontrar "Código".
+            const normalizar = t => window.SciafCatalogos.normalizarTexto(t);
+
+            function escapar(t) {
+                return $('<div>').text(t == null ? '' : t).html();
+            }
+
+            /** Índice de opciones leído del sidebar ya renderizado (respeta permisos). */
+            function opcionesMenu() {
+                return $('#layout-menu .menu-item[data-url]').map(function () {
+                    const $item = $(this);
+                    const url = $item.attr('data-url');
+                    if (!url) return null;
+                    return {
+                        texto: $item.find('> a > div').first().text().trim(),
+                        grupo: $item.closest('.menu-sub').prev('.menu-link').find('div').first().text().trim(),
+                        icono: $item.find('> a i').attr('class') || 'ti ti-circle',
+                        url: url
+                    };
+                }).get().filter(o => o && o.texto);
+            }
+
+            let _resultados = [];
+            let _activo = -1;
+
+            function cerrar() {
+                $panel.addClass('d-none').empty();
+                $input.attr('aria-expanded', 'false');
+                _resultados = [];
+                _activo = -1;
+            }
+
+            function fila(idx, icono, titulo, detalle, query) {
+                const t = escapar(titulo);
+                const marcado = query
+                    ? t.replace(new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'), '<mark>$1</mark>')
+                    : t;
+                return `<button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 border-0 w-100 text-start"
+                                data-idx="${idx}" role="option">
+                            <i class="${escapar(icono)} text-muted"></i>
+                            <span class="flex-grow-1 text-truncate">${marcado}</span>
+                            ${detalle ? `<small class="text-muted flex-shrink-0">${escapar(detalle)}</small>` : ''}
+                        </button>`;
+            }
+
+            function render(query) {
+                const q = normalizar(query);
+                if (!q) { cerrar(); return; }
+
+                _resultados = [];
+                let html = '';
+
+                // 1) Buscar dentro de la pantalla actual, si sabe hacerlo.
+                const mod = window._buscadorModulo;
+                if (mod && typeof mod.fn === 'function') {
+                    _resultados.push({ tipo: 'modulo', query: query });
+                    html += '<div class="px-3 pt-2 pb-1 small text-muted text-uppercase fw-bold" style="font-size:.68rem; letter-spacing:.06em;">En esta pantalla</div>';
+                    html += fila(0, 'ti ti-list-search', `Buscar «${query}» en ${mod.etiqueta}`, '', '');
+                }
+
+                // 2) Opciones del menú.
+                const coincidencias = opcionesMenu().filter(o =>
+                    normalizar(o.texto).includes(q) || normalizar(o.grupo).includes(q));
+
+                if (coincidencias.length) {
+                    html += '<div class="px-3 pt-2 pb-1 small text-muted text-uppercase fw-bold" style="font-size:.68rem; letter-spacing:.06em;">Opciones del menú</div>';
+                    coincidencias.forEach(o => {
+                        html += fila(_resultados.length, o.icono, o.texto, o.grupo, query);
+                        _resultados.push({ tipo: 'menu', url: o.url });
+                    });
+                }
+
+                if (!_resultados.length) {
+                    html = `<div class="px-3 py-3 text-muted small">Sin resultados para «${escapar(query)}».</div>`;
+                }
+
+                $panel.html(html).removeClass('d-none');
+                $input.attr('aria-expanded', 'true');
+                _activo = _resultados.length ? 0 : -1;
+                marcarActivo();
+            }
+
+            function marcarActivo() {
+                $panel.find('[data-idx]').each(function () {
+                    $(this).toggleClass('active', Number($(this).data('idx')) === _activo);
+                });
+            }
+
+            function ejecutar(idx) {
+                const r = _resultados[idx];
+                if (!r) return;
+                if (r.tipo === 'menu') {
+                    if (typeof window.cargarContenido === 'function') {
+                        window.cargarContenido(r.url);
+                        $('#layout-menu .menu-item').removeClass('active');
+                        $(`#layout-menu .menu-item[data-url="${r.url}"]`).addClass('active');
+                    } else {
+                        window.location.href = r.url;
+                    }
+                    $input.val('');
+                    cerrar();
+                    return;
+                }
+                if (r.tipo === 'modulo') {
+                    window._buscadorModulo.fn(r.query);
+                    cerrar();
+                }
+            }
+
+            let _debounce = null;
+            $input.on('input', function () {
+                const val = this.value;
+                clearTimeout(_debounce);
+                _debounce = setTimeout(() => render(val), 120);
+            });
+
+            $input.on('keydown', function (e) {
+                if (e.key === 'Escape') { $(this).val(''); cerrar(); return; }
+                if (!_resultados.length) return;
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    _activo = (_activo + 1) % _resultados.length;
+                    marcarActivo();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    _activo = (_activo - 1 + _resultados.length) % _resultados.length;
+                    marcarActivo();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    ejecutar(_activo);
+                }
+            });
+
+            $panel.on('click', '[data-idx]', function () {
+                ejecutar(Number($(this).data('idx')));
+            });
+
+            // Ctrl+/ enfoca el buscador, como promete el placeholder.
+            $(document).on('keydown', function (e) {
+                if (e.ctrlKey && e.key === '/') {
+                    e.preventDefault();
+                    $input.trigger('focus').trigger('select');
+                }
+            });
+
+            // Clic fuera cierra el panel (pero no si fue dentro del propio buscador).
+            $(document).on('mousedown', function (e) {
+                if (!$(e.target).closest('.navbar-search-wrapper').length) cerrar();
+            });
+        })();
     </script>
 </div>

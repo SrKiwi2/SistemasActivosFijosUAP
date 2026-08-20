@@ -1,0 +1,124 @@
+/* Estilos compartidos de SCIAF Móvil. */
+
+/* ── Tarjeta base ──────────────────────────────────────────────────────────
+ * En móvil una tabla no se lee: cada registro es una tarjeta.
+ */
+.sciaf-card {
+  background: var(--ion-card-background);
+  border-radius: var(--sciaf-radio);
+  box-shadow: var(--sciaf-sombra);
+  padding: 16px;
+}
+
+/* ── Código de activo ──────────────────────────────────────────────────────
+ * Monoespaciada y con el prefijo de entidad atenuado: así el ojo compara el
+ * código de la pantalla con el de la etiqueta física sin esfuerzo.
+ */
+.codigo-activo {
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ion-text-color);
+}
+
+.codigo-activo .prefijo {
+  color: var(--sciaf-texto-suave);
+  font-weight: 400;
+}
+
+.codigo-activo .correlativo {
+  font-weight: 700;
+}
+
+/* ── Textos auxiliares ─────────────────────────────────────────────────────── */
+.texto-suave {
+  color: var(--sciaf-texto-suave);
+  font-size: 0.875rem;
+}
+
+.titulo-seccion {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sciaf-texto-suave);
+  margin: 24px 4px 8px;
+}
+
+/* ── Cabecera con degradado institucional ─────────────────────────────────── */
+.sciaf-hero {
+  background: var(--sciaf-degradado);
+  color: #fff;
+  padding: 24px 20px 28px;
+  border-bottom-left-radius: 24px;
+  border-bottom-right-radius: 24px;
+}
+
+/* Filo rojo de marca bajo la cabecera: identidad sin gritar. */
+.sciaf-hero::after {
+  content: '';
+  display: block;
+  height: 3px;
+  width: 56px;
+  margin-top: 14px;
+  border-radius: 2px;
+  background: var(--sciaf-rojo);
+}
+
+/* ── Botón principal ──────────────────────────────────────────────────────── */
+ion-button {
+  --border-radius: 12px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ── Estado de conexión ───────────────────────────────────────────────────── */
+.chip-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.chip-estado .punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.chip-estado.en-linea    { color: var(--ion-color-success); background: rgba(18, 183, 106, 0.12); }
+.chip-estado.sin-conexion{ color: var(--ion-color-warning); background: rgba(247, 144, 9, 0.14); }
+
+/* ── Escáner ───────────────────────────────────────────────────────────────
+ * ML Kit dibuja la cámara DETRÁS del WebView, así que mientras se escanea la
+ * página entera tiene que ser transparente. Sin esto solo se ve una pantalla
+ * en blanco y parece que la app se colgó.
+ */
+html.escaner-activo,
+html.escaner-activo body,
+html.escaner-activo ion-app,
+html.escaner-activo ion-router-outlet,
+html.escaner-activo .pagina-escaner,
+html.escaner-activo .contenido-escaner {
+  background: transparent !important;
+  --background: transparent !important;
+}
+
+/* Las hojas de resultado sí son opacas: se leen sobre la imagen de la cámara. */
+html.escaner-activo ion-modal {
+  --background: var(--ion-card-background);
+}
+
+/* ── Accesibilidad ────────────────────────────────────────────────────────── */
+/* La app se usa con guantes, a contraluz y con prisa: nada por debajo de 44px. */
+ion-button,
+ion-item[button],
+.tocable {
+  min-height: 44px;
+}

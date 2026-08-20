@@ -144,6 +144,52 @@
 <!-- Contenedor principal de tabla -->
 <div id="tablaRegistro"></div>
 
+<!-- ======================= MODAL CORREGIR ACTIVO REGISTRADO ======================= -->
+<div class="modal fade" id="modalCorregirActivo" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+
+            <div class="modal-header bg-warning py-3">
+                <div>
+                    <h6 class="modal-title mb-0 fw-bold text-dark">
+                        <i class="bx bx-edit-alt me-1"></i>Corregir activo
+                    </h6>
+                    <small class="text-dark opacity-75" id="corr-codigo">—</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <!-- Aviso: esto reescribe el VSIAF -->
+                <div class="alert alert-warning py-2 d-flex gap-2 align-items-start" style="font-size:.83rem">
+                    <i class="bx bx-info-circle fs-5"></i>
+                    <div>
+                        Si el activo ya está en el VSIAF, al guardar se <b>envía la corrección
+                        al sistema legacy</b>. El <b>código no se modifica acá</b>: es la llave con
+                        la que se ubica el registro. Para cambiarlo se usa el cambio urgente de
+                        código, que pide contraseña y motivo.
+                    </div>
+                </div>
+
+                <div id="corr-body">
+                    <div class="text-center py-4 text-muted">
+                        <div class="spinner-border spinner-border-sm me-2"></div>Cargando datos…
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer py-2">
+                <span class="text-muted small me-auto" id="corr-footer-info"></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-warning" id="btn-guardar-correccion" disabled>
+                    <i class="bx bx-save me-1"></i>Guardar corrección
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 <!-- ======================= MODAL DETALLE ASIGNACIÓN ======================= -->
 <div class="modal fade" id="modalDetalleAsignacion" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -272,7 +318,7 @@
  
                         <!-- Resumen superior -->
                         <div class="row g-3 mb-3">
-                            <div class="col-md-4">
+                            <div class="col-6 col-md-3">
                                 <div class="card bg-label-primary text-center border-0">
                                     <div class="card-body py-2">
                                         <div class="small text-muted">Total Activos</div>
@@ -280,15 +326,31 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <!-- espacio reservado para futura métrica -->
+                            <div class="col-6 col-md-3">
+                                <div class="card bg-label-secondary text-center border-0">
+                                    <div class="card-body py-2">
+                                        <div class="small text-muted">Estado en el VSIAF</div>
+                                        <div class="fs-6 fw-bold" id="resumen-sync">—</div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-md-4 d-flex align-items-center justify-content-end">
+                            <div class="col-6 col-md-3">
+                                <div class="card bg-label-success text-center border-0">
+                                    <div class="card-body py-2">
+                                        <div class="small text-muted">Costo total (Bs.)</div>
+                                        <div class="fs-5 fw-bold" id="resumen-costo"
+                                            style="font-variant-numeric: tabular-nums;">0,00</div>
+                                        <div class="text-warning d-none" id="resumen-costo-aviso"
+                                            style="font-size:0.68rem; font-weight:600;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3 d-flex align-items-center justify-content-end">
                                 <input type="text" id="buscar-activo" class="form-control form-control-sm"
                                     placeholder="Buscar activo..." style="max-width:220px">
                             </div>
                         </div>
-                    
+
                         <div class="table-responsive">
                             <table class="table table-hover table-sm align-middle" id="tabla-activos-modal">
                                 <thead class="table-light">
@@ -296,15 +358,19 @@
                                         <th class="text-center" style="width:40px">#</th>
                                         <th>Código</th>
                                         <th>Descripción</th>
-                                        <th class="text-center">Estado</th>
+                                        <th>Grupo contable</th>
+                                        <th>Responsable</th>
                                         <th>Oficina</th>
-                                        <th>Predio / Unidad</th>
-                                        <th class="text-center">Fecha Adquisición</th>
+                                        <th class="text-end">Costo (Bs.)</th>
+                                        <th class="text-center">Estado</th>
+                                        <th class="text-center">VSIAF</th>
+                                        <th class="text-center">Fecha Adq.</th>
+                                        <th class="text-center col-acciones d-none" style="width:60px">Corregir</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbody-activos">
                                     <tr>
-                                        <td colspan="7" class="text-center text-muted py-4">Sin activos registrados</td>
+                                        <td colspan="11" class="text-center text-muted py-4">Sin activos registrados</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -490,27 +556,63 @@
         new bootstrap.Modal(document.getElementById('modalDetalleAsignacion')).show();
     }
 
+    /* Formato de moneda boliviano: 1.234,56 */
+    function fmtBs(n) {
+        if (n === null || n === undefined || n === '') return null;
+        const v = Number(n);
+        if (isNaN(v)) return null;
+        return v.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     function cargarActivosModal(idAsignacionActivo) {
         $('#tbody-activos').html(`
-            <tr><td colspan="7" class="text-center py-4">
+            <tr><td colspan="11" class="text-center py-4">
             <div class="spinner-border spinner-border-sm text-primary me-2"></div>
             Cargando activos...
             </td></tr>`);
-    
+
         $.ajax({
             type: 'GET',
             url: `/administracion/asignacion/asignaciones/${idAsignacionActivo}/detalles-json`,
-            success: function (detalles) {
-                if (!detalles || detalles.length === 0) {
+            success: function (resp) {
+                // El endpoint devuelve { ok, puedeEditar, detalles, resumen }.
+                const detalles = resp?.detalles || [];
+                const resumen  = resp?.resumen || {};
+                // Lo decide el servidor según el rol. El botón es solo la interfaz:
+                // la barrera de verdad está en el endpoint que aplica la corrección.
+                const puedeEditar = resp?.puedeEditar === true;
+                _asigActual = idAsignacionActivo;
+                // Se resuelve antes del early-return del acta vacía, para que el
+                // encabezado no quede visible sin celdas debajo.
+                $('#tabla-activos-modal .col-acciones').toggleClass('d-none', !puedeEditar);
+
+                // ── Tarjetas de resumen ──
+                $('#badge-num-activos, #resumen-total-activos').text(resumen.total ?? detalles.length ?? 0);
+
+                const subidos = resumen.subidos ?? 0;
+                const pendientes = resumen.pendientes ?? 0;
+                $('#resumen-sync').html(
+                    (subidos === 0 && pendientes === 0)
+                        ? '<span class="text-muted">—</span>'
+                        : `<span class="text-success">${subidos} subido${subidos !== 1 ? 's' : ''}</span>`
+                          + (pendientes > 0 ? ` <span class="text-muted">/</span> <span class="text-warning">${pendientes} pend.</span>` : '')
+                );
+
+                $('#resumen-costo').text(fmtBs(resumen.costoTotal) ?? '0,00');
+                const sinCosto = resumen.sinCosto ?? 0;
+                $('#resumen-costo-aviso')
+                    .toggleClass('d-none', sinCosto === 0)
+                    .text(sinCosto > 0 ? `parcial · ${sinCosto} sin costo` : '');
+
+                if (detalles.length === 0) {
                     $('#tbody-activos').html(
-                        '<tr><td colspan="7" class="text-center text-muted py-4">Sin activos registrados</td></tr>'
+                        '<tr><td colspan="11" class="text-center text-muted py-4">Sin activos registrados</td></tr>'
                     );
-                    $('#badge-num-activos, #resumen-total-activos').text('0');
                     return;
                 }
-    
+
                 let html = '';
-    
+
                 detalles.forEach(function (d, i) {
                     // Badge de estado
                     const estadoVal  = (d.estadoActivo || '').toUpperCase();
@@ -533,24 +635,60 @@
                         } catch (_) { fechaFmt = d.fechaAdquisicion; }
                     }
     
+                    // Estado de sincronización con el VSIAF (distinto del estado físico)
+                    const sync = (d.estadoRegistro || '—').toUpperCase();
+                    const syncBadge =
+                        sync === 'ACTIVO'    ? '<span class="badge bg-success" title="Ya está en el VSIAF"><i class="bx bx-check-double"></i> En VSIAF</span>' :
+                        sync === 'PENDIENTE' ? '<span class="badge bg-warning text-dark" title="Todavía no se subió al VSIAF"><i class="bx bx-time-five"></i> Pendiente</span>' :
+                        sync === 'CANCELADO' ? '<span class="badge bg-secondary">Cancelado</span>' :
+                        sync === '—'         ? '<span class="text-muted">—</span>'
+                                             : `<span class="badge bg-secondary">${escHtml(sync)}</span>`;
+
+                    // Costo: el del acta. Si el activo cambió de costo después, se avisa.
+                    const costoFmt = fmtBs(d.costo);
+                    const costoActualFmt = fmtBs(d.costoActual);
+                    const difiere = costoFmt !== null && costoActualFmt !== null && costoFmt !== costoActualFmt;
+                    const costoCell = costoFmt === null
+                        ? '<span class="text-warning small fst-italic" title="Sin costo cargado">falta</span>'
+                        : `<span style="font-variant-numeric: tabular-nums;">${costoFmt}</span>`
+                          + (difiere
+                              ? ` <i class="bx bx-info-circle text-warning" title="En el acta: ${costoFmt} · Costo actual del activo: ${costoActualFmt}"></i>`
+                              : '');
+
+                    // Corregir: solo para roles autorizados y estados corregibles.
+                    const btnCorregir = (puedeEditar && d.editable && d.idEnc)
+                        ? `<button type="button" class="btn btn-sm btn-icon btn-outline-warning py-0 px-1 btn-corregir"
+                                   data-idenc="${escHtml(d.idEnc)}" data-codigo="${escHtml(d.codigo)}"
+                                   title="Corregir los datos de este activo">
+                               <i class="bx bx-edit-alt small"></i>
+                           </button>`
+                        : '<span class="text-muted small">—</span>';
+
                     html += `<tr>
                         <td class="text-center text-muted small">${i + 1}</td>
                         <td><code class="small fw-semibold text-primary">${escHtml(d.codigo)}</code></td>
                         <td class="text-wrap" style="max-width:240px; font-size:0.82rem">${escHtml(d.descripcion)}</td>
+                        <td class="small text-truncate" style="max-width:150px">${escHtml(d.grupoContable)}</td>
+                        <td class="small text-truncate" style="max-width:160px">${escHtml(d.responsable)}</td>
+                        <td class="small text-truncate" style="max-width:160px">
+                            ${escHtml(d.oficina)}
+                            <div class="text-muted" style="font-size:0.7rem">${escHtml(d.predio)}</div>
+                        </td>
+                        <td class="text-end small">${costoCell}</td>
                         <td class="text-center">
                             ${estadoVal !== '—'
                                 ? `<span class="badge ${estadoCls}">${escHtml(d.estadoActivo)}</span>`
                                 : '<span class="text-muted">—</span>'}
                         </td>
-                        <td class="small text-truncate" style="max-width:160px">${escHtml(d.oficina)}</td>
-                        <td class="small text-muted text-truncate" style="max-width:140px">${escHtml(d.predio)}</td>
+                        <td class="text-center" style="font-size:0.72rem">${syncBadge}</td>
                         <td class="text-center small text-muted">${fechaFmt}</td>
+                        <td class="text-center col-acciones ${puedeEditar ? '' : 'd-none'}">${btnCorregir}</td>
                     </tr>`;
                 });
-    
+
                 $('#tbody-activos').html(html);
-                $('#badge-num-activos, #resumen-total-activos').text(detalles.length);
-    
+                $('#tabla-activos-modal .col-acciones').toggleClass('d-none', !puedeEditar);
+
                 // Búsqueda en tiempo real dentro del modal
                 $('#buscar-activo').off('input.modalBusq').on('input.modalBusq', function () {
                     const q = $(this).val().toLowerCase();
@@ -562,7 +700,7 @@
             error: function (xhr) {
                 const msg = xhr.responseJSON?.msg || 'Error al cargar activos';
                 $('#tbody-activos').html(
-                    `<tr><td colspan="7" class="text-center text-danger py-3">
+                    `<tr><td colspan="11" class="text-center text-danger py-3">
                         <i class="bx bx-error-circle me-1"></i>${msg}
                     </td></tr>`
                 );
@@ -615,4 +753,288 @@
         const map = { ACTIVA: 'success', ANULADA: 'danger', DEVUELTA: 'info' };
         return `<span class="badge bg-${map[estado] || 'secondary'}">${estado || '—'}</span>`;
     }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       CORREGIR UN ACTIVO YA REGISTRADO
+       Reusa los mismos catálogos y el mismo formato "código - nombre" que el
+       modal de Activos Pendientes, pero apunta a /api/editar-registrado, que
+       exige rol, propaga al VSIAF y deja constancia en historial_activo.
+       ══════════════════════════════════════════════════════════════════════ */
+    let _asigActual = null;     // para refrescar el detalle después de guardar
+    let _corrIdEnc  = null;
+
+    /* Etiqueta "código - nombre" y regla de código de grupo: compartidas en
+       /assets/js/sciaf-catalogos.js con la pantalla de Activos Pendientes. */
+    const etiquetaCod = window.SciafCatalogos.etiquetaCodigo;
+    const codigoGrupo = window.SciafCatalogos.codigoGrupoVisible;
+
+    function opciones(lista, idFn, txtFn, sel, vacio) {
+        let h = `<option value="">${vacio}</option>`;
+        (lista || []).forEach(it => {
+            const id = idFn(it), txt = txtFn(it);
+            h += `<option value="${id}"${String(id) === String(sel ?? '') ? ' selected' : ''}>${escHtml(txt)}</option>`;
+        });
+        return h;
+    }
+
+    const arr = r => Array.isArray(r) ? r : (Array.isArray(r?.results) ? r.results : []);
+    const getJson = u => fetch(u).then(r => r.json()).catch(() => []);
+
+    $(document).off('click.corregir').on('click.corregir', '.btn-corregir', async function () {
+        _corrIdEnc = $(this).data('idenc');
+        const codigo = $(this).data('codigo');
+
+        $('#corr-codigo').text(codigo || '—');
+        $('#corr-footer-info').text('');
+        $('#btn-guardar-correccion').prop('disabled', true);
+        $('#corr-body').html('<div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Cargando datos…</div>');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCorregirActivo')).show();
+
+        try {
+            const d = await fetch(`/administracion/activo/api/detalle/${encodeURIComponent(_corrIdEnc)}`)
+                .then(r => { if (!r.ok) throw new Error('No se pudo cargar el activo'); return r.json(); });
+
+            const munId  = d.municipioId ?? null;
+            const predId = d.predioId ?? null;
+            const ofiId  = d.oficina?.idOficina ?? null;
+            const grpId  = d.grupoContable?.idGrupoContable ?? null;
+
+            const [municipios, grupos, orgFin, predios, oficinas, resps, auxs] = await Promise.all([
+                getJson('/api/municipios/listar'),
+                getJson('/api/grupos/listar'),
+                getJson('/api/organismos/listar'),
+                munId  ? getJson(`/api/buscar_predios?municipioId=${munId}`) : [],
+                predId ? getJson(`/api/buscar_oficinas?predioId=${predId}`) : [],
+                ofiId  ? getJson(`/api/buscar_responsable?q=&page=1&oficinaId=${ofiId}`) : [],
+                (grpId && predId) ? getJson(`/api/buscar_auxiliar_lista?grupoId=${grpId}&predioId=${predId}`) : []
+            ]);
+
+            $('#corr-body').html(renderFormCorreccion(d, {
+                municipios: arr(municipios), grupos: arr(grupos), orgFin: arr(orgFin),
+                predios: arr(predios), oficinas: arr(oficinas), resps: arr(resps), auxs: arr(auxs)
+            }));
+            cablearCascadasCorreccion();
+            $('#btn-guardar-correccion').prop('disabled', false);
+            $('#corr-footer-info').text(
+                (d.estado || '').toUpperCase() === 'ACTIVO'
+                    ? 'Este activo ya está en el VSIAF: al guardar se enviará la corrección.'
+                    : 'Activo PENDIENTE: la corrección no se envía al VSIAF.');
+
+        } catch (e) {
+            $('#corr-body').html(`<div class="alert alert-danger py-2 mb-0">${escHtml(e.message)}</div>`);
+        }
+    });
+
+    function renderFormCorreccion(d, cat) {
+        const v = x => (x != null && x !== 'null') ? x : '';
+        const munId  = d.municipioId ?? null;
+        const predId = d.predioId ?? null;
+        const ofiId  = d.oficina?.idOficina ?? null;
+
+        return `
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold text-muted mb-1">Municipio</label>
+                <select id="corr-mun" class="form-select form-select-sm">
+                    ${opciones(cat.municipios, m => m.idMunicipio, m => m.nombre, munId, '— Seleccione —')}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold text-muted mb-1">Predio</label>
+                <select id="corr-pred" class="form-select form-select-sm" ${!munId ? 'disabled' : ''}>
+                    ${opciones(cat.predios, p => p.id || p.idPredio, p => etiquetaCod(p.codigo, p.descrip || p.nombre), predId, '— Seleccione —')}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold text-muted mb-1">Oficina</label>
+                <select id="corr-ofi" class="form-select form-select-sm" ${!predId ? 'disabled' : ''}>
+                    ${opciones(cat.oficinas, o => o.id || o.idOficina, o => etiquetaCod(o.codigo ?? o.codOfi, o.nombre), ofiId, '— Seleccione —')}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold text-muted mb-1">Responsable</label>
+                <select id="corr-resp" class="form-select form-select-sm" ${!ofiId ? 'disabled' : ''}>
+                    ${opciones(cat.resps, r => r.id, r => r.text, d.responsable?.idResponsable ?? null, '— Seleccione —')}
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold text-muted mb-1">Grupo contable</label>
+                <select id="corr-grupo" class="form-select form-select-sm">
+                    ${opciones(cat.grupos, g => g.idGrupoContable, g => etiquetaCod(codigoGrupo(g), g.nombre), d.grupoContable?.idGrupoContable ?? null, '— Seleccione —')}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold text-muted mb-1">Auxiliar <span class="fw-normal">(opcional)</span></label>
+                <select id="corr-aux" class="form-select form-select-sm">
+                    ${opciones(cat.auxs, a => a.idAuxiliar ?? a.id, a => a.nombre ?? a.text, d.auxiliar?.idAuxiliar ?? d.auxiliar?.id ?? null, '— Sin auxiliar —')}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold text-muted mb-1">Financiador</label>
+                <select id="corr-orgfin" class="form-select form-select-sm">
+                    ${opciones(cat.orgFin, o => o.idOrganismoFinanciero,
+                               o => etiquetaCod(o.codOf, (o.sigla ? o.sigla + ' - ' : '') + o.descripcion),
+                               d.organismoFinanciero?.idOrganismoFinanciero ?? null, '— Seleccione —')}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold text-muted mb-1">Fecha adquisición</label>
+                <input type="date" id="corr-fecha" class="form-control form-control-sm" value="${v(d.fechaAdquisicion)}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold text-muted mb-1">Costo (Bs.)</label>
+                <input type="number" step="0.01" min="0" id="corr-costo"
+                       class="form-control form-control-sm text-end fw-bold" value="${v(d.costo)}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold text-muted mb-1">Vida útil (años)</label>
+                <input type="number" step="0.5" min="0" id="corr-vida"
+                       class="form-control form-control-sm text-center" value="${v(d.vidaUtil)}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold text-muted mb-1">Código</label>
+                <input type="text" class="form-control form-control-sm bg-light" value="${escHtml(d.codigo)}"
+                       readonly title="El código no se cambia acá: es la llave del registro en el VSIAF">
+            </div>
+
+            <div class="col-12">
+                <label class="form-label small fw-semibold text-muted mb-1">Descripción</label>
+                <textarea id="corr-desc" class="form-control form-control-sm" rows="2" maxlength="1024">${v(d.descripcion)}</textarea>
+                <div class="d-flex justify-content-between align-items-center mt-1">
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" id="corr-accesorios"
+                               ${/INCLUYE ACCESORIOS$/i.test((d.descripcion || '').trim()) ? 'checked' : ''}>
+                        <label class="form-check-label small" for="corr-accesorios" style="cursor:pointer">
+                            Incluye accesorios
+                        </label>
+                    </div>
+                    <small class="text-warning d-none" id="corr-aviso250">
+                        <i class="bx bx-error"></i> El VSIAF guarda solo los primeros 250 caracteres.
+                    </small>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function cablearCascadasCorreccion() {
+        const reset = ($s, ph, dis) => $s.html(`<option value="">${ph}</option>`).prop('disabled', !!dis);
+
+        $('#corr-mun').off('change').on('change', async function () {
+            const id = this.value;
+            reset($('#corr-pred'), '— Seleccione —', !id);
+            reset($('#corr-ofi'), '— Seleccione predio primero —', true);
+            reset($('#corr-resp'), '— Seleccione oficina primero —', true);
+            if (!id) return;
+            const l = arr(await getJson(`/api/buscar_predios?municipioId=${id}`));
+            $('#corr-pred').html(opciones(l, p => p.id || p.idPredio,
+                p => etiquetaCod(p.codigo, p.descrip || p.nombre), null, '— Seleccione —')).prop('disabled', false);
+        });
+
+        $('#corr-pred').off('change').on('change', async function () {
+            const id = this.value;
+            reset($('#corr-ofi'), '— Seleccione —', !id);
+            reset($('#corr-resp'), '— Seleccione oficina primero —', true);
+            await recargarAuxCorreccion();
+            if (!id) return;
+            const l = arr(await getJson(`/api/buscar_oficinas?predioId=${id}`));
+            $('#corr-ofi').html(opciones(l, o => o.id || o.idOficina,
+                o => etiquetaCod(o.codigo ?? o.codOfi, o.nombre), null, '— Seleccione —')).prop('disabled', false);
+        });
+
+        $('#corr-ofi').off('change').on('change', async function () {
+            const id = this.value;
+            reset($('#corr-resp'), '— Seleccione —', !id);
+            if (!id) return;
+            const l = arr(await getJson(`/api/buscar_responsable?q=&page=1&oficinaId=${id}`));
+            $('#corr-resp').html(opciones(l, r => r.id, r => r.text, null, '— Seleccione —')).prop('disabled', false);
+        });
+
+        $('#corr-grupo').off('change').on('change', recargarAuxCorreccion);
+
+        // Descripción: marca de accesorios + aviso del corte del VSIAF
+        const marca = window.SciafCatalogos.MARCA_ACCESORIOS;
+        const quitar = window.SciafCatalogos.quitarAccesorios;
+
+        function avisar250() {
+            $('#corr-aviso250').toggleClass('d-none', ($('#corr-desc').val() || '').length <= 250);
+        }
+        $('#corr-desc').off('input').on('input', avisar250);
+        $('#corr-accesorios').off('change').on('change', function () {
+            const t = $('#corr-desc').val();
+            if ((t || '').trim() === '') return;
+            $('#corr-desc').val(this.checked ? (quitar(t) + ' ' + marca).trim() : quitar(t));
+            avisar250();
+        });
+        avisar250();
+    }
+
+    async function recargarAuxCorreccion() {
+        const g = $('#corr-grupo').val(), p = $('#corr-pred').val();
+        const $a = $('#corr-aux');
+        $a.html('<option value="">— Sin auxiliar —</option>');
+        if (!g || !p) return;
+        const l = arr(await getJson(`/api/buscar_auxiliar_lista?grupoId=${g}&predioId=${p}`));
+        $a.html(opciones(l, x => x.idAuxiliar ?? x.id, x => x.nombre ?? x.text, null, '— Sin auxiliar —'));
+    }
+
+    $(document).off('click.guardarCorr').on('click.guardarCorr', '#btn-guardar-correccion', function () {
+        const $btn = $(this);
+        const ofi = $('#corr-ofi').val(), resp = $('#corr-resp').val();
+
+        if (!ofi || !resp) {
+            Swal.fire('Faltan datos', 'Oficina y responsable son obligatorios.', 'warning');
+            return;
+        }
+
+        const payload = {
+            descripcion: ($('#corr-desc').val() || '').trim() || null,
+            incluyeAccesorios: $('#corr-accesorios').is(':checked'),
+            costo: parseFloat($('#corr-costo').val()) || null,
+            vidaUtil: parseFloat($('#corr-vida').val()) || null,
+            fechaAdquisicion: $('#corr-fecha').val() || null,
+            idGrupoContable: $('#corr-grupo').val() || null,
+            idAuxiliar: $('#corr-aux').val() || null,
+            idOficina: ofi,
+            idResponsable: resp,
+            idOrganismoFinanciero: $('#corr-orgfin').val() || null
+        };
+
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Guardando…');
+
+        $.ajax({
+            url: `/administracion/activo/api/editar-registrado/${encodeURIComponent(_corrIdEnc)}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload)
+        }).done(function (j) {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCorregirActivo')).hide();
+
+            // El backend distingue si la corrección llegó o no al VSIAF. Cuando NO llegó
+            // esto no se anuncia como éxito: los dos sistemas quedaron distintos.
+            if (j.vsiaf === 'ERROR') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Guardado, pero el VSIAF no se actualizó',
+                    text: j.msg,
+                    confirmButtonColor: '#ff9f43'
+                });
+            } else {
+                Swal.fire({
+                    toast: true, position: 'top-end', icon: 'success',
+                    title: j.msg || 'Corrección guardada',
+                    showConfirmButton: false, timer: 3000
+                });
+            }
+
+            if (_asigActual) cargarActivosModal(_asigActual);
+            cargarTabla();
+        }).fail(function (xhr) {
+            Swal.fire('No se pudo guardar',
+                xhr.responseJSON?.msg || 'Error al aplicar la corrección.', 'error');
+        }).always(function () {
+            $btn.prop('disabled', false).html('<i class="bx bx-save me-1"></i>Guardar corrección');
+        });
+    });
 </script>

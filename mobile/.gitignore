@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.development
+.env.production
+
+# El proyecto nativo SÍ se versiona: guarda iconos, permisos y configuración de
+# firma. Sus artefactos de compilación los ignora android/.gitignore, generado
+# por Capacitor.
+
+*.log
+.DS_Store
+.vscode/

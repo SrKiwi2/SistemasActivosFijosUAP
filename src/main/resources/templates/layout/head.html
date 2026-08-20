@@ -171,8 +171,16 @@
                 };
                 const cfg = cfgMap[estado] || { icon: 'info', title: 'Actualización', timer: 4000 };
 
-                // ✅ CORRECCIÓN: no llamar Swal.close() en SINCRONIZANDO (cerraba toasts anteriores)
-                if (estado === 'COMPLETADO' || estado === 'ERROR') Swal.close();
+                // Cerrar el aviso ANTERIOR de sincronización, y solo ese.
+                //
+                // Antes esto era un Swal.close() a secas y se llevaba puesto cualquier
+                // diálogo abierto: si el usuario estaba llenando una confirmación o un
+                // formulario en SweetAlert, la sincronización se lo cerraba en la cara.
+                // Ahora se cierra únicamente si lo que está abierto es un toast.
+                if (estado === 'COMPLETADO' || estado === 'ERROR') {
+                    const abierto = (typeof Swal.getPopup === 'function') ? Swal.getPopup() : null;
+                    if (abierto && abierto.classList.contains('swal2-toast')) Swal.close();
+                }
 
                 Swal.mixin({
                     toast: true,
@@ -200,26 +208,53 @@
                 });
 
                 if (recargarTabla) {
-                    // Robusto: el módulo que estás viendo registró su propio refresco (no depende de la URL).
-                    if (window.__tablaSse && window.__tablaSse.tabla === tabla
-                            && typeof window.__tablaSse.refrescar === 'function') {
-                        setTimeout(() => {
+                    // Refresco de la tabla del módulo. Se pospone si el usuario está
+                    // dentro de un modal: en varias pantallas el modal vive DENTRO del
+                    // fragmento de la tabla, así que recargarla se lo cierra en plena
+                    // edición. Se espera a que lo cierre y recién ahí se refresca.
+                    ejecutarCuandoNoHayaModal(() => {
+                        if (window.__tablaSse && window.__tablaSse.tabla === tabla
+                                && typeof window.__tablaSse.refrescar === 'function') {
                             try {
                                 window.__tablaSse.refrescar();
                                 console.log('[SSE] Tabla actualizada (registro):', tabla);
                             } catch (e) { console.warn('[SSE] No se pudo refrescar', tabla, e); }
-                        }, 800);
-                    }
-                    // Fallback: módulos viejos que exponen cargarTabla y cambian la URL.
-                    else if (estaViendoTabla(tabla) && typeof cargarTabla === 'function') {
-                        setTimeout(() => {
+                        }
+                        // Fallback: módulos viejos que exponen cargarTabla y cambian la URL.
+                        else if (estaViendoTabla(tabla) && typeof cargarTabla === 'function') {
                             console.log('[SSE] Auto-recargando tabla (fallback):', tabla);
                             cargarTabla();
-                        }, 1500);
-                    }
+                        }
+                    }, 1000);
                 }
 
                 if (typeof actualizarInfoSync === 'function') actualizarInfoSync();
+            }
+
+            /**
+             * Ejecuta la acción cuando no haya ningún modal abierto.
+             * Si hay uno, espera a que se cierre (una sola vez) y recién ahí corre.
+             * Evita que una sincronización en segundo plano le arruine la edición al
+             * usuario recargando la tabla que contiene el modal.
+             */
+            function ejecutarCuandoNoHayaModal(accion, retardo) {
+                const hayModal = () =>
+                    document.querySelector('.modal.show') ||
+                    (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()
+                        && Swal.getPopup() && !Swal.getPopup().classList.contains('swal2-toast'));
+
+                if (!hayModal()) {
+                    setTimeout(accion, retardo || 0);
+                    return;
+                }
+
+                console.log('[SSE] Refresco pospuesto: hay un modal abierto.');
+                const alCerrar = function () {
+                    document.removeEventListener('hidden.bs.modal', alCerrar, true);
+                    // Reintenta: puede haber quedado otro modal abierto debajo.
+                    ejecutarCuandoNoHayaModal(accion, retardo);
+                };
+                document.addEventListener('hidden.bs.modal', alCerrar, true);
             }
 
             function estaViendoTabla(tabla) {

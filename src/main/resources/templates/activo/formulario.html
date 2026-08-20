@@ -1703,7 +1703,14 @@
                     data.forEach(item => {
                         const val = item.id || item.idPredio || item.idOficina ||
                             item.idResponsable || item.idAuxiliar || item.idGrupoContable;
-                        const txt = item.nombre || item.descrip || item.text || item.descripcion;
+                        const nombre = item.nombre || item.descrip || item.text || item.descripcion;
+
+                        // Los catálogos de predio/oficina traen el código aparte: se antepone
+                        // al nombre para poder leerlo en el select (los que no lo traen —
+                        // responsables, auxiliares — quedan igual que antes).
+                        const txt = (item.codigo !== null && item.codigo !== undefined && item.codigo !== '')
+                            ? String(item.codigo).trim() + ' - ' + nombre
+                            : nombre;
 
                         let codeVal = item.codigo || item.unidad || null;
 

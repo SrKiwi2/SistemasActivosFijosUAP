@@ -296,25 +296,34 @@ public class CatalogoRestController {
         return resp;
     }
 
+    /**
+     * Predios de un municipio. Devuelve el nombre y el código por separado: la etiqueta
+     * "código — nombre" la arma el front (helper {@code etiquetaCodigo}), para que el
+     * formato se cambie en un solo lugar.
+     */
     @GetMapping("/buscar_predios")
     public List<Map<String, ?>> buscarPredios(@RequestParam Long municipioId) {
         return predioServicio.findByMunicipioIdMunicipio(municipioId).stream()
-            .map(p -> Map.of(
-                "id", p.getIdPredio(),
-                "descrip", p.getDescrip() + " (" + p.getUnidad() + ")",
-                "codigo", p.getCodigo()
-            ))
+            .map(p -> {
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("id",      p.getIdPredio());
+                r.put("descrip", p.getDescrip());
+                r.put("codigo",  p.getCodigo());   // puede ser null: por eso no se usa Map.of
+                return r;
+            })
             .collect(Collectors.toList());
     }
 
     @GetMapping("/buscar_oficinas")
     public List<Map<String, ?>> buscarOficinas(@RequestParam Long predioId) {
         return oficinaService.findByPredioIdPredio(predioId).stream()
-            .map(o -> Map.of(
-                "id", o.getIdOficina(),
-                "nombre", o.getNombre() + " (" + o.getCodOfi() + ")",
-                "codigo", o.getCodOfi()
-            ))
+            .map(o -> {
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("id",     o.getIdOficina());
+                r.put("nombre", o.getNombre());
+                r.put("codigo", o.getCodOfi());
+                return r;
+            })
             .collect(Collectors.toList());
     }
 
@@ -384,6 +393,7 @@ public class CatalogoRestController {
             .map(o -> {
                 Map<String, Object> r = new LinkedHashMap<>();
                 r.put("idOrganismoFinanciero", o.getIdOrganismoFinanciero());
+                r.put("codOf",                 o.getCodOf());   // código visible en el select
                 r.put("sigla",                 o.getSigla());
                 r.put("descripcion",           o.getDescripcion());
                 return r;

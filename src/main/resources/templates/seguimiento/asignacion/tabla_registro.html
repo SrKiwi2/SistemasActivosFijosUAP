@@ -31,11 +31,12 @@
     <div class="d-none d-lg-block px-3 pt-2 pb-1">
         <div class="row g-0 text-muted small fw-semibold border-bottom pb-2">
             <div class="col-lg-2">N° ASIGNACIÓN</div>
-            <div class="col-lg-2">FECHA</div>
+            <div class="col-lg-2">FECHA / REGISTRÓ</div>
             <div class="col-lg-1 text-center">TIPO</div>
-            <div class="col-lg-3">RESPONSABLE DESTINO</div>
+            <div class="col-lg-2">RESPONSABLE DESTINO</div>
             <div class="col-lg-2">OFICINA DESTINO</div>
             <div class="col-lg-1 text-center">ACTIVOS</div>
+            <div class="col-lg-1 text-end">COSTO (BS.)</div>
             <div class="col-lg-1 text-center">ESTADO</div>
         </div>
     </div>
@@ -58,6 +59,7 @@
             th:data-num-activos="${asig.detalles != null ? #lists.size(asig.detalles) : 0}"
             th:data-fecha-reg="${asig.registro}" th:data-usuario-reg="${asig.registroIdUsuario != null ? mapaUsuarios.get(asig.registroIdUsuario) : 'Sistema'}"
             th:data-fecha-mod="${asig.modificacion}" th:data-usuario-mod="${asig.modificacionIdUsuario}"
+            th:with="res=${resumenes != null ? resumenes.get(asig.idAsignacionActivo) : null}"
             style="cursor:pointer; transition: background 0.15s;">
 
             <div class="row g-0 align-items-center py-3">
@@ -77,13 +79,19 @@
                     </div>
                 </div>
 
-                <!-- Fecha -->
+                <!-- Fecha + quién la registró -->
                 <div class="col-6 col-lg-2 mb-1 mb-lg-0">
                     <div class="d-flex align-items-center gap-1 text-muted small">
                         <i class="bx bx-calendar"></i>
                         <span th:if="${asig.fechaAsignacion != null}"
                             th:text="${#temporals.format(asig.fechaAsignacion, 'dd/MM/yyyy')}">—</span>
                         <span th:unless="${asig.fechaAsignacion != null}">—</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-1 text-muted text-truncate"
+                        style="font-size:0.7rem; max-width:150px;" title="Usuario que registró la asignación">
+                        <i class="bx bx-user-circle"></i>
+                        <span th:text="${asig.registroIdUsuario != null and mapaUsuarios.containsKey(asig.registroIdUsuario)
+                                        ? mapaUsuarios.get(asig.registroIdUsuario) : 'Sistema'}">—</span>
                     </div>
                 </div>
 
@@ -95,7 +103,7 @@
                 </div>
 
                 <!-- Responsable destino -->
-                <div class="col-12 col-lg-3 mb-1 mb-lg-0">
+                <div class="col-12 col-lg-2 mb-1 mb-lg-0">
                     <div class="d-flex align-items-center gap-2">
                         <div class="avatar avatar-xs bg-label-success rounded-circle">
                             <i class="bx bx-user small"></i>
@@ -114,12 +122,37 @@
                         th:text="${asig.oficinaDestino != null ? asig.oficinaDestino.nombre : '—'}">—</div>
                 </div>
 
-                <!-- Num activos -->
+                <!-- Activos + avance hacia el VSIAF -->
                 <div class="col-3 col-lg-1 mb-1 mb-lg-0 text-lg-center">
                     <span class="badge bg-label-info rounded-pill">
                         <i class="bx bx-box me-1"></i>
-                        <span th:text="${asig.detalles != null ? #lists.size(asig.detalles) : 0}">0</span>
+                        <span th:text="${res != null ? res.total : (asig.detalles != null ? #lists.size(asig.detalles) : 0)}">0</span>
                     </span>
+                    <!-- Cuántos llegaron ya al VSIAF y cuántos siguen pendientes. -->
+                    <div th:if="${res != null and (res.subidos > 0 or res.pendientes > 0)}"
+                        class="d-flex align-items-center justify-content-lg-center gap-2 mt-1"
+                        style="font-size:0.68rem; font-weight:700;">
+                        <span th:if="${res.subidos > 0}" class="text-success"
+                            th:title="${res.subidos} + ' activo(s) ya en el VSIAF'">
+                            <i class="bx bx-check-double"></i><span th:text="${res.subidos}">0</span>
+                        </span>
+                        <span th:if="${res.pendientes > 0}" class="text-warning"
+                            th:title="${res.pendientes} + ' activo(s) todavía sin subir al VSIAF'">
+                            <i class="bx bx-time-five"></i><span th:text="${res.pendientes}">0</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Costo total del acta -->
+                <div class="col-3 col-lg-1 mb-1 mb-lg-0 text-end">
+                    <span th:if="${res != null}" class="small fw-semibold"
+                        th:classappend="${res.totalParcial} ? 'text-warning' : 'text-body'"
+                        th:title="${res.totalParcial}
+                                  ? 'Total parcial: ' + ${res.sinCosto} + ' activo(s) sin costo cargado'
+                                  : 'Costo total del acta'"
+                        th:text="${#numbers.formatDecimal(res.costoTotal, 1, 'POINT', 2, 'COMMA')}"
+                        style="font-variant-numeric: tabular-nums;">0,00</span>
+                    <span th:unless="${res != null}" class="text-muted small">—</span>
                 </div>
 
                 <!-- Estado + Acciones -->

@@ -19,5 +19,13 @@ public class EditarActivoPendienteRequest {
     private Long idResponsable;
     private Long idOrganismoFinanciero; // null = limpiar
 
+    /**
+     * Marca "INCLUYE ACCESORIOS" al final de la descripción.
+     * null = no tocar (útil en lotes con descripciones distintas),
+     * true = agregarla, false = quitarla. Se aplica sobre la descripción
+     * de cada activo, así que en lote cada uno conserva la suya.
+     */
+    private Boolean incluyeAccesorios;
+
     private String idEnc;
 }

@@ -601,9 +601,11 @@
                 fetch('/api/' + encodeURIComponent(_ctx.grupoId) + '/meta').then(r => r.json()).catch(() => null)
             ]);
             $ofi.innerHTML = '<option value="">— Seleccione oficina —</option>' +
-                (ofis || []).map(o => '<option value="' + (o.id || o.idOficina) + '">' + esc(o.nombre) + '</option>').join('');
+                (ofis || []).map(o => '<option value="' + (o.id || o.idOficina) + '">' +
+                    esc((o.codigo != null ? o.codigo + ' · ' : '') + o.nombre) + '</option>').join('');
             $org.innerHTML = '<option value="">— Sin financiador —</option>' +
-                (orgs || []).map(o => '<option value="' + o.idOrganismoFinanciero + '">' + esc((o.sigla ? o.sigla + ' - ' : '') + o.descripcion) + '</option>').join('');
+                (orgs || []).map(o => '<option value="' + o.idOrganismoFinanciero + '">' +
+                    esc((o.codOf ? o.codOf + ' · ' : '') + (o.sigla ? o.sigla + ' - ' : '') + o.descripcion) + '</option>').join('');
             // Auxiliar es POR fila: dejo precalculadas las <option> para todos los selects de la tabla.
             _auxOptionsHtml = '<option value="">— Sin auxiliar —</option>' +
                 (auxs || []).map(a => '<option value="' + (a.id || a.idAuxiliar) + '">' + esc(a.nombre || a.text) + '</option>').join('');
