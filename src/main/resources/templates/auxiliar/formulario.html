@@ -113,10 +113,14 @@
             setTimeout(actualizarCodAux, 100);
         }
 
-        /*VERIFICAR NOMBRE AUXILIAR*/
+        /*VERIFICAR NOMBRE AUXILIAR — SIEMPRE DENTRO DEL PREDIO + GRUPO CONTABLE*/
 
         const $inputNombreAux = document.getElementById('nombreAuxiliarInput');
-        const $inputIdAuxiliar = document.getElementById('idAuxiliarHidden');
+        // El hidden lo genera th:field, así que su id es 'idAuxiliar' (el nombre del campo
+        // sin el prefijo del bean). Antes se buscaba 'idAuxiliarHidden', que no existe: al
+        // editar nunca se mandaba el id y el auxiliar chocaba consigo mismo, dejando el
+        // formulario inválido y sin poder guardarse.
+        const $inputIdAuxiliar = document.getElementById('idAuxiliar');
         const $nombreFeedback = document.getElementById('nombreAuxiliarFeedback');
 
         var validationTimer;
@@ -130,12 +134,23 @@
                 return;
             }
 
+            // Sin predio y grupo no hay con qué comparar: el mismo nombre es válido en otro
+            // predio. Se deja pasar y el servidor vuelve a validar contra el ámbito real.
+            const idPredio = $selectPredio.value;
+            const idGrupoContable = $selectGrupoContable.value;
+            if (!idPredio || !idGrupoContable) {
+                $inputNombreAux.classList.remove('is-valid', 'is-invalid');
+                $inputNombreAux.setCustomValidity('');
+                return;
+            }
+
             validationTimer = setTimeout(() => {
                 const nombre = $inputNombreAux.value.trim();
                 const idAuxiliar = $inputIdAuxiliar ? $inputIdAuxiliar.value : '';
 
                 const baseUrl = '[[@{/administracion/auxiliar/validar-nombre-unico}]]';
-                let url = `${baseUrl}?nombre=${encodeURIComponent(nombre)}`;
+                let url = `${baseUrl}?nombre=${encodeURIComponent(nombre)}`
+                        + `&idPredio=${idPredio}&idGrupoContable=${idGrupoContable}`;
 
                 if (idAuxiliar) {
                     url += `&idAuxiliar=${idAuxiliar}`;
@@ -158,12 +173,16 @@
                         } else {
                             $inputNombreAux.classList.remove('is-valid');
                             $inputNombreAux.classList.add('is-invalid');
-                            $nombreFeedback.textContent = 'Este nombre auxiliar ya se encuentra registrado.';
+                            $nombreFeedback.textContent =
+                                'Ya hay un auxiliar con ese nombre en este predio y grupo contable.';
                             $inputNombreAux.setCustomValidity('Inválido');
                         }
                     })
                     .catch(error => {
+                        // Si la verificación no responde no se bloquea el alta: el servidor
+                        // vuelve a validar y es el que tiene la última palabra.
                         console.error('Error de validación:', error);
+                        $inputNombreAux.setCustomValidity('');
                     })
                     .finally(() => {
                         // OCULTAR PRELOADER
@@ -174,43 +193,9 @@
             }, 300);
         }
         $inputNombreAux.addEventListener('input', validarUnicidadNombre);
-
-        // Función para cargar auxiliar para editar
-        async function cargarAuxiliarParaEditar(idAuxiliar) {
-            showGlobalLoader({ texto: 'Cargando...' });
-
-            try {
-                const response = await fetch(`/administracion/auxiliar/api/detalle/${idAuxiliar}`);
-                if (!response.ok) throw new Error('Error al cargar auxiliar');
-
-                const auxiliar = await response.json();
-
-                // Llenar formulario
-                document.getElementById('idAuxiliar').value = auxiliar.idAuxiliar;
-                document.getElementById('inputCodAux').value = auxiliar.codAux;
-                document.getElementById('nombreAuxiliarInput').value = auxiliar.nombre;
-
-                // Establecer selects
-                if (auxiliar.grupoContable) {
-                    $('#selectGrupoContable').val(auxiliar.grupoContable.idGrupoContable).trigger('change');
-                }
-                if (auxiliar.predio) {
-                    $('#selectPredio').val(auxiliar.predio.idPredio).trigger('change');
-                }
-
-                // Cambiar URL del formulario a modificar
-                document.getElementById('formularioAuxiliar').action = '/administracion/auxiliar/modificar-auxiliar';
-
-                // Cambiar texto del botón
-                document.querySelector('#formularioAuxiliar button[type="submit"]').innerHTML = 'Guardar Cambios';
-
-                hideGlobalLoader();
-
-            } catch (error) {
-                hideGlobalLoader();
-                console.error('Error:', error);
-                alert('Error al cargar el auxiliar: ' + error.message);
-            }
-        }
+        // Cambiar de predio o de grupo cambia el ámbito: lo que era duplicado deja de serlo
+        // (y al revés), así que hay que volver a preguntar.
+        $selectPredio.addEventListener('change', validarUnicidadNombre);
+        $selectGrupoContable.addEventListener('change', validarUnicidadNombre);
     })();
 </script>

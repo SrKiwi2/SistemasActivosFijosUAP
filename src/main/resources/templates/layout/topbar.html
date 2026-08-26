@@ -62,6 +62,72 @@
             </li>
 
             <!-- ══════════════════════════════════════════════════
+                 ESTADO DE CONEXIONES  (solo administradores)
+                 Montajes CIFS del VSIAF + base de datos. Se refresca
+                 solo y recibe avisos por SSE cuando algo se cae.
+                 ══════════════════════════════════════════════════ -->
+            <li class="nav-item dropdown dropdown-conexiones me-2 me-xl-1"
+                id="li-estado-conexiones"
+                th:if="${session.nombre_rol != null and
+                        (session.nombre_rol == 'ADMINISTRADOR'
+                         or session.nombre_rol == 'SUPER USUARIO')}">
+
+                <a class="nav-link dropdown-toggle hide-arrow position-relative"
+                   href="javascript:void(0);"
+                   data-bs-toggle="dropdown"
+                   data-bs-auto-close="outside"
+                   aria-expanded="false"
+                   id="btnConexiones"
+                   title="Estado de las conexiones">
+
+                    <i class="ti ti-plug-connected ti-md" id="iconoConexiones"></i>
+
+                    <!-- Punto de estado: gris (sin datos), verde, ámbar o rojo -->
+                    <span id="dot-conexiones"
+                          class="position-absolute rounded-circle bg-secondary"
+                          style="width:9px; height:9px; top:8px; right:6px;"></span>
+                </a>
+
+                <!-- ── Panel dropdown ────────────────────────────── -->
+                <ul class="dropdown-menu dropdown-menu-end py-0 shadow-lg"
+                    style="width:400px; max-width:95vw;">
+
+                    <li class="dropdown-menu-header border-bottom py-3 px-4">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <h6 class="mb-0 fw-bold">Estado de conexiones</h6>
+                                <small class="text-muted" id="conexiones-resumen">
+                                    Consultando…
+                                </small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary py-1 px-2"
+                                    id="btn-verificar-conexiones"
+                                    title="Verificar ahora">
+                                <i class="ti ti-refresh ti-xs me-1"></i>
+                                <span style="font-size:.75rem">Verificar</span>
+                            </button>
+                        </div>
+                    </li>
+
+                    <li class="overflow-auto" style="max-height:360px;">
+                        <ul class="list-group list-group-flush" id="lista-conexiones">
+                            <li class="list-group-item text-center text-muted py-4">
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <small>Cargando estado…</small>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li class="border-top py-2 px-3 text-center">
+                        <small class="text-muted" id="conexiones-verificado">
+                            Última verificación: —
+                        </small>
+                    </li>
+                </ul>
+            </li>
+            <!-- ── FIN ESTADO DE CONEXIONES ─────────────────────── -->
+
+            <!-- ══════════════════════════════════════════════════
                  CAMPANA DE NOTIFICACIONES
                  ══════════════════════════════════════════════════ -->
             <li class="nav-item dropdown dropdown-notifications me-2 me-xl-1">
@@ -224,6 +290,27 @@
     #badge-notif.notif-pulse { animation: notifPulse 1.7s ease-out infinite; }
     @media (prefers-reduced-motion: reduce) {
         #iconoCampana.campana-shake, #badge-notif.notif-pulse { animation: none; }
+    }
+
+    /* ── Indicador de estado de conexiones (montajes VSIAF + BD) ─────────── */
+    @keyframes conexionPulse {
+        0%   { box-shadow: 0 0 0 0 rgba(220,53,69,.6); }
+        70%  { box-shadow: 0 0 0 6px rgba(220,53,69,0); }
+        100% { box-shadow: 0 0 0 0 rgba(220,53,69,0); }
+    }
+    #dot-conexiones.conexion-pulse { animation: conexionPulse 1.6s ease-out infinite; }
+
+    #lista-conexiones .conexion-item { border-left: 3px solid transparent; }
+    #lista-conexiones .conexion-item.est-OK        { border-left-color: #71dd37; }
+    #lista-conexiones .conexion-item.est-DEGRADADO { border-left-color: #ffab00; }
+    #lista-conexiones .conexion-item.est-CAIDO     { border-left-color: #ff3e1d; }
+    #lista-conexiones .conexion-meta { font-size: .72rem; line-height: 1.4; }
+    #lista-conexiones .conexion-ruta {
+        font-family: var(--bs-font-monospace, monospace);
+        font-size: .7rem;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        #dot-conexiones.conexion-pulse { animation: none; }
     }
 </style>
 

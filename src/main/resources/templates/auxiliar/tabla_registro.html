@@ -75,6 +75,12 @@
                                 data-bs-target="#modalFormularioAuxiliar" title="Editar auxiliar">
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </button>
+                            <button type="button" class="btn btn-outline-info btn-reenviar-auxiliar"
+                                th:data-id="${id_encryptado[index.index]}" th:data-nombre="${auxiliar.nombre}"
+                                data-bs-toggle="tooltip"
+                                title="Reenviar al VSIAF (si allá no aparece). No duplica si ya existe.">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
                             <button type="button" class="btn btn-danger btn-eliminar-auxiliar"
                                 th:data-id="${id_encryptado[index.index]}" th:data-nombre="${auxiliar.nombre}"
                                 title="Eliminar auxiliar">
@@ -114,6 +120,39 @@
         const idEncriptado = $(this).data('id');
         const nombre = $(this).data('nombre');
         eliminar(nombre, idEncriptado);
+    });
+
+    // Reenvío al VSIAF: para los auxiliares que quedaron sólo en la base porque el envío
+    // original falló. El worker inserta sólo si no existe, así que repetirlo es inocuo.
+    $(document).on('click', '.btn-reenviar-auxiliar', function () {
+        const idEncriptado = $(this).data('id');
+        const nombre = $(this).data('nombre');
+
+        Swal.fire({
+            title: '¿Reenviar al VSIAF?',
+            html: `Se va a mandar el auxiliar <strong>${nombre}</strong> al VSIAF.<br>
+                   <small class="text-muted">Si allá ya existe, no se duplica: queda como está.</small>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, reenviar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+
+            showGlobalLoader({ texto: 'Enviando al VSIAF...' });
+            $.ajax({
+                type: 'POST',
+                url: '/administracion/auxiliar/reenviar-vsiaf/' + encodeURIComponent(idEncriptado),
+                success: function (res) {
+                    if (res.ok) Swal.fire('Enviado', res.msg, 'success');
+                    else Swal.fire('Error', res.msg || 'No se pudo enviar.', 'error');
+                },
+                error: function (xhr) {
+                    Swal.fire('Error', xhr.responseJSON?.msg || `Error (${xhr.status})`, 'error');
+                },
+                complete: hideGlobalLoader
+            });
+        });
     });
 
     $(document).on('click', '#btnSyncAux', function () {

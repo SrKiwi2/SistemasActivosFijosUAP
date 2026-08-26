@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -42,6 +43,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.SyncControl;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.AuxiliarRegistroService;
 import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -58,6 +60,8 @@ public class AuxiliarController {
     private final IGrupoContableService grupoContableService;
     private final JavaDbfService dbfService;
     private final AuxiliarDbfWriterService auxiliarDbfWriterService;
+    /** Alta de auxiliares — compartida con el registro rápido de los módulos de activos. */
+    private final AuxiliarRegistroService auxiliarRegistroService;
     private final SyncControlService syncControlService;
     private static final Logger log = LoggerFactory.getLogger(AuxiliarController.class);
 
@@ -180,52 +184,54 @@ public class AuxiliarController {
         }
         
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-        String usuarioNombre = (usuario != null ? usuario.getUsuario() : "SISTEMA");
-        
-        // Establecer valores por defecto
-        auxiliar.setEstado("ACTIVO");
-        auxiliar.setFechaUlt(LocalDate.now());
-        auxiliar.setUsuario(usuarioNombre);
-        if (usuario != null) {
-            auxiliar.setRegistroIdUsuario(usuario.getIdUsuario());
-        }
 
-        Predio predioCompleto = predioServicio.findById(auxiliar.getPredio().getIdPredio());
-        auxiliar.setPredio(predioCompleto);
-        
-        GrupoContable grupoContable = grupoContableService.findById(auxiliar.getGrupoContable().getIdGrupoContable());
-        auxiliar.setGrupoContable(grupoContable);
-
-        String entidadCode = predioCompleto.getEntidad().getEntidadCodigo();
-        String unidadCode = predioCompleto.getUnidad();
-        
-        if (auxiliar.getPredio() != null && auxiliar.getPredio().getCodigo() != null) {
-            unidadCode = auxiliar.getPredio().getUnidad();
-        }
-        
-        // Sin escaneo de AUXILIAR.DBF por CIFS: el worker VFPOLEDB hace insert-if-not-exists
-        // por índice (.CDX), así el alta no se bloquea leyendo el DBF.
-
-        // 1) Guardar en PostgreSQL
-        auxiliarService.save(auxiliar);
-        
-        // 2) Insertar en auxiliar.DBF
+        // El alta la resuelve AuxiliarRegistroService, el mismo que usan el registro rápido
+        // desde Registro de Activos y desde Activos Pendientes: ámbito (predio + grupo),
+        // unicidad del nombre dentro de ese ámbito, correlativo calculado en el servidor y
+        // envío al VSIAF por la cola. Acá es un ABM, así que un nombre repetido se rechaza
+        // en vez de reutilizar el existente.
+        AuxiliarRegistroService.Resultado alta;
         try {
-            auxiliarDbfWriterService.insertarDesdeAuxiliar(auxiliar, entidadCode, unidadCode, usuarioNombre);
-            log.info("Auxiliar {} registrado en PostgreSQL y DBF", auxiliar.getIdAuxiliar());
-        } catch (Exception e) {
-            log.error("Error insertando auxiliar en DBF: {}", e.getMessage(), e);
-            // Opcional: podrías hacer rollback del PostgreSQL aquí
-            return ResponseEntity.status(500).body(Map.of(
+            alta = auxiliarRegistroService.registrar(
+                    auxiliar.getPredio() != null ? auxiliar.getPredio().getIdPredio() : null,
+                    auxiliar.getGrupoContable() != null ? auxiliar.getGrupoContable().getIdGrupoContable() : null,
+                    auxiliar.getNombre(),
+                    auxiliar.getCodAux(),
+                    usuario,
+                    false);
+        } catch (IllegalArgumentException datoInvalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", datoInvalido.getMessage()));
+        } catch (DataIntegrityViolationException dup) {
+            log.error("No se pudo asignar un codAux libre para el auxiliar '{}': {}",
+                    auxiliar.getNombre(), dup.getMessage());
+            return ResponseEntity.status(409).body(Map.of(
                 "ok", false,
-                "msg", "Se guardó en la base de datos pero falló el registro en DBF: " + e.getMessage()
-            ));
+                "msg", "No se pudo asignar el correlativo del auxiliar (otro registro lo tomó al mismo tiempo). "
+                     + "Volvé a intentarlo."));
         }
-        
+
+        Auxiliar guardado = alta.auxiliar();
+
+        if (!alta.enviadoAlVsiaf()) {
+            // No se revierte la BD ni se responde error: el auxiliar YA quedó guardado y, si
+            // se respondiera "falló", el usuario volvería a cargarlo y crearía un segundo
+            // auxiliar con otro correlativo. Se avisa y se deja el reenvío como acción aparte.
+            return ResponseEntity.ok(Map.of(
+                "ok", true,
+                "vsiaf", "ERROR",
+                "id", guardado.getIdAuxiliar(),
+                "codAux", guardado.getCodAux(),
+                "msg", "Se realizó el registro en la base con el código " + guardado.getCodAux()
+                     + ", pero NO se pudo enviar al VSIAF: " + alta.motivoFalloVsiaf()
+                     + ". No lo cargues de nuevo: usá el botón Reenviar al VSIAF de la tabla."));
+        }
+
         return ResponseEntity.ok(Map.of(
             "ok", true,
-            "msg", "Se realizó el registro correctamente",
-            "id", auxiliar.getIdAuxiliar()
+            "vsiaf", "OK",
+            "msg", "Se realizó el registro correctamente con el código " + guardado.getCodAux(),
+            "id", guardado.getIdAuxiliar(),
+            "codAux", guardado.getCodAux()
         ));
     }
 
@@ -246,9 +252,9 @@ public class AuxiliarController {
             ));
         }
         
-        Usuario usuario =  (Usuario) request.getSession().getAttribute("usuario");;
-        String usuarioNombre = usuario.getUsuario();
-        
+        Usuario usuario =  (Usuario) request.getSession().getAttribute("usuario");
+        String usuarioNombre = (usuario != null ? usuario.getUsuario() : "SISTEMA");
+
         // Obtener el auxiliar original
         Long idAuxiliar = auxiliarForm.getIdAuxiliar();
         Auxiliar auxiliarOriginal = auxiliarService.findById(idAuxiliar);
@@ -259,64 +265,121 @@ public class AuxiliarController {
             ));
         }
 
-        Long idGrupoContable = auxiliarForm.getGrupoContable().getIdGrupoContable();
-        GrupoContable grupoContableCompleto = grupoContableService.findById(idGrupoContable);
+        if (auxiliarForm.getPredio() == null || auxiliarForm.getPredio().getIdPredio() == null
+                || auxiliarForm.getGrupoContable() == null || auxiliarForm.getGrupoContable().getIdGrupoContable() == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "ok", false, "msg", "Debe elegir predio y grupo contable."));
+        }
 
-        Long idPredio = auxiliarForm.getPredio().getIdPredio();
-        Predio predioCompleto = predioServicio.findById(idPredio);
-        
-        // Guardar valores originales para buscar en DBF
-        Short codContOriginal = auxiliarOriginal.getGrupoContable() != null ? 
-                               Short.valueOf(auxiliarOriginal.getGrupoContable().getCodContable().toString()) : null;
+        GrupoContable grupoContableCompleto = grupoContableService.findById(auxiliarForm.getGrupoContable().getIdGrupoContable());
+        Predio predioCompleto = predioServicio.findById(auxiliarForm.getPredio().getIdPredio());
+        if (predioCompleto == null || grupoContableCompleto == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "ok", false, "msg", "El predio o el grupo contable elegido no existe."));
+        }
+        if (predioCompleto.getEntidad() == null
+                || predioCompleto.getEntidad().getEntidadCodigo() == null
+                || predioCompleto.getUnidad() == null || predioCompleto.getUnidad().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "ok", false,
+                "msg", "El predio '" + predioCompleto.getDescrip() + "' no tiene entidad/unidad configurada."));
+        }
+
+        String nombre = AuxiliarRegistroService.normalizarNombre(auxiliarForm.getNombre());
+        if (nombre.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "El nombre del auxiliar es obligatorio."));
+        }
+        if (!auxiliarService.isNombreUnique(nombre, predioCompleto.getIdPredio(),
+                grupoContableCompleto.getIdGrupoContable(), idAuxiliar)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "ok", false,
+                "msg", "Ya existe otro auxiliar llamado '" + nombre + "' en el predio "
+                     + predioCompleto.getUnidad() + " para el grupo contable "
+                     + grupoContableCompleto.getCodContable() + "."));
+        }
+
+        // Guardar valores originales: son la CLAVE con la que se ubica la fila en el DBF
+        // (ENTIDAD + UNIDAD + CODCONT + CODAUX). Si cambian, el UPDATE va contra la vieja.
+        Short codContOriginal = auxiliarOriginal.getGrupoContable() != null
+                && auxiliarOriginal.getGrupoContable().getCodContable() != null
+                ? auxiliarOriginal.getGrupoContable().getCodContable().shortValue() : null;
         Short codAuxOriginal = auxiliarOriginal.getCodAux();
         String entidadOriginal = auxiliarOriginal.getPredio().getEntidad().getEntidadCodigo();
         String unidadOriginal = auxiliarOriginal.getPredio().getUnidad();
-        
+
+        // El codAux es relativo al predio + grupo: si alguno de los dos cambia, el número
+        // viejo puede estar ocupado en el destino. Se revalida y, si hace falta, se renumera.
+        boolean cambioAmbito =
+                !predioCompleto.getIdPredio().equals(auxiliarOriginal.getPredio().getIdPredio())
+             || !grupoContableCompleto.getIdGrupoContable().equals(auxiliarOriginal.getGrupoContable().getIdGrupoContable());
+
+        Short codAuxDeseado = (auxiliarForm.getCodAux() != null) ? auxiliarForm.getCodAux() : codAuxOriginal;
+        Short codAuxFinal = codAuxDeseado;
+        if (cambioAmbito || !codAuxDeseado.equals(codAuxOriginal)) {
+            codAuxFinal = auxiliarRegistroService.codAuxLibre(
+                    predioCompleto.getIdPredio(), grupoContableCompleto.getIdGrupoContable(),
+                    codAuxDeseado, idAuxiliar);
+            if (!codAuxFinal.equals(codAuxDeseado)) {
+                log.info("Auxiliar {}: codAux {} ocupado en el destino; se renumera a {}",
+                        idAuxiliar, codAuxDeseado, codAuxFinal);
+            }
+        }
+
         // Actualizar campos
-        auxiliarOriginal.setGrupoContable(grupoContableCompleto); // <-- ¡CORREGIDO!
-        auxiliarOriginal.setPredio(predioCompleto);             // <-- ¡CORREGIDO!
-        auxiliarOriginal.setCodAux(auxiliarForm.getCodAux());
-        auxiliarOriginal.setNombre(auxiliarForm.getNombre());
+        auxiliarOriginal.setGrupoContable(grupoContableCompleto);
+        auxiliarOriginal.setPredio(predioCompleto);
+        auxiliarOriginal.setCodAux(codAuxFinal);
+        auxiliarOriginal.setNombre(nombre);
         auxiliarOriginal.setFechaUlt(LocalDate.now());
         auxiliarOriginal.setModificacion(new Date());
-        auxiliarOriginal.setUsuario(usuario.getUsuario());
+        auxiliarOriginal.setUsuario(usuarioNombre);
         if (usuario != null) {
             auxiliarOriginal.setModificacionIdUsuario(usuario.getIdUsuario());
         }
         auxiliarOriginal.setEstado("ACTIVO");
-        
+
         // 1) Guardar en PostgreSQL
-        auxiliarService.save(auxiliarOriginal);
-        
-        // 2) Actualizar en auxiliar.DBF
         try {
-            String entidadCode = predioCompleto.getEntidad().getEntidadCodigo();
-            String unidadCode = predioCompleto.getUnidad();
-            
+            auxiliarService.save(auxiliarOriginal);
+        } catch (DataIntegrityViolationException dup) {
+            log.error("Choque de correlativo modificando auxiliar {}: {}", idAuxiliar, dup.getMessage());
+            return ResponseEntity.status(409).body(Map.of(
+                "ok", false,
+                "msg", "Ese código auxiliar ya está ocupado en el predio/grupo elegido. Volvé a intentarlo."));
+        }
+
+        // 2) Actualizar en auxiliar.DBF (misma vía que el resto: cola → worker VFPOLEDB)
+        try {
             auxiliarDbfWriterService.actualizarDesdeAuxiliar(
                 codContOriginal,
                 codAuxOriginal,
                 entidadOriginal,
                 unidadOriginal,
                 auxiliarOriginal,
-                entidadCode,
-                unidadCode,
+                predioCompleto.getEntidad().getEntidadCodigo(),
+                predioCompleto.getUnidad(),
                 usuarioNombre
             );
-            
-            log.info("Auxiliar {} actualizado en PostgreSQL y DBF", auxiliarOriginal.getIdAuxiliar());
-            
+
+            log.info("Auxiliar {} actualizado en PostgreSQL y encolado al VSIAF", auxiliarOriginal.getIdAuxiliar());
+
         } catch (Exception e) {
-            log.error("Error actualizando auxiliar en DBF: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).body(Map.of(
-                "ok", false,
-                "msg", "Se guardó en la base de datos pero falló la actualización en DBF: " + e.getMessage()
-            ));
+            // La BD ya cambió; devolver error haría que se reintente y se duplique el envío.
+            // Se avisa que los dos sistemas quedaron distintos.
+            log.error("Auxiliar {} modificado en BD pero NO enviado al VSIAF: {}",
+                    auxiliarOriginal.getIdAuxiliar(), e.getMessage(), e);
+            return ResponseEntity.ok(Map.of(
+                "ok", true,
+                "vsiaf", "ERROR",
+                "msg", "Se modificó en la base, pero NO se pudo actualizar el VSIAF: " + e.getMessage()
+                     + ". Los dos sistemas quedaron distintos: revisá la cola o usá Conciliación."));
         }
-        
+
         return ResponseEntity.ok(Map.of(
             "ok", true,
-            "msg", "Se modificó correctamente en PostgreSQL y DBF"
+            "vsiaf", "OK",
+            "codAux", auxiliarOriginal.getCodAux(),
+            "msg", "Se modificó correctamente en PostgreSQL y se envió al VSIAF"
         ));
     }
 
@@ -362,6 +425,46 @@ public class AuxiliarController {
                 "ok", false,
                 "message", "Error al obtener detalle: " + e.getMessage()
             ));
+        }
+    }
+
+    /**
+     * Vuelve a mandar un auxiliar al VSIAF.
+     * <p>
+     * Para los que quedaron sólo en la base: si el envío original falló (cola caída, montaje
+     * no disponible) el auxiliar existe acá pero no allá, y los activos que lo usan se ven
+     * en el VSIAF sin auxiliar. La orden que se encola es un INSERT idempotente —el worker
+     * inserta sólo si no existe la clave (ENTIDAD, UNIDAD, CODCONT, CODAUX)—, así que
+     * reenviar de más no duplica nada.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/reenviar-vsiaf/{id_auxiliar}")
+    @ResponseBody
+    public ResponseEntity<?> reenviarAlVsiaf(HttpServletRequest request,
+                                             @PathVariable("id_auxiliar") String idAuxiliarEnc) {
+        try {
+            Long id = Long.parseLong(Encriptar.decrypt(idAuxiliarEnc));
+            Auxiliar auxiliar = auxiliarService.findById(id);
+            if (auxiliar == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No se encontró el auxiliar."));
+            }
+
+            Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+            String usuarioNombre = (usuario != null ? usuario.getUsuario() : "SISTEMA");
+
+            auxiliarDbfWriterService.asegurarEnVsiaf(auxiliar, usuarioNombre);
+
+            log.info("Auxiliar {} (codAux={}) reenviado al VSIAF por {}",
+                    auxiliar.getIdAuxiliar(), auxiliar.getCodAux(), usuarioNombre);
+            return ResponseEntity.ok(Map.of(
+                "ok", true,
+                "msg", "Auxiliar '" + auxiliar.getNombre() + "' (código " + auxiliar.getCodAux()
+                     + ") enviado al VSIAF. Si ya estaba, el worker lo deja como está."));
+
+        } catch (Exception e) {
+            log.error("Error reenviando auxiliar al VSIAF: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of(
+                "ok", false, "msg", "No se pudo enviar al VSIAF: " + e.getMessage()));
         }
     }
 
@@ -649,13 +752,23 @@ public class AuxiliarController {
         return auxiliarService.getNextCodAux(idPredio, idGrupoContable);
     }
 
+    /**
+     * ¿El nombre está libre en ESE predio + grupo contable?
+     * <p>
+     * El ámbito no es opcional: cada predio arma su propia lista de auxiliares y el mismo
+     * nombre convive en varios predios con distinto codAux. Si no llegan predio y grupo se
+     * responde {@code true} para no bloquear un alta legítima.
+     */
     @ValidarUsuarioAutenticado
     @GetMapping("/validar-nombre-unico")
     @ResponseBody
     public boolean validarNombreUnico(
         @RequestParam("nombre") String nombre,
+        @RequestParam(value = "idPredio", required = false) Long idPredio,
+        @RequestParam(value = "idGrupoContable", required = false) Long idGrupoContable,
         @RequestParam(value = "idAuxiliar", required = false) Long idAuxiliar) {
-        return auxiliarService.isNombreUnique(nombre, idAuxiliar);
+        return auxiliarService.isNombreUnique(
+                AuxiliarRegistroService.normalizarNombre(nombre), idPredio, idGrupoContable, idAuxiliar);
     }
 
     /* HELPERS */

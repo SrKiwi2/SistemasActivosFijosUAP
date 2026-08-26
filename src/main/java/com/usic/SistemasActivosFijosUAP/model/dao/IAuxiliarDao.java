@@ -30,6 +30,7 @@ public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
             from Auxiliar a
             where a.grupoContable.idGrupoContable = :grupoId
               and (:predioId is null or a.predio.idPredio = :predioId)
+              and (a.estado is null or a.estado <> 'ELIMINADO')
               and (
                 :term = '' or
                 lower(a.nombre) like lower(concat('%', :term, '%')) or
@@ -60,9 +61,8 @@ public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
     @Query(value = "SELECT COALESCE(MAX(a.cod_aux), 0) + 1 FROM auxiliar a WHERE a.id_predio = :idPredio AND a.id_grupo_contable = :idGrupoContable", nativeQuery = true)
     Short findNextCodAux(@Param("idPredio") Long idPredio, @Param("idGrupoContable") Long idGrupoContable);
 
-    boolean existsByNombreIgnoreCase(String nombre);
-
-    boolean existsByNombreIgnoreCaseAndIdAuxiliarIsNot(String nombre, Long idAuxiliar);
+    // Nota: no hay exists...ByNombre global a propósito. La unicidad del nombre es por
+    // (predio, grupo contable) — ver los exists* del final de esta interfaz.
 
     List<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContable(Long idPredio, Long idGrupoContable);
 
@@ -90,7 +90,7 @@ public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
         WHERE LOWER(TRIM(p.unidad)) = LOWER(TRIM(:unidad))
           AND g.codContable = :codContable
           AND a.codAux      = :codAux
-          AND a.estado      = 'ACTIVO'
+          AND (a.estado IS NULL OR a.estado <> 'ELIMINADO')
         """)
     Optional<Auxiliar> findByUnidadGrupoAndCodAux(
         @Param("unidad")      String unidad,
@@ -106,4 +106,32 @@ public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
           AND a.estado = 'ACTIVO'
         """)
     List<Auxiliar> findAllByUnidadesIn(@Param("unidades") List<String> unidades);
+
+    /*
+     * ── Unicidad del nombre: SIEMPRE por (predio, grupo contable) ──────────────
+     * El auxiliar es un correlativo dentro de un predio y un grupo contable, no un
+     * catálogo global: el mismo nombre puede (y suele) existir en varios predios con
+     * codAux distinto y en distinto orden. Chequear el nombre globalmente bloqueaba
+     * altas legítimas — que es lo que rompía el registro de auxiliares.
+     */
+    boolean existsByPredio_IdPredioAndGrupoContable_IdGrupoContableAndNombreIgnoreCase(
+            Long idPredio, Long idGrupo, String nombre);
+
+    boolean existsByPredio_IdPredioAndGrupoContable_IdGrupoContableAndNombreIgnoreCaseAndIdAuxiliarNot(
+            Long idPredio, Long idGrupo, String nombre, Long idAuxiliar);
+
+    /**
+     * Auxiliares vigentes de un predio + grupo contable: los que se pueden ofrecer al
+     * elegir el auxiliar de un activo. Excluye los ELIMINADO; las filas con estado nulo
+     * (anteriores a que se sellara el campo) se siguen mostrando para no ocultar datos.
+     */
+    @Query("""
+        SELECT a FROM Auxiliar a
+        WHERE a.predio.idPredio = :idPredio
+          AND a.grupoContable.idGrupoContable = :idGrupo
+          AND (a.estado IS NULL OR a.estado <> 'ELIMINADO')
+        ORDER BY a.codAux, a.nombre
+        """)
+    List<Auxiliar> findVigentesByPredioYGrupo(@Param("idPredio") Long idPredio,
+                                              @Param("idGrupo") Long idGrupo);
 }

@@ -279,8 +279,21 @@ public class ActivosController {
         List<Activo> activosGuardados = new ArrayList<>();
 
         try {
+            // El auxiliar llega del @ModelAttribute con sólo el id: hay que traerlo completo
+            // y comprobar que sea del predio de la oficina y del grupo contable del activo.
+            // Si no, el CODAUX que se escriba en el VSIAF apunta a otro auxiliar (o a nada).
+            Oficina oficinaActivo = (activo.getOficina() != null && activo.getOficina().getIdOficina() != null)
+                    ? oficinaService.findById(activo.getOficina().getIdOficina())
+                    : activo.getOficina();
+            GrupoContable grupoActivo = (activo.getGrupoContable() != null && activo.getGrupoContable().getIdGrupoContable() != null)
+                    ? grupoContableService.findById(activo.getGrupoContable().getIdGrupoContable())
+                    : activo.getGrupoContable();
+            Auxiliar auxiliarActivo = resolverAuxiliarCoherente(
+                    activo.getAuxiliar() != null ? activo.getAuxiliar().getIdAuxiliar() : null,
+                    oficinaActivo, grupoActivo);
+
             for (int i = 0; i < cantidad; i++) {
-                
+
                 Activo nuevoActivo = new Activo();
                 
                 nuevoActivo.setDescripcion(activo.getDescripcion());
@@ -289,11 +302,11 @@ public class ActivosController {
                 nuevoActivo.setFechaAdquisicion(activo.getFechaAdquisicion());
                 nuevoActivo.setObserv(activo.getObserv());
                 
-                nuevoActivo.setGrupoContable(activo.getGrupoContable());
-                nuevoActivo.setOficina(activo.getOficina());
+                nuevoActivo.setGrupoContable(grupoActivo);
+                nuevoActivo.setOficina(oficinaActivo);
                 nuevoActivo.setResponsable(activo.getResponsable());
                 nuevoActivo.setOrganismoFinanciero(activo.getOrganismoFinanciero());
-                nuevoActivo.setAuxiliar(activo.getAuxiliar());
+                nuevoActivo.setAuxiliar(auxiliarActivo);
                 nuevoActivo.setEstadoActivo(activo.getEstadoActivo());
 
                 String codigoParaEste = (i == 0) 
@@ -338,8 +351,10 @@ public class ActivosController {
             ok.put("ok", true);
             ok.put("msg", String.format("Se registraron %d activos correctamente...", cantidad));
             ok.put("idsParaReporte", idsReporte);
-            
+
             return ResponseEntity.ok(ok);
+        } catch (IllegalArgumentException datoInvalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", datoInvalido.getMessage()));
         } catch (Exception e) {
             log.error("Error en registro masivo", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
@@ -394,7 +409,9 @@ public class ActivosController {
                 
                 GrupoContable grupo = grupoContableService.findById(item.getIdGrupoContable());
                 Oficina oficina = oficinaService.findById(item.getIdOficina());
-                Auxiliar auxiliar = (item.getIdAuxiliar() != null) ? auxiliarService.findById(item.getIdAuxiliar()) : null;
+                // El auxiliar tiene que ser del predio de la oficina y del grupo del ítem:
+                // el CODAUX sólo significa algo dentro de esa combinación.
+                Auxiliar auxiliar = resolverAuxiliarCoherente(item.getIdAuxiliar(), oficina, grupo);
                 String codMun = oficina.getPredio().getMunicipio().getCodigo();
                 String codPred = oficina.getPredio().getCodigo();
                 String codGrup = String.format("%02d", grupo.getCodDbf()); 
@@ -459,6 +476,8 @@ public class ActivosController {
                 "idsParaReporte", idsReporte
             ));
 
+        } catch (IllegalArgumentException datoInvalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", datoInvalido.getMessage()));
         } catch (Exception e) {
             log.error("Error masivo", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
@@ -528,6 +547,80 @@ public class ActivosController {
             try { return Double.parseDouble(s); } catch (NumberFormatException e) { return defaultValue; }
         }
         return defaultValue;
+    }
+
+    /**
+     * Resuelve el auxiliar de un activo verificando que <b>pertenezca al mismo predio y
+     * grupo contable</b> que el activo.
+     * <p>
+     * En el VSIAF el auxiliar no se identifica por un id: se identifica por la tupla
+     * (ENTIDAD, UNIDAD, CODCONT, CODAUX). El CODAUX es un correlativo <i>dentro</i> de un
+     * predio y un grupo contable — el auxiliar 3 del predio CAUN en el grupo 12 no tiene
+     * nada que ver con el auxiliar 3 de otro predio, ni con el 3 de otro grupo en el mismo
+     * predio. Si se guarda en el activo un auxiliar de otro ámbito, en ACTUAL.DBF queda un
+     * CODAUX que apunta a otra cosa (o a nada) y el VSIAF muestra el activo sin auxiliar.
+     * <p>
+     * Por eso se valida acá y no sólo en el front: el select se arma por AJAX y basta con
+     * que el usuario cambie el grupo o la oficina después de elegir el auxiliar para que
+     * llegue un id que ya no corresponde.
+     *
+     * @return el auxiliar completo, o {@code null} si {@code idAuxiliar} es null (es opcional)
+     * @throws IllegalArgumentException si el auxiliar no existe o no es del predio/grupo del activo
+     */
+    private Auxiliar resolverAuxiliarCoherente(Long idAuxiliar, Oficina oficina, GrupoContable grupo) {
+        if (idAuxiliar == null) return null;
+
+        Auxiliar aux = auxiliarService.findById(idAuxiliar);
+        if (aux == null) {
+            throw new IllegalArgumentException("El auxiliar seleccionado no existe (id=" + idAuxiliar + ").");
+        }
+        if ("ELIMINADO".equalsIgnoreCase(aux.getEstado())) {
+            throw new IllegalArgumentException("El auxiliar '" + aux.getNombre() + "' está dado de baja.");
+        }
+
+        if (grupo != null && aux.getGrupoContable() != null
+                && !aux.getGrupoContable().getIdGrupoContable().equals(grupo.getIdGrupoContable())) {
+            throw new IllegalArgumentException(String.format(
+                "El auxiliar '%s' es del grupo contable %s y el activo es del grupo %s. "
+              + "Los auxiliares son propios de cada grupo contable: elegí uno de la lista del grupo del activo.",
+                aux.getNombre(),
+                aux.getGrupoContable().getCodContable(),
+                grupo.getCodContable()));
+        }
+
+        Predio predioActivo = (oficina != null) ? oficina.getPredio() : null;
+        if (predioActivo != null && aux.getPredio() != null
+                && !aux.getPredio().getIdPredio().equals(predioActivo.getIdPredio())) {
+            throw new IllegalArgumentException(String.format(
+                "El auxiliar '%s' pertenece al predio %s y el activo está en el predio %s. "
+              + "Cada predio tiene su propia lista de auxiliares: elegí uno del predio de la oficina.",
+                aux.getNombre(),
+                aux.getPredio().getUnidad(),
+                predioActivo.getUnidad()));
+        }
+
+        return aux;
+    }
+
+    /**
+     * Deja el auxiliar del activo en el VSIAF antes de mandar el activo.
+     * <p>
+     * El orden importa: ACTUAL.DBF guarda el CODAUX, no una referencia. Si el activo llega
+     * antes que su auxiliar, en el VSIAF queda apuntando a un auxiliar inexistente y el
+     * activo se ve "sin auxiliar". El INSERT que encola el worker es idempotente (inserta
+     * sólo si no existe la clave), así que llamarlo por cada activo no duplica nada.
+     *
+     * @return null si salió bien o no había auxiliar; el motivo del fallo si no se pudo
+     */
+    private String sincronizarAuxiliarDelActivo(Activo a, String usuarioNombre) {
+        if (a == null || a.getAuxiliar() == null) return null;
+        try {
+            auxiliarDbfWriterService.asegurarEnVsiaf(a.getAuxiliar(), usuarioNombre);
+            return null;
+        } catch (Exception e) {
+            log.error("[AUX-VSIAF] No se pudo enviar el auxiliar del activo {}: {}", a.getCodigo(), e.getMessage());
+            return e.getMessage();
+        }
     }
 
     /**
@@ -884,8 +977,12 @@ public class ActivosController {
     
         Long idPredioDest = predioDestino.getIdPredio();
         Long idGrupo      = auxOrigen.getGrupoContable().getIdGrupoContable();
+        // NOMAUX en auxiliar.DBF son 60 caracteres: si el nombre se pasa, el VSIAF lo corta
+        // por su cuenta y deja de coincidir con el de la BD (así se emparejan los auxiliares
+        // entre predios). Se recorta acá para que los dos lados guarden lo mismo.
         String nombreAux  = auxOrigen.getNombre().trim().toUpperCase();
-    
+        if (nombreAux.length() > 60) nombreAux = nombreAux.substring(0, 60);
+
         log.info("[AUX] Resolviendo auxiliar '{}' | GrupoID={} | PredioDestID={}",
             nombreAux, idGrupo, idPredioDest);
     
@@ -918,32 +1015,24 @@ public class ActivosController {
         nuevoAux.setUsuario(usuNombre);
         nuevoAux.setFechaUlt(LocalDate.now());
         nuevoAux.setCodAux(nextCod);
-    
+        // Sin estado, el auxiliar queda invisible para las consultas que filtran por ACTIVO
+        // (entre ellas la que busca el auxiliar origen de una transferencia).
+        nuevoAux.setEstado("ACTIVO");
+
         nuevoAux = auxiliarService.save(nuevoAux);
         log.info("[AUX] Nuevo auxiliar guardado en BD: ID={} '{}' CodAux={}",
             nuevoAux.getIdAuxiliar(), nombreAux, nextCod);
-    
-        // 3. Sincronizar con auxiliar.DBF
+
+        // 3. Sincronizar con auxiliar.DBF por la misma vía que el resto (cola → worker VFPOLEDB)
         try {
-            String entidadCode = predioDestino.getEntidad() != null
-                ? predioDestino.getEntidad().getEntidadCodigo() : "";
-            String unidadCode  = predioDestino.getUnidad() != null
-                ? predioDestino.getUnidad() : "";
-    
-            if (entidadCode.isBlank() || unidadCode.isBlank()) {
-                log.warn("[AUX-DBF] Predio '{}' sin entidad/unidad — auxiliar creado en BD pero NO en DBF.",
-                    predioDestino.getDescrip());
-            } else {
-                auxiliarDbfWriterService.insertarDesdeAuxiliar(
-                    nuevoAux, entidadCode, unidadCode, usuNombre);
-                log.info("[AUX-DBF] Auxiliar '{}' insertado en auxiliar.DBF (unidad='{}')",
-                    nombreAux, unidadCode);
-            }
+            auxiliarDbfWriterService.asegurarEnVsiaf(nuevoAux, usuNombre);
+            log.info("[AUX-DBF] Auxiliar '{}' enviado al VSIAF (unidad='{}')",
+                nombreAux, predioDestino.getUnidad());
         } catch (Exception e) {
             // No revertir: el auxiliar ya está en BD, el DBF se puede re-sincronizar después
-            log.error("[AUX-DBF] Auxiliar creado en BD pero falló DBF: {}", e.getMessage());
+            log.error("[AUX-DBF] Auxiliar creado en BD pero NO enviado al VSIAF: {}", e.getMessage());
         }
-    
+
         return nuevoAux;
     }
 
@@ -1551,7 +1640,15 @@ public class ActivosController {
         if (grupo == null)
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No se pudo determinar el grupo contable"));
 
-        Auxiliar auxiliar = idAuxiliar != null ? auxiliarService.findById(idAuxiliar) : null;
+        // El auxiliar de la asignación tiene que ser del predio de la oficina destino y del
+        // grupo contable elegido: si no, el CODAUX que se mande al VSIAF no corresponde y el
+        // activo aparece allá sin auxiliar.
+        Auxiliar auxiliar;
+        try {
+            auxiliar = resolverAuxiliarCoherente(idAuxiliar, oficina, grupo);
+        } catch (IllegalArgumentException datoInvalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", datoInvalido.getMessage()));
+        }
 
         String[] parts = codigoRef.split("-");
         String codMun = parts.length > 0 ? parts[0] : "";
@@ -1655,6 +1752,10 @@ public class ActivosController {
             activoService.save(a);
 
             return ResponseEntity.ok(Map.of("ok", true, "msg", "Activo actualizado."));
+        } catch (IllegalArgumentException datoInvalido) {
+            // Típicamente: auxiliar que no es del predio/grupo del activo. Es un error del
+            // usuario, no del servidor: se responde 400 con el motivo exacto.
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", datoInvalido.getMessage()));
         } catch (Exception e) {
             log.error("Error editando activo pendiente", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
@@ -1758,6 +1859,10 @@ public class ActivosController {
             }
 
             try {
+                // Si la corrección cambió el auxiliar, el nuevo puede no existir todavía en
+                // AUXILIAR.DBF: mandarlo primero evita que el activo quede con un CODAUX huérfano.
+                String fallaAux = sincronizarAuxiliarDelActivo(a, usuario.getUsuario());
+
                 actualDbfWriterService.actualizarDesdeActivo(
                         codigoOriginal, a,
                         a.getOficina().getPredio().getEntidad().getEntidadCodigo(),
@@ -1765,6 +1870,11 @@ public class ActivosController {
                         usuario.getUsuario());
 
                 notificarCambioPendientes("edicion-registrada");
+                if (fallaAux != null) {
+                    return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "PARCIAL",
+                            "msg", "Cambios enviados al VSIAF, pero el auxiliar NO se pudo enviar ("
+                                 + fallaAux + "): en el VSIAF el activo va a verse sin auxiliar."));
+                }
                 return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "OK",
                         "msg", "Cambios guardados y enviados al VSIAF."));
 
@@ -1778,6 +1888,8 @@ public class ActivosController {
                              + ". Los dos sistemas quedaron distintos: revisá la cola o usá Conciliación."));
             }
 
+        } catch (IllegalArgumentException datoInvalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", datoInvalido.getMessage()));
         } catch (Exception e) {
             log.error("[EDITAR-REGISTRADO] Error editando activo {}", idEnc, e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
@@ -1861,6 +1973,9 @@ public class ActivosController {
                 activoService.save(a);
                 actualizados++;
 
+            } catch (IllegalArgumentException datoInvalido) {
+                // p. ej. auxiliar de otro predio/grupo: el motivo sirve tal cual al usuario
+                errores.add(datoInvalido.getMessage());
             } catch (Exception e) {
                 log.error("Error en editar-lote para idEnc {}: {}", item.getIdEnc(), e.getMessage());
                 errores.add("Error en un activo: " + e.getMessage());
@@ -1880,6 +1995,21 @@ public class ActivosController {
     }
 
     private void aplicarCambios(Activo a, EditarActivoPendienteRequest req) {
+
+        /*
+         * El auxiliar se resuelve PRIMERO, contra el grupo y la oficina que va a tener el
+         * activo después de la edición (no contra los que tiene ahora). Se valida antes de
+         * tocar nada porque en `editarRegistrado` el método es @Transactional y la entidad
+         * está gestionada: si se mutara y después se rechazara el auxiliar, el dirty
+         * checking igual guardaría los campos ya cambiados.
+         */
+        GrupoContable grupoFinal = (req.getIdGrupoContable() != null)
+                ? grupoContableService.findById(req.getIdGrupoContable())
+                : a.getGrupoContable();
+        Oficina oficinaFinal = (req.getIdOficina() != null)
+                ? oficinaService.findById(req.getIdOficina())
+                : a.getOficina();
+        Auxiliar auxiliarFinal = resolverAuxiliarCoherente(req.getIdAuxiliar(), oficinaFinal, grupoFinal);
 
         if (req.getDescripcion() != null && !req.getDescripcion().isBlank()) {
             String desc = req.getDescripcion().trim();
@@ -1901,19 +2031,15 @@ public class ActivosController {
             a.setObserv(req.getObserv());
 
         if (req.getIdGrupoContable() != null)
-            a.setGrupoContable(grupoContableService.findById(req.getIdGrupoContable()));
+            a.setGrupoContable(grupoFinal);
 
         if (req.getIdOficina() != null)
-            a.setOficina(oficinaService.findById(req.getIdOficina()));
+            a.setOficina(oficinaFinal);
 
         if (req.getIdResponsable() != null)
             a.setResponsable(responsableService.findById(req.getIdResponsable()));
 
-        if (req.getIdAuxiliar() != null) {
-            a.setAuxiliar(auxiliarService.findById(req.getIdAuxiliar()));
-        } else {
-            a.setAuxiliar(null);
-        }
+        a.setAuxiliar(auxiliarFinal);   // null cuando el request no manda idAuxiliar = limpiar
 
         if (req.getIdOrganismoFinanciero() != null) {
             OrganismoFinanciero orgFin =
@@ -2141,6 +2267,7 @@ public class ActivosController {
             if (a.getOficina() != null) {
                 Map<String, Object> ofi = new LinkedHashMap<>();
                 ofi.put("idOficina", a.getOficina().getIdOficina());
+                ofi.put("codOfi",    a.getOficina().getCodOfi());
                 ofi.put("nombre",    a.getOficina().getNombre());
                 r.put("oficina", ofi);
 
@@ -2194,6 +2321,28 @@ public class ActivosController {
             String entidadCode = a.getOficina().getPredio().getEntidad().getEntidadCodigo();
             String unidadCode = a.getOficina().getPredio().getUnidad();
 
+            // ── Dependencias ANTES del activo ─────────────────────────────────────────
+            // ACTUAL.DBF guarda códigos (CODOFIC, CODRESP, CODAUX), no referencias: si el
+            // activo llega antes que ellos, en el VSIAF apunta a filas que no existen y se
+            // ve sin oficina / sin responsable / sin auxiliar. Todos los INSERT que encola
+            // el worker son insert-if-not-exists, así que repetirlos no duplica nada.
+            Oficina oficina = a.getOficina();
+            if (oficina.getCodOfi() != null) {
+                oficina.setApiEstado(Short.valueOf("1"));
+                oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
+                oficinaService.save(oficina);
+            }
+
+            Responsable resp = a.getResponsable();
+            if (resp != null && resp.getCodigoFuncionario() != null
+                    && !resp.getCodigoFuncionario().replaceAll("\\D+", "").isEmpty()) {
+                resp.setApiEstado(Short.valueOf("1"));
+                respDbfWriterService.insertarDesdeResponsable(resp, entidadCode, unidadCode, usuarioNombre);
+                responsableService.save(resp);
+            }
+
+            String fallaAux = sincronizarAuxiliarDelActivo(a, usuarioNombre);
+
             // El worker inserta solo si no existe (chequeo por índice); sin escaneo del DBF.
             actualDbfWriterService.insertarDesdeActivo(a, entidadCode, unidadCode, usuarioNombre);
 
@@ -2202,8 +2351,13 @@ public class ActivosController {
             activoService.save(a);
 
             notificarCambioPendientes("aprobacion");
+            if (fallaAux != null) {
+                return Map.of("ok", true, "id", id, "vsiaf", "PARCIAL",
+                    "message", "Activo aprobado, pero su auxiliar NO se pudo enviar al VSIAF (" + fallaAux
+                             + "). En el VSIAF el activo va a verse sin auxiliar hasta que se resuelva.");
+            }
             return Map.of("ok", true, "id", id, "message", "Activo aprobado y sincronizado.");
-            
+
         } catch (Exception e) {
             log.error("Error aprobando activo: {}", e.getMessage(), e);
             return Map.of("ok", false, "message", "Error al sincronizar con DBF: " + e.getMessage());
@@ -2273,9 +2427,19 @@ public class ActivosController {
                     responsableService.save(resp);
                 }
 
+                // ── Sincronizar Auxiliar ANTES del activo ─────────────────────────────
+                // ACTUAL.DBF guarda el CODAUX, no una referencia: si el auxiliar todavía no
+                // está en AUXILIAR.DBF, el activo llega al VSIAF apuntando a la nada y se ve
+                // sin auxiliar. El INSERT es insert-if-not-exists: repetirlo no duplica.
+                String fallaAux = sincronizarAuxiliarDelActivo(a, usuarioNombre);
+                if (fallaAux != null) {
+                    detallesError.add("Activo " + a.getCodigo() + ": se subió, pero su auxiliar NO llegó al VSIAF ("
+                            + fallaAux + ").");
+                }
+
                 // ── Sincronizar Activo (el worker inserta solo si no existe; sin escaneo DBF) ──
                 actualDbfWriterService.insertarDesdeActivo(a, entidadCode, unidadCode, usuarioNombre);
-    
+
                 a.setEstado("ACTIVO");
                 a.setApiEstado(Short.valueOf("1"));
                 activoService.save(a);
@@ -2418,7 +2582,7 @@ public class ActivosController {
                         "msg", "El código " + codigo + " ya fue tomado. Elige otro hueco."));
             }
 
-            Auxiliar auxiliar = (req.getIdAuxiliar() != null) ? auxiliarService.findById(req.getIdAuxiliar()) : null;
+            Auxiliar auxiliar = resolverAuxiliarCoherente(req.getIdAuxiliar(), oficina, grupo);
             OrganismoFinanciero orgFin = (req.getIdOrganismoFinanciero() != null)
                     ? organismoFinancieroService.findById(req.getIdOrganismoFinanciero()) : null;
 
@@ -2455,6 +2619,8 @@ public class ActivosController {
         } catch (org.springframework.dao.DataIntegrityViolationException dup) {
             return ResponseEntity.badRequest().body(Map.of("ok", false,
                     "msg", "El código acaba de ser tomado por otro registro. Elige otro hueco."));
+        } catch (IllegalArgumentException datoInvalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", datoInvalido.getMessage()));
         } catch (Exception e) {
             log.error("Error registrando en hueco", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
@@ -2539,11 +2705,17 @@ public class ActivosController {
                             it.getDescripcion(), it.getColor(), it.getMarca(),
                             it.getModelo(), it.getSerie(), it.isIncluyeAccesorio());
 
-                    // Auxiliar por activo (opcional)
+                    // Auxiliar por activo (opcional). Se valida que sea del predio de la
+                    // oficina y del grupo del lote: el CODAUX no es global.
                     Auxiliar auxiliar = null;
                     if (it.getIdAuxiliar() != null) {
-                        auxiliar = auxCache.computeIfAbsent(it.getIdAuxiliar(), auxiliarService::findById);
-                        if (auxiliar == null) { errores.add("Auxiliar inexistente para el código " + codigo + "."); continue; }
+                        try {
+                            auxiliar = auxCache.computeIfAbsent(it.getIdAuxiliar(),
+                                    idAux -> resolverAuxiliarCoherente(idAux, oficina, grupo));
+                        } catch (IllegalArgumentException datoInvalido) {
+                            errores.add("Código " + codigo + ": " + datoInvalido.getMessage());
+                            continue;
+                        }
                     }
 
                     Activo a = new Activo();

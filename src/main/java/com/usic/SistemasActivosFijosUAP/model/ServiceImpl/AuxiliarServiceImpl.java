@@ -90,20 +90,33 @@ public class AuxiliarServiceImpl implements IAuxiliarService {
     }
 
     @Override
-    public boolean isNombreUnique(String nombre, Long idAuxiliar) {
-        if (idAuxiliar == null) {
-        // Modo Registro: Solo verificamos si el nombre ya existe
-        return !dao.existsByNombreIgnoreCase(nombre);
-    } else {
-        // Modo Edición: Verificamos si existe otro (diferente al actual) con ese nombre
-        return !dao.existsByNombreIgnoreCaseAndIdAuxiliarIsNot(nombre, idAuxiliar);
-    }
+    @Transactional(readOnly = true)
+    public boolean isNombreUnique(String nombre, Long idPredio, Long idGrupoContable, Long idAuxiliar) {
+        if (nombre == null || nombre.isBlank()) return true;
+        // Sin predio y grupo no hay ámbito contra el cual comparar. Antes se comparaba
+        // contra TODA la tabla y eso impedía dar de alta en un predio un nombre que ya
+        // existía en otro — que es exactamente lo que rompía el registro de auxiliares.
+        if (idPredio == null || idGrupoContable == null) return true;
+
+        String n = nombre.trim();
+        return (idAuxiliar == null)
+            ? !dao.existsByPredio_IdPredioAndGrupoContable_IdGrupoContableAndNombreIgnoreCase(
+                    idPredio, idGrupoContable, n)
+            : !dao.existsByPredio_IdPredioAndGrupoContable_IdGrupoContableAndNombreIgnoreCaseAndIdAuxiliarNot(
+                    idPredio, idGrupoContable, n, idAuxiliar);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContable(Long idPredio, Long idGrupoContable) {
         return dao.findByPredioIdPredioAndGrupoContableIdGrupoContable(idPredio, idGrupoContable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Auxiliar> findVigentesByPredioYGrupo(Long idPredio, Long idGrupoContable) {
+        if (idPredio == null || idGrupoContable == null) return List.of();
+        return dao.findVigentesByPredioYGrupo(idPredio, idGrupoContable);
     }
 
     @Override

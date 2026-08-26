@@ -34,9 +34,24 @@ public interface IAuxiliarService extends IServiceGenerico<Auxiliar, Long> {
     List<Auxiliar> listarTodo();
 
     Short getNextCodAux(Long idPredio, Long idGrupoContable);
-    boolean isNombreUnique(String nombre, Long idAuxiliar);
+
+    /**
+     * ¿El nombre está libre <b>dentro de ese predio y grupo contable</b>?
+     * <p>
+     * El ámbito es obligatorio: el mismo nombre de auxiliar existe legítimamente en
+     * varios predios (con otro codAux y en otro orden). Si falta predio o grupo se
+     * devuelve {@code true}: sin ámbito no hay nada que comparar, y no corresponde
+     * bloquear el alta.
+     *
+     * @param idAuxiliar el auxiliar que se está editando, para no chocar consigo mismo;
+     *                   {@code null} cuando es un alta.
+     */
+    boolean isNombreUnique(String nombre, Long idPredio, Long idGrupoContable, Long idAuxiliar);
 
     List<Auxiliar> findByPredioIdPredioAndGrupoContableIdGrupoContable(Long idPredio, Long idGrupoContable);
+
+    /** Auxiliares del predio + grupo que se pueden elegir (excluye los ELIMINADO). */
+    List<Auxiliar> findVigentesByPredioYGrupo(Long idPredio, Long idGrupoContable);
 
     Integer findMaxCodAux(
         @Param("idPredio") Long idPredio,

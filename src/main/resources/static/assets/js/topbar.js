@@ -389,6 +389,17 @@
             } catch (err) {}
         });
 
+        // Estado de las conexiones (montajes VSIAF / BD): lo emite el backend
+        // solo cuando algo cambia. Lo reemitimos como evento del documento
+        // para que estado-conexiones.js lo consuma sin abrir otro EventSource.
+        sse.addEventListener('estado-conexiones', e => {
+            try {
+                document.dispatchEvent(new CustomEvent('sciaf:estado-conexiones', {
+                    detail: JSON.parse(e.data)
+                }));
+            } catch (err) {}
+        });
+
         sse.addEventListener('connected', () =>
             console.debug('[SSE usuario] ✅ Conectado'));
 

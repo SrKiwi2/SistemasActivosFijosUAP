@@ -177,6 +177,34 @@
         white-space: nowrap;
     }
 
+    /* Oficina: número (cod_ofi) + nombre. El número va en un chip aparte para que
+       siga visible aunque el nombre se trunque; el title del contenedor muestra
+       "N - Nombre" completo, con el mismo separador que los selects del sistema. */
+    .ofi-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        max-width: 180px;
+    }
+
+    .ofi-num {
+        flex-shrink: 0;
+        font-family: 'Courier New', monospace;
+        font-weight: 700;
+        font-size: 0.7rem;
+        color: #566a7f;
+        background: #f0f1f3;
+        border: 1px solid #e3e5e8;
+        border-radius: 0.25rem;
+        padding: 0.05rem 0.35rem;
+    }
+
+    .ofi-nom {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     .estado-chip {
         font-size: 0.68rem;
         font-weight: 700;
@@ -773,8 +801,13 @@
                                     th:unless="${item.activo.responsable?.persona != null}">—</span>
                             </td>
                             <td class="d-none d-lg-table-cell">
-                                <span class="text-truncate d-inline-block" style="max-width:130px;"
-                                    th:text="${item.activo.oficina?.nombre}">Oficina</span>
+                                <div class="ofi-cell" th:if="${item.activo.oficina != null}"
+                                    th:title="|${item.activo.oficina.codOfi} - ${item.activo.oficina.nombre}|">
+                                    <span class="ofi-num" th:text="${item.activo.oficina.codOfi}">0</span>
+                                    <span class="ofi-nom" th:text="${item.activo.oficina.nombre}">Oficina</span>
+                                </div>
+                                <span th:unless="${item.activo.oficina != null}"
+                                    class="text-muted fst-italic small">—</span>
                             </td>
                             <td>
                                 <span th:if="${item.activo.estado == 'PENDIENTE' and !item.completo}"
@@ -922,8 +955,13 @@
                                     class="text-muted fst-italic small">—</span>
                             </td>
                             <td class="d-none d-lg-table-cell">
-                                <span th:text="${item.activo.oficina?.nombre}" class="text-truncate d-inline-block"
-                                    style="max-width:130px;"></span>
+                                <div class="ofi-cell" th:if="${item.activo.oficina != null}"
+                                    th:title="|${item.activo.oficina.codOfi} - ${item.activo.oficina.nombre}|">
+                                    <span class="ofi-num" th:text="${item.activo.oficina.codOfi}">0</span>
+                                    <span class="ofi-nom" th:text="${item.activo.oficina.nombre}">Oficina</span>
+                                </div>
+                                <span th:unless="${item.activo.oficina != null}"
+                                    class="text-muted fst-italic small">—</span>
                             </td>
                             <td>
                                 <span th:if="${item.activo.estado == 'PENDIENTE' and !item.completo}"

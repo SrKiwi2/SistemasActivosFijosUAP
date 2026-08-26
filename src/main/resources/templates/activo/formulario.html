@@ -1146,11 +1146,24 @@
                         <label class="form-label">
                             <i class="fa-solid fa-bookmark"></i> Auxiliar
                         </label>
-                        <select name="auxiliar.idAuxiliar" id="auxiliarId" class="form-select">
-                            <option value="">Seleccione...</option>
-                            <option th:each="a : ${aux}" th:value="${a.idAuxiliar}" th:text="${a.nombre}"
-                                th:data-code="${a.codAux}"></option>
-                        </select>
+                        <!-- El "+" crea el auxiliar sin salir del formulario, para cuando el
+                             que corresponde todavía no existe en este predio. Se habilita
+                             recién con predio y grupo elegidos: el auxiliar se numera dentro
+                             de esa combinación. Mismo armado que Oficina/Responsable
+                             (d-flex + min-width:0), que es el que convive con select2. -->
+                        <div class="d-flex gap-1">
+                            <select name="auxiliar.idAuxiliar" id="auxiliarId" class="form-select"
+                                style="flex:1;min-width:0;">
+                                <option value="">Seleccione...</option>
+                                <option th:each="a : ${aux}" th:value="${a.idAuxiliar}" th:text="${a.nombre}"
+                                    th:data-code="${a.codAux}"></option>
+                            </select>
+                            <button type="button" class="btn btn-outline-primary flex-shrink-0" id="btnNuevoAuxiliar"
+                                title="Crear un auxiliar nuevo en este predio y grupo contable" disabled
+                                style="width:2.4rem;padding:0;display:flex;align-items:center;justify-content:center;">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="col-md-3 col-sm-6">
@@ -1400,9 +1413,19 @@
                     <div class="batch-row-field">
                         <label><i class="fa-solid fa-bookmark"></i> Auxiliar
                             <span class="fw-normal text-muted">(Opcional)</span></label>
-                        <select class="form-select select2-row sel-aux" disabled>
-                            <option value="">(Opcional)</option>
-                        </select>
+                        <!-- Igual que en el formulario individual: el "+" crea el auxiliar
+                             en el predio y grupo de esta fila, sin perder lo ya cargado. -->
+                        <div class="d-flex gap-1">
+                            <select class="form-select select2-row sel-aux" disabled style="flex:1;min-width:0;">
+                                <option value="">(Opcional)</option>
+                            </select>
+                            <button type="button"
+                                    class="btn btn-outline-primary btn-sm btn-nuevo-auxiliar flex-shrink-0"
+                                    title="Nuevo auxiliar" disabled
+                                    style="width:2.2rem;height:2.2rem;padding:0;display:flex;align-items:center;justify-content:center;">
+                                <i class="fa-solid fa-plus" style="font-size:0.7rem;"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1852,8 +1875,45 @@
                     $vida.val('');
                     $aux.empty().prop('disabled', true);
                 }
+                sincronizarBotonNuevoAuxiliar();
                 actualizarCodigoPreviewSingle();
             });
+
+            // ── Crear un auxiliar sin salir del formulario ───────────────────────
+            // El auxiliar se numera dentro de (predio, grupo contable): hasta que los dos
+            // estén elegidos no hay dónde crearlo, así que el botón queda deshabilitado.
+            $root.find('#predioCode, #grupoCode').on('change', sincronizarBotonNuevoAuxiliar);
+            sincronizarBotonNuevoAuxiliar();
+
+            $root.find('#btnNuevoAuxiliar').on('click', function () {
+                const predId = $root.find('#predioCode').val();
+                const grpId  = $root.find('#grupoCode').val();
+                const contexto = 'Predio: ' + $root.find('#predioCode option:selected').text()
+                               + ' · Grupo: ' + $root.find('#grupoCode option:selected').text();
+
+                SciafCatalogos.crearAuxiliarRapido({
+                    idPredio: predId,
+                    idGrupoContable: grpId,
+                    contextoTexto: contexto
+                }).then(function (aux) {
+                    if (!aux) return;
+                    const $aux = $root.find('#auxiliarId');
+                    $aux.prop('disabled', false);
+                    SciafCatalogos.ponerAuxiliarEnSelect($aux, aux, aux.text);
+                });
+            });
+        }
+
+        /** El "+" de auxiliar solo tiene sentido con predio y grupo elegidos. */
+        function sincronizarBotonNuevoAuxiliar() {
+            const listo = !!$root.find('#predioCode').val() && !!$root.find('#grupoCode').val();
+            $root.find('#btnNuevoAuxiliar').prop('disabled', !listo);
+        }
+
+        /** Lo mismo, para una fila del modo lote. */
+        function sincronizarBotonNuevoAuxiliarFila($row) {
+            const listo = !!$row.find('.sel-pred').val() && !!$row.find('.sel-grp').val();
+            $row.find('.btn-nuevo-auxiliar').prop('disabled', !listo);
         }
 
         function actualizarCodigoPreviewSingle() {
@@ -1941,7 +2001,34 @@
                     $aux.empty().prop('disabled', true);
                 }
 
+                sincronizarBotonNuevoAuxiliarFila($row);
                 recalcularCodigosBatchDebounced();
+            });
+
+            // ── Auxiliar nuevo desde una fila del lote ───────────────────────────
+            // El predio de la fila y su grupo definen dónde se crea; sin los dos, nada
+            // que hacer, así que el botón sigue el mismo estado que el select.
+            $root.on('change', '.sel-pred, .sel-grp', function () {
+                sincronizarBotonNuevoAuxiliarFila($(this).closest('.batch-slide'));
+            });
+
+            $root.on('click', '.btn-nuevo-auxiliar', function () {
+                const $row = $(this).closest('.batch-slide');
+                const predId = $row.find('.sel-pred').val();
+                const grpId  = $row.find('.sel-grp').val();
+                const contexto = 'Predio: ' + $row.find('.sel-pred option:selected').text()
+                               + ' · Grupo: ' + $row.find('.sel-grp option:selected').text();
+
+                SciafCatalogos.crearAuxiliarRapido({
+                    idPredio: predId,
+                    idGrupoContable: grpId,
+                    contextoTexto: contexto
+                }).then(function (aux) {
+                    if (!aux) return;
+                    const $aux = $row.find('.sel-aux');
+                    $aux.prop('disabled', false);
+                    SciafCatalogos.ponerAuxiliarEnSelect($aux, aux, aux.text);
+                });
             });
 
             $root.on('click', '.btn-nueva-oficina', async function () {

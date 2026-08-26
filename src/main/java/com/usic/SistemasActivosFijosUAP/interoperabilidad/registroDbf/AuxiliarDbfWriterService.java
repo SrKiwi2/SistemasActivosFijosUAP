@@ -174,6 +174,53 @@ public class AuxiliarDbfWriterService {
     }
     
     /**
+     * Garantiza que el auxiliar exista en el VSIAF, deduciendo ENTIDAD y UNIDAD de su
+     * propio predio. Es el <b>único</b> punto de entrada que deben usar los módulos que
+     * no son el ABM de auxiliares (registro de activos, pendientes, transferencias):
+     * así todos escriben por la misma vía —la cola del worker VFPOLEDB, que mantiene el
+     * índice .CDX— en lugar de reescribir el DBF por su cuenta.
+     * <p>
+     * En modo cola la orden es un INSERT idempotente: el worker inserta sólo si no
+     * existe la clave (ENTIDAD, UNIDAD, CODCONT, CODAUX), de modo que llamarlo por cada
+     * activo aprobado no duplica nada.
+     * <p>
+     * No hace nada si {@code auxiliar} es null (el auxiliar es opcional en un activo).
+     *
+     * @throws IllegalStateException si al auxiliar le faltan predio, entidad o unidad;
+     *         quien llama decide si eso aborta la operación o sólo se advierte.
+     */
+    public void asegurarEnVsiaf(Auxiliar auxiliar, String usuario) {
+        if (auxiliar == null) return;
+
+        if (auxiliar.getPredio() == null
+                || auxiliar.getPredio().getEntidad() == null
+                || auxiliar.getPredio().getEntidad().getEntidadCodigo() == null
+                || auxiliar.getPredio().getEntidad().getEntidadCodigo().isBlank()
+                || auxiliar.getPredio().getUnidad() == null
+                || auxiliar.getPredio().getUnidad().isBlank()) {
+            throw new IllegalStateException(String.format(
+                "El auxiliar '%s' (id=%s) no tiene predio/entidad/unidad: no se puede ubicar en el VSIAF.",
+                auxiliar.getNombre(), auxiliar.getIdAuxiliar()));
+        }
+        if (auxiliar.getGrupoContable() == null || auxiliar.getGrupoContable().getCodContable() == null) {
+            throw new IllegalStateException(String.format(
+                "El auxiliar '%s' (id=%s) no tiene grupo contable: el CODAUX no significa nada sin CODCONT.",
+                auxiliar.getNombre(), auxiliar.getIdAuxiliar()));
+        }
+        if (auxiliar.getCodAux() == null) {
+            throw new IllegalStateException(String.format(
+                "El auxiliar '%s' (id=%s) no tiene CODAUX asignado.",
+                auxiliar.getNombre(), auxiliar.getIdAuxiliar()));
+        }
+
+        insertarDesdeAuxiliar(
+            auxiliar,
+            auxiliar.getPredio().getEntidad().getEntidadCodigo(),
+            auxiliar.getPredio().getUnidad(),
+            usuario);
+    }
+
+    /**
      * Inserta un nuevo registro en auxiliar.DBF
      */
     public void insertarDesdeAuxiliar(Auxiliar auxiliar, String entidadCode, String unidadCode, String usuario) {
@@ -457,15 +504,25 @@ public class AuxiliarDbfWriterService {
             } catch (Exception ignored) { }
         }
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("ENTIDAD", ent);
-        m.put("UNIDAD", uni);
+        // Los anchos son los de auxiliar.DBF: pasarse hace que el worker rechace la orden
+        // o que el VSIAF guarde el texto cortado por su cuenta (y entonces el nombre deja
+        // de coincidir con el de la BD, que es como se emparejan los auxiliares).
+        m.put("ENTIDAD", recortar(ent, 4));
+        m.put("UNIDAD", recortar(uni, 5));
         m.put("CODCONT", codcont);
         m.put("CODAUX", aux.getCodAux());
-        m.put("NOMAUX", aux.getNombre());
+        m.put("NOMAUX", recortar(aux.getNombre(), 60));
         m.put("OBSERV", "");
         m.put("FEULT", java.sql.Date.valueOf(LocalDate.now()));
-        m.put("USUAR", usr != null ? usr : "SISTEMA");
+        m.put("USUAR", recortar(usr != null ? usr : "SISTEMA", 8));
         return m;
+    }
+
+    /** Recorta al ancho de la columna del DBF, sin reventar con null. */
+    private static String recortar(String s, int max) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.length() > max ? t.substring(0, max) : t;
     }
 
     private Object[] crearRegistroDesdeAuxiliar(Auxiliar aux, String entidadCode, String unidadCode,

@@ -1644,12 +1644,22 @@ public class JavaDbfService {
             .build();
     }
 
+    /**
+     * @deprecated Reescribe AUXILIAR.DBF entero: rompe el índice .CDX (obliga a reindexar
+     *             en el VSIAF), descarta el campo memo OBSERV porque {@link #schemaAuxiliar()}
+     *             no lo declara, e ignora {@code legacy.dbf.write.mode}. Usar
+     *             {@code AuxiliarDbfWriterService.asegurarEnVsiaf(...)}, que en modo cola
+     *             deja la orden al worker VFPOLEDB y mantiene el índice.
+     */
+    @Deprecated
     public void upsertAuxiliarDesdeEntidad(Auxiliar a) throws Exception {
         upsertAuxiliar(mapDesdeEntidad(a));
     }
 
     private final Object auxLock = new Object();
 
+    /** @deprecated Ver {@link #upsertAuxiliarDesdeEntidad(Auxiliar)}. */
+    @Deprecated
     public void upsertAuxiliar(AuxiliarDbf nuevo) throws Exception {
         Path file = baseDir.resolve("AUXILIAR.DBF");
         Path tmp  = baseDir.resolve("AUXILIAR.TMP.DBF");

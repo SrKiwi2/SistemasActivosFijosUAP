@@ -1044,9 +1044,19 @@
                     </div>
                     <div>
                         <label>Auxiliar (Opcional)</label>
-                        <select id="agregarAuxiliar" class="form-select form-select-sm">
-                            <option value="">—</option>
-                        </select>
+                        <!-- El predio lo hereda de la asignación; el grupo se elige arriba.
+                             Con los dos definidos se puede crear el auxiliar acá mismo. -->
+                        <div class="d-flex gap-1">
+                            <select id="agregarAuxiliar" class="form-select form-select-sm" style="flex:1;min-width:0;">
+                                <option value="">—</option>
+                            </select>
+                            <button type="button" class="btn btn-outline-primary btn-sm flex-shrink-0"
+                                id="agregarBtnNuevoAuxiliar" disabled
+                                title="Crear un auxiliar nuevo en el predio de la asignación y este grupo"
+                                style="width:2.2rem;padding:0;display:flex;align-items:center;justify-content:center;">
+                                <i class="fa-solid fa-plus" style="font-size:0.7rem;"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1234,7 +1244,10 @@
                     $tr.find('td').eq(6).text(),   // responsable
                     $tr.find('td').eq(7).text()    // oficina
                 ];
-                $tr.data('buscar', normalizarBusqueda(partes.join(' ')));
+                // Las celdas traen saltos de línea e indentación del HTML (y la de oficina,
+                // ahora, número y nombre en dos <span>): se colapsan los espacios para que
+                // buscar "12 secretaria" también coincida.
+                $tr.data('buscar', normalizarBusqueda(partes.join(' ')).replace(/\s+/g, ' '));
                 $tr.data('completo', String($chk.data('completo')) === 'true');
                 $tr.data('sincosto', $tr.find('.costo-falta').length > 0);
                 $tr.data('pendiente', String($chk.data('estado')).toUpperCase() === 'PENDIENTE');
@@ -2010,7 +2023,7 @@
             const fmtMoney = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' });
             const costo = d.costo ? fmtMoney.format(d.costo) : 'Bs 0.00';
 
-            const oficina = d.oficina?.nombre ?? null;
+            const oficina = d.oficina ? etiquetaCodigo(d.oficina.codOfi, d.oficina.nombre) : null;
             const responsable = d.responsable?.persona?.nombreCompleto ?? null;
             const orgFin = d.organismoFinanciero?.descripcion ?? null;
             const auxiliar = d.auxiliar?.nombre ?? null;
@@ -2446,7 +2459,7 @@
                 pre.respId, pre.ofiId ? '— Seleccione responsable —' : '— Seleccione oficina primero —');
             const optsAux = buildOpts(auxiliares,
                 item => item.idAuxiliar ?? item.id,
-                item => item.nombre ?? item.text,
+                item => etiquetaCodigo(item.codAux, item.nombre ?? item.text),
                 pre.auxId, '— Sin auxiliar —');
 
             const badgeLote = totalActivos > 1
@@ -2500,7 +2513,18 @@
             </div>
             <div class="col-md-4 col-sm-6">
                 <label class="ep-label"><i class="fa-solid fa-bookmark me-1"></i>Auxiliar <span class="text-muted fw-normal">(opcional)</span></label>
-                <select id="epAuxiliar" class="form-select form-select-sm ep-select2" ${(!pre.grpId || !pre.predId) ? 'disabled' : ''}>${optsAux}</select>
+                <!-- Caso típico de esta pantalla: el activo llegó pendiente sin auxiliar y el
+                     que corresponde todavía no existe en ese predio. El "+" lo crea acá mismo,
+                     en el predio y grupo que tiene el activo. -->
+                <div class="d-flex gap-1">
+                    <select id="epAuxiliar" class="form-select form-select-sm ep-select2" style="flex:1;min-width:0;" ${(!pre.grpId || !pre.predId) ? 'disabled' : ''}>${optsAux}</select>
+                    <button type="button" class="btn btn-outline-primary btn-sm flex-shrink-0" id="epBtnNuevoAuxiliar"
+                        title="Crear un auxiliar nuevo en este predio y grupo contable"
+                        style="width:2.2rem;padding:0;display:flex;align-items:center;justify-content:center;"
+                        ${(!pre.grpId || !pre.predId) ? 'disabled' : ''}>
+                        <i class="fa-solid fa-plus" style="font-size:0.7rem;"></i>
+                    </button>
+                </div>
             </div>
             <div class="col-md-4 col-sm-6">
                 <label class="ep-label"><i class="fa-solid fa-hand-holding-dollar me-1"></i>Financiador <span class="text-danger">*</span></label>
@@ -2746,6 +2770,32 @@
                 }
                 recargarAuxEP();
             });
+
+            // Crear el auxiliar que falta, sin salir del modal. El cuerpo del modal se
+            // regenera en cada apertura, así que el handler va delegado en document.
+            $(document).off('click.epaux').on('click.epaux', '#epBtnNuevoAuxiliar', function () {
+                const predId = $('#epPredio').val();
+                const grpId  = $('#epGrupo').val();
+                const contexto = 'Predio: ' + $('#epPredio option:selected').text()
+                               + ' · Grupo: ' + $('#epGrupo option:selected').text();
+
+                SciafCatalogos.crearAuxiliarRapido({
+                    idPredio: predId,
+                    idGrupoContable: grpId,
+                    contextoTexto: contexto
+                }).then(function (aux) {
+                    if (!aux) return;
+                    const $aux = $('#epAuxiliar');
+                    $aux.prop('disabled', false);
+                    SciafCatalogos.ponerAuxiliarEnSelect($aux, aux, aux.text);
+                });
+            });
+        }
+
+        /** El "+" solo sirve con predio y grupo definidos: ahí es donde vive el auxiliar. */
+        function epSincronizarBotonAux() {
+            const listo = !!$('#epGrupo').val() && !!$('#epPredio').val();
+            $('#epBtnNuevoAuxiliar').prop('disabled', !listo);
         }
 
         async function recargarAuxEP() {
@@ -2755,6 +2805,7 @@
             const $modal = $('#modalEditarPendientes');
 
             epDestroySelect2AndReset($aux, '— Sin auxiliar —', true);
+            epSincronizarBotonAux();
 
             if (!grpId || !predId) { reinitSelectEP($aux, true); return; }
 
@@ -2764,10 +2815,14 @@
                     await fetch(`/api/buscar_auxiliar_lista?grupoId=${grpId}&predioId=${predId}`).then(r => r.json())
                 );
                 $aux.html('<option value="">— Sin auxiliar —</option>');
-                lista.forEach(a => $aux.append(`<option value="${a.idAuxiliar ?? a.id}">${a.nombre ?? a.text}</option>`));
+                lista.forEach(a => $aux.append(
+                    `<option value="${a.idAuxiliar ?? a.id}">${etiquetaCodigo(a.codAux, a.nombre ?? a.text)}</option>`));
+                // Si el predio todavía no tiene auxiliares en este grupo, el select queda
+                // deshabilitado pero el "+" no: de ahí sale el primero.
                 $aux.prop('disabled', lista.length === 0);
             } catch { $aux.html('<option value="">Error al cargar</option>'); }
             reinitSelectEP($aux, false);
+            epSincronizarBotonAux();
         }
 
         function epDestroySelect2AndReset($sel, placeholder, disabled) {
@@ -3037,6 +3092,9 @@
                     });
                 }
 
+                // El "+" necesita predio (heredado de la asignación) y grupo.
+                $('#agregarBtnNuevoAuxiliar').prop('disabled', !_agregarPredioId);
+
                 // Update codGrp and regenerate code preview
                 var codDbf = $(this).find('option:selected').data('code');
                 if (codDbf !== undefined) {
@@ -3050,7 +3108,28 @@
                 $preview.val('').attr('placeholder', 'Seleccione Grupo...');
                 if ($aux.data('select2')) $aux.select2('destroy');
                 $aux.empty().append('<option value="">—</option>').prop('disabled', true);
+                $('#agregarBtnNuevoAuxiliar').prop('disabled', true);
             }
+        });
+
+        // ── Auxiliar nuevo desde el modal Agregar ──
+        // El predio sale de la asignación (_agregarPredioId), no de un select: el activo
+        // que se agrega va a la misma oficina que el resto de la asignación.
+        $('#modalAgregarActivo').on('click', '#agregarBtnNuevoAuxiliar', function () {
+            const grpId = $('#agregarGrupo').val();
+            const contexto = 'Predio: ' + $('#agregarPredio').text()
+                           + ' · Grupo: ' + $('#agregarGrupo option:selected').text();
+
+            SciafCatalogos.crearAuxiliarRapido({
+                idPredio: _agregarPredioId,
+                idGrupoContable: grpId,
+                contextoTexto: contexto
+            }).then(function (aux) {
+                if (!aux) return;
+                const $aux = $('#agregarAuxiliar');
+                $aux.prop('disabled', false);
+                SciafCatalogos.ponerAuxiliarEnSelect($aux, aux, aux.text);
+            });
         });
 
         // ── Code preview ──

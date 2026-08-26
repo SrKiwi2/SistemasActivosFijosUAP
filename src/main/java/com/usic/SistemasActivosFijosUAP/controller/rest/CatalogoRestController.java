@@ -40,12 +40,14 @@ import com.usic.SistemasActivosFijosUAP.model.dto.OficinaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.RespOption;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResponsableDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.AuxiliarRegistroService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -65,17 +67,21 @@ public class CatalogoRestController {
     private final IMunicipioService municipioService;
     private final IOrganismoFinancieroService organismoFinancieroService;
     private final ICargoService cargoService;
+    /** Alta de auxiliares: el mismo servicio que usa el ABM del módulo Auxiliar. */
+    private final AuxiliarRegistroService auxiliarRegistroService;
 
-    public CatalogoRestController(IResponsableService responsableService, 
-        IOficinaService oficinaService, 
-        IActivoService activoService, 
-        IAuxiliarService auxiliarService, 
-        IGrupoContableService grupoContableService, 
+    public CatalogoRestController(IResponsableService responsableService,
+        IOficinaService oficinaService,
+        IActivoService activoService,
+        IAuxiliarService auxiliarService,
+        IGrupoContableService grupoContableService,
         IPersonaService personaService,
         IPredioServicio predioServicio,
         IMunicipioService municipioService,
         IOrganismoFinancieroService organismoFinancieroService,
-        ICargoService cargoService) {
+        ICargoService cargoService,
+        AuxiliarRegistroService auxiliarRegistroService) {
+        this.auxiliarRegistroService = auxiliarRegistroService;
         this.responsableService = responsableService;
         this.oficinaService = oficinaService;
         this.activoService = activoService;
@@ -337,13 +343,28 @@ public class CatalogoRestController {
             .collect(Collectors.toList());
     }
 
+    /**
+     * Auxiliares que se pueden elegir para un activo: los del predio + grupo contable, sin
+     * los dados de baja. El filtro por las DOS claves no es opcional — el codAux es un
+     * correlativo interno de esa combinación, así que un auxiliar de otro predio o de otro
+     * grupo apunta a algo distinto en el VSIAF.
+     */
     @GetMapping("/buscar_auxiliar_lista")
     public List<Map<String, ?>> buscarAuxiliares(@RequestParam Long grupoId , @RequestParam Long predioId) {
-        return auxiliarService.findByPredioIdPredioAndGrupoContableIdGrupoContable(predioId, grupoId).stream()
-            .map(a -> Map.of(
-                "id", a.getIdAuxiliar(),
-                "text", a.getNombre()
-            ))
+        return auxiliarService.findVigentesByPredioYGrupo(predioId, grupoId).stream()
+            .map(a -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", a.getIdAuxiliar());
+                m.put("idAuxiliar", a.getIdAuxiliar());
+                m.put("codAux", a.getCodAux());
+                // "codigo" es la clave que el helper cargarSelect del front usa para anteponer
+                // el código al nombre. Se expone el codAux porque es justamente el número que
+                // termina en ACTUAL.DBF: que se vea permite verificarlo antes de subir.
+                m.put("codigo", a.getCodAux());
+                m.put("nombre", a.getNombre());
+                m.put("text", a.getCodAux() != null ? (a.getCodAux() + " - " + a.getNombre()) : a.getNombre());
+                return m;
+            })
             .collect(Collectors.toList());
     }
 
@@ -615,6 +636,88 @@ public class CatalogoRestController {
         }
     }
     
+    // ─── AUXILIAR — Alta al vuelo desde Registro de Activos / Activos Pendientes ──
+    // POST /api/auxiliares/registrar-rapido
+    //
+    // Para el caso de "el activo llegó sin auxiliar y el que corresponde todavía no está
+    // dado de alta en este predio": en vez de obligar a salir al módulo Auxiliar, perder
+    // lo cargado y volver, se crea acá mismo y queda seleccionado.
+    //
+    // Usa el MISMO servicio que el ABM de auxiliares, así que respeta las mismas reglas:
+    // el ámbito es (predio, grupo contable), el nombre es único dentro de ese ámbito —no
+    // globalmente—, el correlativo lo calcula el servidor y el auxiliar se encola al VSIAF.
+    //
+    // El predio se puede mandar directo o dejar que se derive de la oficina: en el registro
+    // de activos el usuario elige oficina, y el predio es el de esa oficina.
+
+    @PostMapping("/auxiliares/registrar-rapido")
+    @ResponseBody
+    public ResponseEntity<?> registrarRapidoAuxiliar(
+            HttpServletRequest request,
+            @RequestBody NuevoAuxiliarRequest payload) {
+
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+
+        try {
+            Long idPredio = payload.idPredio;
+
+            // Si no vino el predio, se toma el de la oficina elegida para el activo.
+            if (idPredio == null && payload.idOficina != null) {
+                Oficina oficina = oficinaService.findById(payload.idOficina);
+                if (oficina == null || oficina.getPredio() == null) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "ok", false, "msg", "La oficina elegida no tiene predio configurado."));
+                }
+                idPredio = oficina.getPredio().getIdPredio();
+            }
+
+            AuxiliarRegistroService.Resultado alta = auxiliarRegistroService.registrar(
+                    idPredio,
+                    payload.idGrupoContable,
+                    payload.nombre,
+                    null,                 // el correlativo lo decide el servidor
+                    usuario,
+                    true);                // si ya existe con ese nombre en el ámbito, se reutiliza
+
+            Auxiliar aux = alta.auxiliar();
+
+            Map<String, Object> resp = new LinkedHashMap<>();
+            resp.put("ok", true);
+            resp.put("id", aux.getIdAuxiliar());
+            resp.put("idAuxiliar", aux.getIdAuxiliar());
+            resp.put("codAux", aux.getCodAux());
+            resp.put("nombre", aux.getNombre());
+            resp.put("text", aux.getCodAux() + " - " + aux.getNombre());
+            resp.put("yaExistia", alta.yaExistia());
+            resp.put("vsiaf", alta.enviadoAlVsiaf() ? "OK" : "ERROR");
+            resp.put("msg", alta.yaExistia()
+                    ? "El auxiliar '" + aux.getNombre() + "' ya existía en este predio y grupo (código "
+                      + aux.getCodAux() + "): se seleccionó ese."
+                    : "Auxiliar '" + aux.getNombre() + "' creado con el código " + aux.getCodAux() + ".");
+            if (!alta.enviadoAlVsiaf()) {
+                resp.put("msg", resp.get("msg")
+                        + " Ojo: no se pudo enviar al VSIAF (" + alta.motivoFalloVsiaf()
+                        + "). Reenvialo desde el módulo Auxiliar antes de subir los activos.");
+            }
+            return ResponseEntity.ok(resp);
+
+        } catch (IllegalArgumentException datoInvalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", datoInvalido.getMessage()));
+        } catch (Exception e) {
+            log.error("[NUEVO-AUX] Error registrando auxiliar rápido", e);
+            return ResponseEntity.status(500)
+                .body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+
+    /** DTO del alta rápida. {@code idPredio} o {@code idOficina}: con uno alcanza. */
+    public static class NuevoAuxiliarRequest {
+        public Long   idPredio;
+        public Long   idOficina;
+        public Long   idGrupoContable;
+        public String nombre;
+    }
+
     // DTO para registro rápido
     public static class NuevoResponsableRequest {
         public Long   idOficina;

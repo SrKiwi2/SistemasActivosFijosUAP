@@ -27,6 +27,7 @@ import org.springframework.web.client.RestTemplate;
 
 import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
+import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.AuxiliarDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
@@ -72,6 +73,13 @@ import lombok.extern.slf4j.Slf4j;
 public class TransferenciaLondraService implements ITransferenciaLondraService {
 
     private final JavaDbfService         dbfService;
+    /**
+     * Escritura de auxiliares al VSIAF. Va por acá y no por {@code dbfService}: el upsert de
+     * JavaDbfService reescribe AUXILIAR.DBF entero con un esquema fijo (pierde el campo memo
+     * OBSERV y rompe el índice .CDX). Este writer respeta {@code legacy.dbf.write.mode} y en
+     * modo cola deja la orden al worker VFPOLEDB, igual que el resto de los módulos.
+     */
+    private final AuxiliarDbfWriterService auxiliarDbfWriterService;
     private final ITransferenciaLondraDao transferenciaRepo;
     private final IPredioServicio        predioServicio;
     private final IOficinaService        oficinaService;
@@ -810,10 +818,10 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         Auxiliar savedAux = auxiliarService.save(nuevoAux);
 
         try {
-            dbfService.upsertAuxiliarDesdeEntidad(savedAux);
-            log.info("✅ AUXILIAR.DBF sincronizado codAux={}", nextCodAux);
+            auxiliarDbfWriterService.asegurarEnVsiaf(savedAux, usuarioNombre);
+            log.info("✅ AUXILIAR enviado al VSIAF codAux={}", nextCodAux);
         } catch (Exception e) {
-            log.error("❌ AUXILIAR.DBF no sincronizado: {}", e.getMessage(), e);
+            log.error("❌ AUXILIAR no enviado al VSIAF: {}", e.getMessage(), e);
         }
 
         return savedAux; // ← retorna entidad completa
