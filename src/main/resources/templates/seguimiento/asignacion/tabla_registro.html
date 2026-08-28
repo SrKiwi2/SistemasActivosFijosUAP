@@ -1,277 +1,398 @@
 <!-- /seguimiento/asignacion/tabla_registro.html -->
+<!--
+    Fragmento del listado de actas: tarjetas, tabla y paginador.
 
-<!-- Sin registros -->
-<div th:if="${#lists.isEmpty(asignaciones)}" class="card border-0 shadow-sm">
-    <div class="card-body text-center py-5">
-        <i class="bx bx-clipboard fs-1 text-muted mb-3 d-block"></i>
-        <h6 class="text-muted">No se encontraron registros de asignación</h6>
-        <p class="text-muted small">Intenta cambiar los filtros o realiza una nueva búsqueda</p>
+    Las tarjetas viven ACÁ y no en vista.html porque sus números vienen del servidor y
+    describen el conjunto filtrado completo. Antes se calculaban en el navegador contando
+    filas del DOM: sin paginación ya era frágil, y con paginación diría los totales de los
+    25 registros visibles en vez de los del filtro.
+-->
+
+<!-- ═══════════════ TARJETAS ═══════════════ -->
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body py-3 d-flex align-items-center gap-3">
+                <div class="avatar avatar-sm bg-label-primary rounded"><i class="bx bx-clipboard"></i></div>
+                <div>
+                    <div class="fs-5 fw-bold lh-1" th:text="${stats.total()}">0</div>
+                    <small class="text-muted">Actas listadas</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body py-3 d-flex align-items-center gap-3">
+                <div class="avatar avatar-sm bg-label-success rounded"><i class="bx bx-check-double"></i></div>
+                <div>
+                    <div class="fs-5 fw-bold lh-1 text-success" th:text="${stats.completas()}">0</div>
+                    <small class="text-muted">Completas en VSIAF</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100" style="cursor:pointer" onclick="filtrarPorSincronizacion('PARCIALES')"
+             title="Ver solo las actas a las que les faltan bienes por subir">
+            <div class="card-body py-3 d-flex align-items-center gap-3">
+                <div class="avatar avatar-sm bg-label-warning rounded"><i class="bx bx-time-five"></i></div>
+                <div>
+                    <div class="fs-5 fw-bold lh-1 text-warning" th:text="${stats.parciales()}">0</div>
+                    <small class="text-muted">Parciales</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Lo único que exige acción: la base y el VSIAF dicen cosas distintas. -->
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100"
+             th:classappend="${stats.conError() > 0} ? 'border border-danger border-opacity-50' : ''"
+             style="cursor:pointer" onclick="filtrarSoloConError()"
+             title="Ver solo las actas con bienes que el VSIAF rechazó">
+            <div class="card-body py-3 d-flex align-items-center gap-3">
+                <div class="avatar avatar-sm rounded"
+                     th:classappend="${stats.conError() > 0} ? 'bg-label-danger' : 'bg-label-secondary'">
+                    <i class="bx bx-error-circle"></i>
+                </div>
+                <div>
+                    <div class="fs-5 fw-bold lh-1"
+                         th:classappend="${stats.conError() > 0} ? 'text-danger' : 'text-muted'"
+                         th:text="${stats.conError()}">0</div>
+                    <small class="text-muted">Con error VSIAF</small>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- Lista de tarjetas -->
-<div th:if="${!#lists.isEmpty(asignaciones)}" class="card border-0 shadow-sm">
+<!-- ═══════════════ CHIPS DE FILTROS ACTIVOS ═══════════════ -->
+<div th:if="${filtros.hayFiltrosActivos()}" class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <span class="text-muted small"><i class="bx bx-filter-alt me-1"></i>Filtros:</span>
 
-    <!-- Cabecera de la lista -->
-    <div class="card-header bg-transparent border-bottom d-flex align-items-center justify-content-between py-3">
+    <span th:if="${filtros.buscar() != null}" class="badge bg-label-primary d-inline-flex align-items-center gap-1">
+        <span th:text="'“' + ${filtros.buscar()} + '”'">texto</span>
+        <i class="bx bx-x" style="cursor:pointer" onclick="quitarFiltro('buscar')"></i>
+    </span>
+    <span th:if="${filtros.sincronizacion() != 'SUBIDAS'}" class="badge bg-label-info d-inline-flex align-items-center gap-1">
+        <span th:text="${filtros.sincronizacion()}">SINC</span>
+        <i class="bx bx-x" style="cursor:pointer" onclick="quitarFiltro('sincronizacion')"></i>
+    </span>
+    <span th:if="${filtros.soloConError()}" class="badge bg-label-danger d-inline-flex align-items-center gap-1">
+        Con error VSIAF
+        <i class="bx bx-x" style="cursor:pointer" onclick="quitarFiltro('soloConError')"></i>
+    </span>
+    <span th:if="${filtros.gestion() != null}" class="badge bg-label-secondary d-inline-flex align-items-center gap-1">
+        <span th:text="'Gestión ' + ${filtros.gestion()}">Gestión</span>
+        <i class="bx bx-x" style="cursor:pointer" onclick="quitarFiltro('gestion')"></i>
+    </span>
+    <span th:if="${filtros.tipo() != null}" class="badge bg-label-secondary d-inline-flex align-items-center gap-1">
+        <span th:text="${filtros.tipo()}">tipo</span>
+        <i class="bx bx-x" style="cursor:pointer" onclick="quitarFiltro('tipo')"></i>
+    </span>
+    <span th:if="${filtros.estado() != null}" class="badge bg-label-secondary d-inline-flex align-items-center gap-1">
+        <span th:text="${filtros.estado()}">estado</span>
+        <i class="bx bx-x" style="cursor:pointer" onclick="quitarFiltro('estado')"></i>
+    </span>
+    <span th:if="${filtros.desde() != null or filtros.hasta() != null}"
+          class="badge bg-label-secondary d-inline-flex align-items-center gap-1">
+        <span th:text="(${filtros.desde()} ?: '…') + ' → ' + (${filtros.hasta()} ?: '…')">rango</span>
+        <i class="bx bx-x" style="cursor:pointer" onclick="quitarFiltro('fechas')"></i>
+    </span>
+
+    <button class="btn btn-sm btn-link text-muted p-0 ms-1" onclick="limpiarFiltros()">Limpiar todo</button>
+</div>
+
+<!-- ═══════════════ SIN RESULTADOS ═══════════════ -->
+<div th:if="${paginaActual.totalElements == 0}" class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+        <i class="bx bx-clipboard fs-1 text-muted mb-3 d-block"></i>
+        <!-- No es lo mismo "no hay actas" que "no hay actas con estos filtros". -->
+        <div th:if="${filtros.hayFiltrosActivos()}">
+            <h6 class="text-muted">Ningún acta coincide con los filtros</h6>
+            <p class="text-muted small mb-3">Probá con otro texto, ampliá el rango de fechas o mirá también las
+                que todavía no se subieron al VSIAF.</p>
+            <button class="btn btn-sm btn-outline-primary" onclick="limpiarFiltros()">
+                <i class="bx bx-x me-1"></i>Limpiar filtros
+            </button>
+        </div>
+        <div th:unless="${filtros.hayFiltrosActivos()}">
+            <h6 class="text-muted">Todavía no hay actas registradas en el VSIAF</h6>
+            <p class="text-muted small mb-0">Las asignaciones aparecen acá cuando al menos uno de sus bienes
+                llega al VSIAF. Las que están por subir se atienden en <strong>Activos pendientes</strong>.</p>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════ TABLA ═══════════════ -->
+<div th:if="${paginaActual.totalElements > 0}" class="card border-0 shadow-sm">
+
+    <div class="card-header bg-transparent border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2 py-3">
         <div class="d-flex align-items-center gap-2">
             <i class="bx bx-clipboard text-primary fs-5"></i>
-            <span class="fw-semibold">Registros de Asignación</span>
-            <span class="badge bg-primary rounded-pill" th:text="${#lists.size(asignaciones)}">0</span>
+            <span class="fw-semibold">Actas de asignación</span>
+            <span class="badge bg-primary rounded-pill" th:text="${paginaActual.totalElements}">0</span>
         </div>
-        <!-- Leyenda de estados -->
-        <div class="d-none d-md-flex align-items-center gap-3 small text-muted">
-            <span><span class="badge bg-success me-1">●</span>Activa</span>
-            <span><span class="badge bg-danger me-1">●</span>Anulada</span>
-            <span><span class="badge bg-info me-1">●</span>Devuelta</span>
-        </div>
-    </div>
-
-    <!-- Encabezado columnas (solo desktop) -->
-    <div class="d-none d-lg-block px-3 pt-2 pb-1">
-        <div class="row g-0 text-muted small fw-semibold border-bottom pb-2">
-            <div class="col-lg-2">N° ASIGNACIÓN</div>
-            <div class="col-lg-2">FECHA / REGISTRÓ</div>
-            <div class="col-lg-1 text-center">TIPO</div>
-            <div class="col-lg-2">RESPONSABLE DESTINO</div>
-            <div class="col-lg-2">OFICINA DESTINO</div>
-            <div class="col-lg-1 text-center">ACTIVOS</div>
-            <div class="col-lg-1 text-end">COSTO (BS.)</div>
-            <div class="col-lg-1 text-center">ESTADO</div>
+        <div class="d-flex align-items-center gap-2 small text-muted">
+            <label for="sel-tamano" class="mb-0">Mostrar</label>
+            <select id="sel-tamano" class="form-select form-select-sm" style="width:auto"
+                    onchange="cambiarTamano(this.value)">
+                <option th:each="t : ${tamanosPagina}" th:value="${t}" th:text="${t}"
+                        th:selected="${t == paginaActual.size}">25</option>
+            </select>
+            <span>por página</span>
         </div>
     </div>
 
-    <!-- Filas -->
-    <div class="list-group list-group-flush" id="lista-asignaciones">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 tabla-asignaciones">
+            <thead>
+                <tr>
+                    <!-- Ordena por el número de documento, que es lo que numera el acta. -->
+                    <th class="th-orden" onclick="ordenarPor('documento')">
+                        ACTA <i class="bx" th:classappend="${orden == 'documento'} ? (${desc} ? 'bx-chevron-down' : 'bx-chevron-up') : 'bx-minus opacity-25'"></i>
+                    </th>
+                    <th class="th-orden" onclick="ordenarPor('fecha')">
+                        FECHA <i class="bx" th:classappend="${orden == 'fecha'} ? (${desc} ? 'bx-chevron-down' : 'bx-chevron-up') : 'bx-minus opacity-25'"></i>
+                    </th>
+                    <th class="th-orden" onclick="ordenarPor('responsable')">
+                        RESPONSABLE DESTINO <i class="bx" th:classappend="${orden == 'responsable'} ? (${desc} ? 'bx-chevron-down' : 'bx-chevron-up') : 'bx-minus opacity-25'"></i>
+                    </th>
+                    <th class="th-orden" onclick="ordenarPor('oficina')">
+                        OFICINA <i class="bx" th:classappend="${orden == 'oficina'} ? (${desc} ? 'bx-chevron-down' : 'bx-chevron-up') : 'bx-minus opacity-25'"></i>
+                    </th>
+                    <th class="th-orden text-end" onclick="ordenarPor('activos')">
+                        BIENES <i class="bx" th:classappend="${orden == 'activos'} ? (${desc} ? 'bx-chevron-down' : 'bx-chevron-up') : 'bx-minus opacity-25'"></i>
+                    </th>
+                    <th class="th-orden text-end" onclick="ordenarPor('costo')">
+                        COSTO (BS.) <i class="bx" th:classappend="${orden == 'costo'} ? (${desc} ? 'bx-chevron-down' : 'bx-chevron-up') : 'bx-minus opacity-25'"></i>
+                    </th>
+                    <th class="text-center">VSIAF</th>
+                    <th class="text-end" style="width:110px">ACCIONES</th>
+                </tr>
+            </thead>
 
-        <div th:each="asig : ${asignaciones}" th:id="'asig-row-' + ${asig.idAsignacionActivo}"
-            class="asig-row list-group-item list-group-item-action px-3 py-0 border-start border-4" th:classappend="${asig.estado == 'ACTIVO'} ? 'border-success' :
-                         (${asig.estadoAsignacion == 'ANULADA'} ? 'border-danger' : 'border-info')"
-            th:data-id="${asig.idAsignacionActivo}" th:data-numero="${asig.numeroAsignacion}"
-            th:data-codigo-doc="${asig.codigoDocumento}" th:data-codigo-completo="${asig.codigoCompleto}"
-            th:data-fecha="${asig.fechaAsignacion}" th:data-tipo="${asig.tipoAsignacion}"
-            th:data-estado="${asig.estadoAsignacion}" th:data-resp-origen="${asig.responsableOrigen != null ?
-           (asig.responsableOrigen.persona.nombre + ' ' + asig.responsableOrigen.persona.paterno) : ''}"
-            th:data-resp-destino="${asig.responsable != null ?
-           (asig.responsable.persona.nombre + ' ' + asig.responsable.persona.paterno) : ''}"
-            th:data-oficina="${asig.oficinaDestino != null ? asig.oficinaDestino.nombre : ''}"
-            th:data-doc-ref="${asig.documentoReferencia}" th:data-observacion="${asig.observacion}"
-            th:data-num-activos="${asig.detalles != null ? #lists.size(asig.detalles) : 0}"
-            th:data-fecha-reg="${asig.registro}" th:data-usuario-reg="${asig.registroIdUsuario != null ? mapaUsuarios.get(asig.registroIdUsuario) : 'Sistema'}"
-            th:data-fecha-mod="${asig.modificacion}" th:data-usuario-mod="${asig.modificacionIdUsuario}"
-            th:with="res=${resumenes != null ? resumenes.get(asig.idAsignacionActivo) : null}"
-            style="cursor:pointer; transition: background 0.15s;">
+            <tbody>
+                <tr th:each="asig : ${asignaciones}" th:id="'asig-row-' + ${asig.idAsignacionActivo}"
+                    class="asig-row"
+                    th:data-id="${asig.idAsignacionActivo}"
+                    th:data-numero="${asig.numeroAsignacion}"
+                    th:data-codigo-doc="${asig.codigoDocumento}"
+                    th:data-codigo-completo="${asig.codigoCompleto}"
+                    th:data-fecha="${asig.fechaAsignacion}"
+                    th:data-tipo="${asig.tipoAsignacion}"
+                    th:data-estado="${asig.estadoAsignacion}"
+                    th:data-resp-origen="${asig.responsableOrigen != null and asig.responsableOrigen.persona != null ?
+                        (asig.responsableOrigen.persona.nombre + ' ' + asig.responsableOrigen.persona.paterno) : ''}"
+                    th:data-resp-destino="${asig.responsable != null and asig.responsable.persona != null ?
+                        (asig.responsable.persona.nombre + ' ' + asig.responsable.persona.paterno) : ''}"
+                    th:data-oficina="${asig.oficinaDestino != null ? asig.oficinaDestino.nombre : ''}"
+                    th:data-doc-ref="${asig.documentoReferencia}"
+                    th:data-observacion="${asig.observacion}"
+                    th:data-fecha-reg="${asig.registro}"
+                    th:data-usuario-reg="${asig.registroIdUsuario != null and mapaUsuarios.containsKey(asig.registroIdUsuario)
+                        ? mapaUsuarios.get(asig.registroIdUsuario) : 'Sistema'}"
+                    th:data-fecha-mod="${asig.modificacion}"
+                    th:data-usuario-mod="${asig.modificacionIdUsuario != null and mapaUsuarios.containsKey(asig.modificacionIdUsuario)
+                        ? mapaUsuarios.get(asig.modificacionIdUsuario) : ''}"
+                    th:with="res=${resumenes != null ? resumenes.get(asig.idAsignacionActivo) : null},
+                             sinc=${resumenes != null and resumenes.get(asig.idAsignacionActivo) != null
+                                    ? resumenes.get(asig.idAsignacionActivo).etiquetaSincronizacion : 'SIN_DATOS'}"
+                    style="cursor:pointer">
 
-            <div class="row g-0 align-items-center py-3">
-
-                <!-- Número asignación -->
-                <div class="col-12 col-lg-2 mb-1 mb-lg-0">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="avatar avatar-xs bg-label-primary rounded">
-                            <i class="bx bx-file-blank small"></i>
+                    <!--
+                        El número del acta lleva dentro el número de documento que se
+                        cargó en Pendientes (ASG-2026-272), no un correlativo del sistema.
+                        Debajo va el documento completo con su tipo, tal como aparece en
+                        el papel.
+                    -->
+                    <td>
+                        <div class="fw-semibold text-primary" style="font-size:.85rem"
+                             th:text="${asig.numeroAsignacion ?: 'Sin documento'}">—</div>
+                        <div class="text-muted" style="font-size:.72rem">
+                            <span th:text="${asig.codigoCompletoNormalizado ?: 'sin documento'}">—</span>
+                            <!--
+                                El id interno va siempre, no solo cuando molesta: el número
+                                de documento puede repetirse (1206 y 697 están cargados dos
+                                veces) y dos actas del mismo día con el mismo número serían
+                                indistinguibles en la lista. Con esto cada fila tiene un
+                                dato propio para seguirla.
+                            -->
+                            <span class="opacity-50" th:text="'· #' + ${asig.idAsignacionActivo}">· #0</span>
                         </div>
-                        <div>
-                            <div class="fw-semibold text-primary small" th:text="${asig.numeroAsignacion ?: '—'}">—
-                            </div>
-                            <div class="text-muted" style="font-size:0.7rem" th:text="${asig.codigoCompleto ?: '—'}">—
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                    </td>
 
-                <!-- Fecha + quién la registró -->
-                <div class="col-6 col-lg-2 mb-1 mb-lg-0">
-                    <div class="d-flex align-items-center gap-1 text-muted small">
-                        <i class="bx bx-calendar"></i>
-                        <span th:if="${asig.fechaAsignacion != null}"
-                            th:text="${#temporals.format(asig.fechaAsignacion, 'dd/MM/yyyy')}">—</span>
-                        <span th:unless="${asig.fechaAsignacion != null}">—</span>
-                    </div>
-                    <div class="d-flex align-items-center gap-1 text-muted text-truncate"
-                        style="font-size:0.7rem; max-width:150px;" title="Usuario que registró la asignación">
-                        <i class="bx bx-user-circle"></i>
-                        <span th:text="${asig.registroIdUsuario != null and mapaUsuarios.containsKey(asig.registroIdUsuario)
-                                        ? mapaUsuarios.get(asig.registroIdUsuario) : 'Sistema'}">—</span>
-                    </div>
-                </div>
+                    <!-- Fecha y quién registró -->
+                    <td>
+                        <div class="small" th:text="${asig.fechaAsignacion != null
+                             ? #temporals.format(asig.fechaAsignacion, 'dd/MM/yyyy') : '—'}">—</div>
+                        <div class="text-muted text-truncate" style="font-size:.72rem; max-width:130px"
+                             th:text="${asig.registroIdUsuario != null and mapaUsuarios.containsKey(asig.registroIdUsuario)
+                                       ? mapaUsuarios.get(asig.registroIdUsuario) : 'Sistema'}">—</div>
+                    </td>
 
-                <!-- Tipo -->
-                <div class="col-6 col-lg-1 mb-1 mb-lg-0 text-lg-center">
-                    <span class="badge" th:classappend="${asig.tipoAsignacion == 'NUEVA'} ? 'bg-label-primary' :
-                            (${asig.tipoAsignacion == 'REASIGNACION'} ? 'bg-label-warning' : 'bg-label-secondary')"
-                        th:text="${asig.tipoAsignacion ?: '—'}">—</span>
-                </div>
+                    <!-- Responsable destino -->
+                    <td>
+                        <span th:if="${asig.responsable != null and asig.responsable.persona != null}"
+                              class="small d-inline-block text-truncate" style="max-width:200px"
+                              th:text="${asig.responsable.persona.paterno + ' ' + (asig.responsable.persona.materno ?: '')
+                                        + ', ' + asig.responsable.persona.nombre}">—</span>
+                        <span th:unless="${asig.responsable != null and asig.responsable.persona != null}"
+                              class="text-muted small fst-italic">sin responsable</span>
+                    </td>
 
-                <!-- Responsable destino -->
-                <div class="col-12 col-lg-2 mb-1 mb-lg-0">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="avatar avatar-xs bg-label-success rounded-circle">
-                            <i class="bx bx-user small"></i>
-                        </div>
-                        <div th:if="${asig.responsable != null}" class="small text-truncate" style="max-width:180px">
-                            <span
-                                th:text="${asig.responsable.persona.nombre + ' ' + asig.responsable.persona.paterno}">—</span>
-                        </div>
-                        <span th:unless="${asig.responsable != null}" class="text-muted small">Sin responsable</span>
-                    </div>
-                </div>
+                    <!-- Oficina destino -->
+                    <td>
+                        <span class="small d-inline-block text-truncate" style="max-width:180px"
+                              th:text="${asig.oficinaDestino != null ? asig.oficinaDestino.nombre : '—'}">—</span>
+                    </td>
 
-                <!-- Oficina destino -->
-                <div class="col-6 col-lg-2 mb-1 mb-lg-0">
-                    <div class="small text-muted text-truncate" style="max-width:140px"
-                        th:text="${asig.oficinaDestino != null ? asig.oficinaDestino.nombre : '—'}">—</div>
-                </div>
+                    <!-- Cantidad de bienes -->
+                    <td class="text-end num">
+                        <span th:text="${res != null ? res.total : 0}">0</span>
+                    </td>
 
-                <!-- Activos + avance hacia el VSIAF -->
-                <div class="col-3 col-lg-1 mb-1 mb-lg-0 text-lg-center">
-                    <span class="badge bg-label-info rounded-pill">
-                        <i class="bx bx-box me-1"></i>
-                        <span th:text="${res != null ? res.total : (asig.detalles != null ? #lists.size(asig.detalles) : 0)}">0</span>
-                    </span>
-                    <!-- Cuántos llegaron ya al VSIAF y cuántos siguen pendientes. -->
-                    <div th:if="${res != null and (res.subidos > 0 or res.pendientes > 0)}"
-                        class="d-flex align-items-center justify-content-lg-center gap-2 mt-1"
-                        style="font-size:0.68rem; font-weight:700;">
-                        <span th:if="${res.subidos > 0}" class="text-success"
-                            th:title="${res.subidos} + ' activo(s) ya en el VSIAF'">
-                            <i class="bx bx-check-double"></i><span th:text="${res.subidos}">0</span>
+                    <!-- Costo del acta. Parcial = hay bienes sin costo cargado. -->
+                    <td class="text-end num">
+                        <span th:if="${res != null}"
+                              th:classappend="${res.totalParcial} ? 'text-warning' : ''"
+                              th:title="${res.totalParcial}
+                                        ? 'Total parcial: ' + ${res.sinCosto} + ' bien(es) sin costo cargado'
+                                        : 'Costo total del acta'"
+                              th:text="${#numbers.formatDecimal(res.costoTotal, 1, 'POINT', 2, 'COMMA')}">0,00</span>
+                        <span th:if="${res != null and res.totalParcial}" class="text-warning" title="Total parcial">≈</span>
+                        <span th:unless="${res != null}" class="text-muted">—</span>
+                    </td>
+
+                    <!--
+                        Estado frente al VSIAF: una sola columna con toda la semántica de
+                        color. Antes el color estaba repartido entre un borde lateral de
+                        4 px por fila, un badge de tipo y otro de estado, y ninguno de los
+                        tres decía si el dato había llegado al sistema legacy.
+                    -->
+                    <td class="text-center">
+                        <span th:if="${sinc == 'ERROR'}" class="badge bg-danger"
+                              th:title="${res.conError} + ' bien(es) que el VSIAF rechazó: los dos sistemas están distintos'">
+                            <i class="bx bx-error-circle"></i> Error VSIAF
                         </span>
-                        <span th:if="${res.pendientes > 0}" class="text-warning"
-                            th:title="${res.pendientes} + ' activo(s) todavía sin subir al VSIAF'">
-                            <i class="bx bx-time-five"></i><span th:text="${res.pendientes}">0</span>
+                        <span th:if="${sinc == 'PARCIAL'}" class="badge bg-warning text-dark"
+                              th:title="'Faltan ' + ${res.pendientes} + ' bien(es) por subir al VSIAF'"
+                              th:text="'Parcial ' + ${res.subidos} + '/' + ${res.total}">Parcial</span>
+                        <span th:if="${sinc == 'COMPLETA'}" class="badge bg-success"
+                              title="Todos los bienes del acta están en el VSIAF">
+                            <i class="bx bx-check-double"></i> Completa
                         </span>
-                    </div>
-                </div>
+                        <span th:if="${sinc == 'SIN_SUBIR'}" class="badge bg-secondary"
+                              title="Ningún bien de esta acta llegó al VSIAF todavía">Sin subir</span>
+                        <span th:if="${sinc == 'SIN_DATOS'}" class="text-muted">—</span>
+                    </td>
 
-                <!-- Costo total del acta -->
-                <div class="col-3 col-lg-1 mb-1 mb-lg-0 text-end">
-                    <span th:if="${res != null}" class="small fw-semibold"
-                        th:classappend="${res.totalParcial} ? 'text-warning' : 'text-body'"
-                        th:title="${res.totalParcial}
-                                  ? 'Total parcial: ' + ${res.sinCosto} + ' activo(s) sin costo cargado'
-                                  : 'Costo total del acta'"
-                        th:text="${#numbers.formatDecimal(res.costoTotal, 1, 'POINT', 2, 'COMMA')}"
-                        style="font-variant-numeric: tabular-nums;">0,00</span>
-                    <span th:unless="${res != null}" class="text-muted small">—</span>
-                </div>
-
-                <!-- Estado + Acciones -->
-                <div
-                    class="col-3 col-lg-1 text-lg-center d-flex align-items-center justify-content-end justify-content-lg-center gap-2">
-                    <span class="badge" th:classappend="${asig.estadoAsignacion == 'ACTIVA'} ? 'bg-success' :
-                            (${asig.estadoAsignacion == 'ANULADA'} ? 'bg-danger' : 'bg-info')"
-                        th:text="${asig.estadoAsignacion ?: '—'}">—</span>
-
-                    <!-- Botón acción rápida PDF -->
-                    <a th:href="@{/administracion/asignacion/asignaciones/{id}/pdf(id=${asig.idAsignacionActivo})}"
-                        target="_blank" class="btn btn-sm btn-icon btn-outline-danger py-0 px-1" title="Descargar PDF"
-                        onclick="event.stopPropagation()">
-                        <i class="bx bxs-file-pdf small"></i>
-                    </a>
-
-                    <!-- Botón acción rápida: carpeta de Drive de la gestión (solo si está configurada) -->
-                    <a th:if="${asig.fechaAsignacion != null and carpetasPorGestion != null and carpetasPorGestion.containsKey(asig.fechaAsignacion.year)}"
-                        th:href="'https://drive.google.com/drive/folders/' + ${carpetasPorGestion.get(asig.fechaAsignacion.year)}"
-                        target="_blank" class="btn btn-sm btn-icon btn-outline-success py-0 px-1"
-                        title="Ver carpeta en Drive" onclick="event.stopPropagation()">
-                        <i class="bx bxs-folder-open small"></i>
-                    </a>
-
-                    <i class="bx bx-chevron-right text-muted ms-1"></i>
-                </div>
-
-            </div>
-        </div>
-
+                    <!-- Acciones -->
+                    <td class="text-end text-nowrap">
+                        <a th:href="@{/administracion/asignacion/asignaciones/{id}/pdf(id=${asig.idAsignacionActivo})}"
+                           target="_blank" class="btn btn-sm btn-icon btn-outline-danger py-0 px-1"
+                           title="Descargar acta" onclick="event.stopPropagation()">
+                            <i class="bx bxs-file-pdf small"></i>
+                        </a>
+                        <a th:if="${asig.fechaAsignacion != null and carpetasPorGestion != null
+                                   and carpetasPorGestion.containsKey(asig.fechaAsignacion.year)}"
+                           th:href="'https://drive.google.com/drive/folders/' + ${carpetasPorGestion.get(asig.fechaAsignacion.year)}"
+                           target="_blank" class="btn btn-sm btn-icon btn-outline-success py-0 px-1"
+                           title="Ver carpeta en Drive" onclick="event.stopPropagation()">
+                            <i class="bx bxs-folder-open small"></i>
+                        </a>
+                        <i class="bx bx-chevron-right text-muted ms-1" title="Ver detalle"></i>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 
-    <!-- Footer con paginación/resumen -->
-    <div class="card-footer bg-transparent border-top d-flex align-items-center justify-content-between py-2 px-3">
-        <small class="text-muted">
-            <i class="bx bx-info-circle me-1"></i>
-            Mostrando <strong th:text="${#lists.size(asignaciones)}">0</strong> registros.
-            Haz clic en una fila para ver el detalle completo.
+    <!-- ═══════════════ PAGINADOR ═══════════════ -->
+    <div class="card-footer bg-transparent border-top d-flex flex-wrap align-items-center justify-content-between gap-2 py-2 px-3">
+        <small class="text-muted" th:with="desdeFila=${paginaActual.number * paginaActual.size + 1}">
+            Mostrando <strong th:text="${desdeFila}">1</strong>–<strong
+                th:text="${desdeFila + paginaActual.numberOfElements - 1}">25</strong>
+            de <strong th:text="${paginaActual.totalElements}">0</strong> actas
         </small>
-        <small class="text-muted d-none d-md-block">
-            <i class="bx bx-mouse me-1"></i>Clic en fila → detalle
+
+        <nav th:if="${paginaActual.totalPages > 1}">
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item" th:classappend="${paginaActual.first} ? 'disabled'">
+                    <a class="page-link" href="javascript:void(0)" onclick="irAPagina(0)" title="Primera">
+                        <i class="bx bx-chevrons-left"></i>
+                    </a>
+                </li>
+                <li class="page-item" th:classappend="${paginaActual.first} ? 'disabled'">
+                    <a class="page-link" href="javascript:void(0)"
+                       th:onclick="'irAPagina(' + ${paginaActual.number - 1} + ')'" title="Anterior">
+                        <i class="bx bx-chevron-left"></i>
+                    </a>
+                </li>
+                <li th:each="p : ${paginasVisibles}" class="page-item"
+                    th:classappend="${p == paginaActual.number} ? 'active'">
+                    <a class="page-link" href="javascript:void(0)"
+                       th:onclick="'irAPagina(' + ${p} + ')'" th:text="${p + 1}">1</a>
+                </li>
+                <li class="page-item" th:classappend="${paginaActual.last} ? 'disabled'">
+                    <a class="page-link" href="javascript:void(0)"
+                       th:onclick="'irAPagina(' + ${paginaActual.number + 1} + ')'" title="Siguiente">
+                        <i class="bx bx-chevron-right"></i>
+                    </a>
+                </li>
+                <li class="page-item" th:classappend="${paginaActual.last} ? 'disabled'">
+                    <a class="page-link" href="javascript:void(0)"
+                       th:onclick="'irAPagina(' + ${paginaActual.totalPages - 1} + ')'" title="Última">
+                        <i class="bx bx-chevrons-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <small class="text-muted d-none d-lg-block">
+            <i class="bx bx-mouse me-1"></i>Clic en una fila para ver el detalle
         </small>
     </div>
-
 </div>
 
 <style>
-    .asig-row:hover {
-        background-color: rgba(var(--bs-primary-rgb), 0.04) !important;
+    /*
+       Un solo acento para lo interactivo y el color semántico reservado a la columna
+       VSIAF, que es lo único que puede exigir una acción. El borde de color por fila que
+       había antes pintaba TODAS las filas, así que el color no distinguía nada.
+    */
+    .tabla-asignaciones thead th {
+        font-size: .68rem;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        color: var(--bs-secondary-color, #697a8d);
+        font-weight: 600;
     }
 
-    .asig-row:active {
-        transform: scale(0.998);
+    .tabla-asignaciones .th-orden {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .tabla-asignaciones .th-orden:hover {
+        color: var(--bs-primary, #696cff);
+    }
+
+    .tabla-asignaciones td.num {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .tabla-asignaciones tbody tr.asig-row:hover {
+        background-color: rgba(var(--bs-primary-rgb), .05);
     }
 </style>
 
 <script>
+    /* El clic en la fila abre el detalle; los botones de acción lo detienen con stopPropagation. */
     $(document).off('click.asigRow').on('click.asigRow', '.asig-row', function () {
         const id = $(this).data('id');
-        if (typeof abrirModalAsignacion === 'function') {
-            abrirModalAsignacion(id);
-        }
+        if (typeof abrirModalAsignacion === 'function') abrirModalAsignacion(id);
     });
-
-    /* Pasar datos a función del padre */
-    function abrirModalAsignacion(id) {
-        const $row = $(`#asig-row-${id}`);
-        if (!$row.length) return;
-        if (window !== window.parent && typeof window.parent.abrirModalAsignacion === 'function') {
-            window.parent.abrirModalAsignacion(id);
-        } else {
-            // Si está en la misma página
-            const data = $row.data();
-            /* Llenar modal con los datos del data-* */
-            const coloresTipo = { NUEVA: 'bg-primary', REASIGNACION: 'bg-warning text-dark', DEVOLUCION: 'bg-secondary' };
-            const coloresEstado = { ACTIVA: 'bg-success', ANULADA: 'bg-danger', DEVUELTA: 'bg-info' };
-
-            $('#modal-numero-asignacion').text(data.numero || '—');
-            $('#modal-fecha-asignacion').text(data.fecha ? new Date(data.fecha).toLocaleDateString('es-BO') : '—');
-            $('#modal-badge-tipo').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresTipo[data.tipo] || 'bg-secondary')).text(data.tipo || '—');
-            $('#modal-badge-estado').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresEstado[data.estado] || 'bg-secondary')).text(data.estado || '—');
-
-            $('#d-numero').text(data.numero || '—');
-            $('#d-codigo-doc').text(data.codigoDoc || '—');
-            $('#d-codigo-completo').html(`<span class="fw-bold text-primary">${data.codigoCompleto || '—'}</span>`);
-            $('#d-fecha').text(data.fecha ? new Date(data.fecha).toLocaleDateString('es-BO') : '—');
-            $('#d-tipo').html(`<span class="badge ${coloresTipo[data.tipo] || 'bg-secondary'}">${data.tipo || '—'}</span>`);
-            $('#d-estado').html(`<span class="badge ${coloresEstado[data.estado] || 'bg-secondary'}">${data.estado || '—'}</span>`);
-            $('#d-doc-referencia').text(data.docRef || '—');
-            $('#d-resp-origen').text(data.respOrigen || '—');
-            $('#d-resp-destino').text(data.respDestino || '—');
-            $('#d-oficina-destino').text(data.oficina || '—');
-
-            if (data.observacion && data.observacion.trim() !== '') {
-                $('#d-observacion').text(data.observacion);
-                $('#container-observacion').show();
-            } else { $('#container-observacion').hide(); }
-
-            $('#aud-fecha-reg').text(data.fechaReg || '—');
-            $('#aud-usuario-reg').text(data.usuarioReg || '—');
-            $('#aud-fecha-mod').text(data.fechaMod || '—');
-            $('#aud-usuario-mod').text(data.usuarioMod || '—');
-            $('#btn-modal-pdf').attr('href', `/administracion/asignacion/asignaciones/${id}/pdf`);
-
-            // Cargar activos
-            $('#tab-activos-link').tab('show');
-            if (typeof cargarActivosModal === 'function') {
-                cargarActivosModal(id);
-            }
-
-            // Reset al primer tab
-            const primerTab = document.querySelector('#modalTabs .nav-link');
-            if (primerTab) {
-                const tab = new bootstrap.Tab(primerTab);
-                tab.show();
-            }
-
-            const modal = new bootstrap.Modal(document.getElementById('modalDetalleAsignacion'));
-            modal.show();
-        }
-    }
 </script>

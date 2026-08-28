@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 import com.linuxense.javadbf.DBFField;
 import com.linuxense.javadbf.DBFReader;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ReferenciaOrdenDbf;
 import com.usic.SistemasActivosFijosUAP.model.service.DbfColaService;
 
 @Service
@@ -110,6 +111,18 @@ public class ActualDbfWriterService {
     /**
      * Verifica si existe un registro con el código dado
      */
+    /**
+     * ¿Las escrituras se encolan para el worker en vez de ir directo al DBF?
+     * <p>
+     * Lo necesitan los controladores para no mentir en el mensaje: en modo cola la
+     * orden queda esperando al worker y la confirmación llega después
+     * ({@code ColaConfirmacionScheduler}); en modo bytes el archivo ya quedó escrito
+     * cuando el método retorna.
+     */
+    public boolean esModoCola() {
+        return "cola".equalsIgnoreCase(writeMode);
+    }
+
     public boolean existsByCodigo(String codigo) {
         verificarConexionDBF();
 
@@ -171,7 +184,8 @@ public class ActualDbfWriterService {
     public void insertarDesdeActivo(Activo a, String entidadCode, String unidadCode, String usuario) {
         // ── Modo COLA: dejar la orden para el worker VFPOLEDB (mantiene el índice .CDX) ──
         if ("cola".equalsIgnoreCase(writeMode)) {
-            colaService.encolarInsert("ACTUAL", construirCamposActivo(a, entidadCode, unidadCode, usuario));
+            colaService.encolarInsert("ACTUAL", construirCamposActivo(a, entidadCode, unidadCode, usuario),
+                    ReferenciaOrdenDbf.deActivo(a.getIdActivo(), a.getCodigo(), usuario));
             log.info("📤 Activo {} encolado para VSIAF (modo cola)", a.getCodigo());
             return;
         }
@@ -243,7 +257,8 @@ public class ActualDbfWriterService {
         if ("cola".equalsIgnoreCase(writeMode)) {
             Map<String, Object> clave = new LinkedHashMap<>();
             clave.put("CODIGO", codigoOriginal);
-            colaService.encolarUpdate("ACTUAL", clave, construirCamposActivo(a, entidadCode, unidadCode, usuario));
+            colaService.encolarUpdate("ACTUAL", clave, construirCamposActivo(a, entidadCode, unidadCode, usuario),
+                    ReferenciaOrdenDbf.deActivo(a.getIdActivo(), codigoOriginal, usuario));
             log.info("📤 Activo {} encolado para UPDATE en VSIAF (modo cola)", codigoOriginal);
             return;
         }
@@ -344,7 +359,8 @@ public class ActualDbfWriterService {
                 for (String c : campos) {
                     set.put(c, obtenerValorCampo(c, a, entidadCode, unidadCode, usuario));
                 }
-                colaService.encolarUpdate("ACTUAL", clave, set);
+                colaService.encolarUpdate("ACTUAL", clave, set,
+                        ReferenciaOrdenDbf.deActivo(a.getIdActivo(), a.getCodigo(), usuario));
             }
             log.info("📤 {} activos encolados para UPDATE (transferencia, modo cola)", activos.size());
             return;

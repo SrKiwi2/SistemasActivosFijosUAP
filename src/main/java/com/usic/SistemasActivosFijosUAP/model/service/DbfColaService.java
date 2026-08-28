@@ -11,7 +11,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ReferenciaOrdenDbf;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -31,10 +33,13 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class DbfColaService {
 
     @Value("${legacy.dbf.path:/mnt/dbfwin}")
     private String dbfPath;
+
+    private final DbfColaRegistroService registroService;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -43,13 +48,22 @@ public class DbfColaService {
      *
      * @param tabla  nombre de la tabla DBF (p. ej. "RESP")
      * @param campos pares campo-&gt;valor (valores crudos; se convierten a texto)
+     * @return nombre del archivo encolado, la llave con la que el worker devuelve el resultado
      */
-    public void encolarInsert(String tabla, Map<String, Object> campos) {
+    public String encolarInsert(String tabla, Map<String, Object> campos) {
+        return encolarInsert(tabla, campos, null);
+    }
+
+    /** Igual que {@link #encolarInsert(String, Map)}, dejando constancia de a qué apunta. */
+    public String encolarInsert(String tabla, Map<String, Object> campos, ReferenciaOrdenDbf ref) {
         Map<String, Object> orden = new LinkedHashMap<>();
         orden.put("tabla", tabla);
         orden.put("op", "INSERT");
         orden.put("campos", aTexto(campos));
-        escribirOrden(tabla, orden);
+
+        String archivo = escribirOrden(tabla, orden);
+        registroService.registrar(archivo, tabla, "INSERT", null, ref);
+        return archivo;
     }
 
     /**
@@ -58,18 +72,34 @@ public class DbfColaService {
      * @param tabla  nombre de la tabla DBF (p. ej. "RESP")
      * @param clave  pares campo-&gt;valor que identifican el registro (WHERE)
      * @param campos pares campo-&gt;valor a actualizar (SET)
+     * @return nombre del archivo encolado, la llave con la que el worker devuelve el resultado
      */
-    public void encolarUpdate(String tabla, Map<String, Object> clave, Map<String, Object> campos) {
+    public String encolarUpdate(String tabla, Map<String, Object> clave, Map<String, Object> campos) {
+        return encolarUpdate(tabla, clave, campos, null);
+    }
+
+    /** Igual que {@link #encolarUpdate(String, Map, Map)}, dejando constancia de a qué apunta. */
+    public String encolarUpdate(String tabla, Map<String, Object> clave,
+                                Map<String, Object> campos, ReferenciaOrdenDbf ref) {
+        Map<String, String> claveTexto = aTexto(clave);
+
         Map<String, Object> orden = new LinkedHashMap<>();
         orden.put("tabla", tabla);
         orden.put("op", "UPDATE");
-        orden.put("clave", aTexto(clave));
+        orden.put("clave", claveTexto);
         orden.put("campos", aTexto(campos));
-        escribirOrden(tabla, orden);
+
+        String archivo = escribirOrden(tabla, orden);
+        registroService.registrar(archivo, tabla, "UPDATE", claveTexto, ref);
+        return archivo;
     }
 
-    /** Escribe la orden como JSON en _cola (primero .tmp y luego rename, para lecturas atómicas). */
-    private void escribirOrden(String tabla, Map<String, Object> orden) {
+    /**
+     * Escribe la orden como JSON en _cola (primero .tmp y luego rename, para lecturas atómicas).
+     *
+     * @return nombre del archivo, sin ruta
+     */
+    private String escribirOrden(String tabla, Map<String, Object> orden) {
         try {
             Path cola = Path.of(dbfPath, "_cola");
             Files.createDirectories(cola);
@@ -88,6 +118,7 @@ public class DbfColaService {
             }
 
             log.info("📤 Orden {} encolada para VSIAF: {}", orden.get("op"), fin.getFileName());
+            return fin.getFileName().toString();
         } catch (Exception e) {
             log.error("No se pudo encolar la orden para {}: {}", tabla, e.getMessage(), e);
             throw new RuntimeException("Error encolando orden DBF: " + e.getMessage(), e);

@@ -19,71 +19,68 @@
     <span class="text-muted fw-light">Seguimiento /</span> Asignación de Activos
 </h4>
 
-<!-- Tarjetas de resumen -->
-<div class="row g-3 mb-4" id="statsRow">
-    <div class="col-6 col-md-3">
-        <div class="card text-center border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="avatar avatar-md bg-label-primary mb-2 mx-auto">
-                    <i class="bx bx-list-check fs-4"></i>
-                </div>
-                <h5 class="mb-0 fw-bold" id="stat-total">—</h5>
-                <small class="text-muted">Total registros</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card text-center border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="avatar avatar-md bg-label-success mb-2 mx-auto">
-                    <i class="bx bx-check-shield fs-4"></i>
-                </div>
-                <h5 class="mb-0 fw-bold" id="stat-activas">—</h5>
-                <small class="text-muted">Activas</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card text-center border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="avatar avatar-md bg-label-warning mb-2 mx-auto">
-                    <i class="bx bx-transfer-alt fs-4"></i>
-                </div>
-                <h5 class="mb-0 fw-bold" id="stat-reasignaciones">—</h5>
-                <small class="text-muted">Reasignaciones</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card text-center border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="avatar avatar-md bg-label-danger mb-2 mx-auto">
-                    <i class="bx bx-archive-out fs-4"></i>
-                </div>
-                <h5 class="mb-0 fw-bold" id="stat-activos">—</h5>
-                <small class="text-muted">Activos involucrados</small>
-            </div>
-        </div>
-    </div>
-</div>
+<!--
+    Las tarjetas de resumen viven ahora dentro del fragmento de la tabla: sus números los
+    calcula el servidor sobre el conjunto filtrado completo. Contarlas acá, recorriendo
+    las filas del DOM, daría los totales de la página visible.
+-->
 
-<!-- Panel de filtros + Acciones -->
+<!-- Panel de filtros -->
 <div class="card mb-4 border-0 shadow-sm">
     <div class="card-body py-3">
         <div class="row g-2 align-items-end">
 
-            <div class="col-12 col-md-3">
-                <label class="form-label mb-1 small fw-semibold text-muted">BUSCAR</label>
+            <div class="col-12 col-md-4">
+                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-buscar">BUSCAR</label>
                 <div class="input-group input-group-sm">
                     <span class="input-group-text"><i class="bx bx-search"></i></span>
                     <input type="text" id="filtro-buscar" class="form-control form-control-sm"
-                        placeholder="N° asignación, responsable...">
+                        placeholder="N° de acta, preventivo, responsable o código de bien">
+                    <button class="btn btn-outline-secondary" type="button" title="Borrar la búsqueda"
+                            onclick="quitarFiltro('buscar')"><i class="bx bx-x"></i></button>
                 </div>
             </div>
 
+            <!-- Es el filtro que define de qué trata esta pantalla, por eso va primero. -->
             <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted">TIPO</label>
-                <select id="filtro-tipo" class="form-select form-select-sm">
+                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-sinc">EN EL VSIAF</label>
+                <select id="filtro-sinc" class="form-select form-select-sm" onchange="cargarTabla(true)">
+                    <option value="SUBIDAS">Subidas (todas)</option>
+                    <option value="COMPLETAS">Solo completas</option>
+                    <option value="PARCIALES">Solo parciales</option>
+                    <option value="TODAS">Incluir las no subidas</option>
+                </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-gestion">GESTIÓN</label>
+                <select id="filtro-gestion" class="form-select form-select-sm" onchange="cargarTabla(true)">
+                    <option value="">Todas</option>
+                    <option th:each="g : ${gestiones}" th:value="${g}" th:text="${g}">2026</option>
+                </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-desde">DESDE</label>
+                <input type="date" id="filtro-desde" class="form-control form-control-sm" onchange="cargarTabla(true)">
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-hasta">HASTA</label>
+                <input type="date" id="filtro-hasta" class="form-control form-control-sm" onchange="cargarTabla(true)">
+            </div>
+        </div>
+
+        <div class="row g-2 align-items-end mt-1">
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-tipo">TIPO</label>
+                <!--
+                    Sin "Separación" todavía: la base tiene un CHECK que solo admite
+                    NUEVA, REASIGNACION y DEVOLUCION. Ofrecer una opción que jamás puede
+                    devolver nada es el mismo defecto que tenían estos combos antes.
+                    Se agrega en la Fase 3, junto con la ampliación del CHECK.
+                -->
+                <select id="filtro-tipo" class="form-select form-select-sm" onchange="cargarTabla(true)">
                     <option value="">Todos</option>
                     <option value="NUEVA">Nueva</option>
                     <option value="REASIGNACION">Reasignación</option>
@@ -92,8 +89,8 @@
             </div>
 
             <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted">ESTADO</label>
-                <select id="filtro-estado" class="form-select form-select-sm">
+                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-estado">ESTADO</label>
+                <select id="filtro-estado" class="form-select form-select-sm" onchange="cargarTabla(true)">
                     <option value="">Todos</option>
                     <option value="ACTIVA">Activa</option>
                     <option value="ANULADA">Anulada</option>
@@ -101,43 +98,24 @@
                 </select>
             </div>
 
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted">DESDE</label>
-                <input type="date" id="filtro-desde" class="form-control form-control-sm">
+            <div class="col-12 col-md-4 d-flex align-items-center pb-1">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="filtro-error" onchange="cargarTabla(true)">
+                    <label class="form-check-label small" for="filtro-error">
+                        Solo actas con error de VSIAF
+                    </label>
+                </div>
             </div>
 
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted">HASTA</label>
-                <input type="date" id="filtro-hasta" class="form-control form-control-sm">
-            </div>
-
-            <div class="col-12 col-md-1 d-flex gap-1 justify-content-end justify-content-md-start">
-                <button class="btn btn-sm btn-primary" onclick="aplicarFiltros()" title="Aplicar filtros">
-                    <i class="bx bx-filter-alt"></i>
+            <div class="col-12 col-md-4 d-flex justify-content-md-end gap-2">
+                <button class="btn btn-sm btn-outline-secondary" onclick="limpiarFiltros()">
+                    <i class="bx bx-x me-1"></i>Limpiar
                 </button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="limpiarFiltros()" title="Limpiar filtros">
-                    <i class="bx bx-x"></i>
-                </button>
-            </div>
-
-        </div>
-
-        <!-- Botones de exportación -->
-        <div class="row mt-2">
-            <div class="col-12 d-flex align-items-center gap-2">
-                <span class="text-muted small me-1"><i class="bx bx-export me-1"></i>Exportar:</span>
-                <button class="btn btn-sm btn-outline-danger" onclick="exportarPDF()" id="btn-export-pdf">
-                    <i class="bx bxs-file-pdf me-1"></i>PDF
-                </button>
-                <button class="btn btn-sm btn-outline-success" onclick="exportarExcel()" id="btn-export-excel">
-                    <i class="bx bxs-file-export me-1"></i>Excel
-                </button>
-                <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="cargarTabla()">
+                <button class="btn btn-sm btn-outline-secondary" onclick="cargarTabla()">
                     <i class="bx bx-refresh me-1"></i>Actualizar
                 </button>
             </div>
         </div>
-
     </div>
 </div>
 
@@ -190,6 +168,205 @@
     </div>
 </div>
 
+<!-- ======================= MODAL SEPARAR ACTA ======================= -->
+<div class="modal fade" id="modalSepararActa" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+
+            <div class="modal-header bg-primary text-white py-3">
+                <div>
+                    <h6 class="modal-title mb-0 fw-bold"><i class="bx bx-git-branch me-1"></i>Separar bienes a un acta nueva</h6>
+                    <small class="opacity-75" id="sep-resumen">—</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <!--
+                    Este aviso existe porque la intuición dice lo contrario: separar suena
+                    a que se toca el sistema legacy, y frena a la gente. El VSIAF no conoce
+                    el concepto de acta; solo se entera si cambian datos del bien.
+                -->
+                <div class="alert alert-info py-2 d-flex gap-2 align-items-start" style="font-size:.83rem">
+                    <i class="bx bx-info-circle fs-5"></i>
+                    <div>
+                        El acta original <b>conserva sus bienes</b>, con los separados marcados como trasladados:
+                        el papel ya firmado sigue coincidiendo. Al VSIAF solo se envía algo si cambia el
+                        <b>responsable</b> o la <b>oficina</b> de los bienes.
+                    </div>
+                </div>
+
+                <h6 class="text-muted small fw-semibold mt-3">DOCUMENTO DE LA NUEVA ACTA</h6>
+                <div class="row g-2">
+                    <div class="col-md-7">
+                        <label class="form-label small mb-1" for="sep-config">Tipo de documento</label>
+                        <select id="sep-config" class="form-select form-select-sm">
+                            <option value="">Cargando…</option>
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label small mb-1" for="sep-nrodoc">Número de documento</label>
+                        <input type="text" id="sep-nrodoc" class="form-control form-control-sm fw-bold"
+                               placeholder="Ej: 5243">
+                        <div class="form-text" style="font-size:.72rem">Es el número que identifica al acta.</div>
+                    </div>
+                </div>
+
+                <h6 class="text-muted small fw-semibold mt-4">DESTINO DE LOS BIENES</h6>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1" for="sep-oficina">Oficina</label>
+                        <select id="sep-oficina" class="form-select form-select-sm"></select>
+                        <div class="form-text" style="font-size:.72rem">
+                            Solo oficinas del mismo predio: cambiar de predio es una transferencia.
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1" for="sep-responsable">Responsable</label>
+                        <select id="sep-responsable" class="form-select form-select-sm"></select>
+                    </div>
+                </div>
+
+                <h6 class="text-muted small fw-semibold mt-4">MOTIVO</h6>
+                <textarea id="sep-motivo" class="form-control form-control-sm" rows="3"
+                          placeholder="Por qué se separan estos bienes. Queda en el historial del acta."></textarea>
+                <div class="form-text" style="font-size:.72rem">Mínimo 10 caracteres.</div>
+
+                <div class="mt-3 d-none" id="sep-avisos"></div>
+            </div>
+
+            <div class="modal-footer py-2">
+                <span class="text-muted small me-auto" id="sep-footer-info"></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btn-confirmar-separar">
+                    <i class="bx bx-git-branch me-1"></i>Separar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ======================= MODAL TRASLADAR A OTRA ACTA ======================= -->
+<div class="modal fade" id="modalTrasladar" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-warning py-3">
+                <div>
+                    <h6 class="modal-title mb-0 fw-bold text-dark"><i class="bx bx-transfer me-1"></i>Trasladar a otra acta</h6>
+                    <small class="text-dark opacity-75" id="tras-resumen">—</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <!-- No existe "quitar": el bien siempre queda en un acta. -->
+                <div class="alert alert-secondary py-2 d-flex gap-2 align-items-start" style="font-size:.83rem">
+                    <i class="bx bx-info-circle fs-5"></i>
+                    <div>
+                        Un bien siempre pertenece a un acta: por eso no se lo "quita", se lo <b>traslada</b>.
+                        Su línea acá queda marcada como trasladada, con el destino anotado.
+                    </div>
+                </div>
+
+                <h6 class="text-muted small fw-semibold mt-3">ACTA DE DESTINO</h6>
+                <div class="input-group input-group-sm mb-2">
+                    <span class="input-group-text"><i class="bx bx-search"></i></span>
+                    <input type="text" id="tras-buscar" class="form-control form-control-sm"
+                           placeholder="N° de acta o documento (ej: ASG-2026-541)">
+                </div>
+                <div id="tras-resultados" class="list-group list-group-flush border rounded"
+                     style="max-height:220px; overflow-y:auto"></div>
+                <div class="alert alert-primary py-2 mt-2 mb-0 d-none" id="tras-elegida"></div>
+
+                <div class="form-check form-switch mt-3">
+                    <input class="form-check-input" type="checkbox" id="tras-adoptar">
+                    <label class="form-check-label small" for="tras-adoptar">
+                        Que los bienes tomen el <b>responsable y la oficina</b> del acta destino
+                        <span class="d-block text-muted" style="font-size:.75rem">
+                            Si lo dejás sin marcar, solo cambian de acta y no se envía nada al VSIAF.
+                        </span>
+                    </label>
+                </div>
+
+                <h6 class="text-muted small fw-semibold mt-4">MOTIVO</h6>
+                <textarea id="tras-motivo" class="form-control form-control-sm" rows="3"
+                          placeholder="Por qué se mueven estos bienes. Queda en el historial de las dos actas."></textarea>
+                <div class="form-text" style="font-size:.72rem">Mínimo 10 caracteres.</div>
+
+                <div class="mt-3 d-none" id="tras-avisos"></div>
+            </div>
+
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-warning" id="btn-confirmar-trasladar" disabled>
+                    <i class="bx bx-transfer me-1"></i>Trasladar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ======================= MODAL INCORPORAR BIENES ======================= -->
+<div class="modal fade" id="modalIncorporar" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white py-3">
+                <div>
+                    <h6 class="modal-title mb-0 fw-bold"><i class="bx bx-import me-1"></i>Incorporar bienes a esta acta</h6>
+                    <small class="opacity-75" id="inc-resumen">—</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <div class="alert alert-secondary py-2 d-flex gap-2 align-items-start" style="font-size:.83rem">
+                    <i class="bx bx-info-circle fs-5"></i>
+                    <div>
+                        Para el caso de los bienes que <b>se olvidaron de incluir</b>. Cada bien sale del acta
+                        donde está hoy —se muestra cuál— y su línea allá queda marcada como trasladada.
+                        <span class="d-block mt-1">Un bien que nunca tuvo documento se asigna desde
+                        <b>Activos pendientes</b>, no desde acá.</span>
+                    </div>
+                </div>
+
+                <h6 class="text-muted small fw-semibold mt-3">BUSCAR BIENES</h6>
+                <div class="input-group input-group-sm mb-2">
+                    <span class="input-group-text"><i class="bx bx-search"></i></span>
+                    <input type="text" id="inc-buscar" class="form-control form-control-sm"
+                           placeholder="Código o descripción del bien (mínimo 3 caracteres)">
+                </div>
+                <div id="inc-resultados" class="list-group list-group-flush border rounded"
+                     style="max-height:260px; overflow-y:auto"></div>
+
+                <div class="form-check form-switch mt-3">
+                    <input class="form-check-input" type="checkbox" id="inc-adoptar">
+                    <label class="form-check-label small" for="inc-adoptar">
+                        Que los bienes tomen el <b>responsable y la oficina</b> de esta acta
+                        <span class="d-block text-muted" style="font-size:.75rem">
+                            Sin marcar, solo cambian de acta y no se envía nada al VSIAF.
+                        </span>
+                    </label>
+                </div>
+
+                <h6 class="text-muted small fw-semibold mt-4">MOTIVO</h6>
+                <textarea id="inc-motivo" class="form-control form-control-sm" rows="3"
+                          placeholder="Por qué se incorporan. Queda en el historial de las dos actas."></textarea>
+                <div class="form-text" style="font-size:.72rem">Mínimo 10 caracteres.</div>
+
+                <div class="mt-3 d-none" id="inc-avisos"></div>
+            </div>
+
+            <div class="modal-footer py-2">
+                <span class="text-muted small me-auto" id="inc-contador">Ningún bien seleccionado</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-success" id="btn-confirmar-incorporar" disabled>
+                    <i class="bx bx-import me-1"></i>Incorporar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ======================= MODAL DETALLE ASIGNACIÓN ======================= -->
 <div class="modal fade" id="modalDetalleAsignacion" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -227,6 +404,13 @@
                         <a class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab" href="#tab-activos">
                             <i class="bx bx-box"></i> Activos Asignados
                             <span class="badge bg-primary rounded-pill ms-1" id="badge-num-activos">0</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab" href="#tab-historial"
+                           id="tab-historial-link">
+                            <i class="bx bx-git-branch"></i> Historial
+                            <span class="badge bg-secondary rounded-pill ms-1 d-none" id="badge-num-movimientos">0</span>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -351,10 +535,41 @@
                             </div>
                         </div>
 
+                        <!--
+                            Barra de selección. Aparece solo cuando hay bienes marcados:
+                            una barra siempre visible con botones inertes invita a tocarlos
+                            y a descubrir recién ahí que faltaba elegir algo.
+                        -->
+                        <div class="alert alert-primary d-none align-items-center gap-3 py-2 mb-3"
+                             id="barra-seleccion">
+                            <i class="bx bx-check-square fs-5"></i>
+                            <span><strong id="sel-cantidad">0</strong> bien(es) seleccionado(s)</span>
+                            <button class="btn btn-sm btn-primary ms-auto" onclick="abrirModalSeparar()">
+                                <i class="bx bx-git-branch me-1"></i>Separar a un acta nueva
+                            </button>
+                            <button class="btn btn-sm btn-warning" onclick="abrirModalTrasladar()">
+                                <i class="bx bx-transfer me-1"></i>Trasladar a otra acta
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="limpiarSeleccion()">
+                                Quitar selección
+                            </button>
+                        </div>
+
+                        <!-- Para los bienes que se olvidaron de incluir en el acta. -->
+                        <div class="d-flex justify-content-end mb-2 col-seleccion d-none" id="fila-incorporar">
+                            <button class="btn btn-sm btn-outline-success" onclick="abrirModalIncorporar()">
+                                <i class="bx bx-import me-1"></i>Incorporar bienes a esta acta
+                            </button>
+                        </div>
+
                         <div class="table-responsive">
                             <table class="table table-hover table-sm align-middle" id="tabla-activos-modal">
                                 <thead class="table-light">
                                     <tr>
+                                        <th class="text-center col-seleccion d-none" style="width:36px">
+                                            <input type="checkbox" class="form-check-input" id="chk-todos"
+                                                   title="Seleccionar todos">
+                                        </th>
                                         <th class="text-center" style="width:40px">#</th>
                                         <th>Código</th>
                                         <th>Descripción</th>
@@ -370,10 +585,19 @@
                                 </thead>
                                 <tbody id="tbody-activos">
                                     <tr>
-                                        <td colspan="11" class="text-center text-muted py-4">Sin activos registrados</td>
+                                        <td colspan="12" class="text-center text-muted py-4">Sin activos registrados</td>
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB HISTORIAL -->
+                    <div class="tab-pane fade" id="tab-historial">
+                        <div id="historial-acta">
+                            <div class="text-center py-4 text-muted">
+                                <div class="spinner-border spinner-border-sm me-2"></div>Cargando historial…
+                            </div>
                         </div>
                     </div>
 
@@ -430,13 +654,33 @@
 <!-- ====================================================================== -->
 
 <script>
+    /* ══════════════════════════════════════════════════════════════════════════
+       Estado del listado
+
+       Orden, página y tamaño viven acá y viajan al servidor en cada carga. La tabla
+       ya no trae todas las actas: pedirle al navegador que ordene o cuente lo que
+       tiene a la vista daría respuestas referidas a 25 registros, no al filtro.
+       ══════════════════════════════════════════════════════════════════════════ */
+    const estadoTabla = { orden: 'fecha', desc: true, pagina: 0, tamano: 25 };
+
+    /* Columnas donde lo primero que se quiere ver es lo más alto o lo más reciente. */
+    const ORDEN_DESCENDENTE_PRIMERO = ['fecha', 'activos', 'costo'];
+
+    let temporizadorBusqueda = null;
+
     $(document).ready(function () {
-        cargarTabla();
+        restaurarDesdeUrl();
         inicializarFiltros();
+        cargarTabla();
     });
 
-    function cargarTabla() {
-        const params = obtenerParametrosFiltro();
+    function cargarTabla(reiniciarPagina) {
+        if (reiniciarPagina) estadoTabla.pagina = 0;
+
+        const filtros = obtenerParametrosFiltro();
+        const params = Object.assign({}, filtros, estadoTabla);
+        sincronizarUrl(filtros);
+
         showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
         $.ajax({
             type: 'POST',
@@ -444,7 +688,6 @@
             data: params,
             success: function (response) {
                 $("#tablaRegistro").html(response);
-                calcularEstadisticas();
             },
             error: function () {
                 $("#tablaRegistro").html(`
@@ -464,40 +707,117 @@
 
     function obtenerParametrosFiltro() {
         return {
-            tipo: $('#filtro-tipo').val(),
-            estado: $('#filtro-estado').val(),
-            buscar: $('#filtro-buscar').val(),
-            desde: $('#filtro-desde').val(),
-            hasta: $('#filtro-hasta').val()
+            buscar: $('#filtro-buscar').val() || '',
+            sincronizacion: $('#filtro-sinc').val() || 'SUBIDAS',
+            gestion: $('#filtro-gestion').val() || '',
+            desde: $('#filtro-desde').val() || '',
+            hasta: $('#filtro-hasta').val() || '',
+            tipo: $('#filtro-tipo').val() || '',
+            estado: $('#filtro-estado').val() || '',
+            soloConError: $('#filtro-error').is(':checked')
         };
     }
 
-    function aplicarFiltros() { cargarTabla(); }
+    /* -------- Orden y paginación (las llama la tabla) -------- */
 
-    function limpiarFiltros() {
-        $('#filtro-tipo, #filtro-estado').val('');
-        $('#filtro-buscar, #filtro-desde, #filtro-hasta').val('');
+    function ordenarPor(columna) {
+        if (estadoTabla.orden === columna) {
+            estadoTabla.desc = !estadoTabla.desc;
+        } else {
+            estadoTabla.orden = columna;
+            estadoTabla.desc = ORDEN_DESCENDENTE_PRIMERO.includes(columna);
+        }
+        // Cambiar el orden reordena TODO el conjunto, no la página: hay que volver
+        // a la primera o se estaría mirando el medio de un listado nuevo.
+        estadoTabla.pagina = 0;
         cargarTabla();
     }
 
+    function irAPagina(n) {
+        if (n < 0) return;
+        estadoTabla.pagina = n;
+        cargarTabla();
+    }
+
+    function cambiarTamano(n) {
+        estadoTabla.tamano = parseInt(n, 10) || 25;
+        estadoTabla.pagina = 0;
+        cargarTabla();
+    }
+
+    /* -------- Filtros -------- */
+
     function inicializarFiltros() {
+        // Con debounce en vez de exigir Enter: se escribe y la tabla responde sola,
+        // sin disparar una consulta por tecla.
+        $('#filtro-buscar').on('input', function () {
+            clearTimeout(temporizadorBusqueda);
+            temporizadorBusqueda = setTimeout(() => cargarTabla(true), 350);
+        });
         $('#filtro-buscar').on('keypress', function (e) {
-            if (e.which === 13) cargarTabla();
+            if (e.which === 13) { clearTimeout(temporizadorBusqueda); cargarTabla(true); }
         });
     }
 
-    function calcularEstadisticas() {
-        const filas = $('.asig-row');
-        let total = filas.length, activas = 0, reasig = 0, totalActivos = 0;
-        filas.each(function () {
-            if ($(this).data('estado') === 'ACTIVA') activas++;
-            if ($(this).data('tipo') === 'REASIGNACION') reasig++;
-            totalActivos += parseInt($(this).data('num-activos') || 0);
+    function limpiarFiltros() {
+        $('#filtro-buscar, #filtro-desde, #filtro-hasta').val('');
+        $('#filtro-tipo, #filtro-estado, #filtro-gestion').val('');
+        $('#filtro-sinc').val('SUBIDAS');
+        $('#filtro-error').prop('checked', false);
+        cargarTabla(true);
+    }
+
+    /** Quita un filtro puntual desde su chip, sin tocar los demás. */
+    function quitarFiltro(cual) {
+        switch (cual) {
+            case 'buscar':         $('#filtro-buscar').val(''); break;
+            case 'sincronizacion': $('#filtro-sinc').val('SUBIDAS'); break;
+            case 'soloConError':   $('#filtro-error').prop('checked', false); break;
+            case 'gestion':        $('#filtro-gestion').val(''); break;
+            case 'tipo':           $('#filtro-tipo').val(''); break;
+            case 'estado':         $('#filtro-estado').val(''); break;
+            case 'fechas':         $('#filtro-desde, #filtro-hasta').val(''); break;
+        }
+        cargarTabla(true);
+    }
+
+    /* Las tarjetas son también accesos directos al filtro que describen. */
+    function filtrarPorSincronizacion(valor) {
+        $('#filtro-sinc').val(valor);
+        $('#filtro-error').prop('checked', false);
+        cargarTabla(true);
+    }
+
+    function filtrarSoloConError() {
+        $('#filtro-error').prop('checked', true);
+        cargarTabla(true);
+    }
+
+    /* -------- Filtros en la URL --------
+       Para que recargar la página no pierda lo que se estaba mirando y el enlace
+       se pueda pasar a otra persona tal cual. */
+
+    function sincronizarUrl(filtros) {
+        const q = new URLSearchParams();
+        Object.entries(filtros).forEach(([clave, valor]) => {
+            if (valor === '' || valor === false || valor === null || valor === undefined) return;
+            if (clave === 'sincronizacion' && valor === 'SUBIDAS') return;   // es el valor por defecto
+            q.set(clave, valor);
         });
-        $('#stat-total').text(total);
-        $('#stat-activas').text(activas);
-        $('#stat-reasignaciones').text(reasig);
-        $('#stat-activos').text(totalActivos);
+        const cadena = q.toString();
+        history.replaceState(null, '', cadena ? ('?' + cadena) : location.pathname);
+    }
+
+    function restaurarDesdeUrl() {
+        const q = new URLSearchParams(location.search);
+        if (q.has('buscar'))  $('#filtro-buscar').val(q.get('buscar'));
+        if (q.has('desde'))   $('#filtro-desde').val(q.get('desde'));
+        if (q.has('hasta'))   $('#filtro-hasta').val(q.get('hasta'));
+        if (q.has('tipo'))    $('#filtro-tipo').val(q.get('tipo'));
+        if (q.has('estado'))  $('#filtro-estado').val(q.get('estado'));
+        if (q.has('gestion')) $('#filtro-gestion').val(q.get('gestion'));
+        if (q.has('sincronizacion')) $('#filtro-sinc').val(q.get('sincronizacion'));
+        if (q.get('soloConError') === 'true') $('#filtro-error').prop('checked', true);
     }
 
     /* -------- ABRIR MODAL -------- */
@@ -544,14 +864,15 @@
         // Botón PDF
         $('#btn-modal-pdf').attr('href', `/administracion/asignacion/asignaciones/${id}/pdf`);
 
-        // Cargar activos
+        // Cargar activos e historial
         cargarActivosModal(id);
+        cargarHistorialActa(id);
 
         // Volver al primer tab
         $('#modalTabs .nav-link.active').removeClass('active show');
         $('#modalTabs .nav-link:first').addClass('active show');
         $('#tab-general').addClass('show active');
-        $('#tab-activos, #tab-auditoria').removeClass('show active');
+        $('#tab-activos, #tab-historial, #tab-auditoria').removeClass('show active');
 
         new bootstrap.Modal(document.getElementById('modalDetalleAsignacion')).show();
     }
@@ -566,7 +887,7 @@
 
     function cargarActivosModal(idAsignacionActivo) {
         $('#tbody-activos').html(`
-            <tr><td colspan="11" class="text-center py-4">
+            <tr><td colspan="12" class="text-center py-4">
             <div class="spinner-border spinner-border-sm text-primary me-2"></div>
             Cargando activos...
             </td></tr>`);
@@ -591,11 +912,17 @@
 
                 const subidos = resumen.subidos ?? 0;
                 const pendientes = resumen.pendientes ?? 0;
+                const enCola = resumen.enCola ?? 0;
+                const conError = resumen.conError ?? 0;
                 $('#resumen-sync').html(
                     (subidos === 0 && pendientes === 0)
                         ? '<span class="text-muted">—</span>'
                         : `<span class="text-success">${subidos} subido${subidos !== 1 ? 's' : ''}</span>`
                           + (pendientes > 0 ? ` <span class="text-muted">/</span> <span class="text-warning">${pendientes} pend.</span>` : '')
+                          // Encolado y rechazado se muestran aparte: un activo "subido"
+                          // con la orden en error significa que los dos sistemas difieren.
+                          + (enCola > 0 ? ` <span class="text-muted">/</span> <span class="text-info" title="Esperando al worker del VSIAF">${enCola} en cola</span>` : '')
+                          + (conError > 0 ? ` <span class="text-muted">/</span> <span class="text-danger fw-bold" title="El VSIAF rechazó el cambio: los dos sistemas están distintos">${conError} con error</span>` : '')
                 );
 
                 $('#resumen-costo').text(fmtBs(resumen.costoTotal) ?? '0,00');
@@ -606,7 +933,7 @@
 
                 if (detalles.length === 0) {
                     $('#tbody-activos').html(
-                        '<tr><td colspan="11" class="text-center text-muted py-4">Sin activos registrados</td></tr>'
+                        '<tr><td colspan="12" class="text-center text-muted py-4">Sin activos registrados</td></tr>'
                     );
                     return;
                 }
@@ -635,14 +962,36 @@
                         } catch (_) { fechaFmt = d.fechaAdquisicion; }
                     }
     
-                    // Estado de sincronización con el VSIAF (distinto del estado físico)
+                    // Estado de sincronización con el VSIAF (distinto del estado físico).
+                    //
+                    // Se leen dos cosas: `estadoRegistro` dice si el activo se dio por
+                    // subido, y `sincVsiaf` dice qué contestó el worker VFPOLEDB. Antes
+                    // solo existía la primera, así que "En VSIAF" aparecía apenas se
+                    // encolaba la orden, aunque el worker estuviera caído o la rechazara.
                     const sync = (d.estadoRegistro || '—').toUpperCase();
-                    const syncBadge =
-                        sync === 'ACTIVO'    ? '<span class="badge bg-success" title="Ya está en el VSIAF"><i class="bx bx-check-double"></i> En VSIAF</span>' :
-                        sync === 'PENDIENTE' ? '<span class="badge bg-warning text-dark" title="Todavía no se subió al VSIAF"><i class="bx bx-time-five"></i> Pendiente</span>' :
-                        sync === 'CANCELADO' ? '<span class="badge bg-secondary">Cancelado</span>' :
-                        sync === '—'         ? '<span class="text-muted">—</span>'
-                                             : `<span class="badge bg-secondary">${escHtml(sync)}</span>`;
+                    const conf = (d.sincVsiaf || '').toUpperCase();
+                    const motivo = escHtml(d.sincVsiafMensaje || 'El VSIAF rechazó el último cambio enviado.');
+
+                    let syncBadge;
+                    if (conf === 'ERROR') {
+                        syncBadge = `<span class="badge bg-danger" title="${motivo}"><i class="bx bx-error-circle"></i> Error VSIAF</span>`;
+                    } else if (conf === 'EN_COLA') {
+                        syncBadge = '<span class="badge bg-info text-dark" title="La orden está escrita y espera al worker del VSIAF. Se confirma sola en cuanto la procese."><i class="bx bx-loader-circle"></i> En cola</span>';
+                    } else if (conf === 'CONFIRMADO') {
+                        syncBadge = '<span class="badge bg-success" title="El worker confirmó la escritura en el VSIAF"><i class="bx bx-check-double"></i> En VSIAF</span>';
+                    } else if (sync === 'ACTIVO') {
+                        // Sin confirmación guardada: son los activos subidos antes de que
+                        // se llevara registro de la cola. Se muestra lo que sabemos.
+                        syncBadge = '<span class="badge bg-success" title="Subido antes de que se registrara la confirmación de la cola: no hay acuse guardado."><i class="bx bx-check"></i> En VSIAF</span>';
+                    } else if (sync === 'PENDIENTE') {
+                        syncBadge = '<span class="badge bg-warning text-dark" title="Todavía no se subió al VSIAF"><i class="bx bx-time-five"></i> Pendiente</span>';
+                    } else if (sync === 'CANCELADO') {
+                        syncBadge = '<span class="badge bg-secondary">Cancelado</span>';
+                    } else if (sync === '—') {
+                        syncBadge = '<span class="text-muted">—</span>';
+                    } else {
+                        syncBadge = `<span class="badge bg-secondary">${escHtml(sync)}</span>`;
+                    }
 
                     // Costo: el del acta. Si el activo cambió de costo después, se avisa.
                     const costoFmt = fmtBs(d.costo);
@@ -664,7 +1013,15 @@
                            </button>`
                         : '<span class="text-muted small">—</span>';
 
+                    // Solo se pueden separar bienes vigentes en esta acta. Un bien ya
+                    // trasladado sigue en la lista como historia, pero no se mueve otra vez.
+                    const casilla = puedeEditar && d.idActivo
+                        ? `<input type="checkbox" class="form-check-input chk-bien" value="${d.idActivo}"
+                                  data-predio="${d.idPredio ?? ''}">`
+                        : '';
+
                     html += `<tr>
+                        <td class="text-center col-seleccion ${puedeEditar ? '' : 'd-none'}">${casilla}</td>
                         <td class="text-center text-muted small">${i + 1}</td>
                         <td><code class="small fw-semibold text-primary">${escHtml(d.codigo)}</code></td>
                         <td class="text-wrap" style="max-width:240px; font-size:0.82rem">${escHtml(d.descripcion)}</td>
@@ -688,6 +1045,10 @@
 
                 $('#tbody-activos').html(html);
                 $('#tabla-activos-modal .col-acciones').toggleClass('d-none', !puedeEditar);
+                $('#tabla-activos-modal .col-seleccion').toggleClass('d-none', !puedeEditar);
+                // El botón de incorporar vive fuera de la tabla, así que se conmuta aparte.
+                $('#fila-incorporar').toggleClass('d-none', !puedeEditar);
+                limpiarSeleccion();
 
                 // Búsqueda en tiempo real dentro del modal
                 $('#buscar-activo').off('input.modalBusq').on('input.modalBusq', function () {
@@ -700,7 +1061,7 @@
             error: function (xhr) {
                 const msg = xhr.responseJSON?.msg || 'Error al cargar activos';
                 $('#tbody-activos').html(
-                    `<tr><td colspan="11" class="text-center text-danger py-3">
+                    `<tr><td colspan="12" class="text-center text-danger py-3">
                         <i class="bx bx-error-circle me-1"></i>${msg}
                     </td></tr>`
                 );
@@ -709,6 +1070,409 @@
     }
     
     /* Helper: escapa HTML para evitar XSS en los datos */
+    /* ══════════════════════════════════════════════════════════════════════════
+       SEPARAR ACTA
+
+       El acta original conserva sus líneas —las separadas quedan marcadas como
+       trasladadas— y la nueva recibe líneas propias. Así el papel ya firmado sigue
+       coincidiendo con el sistema, que es la condición que puso la coordinación.
+       ══════════════════════════════════════════════════════════════════════════ */
+
+    let _configsSeparar = [];
+
+    function bienesSeleccionados() {
+        return $('#tabla-activos-modal .chk-bien:checked').map(function () {
+            return parseInt(this.value, 10);
+        }).get();
+    }
+
+    function actualizarBarraSeleccion() {
+        const n = bienesSeleccionados().length;
+        $('#sel-cantidad').text(n);
+        $('#barra-seleccion').toggleClass('d-none', n === 0).toggleClass('d-flex', n > 0);
+
+        const total = $('#tabla-activos-modal .chk-bien').length;
+        $('#chk-todos').prop('checked', n > 0 && n === total)
+                       .prop('indeterminate', n > 0 && n < total);
+    }
+
+    function limpiarSeleccion() {
+        $('#tabla-activos-modal .chk-bien, #chk-todos').prop('checked', false);
+        $('#chk-todos').prop('indeterminate', false);
+        actualizarBarraSeleccion();
+    }
+
+    $(document).off('change.selBien').on('change.selBien', '.chk-bien', actualizarBarraSeleccion);
+    $(document).off('change.selTodos').on('change.selTodos', '#chk-todos', function () {
+        $('#tabla-activos-modal .chk-bien').prop('checked', this.checked);
+        actualizarBarraSeleccion();
+    });
+
+    async function abrirModalSeparar() {
+        const seleccion = bienesSeleccionados();
+        if (seleccion.length === 0) return;
+
+        const total = $('#tabla-activos-modal .chk-bien').length;
+        if (seleccion.length === total) {
+            Swal.fire('No se puede', 'Si separás todos los bienes, el acta original queda vacía. '
+                + 'Para cambiarle los datos, editá la cabecera del acta.', 'warning');
+            return;
+        }
+
+        $('#sep-resumen').text(`${seleccion.length} de ${total} bienes del acta`);
+        $('#sep-nrodoc, #sep-motivo').val('');
+        $('#sep-avisos').addClass('d-none').empty();
+        $('#sep-footer-info').text('');
+        $('#btn-confirmar-separar').prop('disabled', false);
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalSepararActa')).show();
+
+        // Los combos se llenan con el predio de los bienes elegidos: la oficina destino
+        // debe ser del mismo predio, porque el auxiliar del bien depende de él.
+        const predio = $('#tabla-activos-modal .chk-bien:checked').first().data('predio');
+
+        const [configs, oficinas] = await Promise.all([
+            getJson('/api/configuracion/listar'),
+            predio ? getJson(`/api/buscar_oficinas?predioId=${predio}`) : []
+        ]);
+
+        _configsSeparar = configs || [];
+        $('#sep-config').html('<option value="">— Elegí el tipo —</option>' +
+            _configsSeparar.map(c => `<option value="${c.idConfig}">${escHtml(c.prefijoDocumento)} — ${escHtml(c.ciudad ?? '')} (${c.gestion})</option>`).join(''));
+
+        $('#sep-oficina').html('<option value="">— Mantener la del acta original —</option>' +
+            (oficinas || []).map(o => `<option value="${o.idOficina ?? o.id}">${escHtml(o.nombre)}</option>`).join(''));
+
+        $('#sep-responsable').html('<option value="">— Mantener el del acta original —</option>');
+    }
+
+    /* Al elegir oficina se recargan sus responsables: son los que pueden recibir los bienes. */
+    $(document).off('change.sepOfi').on('change.sepOfi', '#sep-oficina', async function () {
+        const idOficina = $(this).val();
+        if (!idOficina) {
+            $('#sep-responsable').html('<option value="">— Mantener el del acta original —</option>');
+            return;
+        }
+        $('#sep-responsable').html('<option value="">Cargando…</option>');
+        const resps = await getJson(`/api/buscar_responsable?q=&page=1&oficinaId=${idOficina}`);
+        const lista = Array.isArray(resps) ? resps : (resps.items || resps.results || []);
+        $('#sep-responsable').html('<option value="">— Mantener el del acta original —</option>' +
+            lista.map(r => `<option value="${r.idResponsable ?? r.id}">${escHtml(r.nombreCompleto ?? r.text ?? r.nombre)}</option>`).join(''));
+    });
+
+    $(document).off('click.sepConfirmar').on('click.sepConfirmar', '#btn-confirmar-separar', function () {
+        const seleccion = bienesSeleccionados();
+        const motivo = ($('#sep-motivo').val() || '').trim();
+
+        if (!$('#sep-config').val()) { Swal.fire('Falta un dato', 'Elegí el tipo de documento.', 'warning'); return; }
+        if (!($('#sep-nrodoc').val() || '').trim()) { Swal.fire('Falta un dato', 'Cargá el número de documento: es el que identifica al acta.', 'warning'); return; }
+        if (motivo.length < 10) { Swal.fire('Falta el motivo', 'Explicá por qué se separan estos bienes (mínimo 10 caracteres). Queda en el historial.', 'warning'); return; }
+
+        const $btn = $(this).prop('disabled', true);
+        $('#sep-footer-info').text('Separando…');
+
+        $.ajax({
+            url: `/administracion/asignacion/asignaciones/${_asigActual}/separar`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                idsActivos: seleccion,
+                idConfigGestion: parseInt($('#sep-config').val(), 10),
+                nroDocumento: ($('#sep-nrodoc').val() || '').trim(),
+                idOficinaDestino: $('#sep-oficina').val() ? parseInt($('#sep-oficina').val(), 10) : null,
+                idResponsableDestino: $('#sep-responsable').val() ? parseInt($('#sep-responsable').val(), 10) : null,
+                motivo: motivo
+            })
+        }).done(function (j) {
+            if (!j.ok) {
+                $('#sep-avisos').removeClass('d-none')
+                    .html(`<div class="alert alert-warning py-2 mb-0 small">${escHtml(j.msg)}</div>`);
+                return;
+            }
+            bootstrap.Modal.getInstance(document.getElementById('modalSepararActa')).hide();
+
+            // Los avisos del VSIAF no se muestran como un éxito liso: la separación salió,
+            // pero puede haber quedado un bien sin reflejar en el sistema legacy.
+            const avisos = j.avisos || [];
+            Swal.fire({
+                icon: avisos.length ? 'warning' : 'success',
+                title: avisos.length ? 'Separado, con advertencias' : 'Acta separada',
+                html: `<p>${escHtml(j.msg)}</p>` + (avisos.length
+                    ? `<ul class="text-start small">${avisos.map(a => `<li>${escHtml(a)}</li>`).join('')}</ul>` : '')
+            });
+
+            bootstrap.Modal.getInstance(document.getElementById('modalDetalleAsignacion')).hide();
+            cargarTabla();
+        }).fail(function (xhr) {
+            const msg = xhr.responseJSON?.msg || 'No se pudo separar el acta.';
+            $('#sep-avisos').removeClass('d-none')
+                .html(`<div class="alert alert-danger py-2 mb-0 small">${escHtml(msg)}</div>`);
+        }).always(function () {
+            $btn.prop('disabled', false);
+            $('#sep-footer-info').text('');
+        });
+    });
+
+    /* ══════════════════════════════════════════════════════════════════════════
+       TRASLADAR / INCORPORAR
+
+       Son la misma operación vista desde las dos puntas y comparten endpoint: se
+       elige el acta destino y los bienes; de dónde sale cada uno lo sabe el sistema,
+       porque un bien está en una sola acta vigente.
+       ══════════════════════════════════════════════════════════════════════════ */
+
+    let _actaDestinoElegida = null;
+    let _bienesIncorporar = [];
+    let _tempBusqueda = null;
+
+    /* -------- Trasladar (salgo desde el acta que los tiene) -------- */
+
+    function abrirModalTrasladar() {
+        const seleccion = bienesSeleccionados();
+        if (seleccion.length === 0) return;
+
+        _actaDestinoElegida = null;
+        $('#tras-resumen').text(`${seleccion.length} bien(es) a mover`);
+        $('#tras-buscar, #tras-motivo').val('');
+        $('#tras-resultados').empty();
+        $('#tras-elegida').addClass('d-none').empty();
+        $('#tras-avisos').addClass('d-none').empty();
+        $('#tras-adoptar').prop('checked', false);
+        $('#btn-confirmar-trasladar').prop('disabled', true);
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTrasladar')).show();
+    }
+
+    $(document).off('input.trasBuscar').on('input.trasBuscar', '#tras-buscar', function () {
+        clearTimeout(_tempBusqueda);
+        const q = $(this).val().trim();
+        if (q.length < 2) { $('#tras-resultados').empty(); return; }
+
+        _tempBusqueda = setTimeout(async function () {
+            $('#tras-resultados').html('<div class="list-group-item text-muted small">Buscando…</div>');
+            const r = await getJson(`/administracion/asignacion/buscar-acta?q=${encodeURIComponent(q)}&excluir=${_asigActual}`);
+            const actas = r.actas || [];
+            if (actas.length === 0) {
+                $('#tras-resultados').html('<div class="list-group-item text-muted small">Ninguna acta coincide.</div>');
+                return;
+            }
+            $('#tras-resultados').html(actas.map(a => `
+                <button type="button" class="list-group-item list-group-item-action py-2 acta-opcion"
+                        data-id="${a.id}" data-numero="${escHtml(a.numero || '')}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-semibold small text-primary">${escHtml(a.numero || 'Sin número')}</div>
+                            <div class="text-muted" style="font-size:.75rem">
+                                ${escHtml(a.documento || '')} · ${escHtml(a.responsable || 'sin responsable')}
+                            </div>
+                        </div>
+                        <span class="text-muted" style="font-size:.72rem">${escHtml(a.fecha || '')}</span>
+                    </div>
+                </button>`).join(''));
+        }, 350);
+    });
+
+    $(document).off('click.trasElegir').on('click.trasElegir', '.acta-opcion', function () {
+        _actaDestinoElegida = { id: $(this).data('id'), numero: $(this).data('numero') };
+        $('#tras-elegida').removeClass('d-none')
+            .html(`<i class="bx bx-check-circle me-1"></i>Destino: <b>${escHtml(_actaDestinoElegida.numero)}</b>`);
+        $('#tras-resultados').empty();
+        $('#tras-buscar').val('');
+        $('#btn-confirmar-trasladar').prop('disabled', false);
+    });
+
+    $(document).off('click.trasConfirmar').on('click.trasConfirmar', '#btn-confirmar-trasladar', function () {
+        if (!_actaDestinoElegida) { Swal.fire('Falta el destino', 'Elegí el acta a la que van los bienes.', 'warning'); return; }
+        const motivo = ($('#tras-motivo').val() || '').trim();
+        if (motivo.length < 10) { Swal.fire('Falta el motivo', 'Explicá por qué se mueven (mínimo 10 caracteres).', 'warning'); return; }
+
+        enviarTraslado({
+            idActaDestino: _actaDestinoElegida.id,
+            idsActivos: bienesSeleccionados(),
+            adoptarDestino: $('#tras-adoptar').is(':checked'),
+            motivo: motivo
+        }, $(this), '#tras-avisos', 'modalTrasladar');
+    });
+
+    /* -------- Incorporar (entro desde el acta que los quiere) -------- */
+
+    function abrirModalIncorporar() {
+        _bienesIncorporar = [];
+        $('#inc-buscar, #inc-motivo').val('');
+        $('#inc-resultados').empty();
+        $('#inc-avisos').addClass('d-none').empty();
+        $('#inc-adoptar').prop('checked', false);
+        $('#inc-contador').text('Ningún bien seleccionado');
+        $('#btn-confirmar-incorporar').prop('disabled', true);
+        $('#inc-resumen').text('Buscá los bienes por código o descripción');
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalIncorporar')).show();
+    }
+
+    $(document).off('input.incBuscar').on('input.incBuscar', '#inc-buscar', function () {
+        clearTimeout(_tempBusqueda);
+        const q = $(this).val().trim();
+        if (q.length < 3) { $('#inc-resultados').empty(); return; }
+
+        _tempBusqueda = setTimeout(async function () {
+            $('#inc-resultados').html('<div class="list-group-item text-muted small">Buscando…</div>');
+            const r = await getJson(`/administracion/asignacion/buscar-bien?q=${encodeURIComponent(q)}&excluirActa=${_asigActual}`);
+            const bienes = r.bienes || [];
+            if (bienes.length === 0) {
+                $('#inc-resultados').html('<div class="list-group-item text-muted small">'
+                    + 'Ningún bien coincide, o los que coinciden ya están en esta acta.</div>');
+                return;
+            }
+            // Se muestra SIEMPRE el acta de la que saldría: incorporar acá es sacar de allá.
+            $('#inc-resultados').html(bienes.map(b => `
+                <label class="list-group-item py-2 d-flex gap-2 align-items-start">
+                    <input class="form-check-input mt-1 chk-inc" type="checkbox" value="${b.idActivo}">
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between">
+                            <code class="small fw-semibold text-primary">${escHtml(b.codigo)}</code>
+                            <span class="badge bg-label-secondary" style="font-size:.68rem">
+                                sale de ${escHtml(b.acta || b.documento || 'acta sin número')}
+                            </span>
+                        </div>
+                        <div class="text-muted" style="font-size:.75rem">${escHtml(b.descripcion)}</div>
+                    </div>
+                </label>`).join(''));
+        }, 350);
+    });
+
+    $(document).off('change.incSel').on('change.incSel', '.chk-inc', function () {
+        // La selección se acumula entre búsquedas: se pueden sumar bienes de a uno
+        // buscando distinto cada vez, sin perder lo elegido antes.
+        const id = parseInt(this.value, 10);
+        if (this.checked) {
+            if (!_bienesIncorporar.includes(id)) _bienesIncorporar.push(id);
+        } else {
+            _bienesIncorporar = _bienesIncorporar.filter(x => x !== id);
+        }
+        const n = _bienesIncorporar.length;
+        $('#inc-contador').text(n === 0 ? 'Ningún bien seleccionado' : `${n} bien(es) seleccionado(s)`);
+        $('#btn-confirmar-incorporar').prop('disabled', n === 0);
+    });
+
+    $(document).off('click.incConfirmar').on('click.incConfirmar', '#btn-confirmar-incorporar', function () {
+        const motivo = ($('#inc-motivo').val() || '').trim();
+        if (motivo.length < 10) { Swal.fire('Falta el motivo', 'Explicá por qué se incorporan (mínimo 10 caracteres).', 'warning'); return; }
+
+        enviarTraslado({
+            idActaDestino: _asigActual,
+            idsActivos: _bienesIncorporar,
+            adoptarDestino: $('#inc-adoptar').is(':checked'),
+            motivo: motivo
+        }, $(this), '#inc-avisos', 'modalIncorporar');
+    });
+
+    /** Una sola llamada para las dos operaciones: cambia el acta destino, nada más. */
+    function enviarTraslado(datos, $boton, selectorAvisos, idModal) {
+        $boton.prop('disabled', true);
+
+        $.ajax({
+            url: `/administracion/asignacion/asignaciones/${datos.idActaDestino}/trasladar`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                idsActivos: datos.idsActivos,
+                adoptarDestino: datos.adoptarDestino,
+                motivo: datos.motivo
+            })
+        }).done(function (j) {
+            if (!j.ok) {
+                $(selectorAvisos).removeClass('d-none')
+                    .html(`<div class="alert alert-warning py-2 mb-0 small">${escHtml(j.msg)}</div>`);
+                return;
+            }
+            bootstrap.Modal.getInstance(document.getElementById(idModal)).hide();
+
+            const avisos = j.avisos || [];
+            Swal.fire({
+                icon: avisos.length ? 'info' : 'success',
+                title: 'Bienes movidos',
+                html: `<p>${escHtml(j.msg)}</p>` + (avisos.length
+                    ? `<ul class="text-start small">${avisos.map(a => `<li>${escHtml(a)}</li>`).join('')}</ul>` : '')
+            });
+
+            bootstrap.Modal.getInstance(document.getElementById('modalDetalleAsignacion')).hide();
+            cargarTabla();
+        }).fail(function (xhr) {
+            const msg = xhr.responseJSON?.msg || 'No se pudieron mover los bienes.';
+            $(selectorAvisos).removeClass('d-none')
+                .html(`<div class="alert alert-danger py-2 mb-0 small">${escHtml(msg)}</div>`);
+        }).always(function () {
+            $boton.prop('disabled', false);
+        });
+    }
+
+    /* -------- HISTORIAL DEL ACTA -------- */
+
+    function cargarHistorialActa(idActa) {
+        $('#historial-acta').html('<div class="text-center py-4 text-muted">'
+            + '<div class="spinner-border spinner-border-sm me-2"></div>Cargando historial…</div>');
+        $('#badge-num-movimientos').addClass('d-none');
+
+        $.getJSON(`/administracion/asignacion/asignaciones/${idActa}/historial-json`)
+            .done(function (j) {
+                const movs = (j && j.movimientos) || [];
+                if (movs.length === 0) {
+                    $('#historial-acta').html('<div class="text-center text-muted py-4">'
+                        + '<i class="bx bx-git-branch fs-1 d-block mb-2 opacity-50"></i>'
+                        + 'Esta acta no fue modificada desde que se emitió.</div>');
+                    return;
+                }
+                $('#badge-num-movimientos').text(movs.length).removeClass('d-none');
+
+                const etiquetas = {
+                    SEPARACION: ['bx-git-branch', 'primary', 'Separación'],
+                    INCORPORACION: ['bx-import', 'success', 'Incorporación'],
+                    TRASLADO: ['bx-transfer', 'warning', 'Traslado'],
+                    EDICION_CABECERA: ['bx-edit', 'secondary', 'Edición de cabecera'],
+                    ANULACION: ['bx-x-circle', 'danger', 'Anulación']
+                };
+
+                $('#historial-acta').html(movs.map(m => {
+                    const [icono, color, titulo] = etiquetas[m.tipo] || ['bx-info-circle', 'secondary', m.tipo];
+                    // La misma operación se cuenta al revés según de qué acta se la mire.
+                    const frase = m.rol === 'ORIGEN'
+                        ? `Salieron ${m.bienes.length} bien(es) hacia <b>${escHtml(m.actaDestino || '—')}</b>`
+                        : `Entraron ${m.bienes.length} bien(es) desde <b>${escHtml(m.actaOrigen || '—')}</b>`;
+                    const vsiaf = m.resultadoVsiaf === 'ERROR'
+                        ? '<span class="badge bg-danger ms-1">Error VSIAF</span>'
+                        : (m.resultadoVsiaf === 'ENCOLADO'
+                            ? '<span class="badge bg-info text-dark ms-1">Enviado al VSIAF</span>'
+                            : '<span class="badge bg-light text-muted ms-1">Sin efecto en VSIAF</span>');
+
+                    return `<div class="card border-0 bg-light mb-2">
+                        <div class="card-body py-3">
+                            <div class="d-flex align-items-start gap-3">
+                                <div class="avatar avatar-sm bg-label-${color} rounded"><i class="bx ${icono}"></i></div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <strong class="small">${titulo}</strong>${vsiaf}
+                                        <span class="text-muted ms-auto" style="font-size:.75rem">
+                                            ${formatearFechaHora(m.fecha) || '—'} · ${escHtml(m.usuario || 'Sistema')}
+                                        </span>
+                                    </div>
+                                    <div class="small mt-1">${frase}</div>
+                                    <div class="text-muted mt-1" style="font-size:.75rem">
+                                        ${m.bienes.map(b => `<code>${escHtml(b)}</code>`).join(' ')}
+                                    </div>
+                                    <div class="mt-2 small fst-italic text-muted">“${escHtml(m.motivo)}”</div>
+                                    ${m.mensajeVsiaf ? `<div class="alert alert-warning py-1 px-2 mt-2 mb-0" style="font-size:.75rem">${escHtml(m.mensajeVsiaf)}</div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join(''));
+            })
+            .fail(function () {
+                $('#historial-acta').html('<div class="alert alert-danger py-2 mb-0 small">'
+                    + 'No se pudo cargar el historial del acta.</div>');
+            });
+    }
+
     function escHtml(s) {
         if (s == null) return '—';
         return String(s)
@@ -718,16 +1482,12 @@
             .replace(/"/g, '&quot;');
     }
 
-    /* -------- EXPORTAR -------- */
-    function exportarPDF() {
-        const params = new URLSearchParams(obtenerParametrosFiltro()).toString();
-        window.open(`/administracion/asignacion/exportar-pdf?${params}`, '_blank');
-    }
-
-    function exportarExcel() {
-        const params = new URLSearchParams(obtenerParametrosFiltro()).toString();
-        window.location.href = `/administracion/asignacion/exportar-excel?${params}`;
-    }
+    /*
+       Los botones de exportar se sacaron de la barra: apuntaban a
+       /administracion/asignacion/exportar-pdf y /exportar-excel, dos rutas que no
+       existen en ningún controlador, así que devolvían 404. Vuelven cuando estén
+       implementadas y exporten el resultado filtrado.
+    */
 
     /* -------- HELPERS -------- */
     function formatearFecha(f) {

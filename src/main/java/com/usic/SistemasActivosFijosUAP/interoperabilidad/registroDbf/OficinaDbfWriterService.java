@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ReferenciaOrdenDbf;
 import com.usic.SistemasActivosFijosUAP.model.service.DbfColaService;
 
 
@@ -179,7 +180,8 @@ public class OficinaDbfWriterService {
     public void insertarDesdeOficina(Oficina oficina, String entidadCode, String unidadCode, String usuario) {
         // ── Modo COLA: dejar la orden para el worker VFPOLEDB (mantiene el índice .CDX) ──
         if ("cola".equalsIgnoreCase(writeMode)) {
-            colaService.encolarInsert("OFICINA", construirCamposOficina(oficina, entidadCode, unidadCode, usuario));
+            colaService.encolarInsert("OFICINA", construirCamposOficina(oficina, entidadCode, unidadCode, usuario),
+                    ReferenciaOrdenDbf.deApoyo("CODOFIC=" + oficina.getCodOfi(), usuario));
             log.info("📤 Oficina {} encolada para VSIAF (modo cola)", oficina.getCodOfi());
             return;
         }
@@ -252,7 +254,8 @@ public class OficinaDbfWriterService {
             clave.put("ENTIDAD", entidadOriginal);
             clave.put("UNIDAD", unidadOriginal);
             clave.put("CODOFIC", codOficOriginal);
-            colaService.encolarUpdate("OFICINA", clave, construirCamposOficina(oficina, entidadCode, unidadCode, usuario));
+            colaService.encolarUpdate("OFICINA", clave, construirCamposOficina(oficina, entidadCode, unidadCode, usuario),
+                    ReferenciaOrdenDbf.deApoyo("CODOFIC=" + codOficOriginal, usuario));
             log.info("📤 Oficina {} encolada para UPDATE en VSIAF (modo cola)", codOficOriginal);
             return;
         }

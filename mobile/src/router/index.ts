@@ -33,6 +33,47 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/EscanerCamaraPage.vue'),
   },
 
+  // ── Levantamiento de activos por oficina ──────────────────────────────────
+  // Fuera de las pestañas: es un flujo largo con su propia pila de navegación,
+  // y la barra inferior invitaría a abandonarlo a medias.
+  {
+    path: '/levantamiento',
+    name: 'levantamiento',
+    component: () => import('@/views/LevantamientoPrediosPage.vue'),
+    meta: { permiso: 'MOV_INVENTARIO' },
+  },
+  {
+    path: '/levantamiento/mios',
+    name: 'levantamiento-mios',
+    component: () => import('@/views/LevantamientosMiosPage.vue'),
+    meta: { permiso: 'MOV_INVENTARIO' },
+  },
+  {
+    path: '/levantamiento/predio/:idPredio(\\d+)',
+    name: 'levantamiento-oficinas',
+    component: () => import('@/views/LevantamientoOficinasPage.vue'),
+    meta: { permiso: 'MOV_INVENTARIO' },
+  },
+  {
+    path: '/levantamiento/:id(\\d+)',
+    name: 'levantamiento-recorrido',
+    component: () => import('@/views/LevantamientoRecorridoPage.vue'),
+    meta: { permiso: 'MOV_INVENTARIO' },
+  },
+  // Pantalla completa: la cámara necesita todo el alto (ver EscanerCamaraPage).
+  {
+    path: '/levantamiento/:id(\\d+)/escanear',
+    name: 'levantamiento-escaner',
+    component: () => import('@/views/LevantamientoEscanerPage.vue'),
+    meta: { permiso: 'MOV_INVENTARIO' },
+  },
+  {
+    path: '/levantamiento/:id(\\d+)/resumen',
+    name: 'levantamiento-resumen',
+    component: () => import('@/views/LevantamientoResumenPage.vue'),
+    meta: { permiso: 'MOV_INVENTARIO' },
+  },
+
   {
     path: '/activo/:codigo',
     name: 'activo-detalle',
@@ -56,6 +97,15 @@ router.beforeEach((to) => {
   if (to.name === 'login' && auth.autenticado) {
     return { name: 'inicio' };
   }
+
+  // Los permisos MOV_* deciden qué módulos existen para cada usuario. El
+  // servidor los vuelve a comprobar en cada llamada —el token es una caché, no
+  // la autoridad—; esto solo evita llegar a una pantalla que respondería 403.
+  const permiso = to.meta.permiso as string | undefined;
+  if (permiso && !auth.esAdministrador && !auth.puede(permiso)) {
+    return { name: 'inicio' };
+  }
+
   return true;
 });
 

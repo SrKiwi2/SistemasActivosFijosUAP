@@ -91,27 +91,47 @@ public class ReportesController {
                     return configuracionGestionService.save(c);
                 });
  
-            AsignacionActivo asignacion = new AsignacionActivo();
-            asignacion.setCodigoDocumento(nroPreventivo);
-            asignacion.setCodigoCompleto(config.getPrefijoDocumento() + " " + nroPreventivo);
-            asignacion.setFechaAsignacion(LocalDateTime.now());
-            asignacion.setResponsable(resp);
-            asignacion.setRegistroIdUsuario(usuario.getIdUsuario());
-            asignacion.setOficinaDestino(oficinaDestino);
-            asignacion.setEstado("ACTIVO");
- 
-            List<DetalleAsignacionActivo> detalles = new ArrayList<>();
-            for (Activo a : activos) {
-                DetalleAsignacionActivo d = new DetalleAsignacionActivo();
-                d.setAsignacionActivo(asignacion);
-                d.setActivo(a);
-                d.setCodigoActivoSnapshot(a.getCodigo());
-                d.setRegistroIdUsuario(usuario.getIdUsuario());
-                d.setEstado("ACTIVO");
-                detalles.add(d);
+            /*
+             * Se reutiliza el acta que ya tengan estos activos en vez de crear una nueva
+             * siempre. Antes acá se hacía `new AsignacionActivo()` sin mirar: volver a
+             * generar el acta de los mismos bienes dejaba dos registros con el mismo
+             * preventivo y los mismos activos, y a partir de ahí los conteos y el
+             * historial contaban doble.
+             */
+            AsignacionActivo asignacion = asignacionActivoService
+                    .findByActivo(activos.get(0))
+                    .orElse(null);
+            boolean actaNueva = (asignacion == null);
+
+            if (actaNueva) {
+                asignacion = new AsignacionActivo();
+                asignacion.setFechaAsignacion(LocalDateTime.now());
+                asignacion.setTipoAsignacion("NUEVA");
+                asignacion.setEstadoAsignacion("ACTIVA");
+                asignacion.setRegistroIdUsuario(usuId);
+                asignacion.setEstado("ACTIVO");
             }
-            asignacion.setDetalles(detalles);
- 
+            // El número del acta sale del número de documento, no de un correlativo del
+            // sistema. Se guarda sin paréntesis: los agrega el acta al imprimirse.
+            asignacion.asignarDocumento(config.getGestion(), config.getPrefijoDocumento(), nroPreventivo);
+            asignacion.setResponsable(resp);
+            asignacion.setOficinaDestino(oficinaDestino);
+
+            if (actaNueva) {
+                List<DetalleAsignacionActivo> detalles = new ArrayList<>();
+                for (Activo a : activos) {
+                    DetalleAsignacionActivo d = new DetalleAsignacionActivo();
+                    d.setAsignacionActivo(asignacion);
+                    d.setActivo(a);
+                    d.setCodigoActivoSnapshot(a.getCodigo());
+                    d.setRegistroIdUsuario(usuId);
+                    d.setEstado("ACTIVO");
+                    d.setEstadoDetalle(DetalleAsignacionActivo.VIGENTE);
+                    detalles.add(d);
+                }
+                asignacion.setDetalles(detalles);
+            }
+
             asignacionActivoService.save(asignacion);
  
             for (Activo activo : activos) {

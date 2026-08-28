@@ -21,4 +21,20 @@ public interface IDetalleAsignacionDao extends JpaRepository<DetalleAsignacionAc
             order by aa.fechaAsignacion desc
            """)
     List<DetalleAsignacionActivo> historialDeActivo(@Param("idActivo") Long idActivo);
+
+    /**
+     * La línea que hoy ubica a cada uno de estos bienes, con su acta.
+     * <p>
+     * Es lo que permite trasladar sin pedirle al usuario que diga de dónde sale cada
+     * bien: el sistema ya sabe dónde está. El índice único parcial garantiza que sea
+     * una sola por activo, así que la lista se puede indexar por id sin ambigüedad.
+     */
+    @Query("""
+           select d from DetalleAsignacionActivo d
+             join fetch d.asignacionActivo aa
+             join fetch d.activo ac
+            where ac.idActivo in :ids
+              and (d.estadoDetalle is null or d.estadoDetalle = 'VIGENTE')
+           """)
+    List<DetalleAsignacionActivo> vigentesDeActivos(@Param("ids") List<Long> ids);
 }

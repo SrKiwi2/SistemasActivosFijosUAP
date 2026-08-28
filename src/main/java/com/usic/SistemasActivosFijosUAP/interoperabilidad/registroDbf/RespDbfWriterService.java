@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ReferenciaOrdenDbf;
 import com.usic.SistemasActivosFijosUAP.model.service.DbfColaService;
 
 
@@ -179,7 +180,8 @@ public class RespDbfWriterService {
     public void insertarDesdeResponsable(Responsable resp, String entidadCode, String unidadCode, String usuario) {
         // ── Modo COLA: dejar la orden para el worker VFPOLEDB (mantiene el índice .CDX) ──
         if ("cola".equalsIgnoreCase(writeMode)) {
-            colaService.encolarInsert("RESP", construirCamposResp(resp, entidadCode, unidadCode, usuario));
+            colaService.encolarInsert("RESP", construirCamposResp(resp, entidadCode, unidadCode, usuario),
+                    ReferenciaOrdenDbf.deApoyo("CODRESP=" + resp.getCodigoFuncionario(), usuario));
             log.info("📤 Responsable CODRESP={} encolado para VSIAF (modo cola)", resp.getCodigoFuncionario());
             return;
         }
@@ -256,7 +258,8 @@ public class RespDbfWriterService {
             clave.put("UNIDAD", unidadOriginal);
             clave.put("CODOFIC", codOficOriginal);
             clave.put("CODRESP", codRespOriginal);
-            colaService.encolarUpdate("RESP", clave, construirCamposResp(resp, entidadCode, unidadCode, usuario));
+            colaService.encolarUpdate("RESP", clave, construirCamposResp(resp, entidadCode, unidadCode, usuario),
+                    ReferenciaOrdenDbf.deApoyo("CODRESP=" + codRespOriginal, usuario));
             log.info("📤 Responsable CODRESP={} encolado para UPDATE en VSIAF (modo cola)", codRespOriginal);
             return;
         }

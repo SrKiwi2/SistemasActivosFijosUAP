@@ -44,4 +44,29 @@ public class DetalleAsignacionActivo extends AuditoriaConfig {
 
     @Column(name = "observacion_detalle", length = 500)
     private String observacionDetalle; // ¡FALTABA!
+
+    /**
+     * Si esta línea sigue siendo la que ubica al activo, o si el bien ya se movió a otra
+     * acta.
+     * <p>
+     * Un activo tiene que estar en exactamente un acta vigente. Sin esta marca, mover un
+     * bien obligaría a borrar la línea original —y con ella el costo y la descripción que
+     * tenía el acta cuando se firmó— o a dejar el activo en dos actas a la vez, que es lo
+     * que hoy nada impide. Con TRASLADADO la línea se conserva como parte del acta
+     * original y deja de contar como ubicación actual.
+     * <p>
+     * Lo blinda un índice único parcial sobre {@code (id_activo) WHERE estado_detalle =
+     * 'VIGENTE'}; ver {@code scripts/sql/asignaciones_fase1.sql}.
+     */
+    @Column(name = "estado_detalle", length = 20)
+    private String estadoDetalle = VIGENTE;
+
+    /** Esta línea ubica al activo hoy. */
+    public static final String VIGENTE = "VIGENTE";
+    /** El activo se movió a otra acta; la línea queda como historia del acta original. */
+    public static final String TRASLADADO = "TRASLADADO";
+
+    public boolean estaVigente() {
+        return estadoDetalle == null || VIGENTE.equals(estadoDetalle);
+    }
 }

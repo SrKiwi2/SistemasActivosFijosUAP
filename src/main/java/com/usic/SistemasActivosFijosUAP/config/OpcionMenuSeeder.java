@@ -51,6 +51,7 @@ public class OpcionMenuSeeder {
         { "grp_asignar",       "sec_operaciones", "Asignación de Activos",    "ti ti-clipboard-plus",         "blue" },
         { "grp_bajasing",      "sec_operaciones", "Bajas e Ingresos",         "ti ti-box-multiple",           "orange" },
         { "grp_hojaruta",      "sec_hojaruta",    "Hojas de Ruta",            "ti ti-file-description",       "orange" },
+        { "grp_control",       "sec_seguimiento", "Control por Responsable",  "ti ti-map-search",             "red" },
         { "grp_movimientos",   "sec_seguimiento", "Movimientos",              "ti ti-route",                  "orange" },
         { "grp_historial",     "sec_seguimiento", "Historial",                "ti ti-history",                "blue" },
         { "grp_consulta",      "sec_reportes",    "Consulta de Activos",      "ti ti-zoom-scan",              "blue" },
@@ -93,6 +94,9 @@ public class OpcionMenuSeeder {
 
         { "opcion_hr_seguimiento", "grp_hojaruta",     "Búsqueda y Seguimiento",       "ti ti-zoom-check",       "blue",   "/administracion/hoja-ruta/seguimiento",              "/administracion/hoja-ruta",             "" },
 
+        { "opcion_control_mapa",      "grp_control",   "Mapa de Control",              "ti ti-layout-grid",      "red",    "/administracion/control-activos/vista",              "/administracion/control-activos",       "" },
+        { "opcion_control_faltantes", "grp_control",   "Faltantes",                    "ti ti-alert-triangle",   "red",    "/administracion/control-activos/faltantes/vista",    "/administracion/control-activos/faltantes", "" },
+
         { "opcion_aan",            "grp_movimientos",  "Asignaciones",                 "ti ti-clipboard-check",  "green",  "/administracion/asignacion/vista",                   "/administracion/asignacion",            "" },
         { "opcion_ta",             "grp_movimientos",  "Transferencias",               "ti ti-arrows-exchange-2","blue",   "/administracion/transferencia/vista",                "/administracion/transferencia",         "" },
         { "opcion_ActivoIngreso",  "grp_movimientos",  "Ingresos",                     "ti ti-arrow-down-circle","orange", "/administracion/ingreso/vista",                      "/administracion/ingreso/vista",         "" },
@@ -116,6 +120,10 @@ public class OpcionMenuSeeder {
      */
     private static final String[][] PERMISOS = {
         { "opcion_activo_editar_codigo", "grp_adminactivos", "Editar código de activo (urgente)", "ti ti-barcode-off", "red" },
+
+        // Cerrar un faltante es la acción sensible del módulo de control: da por
+        // zanjado un bien que no apareció. Mirar el mapa no la requiere.
+        { "opcion_control_resolver",     "grp_control",      "Resolver / justificar faltantes",   "ti ti-checkup-list", "red" },
 
         // Permisos de la app móvil (SCIAF Móvil). Se administran desde la misma
         // pantalla de permisos por usuario que el resto: no hay un sistema de

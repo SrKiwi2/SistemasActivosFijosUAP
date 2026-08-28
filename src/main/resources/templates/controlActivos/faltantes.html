@@ -1,0 +1,315 @@
+<!-- =====================================================================
+     CONTROL DE ACTIVOS POR RESPONSABLE · Faltantes  ·  Fragmento SPA
+     Datos: GET  /administracion/control-activos/faltantes
+     Acción: POST /administracion/control-activos/hallazgos/{id}/resolver|reabrir
+     Agrupado por responsable: el recorrido es por oficina, pero la
+     responsabilidad es de una persona.
+====================================================================== -->
+
+<style>
+    #cf-wrap .cf-grupo { border:none; border-radius:12px; margin-bottom:14px; }
+    #cf-wrap .cf-grupo-head {
+        display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
+        gap:8px; cursor:pointer; padding:12px 16px; border-left:5px solid #e0384a; border-radius:12px 12px 0 0;
+    }
+    #cf-wrap .cf-grupo-head.todo-resuelto { border-left-color:#21a366; }
+    #cf-wrap .cf-nom { font-weight:600; font-size:.95rem; }
+    #cf-wrap .cf-sub { font-size:.75rem; color:#8592a3; }
+    #cf-wrap .cf-cod { font-family:'JetBrains Mono', monospace; font-weight:600; color:#1a56a0; font-size:.83rem; }
+    #cf-wrap table td { vertical-align:middle; font-size:.85rem; }
+    #cf-wrap .cf-card .num { font-size:1.6rem; font-weight:700; line-height:1; }
+    #cf-wrap .cf-card .lbl { font-size:.72rem; text-transform:uppercase; letter-spacing:.4px; color:#8592a3; }
+    #cf-wrap .badge-FALTANTE      { background:#f8d7da; color:#a3232f; }
+    #cf-wrap .badge-OBSERVADO     { background:#fff3cd; color:#8a6d00; }
+    #cf-wrap .badge-SOBRANTE      { background:#cfe2ff; color:#1a56a0; }
+    #cf-wrap .badge-SIN_CODIFICAR { background:#e9ecef; color:#5b6573; }
+    #cf-wrap .cf-resuelto td { opacity:.6; }
+</style>
+
+<div id="cf-wrap">
+
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+        <div>
+            <h4 class="py-2 mb-1">
+                <span class="text-muted fw-light">Seguimiento y Consultas /</span> FALTANTES
+            </h4>
+            <p class="text-muted mb-2" style="font-size:.9rem; max-width:820px;">
+                Resultado de los levantamientos, agrupado por <b>responsable</b>. Un faltante nace
+                <b>ABIERTO</b> y se cierra diciendo qué pasó: apareció, se justificó o se derivó a baja.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="cf-btn-refrescar">
+                <i class="ti ti-refresh me-1"></i> Refrescar
+            </button>
+            <button type="button" class="btn btn-sm btn-success" id="cf-btn-excel">
+                <i class="ti ti-file-spreadsheet me-1"></i> Exportar Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Resumen -->
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3"><div class="card cf-card shadow-sm"><div class="card-body py-3">
+            <div class="num text-danger" id="cf-n-abiertos">—</div><div class="lbl">Faltantes abiertos</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card cf-card shadow-sm"><div class="card-body py-3">
+            <div class="num" style="color:#8a6d00" id="cf-n-observados">—</div><div class="lbl">Con novedad</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card cf-card shadow-sm"><div class="card-body py-3">
+            <div class="num text-success" id="cf-n-resueltos">—</div><div class="lbl">Resueltos</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card cf-card shadow-sm"><div class="card-body py-3">
+            <div class="num text-dark" id="cf-n-resp">—</div><div class="lbl">Responsables afectados</div></div></div></div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card shadow-sm mb-3"><div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label mb-1" style="font-size:.78rem;">Predio</label>
+                <select class="form-select form-select-sm" id="cf-f-predio"><option value="">Todos</option></select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-1" style="font-size:.78rem;">Oficina</label>
+                <select class="form-select form-select-sm" id="cf-f-oficina"><option value="">Todas</option></select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-1" style="font-size:.78rem;">Tipo</label>
+                <select class="form-select form-select-sm" id="cf-f-tipo">
+                    <option value="">Todos</option>
+                    <option value="FALTANTE" selected>Faltante</option>
+                    <option value="OBSERVADO">Con novedad</option>
+                    <option value="SOBRANTE">Sobrante</option>
+                    <option value="SIN_CODIFICAR">Sin codificar</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-1" style="font-size:.78rem;">Estado</label>
+                <select class="form-select form-select-sm" id="cf-f-estado">
+                    <option value="ABIERTO" selected>Abiertos</option>
+                    <option value="RESUELTO">Resueltos</option>
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-sm btn-primary w-100" id="cf-btn-filtrar">
+                    <i class="ti ti-filter me-1"></i> Filtrar
+                </button>
+            </div>
+        </div>
+    </div></div>
+
+    <div id="cf-loading" class="text-center py-5" style="display:none;">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+
+    <div id="cf-vacio" class="text-center text-muted py-5" style="display:none;">
+        <div style="font-size:40px;">✅</div>
+        <h6 class="mt-2">Sin hallazgos con estos filtros</h6>
+        <p class="mb-0" style="font-size:.86rem;">No hay nada pendiente de revisar en este alcance.</p>
+    </div>
+
+    <div id="cf-grupos"></div>
+
+    <script th:inline="none">
+    (function () {
+        var BASE = '/administracion/control-activos';
+        var datos = [];
+
+        function esc(s) {
+            return (s == null ? '' : String(s))
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        function fmtFecha(s) {
+            if (!s) return '—';
+            var d = new Date(s);
+            return isNaN(d) ? '—' : d.toLocaleDateString('es-BO');
+        }
+        function aviso(t, m, i) { if (window.Swal) Swal.fire(t, m, i || 'info'); else alert(m); }
+        function errorDe(xhr, d) { return (xhr && xhr.responseJSON && xhr.responseJSON.message) || d; }
+
+        // ── Filtros de ubicación ─────────────────────────────────────────
+        $.get(BASE + '/mapa/predios').done(function (ps) {
+            $('#cf-f-predio').append(ps.map(function (p) {
+                return '<option value="' + p.idPredio + '">' + esc(p.descrip) + '</option>';
+            }).join(''));
+        });
+
+        $('#cf-f-predio').on('change', function () {
+            var id = $(this).val();
+            var $of = $('#cf-f-oficina').html('<option value="">Todas</option>');
+            if (!id) return;
+            $.get(BASE + '/mapa/predios/' + id + '/oficinas').done(function (os) {
+                $of.append(os.map(function (o) {
+                    return '<option value="' + o.idOficina + '">' + esc(o.codOfi) + ' · ' + esc(o.nombre) + '</option>';
+                }).join(''));
+            });
+        });
+
+        // ── Carga ────────────────────────────────────────────────────────
+        function cargar() {
+            $('#cf-loading').show(); $('#cf-vacio').hide(); $('#cf-grupos').empty();
+            $.get(BASE + '/faltantes', {
+                idPredio:  $('#cf-f-predio').val()  || null,
+                idOficina: $('#cf-f-oficina').val() || null,
+                tipo:      $('#cf-f-tipo').val()    || null,
+                estado:    $('#cf-f-estado').val()  || null
+            })
+            .done(function (res) { datos = res || []; pintar(); })
+            .fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudieron cargar los hallazgos.'), 'error'); })
+            .always(function () { $('#cf-loading').hide(); });
+        }
+
+        function pintar() {
+            var abiertos = 0, observados = 0, resueltos = 0;
+            var porResp = {};
+
+            datos.forEach(function (h) {
+                if (h.estadoHallazgo === 'RESUELTO') resueltos++;
+                else if (h.tipoHallazgo === 'OBSERVADO') observados++;
+                else abiertos++;
+
+                // Los hallazgos sin responsable (un código leído que no existe en el
+                // sistema) se agrupan aparte en vez de descartarse.
+                var k = h.idResponsable || 'sin';
+                (porResp[k] = porResp[k] || {
+                    nombre: h.responsable || 'Sin responsable asignado',
+                    codigo: h.codigoFuncionario, oficina: h.oficina, predio: h.predio, filas: []
+                }).filas.push(h);
+            });
+
+            $('#cf-n-abiertos').text(abiertos);
+            $('#cf-n-observados').text(observados);
+            $('#cf-n-resueltos').text(resueltos);
+            $('#cf-n-resp').text(Object.keys(porResp).length);
+
+            if (!datos.length) { $('#cf-vacio').show(); return; }
+
+            var html = Object.keys(porResp).map(function (k, i) {
+                var g = porResp[k];
+                var pendientes = g.filas.filter(function (f) { return f.estadoHallazgo !== 'RESUELTO'; }).length;
+                var id = 'cf-g-' + i;
+
+                var filas = g.filas.map(function (h) {
+                    var resuelto = h.estadoHallazgo === 'RESUELTO';
+                    var acciones = resuelto
+                        ? '<button class="btn btn-sm btn-outline-secondary cf-reabrir" data-id="' + h.idHallazgo +
+                          '" title="Reabrir"><i class="ti ti-rotate"></i></button>'
+                        : '<button class="btn btn-sm btn-outline-success cf-resolver" data-id="' + h.idHallazgo +
+                          '"><i class="ti ti-check me-1"></i>Resolver</button>';
+                    var detalleRes = resuelto
+                        ? '<div style="font-size:.74rem;" class="text-success"><i class="ti ti-circle-check"></i> ' +
+                          esc(h.tipoResolucion) + ' — ' + esc(h.accionCorrectiva) +
+                          ' <span class="text-muted">(' + esc(h.usuarioRevisor || '—') + ', ' + fmtFecha(h.fechaResolucion) + ')</span></div>'
+                        : '';
+                    return '<tr class="' + (resuelto ? 'cf-resuelto' : '') + '">' +
+                           '<td><span class="cf-cod">' + esc(h.codigo || '—') + '</span></td>' +
+                           '<td>' + esc(h.descripcion || '—') + detalleRes + '</td>' +
+                           '<td><span class="badge badge-' + h.tipoHallazgo + '">' + esc(h.tipoHallazgo) + '</span></td>' +
+                           '<td style="font-size:.78rem;">' + esc(h.oficina) + '</td>' +
+                           '<td style="font-size:.78rem;">' + esc(h.numeroInventario) + '<br>' +
+                             '<span class="text-muted">' + fmtFecha(h.fechaDeteccion) + '</span></td>' +
+                           '<td class="text-end">' + acciones + '</td></tr>';
+                }).join('');
+
+                return '<div class="card cf-grupo shadow-sm">' +
+                    '<div class="cf-grupo-head ' + (pendientes === 0 ? 'todo-resuelto' : '') +
+                        '" data-bs-toggle="collapse" data-bs-target="#' + id + '">' +
+                        '<div><div class="cf-nom">' + esc(g.nombre) + '</div>' +
+                        '<div class="cf-sub">' + esc(g.codigo || 's/c') + ' · ' + esc(g.oficina) +
+                        ' · ' + esc(g.predio) + '</div></div>' +
+                        '<div class="text-end">' +
+                            (pendientes > 0
+                                ? '<span class="badge bg-danger">' + pendientes + ' pendiente(s)</span>'
+                                : '<span class="badge bg-success">Todo resuelto</span>') +
+                            ' <span class="badge bg-label-secondary">' + g.filas.length + ' total</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="collapse show" id="' + id + '"><div class="table-responsive">' +
+                    '<table class="table table-hover mb-0"><thead><tr>' +
+                        '<th>Código</th><th>Descripción</th><th>Tipo</th>' +
+                        '<th>Oficina</th><th>Levantamiento</th><th></th>' +
+                    '</tr></thead><tbody>' + filas + '</tbody></table></div></div></div>';
+            }).join('');
+
+            $('#cf-grupos').html(html);
+        }
+
+        // ── Resolución ───────────────────────────────────────────────────
+        $(document).on('click', '#cf-wrap .cf-resolver', function () {
+            var id = $(this).data('id');
+            if (!window.Swal) {
+                var a = prompt('Acción correctiva:');
+                if (a) resolver(id, 'JUSTIFICADO', a);
+                return;
+            }
+            Swal.fire({
+                title: 'Resolver hallazgo',
+                html:
+                    '<select id="sw-tipo" class="form-select mb-2">' +
+                      '<option value="APARECIO">Apareció</option>' +
+                      '<option value="JUSTIFICADO">Justificado</option>' +
+                      '<option value="DERIVADO_BAJA">Derivado a baja</option>' +
+                    '</select>' +
+                    '<textarea id="sw-accion" class="form-control" rows="3" ' +
+                    'placeholder="¿Qué se hizo o qué se constató?"></textarea>',
+                showCancelButton: true, confirmButtonText: 'Resolver', cancelButtonText: 'Cancelar',
+                preConfirm: function () {
+                    var accion = document.getElementById('sw-accion').value.trim();
+                    if (!accion) { Swal.showValidationMessage('Describa la acción correctiva'); return false; }
+                    return { tipo: document.getElementById('sw-tipo').value, accion: accion };
+                }
+            }).then(function (r) { if (r.isConfirmed) resolver(id, r.value.tipo, r.value.accion); });
+        });
+
+        function resolver(id, tipo, accion) {
+            $.ajax({
+                url: BASE + '/hallazgos/' + id + '/resolver', type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ tipoResolucion: tipo, accionCorrectiva: accion })
+            })
+            .done(function () { cargar(); })
+            .fail(function (xhr) { aviso('No se pudo resolver', errorDe(xhr, 'Error al resolver.'), 'error'); });
+        }
+
+        $(document).on('click', '#cf-wrap .cf-reabrir', function () {
+            var id = $(this).data('id');
+            $.ajax({ url: BASE + '/hallazgos/' + id + '/reabrir', type: 'POST' })
+            .done(function () { cargar(); })
+            .fail(function (xhr) { aviso('No se pudo reabrir', errorDe(xhr, 'Error al reabrir.'), 'error'); });
+        });
+
+        // ── Exportar ─────────────────────────────────────────────────────
+        function withXLSX(cb) {
+            if (typeof XLSX !== 'undefined') return cb();
+            var s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+            s.onload = cb;
+            s.onerror = function () { aviso('Error', 'No se pudo cargar el exportador.', 'error'); };
+            document.head.appendChild(s);
+        }
+
+        $('#cf-btn-excel').on('click', function () {
+            if (!datos.length) { aviso('Sin datos', 'No hay hallazgos para exportar.', 'info'); return; }
+            withXLSX(function () {
+                var hoja = datos.map(function (h) {
+                    return {
+                        'Responsable': h.responsable, 'Cód. funcionario': h.codigoFuncionario,
+                        'Predio': h.predio, 'Oficina': h.oficina,
+                        'Código activo': h.codigo, 'Descripción': h.descripcion,
+                        'Tipo': h.tipoHallazgo, 'Estado': h.estadoHallazgo,
+                        'Levantamiento': h.numeroInventario, 'Detectado': fmtFecha(h.fechaDeteccion),
+                        'Resolución': h.tipoResolucion, 'Acción correctiva': h.accionCorrectiva,
+                        'Revisor': h.usuarioRevisor, 'Resuelto': fmtFecha(h.fechaResolucion)
+                    };
+                });
+                var wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hoja), 'Faltantes');
+                XLSX.writeFile(wb, 'faltantes_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+            });
+        });
+
+        $('#cf-btn-filtrar, #cf-btn-refrescar').on('click', cargar);
+
+        cargar();
+    })();
+    </script>
+</div>

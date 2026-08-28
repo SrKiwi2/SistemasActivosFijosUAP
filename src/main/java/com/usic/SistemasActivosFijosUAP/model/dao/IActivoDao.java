@@ -1,5 +1,6 @@
 package com.usic.SistemasActivosFijosUAP.model.dao;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -8,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -85,6 +87,23 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
     Optional<Activo> fetchFullByCodigo(@Param("codigo") String codigo);
 
     Optional<Activo> findByOficinaAndCodigo(Oficina oficina, String codigo);
+
+    /**
+     * Activos de una oficina para congelar la lista esperada de un levantamiento
+     * (módulo Control de Activos por Responsable).
+     *
+     * <p>Trae responsable y persona en el mismo viaje: son cientos de filas y
+     * resolver el responsable de cada una por separado convertiría la apertura
+     * del levantamiento en cientos de consultas.
+     */
+    @Query("""
+        select a from Activo a
+        left join fetch a.responsable r
+        left join fetch r.persona
+        where a.oficina.idOficina = :idOficina and a.estado = 'ACTIVO'
+        order by a.codigo
+    """)
+    List<Activo> findParaLevantamiento(@Param("idOficina") Long idOficina);
 
     /**
      * Lista, para una combinación predio + grupo contable, los activos ya
@@ -256,4 +275,25 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
         @Param("codigo")      String codigo,
         @Param("grupoNombre") String grupoNombre
     );
+
+    /**
+     * Deja la marca de sincronización con el VSIAF que resolvió el worker.
+     * <p>
+     * Va como UPDATE directo y no cargando la entidad a propósito: lo llama
+     * {@code ColaConfirmacionScheduler} para lotes de activos que no necesita en
+     * memoria, y así no arrastra el grafo de oficina, responsable y auxiliar de cada uno
+     * ni corre riesgo de sobreescribir campos que otra pantalla esté editando.
+     */
+    @Modifying
+    @Query("""
+        UPDATE Activo a
+           SET a.sincVsiaf        = :estado,
+               a.sincVsiafMensaje = :mensaje,
+               a.sincVsiafFecha   = :fecha
+         WHERE a.idActivo = :idActivo
+        """)
+    int marcarSincronizacionVsiaf(@Param("idActivo") Long idActivo,
+                                  @Param("estado") String estado,
+                                  @Param("mensaje") String mensaje,
+                                  @Param("fecha") LocalDateTime fecha);
 }

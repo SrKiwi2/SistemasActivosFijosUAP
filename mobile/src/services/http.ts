@@ -115,8 +115,11 @@ http.interceptors.response.use(
 /** Mensaje presentable de un error de red o de negocio. */
 export function mensajeDeError(error: unknown, porDefecto = 'No se pudo completar la operación'): string {
   if (axios.isAxiosError(error)) {
-    const cuerpo = error.response?.data as { mensaje?: string } | undefined;
+    // La API móvil responde { ok, codigo, mensaje }; se acepta además 'message'
+    // por si el error viene de un manejador que no usa ese sobre.
+    const cuerpo = error.response?.data as { mensaje?: string; message?: string } | undefined;
     if (cuerpo?.mensaje) return cuerpo.mensaje;
+    if (cuerpo?.message) return cuerpo.message;
     if (error.code === 'ECONNABORTED') return 'El servidor tardó demasiado en responder';
     if (!error.response) return 'Sin conexión con el servidor';
   }

@@ -19,6 +19,20 @@
       </header>
 
       <div class="cuerpo">
+        <!-- El módulo operativo va destacado y aparte de la rejilla: es el
+             trabajo real de campo, no un acceso rápido más. -->
+        <template v-if="puedeLevantar">
+          <p class="titulo-seccion">Trabajo en campo</p>
+          <button class="sciaf-card destacado" @click="router.push('/levantamiento')">
+            <span class="icono"><ion-icon :icon="clipboardOutline" /></span>
+            <span class="detalle">
+              <strong>Levantamiento de activos</strong>
+              <span class="texto-suave">Recorrer una oficina y registrar lo que está</span>
+            </span>
+            <ion-icon :icon="chevronForwardOutline" class="flecha" />
+          </button>
+        </template>
+
         <p class="titulo-seccion">Accesos rápidos</p>
 
         <div class="rejilla">
@@ -58,7 +72,7 @@ import { useRouter } from 'vue-router';
 import { IonPage, IonContent, IonIcon, IonButton, IonSpinner } from '@ionic/vue';
 import {
   qrCodeOutline, searchOutline, documentTextOutline, layersOutline,
-  clipboardOutline, notificationsOutline,
+  clipboardOutline, notificationsOutline, chevronForwardOutline,
 } from 'ionicons/icons';
 import { useAuthStore } from '@/stores/auth';
 import { useRedStore } from '@/stores/red';
@@ -80,6 +94,8 @@ const saludo = computed(() => {
   if (h < 19) return 'Buenas tardes,';
   return 'Buenas noches,';
 });
+
+const puedeLevantar = computed(() => auth.esAdministrador || auth.puede('MOV_INVENTARIO'));
 
 const servidor = computed(() => API_BASE || 'servidor de desarrollo');
 
@@ -163,6 +179,56 @@ h1 {
 
 .cuerpo {
   padding: 0 16px 32px;
+}
+
+.destacado {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  border: none;
+  border-left: 4px solid var(--ion-color-primary);
+  text-align: left;
+  color: var(--ion-text-color);
+  margin-bottom: 4px;
+}
+
+.destacado .icono {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: rgba(20, 67, 145, 0.09);
+  display: grid;
+  place-items: center;
+}
+
+.destacado .icono ion-icon {
+  font-size: 22px;
+  color: var(--ion-color-primary);
+}
+
+.destacado .detalle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.destacado strong {
+  font-size: 0.95rem;
+}
+
+.destacado .texto-suave {
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+
+.destacado .flecha {
+  flex: 0 0 auto;
+  font-size: 18px;
+  color: var(--sciaf-texto-suave);
 }
 
 .rejilla {

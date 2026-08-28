@@ -25,7 +25,9 @@ import lombok.Setter;
         @Index(name = "idx_hall_inventario", columnList = "id_inventario"),
         @Index(name = "idx_hall_activo", columnList = "id_activo"),
         @Index(name = "idx_hall_tipo", columnList = "tipo_hallazgo"),
-        @Index(name = "idx_hall_estado", columnList = "_estado")
+        @Index(name = "idx_hall_estado", columnList = "_estado"),
+        @Index(name = "idx_hall_responsable", columnList = "id_responsable"),
+        @Index(name = "idx_hall_estado_hall", columnList = "estado_hallazgo")
     }
 )
 @Setter @Getter
@@ -80,4 +82,25 @@ public class HallazgoInventario extends AuditoriaConfig {
     
     @Column(name = "observ", columnDefinition = "text")
     private String observ;
+
+    // ── Control de activos por responsable ───────────────────────────────────
+
+    /**
+     * A quién se le imputa el hallazgo. Se copia del detalle al cerrar el
+     * levantamiento y queda fijo: si el activo se transfiere después, el
+     * faltante sigue siendo de quien lo tenía ese día.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_responsable")
+    private Responsable responsable;
+
+    /** ABIERTO | RESUELTO */
+    @Size(max = 20)
+    @Column(name = "estado_hallazgo", length = 20)
+    private String estadoHallazgo;
+
+    /** APARECIO | JUSTIFICADO | DERIVADO_BAJA — con qué se cerró. */
+    @Size(max = 30)
+    @Column(name = "tipo_resolucion", length = 30)
+    private String tipoResolucion;
 }

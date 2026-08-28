@@ -657,6 +657,36 @@ public class ActivosController {
         }
     }
 
+    /* ────────────────────────────────────────────────────────────────────────────
+     * Envío al VSIAF: decir lo que realmente pasó
+     *
+     * En modo cola, encolar no es haber escrito: la orden queda en _cola/ y la aplica
+     * el worker VFPOLEDB. Hasta que ColaConfirmacionScheduler lee su respuesta, lo
+     * único cierto es que el pedido salió. Antes acá se respondía "sincronizado" en el
+     * mismo instante del encolado, así que un worker caído o un rechazo del DBF pasaban
+     * inadvertidos y los dos sistemas quedaban distintos sin que nadie se enterara.
+     * ──────────────────────────────────────────────────────────────────────────── */
+
+    /** Marca el activo como enviado, con el estado que corresponda al modo de escritura. */
+    private void marcarEnvioAlVsiaf(Activo a) {
+        boolean enCola = actualDbfWriterService.esModoCola();
+        a.setSincVsiaf(enCola ? Activo.SINC_EN_COLA : Activo.SINC_CONFIRMADO);
+        a.setSincVsiafMensaje(null);
+        a.setSincVsiafFecha(LocalDateTime.now());
+    }
+
+    /** "EN_COLA" mientras el worker no responda; "OK" cuando la escritura fue directa. */
+    private String estadoEnvio() {
+        return actualDbfWriterService.esModoCola() ? "EN_COLA" : "OK";
+    }
+
+    /** Frase para el usuario, acorde a si la escritura ya ocurrió o está en camino. */
+    private String detalleEnvio() {
+        return actualDbfWriterService.esModoCola()
+                ? "Enviado al VSIAF: queda en cola hasta que el worker lo confirme."
+                : "Escrito en el VSIAF.";
+    }
+
     @ValidarUsuarioAutenticado
     @PostMapping("/modificar-activo")
     public ResponseEntity<?> modificar_activo(
@@ -1471,8 +1501,12 @@ public class ActivosController {
             ConfiguracionGestion config = configuracionGestionService.findById(idConfig);
             String prefijo        = config.getPrefijoDocumento() != null ? config.getPrefijoDocumento().trim() : "";
             String nro            = nroDoc != null ? nroDoc.trim() : "";
-            // Identificador entre paréntesis: "(Prev. 1234)" / "(Pre: 1234)"
-            String codigoCompleto = "(" + prefijo + " " + nro + ")";
+            // El código se guarda sin paréntesis —esa es la forma canónica, la que se
+            // busca y se compara— y los paréntesis se agregan solo donde son parte de la
+            // presentación: el prefijo de la descripción del activo y el encabezado del
+            // acta. Antes se guardaba con paréntesis por acá y sin ellos desde Reportes.
+            String codigoCompleto = (prefijo + " " + nro).trim();
+            String etiquetaDoc    = "(" + codigoCompleto + ")";
 
             List<Activo> activos = new ArrayList<>();
             for (String enc : idsEnc) {
@@ -1503,8 +1537,8 @@ public class ActivosController {
             }
 
             for (Activo a : activos) {
-                if (!a.getDescripcion().startsWith(codigoCompleto)) {
-                    String nueva = codigoCompleto + " " + a.getDescripcion();
+                if (!a.getDescripcion().startsWith(etiquetaDoc)) {
+                    String nueva = etiquetaDoc + " " + a.getDescripcion();
                     if (nueva.length() > 1024) nueva = nueva.substring(0, 1024);
                     a.setDescripcion(nueva);
                     a.setFecMod(LocalDate.now());
@@ -1517,9 +1551,17 @@ public class ActivosController {
                     .orElse(null);
 
             if (asignacion == null) {
+                Activo referencia = activos.get(0);
                 asignacion = new AsignacionActivo();
                 asignacion.setFechaAsignacion(LocalDateTime.now());
-                asignacion.setResponsable(activos.get(0).getResponsable());
+                asignacion.setResponsable(referencia.getResponsable());
+                // La cabecera se llenaba a medias: sin oficina destino y con tipo y estado
+                // en su valor por defecto. Por eso los filtros de TIPO y ESTADO no
+                // encontraban nada. El número del acta NO se genera acá: es el preventivo,
+                // y se carga más abajo con asignarDocumento().
+                asignacion.setOficinaDestino(referencia.getOficina());
+                asignacion.setTipoAsignacion("NUEVA");
+                asignacion.setEstadoAsignacion("ACTIVA");
                 asignacion = asignacionActivoService.save(asignacion);
 
                 for (Activo a : activos) {
@@ -1527,12 +1569,15 @@ public class ActivosController {
                     det.setAsignacionActivo(asignacion);
                     det.setActivo(a);
                     det.setCodigoActivoSnapshot(a.getCodigo());
+                    det.setEstadoDetalle(DetalleAsignacionActivo.VIGENTE);
                     detalleAsignacionActivoService.save(det);
                 }
             }
 
-            asignacion.setCodigoDocumento(nro);
-            asignacion.setCodigoCompleto(codigoCompleto);
+            // Deja documento, código canónico y número de acta coherentes de una sola vez.
+            // Se aplica también cuando el acta ya existía: si se corrige el número de
+            // documento, el número del acta tiene que corregirse con él.
+            asignacion.asignarDocumento(config.getGestion(), prefijo, nro);
             asignacionActivoService.save(asignacion);
 
             String idEnc = Encriptar.encrypt(String.valueOf(asignacion.getIdAsignacionActivo()));
@@ -1711,6 +1756,7 @@ public class ActivosController {
             DetalleAsignacionActivo detalleAsig = new DetalleAsignacionActivo();
             detalleAsig.setAsignacionActivo(asig);
             detalleAsig.setActivo(a);
+            detalleAsig.setEstadoDetalle(DetalleAsignacionActivo.VIGENTE);
             detalleAsig.setCodigoActivoSnapshot(a.getCodigo());
             detalleAsig.setDescripcionActivoSnapshot(a.getDescripcion());
             detalleAsig.setCostoActivoSnapshot(BigDecimal.valueOf(a.getCosto()));
@@ -1831,6 +1877,12 @@ public class ActivosController {
             String codigoOriginal = a.getCodigo();   // llave del DBF: no cambia acá
             boolean estabaPublicado = "ACTIVO".equals(estado);
 
+            // Las referencias de ANTES hay que guardarlas acá, no después: aplicarCambios
+            // reemplaza las del activo y el historial terminaba anotando la misma oficina
+            // y el mismo responsable en las dos columnas, sin decir de dónde a dónde fue.
+            Oficina     oficinaAnterior     = a.getOficina();
+            Responsable responsableAnterior = a.getResponsable();
+
             aplicarCambios(a, req);
             a.setFecMod(LocalDate.now());
             a.setFechaUlt(LocalDate.now());
@@ -1841,7 +1893,7 @@ public class ActivosController {
             activoService.save(a);
 
             String despues = resumenActivo(a);
-            registrarHistorialEdicion(a, antes, despues, usuario);
+            registrarHistorialEdicion(a, antes, despues, usuario, oficinaAnterior, responsableAnterior);
 
             // Un activo PENDIENTE todavía no existe en el VSIAF: no hay nada que actualizar.
             if (!estabaPublicado) {
@@ -1869,20 +1921,24 @@ public class ActivosController {
                         a.getOficina().getPredio().getUnidad(),
                         usuario.getUsuario());
 
+                marcarEnvioAlVsiaf(a);
                 notificarCambioPendientes("edicion-registrada");
                 if (fallaAux != null) {
                     return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "PARCIAL",
                             "msg", "Cambios enviados al VSIAF, pero el auxiliar NO se pudo enviar ("
                                  + fallaAux + "): en el VSIAF el activo va a verse sin auxiliar."));
                 }
-                return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "OK",
-                        "msg", "Cambios guardados y enviados al VSIAF."));
+                return ResponseEntity.ok(Map.of("ok", true, "vsiaf", estadoEnvio(),
+                        "msg", "Cambios guardados. " + detalleEnvio()));
 
             } catch (Exception e) {
                 // Importante no cantar victoria: la base cambió y el VSIAF no. Quien
                 // corrige tiene que enterarse para no dar el dato por sincronizado.
                 log.error("[EDITAR-REGISTRADO] Falló el UPDATE al VSIAF del activo {}: {}",
                         codigoOriginal, e.getMessage());
+                a.setSincVsiaf(Activo.SINC_ERROR);
+                a.setSincVsiafMensaje("No se pudo dejar la orden para el VSIAF: " + e.getMessage());
+                a.setSincVsiafFecha(LocalDateTime.now());
                 return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "ERROR",
                         "msg", "Guardado en la base, pero FALLÓ el envío al VSIAF: " + e.getMessage()
                              + ". Los dos sistemas quedaron distintos: revisá la cola o usá Conciliación."));
@@ -1912,8 +1968,16 @@ public class ActivosController {
                 a.getOrganismoFinanciero() != null ? a.getOrganismoFinanciero().getDescripcion() : "—");
     }
 
-    /** Deja la corrección en {@code historial_activo}. No debe romper el flujo si falla. */
-    private void registrarHistorialEdicion(Activo activo, String antes, String despues, Usuario usuario) {
+    /**
+     * Deja la corrección en {@code historial_activo}. No debe romper el flujo si falla.
+     * <p>
+     * La oficina y el responsable de ANTES llegan por parámetro porque para cuando se
+     * llama a este método el activo ya tiene los valores nuevos: leerlos de la entidad
+     * daba las dos columnas iguales y el historial no servía para reconstruir un
+     * movimiento.
+     */
+    private void registrarHistorialEdicion(Activo activo, String antes, String despues, Usuario usuario,
+                                           Oficina oficinaAnterior, Responsable responsableAnterior) {
         try {
             if (antes.equals(despues)) return;   // no hubo cambios reales que registrar
 
@@ -1926,20 +1990,32 @@ public class ActivosController {
             h.setNombreUsuario(usuario.getUsuario());
             h.setDescripcionEvento("Corrección desde el historial de asignaciones.\nANTES:  " + antes
                                  + "\nDESPUÉS: " + despues);
+
+            if (oficinaAnterior != null) {
+                h.setOficinaAnterior(oficinaAnterior);
+                h.setNombreOficinaAnterior(oficinaAnterior.getNombre());
+            }
             if (activo.getOficina() != null) {
-                h.setOficinaAnterior(activo.getOficina());
                 h.setOficinaNueva(activo.getOficina());
-                h.setNombreOficinaAnterior(activo.getOficina().getNombre());
                 h.setNombreOficinaNueva(activo.getOficina().getNombre());
             }
+            if (responsableAnterior != null) {
+                h.setResponsableAnterior(responsableAnterior);
+                h.setNombreRespAnterior(nombreDe(responsableAnterior));
+            }
             if (activo.getResponsable() != null) {
-                h.setResponsableAnterior(activo.getResponsable());
                 h.setResponsableNuevo(activo.getResponsable());
+                h.setNombreRespNuevo(nombreDe(activo.getResponsable()));
             }
             historialActivoDao.save(h);
         } catch (Exception e) {
             log.warn("[EDITAR-REGISTRADO] No se pudo registrar el historial de la edición: {}", e.getMessage());
         }
+    }
+
+    /** Nombre del responsable para el snapshot del historial; nunca revienta por datos incompletos. */
+    private String nombreDe(Responsable r) {
+        return (r != null && r.getPersona() != null) ? r.getPersona().getNombreCompleto() : null;
     }
 
     @ValidarUsuarioAutenticado
@@ -2348,6 +2424,7 @@ public class ActivosController {
 
             a.setEstado("ACTIVO");
             a.setApiEstado(Short.valueOf("1"));
+            marcarEnvioAlVsiaf(a);
             activoService.save(a);
 
             notificarCambioPendientes("aprobacion");
@@ -2356,7 +2433,8 @@ public class ActivosController {
                     "message", "Activo aprobado, pero su auxiliar NO se pudo enviar al VSIAF (" + fallaAux
                              + "). En el VSIAF el activo va a verse sin auxiliar hasta que se resuelva.");
             }
-            return Map.of("ok", true, "id", id, "message", "Activo aprobado y sincronizado.");
+            return Map.of("ok", true, "id", id, "vsiaf", estadoEnvio(),
+                "message", "Activo aprobado. " + detalleEnvio());
 
         } catch (Exception e) {
             log.error("Error aprobando activo: {}", e.getMessage(), e);
@@ -2442,6 +2520,7 @@ public class ActivosController {
 
                 a.setEstado("ACTIVO");
                 a.setApiEstado(Short.valueOf("1"));
+                marcarEnvioAlVsiaf(a);
                 activoService.save(a);
                 exitos++;
     
@@ -2457,7 +2536,9 @@ public class ActivosController {
         result.put("exitos", exitos);
         result.put("errores", errores);
         result.put("detalles", detallesError);
-        result.put("msg", String.format("Proceso finalizado. Éxitos: %d | Errores: %d", exitos, errores));
+        result.put("vsiaf", estadoEnvio());
+        result.put("msg", String.format("Proceso finalizado. Éxitos: %d | Errores: %d. %s",
+                exitos, errores, exitos > 0 ? detalleEnvio() : ""));
 
         if (exitos > 0) notificarCambioPendientes("aprobacion-masiva");
         return ResponseEntity.ok(result);

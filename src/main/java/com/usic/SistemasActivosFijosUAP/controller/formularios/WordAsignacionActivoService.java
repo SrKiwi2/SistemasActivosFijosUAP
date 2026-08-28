@@ -137,9 +137,10 @@ public class WordAsignacionActivoService {
             run(intro, " de los Activos Fijos de acuerdo a las siguientes características:", false, 10);
 
             // ── 3. NÚMERO / CÓDIGO DEL DOCUMENTO ────────────────────────
-            String textoCodigo = (asignacion.getCodigoCompleto() != null && !asignacion.getCodigoCompleto().isBlank())
-                    ? asignacion.getCodigoCompleto()
-                    : "-";
+            // Entre paréntesis siempre: el código guardado puede venir con ellos (actas
+            // viejas) o sin ellos (formato canónico actual) y el acta debe verse igual.
+            String etiqueta = asignacion.getEtiquetaDocumento();
+            String textoCodigo = (etiqueta != null && !etiqueta.isBlank()) ? etiqueta : "-";
             XWPFParagraph pCod = doc.createParagraph();
             pCod.setSpacingAfter(120);
             run(pCod, textoCodigo, true, 10);

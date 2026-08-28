@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResumenAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
+import com.usic.SistemasActivosFijosUAP.model.entity.DetalleAsignacionActivo;
 
 public interface IAsignacionActivoDao extends JpaRepository<AsignacionActivo, Long>, JpaSpecificationExecutor<AsignacionActivo>{
     
@@ -49,12 +50,66 @@ public interface IAsignacionActivoDao extends JpaRepository<AsignacionActivo, Lo
         """)
     List<Activo> listarPendientesSinAsignacion();
 
+    /**
+     * Actas en las que figura el activo, la más reciente primero.
+     * <p>
+     * Devuelve {@code List} y no {@code Optional} a propósito: la consulta puede traer
+     * varias filas —nada en la base impedía que un activo estuviera en dos actas— y con
+     * {@code Optional} eso no era un dato raro sino un {@code NonUniqueResultException}
+     * en producción. Quien necesita una sola trabaja con la primera; el índice único
+     * parcial sobre los detalles vigentes es lo que garantiza que sea la única.
+     */
     @Query("""
-        SELECT d.asignacionActivo
+        SELECT asg
         FROM DetalleAsignacionActivo d
+        JOIN d.asignacionActivo asg
         WHERE d.activo = :activo
+          AND (d.estadoDetalle IS NULL OR d.estadoDetalle = 'VIGENTE')
+        ORDER BY asg.fechaAsignacion DESC
         """)
-    Optional<AsignacionActivo> findByActivo(@Param("activo") Activo activo);
+    List<AsignacionActivo> findByActivo(@Param("activo") Activo activo);
+
+    /**
+     * Bienes que coinciden con el texto, cada uno con el acta vigente donde está.
+     * <p>
+     * Devuelve la línea y no el activo porque lo que hace falta mostrar es justamente de
+     * dónde saldría el bien: incorporarlo a un acta significa sacarlo de otra, y eso
+     * tiene que verse antes de confirmar.
+     */
+    @Query("""
+        SELECT d FROM DetalleAsignacionActivo d
+        JOIN FETCH d.activo a
+        JOIN FETCH d.asignacionActivo asg
+        WHERE (d.estadoDetalle IS NULL OR d.estadoDetalle = 'VIGENTE')
+          AND (LOWER(a.codigo) LIKE LOWER(CONCAT('%', :texto, '%'))
+            OR LOWER(a.descripcion) LIKE LOWER(CONCAT('%', :texto, '%')))
+          AND (:excluirActa IS NULL OR asg.idAsignacionActivo <> :excluirActa)
+        ORDER BY a.codigo
+        """)
+    List<DetalleAsignacionActivo> buscarBienesConSuActa(@Param("texto") String texto,
+                                                        @Param("excluirActa") Long excluirActa);
+
+    /** Actas que coinciden por número o documento, para elegir destino de un traslado. */
+    @Query("""
+        SELECT a FROM AsignacionActivo a
+        LEFT JOIN FETCH a.responsable r
+        LEFT JOIN FETCH r.persona
+        LEFT JOIN FETCH a.oficinaDestino
+        WHERE (LOWER(a.numeroAsignacion) LIKE LOWER(CONCAT('%', :texto, '%'))
+            OR LOWER(a.codigoCompleto)   LIKE LOWER(CONCAT('%', :texto, '%')))
+          AND (:excluir IS NULL OR a.idAsignacionActivo <> :excluir)
+        ORDER BY a.fechaAsignacion DESC
+        """)
+    List<AsignacionActivo> buscarActasPorTexto(@Param("texto") String texto, @Param("excluir") Long excluir);
+
+    /** Gestiones que tienen actas, para llenar el filtro sin inventar años vacíos. */
+    @Query("""
+        SELECT DISTINCT YEAR(a.fechaAsignacion)
+        FROM AsignacionActivo a
+        WHERE a.fechaAsignacion IS NOT NULL
+        ORDER BY 1 DESC
+        """)
+    List<Integer> gestionesConActas();
 
     /**
      * Totales por asignación (costo, faltantes de costo y avance hacia el VSIAF) en
@@ -68,7 +123,7 @@ public interface IAsignacionActivoDao extends JpaRepository<AsignacionActivo, Lo
      * SUM(bigint) es numeric, que Hibernate mapea a BigDecimal, no a Long. Una
      * expresión "new ...DTO(...)" exige que los tipos calcen exacto y reventaría
      * en tiempo de ejecución. El mapeo se hace en el servicio con Number.
-     * Orden de las columnas: id, costoTotal, sinCosto, subidos, pendientes, total.
+     * Orden de las columnas: id, costoTotal, sinCosto, subidos, pendientes, conError, total.
      */
     @Query("""
         SELECT d.asignacionActivo.idAsignacionActivo,
@@ -76,10 +131,12 @@ public interface IAsignacionActivoDao extends JpaRepository<AsignacionActivo, Lo
                SUM(CASE WHEN a.costo IS NULL OR a.costo <= 0 THEN 1 ELSE 0 END),
                SUM(CASE WHEN a.estado = 'ACTIVO' THEN 1 ELSE 0 END),
                SUM(CASE WHEN a.estado = 'PENDIENTE' THEN 1 ELSE 0 END),
+               SUM(CASE WHEN a.sincVsiaf = 'ERROR' THEN 1 ELSE 0 END),
                COUNT(d)
         FROM DetalleAsignacionActivo d
         JOIN d.activo a
         WHERE d.asignacionActivo.idAsignacionActivo IN :ids
+          AND (d.estadoDetalle IS NULL OR d.estadoDetalle = 'VIGENTE')
         GROUP BY d.asignacionActivo.idAsignacionActivo
         """)
     List<Object[]> resumenPorAsignacion(@Param("ids") List<Long> ids);

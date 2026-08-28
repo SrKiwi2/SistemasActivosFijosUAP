@@ -18,7 +18,14 @@
 
       <p class="titulo-seccion">Módulos</p>
       <ion-list inset>
-        <ion-item v-for="m in modulos" :key="m.nombre" :detail="false" class="tocable">
+        <ion-item
+          v-for="m in modulos"
+          :key="m.nombre"
+          :button="Boolean(m.ruta)"
+          :detail="Boolean(m.ruta)"
+          class="tocable"
+          @click="m.ruta && router.push(m.ruta)"
+        >
           <ion-icon slot="start" :icon="m.icono" :color="m.disponible ? 'primary' : 'medium'" />
           <ion-label>
             <h3>{{ m.nombre }}</h3>
@@ -84,7 +91,7 @@ import {
   IonLabel, IonIcon, IonNote, IonButton, alertController,
 } from '@ionic/vue';
 import {
-  qrCodeOutline, searchOutline, documentTextOutline, clipboardOutline,
+  qrCodeOutline, searchOutline, documentTextOutline, clipboardOutline, readerOutline,
   notificationsOutline, serverOutline, informationCircleOutline, wifiOutline,
   cloudOfflineOutline, logOutOutline,
 } from 'ionicons/icons';
@@ -115,13 +122,33 @@ onMounted(async () => {
   }
 });
 
-const modulos = [
+interface ModuloMovil {
+  nombre: string;
+  detalle: string;
+  icono: string;
+  fase: string;
+  disponible: boolean;
+  /** Solo los módulos operativos llevan ruta; el resto se listan como hoja de ruta. */
+  ruta?: string;
+}
+
+const modulos = computed<ModuloMovil[]>(() => [
+  ...(auth.esAdministrador || auth.puede('MOV_INVENTARIO')
+    ? [{
+        nombre: 'Levantamiento de activos',
+        detalle: 'Recorrido por oficina, novedades y faltantes',
+        icono: readerOutline,
+        fase: '',
+        disponible: true,
+        ruta: '/levantamiento',
+      }]
+    : []),
   { nombre: 'Escáner de activos', detalle: 'Lectura QR y ficha completa',        icono: qrCodeOutline,       fase: 'Fase 2', disponible: false },
   { nombre: 'Búsqueda',           detalle: 'Filtros por código y descripción',   icono: searchOutline,       fase: 'Fase 3', disponible: false },
   { nombre: 'Informes',           detalle: 'Captura de códigos y PDF',           icono: documentTextOutline, fase: 'Fase 5', disponible: false },
   { nombre: 'Asignaciones',       detalle: 'Pendientes y subidas al VSIAF',      icono: clipboardOutline,    fase: 'Fase 6', disponible: false },
   { nombre: 'Notificaciones',     detalle: 'Eventos del sistema web',            icono: notificationsOutline, fase: 'Fase 7', disponible: false },
-];
+]);
 
 async function confirmarSalida() {
   const alerta = await alertController.create({

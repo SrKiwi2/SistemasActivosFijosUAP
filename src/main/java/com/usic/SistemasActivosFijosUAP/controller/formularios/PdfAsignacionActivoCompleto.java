@@ -110,9 +110,10 @@ public class PdfAsignacionActivoCompleto {
         document.add(intro);
 
         // 3. NÚMERO PREVENTIVO (El que guardamos)
-        String textoCodigo = (asignacion.getCodigoCompleto() != null && !asignacion.getCodigoCompleto().isBlank()) 
-                         ? asignacion.getCodigoCompleto() 
-                         : "-";
+        // Se imprime siempre entre paréntesis, venga el código guardado con ellos (actas
+        // viejas) o sin ellos (formato canónico actual): el acta se ve igual en los dos casos.
+        String etiqueta = asignacion.getEtiquetaDocumento();
+        String textoCodigo = (etiqueta != null && !etiqueta.isBlank()) ? etiqueta : "-";
 
         Paragraph pPrev = new Paragraph(textoCodigo, fontNegrita);
         pPrev.setSpacingAfter(6);

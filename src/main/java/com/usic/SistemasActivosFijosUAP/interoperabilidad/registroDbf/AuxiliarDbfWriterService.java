@@ -24,6 +24,7 @@ import com.linuxense.javadbf.DBFField;
 import com.linuxense.javadbf.DBFReader;
 import com.linuxense.javadbf.DBFWriter;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
+import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ReferenciaOrdenDbf;
 import com.usic.SistemasActivosFijosUAP.model.service.DbfColaService;
 
 /**
@@ -226,7 +227,8 @@ public class AuxiliarDbfWriterService {
     public void insertarDesdeAuxiliar(Auxiliar auxiliar, String entidadCode, String unidadCode, String usuario) {
         // ── Modo COLA: dejar la orden para el worker VFPOLEDB (mantiene el índice .CDX) ──
         if ("cola".equalsIgnoreCase(writeMode)) {
-            colaService.encolarInsert("AUXILIAR", construirCamposAuxiliar(auxiliar, entidadCode, unidadCode, usuario));
+            colaService.encolarInsert("AUXILIAR", construirCamposAuxiliar(auxiliar, entidadCode, unidadCode, usuario),
+                    ReferenciaOrdenDbf.deApoyo("CODAUX=" + auxiliar.getCodAux(), usuario));
             log.info("📤 Auxiliar CODAUX={} encolado para VSIAF (modo cola)", auxiliar.getCodAux());
             return;
         }
@@ -340,7 +342,8 @@ public class AuxiliarDbfWriterService {
             clave.put("UNIDAD", unidadOriginal);
             clave.put("CODCONT", codContOriginal);
             clave.put("CODAUX", codAuxOriginal);
-            colaService.encolarUpdate("AUXILIAR", clave, construirCamposAuxiliar(auxiliar, entidadCode, unidadCode, usuario));
+            colaService.encolarUpdate("AUXILIAR", clave, construirCamposAuxiliar(auxiliar, entidadCode, unidadCode, usuario),
+                    ReferenciaOrdenDbf.deApoyo("CODAUX=" + codAuxOriginal, usuario));
             log.info("📤 Auxiliar CODAUX={} encolado para UPDATE en VSIAF (modo cola)", codAuxOriginal);
             return;
         }

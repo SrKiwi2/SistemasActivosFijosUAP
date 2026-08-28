@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.usic.SistemasActivosFijosUAP.model.service.control.ReglaNegocioException;
 import com.usic.SistemasActivosFijosUAP.model.service.movil.AuthMovilService.AuthMovilException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +53,21 @@ public class MovilExceptionHandler {
         log.debug("[MOVIL] Acceso denegado: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(sobre("SIN_PERMISO", "No tiene permiso para esta operación"));
+    }
+
+    /**
+     * Condición de negocio esperable ("el levantamiento ya está cerrado"), no un
+     * fallo. Sin este manejador caía en el genérico de abajo y el operador veía
+     * un 500 opaco justo cuando lo que necesita es entender qué pasó — por
+     * ejemplo, que alguien cerró el recorrido desde la web mientras su teléfono
+     * todavía tenía marcas sin enviar.
+     *
+     * <p>El mensaje se devuelve tal cual porque está escrito para mostrarse.
+     */
+    @ExceptionHandler(ReglaNegocioException.class)
+    public ResponseEntity<Map<String, Object>> reglaNegocio(ReglaNegocioException ex) {
+        log.debug("[MOVIL] Regla de negocio: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(sobre("REGLA_NEGOCIO", ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

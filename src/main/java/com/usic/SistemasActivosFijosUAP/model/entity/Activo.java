@@ -178,6 +178,34 @@ public class Activo extends AuditoriaConfig{
 
     @Column(name = "fecha_ultima_sync")
     private LocalDateTime fechaUltimaSync;
+
+    /*
+     * ── Sincronización real con el VSIAF ──────────────────────────────────────────
+     * No confundir con `estado` (PENDIENTE / ACTIVO / …), que es el estado del bien en
+     * el SCIAF, ni con `apiEstado`, que es la columna API_ESTADO que viene del propio
+     * DBF y se sobreescribe al importar.
+     *
+     * Estos tres campos responden algo que antes el sistema no sabía: si lo que se
+     * mandó al VSIAF llegó de verdad. Se escriben EN_COLA al encolar la orden y los
+     * cierra ColaConfirmacionScheduler cuando el worker responde.
+     *   null        nunca se envió nada
+     *   EN_COLA     la orden está escrita, el worker todavía no la resolvió
+     *   CONFIRMADO  el worker la aplicó sobre el DBF
+     *   ERROR       el worker la rechazó; el motivo queda en sincVsiafMensaje
+     */
+    @Column(name = "sinc_vsiaf", length = 20)
+    private String sincVsiaf;
+
+    @Column(name = "sinc_vsiaf_mensaje", columnDefinition = "text")
+    private String sincVsiafMensaje;
+
+    @Column(name = "sinc_vsiaf_fecha")
+    private LocalDateTime sincVsiafFecha;
+
+    /** Estados de {@link #sincVsiaf}, para no repartir literales por el proyecto. */
+    public static final String SINC_EN_COLA = "EN_COLA";
+    public static final String SINC_CONFIRMADO = "CONFIRMADO";
+    public static final String SINC_ERROR = "ERROR";
     
     @Column(name = "hash_datos", length = 32)
     private String hashDatos;

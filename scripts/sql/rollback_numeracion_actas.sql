@@ -1,0 +1,113 @@
+-- ============================================================================
+-- rollback_numeracion_actas.sql
+-- ----------------------------------------------------------------------------
+-- Respaldo de asignacion_activo.numero_asignacion ANTES de aplicar el paso 5b
+-- de asignaciones_fase1.sql (renumerar con el número de documento).
+--
+-- Generado: 2026-08-27 15:44:44 · base bd_a3 · 101 actas
+--
+-- Correr SOLO para volver atrás. Requiere que el constraint único siga borrado:
+-- varias actas comparten número de documento y el restore las volvería a chocar.
+-- ============================================================================
+
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0047' WHERE id_asignacion_activo = 44;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0048' WHERE id_asignacion_activo = 45;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0049' WHERE id_asignacion_activo = 46;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0050' WHERE id_asignacion_activo = 47;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0051' WHERE id_asignacion_activo = 48;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0052' WHERE id_asignacion_activo = 49;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0053' WHERE id_asignacion_activo = 50;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0054' WHERE id_asignacion_activo = 51;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0055' WHERE id_asignacion_activo = 52;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0056' WHERE id_asignacion_activo = 53;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0057' WHERE id_asignacion_activo = 54;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0058' WHERE id_asignacion_activo = 55;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0059' WHERE id_asignacion_activo = 56;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0060' WHERE id_asignacion_activo = 57;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0061' WHERE id_asignacion_activo = 58;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0062' WHERE id_asignacion_activo = 59;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0063' WHERE id_asignacion_activo = 60;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0064' WHERE id_asignacion_activo = 61;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0065' WHERE id_asignacion_activo = 62;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0066' WHERE id_asignacion_activo = 63;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0067' WHERE id_asignacion_activo = 64;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0068' WHERE id_asignacion_activo = 65;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0069' WHERE id_asignacion_activo = 66;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0070' WHERE id_asignacion_activo = 67;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0071' WHERE id_asignacion_activo = 68;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0072' WHERE id_asignacion_activo = 69;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0073' WHERE id_asignacion_activo = 70;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0074' WHERE id_asignacion_activo = 71;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0075' WHERE id_asignacion_activo = 72;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0076' WHERE id_asignacion_activo = 73;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0077' WHERE id_asignacion_activo = 74;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0078' WHERE id_asignacion_activo = 75;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0079' WHERE id_asignacion_activo = 76;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0080' WHERE id_asignacion_activo = 77;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0081' WHERE id_asignacion_activo = 78;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0082' WHERE id_asignacion_activo = 79;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0083' WHERE id_asignacion_activo = 80;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0084' WHERE id_asignacion_activo = 81;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0085' WHERE id_asignacion_activo = 82;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0086' WHERE id_asignacion_activo = 83;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0087' WHERE id_asignacion_activo = 84;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0088' WHERE id_asignacion_activo = 85;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0089' WHERE id_asignacion_activo = 86;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0090' WHERE id_asignacion_activo = 87;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0091' WHERE id_asignacion_activo = 88;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0092' WHERE id_asignacion_activo = 89;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0093' WHERE id_asignacion_activo = 90;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0094' WHERE id_asignacion_activo = 91;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0095' WHERE id_asignacion_activo = 92;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0096' WHERE id_asignacion_activo = 93;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0097' WHERE id_asignacion_activo = 94;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0098' WHERE id_asignacion_activo = 95;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0099' WHERE id_asignacion_activo = 96;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0100' WHERE id_asignacion_activo = 97;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0101' WHERE id_asignacion_activo = 98;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0102' WHERE id_asignacion_activo = 99;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0103' WHERE id_asignacion_activo = 100;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0104' WHERE id_asignacion_activo = 101;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0105' WHERE id_asignacion_activo = 102;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0106' WHERE id_asignacion_activo = 103;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0107' WHERE id_asignacion_activo = 104;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0108' WHERE id_asignacion_activo = 105;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0109' WHERE id_asignacion_activo = 106;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0110' WHERE id_asignacion_activo = 107;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0111' WHERE id_asignacion_activo = 108;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0112' WHERE id_asignacion_activo = 109;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0113' WHERE id_asignacion_activo = 110;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0114' WHERE id_asignacion_activo = 111;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0115' WHERE id_asignacion_activo = 112;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0116' WHERE id_asignacion_activo = 113;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0117' WHERE id_asignacion_activo = 114;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0118' WHERE id_asignacion_activo = 115;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0119' WHERE id_asignacion_activo = 116;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0120' WHERE id_asignacion_activo = 117;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0121' WHERE id_asignacion_activo = 118;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0122' WHERE id_asignacion_activo = 119;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0123' WHERE id_asignacion_activo = 120;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0124' WHERE id_asignacion_activo = 121;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0125' WHERE id_asignacion_activo = 122;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0126' WHERE id_asignacion_activo = 123;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0127' WHERE id_asignacion_activo = 124;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0128' WHERE id_asignacion_activo = 125;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0129' WHERE id_asignacion_activo = 126;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0130' WHERE id_asignacion_activo = 127;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0131' WHERE id_asignacion_activo = 128;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0132' WHERE id_asignacion_activo = 129;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0133' WHERE id_asignacion_activo = 130;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0134' WHERE id_asignacion_activo = 131;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0135' WHERE id_asignacion_activo = 132;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0136' WHERE id_asignacion_activo = 133;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0137' WHERE id_asignacion_activo = 134;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0138' WHERE id_asignacion_activo = 135;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0139' WHERE id_asignacion_activo = 136;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0140' WHERE id_asignacion_activo = 137;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0141' WHERE id_asignacion_activo = 138;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0142' WHERE id_asignacion_activo = 139;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0143' WHERE id_asignacion_activo = 140;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0144' WHERE id_asignacion_activo = 141;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0145' WHERE id_asignacion_activo = 142;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0146' WHERE id_asignacion_activo = 143;
+UPDATE asignacion_activo SET numero_asignacion = 'ASG-2026-0147' WHERE id_asignacion_activo = 144;
