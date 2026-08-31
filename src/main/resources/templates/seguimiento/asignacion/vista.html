@@ -13,6 +13,54 @@
         vertical-align: middle; /* Alinea el ícono con el texto del botón */
         line-height: 1;
     }
+
+    /*
+        Modal de detalle: alto FIJO sin importar la pestaña activa. Con
+        modal-dialog-scrollable el alto era el del contenido de cada pestaña (con un
+        tope), así que Información General dejaba un hueco vacío y Activos Asignados se
+        salía del viewport por arriba y por abajo. Acá el header y las pestañas quedan
+        fijos por flex, y solo el contenido de la pestaña activa hace scroll interno.
+    */
+    #modalDetalleAsignacion .modal-dialog { max-width: 1360px; }
+    #modalDetalleAsignacion .modal-content { height: 86vh; max-height: 880px; display: flex; flex-direction: column; }
+    #modalDetalleAsignacion .modal-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 0; }
+    #modalDetalleAsignacion #modalTabs { flex: 0 0 auto; }
+    #modalDetalleAsignacion .tab-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+    /* Header: los badges no se pisan con el botón cerrar, y se leen sobre cualquier
+       color de header (antes "NUEVA" en bg-primary quedaba invisible sobre el header
+       azul). */
+    #modalDetalleAsignacion .modal-header .badge {
+        background: rgba(255, 255, 255, .22) !important;
+        color: #fff !important;
+        border: 1px solid rgba(255, 255, 255, .45);
+    }
+    #modalDetalleAsignacion .modal-header .btn-close { flex-shrink: 0; margin-left: .75rem; }
+    #modalDetalleAsignacion .modal-header .header-badges { min-width: 0; flex-shrink: 1; }
+
+    /* Tabla de bienes: descripción recortada a 2 líneas (el texto completo queda en el
+       title, como tooltip nativo) — sin esto una descripción larga estiraba la fila a
+       150-200px y 50 bienes no entraban ni de cerca en el modal. */
+    #tabla-activos-modal .descripcion-clamp {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    #tabla-activos-modal thead th { position: sticky; top: 0; z-index: 1; }
+
+    /*
+        Bug preexistente encontrado al probar en navegador (no lo causó este rediseño):
+        el tema fija el z-index de TODO ".modal" en 1090, así que Bootstrap no distingue
+        entre el modal padre y uno abierto arriba — gana el que esté después en el DOM.
+        #modalDetalleAsignacion queda al final del archivo, así que CUALQUIERA de estos
+        seis modales (todos se abren sin cerrar el detalle) renderizaba invisible detrás
+        suyo: Separar, Trasladar, Incorporar, Editar cabecera, Corregir y Ver detalle.
+    */
+    #modalVerDetalleActivo, #modalCorregirActivo, #modalSepararActa,
+    #modalTrasladar, #modalIncorporar, #modalEditarCabecera {
+        z-index: 1100;
+    }
 </style>
  
 <h4 class="py-3 mb-4">
@@ -121,6 +169,41 @@
 
 <!-- Contenedor principal de tabla -->
 <div id="tablaRegistro"></div>
+
+<!-- ======================= MODAL VER DETALLE DEL ACTIVO (solo lectura) ======================= -->
+<!--
+    La fila de la tabla va recortada a propósito (ver #tabla-activos-modal): acá está el
+    dato completo, para cualquier usuario, no solo para quien puede corregir. Se llena
+    con lo que ya viajó en /detalles-json — sin pedir nada nuevo al servidor.
+-->
+<div class="modal fade" id="modalVerDetalleActivo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+
+            <div class="modal-header bg-primary text-white py-3">
+                <div>
+                    <h6 class="modal-title mb-0 fw-bold"><i class="bx bx-box me-1"></i>Detalle del activo</h6>
+                    <small class="opacity-75" id="ver-det-codigo">—</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4" id="ver-det-body">
+                <!-- Se llena en JS al abrir -->
+            </div>
+
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bx bx-x me-1"></i>Cerrar
+                </button>
+                <button type="button" class="btn btn-sm btn-warning btn-corregir d-none" id="ver-det-btn-corregir">
+                    <i class="bx bx-edit-alt me-1"></i>Corregir este activo
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
 
 <!-- ======================= MODAL CORREGIR ACTIVO REGISTRADO ======================= -->
 <div class="modal fade" id="modalCorregirActivo" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
@@ -276,6 +359,12 @@
                 </div>
                 <div id="tras-resultados" class="list-group list-group-flush border rounded"
                      style="max-height:220px; overflow-y:auto"></div>
+
+                <!-- Escape valve para cuando no hay una acta clara a dónde mandar el bien. -->
+                <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-2" id="btn-regularizacion">
+                    <i class="bx bx-folder-open me-1"></i>Enviar a regularización de esta gestión
+                </button>
+
                 <div class="alert alert-primary py-2 mt-2 mb-0 d-none" id="tras-elegida"></div>
 
                 <div class="form-check form-switch mt-3">
@@ -367,27 +456,95 @@
     </div>
 </div>
 
+<!-- ======================= MODAL EDITAR CABECERA ======================= -->
+<div class="modal fade" id="modalEditarCabecera" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+
+            <div class="modal-header bg-success text-white py-3">
+                <div>
+                    <h6 class="modal-title mb-0 fw-bold"><i class="bx bx-edit me-1"></i>Editar cabecera del acta</h6>
+                    <small class="opacity-75" id="cab-resumen">—</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <div class="alert alert-info py-2 d-flex gap-2 align-items-start" style="font-size:.83rem">
+                    <i class="bx bx-info-circle fs-5"></i>
+                    <div>
+                        Esto corrige el <b>responsable</b> y/o la <b>oficina</b> que dice el papel. No mueve
+                        bienes ni crea un acta nueva.
+                    </div>
+                </div>
+
+                <div id="cab-sin-predio" class="alert alert-warning py-2 d-none" style="font-size:.83rem">
+                    Esta acta no tiene un predio definido, así que no se puede listar oficinas para elegir.
+                    Usá <b>Separar</b> o <b>Trasladar</b> sobre algún bien para fijarlo primero.
+                </div>
+
+                <h6 class="text-muted small fw-semibold mt-3">DATOS DE LA CABECERA</h6>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1" for="cab-oficina">Oficina</label>
+                        <select id="cab-oficina" class="form-select form-select-sm"></select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1" for="cab-responsable">Responsable</label>
+                        <select id="cab-responsable" class="form-select form-select-sm"></select>
+                    </div>
+                </div>
+
+                <div class="form-check form-switch mt-3">
+                    <input class="form-check-input" type="checkbox" id="cab-propagar">
+                    <label class="form-check-label small" for="cab-propagar">
+                        Que los bienes <b>vigentes</b> de esta acta tomen este responsable y esta oficina
+                        <span class="d-block text-muted" style="font-size:.75rem">
+                            Sin marcar, solo cambia la cabecera y no se envía nada al VSIAF.
+                        </span>
+                    </label>
+                </div>
+
+                <h6 class="text-muted small fw-semibold mt-4">MOTIVO</h6>
+                <textarea id="cab-motivo" class="form-control form-control-sm" rows="3"
+                          placeholder="Por qué se corrige la cabecera. Queda en el historial del acta."></textarea>
+                <div class="form-text" style="font-size:.72rem">Mínimo 10 caracteres.</div>
+
+                <div class="mt-3 d-none" id="cab-avisos"></div>
+            </div>
+
+            <div class="modal-footer py-2">
+                <span class="text-muted small me-auto" id="cab-footer-info"></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-success" id="btn-confirmar-cabecera">
+                    <i class="bx bx-edit me-1"></i>Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ======================= MODAL DETALLE ASIGNACIÓN ======================= -->
 <div class="modal fade" id="modalDetalleAsignacion" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
 
             <!-- Header -->
-            <div class="modal-header bg-primary text-white py-3">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="avatar bg-white bg-opacity-25 rounded-2 p-2">
+            <div class="modal-header bg-primary text-white py-3 flex-nowrap">
+                <div class="d-flex align-items-center gap-3 min-width-0" style="min-width:0">
+                    <div class="avatar bg-white bg-opacity-25 rounded-2 p-2 flex-shrink-0">
                         <i class="bx bx-clipboard fs-4 text-white"></i>
                     </div>
-                    <div>
-                        <h5 class="modal-title mb-0 fw-bold" id="modal-numero-asignacion">—</h5>
+                    <div class="text-truncate">
+                        <h5 class="modal-title mb-0 fw-bold text-truncate" id="modal-numero-asignacion">—</h5>
                         <small class="opacity-75" id="modal-fecha-asignacion">—</small>
                     </div>
                 </div>
-                <div class="d-flex align-items-center gap-2 ms-auto">
-                    <span class="badge fs-6 px-3 py-2" id="modal-badge-tipo">—</span>
+                <div class="d-flex align-items-center gap-2 ms-auto header-badges">
+                    <span class="badge fs-6 px-3 py-2 text-truncate" id="modal-badge-tipo">—</span>
                     <span class="badge fs-6 px-3 py-2" id="modal-badge-estado">—</span>
-                    <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal"></button>
                 </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
 
             <!-- Body -->
@@ -463,14 +620,25 @@
                             <!-- Columna derecha: Responsables -->
                             <div class="col-md-6">
                                 <div class="card border border-success border-opacity-25 h-100">
-                                    <div class="card-header bg-success bg-opacity-10 py-2">
+                                    <div class="card-header bg-success bg-opacity-10 py-2 d-flex justify-content-between align-items-center">
                                         <h6 class="mb-0 text-success fw-semibold"><i
                                                 class="bx bx-user-check me-1"></i>Responsables</h6>
+                                        <button type="button" class="btn btn-sm btn-outline-success py-0 px-2 d-none"
+                                                id="btn-editar-cabecera" style="font-size:.75rem"
+                                                onclick="abrirModalEditarCabecera()">
+                                            <i class="bx bx-edit me-1"></i>Editar
+                                        </button>
                                     </div>
                                     <div class="card-body">
                                         <dl class="row mb-0 small">
-                                            <dt class="col-sm-5 text-muted">Resp. Origen</dt>
-                                            <dd class="col-sm-7 fw-semibold" id="d-resp-origen">—</dd>
+                                            <!-- Solo aplica a actas que vienen de otra (separación/traslado): en
+                                                 una acta NUEVA no hay origen, y mostrar "—" ahí es puro ruido. -->
+                                            <div class="col-12 d-none" id="fila-resp-origen">
+                                                <div class="row">
+                                                    <dt class="col-sm-5 text-muted">Resp. Origen</dt>
+                                                    <dd class="col-sm-7 fw-semibold" id="d-resp-origen">—</dd>
+                                                </div>
+                                            </div>
 
                                             <dt class="col-sm-5 text-muted">Resp. Destino</dt>
                                             <dd class="col-sm-7 fw-semibold" id="d-resp-destino">—</dd>
@@ -550,6 +718,9 @@
                             <button class="btn btn-sm btn-warning" onclick="abrirModalTrasladar()">
                                 <i class="bx bx-transfer me-1"></i>Trasladar a otra acta
                             </button>
+                            <button class="btn btn-sm btn-info text-white" id="btn-subir-vsiaf-lote">
+                                <i class="bx bx-upload me-1"></i>Subir al VSIAF
+                            </button>
                             <button class="btn btn-sm btn-outline-secondary" onclick="limpiarSeleccion()">
                                 Quitar selección
                             </button>
@@ -572,15 +743,13 @@
                                         </th>
                                         <th class="text-center" style="width:40px">#</th>
                                         <th>Código</th>
-                                        <th>Descripción</th>
-                                        <th>Grupo contable</th>
+                                        <th style="min-width:260px">Descripción</th>
                                         <th>Responsable</th>
                                         <th>Oficina</th>
                                         <th class="text-end">Costo (Bs.)</th>
                                         <th class="text-center">Estado</th>
                                         <th class="text-center">VSIAF</th>
-                                        <th class="text-center">Fecha Adq.</th>
-                                        <th class="text-center col-acciones d-none" style="width:60px">Corregir</th>
+                                        <th class="text-center" style="width:110px">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbody-activos">
@@ -640,8 +809,8 @@
 
             <!-- Footer del modal -->
             <div class="modal-footer bg-light border-top">
-                <a id="btn-modal-pdf" href="#" target="_blank" class="btn btn-danger btn-sm">
-                    <i class="bx bxs-file-pdf me-1"></i>Descargar PDF
+                <a id="btn-modal-word" href="#" target="_blank" class="btn btn-primary btn-sm">
+                    <i class="bx bxs-file-doc me-1"></i>Descargar Word
                 </a>
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
                     <i class="bx bx-x me-1"></i>Cerrar
@@ -830,8 +999,9 @@
         $('#modal-fecha-asignacion').text(formatearFecha(data.fecha) || '—');
 
         // Badges tipo y estado
-        const coloresTipo = { NUEVA: 'bg-primary', REASIGNACION: 'bg-warning text-dark', DEVOLUCION: 'bg-secondary' };
-        const coloresEstado = { ACTIVA: 'bg-success', ANULADA: 'bg-danger', DEVUELTA: 'bg-info' };
+        const coloresTipo = { NUEVA: 'bg-primary', REASIGNACION: 'bg-warning text-dark', DEVOLUCION: 'bg-secondary',
+            SEPARACION: 'bg-info text-dark', REGULARIZACION: 'bg-dark' };
+        const coloresEstado = { ACTIVA: 'bg-success', ANULADA: 'bg-danger', DEVUELTA: 'bg-info', MODIFICADA: 'bg-warning text-dark' };
         $('#modal-badge-tipo').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresTipo[data.tipo] || 'bg-secondary')).text(data.tipo || '—');
         $('#modal-badge-estado').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresEstado[data.estado] || 'bg-secondary')).text(data.estado || '—');
 
@@ -843,6 +1013,7 @@
         $('#d-tipo').html(renderBadgeTipo(data.tipo));
         $('#d-estado').html(renderBadgeEstado(data.estado));
         $('#d-doc-referencia').text(data.docRef || '—');
+        $('#fila-resp-origen').toggleClass('d-none', !data.respOrigen);
         $('#d-resp-origen').text(data.respOrigen || '—');
         $('#d-resp-destino').text(data.respDestino || '—');
         $('#d-oficina-destino').text(data.oficina || '—');
@@ -861,8 +1032,16 @@
         $('#aud-fecha-mod').text(formatearFechaHora(data.fechaMod) || '—');
         $('#aud-usuario-mod').text(data.usuarioMod || '—');
 
-        // Botón PDF
-        $('#btn-modal-pdf').attr('href', `/administracion/asignacion/asignaciones/${id}/pdf`);
+        // Botón Word: el acta de regularización no tiene responsable (es un cajón, a
+        // propósito) y el documento de asignación exige uno para firmar — no hay nada
+        // que imprimir ahí.
+        if (data.tipo === 'REGULARIZACION') {
+            $('#btn-modal-word').addClass('disabled').removeAttr('href')
+                .attr('title', 'El acta de regularización no tiene responsable: no hay acta que imprimir.');
+        } else {
+            $('#btn-modal-word').removeClass('disabled').removeAttr('title')
+                .attr('href', `/administracion/asignacion/asignaciones/${id}/word`);
+        }
 
         // Cargar activos e historial
         cargarActivosModal(id);
@@ -886,6 +1065,7 @@
     }
 
     function cargarActivosModal(idAsignacionActivo) {
+        window._detallePorActivo = {};
         $('#tbody-activos').html(`
             <tr><td colspan="12" class="text-center py-4">
             <div class="spinner-border spinner-border-sm text-primary me-2"></div>
@@ -903,9 +1083,11 @@
                 // la barrera de verdad está en el endpoint que aplica la corrección.
                 const puedeEditar = resp?.puedeEditar === true;
                 _asigActual = idAsignacionActivo;
-                // Se resuelve antes del early-return del acta vacía, para que el
-                // encabezado no quede visible sin celdas debajo.
-                $('#tabla-activos-modal .col-acciones').toggleClass('d-none', !puedeEditar);
+                _cabeceraActual = resp?.cabecera || null;
+                window._puedeEditarActual = puedeEditar;
+                // Acciones siempre visible: "Ver detalle" es para cualquiera, Corregir
+                // y Subir VSIAF ya vienen condicionados por fila más abajo.
+                $('#btn-editar-cabecera').toggleClass('d-none', !puedeEditar);
 
                 // ── Tarjetas de resumen ──
                 $('#badge-num-activos, #resumen-total-activos').text(resumen.total ?? detalles.length ?? 0);
@@ -1004,6 +1186,16 @@
                               ? ` <i class="bx bx-info-circle text-warning" title="En el acta: ${costoFmt} · Costo actual del activo: ${costoActualFmt}"></i>`
                               : '');
 
+                    // Ver detalle: para cualquiera, con lo que ya se tiene en memoria —
+                    // no hace falta otro viaje al servidor para mostrar todos los campos.
+                    if (d.idActivo) window._detallePorActivo[d.idActivo] = d;
+                    const btnVerDetalle = d.idActivo
+                        ? `<button type="button" class="btn btn-sm btn-icon btn-outline-primary py-0 px-1 btn-ver-detalle-activo"
+                                   data-idactivo="${d.idActivo}" title="Ver todos los datos de este activo">
+                               <i class="bx bx-show small"></i>
+                           </button>`
+                        : '';
+
                     // Corregir: solo para roles autorizados y estados corregibles.
                     const btnCorregir = (puedeEditar && d.editable && d.idEnc)
                         ? `<button type="button" class="btn btn-sm btn-icon btn-outline-warning py-0 px-1 btn-corregir"
@@ -1011,7 +1203,19 @@
                                    title="Corregir los datos de este activo">
                                <i class="bx bx-edit-alt small"></i>
                            </button>`
-                        : '<span class="text-muted small">—</span>';
+                        : '';
+
+                    // Reintento manual: solo tiene sentido para bienes ya publicados en
+                    // el VSIAF (ACTIVO). Un PENDIENTE se publica desde Activos pendientes.
+                    const btnSubirVsiaf = (puedeEditar && d.idActivo && sync === 'ACTIVO')
+                        ? `<button type="button" class="btn btn-sm btn-icon btn-outline-info py-0 px-1 btn-subir-vsiaf"
+                                   data-idactivo="${d.idActivo}" data-codigo="${escHtml(d.codigo)}"
+                                   title="Reintentar la subida de este bien al VSIAF">
+                               <i class="bx bx-upload small"></i>
+                           </button>`
+                        : '';
+
+                    const accionesCell = `${btnVerDetalle} ${btnCorregir} ${btnSubirVsiaf}`;
 
                     // Solo se pueden separar bienes vigentes en esta acta. Un bien ya
                     // trasladado sigue en la lista como historia, pero no se mueve otra vez.
@@ -1024,8 +1228,7 @@
                         <td class="text-center col-seleccion ${puedeEditar ? '' : 'd-none'}">${casilla}</td>
                         <td class="text-center text-muted small">${i + 1}</td>
                         <td><code class="small fw-semibold text-primary">${escHtml(d.codigo)}</code></td>
-                        <td class="text-wrap" style="max-width:240px; font-size:0.82rem">${escHtml(d.descripcion)}</td>
-                        <td class="small text-truncate" style="max-width:150px">${escHtml(d.grupoContable)}</td>
+                        <td class="descripcion-clamp" style="font-size:0.82rem" title="${escHtml(d.descripcion)}">${escHtml(d.descripcion)}</td>
                         <td class="small text-truncate" style="max-width:160px">${escHtml(d.responsable)}</td>
                         <td class="small text-truncate" style="max-width:160px">
                             ${escHtml(d.oficina)}
@@ -1038,13 +1241,11 @@
                                 : '<span class="text-muted">—</span>'}
                         </td>
                         <td class="text-center" style="font-size:0.72rem">${syncBadge}</td>
-                        <td class="text-center small text-muted">${fechaFmt}</td>
-                        <td class="text-center col-acciones ${puedeEditar ? '' : 'd-none'}">${btnCorregir}</td>
+                        <td class="text-center">${accionesCell}</td>
                     </tr>`;
                 });
 
                 $('#tbody-activos').html(html);
-                $('#tabla-activos-modal .col-acciones').toggleClass('d-none', !puedeEditar);
                 $('#tabla-activos-modal .col-seleccion').toggleClass('d-none', !puedeEditar);
                 // El botón de incorporar vive fuera de la tabla, así que se conmuta aparte.
                 $('#fila-incorporar').toggleClass('d-none', !puedeEditar);
@@ -1214,6 +1415,107 @@
     });
 
     /* ══════════════════════════════════════════════════════════════════════════
+       EDITAR CABECERA
+
+       Corrige responsable y/o oficina del acta ya emitida, sin mover bienes ni crear
+       un acta nueva. Los combos arrancan con los valores actuales seleccionados —a
+       diferencia de "Separar", acá no hay un acta original de la que "mantener" nada.
+       ══════════════════════════════════════════════════════════════════════════ */
+
+    async function abrirModalEditarCabecera() {
+        if (!_cabeceraActual) return;
+
+        $('#cab-resumen').text(_asigActual ? `Acta #${_asigActual}` : '—');
+        $('#cab-motivo').val('');
+        $('#cab-propagar').prop('checked', false);
+        $('#cab-avisos').addClass('d-none').empty();
+        $('#cab-footer-info').text('');
+        $('#btn-confirmar-cabecera').prop('disabled', false);
+
+        const idPredio = _cabeceraActual.idPredioOficina;
+
+        if (!idPredio) {
+            $('#cab-sin-predio').removeClass('d-none');
+            $('#cab-oficina').empty().prop('disabled', true);
+            $('#cab-responsable').empty().prop('disabled', true);
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarCabecera')).show();
+            return;
+        }
+
+        $('#cab-sin-predio').addClass('d-none');
+        $('#cab-oficina, #cab-responsable').prop('disabled', false);
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarCabecera')).show();
+
+        const oficinas = await getJson(`/api/buscar_oficinas?predioId=${idPredio}`);
+        $('#cab-oficina').html((oficinas || []).map(o =>
+            `<option value="${o.idOficina ?? o.id}">${escHtml(o.nombre)}</option>`).join(''));
+        $('#cab-oficina').val(_cabeceraActual.idOficinaDestino ?? '');
+
+        await cargarResponsablesCabecera($('#cab-oficina').val(), _cabeceraActual.idResponsable);
+    }
+
+    async function cargarResponsablesCabecera(idOficina, idResponsableSeleccionar) {
+        if (!idOficina) { $('#cab-responsable').html(''); return; }
+        $('#cab-responsable').html('<option value="">Cargando…</option>');
+        const resps = await getJson(`/api/buscar_responsable?q=&page=1&oficinaId=${idOficina}`);
+        const lista = Array.isArray(resps) ? resps : (resps.items || resps.results || []);
+        $('#cab-responsable').html(lista.map(r =>
+            `<option value="${r.idResponsable ?? r.id}">${escHtml(r.nombreCompleto ?? r.text ?? r.nombre)}</option>`).join(''));
+        if (idResponsableSeleccionar) $('#cab-responsable').val(idResponsableSeleccionar);
+    }
+
+    /* Al cambiar de oficina se recarga la lista de responsables de esa oficina. */
+    $(document).off('change.cabOfi').on('change.cabOfi', '#cab-oficina', function () {
+        cargarResponsablesCabecera($(this).val(), null);
+    });
+
+    $(document).off('click.cabConfirmar').on('click.cabConfirmar', '#btn-confirmar-cabecera', function () {
+        const motivo = ($('#cab-motivo').val() || '').trim();
+        if (motivo.length < 10) { Swal.fire('Falta el motivo', 'Explicá por qué se corrige la cabecera (mínimo 10 caracteres).', 'warning'); return; }
+
+        const $btn = $(this).prop('disabled', true);
+        $('#cab-footer-info').text('Guardando…');
+
+        $.ajax({
+            url: `/administracion/asignacion/asignaciones/${_asigActual}/editar-cabecera`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                idOficinaDestino: $('#cab-oficina').val() ? parseInt($('#cab-oficina').val(), 10) : null,
+                idResponsableDestino: $('#cab-responsable').val() ? parseInt($('#cab-responsable').val(), 10) : null,
+                propagarABienes: $('#cab-propagar').is(':checked'),
+                motivo: motivo
+            })
+        }).done(function (j) {
+            if (!j.ok) {
+                $('#cab-avisos').removeClass('d-none')
+                    .html(`<div class="alert alert-warning py-2 mb-0 small">${escHtml(j.msg)}</div>`);
+                return;
+            }
+            bootstrap.Modal.getInstance(document.getElementById('modalEditarCabecera')).hide();
+
+            const avisos = j.avisos || [];
+            Swal.fire({
+                icon: avisos.length ? 'warning' : 'success',
+                title: avisos.length ? 'Cabecera actualizada, con advertencias' : 'Cabecera actualizada',
+                html: `<p>${escHtml(j.msg)}</p>` + (avisos.length
+                    ? `<ul class="text-start small">${avisos.map(a => `<li>${escHtml(a)}</li>`).join('')}</ul>` : '')
+            });
+
+            bootstrap.Modal.getInstance(document.getElementById('modalDetalleAsignacion')).hide();
+            cargarTabla();
+        }).fail(function (xhr) {
+            const msg = xhr.responseJSON?.msg || 'No se pudo editar la cabecera.';
+            $('#cab-avisos').removeClass('d-none')
+                .html(`<div class="alert alert-danger py-2 mb-0 small">${escHtml(msg)}</div>`);
+        }).always(function () {
+            $btn.prop('disabled', false);
+            $('#cab-footer-info').text('');
+        });
+    });
+
+    /* ══════════════════════════════════════════════════════════════════════════
        TRASLADAR / INCORPORAR
 
        Son la misma operación vista desde las dos puntas y comparten endpoint: se
@@ -1279,6 +1581,26 @@
         $('#tras-resultados').empty();
         $('#tras-buscar').val('');
         $('#btn-confirmar-trasladar').prop('disabled', false);
+    });
+
+    /* Cuando no hay una acta clara a la que mandar el bien: la de regularización de esta
+       gestión se consigue o se crea sola, la primera vez que hace falta. */
+    $(document).off('click.regularizacion').on('click.regularizacion', '#btn-regularizacion', function () {
+        const $btn = $(this).prop('disabled', true);
+        $.ajax({
+            url: '/administracion/asignacion/acta-regularizacion',
+            method: 'POST'
+        }).done(function (j) {
+            if (!j.ok) { Swal.fire('No se pudo', j.msg || 'No se pudo conseguir el acta de regularización.', 'warning'); return; }
+            _actaDestinoElegida = { id: j.id, numero: j.numero };
+            $('#tras-elegida').removeClass('d-none')
+                .html(`<i class="bx bx-check-circle me-1"></i>Destino: <b>${escHtml(_actaDestinoElegida.numero)}</b>`);
+            $('#tras-resultados').empty();
+            $('#tras-buscar').val('');
+            $('#btn-confirmar-trasladar').prop('disabled', false);
+        }).fail(function (xhr) {
+            Swal.fire('Error', xhr.responseJSON?.msg || 'No se pudo conseguir el acta de regularización.', 'error');
+        }).always(function () { $btn.prop('disabled', false); });
     });
 
     $(document).off('click.trasConfirmar').on('click.trasConfirmar', '#btn-confirmar-trasladar', function () {
@@ -1434,10 +1756,19 @@
 
                 $('#historial-acta').html(movs.map(m => {
                     const [icono, color, titulo] = etiquetas[m.tipo] || ['bx-info-circle', 'secondary', m.tipo];
-                    // La misma operación se cuenta al revés según de qué acta se la mire.
-                    const frase = m.rol === 'ORIGEN'
-                        ? `Salieron ${m.bienes.length} bien(es) hacia <b>${escHtml(m.actaDestino || '—')}</b>`
-                        : `Entraron ${m.bienes.length} bien(es) desde <b>${escHtml(m.actaOrigen || '—')}</b>`;
+                    // Edición de cabecera no tiene acta destino: no es la misma operación
+                    // vista al revés, es un cambio dentro de la propia acta.
+                    let frase;
+                    if (m.tipo === 'EDICION_CABECERA') {
+                        frase = m.bienes.length > 0
+                            ? `Se editó el responsable/oficina y se propagó a ${m.bienes.length} bien(es)`
+                            : 'Se editó el responsable/oficina de la cabecera (sin propagar a los bienes)';
+                    } else {
+                        // La misma operación se cuenta al revés según de qué acta se la mire.
+                        frase = m.rol === 'ORIGEN'
+                            ? `Salieron ${m.bienes.length} bien(es) hacia <b>${escHtml(m.actaDestino || '—')}</b>`
+                            : `Entraron ${m.bienes.length} bien(es) desde <b>${escHtml(m.actaOrigen || '—')}</b>`;
+                    }
                     const vsiaf = m.resultadoVsiaf === 'ERROR'
                         ? '<span class="badge bg-danger ms-1">Error VSIAF</span>'
                         : (m.resultadoVsiaf === 'ENCOLADO'
@@ -1506,11 +1837,12 @@
         } catch (e) { return f; }
     }
     function renderBadgeTipo(tipo) {
-        const map = { NUEVA: 'primary', REASIGNACION: 'warning', DEVOLUCION: 'secondary' };
+        const map = { NUEVA: 'primary', REASIGNACION: 'warning', DEVOLUCION: 'secondary',
+            SEPARACION: 'info', REGULARIZACION: 'dark' };
         return `<span class="badge bg-${map[tipo] || 'secondary'}">${tipo || '—'}</span>`;
     }
     function renderBadgeEstado(estado) {
-        const map = { ACTIVA: 'success', ANULADA: 'danger', DEVUELTA: 'info' };
+        const map = { ACTIVA: 'success', ANULADA: 'danger', DEVUELTA: 'info', MODIFICADA: 'warning text-dark' };
         return `<span class="badge bg-${map[estado] || 'secondary'}">${estado || '—'}</span>`;
     }
 
@@ -1521,6 +1853,7 @@
        exige rol, propaga al VSIAF y deja constancia en historial_activo.
        ══════════════════════════════════════════════════════════════════════ */
     let _asigActual = null;     // para refrescar el detalle después de guardar
+    let _cabeceraActual = null; // ids de responsable/oficina/predio del acta abierta
     let _corrIdEnc  = null;
 
     /* Etiqueta "código - nombre" y regla de código de grupo: compartidas en
@@ -1539,6 +1872,104 @@
 
     const arr = r => Array.isArray(r) ? r : (Array.isArray(r?.results) ? r.results : []);
     const getJson = u => fetch(u).then(r => r.json()).catch(() => []);
+
+    /* Reintento manual de la subida al VSIAF: mismo endpoint para la fila suelta y para
+       el lote de la selección, solo cambia la lista de ids que se manda. */
+    function subirAlVsiaf(idsActivos, $btn) {
+        if (!idsActivos.length) return;
+        $btn.prop('disabled', true);
+        $.ajax({
+            url: `/administracion/asignacion/asignaciones/${_asigActual}/subir-vsiaf`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ idsActivos: idsActivos })
+        }).done(function (j) {
+            if (!j.ok) { Swal.fire('No se pudo', j.msg || 'No se pudo subir al VSIAF.', 'warning'); return; }
+            const avisos = j.avisos || [];
+            Swal.fire({
+                icon: avisos.length ? 'warning' : 'success',
+                title: avisos.length ? 'Enviado, con advertencias' : 'Enviado al VSIAF',
+                html: `<p>${escHtml(j.msg)}</p>` + (avisos.length
+                    ? `<ul class="text-start small">${avisos.map(a => `<li>${escHtml(a)}</li>`).join('')}</ul>` : '')
+            });
+            if (_asigActual) cargarActivosModal(_asigActual);
+        }).fail(function (xhr) {
+            Swal.fire('Error', xhr.responseJSON?.msg || 'No se pudo subir al VSIAF.', 'error');
+        }).always(function () { $btn.prop('disabled', false); });
+    }
+
+    $(document).off('click.subirVsiafFila').on('click.subirVsiafFila', '.btn-subir-vsiaf', function () {
+        subirAlVsiaf([parseInt($(this).data('idactivo'), 10)], $(this));
+    });
+
+    $(document).off('click.subirVsiafLote').on('click.subirVsiafLote', '#btn-subir-vsiaf-lote', function () {
+        subirAlVsiaf(bienesSeleccionados(), $(this));
+    });
+
+    /* Ver detalle: mismo dato que ya se tiene en memoria por fila (window._detallePorActivo),
+       para cualquier usuario — no solo para quien puede corregir. */
+    function renderDetalleActivo(d) {
+        const fechaTexto = d.fechaAdquisicion && d.fechaAdquisicion !== '—'
+            ? (formatearFecha(d.fechaAdquisicion) || d.fechaAdquisicion) : '—';
+        const costoFmt = fmtBs(d.costo);
+        const costoActualFmt = fmtBs(d.costoActual);
+        const difiere = costoFmt !== null && costoActualFmt !== null && costoFmt !== costoActualFmt;
+
+        const sync = (d.estadoRegistro || '—').toUpperCase();
+        const conf = (d.sincVsiaf || '').toUpperCase();
+        let vsiafTexto = '<span class="text-muted">—</span>';
+        if (conf === 'ERROR') {
+            vsiafTexto = `<span class="badge bg-danger"><i class="bx bx-error-circle"></i> Error VSIAF</span>`
+                + `<div class="text-danger small mt-1">${escHtml(d.sincVsiafMensaje || 'El VSIAF rechazó el último cambio enviado.')}</div>`;
+        } else if (conf === 'EN_COLA') {
+            vsiafTexto = '<span class="badge bg-info text-dark"><i class="bx bx-loader-circle"></i> En cola</span>';
+        } else if (conf === 'CONFIRMADO' || sync === 'ACTIVO') {
+            vsiafTexto = '<span class="badge bg-success"><i class="bx bx-check"></i> En VSIAF</span>';
+        } else if (sync === 'PENDIENTE') {
+            vsiafTexto = '<span class="badge bg-warning text-dark"><i class="bx bx-time-five"></i> Pendiente</span>';
+        } else if (sync === 'CANCELADO') {
+            vsiafTexto = '<span class="badge bg-secondary">Cancelado</span>';
+        }
+
+        const fila = (etiqueta, valor) => `
+            <dt class="col-sm-5 text-muted">${etiqueta}</dt>
+            <dd class="col-sm-7">${valor}</dd>`;
+
+        return `<dl class="row mb-0 small">
+            ${fila('Código', `<code class="fw-semibold text-primary">${escHtml(d.codigo)}</code>`)}
+            ${fila('Descripción', escHtml(d.descripcion))}
+            ${fila('Grupo contable', escHtml(d.grupoContable))}
+            ${fila('Responsable', escHtml(d.responsable))}
+            ${fila('Oficina', escHtml(d.oficina))}
+            ${fila('Predio', escHtml(d.predio))}
+            ${fila('Estado físico', escHtml(d.estadoActivo))}
+            ${fila('Fecha adquisición', fechaTexto)}
+            ${fila('Costo en el acta', costoFmt ?? '<span class="text-warning fst-italic">sin costo</span>')}
+            ${difiere ? fila('Costo actual del activo', `${costoActualFmt} <i class="bx bx-info-circle text-warning" title="Cambió después de asignarse"></i>`) : ''}
+            ${fila('Estado en el VSIAF', vsiafTexto)}
+        </dl>`;
+    }
+
+    $(document).off('click.verDetalleActivo').on('click.verDetalleActivo', '.btn-ver-detalle-activo', function () {
+        const id = parseInt($(this).data('idactivo'), 10);
+        const d = (window._detallePorActivo || {})[id];
+        if (!d) return;
+
+        $('#ver-det-codigo').text(d.codigo || '—');
+        $('#ver-det-body').html(renderDetalleActivo(d));
+
+        const puedeCorregir = window._puedeEditarActual === true && d.editable && d.idEnc;
+        $('#ver-det-btn-corregir').toggleClass('d-none', !puedeCorregir)
+            .attr('data-idenc', d.idEnc || '').attr('data-codigo', d.codigo || '');
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVerDetalleActivo')).show();
+    });
+
+    /* Al pasar a "Corregir" desde el detalle, el handler genérico de .btn-corregir (más
+       abajo) abre modalCorregirActivo solo — acá solo se cierra este modal de paso. */
+    $(document).off('click.verDetCorregir').on('click.verDetCorregir', '#ver-det-btn-corregir', function () {
+        bootstrap.Modal.getInstance(document.getElementById('modalVerDetalleActivo'))?.hide();
+    });
 
     $(document).off('click.corregir').on('click.corregir', '.btn-corregir', async function () {
         _corrIdEnc = $(this).data('idenc');

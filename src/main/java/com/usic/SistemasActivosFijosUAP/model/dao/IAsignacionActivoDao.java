@@ -150,4 +150,7 @@ public interface IAsignacionActivoDao extends JpaRepository<AsignacionActivo, Lo
         WHERE a.idAsignacionActivo = :id
         """)
     Optional<AsignacionActivo> findByIdConDetalles(@Param("id") Long id);
+
+    /** Para "conseguí o creá" la acta de regularización de una gestión: REG-<año>. */
+    Optional<AsignacionActivo> findFirstByNumeroAsignacion(String numeroAsignacion);
 }

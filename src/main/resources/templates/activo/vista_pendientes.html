@@ -1073,6 +1073,21 @@
                     </div>
                 </div>
 
+                <!-- Código libre (opcional): en vez del siguiente correlativo automático,
+                     elegir un hueco puntual de la serie mun-pred-grupo de esta asignación. -->
+                <div class="mb-2">
+                    <div class="form-check form-switch">
+                        <input type="checkbox" class="form-check-input" id="agregarUsarCodigoLibre">
+                        <label class="form-check-label small fw-bold" for="agregarUsarCodigoLibre">
+                            Asignar un código libre (en vez del correlativo automático)
+                        </label>
+                    </div>
+                    <div id="wrapAgregarCodigoLibre" class="d-none mt-1">
+                        <select id="agregarCodigoLibre" class="form-select form-select-sm"></select>
+                        <div id="agregarCodigoLibreHint" class="form-text" style="font-size:0.68rem;"></div>
+                    </div>
+                </div>
+
                 <!-- Description -->
                 <div class="mb-2">
                     <label class="small fw-bold text-muted">Descripción <span class="text-danger">*</span></label>
@@ -2998,10 +3013,17 @@
             $('#detBadgeAgregar').text('0');
             $('#agregarIdAsigEnc').val(idAsigEnc);
             $('#agregarDesc, #agregarCosto, #agregarFecha').val('');
-            $('#agregarCantidad').val(1);
+            $('#agregarCantidad').val(1).prop('disabled', false);
             $('#agregarVidaUtil').val(0).prop('disabled', true);
             $('#agregarAccesorio').prop('checked', false);
             $('#modalAgregarActivo .txt-codigo-preview').val('').attr('placeholder', 'Cargando...');
+
+            // Reset del picker de código libre
+            $('#agregarUsarCodigoLibre').prop('checked', false);
+            $('#wrapAgregarCodigoLibre').addClass('d-none');
+            if ($('#agregarCodigoLibre').data('select2')) $('#agregarCodigoLibre').select2('destroy');
+            $('#agregarCodigoLibre').empty();
+            $('#agregarCodigoLibreHint').text('');
 
             // Destroy existing Select2, reset selects (keep Thymeleaf options)
             if ($('#agregarGrupo').data('select2')) $('#agregarGrupo').select2('destroy');
@@ -3101,7 +3123,7 @@
                     var codGrp = String(codDbf).padStart(2, '0');
                     $('#agregarCodGrp').val(codGrp);
                 }
-                recalcularCodigosAgregar();
+                actualizarPreviewCodigoAgregar();
             } else {
                 $vida.val(0);
                 $('#agregarCodGrp').val('');
@@ -3109,6 +3131,9 @@
                 if ($aux.data('select2')) $aux.select2('destroy');
                 $aux.empty().append('<option value="">—</option>').prop('disabled', true);
                 $('#agregarBtnNuevoAuxiliar').prop('disabled', true);
+                if ($('#agregarCodigoLibre').data('select2')) $('#agregarCodigoLibre').select2('destroy');
+                $('#agregarCodigoLibre').empty();
+                $('#agregarCodigoLibreHint').text('Selecciona el Grupo/Clasificación primero.');
             }
         });
 
@@ -3161,6 +3186,83 @@
 
         $('#agregarCantidad').on('input change', function () {
             recalcularCodigosAgregar();
+        });
+
+        // ── Código libre: elegir un hueco puntual en vez del correlativo automático ──
+        function actualizarPreviewCodigoAgregar() {
+            if ($('#agregarUsarCodigoLibre').is(':checked')) {
+                cargarCodigosLibresAgregar();
+            } else {
+                recalcularCodigosAgregar();
+            }
+        }
+
+        async function cargarCodigosLibresAgregar() {
+            const codMun = $('#agregarCodMun').val();
+            const codPred = $('#agregarCodPred').val();
+            const codGrp = $('#agregarCodGrp').val();
+            const $preview = $('#modalAgregarActivo .txt-codigo-preview');
+            const $sel = $('#agregarCodigoLibre');
+            const $hint = $('#agregarCodigoLibreHint');
+
+            if ($sel.data('select2')) $sel.select2('destroy');
+            $sel.empty();
+            $preview.val('');
+
+            // Ojo: se consulta por los CÓDIGOS mun-pred-grupo (los mismos que valida el
+            // backend al guardar), no por el id de predio físico actual de la oficina —
+            // si el activo de referencia de esta asignación fue transferido, su predio
+            // físico hoy puede no ser el mismo que el codificado en su propio código.
+            if (!codMun || !codPred || !codGrp) {
+                $hint.text('Selecciona el Grupo/Clasificación primero.');
+                $preview.attr('placeholder', 'Seleccione Grupo...');
+                return;
+            }
+
+            $preview.attr('placeholder', 'Cargando códigos libres...');
+            $hint.text('Cargando...');
+            try {
+                const r = await $.get('/administracion/correlativo/datos-por-codes', { mun: codMun, pred: codPred, grp: codGrp });
+                if (!r.ok) {
+                    $hint.text(r.message || 'No se pudo calcular la lista de códigos libres.');
+                    $preview.attr('placeholder', 'Sin datos');
+                    return;
+                }
+                const huecos = Array.isArray(r.huecos) ? r.huecos : [];
+                let opts = huecos.map(function (n) {
+                    const cod = r.prefijo + '-' + String(n).padStart(5, '0');
+                    return '<option value="' + cod + '">' + cod + ' — libre (hueco en la serie)</option>';
+                }).join('');
+                if (r.siguienteCodigoReal) {
+                    opts += '<option value="' + r.siguienteCodigoReal + '">' + r.siguienteCodigoReal + ' — siguiente correlativo (nuevo)</option>';
+                }
+                $sel.html('<option value="">Seleccione un código libre...</option>' + opts);
+                initSelect2Agregar($sel);
+                $hint.text(huecos.length + ' código(s) libres para el prefijo ' + r.prefijo + '.');
+                $preview.attr('placeholder', 'Elige un código de la lista de arriba');
+            } catch (e) {
+                $hint.text('Error al calcular códigos libres.');
+                $preview.attr('placeholder', 'Error');
+            }
+        }
+
+        $('#modalAgregarActivo').on('change', '#agregarCodigoLibre', function () {
+            $('#modalAgregarActivo .txt-codigo-preview').val($(this).val() || '');
+        });
+
+        $('#modalAgregarActivo').on('change', '#agregarUsarCodigoLibre', function () {
+            const activo = $(this).is(':checked');
+            $('#wrapAgregarCodigoLibre').toggleClass('d-none', !activo);
+            $('#agregarCantidad').prop('disabled', activo);
+            if (activo) {
+                $('#agregarCantidad').val(1);
+                cargarCodigosLibresAgregar();
+            } else {
+                if ($('#agregarCodigoLibre').data('select2')) $('#agregarCodigoLibre').select2('destroy');
+                $('#agregarCodigoLibre').empty();
+                $('#agregarCodigoLibreHint').text('');
+                recalcularCodigosAgregar();
+            }
         });
 
         // ── Detalle modal ──
@@ -3234,6 +3336,12 @@
                 Swal.fire('Validación', 'Debe seleccionar un Grupo / Clasificación.', 'warning'); return;
             }
 
+            const usaCodigoLibre = $('#agregarUsarCodigoLibre').is(':checked');
+            const codigoLibre = usaCodigoLibre ? ($('#agregarCodigoLibre').val() || '') : '';
+            if (usaCodigoLibre && !codigoLibre) {
+                Swal.fire('Validación', 'Elige un código libre de la lista.', 'warning'); return;
+            }
+
             if ($('#detBadgeAgregar').text() !== '0') {
                 // Data already synced on hidden.bs.modal
             } else {
@@ -3261,6 +3369,7 @@
                 idAuxiliar: $('#agregarAuxiliar').val() || null,
                 cantidad: cant,
                 incluyeAccesorio: $('#agregarAccesorio').is(':checked'),
+                codigo: usaCodigoLibre ? codigoLibre : null,
                 detalles: detalles
             };
 
@@ -3296,6 +3405,7 @@
         $('#modalAgregarActivo').on('hidden.bs.modal', function () {
             if ($('#agregarGrupo').data('select2')) $('#agregarGrupo').select2('destroy');
             if ($('#agregarAuxiliar').data('select2')) $('#agregarAuxiliar').select2('destroy');
+            if ($('#agregarCodigoLibre').data('select2')) $('#agregarCodigoLibre').select2('destroy');
             // El scroll lo restaura sanearScrollModales (handler global en ready).
         });
 

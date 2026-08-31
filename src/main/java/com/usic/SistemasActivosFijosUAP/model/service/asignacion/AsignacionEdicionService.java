@@ -196,7 +196,8 @@ public class AsignacionEdicionService {
                 }
             }
 
-            registrarHistorial(activo, origen, destino, respAntes, ofiAntes, solicitud.motivo(), usuario);
+            registrarHistorial(activo, origen, destino, respAntes, ofiAntes, solicitud.motivo(), usuario,
+                    "Separación de acta");
         }
 
         String resultadoVsiaf = enviarAlVsiaf(aEnviarAlVsiaf, usuario, avisos);
@@ -329,7 +330,8 @@ public class AsignacionEdicionService {
                 }
             }
 
-            registrarHistorial(activo, origen, destino, respAntes, ofiAntes, solicitud.motivo(), usuario);
+            registrarHistorial(activo, origen, destino, respAntes, ofiAntes, solicitud.motivo(), usuario,
+                    solicitud.adoptarDestino() ? "Traslado de acta" : "Traslado de acta (sin cambio de responsable/oficina)");
 
             // El acta que perdió bienes también cambió después de emitida.
             origen.setEstadoAsignacion("MODIFICADA");
@@ -354,6 +356,205 @@ public class AsignacionEdicionService {
 
         return new ResultadoOperacionActa(destino.getIdAsignacionActivo(), destino.getNumeroAsignacion(),
                 vigentes.size(), resultadoVsiaf, avisos);
+    }
+
+    /**
+     * Cambia el responsable y/o la oficina de la cabecera de un acta ya emitida.
+     * <p>
+     * No mueve bienes ni crea un acta nueva: es la operación que falta cuando lo único
+     * que está mal es el papel, no el contenido. Si se marca {@code propagarABienes}, el
+     * cambio también se aplica a los bienes vigentes del acta —mismo criterio y misma
+     * validación de predio que usan {@link #trasladar}/incorporar—; si no, solo cambia la
+     * cabecera y el VSIAF ni se entera.
+     */
+    @Transactional
+    public ResultadoOperacionActa editarCabecera(EdicionCabeceraActaDTO solicitud, Usuario usuario) {
+
+        if (!puedeEditar(usuario)) {
+            throw new SecurityException("Solo un ADMINISTRADOR o SUPER USUARIO puede editar la cabecera de un acta.");
+        }
+        if (solicitud.motivo() == null || solicitud.motivo().trim().length() < SeparacionActaDTO.MOTIVO_MINIMO) {
+            throw new IllegalArgumentException("Explicá el motivo del cambio (mínimo "
+                    + SeparacionActaDTO.MOTIVO_MINIMO + " caracteres). Queda en el historial del acta.");
+        }
+        if (solicitud.idResponsableDestino() == null && solicitud.idOficinaDestino() == null) {
+            throw new IllegalArgumentException("Elegí al menos un dato para cambiar: responsable u oficina.");
+        }
+
+        AsignacionActivo acta = asignacionDao.findByIdConDetalles(solicitud.idActa())
+                .orElseThrow(() -> new IllegalArgumentException("El acta no existe."));
+
+        Responsable nuevoResponsable = solicitud.idResponsableDestino() != null
+                ? responsableService.findById(solicitud.idResponsableDestino())
+                : acta.getResponsable();
+        Oficina nuevaOficina = solicitud.idOficinaDestino() != null
+                ? oficinaService.findById(solicitud.idOficinaDestino())
+                : acta.getOficinaDestino();
+
+        boolean cambioResponsable = !mismoId(nuevoResponsable, acta.getResponsable(), Responsable::getIdResponsable);
+        boolean cambioOficina = !mismoId(nuevaOficina, acta.getOficinaDestino(), Oficina::getIdOficina);
+        if (!cambioResponsable && !cambioOficina) {
+            throw new IllegalArgumentException("No hay ningún cambio para guardar: elegiste los mismos datos "
+                    + "que ya tenía el acta.");
+        }
+
+        List<DetalleAsignacionActivo> vigentes = new ArrayList<>();
+        if (solicitud.propagarABienes()) {
+            for (DetalleAsignacionActivo d : acta.getDetalles()) {
+                if (d.estaVigente() && d.getActivo() != null) vigentes.add(d);
+            }
+            if (vigentes.isEmpty()) {
+                throw new IllegalArgumentException("El acta no tiene bienes vigentes para propagar el cambio.");
+            }
+            validarMismoPredio(vigentes, nuevaOficina);
+        }
+
+        acta.setResponsable(nuevoResponsable);
+        acta.setOficinaDestino(nuevaOficina);
+        acta.setEstadoAsignacion("MODIFICADA");
+        acta.setModificacionIdUsuario(usuario.getIdUsuario());
+        asignacionDao.save(acta);
+
+        AsignacionMovimiento movimiento = new AsignacionMovimiento();
+        movimiento.setAsignacionOrigen(acta);
+        movimiento.setAsignacionDestino(null);
+        movimiento.setTipo(AsignacionMovimiento.EDICION_CABECERA);
+        movimiento.setMotivo(solicitud.motivo().trim());
+        movimiento.setIdUsuario(usuario.getIdUsuario());
+        movimiento.setNombreUsuario(usuario.getUsuario());
+
+        List<String> avisos = new ArrayList<>();
+        List<Activo> aEnviarAlVsiaf = new ArrayList<>();
+        int bienesActualizados = 0;
+
+        for (DetalleAsignacionActivo detalle : vigentes) {
+            Activo activo = detalle.getActivo();
+            String respAntes = nombreDe(activo.getResponsable());
+            String ofiAntes  = activo.getOficina() != null ? activo.getOficina().getNombre() : null;
+
+            boolean cambio = aplicarDestinoAlActivo(activo, nuevoResponsable, nuevaOficina, acta, acta);
+            if (!cambio) continue;
+
+            activo.setFecMod(LocalDate.now());
+            activo.setUsuMod(usuario.getUsuario());
+            activoService.save(activo);
+            bienesActualizados++;
+
+            AsignacionMovimientoDetalle det = new AsignacionMovimientoDetalle();
+            det.setActivo(activo);
+            det.setCodigoActivo(activo.getCodigo());
+            det.setResponsableAntes(respAntes);
+            det.setResponsableDespues(nombreDe(activo.getResponsable()));
+            det.setOficinaAntes(ofiAntes);
+            det.setOficinaDespues(activo.getOficina() != null ? activo.getOficina().getNombre() : null);
+            movimiento.agregarDetalle(det);
+
+            if ("ACTIVO".equalsIgnoreCase(activo.getEstado())) {
+                if (activo.getOficina() == null || activo.getOficina().getPredio() == null
+                        || activo.getOficina().getPredio().getEntidad() == null) {
+                    avisos.add("El bien " + activo.getCodigo() + " no tiene oficina, predio o entidad completos: "
+                             + "el cambio quedó en la base pero NO se envió al VSIAF.");
+                } else {
+                    aEnviarAlVsiaf.add(activo);
+                    det.setEnvioVsiaf(true);
+                }
+            }
+
+            registrarHistorial(activo, acta, acta, respAntes, ofiAntes, solicitud.motivo(), usuario,
+                    "Edición de cabecera");
+        }
+
+        String resultadoVsiaf = enviarAlVsiaf(aEnviarAlVsiaf, usuario, avisos);
+        movimiento.setResultadoVsiaf(resultadoVsiaf);
+        if (!avisos.isEmpty()) movimiento.setMensajeVsiaf(String.join(" | ", avisos));
+        movimientoDao.save(movimiento);
+
+        log.info("[EDITAR-CABECERA] Acta {} · {} bien(es) actualizado(s) · usuario {}",
+                acta.getNumeroAsignacion(), bienesActualizados, usuario.getUsuario());
+
+        return new ResultadoOperacionActa(acta.getIdAsignacionActivo(), acta.getNumeroAsignacion(),
+                bienesActualizados, resultadoVsiaf, avisos);
+    }
+
+    /**
+     * Consigue —o crea, la primera vez que hace falta en la gestión— el acta que sirve
+     * de destino cuando un traslado no tiene a dónde ir con claridad.
+     * <p>
+     * No lleva responsable ni oficina: es un cajón, no un responsable real. Por eso el
+     * traslado hacia acá siempre va con {@code adoptarDestino=false} en el front — el
+     * bien conserva su responsable y su oficina reales, solo cambia de acta en el papel.
+     */
+    @Transactional
+    public AsignacionActivo obtenerOCrearActaRegularizacion(Usuario usuario) {
+        if (!puedeEditar(usuario)) {
+            throw new SecurityException("Solo un ADMINISTRADOR o SUPER USUARIO puede usar el acta de regularización.");
+        }
+        int gestion = LocalDate.now().getYear();
+        String numero = "REG-" + gestion;
+        return asignacionDao.findFirstByNumeroAsignacion(numero).orElseGet(() -> {
+            AsignacionActivo acta = new AsignacionActivo();
+            acta.setNumeroAsignacion(numero);
+            acta.setTipoAsignacion("REGULARIZACION");
+            acta.setEstadoAsignacion("ACTIVA");
+            acta.setEstado("ACTIVO");
+            acta.setFechaAsignacion(LocalDateTime.now());
+            acta.setObservacion("Acta de regularización de la gestión " + gestion
+                    + ": agrupa bienes trasladados sin un acta de destino clara.");
+            acta.setRegistroIdUsuario(usuario.getIdUsuario());
+            AsignacionActivo guardada = asignacionDao.save(acta);
+            log.info("[REGULARIZACION] Creada el acta {} · usuario {}", numero, usuario.getUsuario());
+            return guardada;
+        });
+    }
+
+    /**
+     * Reintento manual de la sincronización con el VSIAF, para bienes puntuales de un
+     * acta — por fila o por lote, desde el modal.
+     * <p>
+     * No es una operación sobre el acta: no crea {@link AsignacionMovimiento} ni
+     * {@link HistorialActivo}. Es un empujón puntual para cuando el sync automático no
+     * reintenta solo (quedó en {@code ERROR} y ya se corrigió la causa, o el montaje
+     * CIFS estuvo caído y ya volvió). No sirve para el primer envío de un bien
+     * {@code PENDIENTE}: eso se publica desde Activos pendientes, otro flujo — por eso
+     * esos bienes se descartan acá con aviso en vez de intentarse.
+     */
+    @Transactional
+    public ResultadoOperacionActa subirAlVsiaf(List<Long> idsActivos, Usuario usuario) {
+        if (!puedeEditar(usuario)) {
+            throw new SecurityException("Solo un ADMINISTRADOR o SUPER USUARIO puede reintentar la subida al VSIAF.");
+        }
+        if (idsActivos == null || idsActivos.isEmpty()) {
+            throw new IllegalArgumentException("Elegí al menos un bien para subir al VSIAF.");
+        }
+
+        List<String> avisos = new ArrayList<>();
+        List<Activo> aEnviar = new ArrayList<>();
+
+        for (Long id : idsActivos) {
+            Activo activo = activoService.findById(id);
+            if (activo == null) {
+                avisos.add("El bien #" + id + " ya no existe.");
+                continue;
+            }
+            if (!"ACTIVO".equalsIgnoreCase(activo.getEstado())) {
+                avisos.add("El bien " + activo.getCodigo() + " está " + activo.getEstado()
+                        + ": se publica por primera vez desde Activos pendientes, no desde acá.");
+                continue;
+            }
+            aEnviar.add(activo);
+        }
+
+        String resultadoVsiaf = enviarAlVsiaf(aEnviar, usuario, avisos);
+
+        log.info("[SUBIR-VSIAF] {} bien(es) reintentados · usuario {}", aEnviar.size(), usuario.getUsuario());
+
+        return new ResultadoOperacionActa(null, null, aEnviar.size(), resultadoVsiaf, avisos);
+    }
+
+    private <T> boolean mismoId(T a, T b, java.util.function.Function<T, Long> idDe) {
+        if (a == null || b == null) return a == b;
+        Long idA = idDe.apply(a), idB = idDe.apply(b);
+        return idA != null && idA.equals(idB);
     }
 
     /**
@@ -544,7 +745,8 @@ public class AsignacionEdicionService {
     }
 
     private void registrarHistorial(Activo activo, AsignacionActivo origen, AsignacionActivo destino,
-                                    String respAntes, String ofiAntes, String motivo, Usuario usuario) {
+                                    String respAntes, String ofiAntes, String motivo, Usuario usuario,
+                                    String verbo) {
         try {
             HistorialActivo h = new HistorialActivo();
             h.setActivo(activo);
@@ -559,8 +761,11 @@ public class AsignacionEdicionService {
             h.setNombreOficinaNueva(activo.getOficina() != null ? activo.getOficina().getNombre() : null);
             h.setResponsableNuevo(activo.getResponsable());
             h.setNombreRespNuevo(nombreDe(activo.getResponsable()));
-            h.setDescripcionEvento("Separación de acta: pasó de "
-                    + textoActa(origen) + " a " + textoActa(destino) + ". Motivo: " + motivo.trim());
+            String detalleActa = (destino != null
+                    && !destino.getIdAsignacionActivo().equals(origen.getIdAsignacionActivo()))
+                    ? "pasó de " + textoActa(origen) + " a " + textoActa(destino)
+                    : "en el acta " + textoActa(origen);
+            h.setDescripcionEvento(verbo + ": " + detalleActa + ". Motivo: " + motivo.trim());
             historialDao.save(h);
         } catch (Exception e) {
             // El historial es importante, pero no al punto de tumbar una separación válida.

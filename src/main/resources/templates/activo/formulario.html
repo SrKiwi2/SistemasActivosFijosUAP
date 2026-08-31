@@ -3254,9 +3254,37 @@
             const codigoActual = $root.find('#codigo').val();
             if (!idActivo) return;
 
+            const predioId = $root.find('#predioCode').val();
+            const grupoId  = $root.find('#grupoCode').val();
+
+            let libres = null;
+            let mensajeSinPicker = 'No se pudo calcular la lista de códigos libres. Ingresa el código manualmente.';
+            if (predioId && grupoId) {
+                try {
+                    const rl = await fetch(`/administracion/correlativo/datos?predioId=${predioId}&grupoId=${grupoId}`);
+                    const dl = await rl.json();
+                    if (dl.ok) {
+                        libres = dl;
+                    } else if (dl.message) {
+                        mensajeSinPicker = dl.message;
+                    }
+                } catch (e) { /* sin red: cae a texto manual */ }
+            }
+
+            const huecos = (libres && Array.isArray(libres.huecos)) ? libres.huecos : [];
+            const hayPicker = !!(libres && libres.prefijo);
+
+            let opcionesHtml = huecos.map(n => {
+                const cod = `${libres.prefijo}-${String(n).padStart(5, '0')}`;
+                return `<option value="${cod}">${cod} — libre (hueco en la serie)</option>`;
+            }).join('');
+            if (hayPicker && libres.siguienteCodigoReal) {
+                opcionesHtml += `<option value="${libres.siguienteCodigoReal}">${libres.siguienteCodigoReal} — siguiente correlativo (nuevo)</option>`;
+            }
+
             const { value: datos } = await Swal.fire({
                 title: '<i class="fa-solid fa-key text-danger me-1"></i> Cambiar código del activo',
-                width: 540,
+                width: 560,
                 html: `
                     <div style="text-align:left; font-size:0.85rem;">
                         <div class="alert alert-warning py-2 px-3 mb-3" style="font-size:0.78rem;">
@@ -3275,9 +3303,31 @@
                         <label class="form-label fw-bold mb-1">
                             <span class="badge bg-danger me-1">2</span> Nuevo código <span class="text-danger">*</span>
                         </label>
-                        <input id="swalNuevoCodigo" class="form-control mb-1 font-monospace text-center"
-                               style="text-transform:uppercase;" value="${codigoActual}"
-                               placeholder="00-00-00-00000" autocomplete="off">
+                        <div class="input-group mb-1">
+                            <input id="swalNuevoCodigo" class="form-control font-monospace text-center"
+                                   style="text-transform:uppercase;" value="${codigoActual}"
+                                   placeholder="00-00-00-00000" autocomplete="off">
+                            ${hayPicker ? `
+                            <button type="button" id="swalBtnCodigoLibre" class="btn btn-outline-primary"
+                                    title="Elegir un código libre de la serie">
+                                <i class="fa-solid fa-list-check"></i>
+                            </button>` : ''}
+                        </div>
+                        ${hayPicker ? `
+                        <div id="swalWrapCodigoLibre" class="d-none mb-2">
+                            <select id="swalCodigoLibre" class="form-select form-select-sm font-monospace">
+                                <option value="">Seleccione un código libre...</option>
+                                ${opcionesHtml}
+                            </select>
+                            <div class="form-text" style="font-size:0.68rem;">
+                                ${huecos.length} código(s) libres para ${libres.municipio.nombre} ·
+                                ${libres.predio.descripcion} · ${libres.grupo.nombre}. Elige uno para
+                                completar el campo de arriba, o edítalo directamente.
+                            </div>
+                        </div>` : `
+                        <div class="alert alert-secondary py-2 px-3 mb-2" style="font-size:0.72rem;">
+                            <i class="fa-solid fa-circle-info me-1"></i> ${mensajeSinPicker}
+                        </div>`}
                         <div class="form-text mb-3" style="font-size:0.7rem;">
                             Formato: <b>MUNICIPIO-PREDIO-GRUPO-CORRELATIVO</b> (ej. 01-02-05-00123).
                         </div>
@@ -3294,6 +3344,28 @@
                         <input id="swalPassword" type="password" class="form-control"
                                placeholder="Confirma que eres tú" autocomplete="off">
                     </div>`,
+                didOpen: () => {
+                    if (hayPicker) {
+                        document.getElementById('swalBtnCodigoLibre').addEventListener('click', function () {
+                            const $wrap = $('#swalWrapCodigoLibre');
+                            if (!$wrap.hasClass('d-none')) { $wrap.addClass('d-none'); return; }
+                            $wrap.removeClass('d-none');
+                            if (!$('#swalCodigoLibre').data('select2')) {
+                                // select2 porque un prefijo puede acumular cientos de huecos: un
+                                // <select> nativo sería inmanejable para buscar un código puntual.
+                                $('#swalCodigoLibre').select2({
+                                    theme: 'bootstrap-5',
+                                    width: '100%',
+                                    dropdownParent: $(Swal.getPopup()),
+                                    placeholder: 'Seleccione un código libre...'
+                                });
+                                $('#swalCodigoLibre').on('change', function () {
+                                    if (this.value) document.getElementById('swalNuevoCodigo').value = this.value;
+                                });
+                            }
+                        });
+                    }
+                },
                 focusConfirm: false,
                 showCancelButton: true,
                 confirmButtonText: '<i class="fa-solid fa-check me-1"></i> Confirmar cambio',

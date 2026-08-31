@@ -38,7 +38,7 @@
                     <button class="btn btn-xs btn-icon btn-outline-secondary" title="Bajar" th:onclick="'bajarOpcion(' + ${seccion.idOpcion} + ')'"><i class="fa-solid fa-arrow-down"></i></button>
                     <button class="btn btn-xs btn-icon btn-outline-primary" title="Editar" th:onclick="'cargarFormularioEdit(' + ${seccion.idOpcion} + ')'" data-bs-toggle="modal" data-bs-target="#modalFormularioMenu"><i class="fa-solid fa-pen"></i></button>
                     <button class="btn btn-xs btn-icon btn-outline-info" title="Mostrar/Ocultar" th:onclick="'toggleOpcion(' + ${seccion.idOpcion} + ')'"><i class="fa-solid fa-eye"></i></button>
-                    <button class="btn btn-xs btn-icon btn-outline-danger" title="Eliminar" th:onclick="'eliminarOpcion(\'' + ${seccion.descripcion} + '\',' + ${seccion.idOpcion} + ')'"><i class="fa-solid fa-trash"></i></button>
+                    <button class="btn btn-xs btn-icon btn-outline-danger" title="Eliminar" th:data-nombre="${seccion.descripcion}" th:data-id="${seccion.idOpcion}" onclick="eliminarOpcion(this.dataset.nombre, this.dataset.id)"><i class="fa-solid fa-trash"></i></button>
                 </div>
             </div>
 
@@ -55,7 +55,7 @@
                         <button class="btn btn-xs btn-icon btn-outline-secondary" title="Bajar" th:onclick="'bajarOpcion(' + ${grupo.idOpcion} + ')'"><i class="fa-solid fa-arrow-down"></i></button>
                         <button class="btn btn-xs btn-icon btn-outline-primary" title="Editar" th:onclick="'cargarFormularioEdit(' + ${grupo.idOpcion} + ')'" data-bs-toggle="modal" data-bs-target="#modalFormularioMenu"><i class="fa-solid fa-pen"></i></button>
                         <button class="btn btn-xs btn-icon btn-outline-info" title="Mostrar/Ocultar" th:onclick="'toggleOpcion(' + ${grupo.idOpcion} + ')'"><i class="fa-solid fa-eye"></i></button>
-                        <button class="btn btn-xs btn-icon btn-outline-danger" title="Eliminar" th:onclick="'eliminarOpcion(\'' + ${grupo.descripcion} + '\',' + ${grupo.idOpcion} + ')'"><i class="fa-solid fa-trash"></i></button>
+                        <button class="btn btn-xs btn-icon btn-outline-danger" title="Eliminar" th:data-nombre="${grupo.descripcion}" th:data-id="${grupo.idOpcion}" onclick="eliminarOpcion(this.dataset.nombre, this.dataset.id)"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>
 
@@ -73,7 +73,7 @@
                         <button class="btn btn-xs btn-icon btn-outline-secondary" title="Bajar" th:onclick="'bajarOpcion(' + ${item.idOpcion} + ')'"><i class="fa-solid fa-arrow-down"></i></button>
                         <button class="btn btn-xs btn-icon btn-outline-primary" title="Editar" th:onclick="'cargarFormularioEdit(' + ${item.idOpcion} + ')'" data-bs-toggle="modal" data-bs-target="#modalFormularioMenu"><i class="fa-solid fa-pen"></i></button>
                         <button class="btn btn-xs btn-icon btn-outline-info" title="Mostrar/Ocultar" th:onclick="'toggleOpcion(' + ${item.idOpcion} + ')'"><i class="fa-solid fa-eye"></i></button>
-                        <button class="btn btn-xs btn-icon btn-outline-danger" title="Eliminar" th:onclick="'eliminarOpcion(\'' + ${item.descripcion} + '\',' + ${item.idOpcion} + ')'"><i class="fa-solid fa-trash"></i></button>
+                        <button class="btn btn-xs btn-icon btn-outline-danger" title="Eliminar" th:data-nombre="${item.descripcion}" th:data-id="${item.idOpcion}" onclick="eliminarOpcion(this.dataset.nombre, this.dataset.id)"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>
             </th:block>

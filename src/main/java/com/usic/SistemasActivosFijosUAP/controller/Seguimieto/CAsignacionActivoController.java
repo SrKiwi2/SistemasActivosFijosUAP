@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
-import com.usic.SistemasActivosFijosUAP.controller.formularios.PdfAsignacionActivoCompleto;
+import com.usic.SistemasActivosFijosUAP.controller.formularios.WordAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IConfiguracionGestionService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
@@ -44,6 +44,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.asignacion.AsignacionEdicionService;
+import com.usic.SistemasActivosFijosUAP.model.service.asignacion.EdicionCabeceraActaDTO;
 import com.usic.SistemasActivosFijosUAP.model.service.asignacion.ResultadoOperacionActa;
 import com.usic.SistemasActivosFijosUAP.model.service.asignacion.SeparacionActaDTO;
 import com.usic.SistemasActivosFijosUAP.model.service.asignacion.TrasladoActaDTO;
@@ -63,7 +64,7 @@ public class CAsignacionActivoController {
     private final IAsignacionActivoService asignacionActivoService;
     private final IUsuarioService usuarioService;
     private final IConfiguracionGestionService configuracionGestionService;
-    private final PdfAsignacionActivoCompleto pdfAsignacionActivoCompleto;
+    private final WordAsignacionActivoService wordAsignacionActivoService;
     private final AsignacionEdicionService asignacionEdicionService;
     private final IAsignacionMovimientoDao asignacionMovimientoDao;
 
@@ -278,6 +279,153 @@ public class CAsignacionActivoController {
     }
 
     /**
+     * Cambia el responsable y/o la oficina de la cabecera de un acta ya emitida.
+     * <p>
+     * No mueve bienes ni crea un acta nueva: es la corrección directa del papel. Si el
+     * pedido marca {@code propagarABienes}, el cambio también se aplica a los bienes
+     * vigentes del acta.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping(value = "/asignaciones/{id}/editar-cabecera", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<?> editarCabecera(@PathVariable Long id,
+                                            @RequestBody EdicionCabeceraRequest req,
+                                            HttpServletRequest httpReq) {
+        Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "msg", "Sesión expirada. Volvé a iniciar sesión."));
+        }
+
+        try {
+            EdicionCabeceraActaDTO solicitud = new EdicionCabeceraActaDTO(
+                    id, req.getIdResponsableDestino(), req.getIdOficinaDestino(),
+                    req.isPropagarABienes(), req.getMotivo());
+
+            ResultadoOperacionActa resultado = asignacionEdicionService.editarCabecera(solicitud, usuario);
+
+            String msg = "Cabecera actualizada."
+                    + (req.isPropagarABienes()
+                        ? " Se aplicó a " + resultado.getBienesMovidos() + " bien(es)."
+                        : "");
+            if (resultado.tieneAvisos()) {
+                msg += " Revisá " + resultado.getAvisos().size()
+                     + (resultado.getAvisos().size() == 1 ? " advertencia." : " advertencias.");
+            }
+
+            Map<String, Object> cuerpo = new LinkedHashMap<>();
+            cuerpo.put("ok", true);
+            cuerpo.put("msg", msg);
+            cuerpo.put("bienesActualizados", resultado.getBienesMovidos());
+            cuerpo.put("vsiaf", resultado.getResultadoVsiaf());
+            cuerpo.put("avisos", resultado.getAvisos());
+            return ResponseEntity.ok(cuerpo);
+
+        } catch (SecurityException sinPermiso) {
+            log.warn("[EDITAR-CABECERA] '{}' intentó editar la cabecera del acta {} sin permiso.", usuario.getUsuario(), id);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("ok", false, "msg", sinPermiso.getMessage()));
+        } catch (IllegalArgumentException datoInvalido) {
+            return ResponseEntity.ok(Map.of("ok", false, "msg", datoInvalido.getMessage()));
+        } catch (Exception e) {
+            log.error("[EDITAR-CABECERA] Error editando la cabecera del acta {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("ok", false, "msg", "No se pudo editar la cabecera: " + e.getMessage()));
+        }
+    }
+
+    /** Cuerpo del pedido de edición de cabecera. */
+    @lombok.Getter @lombok.Setter
+    public static class EdicionCabeceraRequest {
+        private Long idResponsableDestino;
+        private Long idOficinaDestino;
+        private boolean propagarABienes;
+        private String motivo;
+    }
+
+    /**
+     * Reintento manual de la sincronización con el VSIAF, por fila o por lote desde el
+     * modal — para cuando un bien quedó en {@code ERROR} y ya se corrigió la causa, o el
+     * sync automático no lo va a volver a tocar solo. Ver
+     * {@link AsignacionEdicionService#subirAlVsiaf} para el detalle de qué se descarta y
+     * por qué.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping(value = "/asignaciones/{id}/subir-vsiaf", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<?> subirAlVsiaf(@PathVariable Long id,
+                                          @RequestBody SubirVsiafRequest req,
+                                          HttpServletRequest httpReq) {
+        Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "msg", "Sesión expirada. Volvé a iniciar sesión."));
+        }
+        try {
+            ResultadoOperacionActa resultado = asignacionEdicionService.subirAlVsiaf(req.getIdsActivos(), usuario);
+
+            String msg = resultado.getBienesMovidos() + (resultado.getBienesMovidos() == 1
+                    ? " bien enviado al VSIAF." : " bienes enviados al VSIAF.");
+            if (resultado.tieneAvisos()) {
+                msg += " Revisá " + resultado.getAvisos().size()
+                     + (resultado.getAvisos().size() == 1 ? " advertencia." : " advertencias.");
+            }
+
+            Map<String, Object> cuerpo = new LinkedHashMap<>();
+            cuerpo.put("ok", true);
+            cuerpo.put("msg", msg);
+            cuerpo.put("bienesEnviados", resultado.getBienesMovidos());
+            cuerpo.put("vsiaf", resultado.getResultadoVsiaf());
+            cuerpo.put("avisos", resultado.getAvisos());
+            return ResponseEntity.ok(cuerpo);
+
+        } catch (SecurityException sinPermiso) {
+            log.warn("[SUBIR-VSIAF] '{}' intentó subir al VSIAF desde el acta {} sin permiso.", usuario.getUsuario(), id);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("ok", false, "msg", sinPermiso.getMessage()));
+        } catch (IllegalArgumentException datoInvalido) {
+            return ResponseEntity.ok(Map.of("ok", false, "msg", datoInvalido.getMessage()));
+        } catch (Exception e) {
+            log.error("[SUBIR-VSIAF] Error subiendo bienes del acta {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("ok", false, "msg", "No se pudo subir al VSIAF: " + e.getMessage()));
+        }
+    }
+
+    /** Cuerpo del pedido de subida manual al VSIAF. */
+    @lombok.Getter @lombok.Setter
+    public static class SubirVsiafRequest {
+        private List<Long> idsActivos;
+    }
+
+    /**
+     * Consigue —o crea, la primera vez en la gestión— el acta de regularización, para
+     * usarla como destino en el modal de Trasladar cuando no hay una acta clara.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/acta-regularizacion")
+    @ResponseBody
+    public ResponseEntity<?> actaRegularizacion(HttpServletRequest httpReq) {
+        Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "msg", "Sesión expirada. Volvé a iniciar sesión."));
+        }
+        try {
+            AsignacionActivo acta = asignacionEdicionService.obtenerOCrearActaRegularizacion(usuario);
+            return ResponseEntity.ok(Map.of("ok", true, "id", acta.getIdAsignacionActivo(),
+                    "numero", acta.getNumeroAsignacion()));
+        } catch (SecurityException sinPermiso) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("ok", false, "msg", sinPermiso.getMessage()));
+        } catch (Exception e) {
+            log.error("[REGULARIZACION] Error consiguiendo el acta: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("ok", false, "msg", "No se pudo obtener el acta de regularización: " + e.getMessage()));
+        }
+    }
+
+    /**
      * Busca bienes por código o descripción, diciendo en qué acta está cada uno.
      * <p>
      * Es lo que hace usable "incorporar": el usuario sabe el código del bien que se
@@ -406,16 +554,17 @@ public class CAsignacionActivoController {
     }
 
     /**
-     * Acta del documento en PDF.
+     * Acta del documento, en Word (.docx) — editable, y con el membrete institucional
+     * como imagen de fondo detrás del texto (se repite en cada página).
      * <p>
-     * La tabla y el modal ya apuntaban a esta ruta, pero el endpoint no existía: el
-     * único {@code /asignaciones/{id}/pdf} del proyecto vive en {@code SeguimientoController},
-     * bajo otro prefijo y sobre la entidad {@code Asignacion}, que es otra cosa. El botón
-     * de descarga de este módulo devolvía 404.
+     * Reusa {@link WordAsignacionActivoService}, el mismo generador que ya usa
+     * {@code ReportesController} para las actas que salen de Pendientes; ese generador
+     * es también el que arma la nota de traslado al pie, cuando el acta tiene
+     * movimientos que contar.
      */
     @ValidarUsuarioAutenticado
-    @GetMapping("/asignaciones/{id}/pdf")
-    public ResponseEntity<byte[]> actaPdf(@PathVariable Long id) {
+    @GetMapping("/asignaciones/{id}/word")
+    public ResponseEntity<byte[]> actaWord(@PathVariable Long id) {
         try {
             AsignacionActivo asignacion = asignacionActivoService.findByIdConDetalles(id).orElse(null);
             if (asignacion == null) return ResponseEntity.notFound().build();
@@ -436,18 +585,26 @@ public class CAsignacionActivoController {
                         return c;
                     });
 
-            byte[] pdf = pdfAsignacionActivoCompleto.generarActaAsignacion(asignacion, config);
+            String nombreUsuario = null;
+            if (asignacion.getRegistroIdUsuario() != null) {
+                nombreUsuario = usuarioService.findByIdUsuario(asignacion.getRegistroIdUsuario())
+                        .map(u -> u.getPersona() != null ? u.getPersona().getNombreCompleto() : null)
+                        .orElse(null);
+            }
+
+            byte[] docx = wordAsignacionActivoService.generarActaAsignacion(asignacion, config, nombreUsuario);
 
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDisposition(ContentDisposition.inline()
+            headers.setContentType(MediaType.parseMediaType(
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+            headers.setContentDisposition(ContentDisposition.attachment()
                     .filename("acta_" + (asignacion.getNumeroAsignacion() != null
-                            ? asignacion.getNumeroAsignacion() : id) + ".pdf")
+                            ? asignacion.getNumeroAsignacion() : id) + ".docx")
                     .build());
-            return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
+            return new ResponseEntity<>(docx, headers, HttpStatus.OK);
 
         } catch (Exception e) {
-            log.error("[ASIGNACION-PDF] No se pudo generar el acta {}: {}", id, e.getMessage(), e);
+            log.error("[ASIGNACION-WORD] No se pudo generar el acta {}: {}", id, e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -485,6 +642,7 @@ public class CAsignacionActivoController {
         }
     }
 
+    @ValidarUsuarioAutenticado
     @GetMapping("/asignaciones/{id}/detalles-json")
     @ResponseBody
     public ResponseEntity<?> obtenerDetallesAsignacionJson(@PathVariable Long id, HttpServletRequest httpReq) {
@@ -628,11 +786,24 @@ public class CAsignacionActivoController {
                 && usuario.getRol().getNombre() != null
                 && ROLES_EDICION.contains(usuario.getRol().getNombre().trim().toUpperCase());
 
+            // Ids planos de la cabecera, para precargar el modal de "Editar cabecera"
+            // sin pedir otro endpoint: esta ruta ya se llama cada vez que se abre el
+            // detalle del acta.
+            Map<String, Object> cabecera = new LinkedHashMap<>();
+            cabecera.put("idResponsable", asig.getResponsable() != null
+                    ? asig.getResponsable().getIdResponsable() : null);
+            cabecera.put("idOficinaDestino", asig.getOficinaDestino() != null
+                    ? asig.getOficinaDestino().getIdOficina() : null);
+            cabecera.put("idPredioOficina", asig.getOficinaDestino() != null
+                    && asig.getOficinaDestino().getPredio() != null
+                    ? asig.getOficinaDestino().getPredio().getIdPredio() : null);
+
             return ResponseEntity.ok(Map.of(
                 "ok", true,
                 "puedeEditar", puedeEditar,
                 "detalles", listaDetalles,
-                "resumen", resumen));
+                "resumen", resumen,
+                "cabecera", cabecera));
 
         } catch (Exception e) {
             log.error("[ASIGNACION-DETALLE] Error cargando detalles id={}: {}", id, e.getMessage());

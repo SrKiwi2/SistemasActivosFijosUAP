@@ -1652,6 +1652,7 @@ public class ActivosController {
         Boolean incluyeAcc     = body.get("incluyeAccesorio") instanceof Boolean && (Boolean) body.get("incluyeAccesorio");
         Long idGrupoContable   = toLong(body.get("idGrupoContable"));
         Long idAuxiliar        = toLong(body.get("idAuxiliar"));
+        String codigoLibreRaw  = (String) body.get("codigo");
         List<Map<String, Object>> detallesRaw = (List<Map<String, Object>>) body.get("detalles");
 
         String codigoRef = null;
@@ -1700,6 +1701,31 @@ public class ActivosController {
         String codPred = parts.length > 1 ? parts[1] : "";
         String codGrp = String.format("%02d", grupo.getCodDbf());
 
+        // Código libre (hueco) elegido a mano en vez del correlativo automático: solo
+        // tiene sentido para UN activo a la vez (no hay forma de que el usuario elija N
+        // huecos puntuales desde este modal).
+        String codigoManual = (codigoLibreRaw != null && !codigoLibreRaw.isBlank())
+                ? codigoLibreRaw.trim().toUpperCase() : null;
+        if (codigoManual != null) {
+            if (cantidad != 1) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "Un código libre solo se puede asignar a un activo a la vez (cantidad = 1)."));
+            }
+            if (!codigoManual.matches("^[^-]+-[^-]+-[0-9]+-[0-9]+$")) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Código con formato inválido."));
+            }
+            String prefijoEsperado = codMun + "-" + codPred + "-" + codGrp;
+            String prefijoCodigo = codigoManual.substring(0, codigoManual.lastIndexOf('-'));
+            if (!prefijoEsperado.equals(prefijoCodigo)) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "El código no corresponde al predio/grupo de esta asignación (esperado " + prefijoEsperado + ")."));
+            }
+            if (activoService.findByCodigo(codigoManual).isPresent()) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "El código " + codigoManual + " ya fue tomado. Elige otro."));
+            }
+        }
+
         OrganismoFinanciero orgFin = idOrgFin != null ? organismoFinancieroService.findById(idOrgFin) : null;
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
@@ -1727,7 +1753,9 @@ public class ActivosController {
 
         for (int i = 0; i < total; i++) {
             DetalleActivoDTO det = detalles.get(i);
-            String nuevoCodigo = funciones.generarCodigoPorCodes(codMun, codPred, codGrp);
+            String nuevoCodigo = (codigoManual != null)
+                    ? codigoManual
+                    : funciones.generarCodigoPorCodes(codMun, codPred, codGrp);
 
             Activo a = new Activo();
             a.setCodigo(nuevoCodigo);
@@ -1751,7 +1779,12 @@ public class ActivosController {
             a.setUsuario(usuarioNombre);
             a.setFecMod(LocalDate.now());
             a.setFechaUlt(LocalDate.now());
-            activoService.save(a);
+            try {
+                activoService.save(a);
+            } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "El código " + nuevoCodigo + " acaba de ser tomado por otro registro. Intenta de nuevo."));
+            }
 
             DetalleAsignacionActivo detalleAsig = new DetalleAsignacionActivo();
             detalleAsig.setAsignacionActivo(asig);

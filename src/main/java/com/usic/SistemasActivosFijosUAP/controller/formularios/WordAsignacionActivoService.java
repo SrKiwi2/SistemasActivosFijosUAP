@@ -48,11 +48,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableEntregaService;
+import com.usic.SistemasActivosFijosUAP.model.dao.IAsignacionMovimientoDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
+import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionMovimiento;
+import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionMovimientoDetalle;
 import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
 import com.usic.SistemasActivosFijosUAP.model.entity.DetalleAsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
+import java.util.List;
 
 /**
  * Genera el "ACTA DE ASIGNACIÓN" en formato Word (.docx) editable.
@@ -68,6 +72,9 @@ public class WordAsignacionActivoService {
 
     @Autowired
     private IResponsableEntregaService responsableEntregaService;
+
+    @Autowired
+    private IAsignacionMovimientoDao movimientoDao;
 
     // Carta: 8.5" x 11" en twips (1" = 1440 twips)
     private static final int PAGINA_ANCHO = 12240;
@@ -218,7 +225,10 @@ public class WordAsignacionActivoService {
             run(pie, "C.c/Arch.", false, 6).addBreak();
             run(pie, iniciales(nombreUsuario) + "/A-F", false, 6);
 
-            // ── 9. MEMBRETE DE FONDO + CONFIGURACIÓN DE PÁGINA ──────────
+            // ── 9. NOTA DE TRASLADO (si el acta tiene algo que contar) ──
+            agregarNotaTraslado(doc, asignacion);
+
+            // ── 10. MEMBRETE DE FONDO + CONFIGURACIÓN DE PÁGINA ─────────
             // (al final: el sectPr debe quedar como último elemento del body)
             agregarMembrete(doc);
             configurarPagina(doc);
@@ -322,6 +332,86 @@ public class WordAsignacionActivoService {
         mar.setRight(BigInteger.valueOf(1440));   // 1"
         mar.setHeader(BigInteger.valueOf(0));
         mar.setFooter(BigInteger.valueOf(0));
+    }
+
+    /**
+     * Agrega, al pie del documento, qué bienes salieron de esta acta y/o cuáles recibió
+     * de otra — para que el papel siga siendo verificable después de un traslado o una
+     * separación. No hace nada si el acta todavía no tiene id (recién armada, en los
+     * flujos de Pendientes) o si no hay movimientos que contar.
+     */
+    private void agregarNotaTraslado(XWPFDocument doc, AsignacionActivo asignacion) {
+        if (asignacion.getIdAsignacionActivo() == null) return;
+
+        List<AsignacionMovimiento> movimientos = movimientoDao.historialDeActa(asignacion.getIdAsignacionActivo());
+        if (movimientos.isEmpty()) return;
+
+        List<AsignacionMovimiento> salieron = movimientos.stream()
+                .filter(m -> m.getAsignacionOrigen() != null
+                        && asignacion.getIdAsignacionActivo().equals(m.getAsignacionOrigen().getIdAsignacionActivo())
+                        && !m.getDetalles().isEmpty())
+                .toList();
+        List<AsignacionMovimiento> recibieron = movimientos.stream()
+                .filter(m -> m.getAsignacionDestino() != null
+                        && asignacion.getIdAsignacionActivo().equals(m.getAsignacionDestino().getIdAsignacionActivo()))
+                .toList();
+
+        if (salieron.isEmpty() && recibieron.isEmpty()) return;
+
+        XWPFParagraph titulo = doc.createParagraph();
+        titulo.setSpacingBefore(300);
+        titulo.setSpacingAfter(120);
+        run(titulo, "NOTA DE TRASLADO", true, 10).setUnderline(UnderlinePatterns.SINGLE);
+
+        if (!salieron.isEmpty()) {
+            agregarBloqueMovimientos(doc, "Bienes que salieron de esta acta:", salieron, true);
+        }
+        if (!recibieron.isEmpty()) {
+            agregarBloqueMovimientos(doc, "Bienes que esta acta recibió:", recibieron, false);
+        }
+    }
+
+    private void agregarBloqueMovimientos(XWPFDocument doc, String subtitulo,
+                                          List<AsignacionMovimiento> movimientos, boolean actaEsOrigen) {
+        XWPFParagraph sub = doc.createParagraph();
+        sub.setSpacingAfter(80);
+        run(sub, subtitulo, true, 9);
+
+        for (AsignacionMovimiento m : movimientos) {
+            AsignacionActivo relacionada = actaEsOrigen ? m.getAsignacionDestino() : m.getAsignacionOrigen();
+            String actaTexto = relacionada != null
+                    ? (relacionada.getNumeroAsignacion() != null ? relacionada.getNumeroAsignacion()
+                            : "#" + relacionada.getIdAsignacionActivo())
+                    : "—";
+            String bienes = m.getDetalles().stream()
+                    .map(AsignacionMovimientoDetalle::getCodigoActivo)
+                    .filter(c -> c != null && !c.isBlank())
+                    .reduce((a, b) -> a + ", " + b)
+                    .orElse("—");
+            String fechaTexto = m.getFecha() != null
+                    ? m.getFecha().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "—";
+
+            XWPFParagraph p = doc.createParagraph();
+            p.setAlignment(ParagraphAlignment.BOTH);
+            p.setSpacingAfter(100);
+            run(p, "• " + fechaTexto + " — " + tipoLegible(m.getTipo())
+                    + (actaEsOrigen ? " hacia " : " desde ") + actaTexto
+                    + " — Bienes: " + bienes
+                    + " — Motivo: " + (m.getMotivo() != null ? m.getMotivo() : "—")
+                    + " — Usuario: " + (m.getNombreUsuario() != null ? m.getNombreUsuario() : "—"), false, 8);
+        }
+    }
+
+    private String tipoLegible(String tipo) {
+        if (tipo == null) return "Movimiento";
+        return switch (tipo) {
+            case "SEPARACION" -> "Separación";
+            case "TRASLADO" -> "Traslado";
+            case "INCORPORACION" -> "Incorporación";
+            case "EDICION_CABECERA" -> "Edición de cabecera";
+            case "ANULACION" -> "Anulación";
+            default -> tipo;
+        };
     }
 
     /**

@@ -38,18 +38,19 @@ Controller → Service (IService/ServiceImpl or model/service) → DAO/Repositor
 
 | Package | Role |
 |---|---|
-| `controller/` | Spring MVC controllers (40 total). REST controllers are in `controller/rest/` (3); the rest return Thymeleaf views. |
+| `controller/` | Spring MVC controllers (54 total). REST controllers are in `controller/rest/` (6); the rest return Thymeleaf views. |
 | `model/IService/` | Service interfaces |
 | `model/ServiceImpl/` | Service implementations for the interfaces above |
 | `model/service/` | Standalone concrete services (PDF generation, Excel import, AI, Drive upload, sync helpers) — many have no `IService` interface |
 | `model/dao/` | Spring Data JPA repositories for complex/custom queries |
 | `model/repository/` | Additional Spring Data repositories |
-| `model/entity/` | JPA entities (44 total) — `Activo` is the main aggregate |
+| `model/entity/` | JPA entities (53 total) — `Activo` is the main aggregate |
 | `model/dto/` | DTOs between controller and service layers (DBF DTOs under `model/dto/interoperabilidad/`) |
 | `config/` | Spring Security, datasource, MVC, audit, sync, and exception-handling config |
 | `interoperabilidad/` | DBF ↔ PostgreSQL bridge (top-level package — note: **not** under `model/` or `service/`) |
 | `config/sincronizacion/` | Scheduled sync orchestration and SSE push |
 | `componet/` | Async config, DBF change detection, SSE emitter registry (note the misspelled package name) |
+| `legacy/` | UI-facing controllers for direct legacy-DBF inspection/actions (e.g. `LegacyDbfUiController`), separate from the `interoperabilidad/` sync bridge |
 
 > Caution: package names are inconsistent. Service interfaces/impls live under `model/`, not `service/`. The DBF bridge lives in the top-level `interoperabilidad/` package, but a stray duplicate `JavaDbfService` also exists at `model/service/interoperabilidad/`. Confirm the actual path before importing.
 
