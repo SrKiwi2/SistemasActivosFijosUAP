@@ -39,6 +39,17 @@ public class DbfColaService {
     @Value("${legacy.dbf.path:/mnt/dbfwin}")
     private String dbfPath;
 
+    /**
+     * Dónde viven {@code _cola}, {@code _hechos} y {@code _errores}.
+     * <p>
+     * Por omisión, junto a los DBF. Se separa cuando la carpeta de los DBF está bajo una
+     * rutina de respaldo que no debe ver archivos de trabajo: apuntando esta propiedad a
+     * otro montaje, el share del VSIAF queda con los DBF y nada más. Si se cambia acá,
+     * hay que arrancar el worker con {@code -Cola} en la ruta equivalente de la VM.
+     */
+    @Value("${legacy.dbf.cola.path:${legacy.dbf.path:/mnt/dbfwin}}")
+    private String colaPath;
+
     private final DbfColaRegistroService registroService;
 
     private final ObjectMapper mapper = new ObjectMapper();
@@ -103,13 +114,13 @@ public class DbfColaService {
         try {
             verificarMontaje();
 
-            Path cola = Path.of(dbfPath, "_cola");
+            Path cola = Path.of(colaPath, "_cola");
             Files.createDirectories(cola);
             // Las carpetas de resultado se crean acá aunque las escriba el worker: si le
             // faltan, su Move-Item falla DESPUÉS de haber aplicado el SQL, el archivo se
             // queda en _cola y la misma orden se vuelve a ejecutar en bucle contra el DBF.
-            Files.createDirectories(Path.of(dbfPath, "_hechos"));
-            Files.createDirectories(Path.of(dbfPath, "_errores"));
+            Files.createDirectories(Path.of(colaPath, "_hechos"));
+            Files.createDirectories(Path.of(colaPath, "_errores"));
 
             String nombre = tabla + "_" + System.currentTimeMillis() + "_"
                     + UUID.randomUUID().toString().substring(0, 8);
@@ -152,6 +163,10 @@ public class DbfColaService {
             throw new IllegalStateException("En " + dbfPath + " no está ACTUAL.DBF: el montaje del "
                     + "VSIAF no está activo. La orden no se encola para no dejarla en una carpeta "
                     + "que el worker no lee.");
+        }
+        if (!colaPath.equals(dbfPath) && !Files.isDirectory(Path.of(colaPath))) {
+            throw new IllegalStateException("La carpeta de cola (" + colaPath
+                    + ") no está disponible: revisá ese montaje.");
         }
     }
 

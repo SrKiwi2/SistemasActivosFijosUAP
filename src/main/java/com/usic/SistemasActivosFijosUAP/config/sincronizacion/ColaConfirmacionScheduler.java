@@ -57,6 +57,10 @@ public class ColaConfirmacionScheduler {
     @Value("${legacy.dbf.path:/mnt/dbfwin}")
     private String dbfPath;
 
+    /** Dónde están _cola/_hechos/_errores; por omisión, junto a los DBF. */
+    @Value("${legacy.dbf.cola.path:${legacy.dbf.path:/mnt/dbfwin}}")
+    private String colaPath;
+
     @Value("${legacy.dbf.write.mode:bytes}")
     private String writeMode;
 
@@ -81,9 +85,9 @@ public class ColaConfirmacionScheduler {
                 DbfColaOrden.ENCOLADA, PageRequest.of(0, Math.max(1, lote)));
         if (pendientes.isEmpty()) return;
 
-        Path cola    = Path.of(dbfPath, "_cola");
-        Path hechos  = Path.of(dbfPath, "_hechos");
-        Path errores = Path.of(dbfPath, "_errores");
+        Path cola    = Path.of(colaPath, "_cola");
+        Path hechos  = Path.of(colaPath, "_hechos");
+        Path errores = Path.of(colaPath, "_errores");
 
         int ok = 0, fallidas = 0, extraviadas = 0;
         Set<Long> activosTocados = new LinkedHashSet<>();

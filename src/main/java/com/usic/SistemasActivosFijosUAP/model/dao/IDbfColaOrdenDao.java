@@ -39,6 +39,15 @@ public interface IDbfColaOrdenDao extends JpaRepository<DbfColaOrden, Long> {
         """)
     List<Object[]> resumenPorActivo(@Param("ids") List<Long> ids);
 
+    /**
+     * Órdenes en un estado dado posteriores a la última ya avisada.
+     * <p>
+     * Lo usa el aviso automático para no repetir la misma alerta en cada pasada: solo
+     * mira lo que apareció después de lo último que notificó.
+     */
+    List<DbfColaOrden> findByEstadoAndIdOrdenGreaterThanOrderByIdOrdenAsc(
+            String estado, Long idOrden, Pageable pageable);
+
     /** Órdenes de un activo, de la más reciente a la más vieja. */
     List<DbfColaOrden> findByIdActivoOrderByIdOrdenDesc(Long idActivo);
 }

@@ -1,6 +1,9 @@
 package com.usic.SistemasActivosFijosUAP.model.service;
 
+import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -8,7 +11,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,7 +18,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -52,11 +53,21 @@ public class ColaVsiafDiagnosticoService {
     @Value("${legacy.dbf.path:/mnt/dbfwin}")
     private String dbfPath;
 
+    /** Dónde están _cola/_hechos/_errores; por omisión, junto a los DBF. */
+    @Value("${legacy.dbf.cola.path:${legacy.dbf.path:/mnt/dbfwin}}")
+    private String colaPath;
+
     @Value("${legacy.dbf.write.mode:bytes}")
     private String writeMode;
 
-    /** Tiempo máximo que esperamos al CIFS antes de darlo por colgado. */
-    @Value("${monitor.conexiones.timeout.ms:4000}")
+    /**
+     * Tiempo máximo que esperamos al CIFS antes de darlo por colgado.
+     * <p>
+     * Más holgado que el del monitor del topbar: acá se listan carpetas que pueden tener
+     * miles de archivos sobre un montaje con {@code cache=none}, donde cada operación es
+     * un viaje a la red.
+     */
+    @Value("${sync.cola.diagnostico.timeout.ms:8000}")
     private long timeoutMs;
 
     /**
@@ -65,6 +76,12 @@ public class ColaVsiafDiagnosticoService {
      */
     @Value("${sync.cola.worker.minutos-inactividad:10}")
     private long minutosInactividad;
+
+    /** Tope de archivos a contar por carpeta: el número exacto de un histórico no aporta. */
+    private static final int TOPE_CONTEO = 2000;
+
+    /** Cuánto del final de worker.log se lee. */
+    private static final int TOPE_LOG_BYTES = 8192;
 
     private final ExecutorService ejecutor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "diagnostico-cola-vsiaf");
@@ -83,6 +100,7 @@ public class ColaVsiafDiagnosticoService {
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("modoEscritura", writeMode);
         r.put("rutaDbf", dbfPath);
+        r.put("rutaCola", colaPath);
 
         Map<String, Object> carpetas = leerCarpetasConTimeout();
         r.put("carpetas", carpetas);
@@ -102,17 +120,17 @@ public class ColaVsiafDiagnosticoService {
         } catch (Exception e) {
             tarea.cancel(true);
             return Map.of("accesible", false,
-                    "error", "No se pudo leer " + dbfPath + " en " + timeoutMs
+                    "error", "No se pudo leer " + colaPath + " en " + timeoutMs
                            + " ms. El montaje del VSIAF puede estar caído o colgado.");
         }
     }
 
     private Map<String, Object> leerCarpetas() {
         Map<String, Object> m = new LinkedHashMap<>();
-        Path base = Path.of(dbfPath);
+        Path base = Path.of(colaPath);
         if (!Files.isDirectory(base)) {
             m.put("accesible", false);
-            m.put("error", "La carpeta " + dbfPath + " no existe o no es accesible desde el servidor.");
+            m.put("error", "La carpeta " + colaPath + " no existe o no es accesible desde el servidor.");
             return m;
         }
         m.put("accesible", true);
@@ -123,7 +141,15 @@ public class ColaVsiafDiagnosticoService {
         return m;
     }
 
-    /** Cuántos .json hay en la carpeta y de cuándo son el más viejo y el más nuevo. */
+    /**
+     * Cuántos .json hay en la carpeta y cuándo se tocó por última vez.
+     * <p>
+     * La fecha sale del directorio, no de los archivos: sobre CIFS con {@code cache=none}
+     * preguntar la fecha de cada archivo es un viaje a la red por archivo, y en {@code
+     * _hechos}, que crece sin tope, eso agotaba el timeout y hacía que el diagnóstico
+     * informara el montaje como caído estando sano. El directorio cambia de fecha cuando
+     * el worker mueve algo adentro, que es justo lo que queremos saber.
+     */
     private Map<String, Object> contar(Path dir) {
         Map<String, Object> m = new LinkedHashMap<>();
         if (!Files.isDirectory(dir)) {
@@ -132,11 +158,14 @@ public class ColaVsiafDiagnosticoService {
             return m;
         }
         m.put("existe", true);
-        try (Stream<Path> s = Files.list(dir)) {
-            List<Path> jsons = s.filter(p -> p.getFileName().toString().endsWith(".json")).toList();
-            m.put("archivos", jsons.size());
-            m.put("masViejo", fechaDe(jsons.stream().min(Comparator.comparing(this::mtime)).orElse(null)));
-            m.put("masNuevo", fechaDe(jsons.stream().max(Comparator.comparing(this::mtime)).orElse(null)));
+        m.put("ultimoCambio", fechaDe(dir));
+        try (DirectoryStream<Path> ds = Files.newDirectoryStream(dir, "*.json")) {
+            int n = 0;
+            for (Path ignorado : ds) {
+                if (++n >= TOPE_CONTEO) break;   // no hace falta el número exacto de un histórico
+            }
+            m.put("archivos", n);
+            m.put("truncado", n >= TOPE_CONTEO);
         } catch (Exception e) {
             m.put("archivos", -1);
             m.put("error", e.getMessage());
@@ -154,14 +183,29 @@ public class ColaVsiafDiagnosticoService {
         m.put("existe", true);
         m.put("ultimaEscritura", fechaDe(log));
         try {
-            List<String> lineas = Files.readAllLines(log, StandardCharsets.UTF_8);
-            List<String> ultimas = new ArrayList<>(
-                    lineas.subList(Math.max(0, lineas.size() - 15), lineas.size()));
-            m.put("ultimasLineas", ultimas);
+            // Solo el final del archivo: worker.log crece sin tope y leerlo entero por
+            // CIFS es caro y no aporta nada, lo último es lo que interesa.
+            m.put("ultimasLineas", ultimasLineas(log));
         } catch (Exception e) {
             m.put("error", "No se pudo leer worker.log: " + e.getMessage());
         }
         return m;
+    }
+
+    /** Últimas líneas del log, leyendo a lo sumo los últimos {@value #TOPE_LOG_BYTES} bytes. */
+    private List<String> ultimasLineas(Path log) throws Exception {
+        long tam = Files.size(log);
+        long desde = Math.max(0, tam - TOPE_LOG_BYTES);
+        byte[] buf = new byte[(int) Math.min(tam, TOPE_LOG_BYTES)];
+        try (SeekableByteChannel ch = Files.newByteChannel(log)) {
+            ch.position(desde);
+            ByteBuffer bb = ByteBuffer.wrap(buf);
+            while (bb.hasRemaining() && ch.read(bb) > 0) { /* leer hasta llenar */ }
+        }
+        String texto = new String(buf, StandardCharsets.UTF_8);
+        List<String> lineas = new ArrayList<>(List.of(texto.split("\r?\n")));
+        if (desde > 0 && !lineas.isEmpty()) lineas.remove(0);   // la primera quedó cortada
+        return lineas.subList(Math.max(0, lineas.size() - 15), lineas.size());
     }
 
     private Instant mtime(Path p) {
@@ -291,7 +335,7 @@ public class ColaVsiafDiagnosticoService {
         for (String clave : List.of("hechos", "errores")) {
             Object c = carpetas.get(clave);
             if (c instanceof Map<?, ?> cm) {
-                max = mayor(max, (LocalDateTime) ((Map<String, Object>) cm).get("masNuevo"));
+                max = mayor(max, (LocalDateTime) ((Map<String, Object>) cm).get("ultimoCambio"));
             }
         }
         return max;

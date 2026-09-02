@@ -23,7 +23,13 @@
         ... Worker-Vsiaf.ps1 -Carpeta "C:\vsiaf\dbfs" -Loop
 #>
 param(
+    # Carpeta de los DBF: es el Data Source de VFPOLEDB.
     [string]$Carpeta = "C:\vsiaf\dbfs",
+    # Carpeta donde el SCIAF deja _cola (y donde se escriben _hechos, _errores y
+    # worker.log). Por omision, la misma de los DBF. Se separa cuando esa carpeta
+    # esta bajo respaldo y no debe contener archivos de trabajo; tiene que coincidir
+    # con legacy.dbf.cola.path del SCIAF.
+    [string]$Cola = "",
     [switch]$Loop
 )
 
@@ -33,10 +39,12 @@ if ([Environment]::Is64BitProcess) {
     return
 }
 
-$colaDir    = Join-Path $Carpeta "_cola"
-$hechosDir  = Join-Path $Carpeta "_hechos"
-$erroresDir = Join-Path $Carpeta "_errores"
-$logFile    = Join-Path $Carpeta "worker.log"
+if ([string]::IsNullOrWhiteSpace($Cola)) { $Cola = $Carpeta }
+
+$colaDir    = Join-Path $Cola "_cola"
+$hechosDir  = Join-Path $Cola "_hechos"
+$erroresDir = Join-Path $Cola "_errores"
+$logFile    = Join-Path $Cola "worker.log"
 foreach ($d in @($colaDir, $hechosDir, $erroresDir)) {
     if (-not (Test-Path $d)) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
 }
