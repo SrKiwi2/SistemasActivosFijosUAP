@@ -48,6 +48,9 @@ public interface IDbfColaOrdenDao extends JpaRepository<DbfColaOrden, Long> {
     List<DbfColaOrden> findByEstadoAndIdOrdenGreaterThanOrderByIdOrdenAsc(
             String estado, Long idOrden, Pageable pageable);
 
+    /** La orden más reciente en un estado dado. */
+    java.util.Optional<DbfColaOrden> findFirstByEstadoOrderByIdOrdenDesc(String estado);
+
     /** Órdenes de un activo, de la más reciente a la más vieja. */
     List<DbfColaOrden> findByIdActivoOrderByIdOrdenDesc(Long idActivo);
 }

@@ -41,6 +41,16 @@ if ([Environment]::Is64BitProcess) {
 
 if ([string]::IsNullOrWhiteSpace($Cola)) { $Cola = $Carpeta }
 
+# Una sola instancia a la vez. Dos workers sobre la misma carpeta se pisan: uno mueve el
+# archivo mientras el otro lo esta leyendo, y la orden ya aplicada termina en _errores con
+# un motivo falso ("Orden sin 'tabla'"). Si la tarea programada ya esta corriendo, una
+# corrida manual sale avisando en vez de duplicar el trabajo.
+$mutex = New-Object System.Threading.Mutex($false, "Global\Worker-Vsiaf")
+if (-not $mutex.WaitOne(0)) {
+    Write-Host "Ya hay otro worker procesando esta carpeta (tarea programada). No se hace nada." -ForegroundColor Yellow
+    return
+}
+
 $colaDir    = Join-Path $Cola "_cola"
 $hechosDir  = Join-Path $Cola "_hechos"
 $erroresDir = Join-Path $Cola "_errores"
@@ -200,6 +210,9 @@ do {
             $schemaCache = @{}
             foreach ($a in $archivos) {
                 try {
+                    # Pudo desaparecer entre el listado y ahora (otra corrida, o limpieza
+                    # manual). No es un error: no hay orden que aplicar.
+                    if (-not (Test-Path $a.FullName)) { continue }
                     $sql = Procesar-Orden $conn $a.FullName $schemaCache
                     Move-Item $a.FullName -Destination (Join-Path $hechosDir $a.Name) -Force
                     Log ("OK    {0}  ->  {1}" -f $a.Name, $sql)

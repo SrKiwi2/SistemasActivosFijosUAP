@@ -18,6 +18,7 @@ import com.usic.SistemasActivosFijosUAP.model.dao.IDbfColaOrdenDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.DbfColaOrden;
 import com.usic.SistemasActivosFijosUAP.model.entity.Notificacion;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -68,6 +69,26 @@ public class ColaVsiafAlertaScheduler {
 
     /** Cuándo se avisó por última vez que la cola estaba trabada. */
     private LocalDateTime ultimoAvisoAtasco;
+
+    /**
+     * Al arrancar, se toma como ya avisado todo lo que falló antes.
+     * <p>
+     * Sin esto, el primer arranque después de desplegar avisaría de rechazos viejos —que
+     * quizá ya se corrigieron a mano— y la alerta nacería desacreditada. Lo que importa
+     * avisar es lo que falla de ahora en adelante; lo histórico se consulta en el tablero.
+     */
+    @PostConstruct
+    void tomarPuntoDePartida() {
+        if (!"cola".equalsIgnoreCase(writeMode)) return;
+        try {
+            colaDao.findFirstByEstadoOrderByIdOrdenDesc(DbfColaOrden.ERROR)
+                   .ifPresent(o -> ultimoErrorAvisado = o.getIdOrden());
+            log.info("[COLA-ALERTA] Avisos activos. Se ignoran los rechazos hasta la orden {}.",
+                    ultimoErrorAvisado);
+        } catch (Exception e) {
+            log.warn("[COLA-ALERTA] No se pudo leer el último rechazo: {}", e.getMessage());
+        }
+    }
 
     @Scheduled(fixedDelayString = "${sync.cola.alerta.interval.ms:300000}",
                initialDelayString = "${sync.cola.alerta.initial.delay.ms:120000}")
