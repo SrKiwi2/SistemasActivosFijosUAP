@@ -156,8 +156,30 @@ function Procesar-Orden($conn, $archivo, $schemaCache) {
         $sql = "UPDATE $tabla SET " + ($sets -join ", ") + " WHERE " + ($wheres -join " AND ")
     }
 
-    $conn.Execute($sql) | Out-Null
+    Ejecutar-ConReintentos $conn $sql
     return $sql
+}
+
+# Reintenta los errores de bloqueo del DBF. VFP no deja escribir un registro que otro
+# proceso tiene abierto: si en ese instante alguien esta parado sobre esa fila en el
+# VSIAF, el Execute falla con "Record is not locked" o "File is in use". Sin reintento
+# la orden se daba por rechazada para siempre y el cambio no llegaba nunca, aunque un
+# segundo despues la fila ya estuviera libre.
+function Ejecutar-ConReintentos($conn, $sql) {
+    $intentos = 4
+    for ($i = 1; $i -le $intentos; $i++) {
+        try {
+            $conn.Execute($sql) | Out-Null
+            if ($i -gt 1) { Log ("REINTENTO OK (intento {0})  ->  {1}" -f $i, $sql) }
+            return
+        } catch {
+            $msg = $_.Exception.Message
+            $esBloqueo = ($msg -match "not locked|is in use|locked by another|bloque")
+            if (-not $esBloqueo -or $i -eq $intentos) { throw }
+            Log ("BLOQUEADO (intento {0}/{1}): {2}" -f $i, $intentos, $msg)
+            Start-Sleep -Seconds (2 * $i)
+        }
+    }
 }
 
 do {

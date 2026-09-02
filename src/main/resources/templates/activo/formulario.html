@@ -1863,16 +1863,24 @@
                 const predId = $root.find('#predioCode').val();
 
                 if (grpId) {
-                    $.get(`/api/${grpId}/meta`, function (meta) {
+                    // Las dos llamadas se publican como promesa: fillFromDTO las espera en vez
+                    // de dormir un tiempo fijo. Con el timeout, la primera búsqueda (catálogo
+                    // aún sin cachear) terminaba de cargar DESPUÉS de que se había puesto el
+                    // auxiliar, y cargarSelect reconstruye el <select> perdiendo la selección.
+                    $vida.data('metaPromise', $.get(`/api/${grpId}/meta`, function (meta) {
                         if (meta && meta.vidaUtil) $vida.val(meta.vidaUtil);
-                    });
+                    }));
                     if ( predId && grpId) {
-                        cargarSelect('/api/buscar_auxiliar_lista', { predioId: predId, grupoId: grpId }, $aux, '(Opcional)');
+                        $aux.data('loadPromise',
+                            cargarSelect('/api/buscar_auxiliar_lista', { predioId: predId, grupoId: grpId }, $aux, '(Opcional)'));
                     } else {
+                        $aux.removeData('loadPromise');
                         $aux.empty().prop('disabled', true);
                     }
                 } else {
+                    $vida.removeData('metaPromise');
                     $vida.val('');
+                    $aux.removeData('loadPromise');
                     $aux.empty().prop('disabled', true);
                 }
                 sincronizarBotonNuevoAuxiliar();
@@ -3164,11 +3172,30 @@
 
                 if (d.grupoContableId) {
                     $root.find('#grupoCode').val(String(d.grupoContableId)).trigger('change');
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    // Esperar la carga REAL del catálogo de auxiliares y de la meta del grupo,
+                    // no un timeout: era la causa de que a la primera búsqueda el auxiliar (y a
+                    // veces los demás campos) apareciera vacío y hubiera que buscar dos veces.
+                    const mp = $root.find('#vidaUtil').data('metaPromise');
+                    if (mp) { try { await mp; } catch (e) { } }
+                    const ap = $root.find('#auxiliarId').data('loadPromise');
+                    if (ap) { try { await ap; } catch (e) { } }
+                }
+
+                // Después del grupo: su handler pisa la vida útil con la del grupo contable,
+                // y la que vale es la que tiene guardada el activo.
+                if (d.vidaUtil !== null && d.vidaUtil !== undefined && d.vidaUtil !== '') {
+                    $root.find('#vidaUtil').val(d.vidaUtil);
                 }
 
                 if (d.auxiliarId) {
-                    $root.find('#auxiliarId').val(String(d.auxiliarId)).trigger('change');
+                    const $aux = $root.find('#auxiliarId');
+                    // Si el auxiliar del activo no vino en la lista (quedó fuera del predio o
+                    // grupo actual), se agrega para no perder la selección al guardar.
+                    if ($aux.find(`option[value="${d.auxiliarId}"]`).length === 0) {
+                        $aux.append(new Option(d.auxiliarNombre || '(Auxiliar)', d.auxiliarId, true, true));
+                    }
+                    $aux.prop('disabled', false);
+                    $aux.val(String(d.auxiliarId)).trigger('change');
                 }
 
                 if (d.organismoFinancieroId) {
@@ -3207,7 +3234,12 @@
                 const res = await r.json();
                 hideGlobalLoader();
                 if (r.ok && res.ok) {
-                    Swal.fire('Guardado', res.msg, 'success').then(() => {
+                    // El guardado en la base y el envío al VSIAF son dos cosas distintas: si el
+                    // VSIAF no lo recibió hay que verlo acá, no descubrirlo días después.
+                    const problema = (res.vsiaf === 'ERROR' || res.vsiaf === 'PARCIAL');
+                    Swal.fire(problema ? 'Guardado, con aviso' : 'Guardado',
+                              res.msg,
+                              problema ? 'warning' : 'success').then(() => {
                         switchView('VIEW_SINGLE'); lockSingleForm(true);
                         if (typeof cargarTabla === 'function') cargarTabla();
                     });

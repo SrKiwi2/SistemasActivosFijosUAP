@@ -680,6 +680,25 @@ public class ActivosController {
         return actualDbfWriterService.esModoCola() ? "EN_COLA" : "OK";
     }
 
+    /**
+     * Deja anotado en el activo que el envío al VSIAF no salió, con el motivo.
+     * <p>
+     * Fuera de {@code @Transactional} el {@code save} explícito es lo que hace que la
+     * marca sobreviva: si no, el activo queda con el cambio en la base y sin rastro de
+     * que el VSIAF nunca lo recibió.
+     */
+    private void marcarErrorDeEnvio(Activo a, String motivo) {
+        try {
+            a.setSincVsiaf(Activo.SINC_ERROR);
+            a.setSincVsiafMensaje(motivo);
+            a.setSincVsiafFecha(LocalDateTime.now());
+            activoService.save(a);
+        } catch (Exception e) {
+            log.warn("No se pudo marcar el error de sincronización del activo {}: {}",
+                    a.getCodigo(), e.getMessage());
+        }
+    }
+
     /** Frase para el usuario, acorde a si la escritura ya ocurrió o está en camino. */
     private String detalleEnvio() {
         return actualDbfWriterService.esModoCola()
@@ -718,7 +737,12 @@ public class ActivosController {
             boolean estabaActivo = "ACTIVO".equalsIgnoreCase(activoOriginal.getEstado());
 
             activoOriginal.setCodigo(activoForm.getCodigo());
-            activoOriginal.setCodigoSec(activoForm.getCodigoSec());
+            // El formulario no tiene campo para codigoSec (código secundario que viene del
+            // VSIAF). Copiarlo tal cual del form manda null y borra el que ya tenía, en la
+            // base y —vía la orden UPDATE— en ACTUAL.DBF.
+            if (activoForm.getCodigoSec() != null) {
+                activoOriginal.setCodigoSec(activoForm.getCodigoSec());
+            }
             activoOriginal.setDescripcion(activoForm.getDescripcion());
             activoOriginal.setCosto(activoForm.getCosto());
             activoOriginal.setVidaUtil(activoForm.getVidaUtil());
@@ -795,11 +819,19 @@ public class ActivosController {
                     if (activoOriginal.getOficina() == null || 
                         activoOriginal.getOficina().getPredio() == null ||
                         activoOriginal.getOficina().getPredio().getEntidad() == null) {
-                        return ResponseEntity.ok(Map.of("ok", true, "msg", "Actualizado en BD. No se sincronizó DBF por falta de datos de Oficina."));
+                        marcarErrorDeEnvio(activoOriginal,
+                                "Al activo le faltan datos de oficina, predio o entidad: no se pudo armar el envío al VSIAF.");
+                        return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "ERROR",
+                                "msg", "Guardado en la base, pero NO se envió al VSIAF: al activo le faltan datos de "
+                                     + "oficina, predio o entidad. El VSIAF quedó con la información anterior."));
                     }
 
                     String entidadCode = activoOriginal.getOficina().getPredio().getEntidad().getEntidadCodigo();
                     String unidadCode = activoOriginal.getOficina().getPredio().getUnidad();
+
+                    // Si la modificación cambió el auxiliar, el nuevo puede no existir todavía
+                    // en AUXILIAR.DBF: mandarlo primero evita un CODAUX huérfano en el VSIAF.
+                    String fallaAux = sincronizarAuxiliarDelActivo(activoOriginal, usuarioNombre);
 
                     actualDbfWriterService.actualizarDesdeActivo(
                         codigoOriginal,
@@ -809,15 +841,31 @@ public class ActivosController {
                         usuarioNombre
                     );
 
-                    return ResponseEntity.ok(Map.of("ok", true, "msg", "Activo actualizado correctamente en BD y DBF"));
+                    // Encolar no es haber escrito: en modo cola la orden la aplica el worker
+                    // VFPOLEDB y recién ahí el DBF cambia. La marca deja el activo visible
+                    // como EN_COLA hasta que ColaConfirmacionScheduler lea la respuesta.
+                    marcarEnvioAlVsiaf(activoOriginal);
+                    activoService.save(activoOriginal);
+
+                    if (fallaAux != null) {
+                        return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "PARCIAL",
+                                "msg", "Cambios enviados al VSIAF, pero el auxiliar NO se pudo enviar ("
+                                     + fallaAux + "): en el VSIAF el activo va a verse sin auxiliar."));
+                    }
+                    return ResponseEntity.ok(Map.of("ok", true, "vsiaf", estadoEnvio(),
+                            "msg", "Cambios guardados en la base. " + detalleEnvio()));
 
                 } catch (Exception e) {
                     log.error("Error sync DBF al modificar: {}", e.getMessage());
-                    return ResponseEntity.ok(Map.of("ok", true, "msg", "Guardado en BD, pero falló DBF: " + e.getMessage()));
+                    marcarErrorDeEnvio(activoOriginal, "No se pudo dejar la orden para el VSIAF: " + e.getMessage());
+                    return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "ERROR",
+                            "msg", "Guardado en la base, pero FALLÓ el envío al VSIAF: " + e.getMessage()
+                                 + ". Los dos sistemas quedaron distintos: revisá la cola o usá Conciliación."));
                 }
             }
 
-            return ResponseEntity.ok(Map.of("ok", true, "msg", "Modificación guardada (Estado: Pendiente)"));
+            return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "NO_APLICA",
+                    "msg", "Modificación guardada. El activo sigue PENDIENTE, así que no se envió nada al VSIAF."));
 
         } catch (Exception e) {
             log.error("Error fatal modificando activo", e);
