@@ -72,7 +72,12 @@
 
 <script th:inline="javascript">
     // Códigos de la plantilla del rol del usuario (para el botón "Cargar plantilla del rol").
-    const PLANTILLA_ROL = /*[[${plantillaRol}]]*/ [];
+    // var, no const: este modal se recarga por AJAX (fragment.js inyecta el HTML con
+    // $(...).html(), que reejecuta el <script> en el mismo scope global) cada vez que
+    // se abre para un usuario distinto sin recargar la página. Con const, la segunda
+    // apertura tira "Identifier ya declarado" y aborta el script entero — el mismo bug
+    // que en seguimiento/asignacion/vista.html, encontrado ahí primero.
+    var PLANTILLA_ROL = /*[[${plantillaRol}]]*/ [];
 
     function aplicarPlantillaRol() {
         $('.chk-permiso').each(function () {

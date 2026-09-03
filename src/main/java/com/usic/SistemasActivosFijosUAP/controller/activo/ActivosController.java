@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -1537,13 +1538,64 @@ public class ActivosController {
         }
     }
 
+    /**
+     * Datos de reporte (hoja de ruta, certificación, comprobante, observación y N° de
+     * documento) del acta a la que ya pertenece un activo pendiente, si tiene una.
+     * <p>
+     * El modal "Asignar documento" de Pendientes limpiaba estos campos cada vez que se
+     * abría, sin importar si el grupo seleccionado ya tenía un acta con estos datos
+     * cargados. Reabrirlo para corregir solo el N° de documento —sin tocar el resto—
+     * y confirmar terminaba borrando la hoja de ruta, certificación, comprobante y
+     * observación que ya se habían cargado. Este endpoint deja precargar el modal con
+     * lo que ya existe, para que "confirmar" no sea "borrar sin querer".
+     */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/api/datos-reporte-pendiente")
+    @ResponseBody
+    public ResponseEntity<?> datosReportePendiente(@RequestParam("id") String idEnc) {
+        try {
+            Long id = Long.parseLong(Encriptar.decrypt(idEnc));
+            Activo activo = activoService.findById(id);
+
+            Map<String, Object> body = new LinkedHashMap<>();
+            Optional<AsignacionActivo> actaOpt = activo != null
+                    ? asignacionActivoService.findByActivo(activo) : Optional.empty();
+
+            if (actaOpt.isEmpty()) {
+                body.put("existeActa", false);
+                return ResponseEntity.ok(body);
+            }
+
+            AsignacionActivo a = actaOpt.get();
+            body.put("existeActa", true);
+            body.put("nroDoc", a.getCodigoDocumento());
+            body.put("hojaRuta", a.getHojaRuta());
+            body.put("certificacion", a.getCertificacion());
+            body.put("comprobante", a.getComprobante());
+            body.put("observacion", a.getObservacion());
+            return ResponseEntity.ok(body);
+
+        } catch (Exception e) {
+            log.error("Error en datosReportePendiente", e);
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+
     @ValidarUsuarioAutenticado
     @PostMapping("/asignar-gestion-masiva")
     @ResponseBody
     public ResponseEntity<?> asignarGestionMasiva(
             @RequestParam("ids")      List<String> idsEnc,
             @RequestParam("idConfig") Long idConfig,
-            @RequestParam("nroDoc")   String nroDoc) {
+            @RequestParam("nroDoc")   String nroDoc,
+            @RequestParam(value = "hojaRuta", required = false) String hojaRuta,
+            @RequestParam(value = "certificacion", required = false) String certificacion,
+            @RequestParam(value = "comprobante", required = false) Boolean comprobante,
+            @RequestParam(value = "observacion", required = false) String observacion,
+            HttpServletRequest request) {
+
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        Long usuId = (usuario != null) ? usuario.getIdUsuario() : null;
 
         try {
             ConfiguracionGestion config = configuracionGestionService.findById(idConfig);
@@ -1598,7 +1650,9 @@ public class ActivosController {
                     .findByActivo(activos.get(0))
                     .orElse(null);
 
-            if (asignacion == null) {
+            boolean actaNueva = (asignacion == null);
+
+            if (actaNueva) {
                 Activo referencia = activos.get(0);
                 asignacion = new AsignacionActivo();
                 asignacion.setFechaAsignacion(LocalDateTime.now());
@@ -1610,6 +1664,7 @@ public class ActivosController {
                 asignacion.setOficinaDestino(referencia.getOficina());
                 asignacion.setTipoAsignacion("NUEVA");
                 asignacion.setEstadoAsignacion("ACTIVA");
+                asignacion.setRegistroIdUsuario(usuId);
                 asignacion = asignacionActivoService.save(asignacion);
 
                 for (Activo a : activos) {
@@ -1620,12 +1675,21 @@ public class ActivosController {
                     det.setEstadoDetalle(DetalleAsignacionActivo.VIGENTE);
                     detalleAsignacionActivoService.save(det);
                 }
+            } else {
+                // No es una acta nueva: esto es una corrección/actualización de una que
+                // ya existía, así que lo que corresponde es dejar quién la modificó, no
+                // quién la registró (eso no cambia).
+                asignacion.setModificacionIdUsuario(usuId);
             }
 
             // Deja documento, código canónico y número de acta coherentes de una sola vez.
             // Se aplica también cuando el acta ya existía: si se corrige el número de
             // documento, el número del acta tiene que corregirse con él.
             asignacion.asignarDocumento(config.getGestion(), prefijo, nro);
+            asignacion.setHojaRuta(textoOVacio(hojaRuta));
+            asignacion.setCertificacion(textoOVacio(certificacion));
+            asignacion.setComprobante(comprobante);
+            asignacion.setObservacion(textoOVacio(observacion));
             asignacionActivoService.save(asignacion);
 
             String idEnc = Encriptar.encrypt(String.valueOf(asignacion.getIdAsignacionActivo()));
@@ -1643,6 +1707,13 @@ public class ActivosController {
             return ResponseEntity.badRequest()
                 .body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
         }
+    }
+
+    /** Recorta y convierte a null lo que llega en blanco desde un input opcional del modal de documento. */
+    private String textoOVacio(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 
     @ValidarUsuarioAutenticado
@@ -2288,25 +2359,38 @@ public class ActivosController {
             dto.setEncryptedAsignacionId(
                 Encriptar.encrypt(String.valueOf(asig.getIdAsignacionActivo())));
 
+            // Se listan TODOS los activos vigentes del acta (pendientes y ya
+            // sincronizados), no solo los PENDIENTE: antes, un acta con 250 bienes de
+            // los que ya se habían sincronizado 230 solo mostraba 20 filas, aunque el
+            // badge de cabecera ("250 Activos") contara el total. La plantilla ya
+            // soportaba filas no-PENDIENTE (checkbox y botones deshabilitados, chip de
+            // estado propio) — solo faltaba dejarlas entrar aquí.
             List<ActivoPendienteItemDTO> items = new ArrayList<>();
+            long totalPendientes = 0;
             for (DetalleAsignacionActivo det : asig.getDetalles()) {
-                if (!"PENDIENTE".equalsIgnoreCase(det.getActivo().getEstado())) continue;
+                Activo act = det.getActivo();
+                if ("CANCELADO".equalsIgnoreCase(act.getEstado())) continue;
                 ActivoPendienteItemDTO item = new ActivoPendienteItemDTO();
-                item.setActivo(det.getActivo());
+                item.setActivo(act);
                 item.setEncryptedActivoId(
-                    Encriptar.encrypt(String.valueOf(det.getActivo().getIdActivo())));
+                    Encriptar.encrypt(String.valueOf(act.getIdActivo())));
                 item.setCodigoSnapshot(det.getCodigoActivoSnapshot());
-                List<String> faltantes = camposFaltantesVsiaf(det.getActivo());
+                List<String> faltantes = camposFaltantesVsiaf(act);
                 item.setFaltantes(faltantes);
                 item.setCompleto(faltantes.isEmpty());
                 items.add(item);
+                if ("PENDIENTE".equalsIgnoreCase(act.getEstado())) totalPendientes++;
             }
+            // Pendientes primero: con actas grandes, lo accionable debe verse sin
+            // desplazarse entre cientos de filas ya sincronizadas.
+            items.sort(Comparator.comparing(
+                i -> !"PENDIENTE".equalsIgnoreCase(i.getActivo().getEstado())));
 
             dto.setItems(items);
             dto.setTotalActivos((int) asig.getDetalles().stream()
                 .filter(d -> !"CANCELADO".equalsIgnoreCase(d.getActivo().getEstado()))
                 .count());
-            dto.setTotalPendientes(items.size());
+            dto.setTotalPendientes(totalPendientes);
             dto.setTotalSincronizados(
                 asig.getDetalles().stream()
                     .filter(d -> "ACTIVO".equalsIgnoreCase(d.getActivo().getEstado()))

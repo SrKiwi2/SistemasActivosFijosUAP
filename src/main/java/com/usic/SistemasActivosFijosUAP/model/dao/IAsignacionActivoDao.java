@@ -24,8 +24,9 @@ public interface IAsignacionActivoDao extends JpaRepository<AsignacionActivo, Lo
      * PENDIENTE. Consecuencia: los contadores de la vista ("sincronizados", "total de
      * activos") y cualquier suma sobre la colección salían mal.
      * <p>
-     * Quien necesite solo los pendientes debe filtrarlos en Java (así lo hace
-     * {@code ActivosController.tabla_registro_pendiente} al armar los items).
+     * {@code ActivosController.tabla_registro_pendiente} arma los items a partir de
+     * {@code a.getDetalles()} completo (todos los vigentes, no solo PENDIENTE) — quien
+     * necesite filtrar por estado lo hace ahí, no en esta consulta.
      */
     @Query("""
         SELECT DISTINCT a FROM AsignacionActivo a
@@ -150,6 +151,24 @@ public interface IAsignacionActivoDao extends JpaRepository<AsignacionActivo, Lo
         WHERE a.idAsignacionActivo = :id
         """)
     Optional<AsignacionActivo> findByIdConDetalles(@Param("id") Long id);
+
+    /**
+     * Actas por lista de ids con todo lo que necesita el reporte Excel: detalles,
+     * responsable y oficina destino, en una sola consulta (evita N+1 al recorrer
+     * varias actas para armar el archivo).
+     */
+    @Query("""
+        SELECT DISTINCT a FROM AsignacionActivo a
+        LEFT JOIN FETCH a.detalles d
+        LEFT JOIN FETCH d.activo act
+        LEFT JOIN FETCH a.responsable r
+        LEFT JOIN FETCH r.persona
+        LEFT JOIN FETCH r.cargo
+        LEFT JOIN FETCH a.oficinaDestino o
+        LEFT JOIN FETCH o.predio
+        WHERE a.idAsignacionActivo IN :ids
+        """)
+    List<AsignacionActivo> findAllByIdInConDetalles(@Param("ids") List<Long> ids);
 
     /** Para "conseguí o creá" la acta de regularización de una gestión: REG-<año>. */
     Optional<AsignacionActivo> findFirstByNumeroAsignacion(String numeroAsignacion);

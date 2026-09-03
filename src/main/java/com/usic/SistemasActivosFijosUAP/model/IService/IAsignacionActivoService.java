@@ -26,6 +26,9 @@ public interface IAsignacionActivoService extends IServiceGenerico<AsignacionAct
 
     Optional<AsignacionActivo> findByIdConDetalles(@Param("id") Long id);
 
+    /** Actas por lista de ids, con detalles/responsable/oficina ya cargados — para el reporte Excel. */
+    List<AsignacionActivo> findAllByIdInConDetalles(List<Long> ids);
+
     /**
      * Página del listado de Movimientos, ya filtrada y ordenada.
      *
@@ -37,6 +40,13 @@ public interface IAsignacionActivoService extends IServiceGenerico<AsignacionAct
      */
     Page<AsignacionActivo> buscarConFiltros(FiltrosAsignacionDTO filtros, String orden,
                                             boolean descendente, Pageable pagina);
+
+    /**
+     * Todas las actas que cumplen el filtro (sin paginar), con sus detalles/responsable/
+     * oficina ya cargados — lo que necesita el reporte Excel, filtrado por "general" (sin
+     * filtros) o por "rango" (con ellos). Mismo orden que {@link #buscarConFiltros}.
+     */
+    List<AsignacionActivo> buscarConFiltrosConDetalles(FiltrosAsignacionDTO filtros, String orden, boolean descendente);
 
     /** Totales de las tarjetas, calculados sobre el conjunto filtrado completo. */
     ResumenListadoAsignacionDTO resumenListado(FiltrosAsignacionDTO filtros);

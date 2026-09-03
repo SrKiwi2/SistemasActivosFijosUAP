@@ -53,4 +53,13 @@ public interface IDbfColaOrdenDao extends JpaRepository<DbfColaOrden, Long> {
 
     /** Órdenes de un activo, de la más reciente a la más vieja. */
     List<DbfColaOrden> findByIdActivoOrderByIdOrdenDesc(Long idActivo);
+
+    /** Rechazos de ACTUAL con activo conocido, los más viejos primero — candidatos a reintento. */
+    List<DbfColaOrden> findByEstadoAndTablaOrderByIdOrdenAsc(String estado, String tabla, Pageable pageable);
+
+    /** ¿Hay una orden más nueva para este activo? Si sí, esta ya quedó superada. */
+    boolean existsByIdActivoAndIdOrdenGreaterThan(Long idActivo, Long idOrden);
+
+    /** La orden más reciente de un activo, para anotarle el contador de reintentos. */
+    java.util.Optional<DbfColaOrden> findFirstByIdActivoOrderByIdOrdenDesc(Long idActivo);
 }

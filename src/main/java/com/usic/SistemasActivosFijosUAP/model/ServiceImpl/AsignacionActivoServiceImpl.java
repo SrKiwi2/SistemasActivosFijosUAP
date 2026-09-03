@@ -5,6 +5,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -97,6 +98,11 @@ public class AsignacionActivoServiceImpl implements IAsignacionActivoService {
     }
 
     @Override
+    public List<AsignacionActivo> findAllByIdInConDetalles(List<Long> ids) {
+        return dao.findAllByIdInConDetalles(ids);
+    }
+
+    @Override
     public List<Integer> gestionesConActas() {
         return dao.gestionesConActas();
     }
@@ -119,6 +125,22 @@ public class AsignacionActivoServiceImpl implements IAsignacionActivoService {
     public Page<AsignacionActivo> buscarConFiltros(FiltrosAsignacionDTO filtros, String orden,
                                                    boolean descendente, Pageable pagina) {
         return dao.findAll(especificacion(filtros, orden, descendente), pagina);
+    }
+
+    @Override
+    public List<AsignacionActivo> buscarConFiltrosConDetalles(FiltrosAsignacionDTO filtros, String orden,
+                                                               boolean descendente) {
+        List<AsignacionActivo> resumen = dao.findAll(
+                especificacion(filtros, orden, descendente), Pageable.unpaged()).getContent();
+
+        List<Long> ids = resumen.stream().map(AsignacionActivo::getIdAsignacionActivo).toList();
+        if (ids.isEmpty()) return List.of();
+
+        // El fetch join de findAllByIdInConDetalles no respeta el orden de :ids — se
+        // reordena según el orden que ya resolvió la especificación de arriba.
+        Map<Long, AsignacionActivo> porId = dao.findAllByIdInConDetalles(ids).stream()
+                .collect(Collectors.toMap(AsignacionActivo::getIdAsignacionActivo, a -> a));
+        return ids.stream().map(porId::get).filter(Objects::nonNull).toList();
     }
 
     @Override
@@ -172,6 +194,16 @@ public class AsignacionActivoServiceImpl implements IAsignacionActivoService {
             }
             if (f.idResponsable() != null) {
                 ps.add(cb.equal(root.get("responsable").get("idResponsable"), f.idResponsable()));
+            }
+            if (f.oficina() != null) {
+                ps.add(cb.like(cb.lower(root.get("oficinaDestino").get("nombre")),
+                        "%" + f.oficina().toLowerCase() + "%"));
+            }
+            if (f.idUsuarioRegistro() != null) {
+                ps.add(cb.equal(root.get("registroIdUsuario"), f.idUsuarioRegistro()));
+            }
+            if (f.comprobante() != null) {
+                ps.add(cb.equal(root.get("comprobante"), f.comprobante()));
             }
 
             Predicate sincronizacion = predicadoSincronizacion(f.sincronizacion(), root, query, cb);

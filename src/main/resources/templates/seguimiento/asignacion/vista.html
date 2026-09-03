@@ -30,35 +30,173 @@
     /* Header: los badges no se pisan con el botón cerrar, y se leen sobre cualquier
        color de header (antes "NUEVA" en bg-primary quedaba invisible sobre el header
        azul). */
+    #modalDetalleAsignacion .modal-header { padding: 1.1rem 1.5rem; }
+    #modalDetalleAsignacion .modal-header .modal-title { font-size: 1.3rem; }
+    #modalDetalleAsignacion .modal-header small { font-size: .85rem; }
     #modalDetalleAsignacion .modal-header .badge {
         background: rgba(255, 255, 255, .22) !important;
         color: #fff !important;
         border: 1px solid rgba(255, 255, 255, .45);
+        font-size: .8rem !important;
     }
     #modalDetalleAsignacion .modal-header .btn-close { flex-shrink: 0; margin-left: .75rem; }
     #modalDetalleAsignacion .modal-header .header-badges { min-width: 0; flex-shrink: 1; }
 
+    /* ─── Pestañas: más grandes y con contraste explícito (no depende del theme) ─── */
+    #modalDetalleAsignacion #modalTabs { border-bottom: 1px solid #e2e8f0; }
+    #modalDetalleAsignacion #modalTabs .nav-link {
+        font-size: 1rem;
+        font-weight: 600;
+        padding: .9rem 1.4rem;
+        color: #64748b !important;
+        border: none;
+        border-bottom: 3px solid transparent;
+        background: transparent !important;
+    }
+    #modalDetalleAsignacion #modalTabs .nav-link i.bx { font-size: 1.15rem; }
+    #modalDetalleAsignacion #modalTabs .nav-link.active {
+        color: #0d6efd !important;
+        border-bottom-color: #0d6efd;
+    }
+    #modalDetalleAsignacion #modalTabs .nav-link .badge { font-size: .72rem; }
+
+    /* ─── Tarjetas de información: colores fijos en hex, no clases de opacidad del
+           theme (bg-opacity-10 / bg-label-*), que en este proyecto venían dejando el
+           texto casi invisible sobre su propio fondo. ─── */
+    #modalDetalleAsignacion .info-card {
+        border: 1px solid #e2e8f0;
+        border-radius: .6rem;
+        background: #fff;
+        height: 100%;
+        overflow: hidden;
+    }
+    #modalDetalleAsignacion .info-card-header {
+        padding: .85rem 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        font-weight: 700;
+        font-size: 1.02rem;
+        color: #fff !important;
+    }
+    #modalDetalleAsignacion .info-card-header.doc  { background: #0d6efd; }
+    #modalDetalleAsignacion .info-card-header.resp { background: #198754; }
+    #modalDetalleAsignacion .info-card-header .btn {
+        font-size: .82rem;
+        padding: .35rem .8rem;
+        font-weight: 600;
+        border-color: rgba(255,255,255,.7);
+        color: #fff;
+    }
+    #modalDetalleAsignacion .info-card-header .btn:hover { background: rgba(255,255,255,.18); color: #fff; }
+    #modalDetalleAsignacion .info-card-body { padding: 1.1rem 1.25rem; }
+    #modalDetalleAsignacion .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 1rem;
+        padding: .55rem 0;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: .95rem;
+    }
+    #modalDetalleAsignacion .info-row:last-child { border-bottom: none; padding-bottom: 0; }
+    #modalDetalleAsignacion .info-row .lbl { color: #64748b; font-weight: 600; flex-shrink: 0; }
+    #modalDetalleAsignacion .info-row .val { color: #1e293b; font-weight: 700; text-align: right; }
+    #modalDetalleAsignacion .obs-box {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: .6rem;
+        padding: 1rem 1.25rem;
+        display: flex;
+        gap: .75rem;
+        align-items: flex-start;
+    }
+    #modalDetalleAsignacion .obs-box i { color: #b45309; font-size: 1.3rem; }
+    #modalDetalleAsignacion .obs-box strong { color: #92400e; font-size: .78rem; letter-spacing: .04em; }
+    #modalDetalleAsignacion .obs-box span { color: #451a03; font-size: .95rem; }
+
+    /* ─── Tarjetas resumen de la pestaña Activos ─── */
+    #modalDetalleAsignacion .stat-card { border-radius: .6rem; padding: 1.1rem; text-align: center; height: 100%; }
+    #modalDetalleAsignacion .stat-card .stat-label {
+        font-size: .78rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .04em; color: #475569;
+    }
+    #modalDetalleAsignacion .stat-card .stat-value { font-size: 1.6rem; font-weight: 800; margin-top: .3rem; line-height: 1.1; }
+    #modalDetalleAsignacion .stat-card.c-indigo { background: #eef2ff; }
+    #modalDetalleAsignacion .stat-card.c-indigo .stat-value { color: #4338ca; }
+    #modalDetalleAsignacion .stat-card.c-slate  { background: #f1f5f9; }
+    #modalDetalleAsignacion .stat-card.c-slate  .stat-value { color: #334155; font-size: 1.05rem; }
+    #modalDetalleAsignacion .stat-card.c-green  { background: #ecfdf5; }
+    #modalDetalleAsignacion .stat-card.c-green  .stat-value { color: #047857; }
+
+    /* ─── Tarjetas de Auditoría: más grandes y con color propio para llenar el
+           espacio del modal de forma útil, no vacía ─── */
+    #modalDetalleAsignacion .audit-card { border-radius: .6rem; padding: 1.5rem; height: 100%; }
+    #modalDetalleAsignacion .audit-card.c-blue  { background: #eff6ff; border: 1px solid #bfdbfe; }
+    #modalDetalleAsignacion .audit-card.c-amber { background: #fff7ed; border: 1px solid #fed7aa; }
+    #modalDetalleAsignacion .audit-card .audit-title {
+        display: flex; align-items: center; gap: .5rem;
+        font-weight: 700; font-size: 1rem; margin-bottom: 1.1rem;
+    }
+    #modalDetalleAsignacion .audit-card.c-blue .audit-title  { color: #1d4ed8; }
+    #modalDetalleAsignacion .audit-card.c-amber .audit-title { color: #c2410c; }
+    #modalDetalleAsignacion .audit-card .audit-title i { font-size: 1.3rem; }
+    #modalDetalleAsignacion .audit-card .info-row { border-bottom-color: rgba(0,0,0,.06); font-size: 1rem; }
+
+    /* Historial: reemplaza bg-label-* (theme) por colores fijos con buen contraste */
+    #modalDetalleAsignacion .hist-icon {
+        width: 2.5rem; height: 2.5rem; border-radius: .5rem;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; flex-shrink: 0;
+    }
+    #modalDetalleAsignacion .hist-icon.c-primary   { background: #dbeafe; color: #1d4ed8; }
+    #modalDetalleAsignacion .hist-icon.c-success   { background: #d1fae5; color: #047857; }
+    #modalDetalleAsignacion .hist-icon.c-warning   { background: #fef3c7; color: #b45309; }
+    #modalDetalleAsignacion .hist-icon.c-secondary { background: #e2e8f0; color: #475569; }
+    #modalDetalleAsignacion .hist-icon.c-danger    { background: #fee2e2; color: #b91c1c; }
+    #modalDetalleAsignacion .hist-card { border: 1px solid #e2e8f0; border-radius: .6rem; background: #fff; }
+    #modalDetalleAsignacion .hist-card .hist-titulo { font-size: .95rem; font-weight: 700; color: #1e293b; }
+    #modalDetalleAsignacion .hist-card .hist-meta { font-size: .8rem; color: #64748b; }
+    #modalDetalleAsignacion .hist-card .hist-frase { font-size: .92rem; color: #334155; }
+
+    /* Botones del header de las tarjetas y del footer: más grandes, ya no btn-sm */
+    #modalDetalleAsignacion .modal-footer { padding: 1rem 1.5rem; }
+    #modalDetalleAsignacion .modal-footer .btn { font-size: .95rem; padding: .55rem 1.3rem; font-weight: 600; }
+
     /* Tabla de bienes: descripción recortada a 2 líneas (el texto completo queda en el
        title, como tooltip nativo) — sin esto una descripción larga estiraba la fila a
        150-200px y 50 bienes no entraban ni de cerca en el modal. */
+    #tabla-activos-modal { font-size: .88rem; }
     #tabla-activos-modal .descripcion-clamp {
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
-    #tabla-activos-modal thead th { position: sticky; top: 0; z-index: 1; }
+    #tabla-activos-modal thead th { position: sticky; top: 0; z-index: 1; font-size: .82rem; }
+
+    /* ─── Modales secundarios (Editar cabecera / Editar reporte): texto y botones
+           más grandes, ya no form-control-sm/btn-sm ─── */
+    #modalEditarReporte .modal-header, #modalEditarCabecera .modal-header { padding: 1.1rem 1.5rem; }
+    #modalEditarReporte .modal-title, #modalEditarCabecera .modal-title { font-size: 1.15rem; }
+    #modalEditarReporte .form-label, #modalEditarCabecera .form-label { font-size: .88rem; font-weight: 600; color: #334155; }
+    #modalEditarReporte .modal-footer .btn, #modalEditarCabecera .modal-footer .btn {
+        font-size: .95rem; padding: .55rem 1.3rem; font-weight: 600;
+    }
 
     /*
         Bug preexistente encontrado al probar en navegador (no lo causó este rediseño):
         el tema fija el z-index de TODO ".modal" en 1090, así que Bootstrap no distingue
         entre el modal padre y uno abierto arriba — gana el que esté después en el DOM.
         #modalDetalleAsignacion queda al final del archivo, así que CUALQUIERA de estos
-        seis modales (todos se abren sin cerrar el detalle) renderizaba invisible detrás
-        suyo: Separar, Trasladar, Incorporar, Editar cabecera, Corregir y Ver detalle.
+        modales (todos se abren sin cerrar el detalle) renderizaba invisible detrás
+        suyo: Separar, Trasladar, Incorporar, Editar cabecera, Editar reporte, Corregir
+        y Ver detalle. #modalEditarReporte se agregó después y le faltaba este mismo
+        arreglo — por eso se abría tapado por el modal principal.
     */
     #modalVerDetalleActivo, #modalCorregirActivo, #modalSepararActa,
-    #modalTrasladar, #modalIncorporar, #modalEditarCabecera {
+    #modalTrasladar, #modalIncorporar, #modalEditarCabecera, #modalEditarReporte {
         z-index: 1100;
     }
 </style>
@@ -161,6 +299,10 @@
                 </button>
                 <button class="btn btn-sm btn-outline-secondary" onclick="cargarTabla()">
                     <i class="bx bx-refresh me-1"></i>Actualizar
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="exportarExcel()"
+                        title="Descarga en Excel las actas que cumplen el filtro actual">
+                    <i class="bx bx-file-blank me-1"></i>Exportar Excel
                 </button>
             </div>
         </div>
@@ -483,41 +625,103 @@
                     Usá <b>Separar</b> o <b>Trasladar</b> sobre algún bien para fijarlo primero.
                 </div>
 
-                <h6 class="text-muted small fw-semibold mt-3">DATOS DE LA CABECERA</h6>
-                <div class="row g-2">
+                <h6 class="text-muted fw-semibold mt-3 mb-2">DATOS DE LA CABECERA</h6>
+                <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label small mb-1" for="cab-oficina">Oficina</label>
-                        <select id="cab-oficina" class="form-select form-select-sm"></select>
+                        <label class="form-label" for="cab-oficina">Oficina</label>
+                        <select id="cab-oficina" class="form-select"></select>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small mb-1" for="cab-responsable">Responsable</label>
-                        <select id="cab-responsable" class="form-select form-select-sm"></select>
+                        <label class="form-label" for="cab-responsable">Responsable</label>
+                        <select id="cab-responsable" class="form-select"></select>
                     </div>
                 </div>
 
                 <div class="form-check form-switch mt-3">
                     <input class="form-check-input" type="checkbox" id="cab-propagar">
-                    <label class="form-check-label small" for="cab-propagar">
+                    <label class="form-check-label" for="cab-propagar">
                         Que los bienes <b>vigentes</b> de esta acta tomen este responsable y esta oficina
-                        <span class="d-block text-muted" style="font-size:.75rem">
+                        <span class="d-block text-muted" style="font-size:.8rem">
                             Sin marcar, solo cambia la cabecera y no se envía nada al VSIAF.
                         </span>
                     </label>
                 </div>
 
-                <h6 class="text-muted small fw-semibold mt-4">MOTIVO</h6>
-                <textarea id="cab-motivo" class="form-control form-control-sm" rows="3"
+                <h6 class="text-muted fw-semibold mt-4 mb-2">MOTIVO</h6>
+                <textarea id="cab-motivo" class="form-control" rows="3"
                           placeholder="Por qué se corrige la cabecera. Queda en el historial del acta."></textarea>
-                <div class="form-text" style="font-size:.72rem">Mínimo 10 caracteres.</div>
+                <div class="form-text">Mínimo 10 caracteres.</div>
 
                 <div class="mt-3 d-none" id="cab-avisos"></div>
             </div>
 
-            <div class="modal-footer py-2">
-                <span class="text-muted small me-auto" id="cab-footer-info"></span>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-sm btn-success" id="btn-confirmar-cabecera">
+            <div class="modal-footer py-3">
+                <span class="text-muted me-auto" id="cab-footer-info"></span>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btn-confirmar-cabecera">
                     <i class="bx bx-edit me-1"></i>Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ======================= MODAL EDITAR DATOS DE REPORTE ======================= -->
+<!--
+    Hoja de ruta, certificación, quién sistematizó el acta, comprobante y observación:
+    datos administrativos para el reporte Excel. No tocan bienes ni VSIAF, por eso es un
+    modal aparte y más liviano que "Editar cabecera" — sirve también para completar actas
+    viejas o ya subidas al VSIAF, donde el modal de Pendientes ya no aparece.
+-->
+<div class="modal fade" id="modalEditarReporte" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+
+            <div class="modal-header bg-primary text-white py-3">
+                <h5 class="modal-title mb-0 fw-bold" style="color: white;"><i class="bx bx-spreadsheet me-2" style="color: white;"></i>Datos de reporte del acta</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <p class="text-muted mb-4" style="font-size:.9rem">
+                    Se usan en el reporte Excel de asignaciones. No afectan a los bienes ni al VSIAF.
+                    <span class="d-block mt-1">
+                        "Sistematizado por" no se pide acá: es quien registró el acta en el sistema —
+                        ya se muestra solo en <b>Datos del Documento</b>.
+                    </span>
+                </p>
+
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <label class="form-label" for="rep-hoja-ruta">Hoja de Ruta / ARD</label>
+                        <input type="text" id="rep-hoja-ruta" class="form-control form-control-lg" placeholder="Ej: 90">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="rep-certificacion">Certificación</label>
+                        <input type="text" id="rep-certificacion" class="form-control form-control-lg" placeholder="Ej: 6">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label d-block">Comprobante</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="rep-comprobante" id="rep-comprobante-si" value="true">
+                            <label class="btn btn-outline-success" for="rep-comprobante-si"><i class="bx bx-check me-1"></i>SI</label>
+                            <input type="radio" class="btn-check" name="rep-comprobante" id="rep-comprobante-no" value="false">
+                            <label class="btn btn-outline-danger" for="rep-comprobante-no"><i class="bx bx-x me-1"></i>NO</label>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label" for="rep-observacion">Observación</label>
+                        <textarea id="rep-observacion" class="form-control" rows="3"
+                                  placeholder="Ej: el activo llegó en la gestión 2025 pero se canceló el 2026"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer py-3">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-confirmar-reporte">
+                    <i class="bx bx-save me-1"></i>Guardar
                 </button>
             </div>
         </div>
@@ -585,78 +789,61 @@
 
                             <!-- Columna izquierda: Datos del documento -->
                             <div class="col-md-6">
-                                <div class="card border border-primary border-opacity-25 h-100">
-                                    <div class="card-header bg-primary bg-opacity-10 py-2">
-                                        <h6 class="mb-0 text-primary fw-semibold"><i
-                                                class="bx bx-file-blank me-1"></i>Datos del Documento</h6>
+                                <div class="info-card">
+                                    <div class="info-card-header doc">
+                                        <span><i class="bx bx-file-blank me-1"></i>Datos del Documento</span>
+                                        <button type="button" class="btn btn-sm btn-outline-light"
+                                                id="btn-editar-reporte"
+                                                onclick="abrirModalEditarReporte()"
+                                                title="Hoja de ruta, certificación y comprobante — para el reporte Excel">
+                                            <i class="bx bx-edit me-1"></i>Datos de reporte
+                                        </button>
                                     </div>
-                                    <div class="card-body">
-                                        <dl class="row mb-0 small">
-                                            <dt class="col-sm-5 text-muted">N° Asignación</dt>
-                                            <dd class="col-sm-7 fw-semibold" id="d-numero">—</dd>
-
-                                            <dt class="col-sm-5 text-muted">Código Documento</dt>
-                                            <dd class="col-sm-7" id="d-codigo-doc">—</dd>
-
-                                            <dt class="col-sm-5 text-muted">Código Completo</dt>
-                                            <dd class="col-sm-7 fw-semibold" id="d-codigo-completo">—</dd>
-
-                                            <dt class="col-sm-5 text-muted">Fecha Asignación</dt>
-                                            <dd class="col-sm-7" id="d-fecha">—</dd>
-
-                                            <dt class="col-sm-5 text-muted">Tipo</dt>
-                                            <dd class="col-sm-7" id="d-tipo">—</dd>
-
-                                            <dt class="col-sm-5 text-muted">Estado</dt>
-                                            <dd class="col-sm-7" id="d-estado">—</dd>
-
-                                            <dt class="col-sm-5 text-muted">Doc. Referencia</dt>
-                                            <dd class="col-sm-7" id="d-doc-referencia">—</dd>
-                                        </dl>
+                                    <div class="info-card-body">
+                                        <div class="info-row"><span class="lbl">N° Asignación</span><span class="val" id="d-numero" style="color: white;">—</span></div>
+                                        <div class="info-row"><span class="lbl">Código Documento</span><span class="val" id="d-codigo-doc">—</span></div>
+                                        <div class="info-row"><span class="lbl">Código Completo</span><span class="val" id="d-codigo-completo">—</span></div>
+                                        <div class="info-row"><span class="lbl">Fecha Asignación</span><span class="val" id="d-fecha">—</span></div>
+                                        <div class="info-row"><span class="lbl">Tipo</span><span class="val" id="d-tipo">—</span></div>
+                                        <div class="info-row"><span class="lbl">Estado</span><span class="val" id="d-estado">—</span></div>
+                                        <div class="info-row"><span class="lbl">Doc. Referencia</span><span class="val" id="d-doc-referencia">—</span></div>
+                                        <div class="info-row"><span class="lbl">Hoja de Ruta / ARD</span><span class="val" id="d-hoja-ruta">—</span></div>
+                                        <div class="info-row"><span class="lbl">Certificación</span><span class="val" id="d-certificacion">—</span></div>
+                                        <div class="info-row"><span class="lbl">Sistematizado por</span><span class="val" id="d-sistematizado-por">—</span></div>
+                                        <div class="info-row"><span class="lbl">Comprobante</span><span class="val" id="d-comprobante">—</span></div>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Columna derecha: Responsables -->
                             <div class="col-md-6">
-                                <div class="card border border-success border-opacity-25 h-100">
-                                    <div class="card-header bg-success bg-opacity-10 py-2 d-flex justify-content-between align-items-center">
-                                        <h6 class="mb-0 text-success fw-semibold"><i
-                                                class="bx bx-user-check me-1"></i>Responsables</h6>
-                                        <button type="button" class="btn btn-sm btn-outline-success py-0 px-2 d-none"
-                                                id="btn-editar-cabecera" style="font-size:.75rem"
+                                <div class="info-card">
+                                    <div class="info-card-header resp">
+                                        <span><i class="bx bx-user-check me-1"></i>Responsables</span>
+                                        <button type="button" class="btn btn-sm btn-outline-light d-none"
+                                                id="btn-editar-cabecera"
                                                 onclick="abrirModalEditarCabecera()">
                                             <i class="bx bx-edit me-1"></i>Editar
                                         </button>
                                     </div>
-                                    <div class="card-body">
-                                        <dl class="row mb-0 small">
-                                            <!-- Solo aplica a actas que vienen de otra (separación/traslado): en
-                                                 una acta NUEVA no hay origen, y mostrar "—" ahí es puro ruido. -->
-                                            <div class="col-12 d-none" id="fila-resp-origen">
-                                                <div class="row">
-                                                    <dt class="col-sm-5 text-muted">Resp. Origen</dt>
-                                                    <dd class="col-sm-7 fw-semibold" id="d-resp-origen">—</dd>
-                                                </div>
-                                            </div>
-
-                                            <dt class="col-sm-5 text-muted">Resp. Destino</dt>
-                                            <dd class="col-sm-7 fw-semibold" id="d-resp-destino">—</dd>
-
-                                            <dt class="col-sm-5 text-muted">Oficina Destino</dt>
-                                            <dd class="col-sm-7" id="d-oficina-destino">—</dd>
-
-                                        </dl>
+                                    <div class="info-card-body">
+                                        <!-- Solo aplica a actas que vienen de otra (separación/traslado): en
+                                             una acta NUEVA no hay origen, y mostrar "—" ahí es puro ruido. -->
+                                        <div class="info-row d-none" id="fila-resp-origen">
+                                            <span class="lbl">Resp. Origen</span><span class="val" id="d-resp-origen">—</span>
+                                        </div>
+                                        <div class="info-row"><span class="lbl">Resp. Destino</span><span class="val" id="d-resp-destino">—</span></div>
+                                        <div class="info-row"><span class="lbl">Oficina Destino</span><span class="val" id="d-oficina-destino">—</span></div>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Observación -->
                             <div class="col-12" id="container-observacion" style="display:none">
-                                <div class="alert alert-secondary d-flex gap-2 mb-0">
-                                    <i class="bx bx-comment-detail fs-5 mt-1 flex-shrink-0"></i>
+                                <div class="obs-box">
+                                    <i class="bx bx-comment-detail"></i>
                                     <div>
-                                        <strong class="d-block small text-muted mb-1">OBSERVACIÓN</strong>
+                                        <strong class="d-block mb-1">OBSERVACIÓN</strong>
                                         <span id="d-observacion"></span>
                                     </div>
                                 </div>
@@ -671,35 +858,28 @@
                         <!-- Resumen superior -->
                         <div class="row g-3 mb-3">
                             <div class="col-6 col-md-3">
-                                <div class="card bg-label-primary text-center border-0">
-                                    <div class="card-body py-2">
-                                        <div class="small text-muted">Total Activos</div>
-                                        <div class="fs-5 fw-bold" id="resumen-total-activos">0</div>
-                                    </div>
+                                <div class="stat-card c-indigo">
+                                    <div class="stat-label">Total Activos</div>
+                                    <div class="stat-value" id="resumen-total-activos">0</div>
                                 </div>
                             </div>
                             <div class="col-6 col-md-3">
-                                <div class="card bg-label-secondary text-center border-0">
-                                    <div class="card-body py-2">
-                                        <div class="small text-muted">Estado en el VSIAF</div>
-                                        <div class="fs-6 fw-bold" id="resumen-sync">—</div>
-                                    </div>
+                                <div class="stat-card c-slate">
+                                    <div class="stat-label">Estado en el VSIAF</div>
+                                    <div class="stat-value" id="resumen-sync">—</div>
                                 </div>
                             </div>
                             <div class="col-6 col-md-3">
-                                <div class="card bg-label-success text-center border-0">
-                                    <div class="card-body py-2">
-                                        <div class="small text-muted">Costo total (Bs.)</div>
-                                        <div class="fs-5 fw-bold" id="resumen-costo"
-                                            style="font-variant-numeric: tabular-nums;">0,00</div>
-                                        <div class="text-warning d-none" id="resumen-costo-aviso"
-                                            style="font-size:0.68rem; font-weight:600;"></div>
-                                    </div>
+                                <div class="stat-card c-green">
+                                    <div class="stat-label">Costo total (Bs.)</div>
+                                    <div class="stat-value" id="resumen-costo" style="font-variant-numeric: tabular-nums;">0,00</div>
+                                    <div class="text-warning d-none" id="resumen-costo-aviso"
+                                        style="font-size:0.72rem; font-weight:700;"></div>
                                 </div>
                             </div>
                             <div class="col-6 col-md-3 d-flex align-items-center justify-content-end">
-                                <input type="text" id="buscar-activo" class="form-control form-control-sm"
-                                    placeholder="Buscar activo..." style="max-width:220px">
+                                <input type="text" id="buscar-activo" class="form-control"
+                                    placeholder="Buscar activo..." style="max-width:240px">
                             </div>
                         </div>
 
@@ -772,33 +952,19 @@
 
                     <!-- TAB AUDITORÍA -->
                     <div class="tab-pane fade" id="tab-auditoria">
-                        <div class="row g-3">
+                        <div class="row g-4">
                             <div class="col-md-6">
-                                <div class="card border-0 bg-light">
-                                    <div class="card-body">
-                                        <h6 class="text-muted small mb-3"><i class="bx bx-plus-circle me-1"></i>REGISTRO
-                                        </h6>
-                                        <dl class="row mb-0 small">
-                                            <dt class="col-sm-5 text-muted">Fecha Registro</dt>
-                                            <dd class="col-sm-7" id="aud-fecha-reg">—</dd>
-                                            <dt class="col-sm-5 text-muted">Usuario</dt>
-                                            <dd class="col-sm-7" id="aud-usuario-reg">—</dd>
-                                        </dl>
-                                    </div>
+                                <div class="audit-card c-blue">
+                                    <div class="audit-title"><i class="bx bx-plus-circle"></i>Registro del acta</div>
+                                    <div class="info-row"><span class="lbl">Fecha de registro</span><span class="val" id="aud-fecha-reg">—</span></div>
+                                    <div class="info-row"><span class="lbl">Usuario</span><span class="val" id="aud-usuario-reg">—</span></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <div class="card border-0 bg-light">
-                                    <div class="card-body">
-                                        <h6 class="text-muted small mb-3"><i class="bx bx-edit me-1"></i>ÚLTIMA
-                                            MODIFICACIÓN</h6>
-                                        <dl class="row mb-0 small">
-                                            <dt class="col-sm-5 text-muted">Fecha Modif.</dt>
-                                            <dd class="col-sm-7" id="aud-fecha-mod">—</dd>
-                                            <dt class="col-sm-5 text-muted">Usuario</dt>
-                                            <dd class="col-sm-7" id="aud-usuario-mod">—</dd>
-                                        </dl>
-                                    </div>
+                                <div class="audit-card c-amber">
+                                    <div class="audit-title"><i class="bx bx-edit"></i>Última modificación</div>
+                                    <div class="info-row"><span class="lbl">Fecha de modificación</span><span class="val" id="aud-fecha-mod">—</span></div>
+                                    <div class="info-row"><span class="lbl">Usuario</span><span class="val" id="aud-usuario-mod">—</span></div>
                                 </div>
                             </div>
                         </div>
@@ -809,10 +975,10 @@
 
             <!-- Footer del modal -->
             <div class="modal-footer bg-light border-top">
-                <a id="btn-modal-word" href="#" target="_blank" class="btn btn-primary btn-sm">
+                <a id="btn-modal-word" href="#" target="_blank" class="btn btn-primary">
                     <i class="bx bxs-file-doc me-1"></i>Descargar Word
                 </a>
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                     <i class="bx bx-x me-1"></i>Cerrar
                 </button>
             </div>
@@ -830,12 +996,25 @@
        ya no trae todas las actas: pedirle al navegador que ordene o cuente lo que
        tiene a la vista daría respuestas referidas a 25 registros, no al filtro.
        ══════════════════════════════════════════════════════════════════════════ */
-    const estadoTabla = { orden: 'fecha', desc: true, pagina: 0, tamano: 25 };
+    /*
+        var, no const/let: este bloque se re-ejecuta cada vez que el menú carga esta
+        página por AJAX (fragment.js / script.html inyectan el HTML con $(...).html(),
+        que corre los <script> de nuevo en el MISMO scope global de la ventana — el
+        documento nunca se recarga). Con const/let, la segunda vez que se entra acá
+        el intérprete tira "Identifier ha sido declarado" al llegar a esta línea y
+        aborta TODO el script sin ejecutar una sola línea más — incluido el
+        $(document).ready(...) de más abajo que llama a cargarTabla(). Por eso la
+        tabla cargaba bien la primera vez y se quedaba vacía la segunda, sin error
+        visible en pantalla (sí en la consola del navegador). var no tiene ese
+        problema: declarar la misma var dos veces nunca es un error, así que cada
+        entrada a la página arranca con estado limpio, que es lo que se quiere.
+    */
+    var estadoTabla = { orden: 'fecha', desc: true, pagina: 0, tamano: 25 };
 
     /* Columnas donde lo primero que se quiere ver es lo más alto o lo más reciente. */
-    const ORDEN_DESCENDENTE_PRIMERO = ['fecha', 'activos', 'costo'];
+    var ORDEN_DESCENDENTE_PRIMERO = ['fecha', 'activos', 'costo'];
 
-    let temporizadorBusqueda = null;
+    var temporizadorBusqueda = null;
 
     $(document).ready(function () {
         restaurarDesdeUrl();
@@ -885,6 +1064,15 @@
             estado: $('#filtro-estado').val() || '',
             soloConError: $('#filtro-error').is(':checked')
         };
+    }
+
+    /** Descarga el Excel de las actas que cumplen el filtro actual (mismo orden que la tabla). */
+    function exportarExcel() {
+        const params = Object.assign({}, obtenerParametrosFiltro(), {
+            orden: estadoTabla.orden,
+            desc: estadoTabla.desc
+        });
+        window.location.href = '/administracion/asignacion/exportar-excel?' + $.param(params);
     }
 
     /* -------- Orden y paginación (las llama la tabla) -------- */
@@ -1085,6 +1273,7 @@
                 _asigActual = idAsignacionActivo;
                 _cabeceraActual = resp?.cabecera || null;
                 window._puedeEditarActual = puedeEditar;
+                pintarDatosReporte(_cabeceraActual);
                 // Acciones siempre visible: "Ver detalle" es para cualquiera, Corregir
                 // y Subir VSIAF ya vienen condicionados por fila más abajo.
                 $('#btn-editar-cabecera').toggleClass('d-none', !puedeEditar);
@@ -1279,7 +1468,7 @@
        coincidiendo con el sistema, que es la condición que puso la coordinación.
        ══════════════════════════════════════════════════════════════════════════ */
 
-    let _configsSeparar = [];
+    var _configsSeparar = [];
 
     function bienesSeleccionados() {
         return $('#tabla-activos-modal .chk-bien:checked').map(function () {
@@ -1516,6 +1705,71 @@
     });
 
     /* ══════════════════════════════════════════════════════════════════════════
+       DATOS DE REPORTE (hoja de ruta, certificación, sistematizado por, comprobante,
+       observación) — paperwork del acta para el reporte Excel, no toca bienes ni VSIAF.
+       ══════════════════════════════════════════════════════════════════════════ */
+
+    /** Refleja los datos de reporte de la cabecera en la tarjeta "Datos del Documento". */
+    function pintarDatosReporte(cabecera) {
+        const c = cabecera || {};
+        $('#d-hoja-ruta').text(c.hojaRuta || '—');
+        $('#d-certificacion').text(c.certificacion || '—');
+        $('#d-sistematizado-por').text(c.sistematizadoPor || '—');
+        $('#d-comprobante').html(
+            c.comprobante === true  ? '<span class="badge bg-success">SI</span>' :
+            c.comprobante === false ? '<span class="badge bg-danger">NO</span>' :
+            '<span class="text-muted">—</span>'
+        );
+    }
+
+    function abrirModalEditarReporte() {
+        if (!_cabeceraActual) return;
+        const c = _cabeceraActual;
+        $('#rep-hoja-ruta').val(c.hojaRuta || '');
+        $('#rep-certificacion').val(c.certificacion || '');
+        $('#rep-observacion').val(c.observacion || '');
+        $('input[name="rep-comprobante"]').prop('checked', false);
+        if (c.comprobante === true)  $('#rep-comprobante-si').prop('checked', true);
+        if (c.comprobante === false) $('#rep-comprobante-no').prop('checked', true);
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarReporte')).show();
+    }
+
+    $(document).off('click.repConfirmar').on('click.repConfirmar', '#btn-confirmar-reporte', function () {
+        const $btn = $(this).prop('disabled', true);
+        const comprobanteVal = $('input[name="rep-comprobante"]:checked').val();
+
+        $.ajax({
+            url: `/administracion/asignacion/asignaciones/${_asigActual}/editar-reporte`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                hojaRuta: $('#rep-hoja-ruta').val().trim(),
+                certificacion: $('#rep-certificacion').val().trim(),
+                comprobante: comprobanteVal === undefined ? null : (comprobanteVal === 'true'),
+                observacion: $('#rep-observacion').val().trim()
+            })
+        }).done(function (j) {
+            if (!j.ok) { Swal.fire('Error', j.msg || 'No se pudo guardar.', 'error'); return; }
+
+            // Refresca la cabecera en memoria y repinta, sin recargar toda la tabla:
+            // esto no cambia nada de lo que la tabla muestra.
+            _cabeceraActual = Object.assign({}, _cabeceraActual, {
+                hojaRuta: $('#rep-hoja-ruta').val().trim() || null,
+                certificacion: $('#rep-certificacion').val().trim() || null,
+                comprobante: comprobanteVal === undefined ? null : (comprobanteVal === 'true'),
+                observacion: $('#rep-observacion').val().trim() || null
+            });
+            pintarDatosReporte(_cabeceraActual);
+
+            bootstrap.Modal.getInstance(document.getElementById('modalEditarReporte')).hide();
+        }).fail(function (xhr) {
+            Swal.fire('Error', xhr.responseJSON?.msg || 'No se pudo guardar.', 'error');
+        }).always(function () {
+            $btn.prop('disabled', false);
+        });
+    });
+
+    /* ══════════════════════════════════════════════════════════════════════════
        TRASLADAR / INCORPORAR
 
        Son la misma operación vista desde las dos puntas y comparten endpoint: se
@@ -1523,9 +1777,9 @@
        porque un bien está en una sola acta vigente.
        ══════════════════════════════════════════════════════════════════════════ */
 
-    let _actaDestinoElegida = null;
-    let _bienesIncorporar = [];
-    let _tempBusqueda = null;
+    var _actaDestinoElegida = null;
+    var _bienesIncorporar = [];
+    var _tempBusqueda = null;
 
     /* -------- Trasladar (salgo desde el acta que los tiene) -------- */
 
@@ -1775,23 +2029,23 @@
                             ? '<span class="badge bg-info text-dark ms-1">Enviado al VSIAF</span>'
                             : '<span class="badge bg-light text-muted ms-1">Sin efecto en VSIAF</span>');
 
-                    return `<div class="card border-0 bg-light mb-2">
-                        <div class="card-body py-3">
+                    return `<div class="hist-card mb-2">
+                        <div class="p-3">
                             <div class="d-flex align-items-start gap-3">
-                                <div class="avatar avatar-sm bg-label-${color} rounded"><i class="bx ${icono}"></i></div>
+                                <div class="hist-icon c-${color}"><i class="bx ${icono}"></i></div>
                                 <div class="flex-grow-1">
                                     <div class="d-flex flex-wrap align-items-center gap-2">
-                                        <strong class="small">${titulo}</strong>${vsiaf}
-                                        <span class="text-muted ms-auto" style="font-size:.75rem">
+                                        <span class="hist-titulo">${titulo}</span>${vsiaf}
+                                        <span class="hist-meta ms-auto">
                                             ${formatearFechaHora(m.fecha) || '—'} · ${escHtml(m.usuario || 'Sistema')}
                                         </span>
                                     </div>
-                                    <div class="small mt-1">${frase}</div>
-                                    <div class="text-muted mt-1" style="font-size:.75rem">
+                                    <div class="hist-frase mt-1">${frase}</div>
+                                    <div class="hist-meta mt-1">
                                         ${m.bienes.map(b => `<code>${escHtml(b)}</code>`).join(' ')}
                                     </div>
-                                    <div class="mt-2 small fst-italic text-muted">“${escHtml(m.motivo)}”</div>
-                                    ${m.mensajeVsiaf ? `<div class="alert alert-warning py-1 px-2 mt-2 mb-0" style="font-size:.75rem">${escHtml(m.mensajeVsiaf)}</div>` : ''}
+                                    <div class="mt-2 hist-frase fst-italic">“${escHtml(m.motivo)}”</div>
+                                    ${m.mensajeVsiaf ? `<div class="alert alert-warning py-1 px-2 mt-2 mb-0" style="font-size:.8rem">${escHtml(m.mensajeVsiaf)}</div>` : ''}
                                 </div>
                             </div>
                         </div>
@@ -1852,14 +2106,14 @@
        modal de Activos Pendientes, pero apunta a /api/editar-registrado, que
        exige rol, propaga al VSIAF y deja constancia en historial_activo.
        ══════════════════════════════════════════════════════════════════════ */
-    let _asigActual = null;     // para refrescar el detalle después de guardar
-    let _cabeceraActual = null; // ids de responsable/oficina/predio del acta abierta
-    let _corrIdEnc  = null;
+    var _asigActual = null;     // para refrescar el detalle después de guardar
+    var _cabeceraActual = null; // ids de responsable/oficina/predio del acta abierta
+    var _corrIdEnc  = null;
 
     /* Etiqueta "código - nombre" y regla de código de grupo: compartidas en
        /assets/js/sciaf-catalogos.js con la pantalla de Activos Pendientes. */
-    const etiquetaCod = window.SciafCatalogos.etiquetaCodigo;
-    const codigoGrupo = window.SciafCatalogos.codigoGrupoVisible;
+    var etiquetaCod = window.SciafCatalogos.etiquetaCodigo;
+    var codigoGrupo = window.SciafCatalogos.codigoGrupoVisible;
 
     function opciones(lista, idFn, txtFn, sel, vacio) {
         let h = `<option value="">${vacio}</option>`;
@@ -1870,8 +2124,8 @@
         return h;
     }
 
-    const arr = r => Array.isArray(r) ? r : (Array.isArray(r?.results) ? r.results : []);
-    const getJson = u => fetch(u).then(r => r.json()).catch(() => []);
+    var arr = r => Array.isArray(r) ? r : (Array.isArray(r?.results) ? r.results : []);
+    var getJson = u => fetch(u).then(r => r.json()).catch(() => []);
 
     /* Reintento manual de la subida al VSIAF: mismo endpoint para la fila suelta y para
        el lote de la selección, solo cambia la lista de ids que se manda. */

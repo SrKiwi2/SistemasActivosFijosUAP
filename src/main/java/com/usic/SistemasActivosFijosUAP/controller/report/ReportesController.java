@@ -7,16 +7,27 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.controller.formularios.PdfAsignacionActivoCompleto;
 import com.usic.SistemasActivosFijosUAP.controller.formularios.WordAsignacionActivoService;
@@ -25,6 +36,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IConfiguracionGestionService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IHistorialActivoDao;
+import com.usic.SistemasActivosFijosUAP.model.dto.FiltrosAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
@@ -32,6 +44,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.DetalleAsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.ExcelAsignacionReportService;
 import com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService;
 
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
@@ -42,7 +55,7 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/reportes")
 @RequiredArgsConstructor
 public class ReportesController {
-    
+
     private final IActivoService activoService;
     private final IAsignacionActivoService asignacionActivoService;
     private final IConfiguracionGestionService configuracionGestionService;
@@ -50,9 +63,12 @@ public class ReportesController {
     private final WordAsignacionActivoService wordAsignacionActivoService;
     private final TransferenciaService transferenciaService;
     private final IUsuarioService usuarioService;
+    private final ExcelAsignacionReportService excelAsignacionReportService;
 
     // Tipo MIME para documentos Word (.docx)
     private static final String DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    private static final String XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    private static final List<Integer> TAMANOS_PAGINA_REPORTE = List.of(10, 25, 50, 100);
 
     @PostMapping("/generar-asignacion")
     public ResponseEntity<byte[]> generarReporte(
@@ -282,6 +298,201 @@ public class ReportesController {
                 .replaceAll("[\\\\/:*?\"<>|\\r\\n\\t]", " ")
                 .replaceAll("\\s+", " ")
                 .trim();
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════════
+     * REPORTE DE ASIGNACIONES (Excel)
+     *
+     * Pantalla propia bajo Reportes: lista actas con sus datos administrativos
+     * (hoja de ruta, certificación, sistematizado por, comprobante, observación),
+     * permite completarlos en actas que ya existían antes de este módulo, y exporta
+     * a Excel una acta, el conjunto filtrado, o todo (sin filtros).
+     * ════════════════════════════════════════════════════════════════════════════ */
+
+    @ValidarUsuarioAutenticado
+    @GetMapping("/asignaciones/vista")
+    public String vistaReporteAsignaciones(Model model) {
+        model.addAttribute("gestiones", asignacionActivoService.gestionesConActas());
+        model.addAttribute("usuarios", usuarioService.findAll());
+        return "report/asignaciones_reporte";
+    }
+
+    @ValidarUsuarioAutenticado
+    @GetMapping(value = "/asignaciones/datos", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<?> datosReporteAsignaciones(@ModelAttribute FiltroReporteParams p,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "25") int tamano) {
+        try {
+            if (!TAMANOS_PAGINA_REPORTE.contains(tamano)) tamano = 25;
+            if (pagina < 0) pagina = 0;
+
+            Page<AsignacionActivo> resultado = asignacionActivoService.buscarConFiltros(
+                    filtrosDe(p), p.getOrden(), descOrDefault(p), PageRequest.of(pagina, tamano));
+
+            List<Long> ids = resultado.getContent().stream()
+                    .map(AsignacionActivo::getIdAsignacionActivo).toList();
+
+            List<AsignacionActivo> completas = asignacionActivoService.findAllByIdInConDetalles(ids);
+            Map<Long, AsignacionActivo> completasPorId = completas.stream()
+                    .collect(Collectors.toMap(AsignacionActivo::getIdAsignacionActivo, a -> a));
+            Map<Long, String> nombresPorUsuario = resolverNombresUsuarios(completas);
+
+            List<Map<String, Object>> filas = new ArrayList<>();
+            for (Long id : ids) {
+                AsignacionActivo a = completasPorId.get(id);
+                if (a != null) filas.add(mapaActaReporte(a, nombresPorUsuario));
+            }
+
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("ok", true);
+            body.put("filas", filas);
+            body.put("pagina", resultado.getNumber());
+            body.put("totalPaginas", resultado.getTotalPages());
+            body.put("totalElementos", resultado.getTotalElements());
+            return ResponseEntity.ok(body);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("ok", false, "msg", "No se pudo cargar el reporte: " + e.getMessage()));
+        }
+    }
+
+    /** Excel de todas las actas que cumplen el filtro — sin filtros, es "todo"; con filtros, es "por rango". */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/asignaciones/exportar")
+    public ResponseEntity<byte[]> exportarReporteAsignaciones(@ModelAttribute FiltroReporteParams p) {
+        try {
+            List<AsignacionActivo> actas = asignacionActivoService
+                    .buscarConFiltrosConDetalles(filtrosDe(p), p.getOrden(), descOrDefault(p));
+            if (actas.isEmpty()) return ResponseEntity.noContent().build();
+
+            byte[] xlsx = excelAsignacionReportService.generar(actas, resolverNombresUsuarios(actas));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(XLSX_MIME));
+            headers.setContentDispositionFormData("attachment",
+                    "reporte_asignaciones_" + LocalDate.now() + ".xlsx");
+            return new ResponseEntity<>(xlsx, headers, HttpStatus.OK);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /** Excel de una sola acta, con el mismo layout que el reporte general. */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/asignaciones/{idEnc}/exportar")
+    public ResponseEntity<byte[]> exportarUnaAsignacion(@PathVariable String idEnc) {
+        try {
+            Long id = Long.parseLong(Encriptar.decrypt(idEnc));
+            List<AsignacionActivo> actas = asignacionActivoService.findAllByIdInConDetalles(List.of(id));
+            if (actas.isEmpty()) return ResponseEntity.notFound().build();
+
+            AsignacionActivo asignacion = actas.get(0);
+            byte[] xlsx = excelAsignacionReportService.generar(actas, resolverNombresUsuarios(actas));
+
+            String nombre = asignacion.getNumeroAsignacion() != null
+                    ? asignacion.getNumeroAsignacion() : String.valueOf(asignacion.getIdAsignacionActivo());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(XLSX_MIME));
+            headers.setContentDispositionFormData("attachment",
+                    limpiarNombreArchivo("asignacion_" + nombre) + ".xlsx");
+            return new ResponseEntity<>(xlsx, headers, HttpStatus.OK);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    private FiltrosAsignacionDTO filtrosDe(FiltroReporteParams p) {
+        return FiltrosAsignacionDTO.normalizar(
+                p.getTipo(), p.getEstado(), p.getBuscar(), p.getDesde(), p.getHasta(), p.getSincronizacion(),
+                p.getGestion(), p.getIdResponsable(), p.getSoloConError(),
+                p.getOficina(), p.getIdUsuarioRegistro(), p.getComprobante());
+    }
+
+    private boolean descOrDefault(FiltroReporteParams p) {
+        return p.getDesc() == null || p.getDesc();
+    }
+
+    /**
+     * "Sistematizado por" para el reporte: quien registró el acta
+     * ({@code registroIdUsuario}), resuelto a nombre en una sola consulta por lote — no
+     * es un dato propio de {@code AsignacionActivo}, ver la nota en esa entidad.
+     */
+    private Map<Long, String> resolverNombresUsuarios(List<AsignacionActivo> actas) {
+        Set<Long> ids = actas.stream()
+                .map(AsignacionActivo::getRegistroIdUsuario)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (ids.isEmpty()) return Map.of();
+        return usuarioService.findAllByIdUsuarioIn(ids).stream()
+                .collect(Collectors.toMap(Usuario::getIdUsuario,
+                        u -> u.getPersona() != null ? u.getPersona().getNombreCompleto() : u.getUsuario()));
+    }
+
+    /** Fila del reporte: datos del acta + sus bienes vigentes (código y descripción). */
+    private Map<String, Object> mapaActaReporte(AsignacionActivo a, Map<Long, String> nombresPorUsuario) throws Exception {
+        Map<String, Object> m = new LinkedHashMap<>();
+        // "id" (cifrado) es para exportar esta acta sola; "idPlano" es el que espera
+        // /administracion/asignacion/asignaciones/{id}/editar-reporte — ese endpoint
+        // vive en CAsignacionActivoController y ahí, como en sus vecinos (editar-cabecera,
+        // separar, trasladar), el id NO va cifrado.
+        m.put("id", Encriptar.encrypt(String.valueOf(a.getIdAsignacionActivo())));
+        m.put("idPlano", a.getIdAsignacionActivo());
+        m.put("numero", a.getNumeroAsignacion());
+        m.put("fecha", a.getFechaAsignacion() != null ? a.getFechaAsignacion().toLocalDate().toString() : null);
+        m.put("hojaRuta", a.getHojaRuta());
+        m.put("certificacion", a.getCertificacion());
+        m.put("prev", a.getCodigoCompletoNormalizado());
+        m.put("sistematizadoPor", nombresPorUsuario.get(a.getRegistroIdUsuario()));
+        m.put("comprobante", a.getComprobante());
+        m.put("oficina", a.getOficinaDestino() != null ? a.getOficinaDestino().getNombre() : null);
+
+        Responsable resp = a.getResponsable();
+        m.put("nombreCompleto", resp != null && resp.getPersona() != null ? resp.getPersona().getNombreCompleto() : null);
+        m.put("ci", resp != null && resp.getPersona() != null ? resp.getPersona().getCi() : null);
+        m.put("cargo", resp != null && resp.getCargo() != null ? resp.getCargo().getNombre() : null);
+        m.put("observacion", a.getObservacion());
+
+        List<Map<String, Object>> detalles = new ArrayList<>();
+        if (a.getDetalles() != null) {
+            for (DetalleAsignacionActivo d : a.getDetalles()) {
+                if (!d.estaVigente()) continue;
+                Map<String, Object> dm = new LinkedHashMap<>();
+                dm.put("codigo", d.getCodigoActivoSnapshot() != null
+                        ? d.getCodigoActivoSnapshot() : (d.getActivo() != null ? d.getActivo().getCodigo() : null));
+                dm.put("descripcion", d.getDescripcionActivoSnapshot() != null
+                        ? d.getDescripcionActivoSnapshot() : (d.getActivo() != null ? d.getActivo().getDescripcion() : null));
+                detalles.add(dm);
+            }
+        }
+        m.put("detalles", detalles);
+        return m;
+    }
+
+    /** Filtros del reporte de asignaciones, tal como llegan por query string (GET). */
+    @lombok.Getter @lombok.Setter
+    public static class FiltroReporteParams {
+        private String tipo;
+        private String estado;
+        private String buscar;
+        private String desde;
+        private String hasta;
+        private String sincronizacion;
+        private Integer gestion;
+        private Long idResponsable;
+        private Boolean soloConError;
+        private String oficina;
+        private Long idUsuarioRegistro;
+        private Boolean comprobante;
+        private String orden;
+        private Boolean desc;
     }
 
 }

@@ -17,6 +17,9 @@ package com.usic.SistemasActivosFijosUAP.model.dto;
  * @param gestion        año de la asignación
  * @param idResponsable  responsable destino del acta
  * @param soloConError   solo actas con algún bien que el VSIAF rechazó
+ * @param oficina        texto libre sobre el nombre de la oficina destino
+ * @param idUsuarioRegistro usuario que registró el acta (auditoría, no responsable del bien)
+ * @param comprobante    true = solo con comprobante, false = solo sin comprobante, null = todas
  */
 public record FiltrosAsignacionDTO(
         String tipo,
@@ -27,7 +30,10 @@ public record FiltrosAsignacionDTO(
         String sincronizacion,
         Integer gestion,
         Long idResponsable,
-        boolean soloConError) {
+        boolean soloConError,
+        String oficina,
+        Long idUsuarioRegistro,
+        Boolean comprobante) {
 
     /** Al menos un bien ya está en el VSIAF. Es lo que se muestra por defecto. */
     public static final String SUBIDAS = "SUBIDAS";
@@ -50,6 +56,14 @@ public record FiltrosAsignacionDTO(
     public static FiltrosAsignacionDTO normalizar(String tipo, String estado, String buscar,
                                                   String desde, String hasta, String sincronizacion,
                                                   Integer gestion, Long idResponsable, Boolean soloConError) {
+        return normalizar(tipo, estado, buscar, desde, hasta, sincronizacion,
+                gestion, idResponsable, soloConError, null, null, null);
+    }
+
+    public static FiltrosAsignacionDTO normalizar(String tipo, String estado, String buscar,
+                                                  String desde, String hasta, String sincronizacion,
+                                                  Integer gestion, Long idResponsable, Boolean soloConError,
+                                                  String oficina, Long idUsuarioRegistro, Boolean comprobante) {
         String sinc = limpiar(sincronizacion);
         if (sinc == null) sinc = SUBIDAS;
         sinc = sinc.toUpperCase();
@@ -60,7 +74,8 @@ public record FiltrosAsignacionDTO(
         return new FiltrosAsignacionDTO(
                 limpiar(tipo), limpiar(estado), limpiar(buscar),
                 limpiar(desde), limpiar(hasta), sinc,
-                gestion, idResponsable, Boolean.TRUE.equals(soloConError));
+                gestion, idResponsable, Boolean.TRUE.equals(soloConError),
+                limpiar(oficina), idUsuarioRegistro, comprobante);
     }
 
     private static String limpiar(String s) {
@@ -73,6 +88,7 @@ public record FiltrosAsignacionDTO(
     public boolean hayFiltrosActivos() {
         return tipo != null || estado != null || buscar != null || desde != null || hasta != null
             || gestion != null || idResponsable != null || soloConError
+            || oficina != null || idUsuarioRegistro != null || comprobante != null
             || !SUBIDAS.equals(sincronizacion);
     }
 }

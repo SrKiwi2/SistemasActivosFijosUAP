@@ -56,6 +56,18 @@
         white-space: nowrap;
     }
 
+    /* Chips de códigos del modal "Editar activos pendientes" (#editPendCodigoChips).
+       Con selecciones grandes (una asignación de 250 activos, por ejemplo) los chips
+       en flex-wrap sin tope hacían crecer el header del modal sin límite, dejando
+       casi sin alto al formulario de abajo aunque el modal fuera scrollable — el
+       body se veía recortado o casi vacío. Con tope + scroll propio, el header queda
+       de alto fijo y el body recupera el espacio. */
+    #editPendCodigoChips {
+        max-height: 4.6rem;
+        overflow-y: auto;
+        align-content: flex-start;
+    }
+
     @media (max-width: 992px) {
         .modal-agregar .batch-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
@@ -830,6 +842,34 @@
                         </span>
                         <input type="text" id="txtNroDoc" class="form-control fw-bold fs-5" placeholder="Ej: 5243"
                             oninput="actualizarPreview()">
+                    </div>
+                </div>
+
+                <!-- Datos del acta para el reporte (hoja de ruta, certificación y si tiene comprobante).
+                     "Sistematizado por" no se pide acá: es quien registra el acta, o sea vos —
+                     ya queda guardado solo como registroIdUsuario. -->
+                <div class="row g-2 mb-3">
+                    <div class="col-4">
+                        <label class="form-label small fw-bold text-dark">HOJA DE RUTA / ARD</label>
+                        <input type="text" id="txtHojaRuta" class="form-control form-control-sm" placeholder="Ej: 90">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small fw-bold text-dark">CERTIFICACIÓN</label>
+                        <input type="text" id="txtCertificacion" class="form-control form-control-sm" placeholder="Ej: 6">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small fw-bold text-dark d-block">COMPROBANTE</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="rbComprobante" id="rbComprobanteSi" value="true">
+                            <label class="btn btn-outline-success btn-sm" for="rbComprobanteSi">SI</label>
+                            <input type="radio" class="btn-check" name="rbComprobante" id="rbComprobanteNo" value="false">
+                            <label class="btn btn-outline-danger btn-sm" for="rbComprobanteNo">NO</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold text-dark">OBSERVACIÓN</label>
+                        <textarea id="txtObservacionActa" class="form-control form-control-sm" rows="2"
+                            placeholder="Ej: el activo llegó en la gestión 2025 pero se canceló el 2026"></textarea>
                     </div>
                 </div>
 
@@ -1737,12 +1777,40 @@
             }
 
             $('#txtNroDoc').val('');
+            $('#txtHojaRuta, #txtCertificacion, #txtObservacionActa').val('');
+            $('input[name="rbComprobante"]').prop('checked', false);
             $('#previewDesc').hide();
             $('#infoConfigSeleccionada').addClass('d-none');
 
             new bootstrap.Tab(document.querySelector('#tab-elegir')).show();
             cargarComboConfiguraciones();
+            precargarDatosReporteSiExisteActa(ids);
             $('#modalAsignarGestion').modal('show');
+        }
+
+        /**
+         * Si los activos seleccionados ya pertenecen a un acta (ej.: se reabre el modal
+         * solo para corregir el N° de documento), precarga sus datos de reporte —
+         * si no, confirmar sin tocar esos campos los deja en blanco y se pierde lo que
+         * ya se había cargado antes.
+         */
+        function precargarDatosReporteSiExisteActa(ids) {
+            if (!ids || ids.length === 0) return;
+            $.get('/administracion/activo/api/datos-reporte-pendiente', { id: ids[0] })
+                .done(function (data) {
+                    if (!data || !data.existeActa) return;
+                    // Puede tardar más que el usuario en abrir el modal — no pisar lo
+                    // que ya haya empezado a escribir si cambió de selección mientras tanto.
+                    if (ids !== _pendingIds) return;
+
+                    if (data.nroDoc) $('#txtNroDoc').val(data.nroDoc);
+                    if (data.hojaRuta) $('#txtHojaRuta').val(data.hojaRuta);
+                    if (data.certificacion) $('#txtCertificacion').val(data.certificacion);
+                    if (data.observacion) $('#txtObservacionActa').val(data.observacion);
+                    if (data.comprobante === true)  $('#rbComprobanteSi').prop('checked', true);
+                    if (data.comprobante === false) $('#rbComprobanteNo').prop('checked', true);
+                    actualizarPreview();
+                });
         }
 
         function cargarComboConfiguraciones() {
@@ -1929,6 +1997,11 @@
             _pendingIds.forEach(id => params.append('ids', id));  // un append por ID
             params.append('idConfig', idConfig);
             params.append('nroDoc', nro);
+            params.append('hojaRuta', $('#txtHojaRuta').val().trim());
+            params.append('certificacion', $('#txtCertificacion').val().trim());
+            const comprobante = $('input[name="rbComprobante"]:checked').val();
+            if (comprobante !== undefined) params.append('comprobante', comprobante);
+            params.append('observacion', $('#txtObservacionActa').val().trim());
 
             fetch('/administracion/activo/asignar-gestion-masiva', {
                 method: 'POST',

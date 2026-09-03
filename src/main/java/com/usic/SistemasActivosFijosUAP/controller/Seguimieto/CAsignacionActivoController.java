@@ -43,6 +43,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.ExcelAsignacionReportService;
 import com.usic.SistemasActivosFijosUAP.model.service.asignacion.AsignacionEdicionService;
 import com.usic.SistemasActivosFijosUAP.model.service.asignacion.EdicionCabeceraActaDTO;
 import com.usic.SistemasActivosFijosUAP.model.service.asignacion.ResultadoOperacionActa;
@@ -67,10 +68,14 @@ public class CAsignacionActivoController {
     private final WordAsignacionActivoService wordAsignacionActivoService;
     private final AsignacionEdicionService asignacionEdicionService;
     private final IAsignacionMovimientoDao asignacionMovimientoDao;
+    private final ExcelAsignacionReportService excelAsignacionReportService;
 
     /** Tamaños de página permitidos. Un valor libre por parámetro sería un pedido de "traeme todo". */
     private static final List<Integer> TAMANOS_PAGINA = List.of(10, 25, 50, 100);
     private static final int TAMANO_POR_DEFECTO = 25;
+
+    private static final String XLSX_MIME =
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -79,6 +84,51 @@ public class CAsignacionActivoController {
         model.addAttribute("gestiones", asignacionActivoService.gestionesConActas());
         model.addAttribute("tamanosPagina", TAMANOS_PAGINA);
         return "/seguimiento/asignacion/vista";
+    }
+
+    /**
+     * Reporte Excel de las actas que cumplen el filtro actual del listado — el mismo
+     * {@link FiltrosAsignacionDTO} que arma la tabla, sin paginar: el reporte trae todo
+     * lo que el filtro deja pasar, no solo la página visible.
+     */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/exportar-excel")
+    public ResponseEntity<byte[]> exportarExcel(
+            @RequestParam(required = false) String tipo,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) String buscar,
+            @RequestParam(required = false) String desde,
+            @RequestParam(required = false) String hasta,
+            @RequestParam(required = false) String sincronizacion,
+            @RequestParam(required = false) Integer gestion,
+            @RequestParam(required = false) Long idResponsable,
+            @RequestParam(required = false) Boolean soloConError,
+            @RequestParam(required = false) String orden,
+            @RequestParam(defaultValue = "true") boolean desc) {
+
+        try {
+            FiltrosAsignacionDTO filtros = FiltrosAsignacionDTO.normalizar(
+                    tipo, estado, buscar, desde, hasta, sincronizacion, gestion, idResponsable, soloConError);
+
+            List<AsignacionActivo> completas = asignacionActivoService
+                    .buscarConFiltrosConDetalles(filtros, orden, desc);
+            if (completas.isEmpty()) {
+                return ResponseEntity.noContent().build();
+            }
+
+            byte[] xlsx = excelAsignacionReportService.generar(completas, resolverNombresUsuarios(completas));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(XLSX_MIME));
+            headers.setContentDisposition(ContentDisposition.attachment()
+                    .filename("asignaciones_" + LocalDate.now() + ".xlsx")
+                    .build());
+            return new ResponseEntity<>(xlsx, headers, HttpStatus.OK);
+
+        } catch (Exception e) {
+            log.error("[EXPORTAR-EXCEL] Error generando el reporte: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @ValidarUsuarioAutenticado
@@ -341,6 +391,92 @@ public class CAsignacionActivoController {
         private Long idOficinaDestino;
         private boolean propagarABienes;
         private String motivo;
+    }
+
+    /**
+     * Carga o corrige los datos administrativos del acta (hoja de ruta, certificación,
+     * si tiene comprobante y la observación) para el reporte Excel.
+     * <p>
+     * A propósito NO toca bienes, VSIAF ni historial: es la única forma de completar
+     * estos datos en actas que ya se subieron al VSIAF, donde el modal de Pendientes
+     * ("Documento de Gestión") ya no aparece porque los activos dejaron de estar
+     * PENDIENTE. Por eso no pasa por {@link AsignacionEdicionService}: no es una
+     * operación estructural, es paperwork. Sí deja rastro de auditoría como cualquier
+     * otra edición del acta: {@code modificacionIdUsuario} (quién) se fija acá;
+     * {@code modificacion} (cuándo) lo sella solo {@code AuditoriaConfig.alModificar()}
+     * al hacer UPDATE.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping(value = "/asignaciones/{id}/editar-reporte", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<?> editarDatosReporte(@PathVariable Long id,
+                                                @RequestBody EdicionReporteRequest req,
+                                                HttpServletRequest httpReq) {
+        Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "msg", "Sesión expirada. Volvé a iniciar sesión."));
+        }
+        try {
+            AsignacionActivo asignacion = asignacionActivoService.findById(id);
+            if (asignacion == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("ok", false, "msg", "Acta no encontrada."));
+            }
+
+            asignacion.setHojaRuta(limpiar(req.getHojaRuta()));
+            asignacion.setCertificacion(limpiar(req.getCertificacion()));
+            asignacion.setComprobante(req.getComprobante());
+            asignacion.setObservacion(limpiar(req.getObservacion()));
+            asignacion.setModificacionIdUsuario(usuario.getIdUsuario());
+            asignacionActivoService.save(asignacion);
+
+            return ResponseEntity.ok(Map.of("ok", true, "msg", "Datos del reporte actualizados."));
+
+        } catch (Exception e) {
+            log.error("[EDITAR-REPORTE] Error editando datos de reporte del acta {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("ok", false, "msg", "No se pudo guardar: " + e.getMessage()));
+        }
+    }
+
+    private String limpiar(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
+    }
+
+    /**
+     * "Sistematizado por" para el reporte Excel: quien registró el acta
+     * ({@code registroIdUsuario}), no un dato propio del acta — ver la nota en
+     * {@code AsignacionActivo}.
+     */
+    private String resolverNombreUsuario(Long idUsuario) {
+        if (idUsuario == null) return null;
+        return usuarioService.findByIdUsuario(idUsuario)
+                .map(u -> u.getPersona() != null ? u.getPersona().getNombreCompleto() : u.getUsuario())
+                .orElse(null);
+    }
+
+    /** Igual que {@link #resolverNombreUsuario}, pero resolviendo varias actas de una sola consulta. */
+    private Map<Long, String> resolverNombresUsuarios(List<AsignacionActivo> actas) {
+        Set<Long> ids = actas.stream()
+                .map(AsignacionActivo::getRegistroIdUsuario)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (ids.isEmpty()) return Map.of();
+        return usuarioService.findAllByIdUsuarioIn(ids).stream()
+                .collect(Collectors.toMap(Usuario::getIdUsuario,
+                        u -> u.getPersona() != null ? u.getPersona().getNombreCompleto() : u.getUsuario()));
+    }
+
+    /** Cuerpo del pedido de edición de datos de reporte. */
+    @lombok.Getter @lombok.Setter
+    public static class EdicionReporteRequest {
+        private String hojaRuta;
+        private String certificacion;
+        private Boolean comprobante;
+        private String observacion;
     }
 
     /**
@@ -797,6 +933,15 @@ public class CAsignacionActivoController {
             cabecera.put("idPredioOficina", asig.getOficinaDestino() != null
                     && asig.getOficinaDestino().getPredio() != null
                     ? asig.getOficinaDestino().getPredio().getIdPredio() : null);
+
+            // Datos del reporte Excel — para precargar el modal "Editar datos del
+            // reporte" sin pedir otro endpoint. Suelen faltar en actas viejas o ya
+            // subidas al VSIAF, donde el modal de Pendientes ya no aparece.
+            cabecera.put("hojaRuta", asig.getHojaRuta());
+            cabecera.put("certificacion", asig.getCertificacion());
+            cabecera.put("sistematizadoPor", resolverNombreUsuario(asig.getRegistroIdUsuario()));
+            cabecera.put("comprobante", asig.getComprobante());
+            cabecera.put("observacion", asig.getObservacion());
 
             return ResponseEntity.ok(Map.of(
                 "ok", true,

@@ -92,6 +92,16 @@ public class DbfColaOrden {
     @Column(name = "fecha_resuelto")
     private LocalDateTime fechaResuelto;
 
+    /**
+     * Cuántas veces se reintentó esta cadena antes de llegar a esta orden.
+     * <p>
+     * 0 en el primer envío. Cuando {@code ColaVsiafReintentoScheduler} reintenta un
+     * ACTUAL/UPDATE rechazado, la orden nueva hereda este valor +1; al llegar al tope
+     * deja de insistir y el rechazo queda firme (con su aviso ya emitido).
+     */
+    @Column(name = "intentos", nullable = false)
+    private Integer intentos = 0;
+
     /** ¿Sigue esperando al worker? */
     public boolean estaPendiente() {
         return ENCOLADA.equals(estado);

@@ -110,7 +110,13 @@
     }
 
     .asignacion-card.is-expanded .asig-body {
-        max-height: 5000px;
+        /* Tope alto a propósito: es el truco para poder animar el despliegue con
+           transition (max-height no anima hasta "auto"/"none"). Con actas de 250+
+           activos, un tope de 5000px quedaba por debajo del alto real de la sub-tabla
+           y el "overflow: hidden" de .asig-body recortaba las filas de más — se veían
+           menos activos de los que realmente tiene el acta, sin ningún indicio de que
+           faltaban. El tope debe quedar siempre muy por encima de cualquier acta real. */
+        max-height: 300000px;
     }
 
     .sub-table-wrapper {
