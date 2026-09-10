@@ -1,169 +1,225 @@
-<!-- /seguimiento/transferencia/tabla_registro.html -->
+<!-- /seguimiento/transferencia/tabla_registro.html
+     Mismo lenguaje visual que el listado de actas de asignación: tabla sobria, un solo
+     acento para lo interactivo y el color reservado al estado, que es lo único que
+     puede exigir una acción. -->
 
 <div th:if="${#lists.isEmpty(transferencias)}" class="card border-0 shadow-sm">
     <div class="card-body text-center py-5">
         <i class="bx bx-transfer fs-1 text-muted mb-3 d-block"></i>
         <h6 class="text-muted">No se encontraron registros de transferencia</h6>
+        <p class="text-muted small mb-0">Las transferencias internas y externas aparecen acá
+            apenas se registran.</p>
     </div>
 </div>
 
 <div th:if="${!#lists.isEmpty(transferencias)}" class="card border-0 shadow-sm">
 
-    <div class="card-header bg-transparent border-bottom d-flex align-items-center justify-content-between py-3">
+    <div class="card-header bg-transparent border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2 py-3">
         <div class="d-flex align-items-center gap-2">
-            <i class="bx bx-transfer text-info fs-5"></i>
-            <span class="fw-semibold">Registros de Transferencia</span>
-            <span class="badge bg-info rounded-pill" th:text="${#lists.size(transferencias)}">0</span>
+            <i class="bx bx-transfer text-primary fs-5"></i>
+            <span class="fw-semibold">Transferencias de activos</span>
+            <span class="badge bg-primary rounded-pill" th:text="${#lists.size(transferencias)}">0</span>
         </div>
         <div class="d-none d-md-flex align-items-center gap-3 small text-muted">
             <span><span class="badge bg-success me-1">●</span>Completada</span>
-            <span><span class="badge bg-warning me-1">●</span>En Proceso</span>
+            <span><span class="badge bg-warning me-1">●</span>En proceso</span>
             <span><span class="badge bg-secondary me-1">●</span>Pendiente</span>
             <span><span class="badge bg-danger me-1">●</span>Anulada</span>
         </div>
     </div>
 
-    <!-- Cabecera columnas desktop -->
-    <div class="d-none d-lg-block px-3 pt-2 pb-1">
-        <div class="row g-0 text-muted small fw-semibold border-bottom pb-2">
-            <div class="col-lg-2">N° TRANSFERENCIA</div>
-            <div class="col-lg-2">FECHA</div>
-            <div class="col-lg-1 text-center">TIPO</div>
-            <div class="col-lg-3">ORIGEN → DESTINO</div>
-            <div class="col-lg-2">OFICINA DESTINO</div>
-            <div class="col-lg-1 text-center">ACTIVOS</div>
-            <div class="col-lg-1 text-center">ESTADO</div>
-        </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 tabla-transferencias">
+            <thead>
+                <tr>
+                    <th>TRANSFERENCIA</th>
+                    <th>FECHA</th>
+                    <th class="text-center">TIPO</th>
+                    <th>RESPONSABLE ORIGEN → DESTINO</th>
+                    <th>OFICINA DESTINO</th>
+                    <th class="text-end">ACTIVOS</th>
+                    <th class="text-center">ESTADO</th>
+                    <th class="text-end" style="width:90px">ACCIONES</th>
+                </tr>
+            </thead>
+
+            <tbody th:with="mesesNombre=${ {'','ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO',
+                                            'AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'} }">
+            <th:block th:each="trf, it : ${transferencias}"
+                      th:with="claveMes=${trf.fechaTransferencia != null
+                                          ? #temporals.format(trf.fechaTransferencia, 'yyyy-MM') : null},
+                               claveMesPrevia=${it.index == 0 ? '' :
+                                          (transferencias[it.index - 1].fechaTransferencia != null
+                                           ? #temporals.format(transferencias[it.index - 1].fechaTransferencia, 'yyyy-MM')
+                                           : null)}">
+
+                <!-- Corte por mes: el listado viene ordenado por fecha descendente. -->
+                <tr th:if="${trf.fechaTransferencia != null and claveMes != claveMesPrevia}" class="fila-mes">
+                    <td colspan="8">
+                        <span class="mes-nombre"
+                              th:text="${mesesNombre[trf.fechaTransferencia.monthValue] + ' ' + trf.fechaTransferencia.year}">MES</span>
+                    </td>
+                </tr>
+
+                <tr th:id="'trf-row-' + ${trf.idTransferencia}"
+                    class="trf-row"
+                    th:data-id="${trf.idTransferencia}"
+                    th:data-numero="${trf.numeroTransferencia}"
+                    th:data-tipo="${trf.tipo}"
+                    th:data-estado="${trf.estadoProceso}"
+                    th:data-fecha="${trf.fechaTransferencia}"
+                    th:data-fecha-recepcion="${trf.fechaRecepcion}"
+                    th:data-resp-origen="${trf.responsableOrigen != null and trf.responsableOrigen.persona != null
+                        ? trf.responsableOrigen.persona.nombreCompleto : ''}"
+                    th:data-resp-origen-cod="${trf.responsableOrigen != null ? trf.responsableOrigen.codigoFuncionario : ''}"
+                    th:data-resp-destino="${trf.responsableDestino != null and trf.responsableDestino.persona != null
+                        ? trf.responsableDestino.persona.nombreCompleto : ''}"
+                    th:data-resp-destino-cod="${trf.responsableDestino != null ? trf.responsableDestino.codigoFuncionario : ''}"
+                    th:data-oficina-origen="${trf.oficinaOrigen != null ? trf.oficinaOrigen.nombre : ''}"
+                    th:data-oficina-origen-cod="${trf.oficinaOrigen != null ? trf.oficinaOrigen.codOfi : ''}"
+                    th:data-predio-origen="${trf.oficinaOrigen != null and trf.oficinaOrigen.predio != null
+                        ? trf.oficinaOrigen.predio.descrip : ''}"
+                    th:data-oficina-destino="${trf.oficinaDestino != null ? trf.oficinaDestino.nombre : ''}"
+                    th:data-oficina-destino-cod="${trf.oficinaDestino != null ? trf.oficinaDestino.codOfi : ''}"
+                    th:data-predio-destino="${trf.oficinaDestino != null and trf.oficinaDestino.predio != null
+                        ? trf.oficinaDestino.predio.descrip : ''}"
+                    th:data-institucion="${trf.institucionDestino}"
+                    th:data-doc-ref="${trf.documentoReferencia}"
+                    th:data-observacion="${trf.observacion}"
+                    th:data-num-activos="${trf.detalles != null ? #lists.size(trf.detalles) : 0}"
+                    th:data-fecha-reg="${trf.registro}"
+                    th:data-usuario-reg="${trf.registroIdUsuario != null and mapaUsuarios.containsKey(trf.registroIdUsuario)
+                        ? mapaUsuarios.get(trf.registroIdUsuario) : 'Sistema'}"
+                    th:data-fecha-mod="${trf.modificacion}"
+                    th:data-usuario-mod="${trf.modificacionIdUsuario != null and mapaUsuarios.containsKey(trf.modificacionIdUsuario)
+                        ? mapaUsuarios.get(trf.modificacionIdUsuario) : ''}"
+                    style="cursor:pointer">
+
+                    <!-- Número y documento de referencia -->
+                    <td>
+                        <div class="fw-semibold text-primary" style="font-size:.85rem"
+                             th:text="${trf.numeroTransferencia ?: 'Sin número'}">—</div>
+                        <div class="text-muted" style="font-size:.72rem">
+                            <span th:text="${trf.documentoReferencia ?: 'sin doc. referencia'}">—</span>
+                            <span class="opacity-50" th:text="'· #' + ${trf.idTransferencia}">· #0</span>
+                        </div>
+                    </td>
+
+                    <!-- Fecha de transferencia y de recepción -->
+                    <td>
+                        <div class="small" th:text="${trf.fechaTransferencia != null
+                             ? #temporals.format(trf.fechaTransferencia, 'dd/MM/yyyy') : '—'}">—</div>
+                        <div class="text-muted" style="font-size:.72rem" th:if="${trf.fechaRecepcion != null}"
+                             th:text="'recibido ' + ${#temporals.format(trf.fechaRecepcion, 'dd/MM/yyyy')}">—</div>
+                    </td>
+
+                    <!-- Tipo -->
+                    <td class="text-center">
+                        <span class="badge"
+                              th:classappend="${trf.tipo == 'INTERNA'} ? 'bg-label-info' : 'bg-label-warning'"
+                              th:text="${trf.tipo ?: '—'}">—</span>
+                    </td>
+
+                    <!-- Responsable origen → destino -->
+                    <td>
+                        <div class="d-flex align-items-center gap-1 small">
+                            <span class="text-truncate text-muted" style="max-width:150px"
+                                  th:text="${trf.responsableOrigen != null and trf.responsableOrigen.persona != null
+                                            ? trf.responsableOrigen.persona.nombreCompleto : '—'}">—</span>
+                            <i class="bx bx-right-arrow-alt text-muted flex-shrink-0"></i>
+                            <span class="text-truncate fw-semibold" style="max-width:150px"
+                                  th:text="${trf.responsableDestino != null and trf.responsableDestino.persona != null
+                                            ? trf.responsableDestino.persona.nombreCompleto : '—'}">—</span>
+                        </div>
+                    </td>
+
+                    <!-- Oficina destino, con su código: así se la identifica en el VSIAF -->
+                    <td>
+                        <div th:if="${trf.oficinaDestino != null}" class="text-truncate" style="max-width:190px">
+                            <span class="badge bg-label-secondary" style="font-size:.68rem"
+                                  th:text="${trf.oficinaDestino.codOfi ?: '—'}">—</span>
+                            <span class="small" th:text="${trf.oficinaDestino.nombre}">—</span>
+                        </div>
+                        <div th:unless="${trf.oficinaDestino != null}" class="small text-muted text-truncate"
+                             style="max-width:190px"
+                             th:text="${trf.institucionDestino ?: '—'}">—</div>
+                    </td>
+
+                    <!-- Cantidad de activos -->
+                    <td class="text-end num" th:text="${trf.detalles != null ? #lists.size(trf.detalles) : 0}">0</td>
+
+                    <!-- Estado del proceso -->
+                    <td class="text-center">
+                        <span class="badge" th:classappend="${trf.estadoProceso == 'COMPLETADA'} ? 'bg-success' :
+                                (${trf.estadoProceso == 'PENDIENTE'} ? 'bg-secondary' :
+                                (${trf.estadoProceso == 'EN_PROCESO'} ? 'bg-warning text-dark' : 'bg-danger'))"
+                              th:text="${trf.estadoProceso ?: '—'}">—</span>
+                    </td>
+
+                    <!-- Acciones -->
+                    <td class="text-end text-nowrap">
+                        <a th:href="@{/seguimiento-activo/transferencia/{id}/pdf(id=${trf.idTransferencia})}"
+                           target="_blank" class="btn btn-sm btn-icon btn-outline-primary py-0 px-1"
+                           title="Descargar Word" onclick="event.stopPropagation()">
+                            <i class="bx bxs-file-doc small"></i>
+                        </a>
+                        <i class="bx bx-chevron-right text-muted ms-1" title="Ver detalle"></i>
+                    </td>
+                </tr>
+            </th:block>
+            </tbody>
+        </table>
     </div>
 
-    <div class="list-group list-group-flush">
-
-        <div th:each="trf : ${transferencias}" th:id="'trf-row-' + ${trf.idTransferencia}"
-            class="trf-row list-group-item list-group-item-action px-3 py-0 border-start border-4" th:classappend="${trf.estadoProceso == 'COMPLETADA'} ? 'border-success' :
-                         (${trf.estadoProceso == 'PENDIENTE'} ? 'border-secondary' :
-                         (${trf.estadoProceso == 'EN_PROCESO'} ? 'border-warning' : 'border-danger'))"
-            th:data-id="${trf.idTransferencia}" th:data-numero="${trf.numeroTransferencia}" th:data-tipo="${trf.tipo}"
-            th:data-estado="${trf.estadoProceso}" th:data-fecha="${trf.fechaTransferencia}"
-            th:data-fecha-recepcion="${trf.fechaRecepcion}" th:data-resp-origen="${trf.responsableOrigen != null ?
-           (trf.responsableOrigen.persona.nombre + ' ' + trf.responsableOrigen.persona.paterno) : ''}"
-            th:data-oficina-origen="${trf.oficinaOrigen != null ? trf.oficinaOrigen.nombre : ''}" th:data-resp-destino="${trf.responsableDestino != null ?
-           (trf.responsableDestino.persona.nombre + ' ' + trf.responsableDestino.persona.paterno) : ''}"
-            th:data-oficina-destino="${trf.oficinaDestino != null ? trf.oficinaDestino.nombre : ''}"
-            th:data-institucion="${trf.institucionDestino}" th:data-doc-ref="${trf.documentoReferencia}"
-            th:data-observacion="${trf.observacion}"
-            th:data-num-activos="${trf.detalles != null ? #lists.size(trf.detalles) : 0}"
-            th:data-fecha-reg="${trf.registro}" th:data-usuario-reg="${trf.registroIdUsuario}"
-            th:data-fecha-mod="${trf.modificacion}" th:data-usuario-mod="${trf.modificacionIdUsuario}"
-            style="cursor:pointer; transition: background 0.15s;">
-
-            <div class="row g-0 align-items-center py-3">
-
-                <!-- Número -->
-                <div class="col-12 col-lg-2 mb-1 mb-lg-0">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="avatar avatar-xs bg-label-info rounded">
-                            <i class="bx bx-transfer small"></i>
-                        </div>
-                        <div>
-                            <div class="fw-semibold text-info small" th:text="${trf.numeroTransferencia ?: '—'}">—</div>
-                            <div class="text-muted" style="font-size:0.7rem"
-                                th:text="${trf.documentoReferencia != null ? trf.documentoReferencia : 'Sin doc. ref.'}">
-                                —</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Fecha -->
-                <div class="col-6 col-lg-2 mb-1 mb-lg-0">
-                    <div class="text-muted small">
-                        <i class="bx bx-calendar me-1"></i>
-                        <span th:if="${trf.fechaTransferencia != null}"
-                            th:text="${#temporals.format(trf.fechaTransferencia, 'dd/MM/yyyy')}">—</span>
-                        <span th:unless="${trf.fechaTransferencia != null}">—</span>
-                    </div>
-                    <div class="text-muted" style="font-size:0.7rem" th:if="${trf.fechaRecepcion != null}">
-                        Rec: <span th:text="${#temporals.format(trf.fechaRecepcion, 'dd/MM/yyyy')}"></span>
-                    </div>
-                </div>
-
-                <!-- Tipo -->
-                <div class="col-6 col-lg-1 mb-1 mb-lg-0 text-lg-center">
-                    <span class="badge" th:classappend="${trf.tipo == 'INTERNA'} ? 'bg-label-info' : 'bg-label-warning'"
-                        th:text="${trf.tipo ?: '—'}">—</span>
-                </div>
-
-                <!-- Origen → Destino -->
-                <div class="col-12 col-lg-3 mb-1 mb-lg-0">
-                    <div class="d-flex align-items-center gap-1 small">
-                        <div class="text-truncate" style="max-width:100px">
-                            <span th:if="${trf.responsableOrigen != null}"
-                                th:text="${trf.responsableOrigen.persona.nombre + ' ' + trf.responsableOrigen.persona.paterno}">—</span>
-                            <span th:unless="${trf.responsableOrigen != null}" class="text-muted">—</span>
-                        </div>
-                        <i class="bx bx-right-arrow-alt text-muted flex-shrink-0"></i>
-                        <div class="text-truncate fw-semibold" style="max-width:100px">
-                            <span th:if="${trf.responsableDestino != null}"
-                                th:text="${trf.responsableDestino.persona.nombre + ' ' + trf.responsableDestino.persona.paterno}">—</span>
-                            <span th:unless="${trf.responsableDestino != null}" class="text-muted">—</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Oficina destino -->
-                <div class="col-6 col-lg-2 mb-1 mb-lg-0">
-                    <div class="small text-muted text-truncate" style="max-width:140px"
-                        th:text="${trf.oficinaDestino != null ? trf.oficinaDestino.nombre : (trf.institucionDestino ?: '—')}">
-                        —</div>
-                </div>
-
-                <!-- Num activos -->
-                <div class="col-3 col-lg-1 mb-1 mb-lg-0 text-lg-center">
-                    <span class="badge bg-label-info rounded-pill">
-                        <i class="bx bx-box me-1"></i>
-                        <span th:text="${trf.detalles != null ? #lists.size(trf.detalles) : 0}">0</span>
-                    </span>
-                </div>
-
-                <!-- Estado + Acciones -->
-                <div
-                    class="col-3 col-lg-1 text-lg-center d-flex align-items-center justify-content-end justify-content-lg-center gap-2">
-                    <span class="badge" th:classappend="${trf.estadoProceso == 'COMPLETADA'} ? 'bg-success' :
-                            (${trf.estadoProceso == 'PENDIENTE'} ? 'bg-secondary' :
-                            (${trf.estadoProceso == 'EN_PROCESO'} ? 'bg-warning text-dark' : 'bg-danger'))"
-                        th:text="${trf.estadoProceso ?: '—'}">—</span>
-
-                    <a th:href="@{/seguimiento-activo/transferencia/{id}/pdf(id=${trf.idTransferencia})}" target="_blank"
-                        class="btn btn-sm btn-icon btn-outline-primary py-0 px-1" title="Word"
-                        onclick="event.stopPropagation()">
-                        <i class="bx bxs-file-doc small"></i>
-                    </a>
-
-                    <i class="bx bx-chevron-right text-muted ms-1"></i>
-                </div>
-
-            </div>
-        </div>
-
-    </div>
-
-    <div class="card-footer bg-transparent border-top d-flex align-items-center justify-content-between py-2 px-3">
+    <div class="card-footer bg-transparent border-top py-2 px-3">
         <small class="text-muted">
             <i class="bx bx-info-circle me-1"></i>
-            Mostrando <strong th:text="${#lists.size(transferencias)}">0</strong> registros.
-            Haz clic en una fila para ver el detalle.
+            Mostrando <strong th:text="${#lists.size(transferencias)}">0</strong> transferencias.
+            Hacé clic en una fila para ver el detalle.
         </small>
     </div>
 
 </div>
 
 <style>
-    .trf-row:hover {
-        background-color: rgba(var(--bs-info-rgb), 0.04) !important;
+    .tabla-transferencias thead th {
+        font-size: .68rem;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        color: var(--bs-secondary-color, #697a8d);
+        font-weight: 600;
+    }
+
+    /* Separador de mes: una banda sobria que corta la lista sin competir con el
+       color del estado ni parecer una fila más de datos. */
+    .tabla-transferencias tr.fila-mes td {
+        background: #f5f6f8;
+        border-top: 2px solid #d9dee3;
+        padding: .45rem .75rem;
+    }
+    .tabla-transferencias tr.fila-mes:hover td { background: #f5f6f8; }
+    .tabla-transferencias .mes-nombre {
+        font-weight: 700;
+        font-size: .78rem;
+        letter-spacing: .06em;
+        color: #566a7f;
+    }
+
+    .tabla-transferencias td.num {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .tabla-transferencias tbody tr.trf-row:hover {
+        background-color: rgba(var(--bs-primary-rgb), .05);
     }
 </style>
 
 <script>
-    $(document).on('click', '.trf-row', function () {
-        abrirModalTransferencia($(this).data('id'));
+    /* El clic en la fila abre el detalle; los botones de acción lo detienen con stopPropagation. */
+    $(document).off('click.trfRow').on('click.trfRow', '.trf-row', function () {
+        const id = $(this).data('id');
+        if (typeof abrirModalTransferencia === 'function') abrirModalTransferencia(id);
     });
 </script>

@@ -214,25 +214,41 @@
                                     <div class="card-body">
                                         <div class="row g-3">
                                             <div class="col-6 border-end">
-                                                <p class="text-muted small fw-semibold mb-1 text-uppercase">Origen</p>
-                                                <div class="d-flex align-items-center gap-2 mb-2">
-                                                    <i class="bx bx-user text-warning"></i>
-                                                    <span class="small" id="trf-d-resp-origen">—</span>
+                                                <p class="text-muted small fw-semibold mb-2 text-uppercase">Origen</p>
+                                                <div class="d-flex align-items-start gap-2 mb-2">
+                                                    <i class="bx bx-user text-warning mt-1"></i>
+                                                    <div>
+                                                        <div class="small" id="trf-d-resp-origen">—</div>
+                                                        <div class="text-muted" style="font-size:.72rem"
+                                                            id="trf-d-resp-origen-cod">—</div>
+                                                    </div>
                                                 </div>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <i class="bx bx-buildings text-warning"></i>
-                                                    <span class="small text-muted" id="trf-d-oficina-origen">—</span>
+                                                <div class="d-flex align-items-start gap-2">
+                                                    <i class="bx bx-buildings text-warning mt-1"></i>
+                                                    <div>
+                                                        <div class="small" id="trf-d-oficina-origen">—</div>
+                                                        <div class="text-muted" style="font-size:.72rem"
+                                                            id="trf-d-predio-origen">—</div>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div class="col-6">
-                                                <p class="text-muted small fw-semibold mb-1 text-uppercase">Destino</p>
-                                                <div class="d-flex align-items-center gap-2 mb-2">
-                                                    <i class="bx bx-user text-success"></i>
-                                                    <span class="small" id="trf-d-resp-destino">—</span>
+                                                <p class="text-muted small fw-semibold mb-2 text-uppercase">Destino</p>
+                                                <div class="d-flex align-items-start gap-2 mb-2">
+                                                    <i class="bx bx-user text-success mt-1"></i>
+                                                    <div>
+                                                        <div class="small" id="trf-d-resp-destino">—</div>
+                                                        <div class="text-muted" style="font-size:.72rem"
+                                                            id="trf-d-resp-destino-cod">—</div>
+                                                    </div>
                                                 </div>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <i class="bx bx-buildings text-success"></i>
-                                                    <span class="small text-muted" id="trf-d-oficina-destino">—</span>
+                                                <div class="d-flex align-items-start gap-2">
+                                                    <i class="bx bx-buildings text-success mt-1"></i>
+                                                    <div>
+                                                        <div class="small" id="trf-d-oficina-destino">—</div>
+                                                        <div class="text-muted" style="font-size:.72rem"
+                                                            id="trf-d-predio-destino">—</div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -255,48 +271,48 @@
 
                     <!-- TAB ACTIVOS -->
                     <div class="tab-pane fade" id="trf-tab-activos">
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-3">
-                                <div class="card bg-label-info text-center border-0">
-                                    <div class="card-body py-2">
-                                        <div class="small text-muted">Total Activos</div>
-                                        <div class="fs-5 fw-bold" id="trf-resumen-total">0</div>
-                                    </div>
-                                </div>
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                            <div class="d-flex align-items-center gap-3 small">
+                                <span><strong id="trf-resumen-total">0</strong> <span class="text-muted">activo(s)</span></span>
+                                <!-- Estado frente al VSIAF: es lo único de esta lista que puede exigir una acción. -->
+                                <span class="d-none align-items-center gap-1" id="trf-chip-confirmados">
+                                    <span class="badge bg-success">✓ <span>0</span></span>
+                                    <span class="text-muted">en VSIAF</span>
+                                </span>
+                                <span class="d-none align-items-center gap-1" id="trf-chip-encola">
+                                    <span class="badge bg-warning text-dark">⏳ <span>0</span></span>
+                                    <span class="text-muted">en cola</span>
+                                </span>
+                                <span class="d-none align-items-center gap-1" id="trf-chip-error">
+                                    <span class="badge bg-danger">✕ <span>0</span></span>
+                                    <span class="text-muted">con error</span>
+                                </span>
                             </div>
-                            <div class="col-md-3">
-                                <div class="card bg-label-success text-center border-0">
-                                    <div class="card-body py-2">
-                                        <div class="small text-muted">Costo Total</div>
-                                        <div class="fs-5 fw-bold" id="trf-resumen-costo">Bs. 0.00</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 d-flex align-items-center justify-content-end">
-                                <input type="text" id="trf-buscar-activo" class="form-control form-control-sm"
-                                    placeholder="Buscar activo..." style="max-width:220px">
-                            </div>
+                            <input type="text" id="trf-buscar-activo" class="form-control form-control-sm"
+                                placeholder="Buscar por código o descripción..." style="max-width:260px">
                         </div>
 
                         <div class="table-responsive">
-                            <table class="table table-hover table-sm align-middle" id="trf-tabla-activos">
+                            <table class="table table-hover table-sm align-middle mb-0" id="trf-tabla-activos">
                                 <thead class="table-light">
                                     <tr>
+                                        <th style="width:36px"></th>
                                         <th style="width:40px">#</th>
                                         <th>Código</th>
                                         <th>Descripción</th>
-                                        <th class="text-end">Costo (Bs.)</th>
-                                        <th>Ubicación Origen</th>
-                                        <th>Ubicación Destino</th>
-                                        <th>Observación</th>
+                                        <th>Ubicación origen → destino</th>
+                                        <th class="text-center">VSIAF</th>
                                     </tr>
                                 </thead>
                                 <tbody id="trf-tbody-activos">
                                     <tr>
-                                        <td colspan="7" class="text-center text-muted py-4">Sin activos registrados</td>
+                                        <td colspan="6" class="text-center text-muted py-4">Sin activos registrados</td>
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                        <div class="text-muted small mt-2">
+                            <i class="bx bx-info-circle me-1"></i>Hacé clic en un activo para ver su ficha completa.
                         </div>
                     </div>
 
@@ -309,10 +325,12 @@
                                         <h6 class="text-muted small mb-3"><i class="bx bx-plus-circle me-1"></i>REGISTRO
                                         </h6>
                                         <dl class="row mb-0 small">
-                                            <dt class="col-sm-5 text-muted">Fecha Registro</dt>
+                                            <dt class="col-sm-5 text-muted">Fecha</dt>
                                             <dd class="col-sm-7" id="trf-aud-fecha-reg">—</dd>
-                                            <dt class="col-sm-5 text-muted">Usuario</dt>
-                                            <dd class="col-sm-7" id="trf-aud-usuario-reg">—</dd>
+                                            <dt class="col-sm-5 text-muted">Registrado por</dt>
+                                            <dd class="col-sm-7 fw-semibold" id="trf-aud-usuario-reg">—</dd>
+                                            <dt class="col-sm-5 text-muted">ID interno</dt>
+                                            <dd class="col-sm-7 text-muted" id="trf-aud-id">—</dd>
                                         </dl>
                                     </div>
                                 </div>
@@ -322,12 +340,15 @@
                                     <div class="card-body">
                                         <h6 class="text-muted small mb-3"><i class="bx bx-edit me-1"></i>MODIFICACIÓN
                                         </h6>
-                                        <dl class="row mb-0 small">
-                                            <dt class="col-sm-5 text-muted">Fecha Modif.</dt>
+                                        <dl class="row mb-0 small" id="trf-aud-bloque-mod">
+                                            <dt class="col-sm-5 text-muted">Fecha</dt>
                                             <dd class="col-sm-7" id="trf-aud-fecha-mod">—</dd>
-                                            <dt class="col-sm-5 text-muted">Usuario</dt>
-                                            <dd class="col-sm-7" id="trf-aud-usuario-mod">—</dd>
+                                            <dt class="col-sm-5 text-muted">Modificado por</dt>
+                                            <dd class="col-sm-7 fw-semibold" id="trf-aud-usuario-mod">—</dd>
                                         </dl>
+                                        <p class="text-muted small mb-0 d-none" id="trf-aud-sin-mod">
+                                            Esta transferencia no se modificó después de registrarse.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -421,9 +442,13 @@
         $('#trf-d-fecha-recepcion').text(data.fechaRecepcion || '—');
         $('#trf-d-doc-ref').text(data.docRef || '—');
         $('#trf-d-resp-origen').text(data.respOrigen || '—');
-        $('#trf-d-oficina-origen').text(data.oficinaOrigen || '—');
+        $('#trf-d-resp-origen-cod').text(data.respOrigenCod ? 'Cód. funcionario ' + data.respOrigenCod : '');
+        $('#trf-d-oficina-origen').html(conCodigo(data.oficinaOrigenCod, data.oficinaOrigen));
+        $('#trf-d-predio-origen').text(data.predioOrigen || '');
         $('#trf-d-resp-destino').text(data.respDestino || '—');
-        $('#trf-d-oficina-destino').text(data.oficinaDestino || '—');
+        $('#trf-d-resp-destino-cod').text(data.respDestinoCod ? 'Cód. funcionario ' + data.respDestinoCod : '');
+        $('#trf-d-oficina-destino').html(conCodigo(data.oficinaDestinoCod, data.oficinaDestino));
+        $('#trf-d-predio-destino').text(data.predioDestino || '');
 
         if (data.tipo === 'EXTERNA' && data.institucion) {
             $('#trf-d-institucion').text(data.institucion);
@@ -435,10 +460,19 @@
             $('#trf-container-observacion').show();
         } else { $('#trf-container-observacion').hide(); }
 
-        $('#trf-aud-fecha-reg').text(data.fechaReg || '—');
-        $('#trf-aud-usuario-reg').text(data.usuarioReg || '—');
-        $('#trf-aud-fecha-mod').text(data.fechaMod || '—');
-        $('#trf-aud-usuario-mod').text(data.usuarioMod || '—');
+        $('#trf-aud-fecha-reg').text(fechaHora(data.fechaReg));
+        $('#trf-aud-usuario-reg').text(data.usuarioReg || 'Sistema');
+        $('#trf-aud-id').text('#' + id);
+
+        // La modificación solo se muestra si realmente hubo una: la auditoría sella
+        // "modificacion" al crear el registro, así que una fecha sin usuario no es un cambio.
+        const huboCambio = data.usuarioMod && String(data.usuarioMod).trim() !== '';
+        $('#trf-aud-bloque-mod').toggleClass('d-none', !huboCambio);
+        $('#trf-aud-sin-mod').toggleClass('d-none', huboCambio);
+        if (huboCambio) {
+            $('#trf-aud-fecha-mod').text(fechaHora(data.fechaMod));
+            $('#trf-aud-usuario-mod').text(data.usuarioMod);
+        }
         $('#trf-btn-modal-pdf').attr('href', `/seguimiento-activo/transferencia/${id}/pdf`);
 
         cargarActivosTransferencia(id);
@@ -448,45 +482,191 @@
         new bootstrap.Modal(document.getElementById('modalDetalleTransferencia')).show();
     }
 
+    /* ── Helpers de presentación ────────────────────────────────────────────── */
+
+    function esc(v) {
+        if (v === null || v === undefined || v === '') return '';
+        return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /* Las fechas de auditoría llegan como Date.toString() de Java, ilegible en pantalla. */
+    function fechaHora(valor) {
+        if (!valor) return '—';
+        const d = new Date(valor);
+        if (isNaN(d.getTime())) return String(valor);
+        return d.toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' });
+    }
+
+    /* "12 · ALMACÉN CENTRAL" — el código es como se identifica la oficina en el VSIAF. */
+    function conCodigo(codigo, nombre) {
+        if (!nombre && !codigo) return '—';
+        if (!codigo) return esc(nombre);
+        return `<span class="badge bg-label-secondary me-1" style="font-size:.68rem">${esc(codigo)}</span>${esc(nombre || '')}`;
+    }
+
+    function oficinaTexto(of) {
+        if (!of) return '—';
+        return conCodigo(of.codigo, of.nombre);
+    }
+
+    function responsableTexto(r) {
+        if (!r) return '—';
+        const cod = r.codigo ? `<span class="text-muted"> (cód. ${esc(r.codigo)})</span>` : '';
+        return esc(r.nombre || '—') + cod;
+    }
+
+    function badgeVsiaf(estado) {
+        if (estado === 'CONFIRMADO') return '<span class="badge bg-success">En VSIAF</span>';
+        if (estado === 'EN_COLA') return '<span class="badge bg-warning text-dark">En cola</span>';
+        if (estado === 'ERROR') return '<span class="badge bg-danger">Error</span>';
+        return '<span class="badge bg-secondary">Sin enviar</span>';
+    }
+
+    function fila(etiqueta, valorHtml) {
+        if (!valorHtml || valorHtml === '—') return '';
+        return `<dt class="col-sm-4 text-muted">${etiqueta}</dt><dd class="col-sm-8">${valorHtml}</dd>`;
+    }
+
+    /* ── Activos de la transferencia ────────────────────────────────────────── */
+
     function cargarActivosTransferencia(id) {
-        $('#trf-tbody-activos').html(`<tr><td colspan="7" class="text-center py-4">
+        $('#trf-tbody-activos').html(`<tr><td colspan="6" class="text-center py-4">
     <div class="spinner-border spinner-border-sm text-info me-2"></div>Cargando...</td></tr>`);
+        $('#trf-chip-confirmados, #trf-chip-encola, #trf-chip-error').removeClass('d-inline-flex').addClass('d-none');
+
         $.ajax({
             type: 'GET',
             url: `/administracion/transferencia/${id}/detalles-json`,
             success: function (detalles) {
                 if (!detalles || detalles.length === 0) {
-                    $('#trf-tbody-activos').html('<tr><td colspan="7" class="text-center text-muted py-4">Sin activos registrados</td></tr>');
+                    $('#trf-tbody-activos').html('<tr><td colspan="6" class="text-center text-muted py-4">Sin activos registrados</td></tr>');
                     $('#trf-badge-num-activos, #trf-resumen-total').text('0');
-                    $('#trf-resumen-costo').text('Bs. 0.00');
                     return;
                 }
-                let html = '', costo = 0;
+
+                let html = '', confirmados = 0, enCola = 0, conError = 0;
+
                 detalles.forEach(function (d, i) {
-                    costo += parseFloat(d.costoActivo || 0);
-                    html += `<tr>
+                    const act = d.activoActual || {};
+                    const sinc = act.sincVsiaf;
+                    if (sinc === 'CONFIRMADO') confirmados++;
+                    else if (sinc === 'EN_COLA') enCola++;
+                    else if (sinc === 'ERROR') conError++;
+
+                    const ubic = `${esc(d.ubicacionOrigen || '—')} <i class="bx bx-right-arrow-alt text-muted"></i> ${esc(d.ubicacionActual || '—')}`;
+
+                    html += `<tr class="trf-activo-row" data-detalle="${d.idDetalle}" style="cursor:pointer">
+          <td class="text-muted"><i class="bx bx-chevron-right trf-chevron"></i></td>
           <td class="text-muted small">${i + 1}</td>
-          <td><code class="small">${d.codigoActivo || '—'}</code></td>
-          <td style="max-width:200px">${d.descripcionActivo || '—'}</td>
-          <td class="text-end fw-semibold">${d.costoActivo ? 'Bs. ' + parseFloat(d.costoActivo).toLocaleString('es-BO', { minimumFractionDigits: 2 }) : '—'}</td>
-          <td class="small text-muted">${d.ubicacionOrigen || '—'}</td>
-          <td class="small text-muted">${d.ubicacionActual || '—'}</td>
-          <td class="small text-muted">${d.observacionDetalle || '—'}</td>
+          <td><code class="small">${esc(d.codigoActivo || '—')}</code></td>
+          <td style="max-width:230px" class="text-truncate" title="${esc(d.descripcionActivo || '')}">${esc(d.descripcionActivo || '—')}</td>
+          <td class="small text-muted">${ubic}</td>
+          <td class="text-center">${badgeVsiaf(sinc)}</td>
+        </tr>
+        <tr class="trf-activo-detalle d-none" data-detalle="${d.idDetalle}">
+          <td colspan="6" class="bg-light">${fichaActivo(d)}</td>
         </tr>`;
                 });
+
                 $('#trf-tbody-activos').html(html);
                 $('#trf-badge-num-activos, #trf-resumen-total').text(detalles.length);
-                $('#trf-resumen-costo').text('Bs. ' + costo.toLocaleString('es-BO', { minimumFractionDigits: 2 }));
+
+                mostrarChip('#trf-chip-confirmados', confirmados);
+                mostrarChip('#trf-chip-encola', enCola);
+                mostrarChip('#trf-chip-error', conError);
+
                 $('#trf-buscar-activo').off('input').on('input', function () {
                     const q = $(this).val().toLowerCase();
-                    $('#trf-tabla-activos tbody tr').each(function () { $(this).toggle($(this).text().toLowerCase().includes(q)); });
+                    $('#trf-tabla-activos tbody tr.trf-activo-row').each(function () {
+                        const coincide = $(this).text().toLowerCase().includes(q);
+                        $(this).toggle(coincide);
+                        // La ficha desplegada acompaña a su fila, pero no se abre sola.
+                        const $ficha = $(this).next('.trf-activo-detalle');
+                        if (!coincide) $ficha.addClass('d-none').hide();
+                        else $ficha.show();
+                    });
                 });
             },
-            error: function () {
-                $('#trf-tbody-activos').html('<tr><td colspan="7" class="text-center text-danger py-3">Error al cargar activos</td></tr>');
+            error: function (xhr) {
+                const msg = xhr.status === 404
+                    ? 'No se encontró la transferencia.'
+                    : 'No se pudieron cargar los activos.';
+                $('#trf-tbody-activos').html(`<tr><td colspan="6" class="text-center text-danger py-3">
+            <i class="bx bx-error-circle me-1"></i>${msg}
+            <button class="btn btn-sm btn-outline-danger ms-2" onclick="cargarActivosTransferencia(${id})">Reintentar</button>
+        </td></tr>`);
             }
         });
     }
+
+    function mostrarChip(sel, valor) {
+        const $chip = $(sel);
+        if (valor > 0) {
+            $chip.find('.badge span').text(valor);
+            $chip.removeClass('d-none').addClass('d-inline-flex');
+        }
+    }
+
+    /* Ficha completa del bien: lo que quedó registrado en la transferencia y dónde está hoy. */
+    function fichaActivo(d) {
+        const act = d.activoActual || {};
+
+        const movimiento = `
+        <div class="col-md-6">
+            <h6 class="text-muted small text-uppercase mb-2"><i class="bx bx-transfer-alt me-1"></i>Movimiento</h6>
+            <dl class="row mb-0 small">
+                ${fila('Oficina origen', oficinaTexto(d.oficinaAnterior))}
+                ${fila('Responsable origen', responsableTexto(d.responsableAnterior))}
+                ${fila('Oficina destino', oficinaTexto(d.oficinaDestino))}
+                ${fila('Responsable destino', responsableTexto(d.responsableDestino))}
+                ${fila('Ubicación origen', esc(d.ubicacionOrigen))}
+                ${fila('Ubicación destino', esc(d.ubicacionActual))}
+                ${fila('Observación', esc(d.observacionDetalle))}
+            </dl>
+        </div>`;
+
+        const costo = d.costoActivo != null
+            ? 'Bs. ' + parseFloat(d.costoActivo).toLocaleString('es-BO', { minimumFractionDigits: 2 })
+            : '';
+
+        let sincDetalle = badgeVsiaf(act.sincVsiaf);
+        if (act.sincVsiafFecha) {
+            sincDetalle += `<div class="text-muted" style="font-size:.72rem">${new Date(act.sincVsiafFecha).toLocaleString('es-BO')}</div>`;
+        }
+        if (act.sincVsiafMensaje) {
+            sincDetalle += `<div class="text-danger" style="font-size:.72rem">${esc(act.sincVsiafMensaje)}</div>`;
+        }
+
+        const ficha = `
+        <div class="col-md-6">
+            <h6 class="text-muted small text-uppercase mb-2"><i class="bx bx-box me-1"></i>El bien hoy</h6>
+            <dl class="row mb-0 small">
+                ${fila('Código actual', act.codigo ? '<code>' + esc(act.codigo) + '</code>' : '')}
+                ${fila('Descripción', esc(act.descripcion))}
+                ${fila('Estado', esc(act.estado))}
+                ${fila('Grupo contable', esc(act.grupoContable))}
+                ${fila('Auxiliar', esc(act.auxiliar))}
+                ${fila('Oficina actual', oficinaTexto(act.oficina))}
+                ${fila('Responsable actual', responsableTexto(act.responsable))}
+                ${fila('Costo', costo)}
+                ${fila('Fecha adquisición', esc(act.fechaAdquisicion))}
+                ${fila('Vida útil', act.vidaUtil != null ? esc(act.vidaUtil) + ' año(s)' : '')}
+                ${fila('Observación', esc(act.observ))}
+                ${fila('VSIAF', sincDetalle)}
+            </dl>
+        </div>`;
+
+        return `<div class="row g-4 py-2 px-1">${movimiento}${ficha}</div>`;
+    }
+
+    /* Desplegar/plegar la ficha de un activo. */
+    $(document).off('click.trfActivo').on('click.trfActivo', '.trf-activo-row', function () {
+        const $ficha = $(this).next('.trf-activo-detalle');
+        const $chevron = $(this).find('.trf-chevron');
+        $ficha.toggleClass('d-none');
+        $chevron.toggleClass('bx-chevron-right bx-chevron-down');
+    });
 
     function exportarPDF() {
         window.open(`/administracion/transferencia/exportar-pdf?${new URLSearchParams(obtenerFiltros())}`, '_blank');
