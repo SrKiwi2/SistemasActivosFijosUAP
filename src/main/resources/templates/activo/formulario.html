@@ -1051,11 +1051,13 @@
                 <button type="button" class="btn btn-primary btn-sm" id="btnRegistrar">
                     <i class="fa-solid fa-plus me-1"></i> Registrar activos
                 </button>
-                <button type="button" class="btn btn-warning btn-sm" id="btnModificar" disabled title="Editar activo">
+                <button type="button" class="btn btn-warning btn-sm" id="btnModificar"
+                        th:if="${puedeEditarActivo}" disabled title="Editar activo">
                     <i class="fa-solid fa-pen me-1"></i>
                     <span class="d-none d-sm-inline">Editar activo</span>
                 </button>
-                <button type="button" class="btn btn-danger btn-sm" id="btnBaja" disabled title="Desaprobar en el vsiaf">
+                <button type="button" class="btn btn-danger btn-sm" id="btnBaja"
+                        th:if="${puedeDesaprobarActivo}" disabled title="Desaprobar en el vsiaf">
                     <i class="fa-solid fa-arrow-down me-1"></i>
                     <span class="d-none d-sm-inline">Desaprobar activo</span>
                 </button>

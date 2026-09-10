@@ -134,6 +134,12 @@ public class ActivosController {
      */
     private static final String PERMISO_EDITAR_CODIGO = "opcion_activo_editar_codigo";
 
+    /** Habilita el botón/acción "Editar activo" (modificar-activo) en el formulario. */
+    private static final String PERMISO_EDITAR_ACTIVO = "opcion_activo_editar";
+
+    /** Habilita el botón/acción "Desaprobar activo" (baja-activo) en el formulario. */
+    private static final String PERMISO_DESAPROBAR_ACTIVO = "opcion_activo_desaprobar";
+
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -217,8 +223,10 @@ public class ActivosController {
         model.addAttribute("responsables", responsableService.listarResponsables());
         model.addAttribute("financiadores", organismoFinancieroService.findAll());
         model.addAttribute("auxiliares", auxiliarService.findAll());
-        // Habilita (o no) el botón de "modificar código urgente" según el permiso del usuario.
+        // Habilita (o no) los botones/acciones protegidas del formulario según el permiso del usuario.
         model.addAttribute("puedeEditarCodigo", tienePermisoEditarCodigo(request));
+        model.addAttribute("puedeEditarActivo", tienePermisoEditarActivo(request));
+        model.addAttribute("puedeDesaprobarActivo", tienePermisoDesaprobarActivo(request));
         return "activo/formulario";
     }
 
@@ -229,10 +237,28 @@ public class ActivosController {
      * se les debe otorgar explícitamente {@link #PERMISO_EDITAR_CODIGO}.
      */
     private boolean tienePermisoEditarCodigo(HttpServletRequest request) {
+        return tienePermiso(request, PERMISO_EDITAR_CODIGO);
+    }
+
+    /** ¿El usuario en sesión puede editar (modificar-activo) un activo ya registrado? */
+    private boolean tienePermisoEditarActivo(HttpServletRequest request) {
+        return tienePermiso(request, PERMISO_EDITAR_ACTIVO);
+    }
+
+    /** ¿El usuario en sesión puede desaprobar (baja-activo) un activo en el VSIAF? */
+    private boolean tienePermisoDesaprobarActivo(HttpServletRequest request) {
+        return tienePermiso(request, PERMISO_DESAPROBAR_ACTIVO);
+    }
+
+    /**
+     * Chequeo genérico de un permiso puro contra {@code session.opciones} (los
+     * permisos efectivos calculados al login, ver módulo de usuario → permisos).
+     */
+    private boolean tienePermiso(HttpServletRequest request, String codigoPermiso) {
         if (request == null || request.getSession(false) == null) return false;
         Object opciones = request.getSession().getAttribute("opciones");
         if (opciones instanceof Set<?> set) {
-            return set.contains(PERMISO_EDITAR_CODIGO);
+            return set.contains(codigoPermiso);
         }
         return false;
     }
@@ -725,6 +751,12 @@ public class ActivosController {
 
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = usuario.getUsuario();
+
+        if (!tienePermisoEditarActivo(request)) {
+            log.warn("[EDITAR-ACTIVO] Usuario '{}' intentó editar un activo sin permiso.", usuarioNombre);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("ok", false,
+                    "msg", "No tiene autorización para editar activos. Solicite a un administrador que lo habilite."));
+        }
 
         try {
 
@@ -1647,12 +1679,18 @@ public class ActivosController {
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
 
+        if (!tienePermisoDesaprobarActivo(request)) {
+            log.warn("[DESAPROBAR-ACTIVO] Usuario '{}' intentó desaprobar un activo sin permiso.", usuarioNombre);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("ok", false,
+                    "msg", "No tiene autorización para desaprobar activos. Solicite a un administrador que lo habilite."));
+        }
+
         try {
             Activo activo = activoService.findById(idActivo);
             if (activo == null) {
                 return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Activo no encontrado"));
             }
-            
+
             if (!"ACTIVO".equalsIgnoreCase(activo.getEstado())) {
                 return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Solo se puede dar de baja activos que estén en estado ACTIVO."));
             }
