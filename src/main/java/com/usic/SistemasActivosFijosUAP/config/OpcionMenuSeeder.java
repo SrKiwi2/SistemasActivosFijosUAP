@@ -103,6 +103,7 @@ public class OpcionMenuSeeder {
         { "opcion_ba",             "grp_movimientos",  "Bajas",                        "ti ti-trash",            "red",    "/administracion/baja/modulo",                        "/administracion/baja/modulo",           "" },
 
         { "opcion_historialA",     "grp_historial",    "Historial Activo",             "ti ti-timeline",         "blue",   "/administracion/historial/vista",                    "/administracion/historial",             "" },
+        { "opcion_trHistorial",    "grp_historial",    "Historial de Transferencias",  "ti ti-refresh-dot",      "amber",  "/administracion/activo/transferencias/historial/vista", "/administracion/activo/transferencias/historial", "" },
 
         { "opcion_consulta_activo","grp_consulta",     "Buscar / Filtrar Activos",     "ti ti-search",           "blue",   "/administracion/consulta/activos/vista",             "/administracion/consulta",              "" },
         { "opcion_reporte_asignaciones", "grp_consulta", "Reporte de Asignaciones (Excel)", "ti ti-file-spreadsheet", "green", "/reportes/asignaciones/vista",              "/reportes/asignaciones",                "" },

@@ -142,6 +142,34 @@ public interface IAsignacionActivoDao extends JpaRepository<AsignacionActivo, Lo
         """)
     List<Object[]> resumenPorAsignacion(@Param("ids") List<Long> ids);
 
+    /**
+     * Qué hay dentro de cada acta, agrupado por grupo contable y auxiliar.
+     *
+     * <p>Una acta puede mezclar rubros (muebles y equipos de computación en el mismo
+     * documento), así que devuelve una fila por combinación con su cantidad en vez de
+     * un solo valor: el listado muestra "3 SILLA · 2 CPU" y no un rubro elegido al azar
+     * entre varios.
+     *
+     * <p>LEFT JOIN en los dos catálogos a propósito: un activo sin grupo o sin auxiliar
+     * cargado tiene que seguir contando en el total del acta, no desaparecer de él.
+     *
+     * <p>Object[] y no expresión constructora, por el mismo motivo que
+     * {@link #resumenPorAsignacion}: el tipo de COUNT() depende del dialecto.
+     * Orden de las columnas: idAsignacion, grupoContable, auxiliar, cantidad.
+     */
+    @Query("""
+        SELECT d.asignacionActivo.idAsignacionActivo, g.nombre, ax.nombre, COUNT(d)
+        FROM DetalleAsignacionActivo d
+        JOIN d.activo a
+        LEFT JOIN a.grupoContable g
+        LEFT JOIN a.auxiliar ax
+        WHERE d.asignacionActivo.idAsignacionActivo IN :ids
+          AND (d.estadoDetalle IS NULL OR d.estadoDetalle = 'VIGENTE')
+        GROUP BY d.asignacionActivo.idAsignacionActivo, g.nombre, ax.nombre
+        ORDER BY d.asignacionActivo.idAsignacionActivo, COUNT(d) DESC
+        """)
+    List<Object[]> rubrosPorAsignacion(@Param("ids") List<Long> ids);
+
     @Query("""
         SELECT a FROM AsignacionActivo a
         LEFT JOIN FETCH a.detalles d

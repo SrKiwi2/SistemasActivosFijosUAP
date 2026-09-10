@@ -161,6 +161,9 @@
                     <th class="th-orden" onclick="ordenarPor('oficina')">
                         OFICINA <i class="bx" th:classappend="${orden == 'oficina'} ? (${desc} ? 'bx-chevron-down' : 'bx-chevron-up') : 'bx-minus opacity-25'"></i>
                     </th>
+                    <!-- Sin ordenar: el rubro es de los BIENES del acta y una acta puede
+                         mezclar varios, así que no hay un valor único por el que ordenar. -->
+                    <th>GRUPO / AUXILIAR</th>
                     <th class="th-orden text-end" onclick="ordenarPor('activos')">
                         BIENES <i class="bx" th:classappend="${orden == 'activos'} ? (${desc} ? 'bx-chevron-down' : 'bx-chevron-up') : 'bx-minus opacity-25'"></i>
                     </th>
@@ -172,8 +175,36 @@
                 </tr>
             </thead>
 
-            <tbody>
-                <tr th:each="asig : ${asignaciones}" th:id="'asig-row-' + ${asig.idAsignacionActivo}"
+            <tbody th:with="mesesNombre=${ {'','ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO',
+                                            'AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'} },
+                            agrupaPorMes=${orden == null or orden == 'fecha'}">
+            <th:block th:each="asig, it : ${asignaciones}"
+                      th:with="claveMes=${asig.fechaAsignacion != null
+                                          ? #temporals.format(asig.fechaAsignacion, 'yyyy-MM') : null},
+                               claveMesPrevia=${it.index == 0 ? '' :
+                                          (asignaciones[it.index - 1].fechaAsignacion != null
+                                           ? #temporals.format(asignaciones[it.index - 1].fechaAsignacion, 'yyyy-MM')
+                                           : null)}">
+
+                <!--
+                    Separador de mes. Solo cuando la tabla está ordenada por fecha: con
+                    cualquier otro orden las actas de un mismo mes quedan salteadas y el
+                    separador aparecería una y otra vez, diciendo algo falso sobre cómo
+                    está agrupado el listado.
+                -->
+                <tr th:if="${agrupaPorMes and asig.fechaAsignacion != null and claveMes != claveMesPrevia}"
+                    class="fila-mes">
+                    <td colspan="10">
+                        <span class="mes-nombre"
+                              th:text="${mesesNombre[asig.fechaAsignacion.monthValue] + ' ' + asig.fechaAsignacion.year}">MES</span>
+                        <span class="mes-conteo"
+                              th:if="${actasPorMes != null and actasPorMes.containsKey(claveMes)}"
+                              th:title="'Actas de este mes visibles en esta página'"
+                              th:text="${actasPorMes.get(claveMes)} + ' acta(s) en esta página'">0</span>
+                    </td>
+                </tr>
+
+                <tr th:id="'asig-row-' + ${asig.idAsignacionActivo}"
                     class="asig-row"
                     th:data-id="${asig.idAsignacionActivo}"
                     th:data-numero="${asig.numeroAsignacion}"
@@ -247,6 +278,25 @@
                               th:text="${asig.oficinaDestino != null ? asig.oficinaDestino.nombre : '—'}">—</span>
                     </td>
 
+                    <!--
+                        Grupo contable y auxiliar de los bienes del acta. Se muestran hasta
+                        dos líneas y el resto se resume en "+N": una acta puede mezclar
+                        rubros y volcarlos todos rompería el alto de la fila.
+                    -->
+                    <td th:with="rub=${rubros != null ? rubros.get(asig.idAsignacionActivo) : null}">
+                        <th:block th:if="${rub != null and !rub.isEmpty()}">
+                            <div th:each="r, ri : ${rub}" th:if="${ri.index &lt; 2}"
+                                 class="text-truncate" style="max-width:210px; font-size:.75rem">
+                                <span class="badge bg-label-secondary" th:text="${r.grupoContable}">Grupo</span>
+                                <span class="text-muted" th:text="${r.etiqueta()}">2 SILLA</span>
+                            </div>
+                            <div th:if="${rub.size() &gt; 2}" class="text-muted" style="font-size:.7rem"
+                                 th:title="${#strings.listJoin(rub.![grupoContable + ' · ' + etiqueta()], ' | ')}"
+                                 th:text="'+' + (${rub.size()} - 2) + ' rubro(s) más'">+1</div>
+                        </th:block>
+                        <span th:unless="${rub != null and !rub.isEmpty()}" class="text-muted small">—</span>
+                    </td>
+
                     <!-- Cantidad de bienes -->
                     <td class="text-end num">
                         <span th:text="${res != null ? res.total : 0}">0</span>
@@ -304,6 +354,7 @@
                         <i class="bx bx-chevron-right text-muted ms-1" title="Ver detalle"></i>
                     </td>
                 </tr>
+            </th:block>
             </tbody>
         </table>
     </div>
@@ -373,6 +424,26 @@
     .tabla-asignaciones .th-orden {
         cursor: pointer;
         user-select: none;
+    }
+
+    /* Separador de mes: una banda sobria que corta la lista, sin competir con el
+       color semántico de la columna VSIAF ni parecer una fila más de datos. */
+    .tabla-asignaciones tr.fila-mes td {
+        background: #f5f6f8;
+        border-top: 2px solid #d9dee3;
+        padding: .45rem .75rem;
+    }
+    .tabla-asignaciones tr.fila-mes:hover td { background: #f5f6f8; }
+    .tabla-asignaciones .mes-nombre {
+        font-weight: 700;
+        font-size: .78rem;
+        letter-spacing: .06em;
+        color: #566a7f;
+    }
+    .tabla-asignaciones .mes-conteo {
+        font-size: .7rem;
+        color: #8592a3;
+        margin-left: .5rem;
     }
 
     .tabla-asignaciones .th-orden:hover {

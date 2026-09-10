@@ -247,6 +247,25 @@
             </div>
 
             <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-mes">MES</label>
+                <select id="filtro-mes" class="form-select form-select-sm" onchange="cargarTabla(true)">
+                    <option value="">Todos</option>
+                    <option value="1">Enero</option>
+                    <option value="2">Febrero</option>
+                    <option value="3">Marzo</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Mayo</option>
+                    <option value="6">Junio</option>
+                    <option value="7">Julio</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Septiembre</option>
+                    <option value="10">Octubre</option>
+                    <option value="11">Noviembre</option>
+                    <option value="12">Diciembre</option>
+                </select>
+            </div>
+
+            <div class="col-6 col-md-2">
                 <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-desde">DESDE</label>
                 <input type="date" id="filtro-desde" class="form-control form-control-sm" onchange="cargarTabla(true)">
             </div>
@@ -281,6 +300,17 @@
                     <option value="ACTIVA">Activa</option>
                     <option value="ANULADA">Anulada</option>
                     <option value="DEVUELTA">Devuelta</option>
+                </select>
+            </div>
+
+            <!-- El grupo contable es del BIEN, no del acta: filtra las actas que tengan
+                 al menos un bien de ese grupo. -->
+            <div class="col-6 col-md-3">
+                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-grupo">GRUPO CONTABLE</label>
+                <select id="filtro-grupo" class="form-select form-select-sm" onchange="cargarTabla(true)">
+                    <option value="">Todos</option>
+                    <option th:each="g : ${gruposContables}"
+                            th:value="${g.idGrupoContable}" th:text="${g.nombre}">Muebles</option>
                 </select>
             </div>
 
@@ -1062,6 +1092,8 @@
             hasta: $('#filtro-hasta').val() || '',
             tipo: $('#filtro-tipo').val() || '',
             estado: $('#filtro-estado').val() || '',
+            mes: $('#filtro-mes').val() || '',
+            idGrupoContable: $('#filtro-grupo').val() || '',
             soloConError: $('#filtro-error').is(':checked')
         };
     }
@@ -1118,7 +1150,7 @@
 
     function limpiarFiltros() {
         $('#filtro-buscar, #filtro-desde, #filtro-hasta').val('');
-        $('#filtro-tipo, #filtro-estado, #filtro-gestion').val('');
+        $('#filtro-tipo, #filtro-estado, #filtro-gestion, #filtro-mes, #filtro-grupo').val('');
         $('#filtro-sinc').val('SUBIDAS');
         $('#filtro-error').prop('checked', false);
         cargarTabla(true);
@@ -1134,6 +1166,8 @@
             case 'tipo':           $('#filtro-tipo').val(''); break;
             case 'estado':         $('#filtro-estado').val(''); break;
             case 'fechas':         $('#filtro-desde, #filtro-hasta').val(''); break;
+            case 'mes':            $('#filtro-mes').val(''); break;
+            case 'idGrupoContable':$('#filtro-grupo').val(''); break;
         }
         cargarTabla(true);
     }
@@ -1173,6 +1207,8 @@
         if (q.has('tipo'))    $('#filtro-tipo').val(q.get('tipo'));
         if (q.has('estado'))  $('#filtro-estado').val(q.get('estado'));
         if (q.has('gestion')) $('#filtro-gestion').val(q.get('gestion'));
+        if (q.has('mes'))     $('#filtro-mes').val(q.get('mes'));
+        if (q.has('idGrupoContable')) $('#filtro-grupo').val(q.get('idGrupoContable'));
         if (q.has('sincronizacion')) $('#filtro-sinc').val(q.get('sincronizacion'));
         if (q.get('soloConError') === 'true') $('#filtro-error').prop('checked', true);
     }

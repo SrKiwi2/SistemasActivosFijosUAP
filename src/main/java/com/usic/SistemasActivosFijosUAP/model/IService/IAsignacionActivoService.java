@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 
 import com.usic.SistemasActivosFijosUAP.model.dto.FiltrosAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResumenAsignacionDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.RubroAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResumenListadoAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
@@ -62,5 +63,11 @@ public interface IAsignacionActivoService extends IServiceGenerico<AsignacionAct
 
     /** Totales por asignación (costo y avance hacia el VSIAF), indexados por id. */
     Map<Long, ResumenAsignacionDTO> resumenPorAsignacion(List<Long> ids);
+
+    /**
+     * Grupo contable y auxiliar de los bienes de cada acta, indexados por id.
+     * Cada acta trae varias líneas si mezcla rubros, ordenadas por cantidad.
+     */
+    Map<Long, List<RubroAsignacionDTO>> rubrosPorAsignacion(List<Long> ids);
 
 }

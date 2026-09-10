@@ -35,10 +35,12 @@ import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.controller.formularios.WordAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IConfiguracionGestionService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IAsignacionMovimientoDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.FiltrosAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResumenAsignacionDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.RubroAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
@@ -68,6 +70,7 @@ public class CAsignacionActivoController {
     private final WordAsignacionActivoService wordAsignacionActivoService;
     private final AsignacionEdicionService asignacionEdicionService;
     private final IAsignacionMovimientoDao asignacionMovimientoDao;
+    private final IGrupoContableService grupoContableService;
     private final ExcelAsignacionReportService excelAsignacionReportService;
 
     /** Tamaños de página permitidos. Un valor libre por parámetro sería un pedido de "traeme todo". */
@@ -82,6 +85,7 @@ public class CAsignacionActivoController {
     public String vista_activos_nuevos(Model model) {
         // El combo de gestión se llena con los años que realmente tienen actas.
         model.addAttribute("gestiones", asignacionActivoService.gestionesConActas());
+        model.addAttribute("gruposContables", grupoContableService.listarGruposContables());
         model.addAttribute("tamanosPagina", TAMANOS_PAGINA);
         return "/seguimiento/asignacion/vista";
     }
@@ -143,6 +147,8 @@ public class CAsignacionActivoController {
         @RequestParam(required = false) Integer gestion,
         @RequestParam(required = false) Long idResponsable,
         @RequestParam(required = false) Boolean soloConError,
+        @RequestParam(required = false) Integer mes,
+        @RequestParam(required = false) Long idGrupoContable,
         @RequestParam(required = false) String orden,
         @RequestParam(defaultValue = "true") boolean desc,
         @RequestParam(defaultValue = "0") int pagina,
@@ -150,7 +156,8 @@ public class CAsignacionActivoController {
         Model model) {
 
         FiltrosAsignacionDTO filtros = FiltrosAsignacionDTO.normalizar(
-                tipo, estado, buscar, desde, hasta, sincronizacion, gestion, idResponsable, soloConError);
+                tipo, estado, buscar, desde, hasta, sincronizacion, gestion, idResponsable, soloConError,
+                null, null, null, mes, idGrupoContable);
 
         if (!TAMANOS_PAGINA.contains(tamano)) tamano = TAMANO_POR_DEFECTO;
         if (pagina < 0) pagina = 0;
@@ -212,14 +219,31 @@ public class CAsignacionActivoController {
 
         // 5. Totales por asignación (costo y avance hacia el VSIAF) de LA PÁGINA, en una
         //    sola consulta agregada. Antes se pedían los de todas las actas del filtro.
-        Map<Long, ResumenAsignacionDTO> resumenes = asignacionActivoService.resumenPorAsignacion(
-            asignaciones.stream().map(AsignacionActivo::getIdAsignacionActivo).toList());
+        List<Long> idsPagina = asignaciones.stream().map(AsignacionActivo::getIdAsignacionActivo).toList();
+        Map<Long, ResumenAsignacionDTO> resumenes = asignacionActivoService.resumenPorAsignacion(idsPagina);
+
+        // 5b. Grupo contable y auxiliar de cada acta, también en una sola consulta
+        //     agregada sobre los ids de la página, por el mismo motivo.
+        Map<Long, List<RubroAsignacionDTO>> rubros = asignacionActivoService.rubrosPorAsignacion(idsPagina);
 
         // 6. Enviar los datos a la vista
         model.addAttribute("asignaciones", asignaciones);
         model.addAttribute("mapaUsuarios", mapaUsuarios);
         model.addAttribute("carpetasPorGestion", carpetasPorGestion);
         model.addAttribute("resumenes", resumenes);
+        model.addAttribute("rubros", rubros);
+
+        // Cuántas actas de cada mes hay EN ESTA PÁGINA, para el separador del listado.
+        // Es el conteo de lo que se ve, no el del mes entero: con paginación, decir
+        // "34 actas" arriba de 8 filas visibles sería mentir.
+        Map<String, Long> actasPorMes = asignaciones.stream()
+                .filter(a -> a.getFechaAsignacion() != null)
+                .collect(Collectors.groupingBy(
+                        // Mismo formato que arma la plantilla con #temporals.format(...,'yyyy-MM'):
+                        // si las dos claves no coinciden exactamente, el separador queda sin conteo.
+                        a -> a.getFechaAsignacion().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM")),
+                        LinkedHashMap::new, Collectors.counting()));
+        model.addAttribute("actasPorMes", actasPorMes);
 
         // 7. Paginación, orden y tarjetas. Las tarjetas se calculan sobre el conjunto
         //    filtrado completo: contarlas en el navegador daría los totales de la página.

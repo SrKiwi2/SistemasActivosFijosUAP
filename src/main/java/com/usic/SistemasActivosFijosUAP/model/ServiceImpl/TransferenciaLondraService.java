@@ -109,6 +109,21 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
     @Value("${legacy.dbf.transferencias.path}")
     private String transferenciasPath;
 
+    /**
+     * Interruptor general de la detección de transferencias Londra: el poll de fondo
+     * ({@code SyncScheduler.pollearTransferenciasPendientes}) y el badge de la pantalla
+     * ({@code /conteo-pendientes}) pasan los dos por {@link #contarPendientesEnDbf()},
+     * así que apagarlo acá alcanza para los dos sin tocar el scheduler ni el controlador.
+     * <p>
+     * Default {@code true} a propósito: si la propiedad llegara a faltar en algún
+     * ambiente, el comportamiento de siempre sigue activo en vez de apagarse solo.
+     * {@code aprobar()}/{@code rechazar()}/{@code observar()} —acciones explícitas del
+     * usuario sobre una transferencia puntual— no pasan por acá y siguen andando: lo que
+     * se apaga es la espera pasiva de solicitudes nuevas, no la función en sí.
+     */
+    @Value("${londra.transferencias.polling.enabled:true}")
+    private boolean pollingTransferenciasHabilitado;
+
     private static final Set<String> ESTADOS_PENDIENTES = Set.of(
         "ENVIADO", "PENDIENTE", "PEND", "P", "0"
     );
@@ -937,6 +952,13 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
 
     @Override
     public long contarPendientesEnDbf() {
+        // Con el polling apagado (londra.transferencias.polling.enabled=false) ni
+        // siquiera se intenta abrir el DBF: no tiene sentido reintentar cada 20 s un
+        // archivo que sabemos que no vamos a leer todavía, ni llenar el log con el
+        // mismo WARN una y otra vez.
+        if (!pollingTransferenciasHabilitado) {
+            return 0L;
+        }
         try {
             return dbfService.listarSolTransferenciasAll(Path.of(transferenciasPath), null)
                 .stream()

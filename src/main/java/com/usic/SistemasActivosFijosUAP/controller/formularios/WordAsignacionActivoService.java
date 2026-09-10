@@ -1,37 +1,22 @@
 package com.usic.SistemasActivosFijosUAP.controller.formularios;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigInteger;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.Locale;
 
-import org.apache.poi.util.Units;
-import org.apache.poi.wp.usermodel.HeaderFooterType;
-import org.apache.poi.xwpf.usermodel.Document;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.UnderlinePatterns;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.apache.poi.xwpf.usermodel.XWPFHeader;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 import org.apache.poi.xwpf.usermodel.XWPFTable.XWPFBorderType;
-import org.openxmlformats.schemas.drawingml.x2006.main.CTNonVisualDrawingProps;
-import org.openxmlformats.schemas.drawingml.x2006.main.CTPoint2D;
-import org.openxmlformats.schemas.drawingml.x2006.main.CTPositiveSize2D;
-import org.openxmlformats.schemas.drawingml.x2006.wordprocessingDrawing.CTAnchor;
-import org.openxmlformats.schemas.drawingml.x2006.wordprocessingDrawing.CTEffectExtent;
-import org.openxmlformats.schemas.drawingml.x2006.wordprocessingDrawing.CTPosH;
-import org.openxmlformats.schemas.drawingml.x2006.wordprocessingDrawing.CTPosV;
-import org.openxmlformats.schemas.drawingml.x2006.wordprocessingDrawing.STRelFromH;
-import org.openxmlformats.schemas.drawingml.x2006.wordprocessingDrawing.STRelFromV;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBody;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageMar;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageSz;
@@ -49,6 +34,7 @@ import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableEntregaService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IAsignacionMovimientoDao;
+import com.usic.SistemasActivosFijosUAP.model.service.documento.MembreteWord;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionMovimiento;
@@ -415,86 +401,15 @@ public class WordAsignacionActivoService {
     }
 
     /**
-     * Inserta el membrete a página completa, detrás del texto, en el encabezado
-     * (se repite en todas las páginas). Si algo falla, el documento se genera sin
-     * el fondo en lugar de corromperse.
+     * Inserta el membrete a página completa, detrás del texto, en el encabezado.
+     *
+     * <p>La implementación vive en {@link MembreteWord}: son ~50 líneas de manipulación
+     * fina del XML de OOXML que también necesitan los informes de Control de Activos, y
+     * tenerlas en un solo lugar evita que una corrección haya que repetirla en cada
+     * servicio que emite documentos.
      */
     private void agregarMembrete(XWPFDocument doc) {
-        try (InputStream is = getClass().getResourceAsStream(LOGO_PATH)) {
-            if (is == null) {
-                System.err.println("Membrete no encontrado en: " + LOGO_PATH);
-                return;
-            }
-            byte[] imagen = is.readAllBytes();
-
-            XWPFHeader header = doc.createHeader(HeaderFooterType.DEFAULT);
-            XWPFParagraph p = header.createParagraph();
-            XWPFRun run = p.createRun();
-
-            int cx = Units.toEMU(612); // 8.5" en puntos -> EMU
-            int cy = Units.toEMU(792); // 11"  en puntos -> EMU
-
-            // Se inserta primero como imagen "inline" para que POI cree la relación
-            // y el gráfico; luego se convierte en un anclaje detrás del texto.
-            run.addPicture(new ByteArrayInputStream(imagen), Document.PICTURE_TYPE_JPEG, "membrete.jpg", cx, cy);
-
-            // Convertir la imagen "inline" en un anclaje DETRÁS DEL TEXTO a página completa.
-            // Se construye el anclaje con la API tipada (no por string) creándolo directamente
-            // dentro del dibujo: así el XML queda bien formado y sin elementos anidados.
-            var drawing = run.getCTR().getDrawingArray(0);
-            var inline = drawing.getInlineArray(0);
-
-            CTAnchor anchor = drawing.addNewAnchor();
-            anchor.setBehindDoc(true);
-            anchor.setLocked(false);
-            anchor.setLayoutInCell(true);
-            anchor.setAllowOverlap(true);
-            anchor.setRelativeHeight(0);
-            anchor.setSimplePos2(false);   // atributo REQUERIDO del anchor (Word lo exige)
-            anchor.setDistT(0);
-            anchor.setDistB(0);
-            anchor.setDistL(0);
-            anchor.setDistR(0);
-
-            CTPoint2D simplePos = anchor.addNewSimplePos();   // elemento <wp:simplePos>
-            simplePos.setX(0);
-            simplePos.setY(0);
-
-            CTPosH posH = anchor.addNewPositionH();
-            posH.setRelativeFrom(STRelFromH.PAGE);
-            posH.setPosOffset(0);
-
-            CTPosV posV = anchor.addNewPositionV();
-            posV.setRelativeFrom(STRelFromV.PAGE);
-            posV.setPosOffset(0);
-
-            CTPositiveSize2D extent = anchor.addNewExtent();
-            extent.setCx(cx);
-            extent.setCy(cy);
-
-            CTEffectExtent ee = anchor.addNewEffectExtent();
-            ee.setL(0);
-            ee.setT(0);
-            ee.setR(0);
-            ee.setB(0);
-
-            anchor.addNewWrapNone();
-
-            CTNonVisualDrawingProps docPr = anchor.addNewDocPr();
-            docPr.setId(100);
-            docPr.setName("Membrete");
-
-            anchor.addNewCNvGraphicFramePr();
-
-            // Copiar el gráfico real de la imagen (conserva la relación r:embed)
-            anchor.setGraphic(inline.getGraphic());
-
-            // Quitar la versión inline; queda solo el anclaje de fondo
-            drawing.removeInline(0);
-
-        } catch (Exception e) {
-            System.err.println("No se pudo agregar el membrete al Word: " + e.getMessage());
-        }
+        MembreteWord.aplicar(doc);
     }
 
     /** "Nombre Oficina (OF. 124)" — nombre + código de la oficina. */

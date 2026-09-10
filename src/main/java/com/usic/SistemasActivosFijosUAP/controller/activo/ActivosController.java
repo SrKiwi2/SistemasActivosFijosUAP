@@ -36,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
+import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.ActualDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.AuxiliarDbfWriterService;
@@ -64,7 +65,6 @@ import com.usic.SistemasActivosFijosUAP.model.dto.DetalleActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DetalleRegistroItem;
 import com.usic.SistemasActivosFijosUAP.model.dto.EditarActivoPendienteRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.EditarLoteRequest;
-import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.model.dto.RegistroHuecoRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.RegistroHuecosLoteRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.RegistroMasivoRequest;
@@ -81,6 +81,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
+import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaDetalle;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
 import com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncService;
@@ -188,7 +189,7 @@ public class ActivosController {
             dto.setCosto(activo.getCosto());
             dto.setVidaUtil(activo.getVidaUtil());
             dto.setFechaAdquisicion(activo.getFechaAdquisicion().toString());
-            dto.setEstado(activo.getEstadoActivo().getNombre());
+            dto.setEstado(activo.getEstadoActivo() != null ? activo.getEstadoActivo().getNombre() : "Sin estado");
 
             try {
                 String idEncriptado = Encriptar.encrypt(activo.getIdActivo().toString());
@@ -1326,6 +1327,156 @@ public class ActivosController {
             }).toList();
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", e.getMessage()));
+        }
+    }
+
+    @ValidarUsuarioAutenticado
+    @GetMapping("/transferencias/historial/vista")
+    public String vistaHistorialTransferencias() {
+        return "activo/transferenciaHistorial";
+    }
+
+    @GetMapping("/transferencias/historial")
+    @ResponseBody
+    public ResponseEntity<?> historialTransferenciasConSync(
+            @RequestParam(required = false) String tipo,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        try {
+            List<Transferencia> lista = transferenciaDao.buscarFiltrado(tipo, desde, hasta);
+            List<Map<String, Object>> result = lista.stream().map(t -> {
+                Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("id", t.getIdTransferencia());
+                m.put("numero", t.getNumeroTransferencia());
+                m.put("tipo", t.getTipo());
+                m.put("fecha", t.getFechaTransferencia().toString());
+                m.put("estadoProceso", t.getEstadoProceso());
+                m.put("ofDestino", t.getOficinaDestino() != null ? t.getOficinaDestino().getNombre() : null);
+                m.put("ofOrigen", t.getOficinaOrigen() != null ? t.getOficinaOrigen().getNombre() : null);
+                m.put("respDestino", t.getResponsableDestino() != null ? t.getResponsableDestino().getPersona().getNombreCompleto() : null);
+                m.put("documentoReferencia", t.getDocumentoReferencia());
+                m.put("observacion", t.getObservacion());
+                m.put("institucionDestino", t.getInstitucionDestino());
+
+                List<Map<String, Object>> activos = t.getDetalles().stream().map(d -> {
+                    Activo a = d.getActivo();
+                    Map<String, Object> am = new java.util.LinkedHashMap<>();
+                    am.put("idActivo", a.getIdActivo());
+                    am.put("codigo", a.getCodigo());
+                    am.put("descripcion", a.getDescripcion());
+                    am.put("sincVsiaf", a.getSincVsiaf());
+                    am.put("sincVsiafMensaje", a.getSincVsiafMensaje());
+                    am.put("sincVsiafFecha", a.getSincVsiafFecha() != null ? a.getSincVsiafFecha().toString() : null);
+                    am.put("oficinaAnterior", d.getOficinaAnterior() != null ? d.getOficinaAnterior().getNombre() : null);
+                    am.put("responsableAnterior", d.getResponsableAnterior() != null ? d.getResponsableAnterior().getPersona().getNombreCompleto() : null);
+                    am.put("oficinaDestino", d.getOficinaDestino() != null ? d.getOficinaDestino().getNombre() : null);
+                    am.put("responsableDestino", d.getResponsableDestino() != null ? d.getResponsableDestino().getPersona().getNombreCompleto() : null);
+                    return am;
+                }).toList();
+                m.put("activos", activos);
+
+                long confirmados = activos.stream().filter(x -> Activo.SINC_CONFIRMADO.equals(x.get("sincVsiaf"))).count();
+                long enCola = activos.stream().filter(x -> Activo.SINC_EN_COLA.equals(x.get("sincVsiaf"))).count();
+                long errores = activos.stream().filter(x -> Activo.SINC_ERROR.equals(x.get("sincVsiaf"))).count();
+                long nunca = activos.stream().filter(x -> x.get("sincVsiaf") == null).count();
+
+                m.put("resumenSync", Map.of(
+                        "confirmados", confirmados,
+                        "enCola", enCola,
+                        "errores", errores,
+                        "nuncaEnviados", nunca,
+                        "total", activos.size()
+                ));
+
+                return m;
+            }).toList();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Error en historialTransferenciasConSync", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", e.getMessage()));
+        }
+    }
+
+    public record ReintentarSyncRequest(Long transferenciaId, List<Long> activosIds) {}
+
+    @PostMapping("/transferencias/reintentar-sync")
+    @ResponseBody
+    public ResponseEntity<?> reintentarSincronizacion(
+            HttpServletRequest request,
+            @RequestBody ReintentarSyncRequest payload) {
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        String usuNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+
+        try {
+            Transferencia trf = transferenciaDao.findById(payload.transferenciaId).orElse(null);
+            if (trf == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Transferencia no encontrada"));
+            }
+
+            List<Activo> activosAReintentar = new ArrayList<>();
+            if (payload.activosIds != null && !payload.activosIds.isEmpty()) {
+                for (Long idActivo : payload.activosIds) {
+                    Activo a = activoService.findById(idActivo);
+                    if (a != null) activosAReintentar.add(a);
+                }
+            } else {
+                for (TransferenciaDetalle d : trf.getDetalles()) {
+                    Activo a = d.getActivo();
+                    if (Activo.SINC_ERROR.equals(a.getSincVsiaf()) || a.getSincVsiaf() == null) {
+                        activosAReintentar.add(a);
+                    }
+                }
+            }
+
+            if (activosAReintentar.isEmpty()) {
+                return ResponseEntity.ok(Map.of("ok", true, "msg", "No hay activos para reintentar (todos ya están CONFIRMADO o EN_COLA)"));
+            }
+
+            Oficina ofDestino = trf.getOficinaDestino();
+            String entidadCode = "";
+            String unidadCode = "";
+            if (ofDestino != null && ofDestino.getPredio() != null) {
+                unidadCode = ofDestino.getPredio().getUnidad() != null ? ofDestino.getPredio().getUnidad() : "";
+                if (ofDestino.getPredio().getEntidad() != null) {
+                    entidadCode = ofDestino.getPredio().getEntidad().getEntidadCodigo() != null
+                            ? ofDestino.getPredio().getEntidad().getEntidadCodigo() : "";
+                }
+            }
+
+            int reintentados = 0;
+            for (Activo a : activosAReintentar) {
+                try {
+                    a.setSincVsiaf(Activo.SINC_EN_COLA);
+                    a.setSincVsiafMensaje(null);
+                    activoService.save(a);
+
+                    if (actualDbfWriterService.esModoCola()) {
+                        actualDbfWriterService.actualizarDesdeActivo(a.getCodigo(), a, entidadCode, unidadCode, usuNombre);
+                    } else {
+                        actualDbfWriterService.actualizarDesdeActivo(a.getCodigo(), a, entidadCode, unidadCode, usuNombre);
+                        a.setSincVsiaf(Activo.SINC_CONFIRMADO);
+                        activoService.save(a);
+                    }
+                    reintentados++;
+                } catch (Exception ex) {
+                    a.setSincVsiaf(Activo.SINC_ERROR);
+                    a.setSincVsiafMensaje(ex.getMessage());
+                    a.setSincVsiafFecha(LocalDateTime.now());
+                    activoService.save(a);
+                    log.warn("[REINTENTO] Falló sync para activo {}: {}", a.getCodigo(), ex.getMessage());
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "ok", true,
+                    "msg", String.format("Reintentados %d de %d activos. Los resultados se confirmarán en segundos.", reintentados, activosAReintentar.size()),
+                    "reintentados", reintentados,
+                    "total", activosAReintentar.size()
+            ));
+
+        } catch (Exception e) {
+            log.error("Error reintentando sincronización", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", e.getMessage()));
         }
     }

@@ -30,6 +30,9 @@ import com.usic.SistemasActivosFijosUAP.model.dto.control.ResolverHallazgoReques
 import com.usic.SistemasActivosFijosUAP.model.dto.control.ResumenCierreDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.ResumenMarcasDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.TileOficinaDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.control.ActivoUbicacionDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.control.ResultadoBusquedaDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.control.TileMunicipioDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.TilePredioDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.TileResponsableDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
@@ -85,8 +88,21 @@ public class ControlActivosService {
     //  Mapa
     // ═══════════════════════════════════════════════════════════════════════
 
+    public List<TileMunicipioDTO> mapaMunicipios() {
+        return repo.tilesMunicipio();
+    }
+
     public List<TilePredioDTO> mapaPredios() {
         return repo.tilesPredio();
+    }
+
+    /**
+     * Predios de un municipio, o los que no tienen municipio cargado.
+     *
+     * @param sinMunicipio true para el cuadrado "Sin municipio asignado" del nivel 0
+     */
+    public List<TilePredioDTO> mapaPredios(Long idMunicipio, boolean sinMunicipio) {
+        return repo.tilesPredio(idMunicipio, sinMunicipio);
     }
 
     public List<TileOficinaDTO> mapaOficinas(Long idPredio) {
@@ -99,6 +115,83 @@ public class ControlActivosService {
 
     public List<ActivoResponsableDTO> activosDe(Long idResponsable) {
         return repo.activosDeResponsable(idResponsable);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Buscador
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** Tope de filas del buscador. Con 31.000 activos, "traé todo" no es una opción. */
+    private static final int TOPE_BUSQUEDA = 200;
+
+    /** Mínimo de caracteres para buscar: con menos, cualquier texto alcanza a media base. */
+    private static final int MINIMO_TEXTO = 2;
+
+    /**
+     * Busca activos por código o descripción y devuelve dónde está cada uno.
+     *
+     * <p>Con menos de {@value #MINIMO_TEXTO} caracteres devuelve vacío en vez de barrer
+     * la tabla entera: no es un error del usuario, es que todavía no terminó de escribir.
+     */
+    public ResultadoBusquedaDTO buscar(String texto) {
+        String q = texto == null ? "" : texto.trim().toLowerCase();
+        if (q.length() < MINIMO_TEXTO) return ResultadoBusquedaDTO.vacio();
+
+        List<ActivoUbicacionDTO> filas = repo.buscarActivos(q, TOPE_BUSQUEDA);
+
+        // El conteo solo hace falta si se llenó el cupo: si vinieron menos que el tope,
+        // eso ya ES el total y una segunda consulta sobre 31.000 filas sería al pedo.
+        long total = filas.size() < TOPE_BUSQUEDA ? filas.size() : repo.contarBusqueda(q);
+        return ResultadoBusquedaDTO.de(total, filas);
+    }
+
+    /** Datos de cabecera del responsable para su acta; null si no existe. */
+    public TileResponsableDTO responsable(Long idResponsable) {
+        return repo.responsable(idResponsable);
+    }
+
+    /**
+     * Los bienes a cargo de un responsable, con ubicación, para el acta.
+     *
+     * <p>Reusa la lectura por ids del buscador en vez de tener su propia consulta: así
+     * el acta muestra exactamente los mismos datos que la pantalla, incluidos los
+     * hallazgos abiertos de cada bien.
+     */
+    public List<ActivoUbicacionDTO> bienesParaActa(Long idResponsable) {
+        List<Long> ids = repo.activosDeResponsable(idResponsable).stream()
+                .map(ActivoResponsableDTO::idActivo)
+                .toList();
+        if (ids.isEmpty()) {
+            throw new IllegalArgumentException("Este responsable no tiene bienes a su nombre.");
+        }
+        if (ids.size() > TOPE_INFORME) {
+            throw new IllegalArgumentException(
+                    "El acta admite hasta " + TOPE_INFORME + " bienes; este responsable tiene " + ids.size() + ".");
+        }
+        return repo.activosPorIds(ids);
+    }
+
+    /** Tope de bienes por informe: más que esto no es un informe, es un volcado de la base. */
+    private static final int TOPE_INFORME = 1000;
+
+    /**
+     * Los activos seleccionados, releídos de la base para armar el informe.
+     *
+     * @throws IllegalArgumentException si no se seleccionó nada o si se pasó del tope
+     */
+    public List<ActivoUbicacionDTO> activosParaInforme(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new IllegalArgumentException("No hay bienes seleccionados para el informe.");
+        }
+        if (ids.size() > TOPE_INFORME) {
+            throw new IllegalArgumentException(
+                    "El informe admite hasta " + TOPE_INFORME + " bienes; se seleccionaron " + ids.size() + ".");
+        }
+        List<ActivoUbicacionDTO> activos = repo.activosPorIds(ids);
+        if (activos.isEmpty()) {
+            throw new IllegalArgumentException("Ninguno de los bienes seleccionados sigue disponible.");
+        }
+        return activos;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
