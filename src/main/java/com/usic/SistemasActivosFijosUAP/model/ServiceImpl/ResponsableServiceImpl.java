@@ -245,6 +245,16 @@ public class ResponsableServiceImpl implements IResponsableService{
     }
 
     @Override
+    public Page<RespOption> searchByOficinaConCodigo(Long oficinaId, String q, Pageable pageable) {
+        return dao.searchByOficinaConCodigo(oficinaId, q, pageable);
+    }
+
+    @Override
+    public Page<RespOption> searchGlobalConCodigo(String q, Pageable pageable) {
+        return dao.searchGlobalConCodigo(q, pageable);
+    }
+
+    @Override
     public boolean existsByOficinaIdOficinaAndPersonaIdPersona(Long idOficina, Long idPersona) {
         return dao.existsByOficinaIdOficinaAndPersonaIdPersona(idOficina, idPersona);
     }

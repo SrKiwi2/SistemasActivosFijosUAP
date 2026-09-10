@@ -169,6 +169,32 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
            "       LOWER(COALESCE(p.ci, '')) LIKE LOWER(CONCAT('%', :q, '%')))")
     Page<RespOption> searchGlobal(@Param("q") String q, Pageable pageable);
 
+    /**
+     * Igual que {@link #searchByOficina}, pero con el código de funcionario como
+     * prefijo de la etiqueta en vez del CI — para selects donde interesa el mismo
+     * formato "código - nombre" que ya se usa en Transferencias.
+     */
+    @Query("SELECT new com.usic.SistemasActivosFijosUAP.model.dto.RespOption(" +
+           "r.idResponsable, " +
+           "CONCAT(COALESCE(r.codigoFuncionario, 'S/C'), ' - ', p.nombre, ' ', p.paterno, ' ', COALESCE(p.materno, ''))" +
+           ") " +
+           "FROM Responsable r JOIN r.persona p " +
+           "WHERE r.oficina.idOficina = :oficinaId " +
+           "AND (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "     LOWER(p.paterno) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "     LOWER(COALESCE(r.codigoFuncionario, '')) LIKE LOWER(CONCAT('%', :q, '%')))")
+    Page<RespOption> searchByOficinaConCodigo(@Param("oficinaId") Long oficinaId, @Param("q") String q, Pageable pageable);
+
+    @Query("SELECT new com.usic.SistemasActivosFijosUAP.model.dto.RespOption(" +
+           "r.idResponsable, " +
+           "CONCAT(COALESCE(r.codigoFuncionario, 'S/C'), ' - ', p.nombre, ' ', p.paterno, ' ', COALESCE(p.materno, ''))" +
+           ") " +
+           "FROM Responsable r JOIN r.persona p " +
+           "WHERE (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "       LOWER(p.paterno) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "       LOWER(COALESCE(r.codigoFuncionario, '')) LIKE LOWER(CONCAT('%', :q, '%')))")
+    Page<RespOption> searchGlobalConCodigo(@Param("q") String q, Pageable pageable);
+
     List<Responsable> findByOficinaIdOficina(Long idOficina);
 
     boolean existsByOficinaIdOficinaAndPersonaIdPersona(Long idOficina, Long idPersona);

@@ -223,7 +223,39 @@ public class CatalogoRestController {
         Map<String, Object> resp = new HashMap<>();
         resp.put("results", result.getContent());
         resp.put("pagination", Map.of("more", result.hasNext()));
-        
+
+        return resp;
+    }
+
+    /**
+     * Igual que {@code /buscar_responsable}, pero con el código de funcionario como
+     * prefijo de la etiqueta ("COD - Nombre") en vez del CI. Pensado para selects tipo
+     * Select2 donde se quiere el mismo formato "código - nombre" que Oficina.
+     */
+    @GetMapping("/responsables/buscar")
+    public Map<String, Object> buscarResponsableConCodigo(
+            @RequestParam(name = "q", required = false, defaultValue = "") String q,
+            @RequestParam(name = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(name = "oficinaId", required = false) Long oficinaId
+    ) {
+        int pageIndex = Math.max(0, page - 1);
+        int pageSize = 20;
+        PageRequest pageRequest = PageRequest.of(pageIndex, pageSize);
+
+        Page<RespOption> result;
+
+        if (oficinaId != null && oficinaId > 0) {
+            result = responsableService.searchByOficinaConCodigo(oficinaId, q, pageRequest);
+        } else if (oficinaId != null && oficinaId == -1) {
+            result = Page.empty();
+        } else {
+            result = responsableService.searchGlobalConCodigo(q, pageRequest);
+        }
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("results", result.getContent());
+        resp.put("pagination", Map.of("more", result.hasNext()));
+
         return resp;
     }
 

@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
-import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,8 +20,13 @@ import lombok.RequiredArgsConstructor;
  * que pagina y filtra por búsqueda (nombre/código), código, oficina,
  * responsable y fecha (siempre sobre activos en estado ACTIVO).
  *
- * Aquí solo se entregan los catálogos para los selects de filtro. El control de
- * rol se hace en la plantilla con session.nombre_rol (igual que el sidebar).
+ * El select de Responsable ya no se precarga aquí (antes eran ~2400 filas
+ * embebidas en la página, sin filtrar por oficina): se busca en vivo contra
+ * {@code GET /api/responsables/buscar} (Select2 + paginado).
+ *
+ * Aquí solo se entregan predios y oficinas para los selects de filtro. El
+ * control de rol se hace en la plantilla con session.nombre_rol (igual que el
+ * sidebar).
  */
 @Controller
 @RequestMapping("/administracion/consulta")
@@ -31,14 +35,12 @@ public class ConsultaActivosController {
 
     private final IPredioServicio predioServicio;
     private final IOficinaService oficinaService;
-    private final IResponsableService responsableService;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/activos/vista")
     public String consultaActivos(Model model) {
         model.addAttribute("predios", predioServicio.findAll());
         model.addAttribute("oficinas", oficinaService.listarOficinas());
-        model.addAttribute("responsables", responsableService.listarResponsables());
         return "consulta/activos";
     }
 }
