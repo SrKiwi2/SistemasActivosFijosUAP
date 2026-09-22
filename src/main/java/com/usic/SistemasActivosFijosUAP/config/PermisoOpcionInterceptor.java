@@ -122,9 +122,15 @@ public class PermisoOpcionInterceptor implements HandlerInterceptor {
             Map.entry("opcion_reporte_asignaciones", Set.of(
                     "/administracion/asignacion/asignaciones/*/editar-reporte")),
 
-            // Responsables: el alta abre el formulario de oficina.
+            // Responsables: el alta abre el formulario de oficina (y lo guarda).
             Map.entry("opcion_responsable", Set.of(
-                    "/administracion/oficina/formulario")),
+                    "/administracion/oficina/formulario",
+                    "/administracion/oficina/registrar-oficina",
+                    "/administracion/oficina/siguiente-codigo/*")),
+
+            // Oficinas: el alta puede registrar también al responsable (busca la persona por CI).
+            Map.entry("opcion_oficina", Set.of(
+                    "/administracion/responsable/api/personas/buscar-por-ci")),
 
             // Historial de Transferencias: lista y reintenta la sincronización.
             Map.entry("opcion_trHistorial", Set.of(

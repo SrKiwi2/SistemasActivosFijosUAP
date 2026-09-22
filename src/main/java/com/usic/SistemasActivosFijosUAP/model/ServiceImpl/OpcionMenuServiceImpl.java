@@ -62,6 +62,14 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         "MOV_INFORME", "MOV_INVENTARIO", "MOV_ASIGNACIONES"
     );
 
+    /**
+     * Supervisión (Monitoreo de actividad y Autorizaciones): la ven siempre ADMINISTRADOR
+     * y SUPER USUARIO, aunque el SUPER USUARIO tenga permisos asignados a mano.
+     */
+    private static final Set<String> CODIGOS_SUPERVISION = Set.of(
+        "opcion_actividad", "opcion_autorizaciones"
+    );
+
     /** Opciones que ve RESPONSABLE por defecto (módulo de comunicados). */
     private static final Set<String> CODIGOS_RESPONSABLE = Set.of(
         "opcion_comunicados"
@@ -153,6 +161,7 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
                         .collect(Collectors.toCollection(HashSet::new));
 
             case "APOYO":
+                // (Supervisión queda fuera a propósito: es solo para ADMINISTRADOR / SUPER USUARIO.)
                 // Consulta/seguimiento/reportes de la web + lo que le corresponde
                 // en la app móvil.
                 return todos.stream()
@@ -193,6 +202,7 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         if (usuario != null && usuario.getIdUsuario() != null) {
             Set<String> asignados = codigosPorUsuario(usuario.getIdUsuario());
             if (!asignados.isEmpty()) {
+                if ("SUPER USUARIO".equals(rol)) asignados.addAll(CODIGOS_SUPERVISION);
                 return asignados;
             }
         }

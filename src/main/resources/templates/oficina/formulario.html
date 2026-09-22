@@ -102,6 +102,29 @@
     #modalFormularioOficina select.is-invalid + .select2-container .select2-selection--single {
         border-color: #dc3545 !important;
     }
+
+    /* ── Sección del responsable (alta conjunta) ──────── */
+    #modalFormularioOficina .frm-section-header.sh-green {
+        background: rgba(25, 135, 84, 0.06);
+        color: #157347;
+        border-bottom: 1px solid rgba(25, 135, 84, 0.12);
+    }
+
+    #modalFormularioOficina .frm-section-header .form-switch {
+        margin: 0 0 0 auto;
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 600;
+    }
+
+    #modalFormularioOficina .persona-status {
+        font-size: 0.78rem;
+        padding: 0.35rem 0.6rem;
+        border-radius: 6px;
+    }
+
+    #modalFormularioOficina .persona-status.found { background: rgba(25, 135, 84, 0.08); color: #157347; }
+    #modalFormularioOficina .persona-status.notfound { background: rgba(255, 171, 0, 0.1); color: #a36a00; }
 </style>
 
 <!-- ── Header ─────────────────────────────────────────── -->
@@ -115,7 +138,7 @@
             <h6 class="modal-title fw-bold mb-0" style="color:#1a56a0;"
                 th:text="${edit} ? 'Modificar Oficina' : 'Registrar Oficina'">Oficina</h6>
             <small class="text-muted" style="font-size:0.7rem;">
-                Complete los datos de la oficina y su predio
+                Se guarda en el SCIAF y se envía al VSIAF en el mismo paso
             </small>
         </div>
     </div>
@@ -131,6 +154,28 @@
 
     <!-- ── Body ───────────────────────────────────────── -->
     <div class="modal-body px-4 pt-3 pb-2" style="background:#f8f9fb;">
+
+        <!-- Auditoría (solo edición y solo administradores) -->
+        <div th:if="${edit != null and esAdmin == true}" class="small text-muted mb-2">
+            <i class="fa-solid fa-user-clock me-1"></i>
+            Registrada
+            <th:block th:if="${registradoPor != null}">por <strong th:text="${registradoPor}"></strong></th:block>
+            <th:block th:if="${oficina.registro != null}" th:text="${'el ' + #dates.format(oficina.registro, 'dd/MM/yyyy HH:mm')}"></th:block>
+            <th:block th:if="${modificadoPor != null}">
+                · última modificación por <strong th:text="${modificadoPor}"></strong>
+                <th:block th:if="${oficina.modificacion != null}" th:text="${'el ' + #dates.format(oficina.modificacion, 'dd/MM/yyyy HH:mm')}"></th:block>
+            </th:block>
+        </div>
+
+        <!-- Clave bloqueada: la oficina ya tiene responsables o bienes -->
+        <div th:if="${bloquearClave}" class="alert alert-info py-2 small mb-3">
+            <i class="fa-solid fa-lock me-1"></i>
+            Esta oficina tiene <strong th:text="${responsablesOficina}">0</strong> responsable(s) y
+            <strong th:text="${activosOficina}">0</strong> activo(s): el <strong>predio</strong> y el
+            <strong>código</strong> no se pueden cambiar (en el VSIAF quedarían apuntando a una oficina inexistente).
+            Solo se editan el nombre y las observaciones.
+        </div>
+
         <div class="frm-section">
             <div class="frm-section-header">
                 <i class="fa-solid fa-circle-info"></i> Datos de la Oficina
@@ -143,11 +188,14 @@
                         <label class="frm-label" for="selectPredio">
                             <i class="fa-solid fa-building"></i> Predio <span class="text-danger">*</span>
                         </label>
-                        <select class="select2 form-select" th:field="*{predio.idPredio}" id="selectPredio" required>
+                        <select class="select2 form-select" th:field="*{predio.idPredio}" id="selectPredio" required
+                            th:disabled="${bloquearClave}">
                             <option value="">Seleccione un predio…</option>
                             <option th:each="p : ${predios}" th:value="${p.idPredio}"
                                 th:text="${p.descrip} + ' - ' + ${p.codigo}"></option>
                         </select>
+                        <!-- Un select deshabilitado no se envía: el valor viaja en este oculto -->
+                        <input th:if="${bloquearClave}" type="hidden" name="predio.idPredio" th:value="*{predio.idPredio}">
                         <div class="invalid-feedback">Debe seleccionar un predio.</div>
                     </div>
 
@@ -157,9 +205,9 @@
                             <i class="fa-solid fa-hashtag"></i> Código <span class="text-danger">*</span>
                         </label>
                         <input type="number" th:field="*{codOfi}" class="form-control" id="inputCodOfi" min="1"
-                            max="32767" step="1" required placeholder="Ej: 1" />
+                            max="32767" step="1" required placeholder="Ej: 1" th:readonly="${bloquearClave}" />
                         <div class="invalid-feedback">Introduzca un código válido (1–32767).</div>
-                        <small class="text-muted" style="font-size:0.7rem;">Se autocompleta al elegir el predio.</small>
+                        <small class="text-muted" style="font-size:0.7rem;" th:unless="${bloquearClave}">Se autocompleta al elegir el predio.</small>
                     </div>
 
                     <!-- Nombre Oficina -->
@@ -168,8 +216,9 @@
                             <i class="fa-regular fa-building"></i> Nombre de la Oficina <span class="text-danger">*</span>
                         </label>
                         <input type="text" th:field="*{nombre}" class="form-control" id="inputNombre"
-                            placeholder="Ej: Dirección de Recursos Humanos" required maxlength="255" />
-                        <div class="invalid-feedback">Introduzca el nombre de la oficina.</div>
+                            placeholder="Ej: Dirección de Recursos Humanos" required maxlength="65" />
+                        <div class="invalid-feedback">Introduzca el nombre de la oficina (máx. 65 caracteres).</div>
+                        <small class="text-muted" style="font-size:0.7rem;">Máximo 65 caracteres (largo del campo en el VSIAF).</small>
                     </div>
 
                     <!-- Observaciones -->
@@ -185,6 +234,85 @@
                 </div>
             </div>
         </div>
+
+        <!-- ── Responsable de la nueva oficina (solo alta, no cuando se abre desde Responsables) ── -->
+        <div th:if="${edit == null and embebido != true}" class="frm-section" id="seccionRespOficina">
+            <div class="frm-section-header sh-green">
+                <i class="fa-solid fa-user-tie"></i> Responsable de la oficina
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="chkConResponsable" name="conResponsable"
+                        value="true" checked>
+                    <label class="form-check-label small" for="chkConResponsable">Registrarlo ahora</label>
+                </div>
+            </div>
+            <div class="frm-section-body" id="camposRespOficina">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="frm-label" for="respCi">
+                            <i class="fa-solid fa-id-card"></i> C.I. <span class="text-danger">*</span>
+                        </label>
+                        <div class="d-flex gap-2 align-items-start">
+                            <input type="text" class="form-control resp-req" id="respCi" name="respCi"
+                                maxlength="15" placeholder="Número de carnet" style="max-width:200px;">
+                            <select class="form-select" name="respCodExp" style="max-width:120px;">
+                                <option value="1">CHQ (1)</option>
+                                <option value="2">LPZ (2)</option>
+                                <option value="3">CBB (3)</option>
+                                <option value="4">ORU (4)</option>
+                                <option value="5">PTS (5)</option>
+                                <option value="6">TAR (6)</option>
+                                <option value="7">SCZ (7)</option>
+                                <option value="8">BEN (8)</option>
+                                <option value="9" selected>PAN (9)</option>
+                            </select>
+                            <button class="btn btn-outline-primary flex-shrink-0" type="button" id="btnBuscarRespCi"
+                                style="height:42px;">
+                                <i class="fa-solid fa-magnifying-glass me-1"></i> Buscar
+                            </button>
+                        </div>
+                        <div id="respPersonaStatus" class="mt-2 d-none"></div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="frm-label" for="respNombre">Nombres <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control resp-req" id="respNombre" name="respNombre" placeholder="Nombres">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="frm-label" for="respPaterno">Ap. Paterno <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control resp-req" id="respPaterno" name="respPaterno" placeholder="Apellido paterno">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="frm-label" for="respMaterno">Ap. Materno</label>
+                        <input type="text" class="form-control" id="respMaterno" name="respMaterno" placeholder="(opcional)">
+                    </div>
+
+                    <div class="col-md-8">
+                        <label class="frm-label" for="respCargo">
+                            <i class="fa-solid fa-briefcase"></i> Cargo <span class="text-danger">*</span>
+                        </label>
+                        <select id="respCargo" name="respCargo" class="form-select resp-req">
+                            <option value=""></option>
+                        </select>
+                        <small class="text-muted" style="font-size:0.7rem;">Busque o escriba uno nuevo (máx. 40 caracteres).</small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="frm-label" for="respCodFun">
+                            <i class="fa-solid fa-hashtag"></i> Cód. Funcionario <span class="text-danger">*</span>
+                        </label>
+                        <input type="number" class="form-control resp-req" id="respCodFun" name="respCodigoFuncionario"
+                            value="1" min="1" max="99999" step="1">
+                        <small class="text-muted" style="font-size:0.7rem;">Correlativo dentro de la oficina.</small>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="frm-label" for="respCorreo">Correo <span class="text-muted fw-normal" style="text-transform:none;letter-spacing:0;">(opcional)</span></label>
+                        <input type="email" class="form-control" id="respCorreo" name="respCorreo" placeholder="opcional@correo.com">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <input type="hidden" name="respForzar" id="respForzar" value="false">
     </div>
 
     <!-- ── Footer ─────────────────────────────────────── -->
@@ -209,10 +337,12 @@
         const $form = $('#formularioOficina');
         const $btnGuardar = $('#btnGuardarOficina');
         const $btnCancelar = $('#btnCancelarOficina');
-        const $btnClose = $('#modalFormularioOficina .btn-close');
-        const esEdicion = $form.find('input[name="idOficina"]').length > 0;
-        const htmlBtnOriginal = $btnGuardar.html();
         const $modal = $('#modalFormularioOficina');
+        const $btnClose = $modal.find('.btn-close');
+        const esEdicion = $form.find('input[name="idOficina"]').length > 0;
+        const claveBloqueada = $('#selectPredio').prop('disabled');
+        const htmlBtnOriginal = $btnGuardar.html();
+        const $seccionResp = $('#seccionRespOficina');
         let enviando = false;
 
         // Impide cerrar el modal (Esc / clic en el fondo) mientras se guarda.
@@ -221,7 +351,79 @@
             if (enviando) e.preventDefault();
         });
 
-        /* ── Validación de un campo individual ──────────── */
+        /* ── Responsable junto con la oficina ───────────── */
+        function conResponsable() {
+            return $seccionResp.length > 0 && $('#chkConResponsable').is(':checked');
+        }
+
+        function alternarResponsable() {
+            $('#camposRespOficina').toggle(conResponsable());
+            if (!conResponsable()) $seccionResp.find('.is-invalid').removeClass('is-invalid');
+        }
+        $('#chkConResponsable').on('change', alternarResponsable);
+
+        if ($seccionResp.length) {
+            // Select2 del cargo: busca en el catálogo y permite escribir uno nuevo.
+            setTimeout(function () {
+                $('#respCargo').select2({
+                    theme: 'bootstrap-5',
+                    dropdownParent: $modal,
+                    width: '100%',
+                    tags: true,
+                    placeholder: 'Busque o escriba un cargo…',
+                    allowClear: true,
+                    language: { noResults: () => 'Sin resultados', searching: () => 'Buscando…' },
+                    createTag: function (params) {
+                        const t = $.trim(params.term).toUpperCase();
+                        return t ? { id: t, text: t, newTag: true } : null;
+                    },
+                    ajax: {
+                        url: '/api/cargos/search',
+                        dataType: 'json',
+                        delay: 250,
+                        data: params => ({ q: params.term }),
+                        processResults: data => ({ results: data.map(c => ({ id: c.nombre, text: c.nombre })) }),
+                        cache: true
+                    }
+                });
+            }, 100);
+
+            // Buscar la persona por CI y completar los datos si ya existe.
+            $('#btnBuscarRespCi').on('click', buscarPersonaPorCi);
+            $('#respCi').on('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); buscarPersonaPorCi(); }
+            });
+        }
+
+        function buscarPersonaPorCi() {
+            const ci = $('#respCi').val().trim();
+            if (!ci) { $('#respCi').addClass('is-invalid').trigger('focus'); return; }
+            const $btn = $('#btnBuscarRespCi');
+            $btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i>');
+            $.ajax({
+                url: '/administracion/responsable/api/personas/buscar-por-ci',
+                data: { ci },
+                success: function (p) {
+                    $('#respNombre').val(p.nombre || '').removeClass('is-invalid');
+                    $('#respPaterno').val(p.paterno || '').removeClass('is-invalid');
+                    $('#respMaterno').val(p.materno || '');
+                    $('#respPersonaStatus').removeClass('d-none').html(
+                        '<div class="persona-status found"><i class="fa-solid fa-circle-check me-1"></i>' +
+                        'Persona ya registrada — datos completados.</div>');
+                },
+                error: function () {
+                    $('#respPersonaStatus').removeClass('d-none').html(
+                        '<div class="persona-status notfound"><i class="fa-solid fa-pen me-1"></i>' +
+                        'Persona nueva — complete nombres y apellidos.</div>');
+                    $('#respNombre').trigger('focus');
+                },
+                complete: function () {
+                    $btn.prop('disabled', false).html('<i class="fa-solid fa-magnifying-glass me-1"></i> Buscar');
+                }
+            });
+        }
+
+        /* ── Validación ─────────────────────────────────── */
         function marcar($el, invalido) {
             $el.toggleClass('is-invalid', invalido);
             return !invalido;
@@ -229,22 +431,33 @@
 
         function validar() {
             let ok = true;
+            const mensajes = [];
 
-            // Predio
-            ok = marcar($('#selectPredio'), !$('#selectPredio').val()) && ok;
+            if (!marcar($('#selectPredio'), !$('#selectPredio').val())) { ok = false; }
 
-            // Código (1–32767)
             const cod = parseInt($('#inputCodOfi').val(), 10);
-            ok = marcar($('#inputCodOfi'), isNaN(cod) || cod < 1 || cod > 32767) && ok;
+            if (!marcar($('#inputCodOfi'), isNaN(cod) || cod < 1 || cod > 32767)) { ok = false; }
 
-            // Nombre
-            ok = marcar($('#inputNombre'), !$('#inputNombre').val().trim()) && ok;
+            const nombre = $('#inputNombre').val().trim();
+            if (!marcar($('#inputNombre'), !nombre || nombre.length > 65)) { ok = false; }
 
-            return ok;
+            if (conResponsable()) {
+                const ci = $('#respCi').val().trim();
+                if (!marcar($('#respCi'), !ci || ci.length > 15)) { ok = false; mensajes.push('C.I. del responsable'); }
+                if (!marcar($('#respNombre'), !$('#respNombre').val().trim())) { ok = false; mensajes.push('nombres'); }
+                if (!marcar($('#respPaterno'), !$('#respPaterno').val().trim())) { ok = false; mensajes.push('apellido paterno'); }
+                const cargo = ($('#respCargo').val() || '').trim();
+                if (!marcar($('#respCargo'), !cargo || cargo.length > 40)) {
+                    ok = false; mensajes.push(cargo.length > 40 ? 'cargo (máx. 40 caracteres)' : 'cargo');
+                }
+                const cf = parseInt($('#respCodFun').val(), 10);
+                if (!marcar($('#respCodFun'), isNaN(cf) || cf < 1 || cf > 99999)) { ok = false; mensajes.push('código de funcionario'); }
+            }
+            return { ok, mensajes };
         }
 
         // Limpia el error de un campo apenas el usuario lo corrige
-        $form.on('input change', '#selectPredio, #inputCodOfi, #inputNombre', function () {
+        $form.on('input change', 'input, select, textarea', function () {
             $(this).removeClass('is-invalid');
         });
 
@@ -264,61 +477,139 @@
             $btnClose.prop('disabled', false).css('pointer-events', '');
         }
 
+        function datosFormulario() {
+            // Si no se registra responsable, sus campos no viajan (evita mensajes de validación ajenos).
+            let data = $form.serializeArray();
+            if (!conResponsable()) {
+                data = data.filter(f => !f.name.startsWith('resp') && f.name !== 'conResponsable');
+            }
+            return $.param(data);
+        }
+
         /* ── Envío del formulario ───────────────────────── */
         $form.on('submit', function (event) {
             event.preventDefault();
             if (enviando) return;            // anti doble-click / doble Enter
 
-            if (!validar()) {
-                // Lleva el foco al primer campo con error
+            const v = validar();
+            if (!v.ok) {
                 $form.find('.is-invalid').first().trigger('focus');
+                if (v.mensajes.length) {
+                    Swal.fire('Faltan datos', 'Revise: ' + v.mensajes.join(', ') + '.', 'warning');
+                }
                 return;
             }
+            $('#respForzar').val('false');
+            enviar();
+        });
 
+        function enviar(extra) {
             bloquear(esEdicion ? 'Guardando…' : 'Registrando…');
 
             $.ajax({
                 type: 'POST',
                 url: $form.attr('action'),
-                data: $form.serialize(),
+                data: datosFormulario() + (extra ? '&' + $.param(extra) : ''),
                 dataType: 'json',
                 success: function (res) {
+                    // Cambio de predio/código sin rol administrativo: se pide el motivo y se envía la solicitud.
+                    if (res && res.requiereAutorizacion) {
+                        desbloquear();
+                        pedirAutorizacion(res.msg);
+                        return;
+                    }
+                    if (res && res.ok && res.solicitud) {
+                        enviando = false;
+                        $modal.modal('hide');
+                        if (typeof cargarTabla === 'function' && $('#tablaRegistro').length) cargarTabla();
+                        Swal.fire({ icon: 'info', title: 'Solicitud enviada', text: res.msg, timer: 5000, showConfirmButton: false });
+                        return;
+                    }
                     if (res && res.ok) {
                         enviando = false;          // libera la guarda de cierre
                         $modal.modal('hide');
-                        cargarTabla();
-                        Swal.fire({
-                            toast: true, position: 'top-end', icon: 'success',
-                            title: res.msg || (esEdicion ? 'Oficina modificada' : 'Oficina registrada'),
-                            showConfirmButton: false, timer: 2600, timerProgressBar: true
-                        });
+                        // Quien abrió el formulario decide qué recargar (tabla de oficinas,
+                        // select de oficinas del formulario de responsable, etc.).
+                        $(document).trigger('oficina:registrada', [res]);
+                        if (typeof cargarTabla === 'function' && $('#tablaRegistro').length) cargarTabla();
+
+                        if (res.vsiafOk === false) {
+                            Swal.fire('Guardado, pero no llegó al VSIAF', res.msg, 'warning');
+                        } else {
+                            Swal.fire({
+                                toast: true, position: 'top-end', icon: 'success',
+                                title: res.msg || (esEdicion ? 'Oficina modificada' : 'Oficina registrada'),
+                                showConfirmButton: false, timer: 4000, timerProgressBar: true
+                            });
+                        }
                     } else {
                         desbloquear();
-                        let msg = (res && res.msg) || 'No se pudo completar la operación.';
-                        if (res && res.errors && res.errors.length) {
-                            msg = res.errors.map(e => e.message).join('<br>');
-                        }
-                        const icon = msg.includes('DBF') ? 'warning' : 'error';
-                        Swal.fire('Atención', msg, icon);
+                        mostrarError(res);
                     }
                 },
                 error: function (xhr) {
                     desbloquear();
-                    let msg = 'Error de conexión con el servidor.';
-                    if (xhr.responseJSON && xhr.responseJSON.msg) {
-                        msg = xhr.responseJSON.msg;
-                    } else if (xhr.status === 500) {
-                        msg = 'Error interno del servidor (500). Revise los registros.';
-                    } else if (xhr.status === 400) {
-                        msg = 'Solicitud incorrecta (400). Verifique los datos.';
+                    if (xhr.status === 409 && xhr.responseJSON && xhr.responseJSON.requireConfirmacion) {
+                        confirmarPersonaNueva(xhr.responseJSON);
+                        return;
                     }
-                    Swal.fire('Error', msg, 'error');
+                    if (xhr.status === 403) {
+                        Swal.fire('Sin permiso', 'No tiene permiso para registrar oficinas.', 'error');
+                        return;
+                    }
+                    mostrarError(xhr.responseJSON, xhr.status);
                 }
             });
-        });
+        }
+
+        function mostrarError(res, status) {
+            let msg = (res && res.msg) || 'No se pudo completar la operación.';
+            if (res && res.errors && res.errors.length) msg = res.errors.map(e => e.message).join('<br>');
+            else if (!res && status === 500) msg = 'Error interno del servidor (500). Revise los registros.';
+            Swal.fire('Atención', msg, 'error');
+        }
+
+        function pedirAutorizacion(msg) {
+            Swal.fire({
+                icon: 'info',
+                title: 'Requiere autorización',
+                html: `<div class="text-start small mb-2">${$('<div>').text(msg).html()}</div>
+                       <div class="text-start small text-muted">Su pedido le llega al revisor. No se aplica nada hasta que lo apruebe;
+                       le avisaremos aquí mismo cuando lo resuelva.</div>`,
+                input: 'textarea',
+                inputPlaceholder: 'Motivo del cambio (obligatorio)',
+                inputValidator: v => !(v || '').trim() ? 'Indique el motivo' : undefined,
+                showCancelButton: true,
+                confirmButtonText: 'Enviar solicitud',
+                cancelButtonText: 'Cancelar'
+            }).then(r => {
+                if (r.isConfirmed) enviar({ solicitarAutorizacion: true, motivoSolicitud: r.value });
+            });
+        }
+
+        // Hay personas con un nombre parecido y ninguna con ese CI: se pregunta antes de crear otra.
+        function confirmarPersonaNueva(conflicto) {
+            const lista = (conflicto.personasCoincidentes || [])
+                .map(p => `<li>${$('<div>').text(p.nombreCompleto).html()} <span class="text-muted">(CI: ${$('<div>').text(p.ci || 'sin CI').html()})</span></li>`)
+                .join('');
+            Swal.fire({
+                icon: 'question',
+                title: 'Personas con nombre similar',
+                html: `<div class="text-start small">Ya hay registradas:<ul class="mt-2">${lista}</ul>
+                       Si es otra persona, créela igual. Si es una de estas, cancele y búsquela por su C.I.</div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Es otra persona: crear',
+                cancelButtonText: 'Cancelar'
+            }).then(r => {
+                if (!r.isConfirmed) return;
+                $('#respForzar').val('true');
+                enviar();
+            });
+        }
 
         /* ── Autocompletar código correlativo al elegir predio ── */
         $('#selectPredio').on('change', function () {
+            if (claveBloqueada) return;
             const idPredio = $(this).val();
             const $inputCodOfi = $('#inputCodOfi');
 
@@ -327,7 +618,7 @@
                 return;
             }
 
-            $inputCodOfi.prop('disabled', true).val('Cargando…');
+            $inputCodOfi.prop('disabled', true).val('');
 
             $.ajax({
                 url: '/administracion/oficina/siguiente-codigo/' + idPredio,

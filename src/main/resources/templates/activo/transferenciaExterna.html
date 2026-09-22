@@ -228,10 +228,10 @@
         border-radius: var(--r-sm);
         color: var(--txt-primary);
         font-family: var(--font-ui);
-        font-size: 12.5px;
-        padding: 6px 10px;
+        font-size: 14px;
+        padding: 8px 12px;
         outline: none;
-        height: 34px;
+        height: 40px;
         transition: border-color var(--t), box-shadow var(--t);
         appearance: none;
     }
@@ -746,7 +746,7 @@
         background-color: var(--bg-input);
         border: 1px solid var(--border-med);
         border-radius: var(--r-sm);
-        height: 34px;
+        height: 40px;
         display: flex;
         align-items: center;
         transition: border-color var(--t), box-shadow var(--t)
@@ -761,8 +761,8 @@
     .te-wrap .select2-container--default .select2-selection--single .select2-selection__rendered {
         color: var(--txt-primary) !important;
         font-family: var(--font-ui);
-        font-size: 12.5px;
-        line-height: 32px !important;
+        font-size: 14px;
+        line-height: 38px !important;
         padding-left: 10px !important;
         padding-right: 26px !important
     }
@@ -772,7 +772,7 @@
     }
 
     .te-wrap .select2-container--default .select2-selection--single .select2-selection__arrow {
-        height: 32px;
+        height: 38px;
         right: 7px
     }
 
@@ -1115,7 +1115,8 @@
             try {
                 const d = await fetch(`/api/activos/por-codigo?codigo=${encodeURIComponent(cod)}`).then(r => r.json());
                 if (!d?.idActivo) { teToast('e', 'No encontrado', `No existe activo con código "${cod}".`); return; }
-                teAdd(d); document.getElementById('te-cod').value = '';
+                teAdd(d); 
+                // NO limpiamos el campo para permitir búsquedas rápidas cambiando solo un dígito
                 teToast('s', 'Activo encontrado', `${d.codigo} — ${d.descripcion}`);
             } catch (e) { teToast('e', 'Error', e.message); }
             finally { teOverlayOff(); }

@@ -4,6 +4,7 @@
      Datos: POST /administracion/activo/datatables  (server-side, buscarConFiltros)
      Filtros: búsqueda global (nombre/código), código, predio, oficina, responsable, usuario, fecha.
      Solo muestra activos en estado ACTIVO. Exporta a Excel los resultados filtrados.
+     Tarjeta de resumen del responsable: GET /api/responsables/card?idResponsable=
 ====================================================================== -->
 
 <!-- Acceso restringido (defensa en profundidad) -->
@@ -39,6 +40,116 @@
         #cact-wrap .select2-container--default .select2-selection--single .select2-selection__clear {
             margin-right:6px; font-size:1rem;
         }
+
+        /* ===== Tarjeta Responsable ===== */
+        .resp-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.06);
+            background: #fff;
+            transition: box-shadow .2s ease, transform .2s ease;
+        }
+        .resp-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+        .resp-card .card-header {
+            background: linear-gradient(135deg, #1a56a0 0%, #2c7be5 100%);
+            color: #fff;
+            border-radius: 12px 12px 0 0 !important;
+            padding: .75rem 1rem;
+            font-weight: 600;
+            font-size: .9rem;
+        }
+        .resp-card .card-body { padding: 1rem; }
+        .resp-card .info-block { padding: .5rem 0; }
+        .resp-card .info-label {
+            font-size: .7rem; font-weight: 600; letter-spacing: .3px;
+            text-transform: uppercase; color: #8592a3; margin-bottom: .15rem;
+        }
+        .resp-card .info-value { font-size: .9rem; color: #212529; font-weight: 500; }
+        .resp-card .info-value small { color: #6c757d; font-weight: 400; }
+        .resp-card .divider { border-top: 1px solid #e9ecef; margin: .5rem 0; }
+
+        /* Badge total */
+        .resp-badge-total {
+            display: inline-flex; align-items: center; gap: .35rem;
+            background: linear-gradient(135deg, #1a56a0 0%, #2c7be5 100%);
+            color: #fff; padding: .35rem .75rem; border-radius: 50px;
+            font-size: .8rem; font-weight: 600; box-shadow: 0 2px 6px rgba(26,86,160,.3);
+        }
+        .resp-badge-total i { font-size: .9rem; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+        /* Accordion desglose */
+        .resp-accordion { border: none; background: transparent; }
+        .resp-accordion .accordion-item { border: none; background: transparent; }
+        .resp-accordion .accordion-header { border: none; }
+        .resp-accordion .accordion-button {
+            background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px !important;
+            font-size: .75rem; font-weight: 600; color: #1a56a0; padding: .5rem .75rem;
+            box-shadow: none !important;
+        }
+        .resp-accordion .accordion-button:not(.collapsed) {
+            background: linear-gradient(135deg, #1a56a0 0%, #2c7be5 100%);
+            color: #fff; border-color: #1a56a0;
+        }
+        .resp-accordion .accordion-button:focus { box-shadow: none !important; border-color: #1a56a0; }
+        .resp-accordion .accordion-button::after {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%231a56a0'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+        }
+        .resp-accordion .accordion-button:not(.collapsed)::after {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+        }
+        .resp-accordion .accordion-body { padding: .75rem 0 0; }
+        .resp-accordion .grupo-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: .5rem .75rem; border-radius: 6px; font-size: .85rem;
+            transition: background .15s ease; cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .resp-accordion .grupo-item:hover { background: #f1f5f9; border-color: #e0e7ff; }
+        .resp-accordion .grupo-item.active { background: #e0e7ff; border-color: #1a56a0; }
+        .resp-accordion .grupo-name { color: #374151; font-weight: 500; }
+        .resp-accordion .grupo-count {
+            background: #e0e7ff; color: #1a56a0; padding: .15rem .6rem;
+            border-radius: 4px; font-size: .75rem; font-weight: 600;
+        }
+        .resp-accordion .grupo-item.active .grupo-count { background: #1a56a0; color: #fff; }
+        .resp-accordion .accordion-collapse { transition: all .3s ease; }
+
+        /* Bloqueo buttons */
+        .resp-bloqueo-btns { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
+        .resp-bloqueo-btns .btn { font-size: .7rem; padding: .35rem .75rem; }
+
+        /* History modal */
+        .historial-modal .modal-header { background: linear-gradient(135deg, #1a56a0 0%, #2c7be5 100%); color: #fff; }
+        .historial-modal .modal-title { font-weight: 600; }
+        .historial-table { font-size: .8rem; }
+        .historial-table th { font-size: .65rem; font-weight: 600; text-transform: uppercase; color: #8592a3; }
+        .historial-table .accion-badge { font-size: .65rem; padding: .15rem .5rem; border-radius: 50px; font-weight: 600; }
+        .historial-table .accion-bloqueo { background: #fff3e0; color: #f57c00; }
+        .historial-table .accion-desbloqueo { background: #e8f5e9; color: #2e7d32; }
+
+        /* Loading overlay para selects */
+        .select-loading {
+            position: relative;
+        }
+        .select-loading::after {
+            content: ''; position: absolute; inset: 0; background: rgba(255,255,255,.7);
+            border-radius: .25rem; z-index: 10; display: flex; align-items: center; justify-content: center;
+        }
+        .select-loading .spinner-mini {
+            width: 18px; height: 18px; border: 2px solid #e0e7ff;
+            border-top-color: #1a56a0; border-radius: 50%;
+            animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Responsive */
+        @media (max-width: 767.98px) {
+            .resp-card .row > div { padding-left: .5rem; padding-right: .5rem; }
+            .resp-card .info-value { font-size: .8rem; }
+            .resp-bloqueo-btns { flex-direction: column; }
+            .resp-bloqueo-btns .btn { width: 100%; }
+        }
     </style>
 
     <div id="cact-wrap">
@@ -59,23 +170,31 @@
                     </div>
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">Predio</label>
-                        <select id="f-predio" class="form-select form-select-sm">
-                            <option value="">Todos los predios</option>
-                            <option th:each="p : ${predios}" th:value="${p.idPredio}" th:text="${p.descrip}"></option>
-                        </select>
+                        <!-- Sin la clase select-loading: la pone y la saca el JS mientras carga.
+                             Fija en el HTML, su overlay queda tapando el select para siempre. -->
+                        <div id="wrap-predio">
+                            <select id="f-predio" class="form-select form-select-sm">
+                                <option value="">Todos los predios</option>
+                                <option th:each="p : ${predios}" th:value="${p.idPredio}" th:text="${p.descrip}"></option>
+                            </select>
+                        </div>
                     </div>
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">Oficina</label>
-                        <select id="f-oficina" class="form-select form-select-sm">
-                            <option value="">Todas las oficinas</option>
-                            <option th:each="of : ${oficinas}" th:value="${of.idOficina}"
-                                    th:attr="data-predio=${of.predio != null ? of.predio.idPredio : ''}"
-                                    th:text="${(of.codOfi != null ? of.codOfi : '—') + ' - ' + of.nombre}"></option>
-                        </select>
+                        <div id="wrap-oficina">
+                            <select id="f-oficina" class="form-select form-select-sm">
+                                <option value="">Todas las oficinas</option>
+                                <option th:each="of : ${oficinas}" th:value="${of.idOficina}"
+                                        th:attr="data-predio=${of.predio != null ? of.predio.idPredio : ''}"
+                                        th:text="${(of.codOfi != null ? of.codOfi : '—') + ' - ' + of.nombre}"></option>
+                            </select>
+                        </div>
                     </div>
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">Responsable</label>
-                        <select id="f-responsable" class="form-select form-select-sm" style="width:100%"></select>
+                        <div id="wrap-responsable">
+                            <select id="f-responsable" class="form-select form-select-sm" style="width:100%"></select>
+                        </div>
                     </div>
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">Fecha de adquisición</label>
@@ -95,6 +214,75 @@
                         <button type="button" class="btn btn-sm btn-success ms-auto" id="btnExportar">
                             <i class="ti ti-file-spreadsheet me-1"></i> Exportar Excel
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta Responsable (se muestra cuando hay responsable seleccionado) -->
+        <div id="respCardWrap" class="mb-3" style="display:none;">
+            <div class="card resp-card">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <span><i class="ti ti-user-check me-2"></i>DATOS DEL RESPONSABLE SELECCIONADO</span>
+                    <span class="badge bg-light text-dark" id="respCardBadge" style="font-size:.65rem;"></span>
+                </div>
+                <div class="card-body">
+                    <!-- Bloque A: Información del Responsable -->
+                    <div class="row g-3">
+                        <div class="col-12 col-md-4 info-block">
+                            <div class="info-label"><i class="ti ti-id me-1"></i>Responsable</div>
+                            <div class="info-value" id="rc-nombre">—</div>
+                            <div class="info-value small" id="rc-ci">—</div>
+                            <div class="info-value small" id="rc-cargo">—</div>
+                        </div>
+
+                        <!-- Bloque B: Datos de la Ubicación -->
+                        <div class="col-12 col-md-4 info-block">
+                            <div class="info-label"><i class="ti ti-building me-1"></i>Ubicación</div>
+                            <div class="info-value" id="rc-oficina">—</div>
+                            <div class="info-value small" id="rc-predio">—</div>
+                        </div>
+
+                        <!-- Bloque C: Resumen de Activos + Acciones -->
+                        <div class="col-12 col-md-4 info-block">
+                            <div class="info-label"><i class="ti ti-box me-1"></i>Activos Asignados</div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                                <span class="resp-badge-total" id="rc-total"><i class="ti ti-refresh"></i> <span>0</span> Activos</span>
+                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#desgloseGrupo" aria-expanded="false" aria-controls="desgloseGrupo" id="btnDesglose">
+                                    <i class="ti ti-chevron-down me-1" id="iconDesglose"></i><span id="txtDesglose">Ver desglose</span>
+                                </button>
+                            </div>
+                            
+                            <!-- Botones de Bloqueo/Desbloqueo -->
+                            <div class="resp-bloqueo-btns" id="respBloqueoBtns" style="display:none;">
+                                <button th:if="${puedeBloquear}" type="button" class="btn btn-warning" id="btnBloquear" onclick="bloquearActivosResponsable()">
+                                    <i class="ti ti-lock me-1"></i> Bloquear
+                                </button>
+                                <button th:if="${puedeBloquear}" type="button" class="btn btn-success" id="btnDesbloquear" onclick="desbloquearActivosResponsable()">
+                                    <i class="ti ti-lock-open me-1"></i> Desbloquear
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="btnHistorialBloqueo" onclick="mostrarHistorialBloqueo()">
+                                    <i class="ti ti-history me-1"></i> Historial
+                                </button>
+                            </div>
+                            
+                            <div class="collapse mt-2" id="desgloseGrupo">
+                                <div class="accordion resp-accordion" id="accordionGrupo">
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="headingGrupo">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGrupo" aria-expanded="false" aria-controls="collapseGrupo">
+                                                <i class="ti ti-list me-2"></i>Por Grupo Contable (click para filtrar)
+                                            </button>
+                                        </h2>
+                                        <div id="collapseGrupo" class="accordion-collapse collapse" aria-labelledby="headingGrupo" data-bs-parent="#accordionGrupo">
+                                            <div class="accordion-body" id="listaGrupos">
+                                                <!-- Se llena dinámicamente -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -133,6 +321,10 @@
             var txt = ($.fn.dataTable && $.fn.dataTable.render) ? $.fn.dataTable.render.text() : null;
             function val(sel) { var v = $(sel).val(); return v == null ? '' : String(v).trim(); }
 
+            // ── Helpers loading selects ──────────────────────────────────────
+            function showLoading(wrapId) { $('#' + wrapId).addClass('select-loading'); }
+            function hideLoading(wrapId) { $('#' + wrapId).removeClass('select-loading'); }
+
             // ── Select2: los tres con buscador ─────────────────────────────
             var $predio = $('#f-predio');
             var $ofi    = $('#f-oficina');
@@ -163,19 +355,29 @@
                             pagination: data.pagination || { more: false }
                         };
                     },
-                    cache: true
+                    cache: true,
+                    // Select2 pasa (params, success, failure) y espera que el transport
+                    // llame a esos callbacks: son los que le entregan los resultados. Sin
+                    // ellos la petición sale y responde 200, pero el desplegable queda vacío.
+                    transport: function (params, success, failure) {
+                        showLoading('wrap-responsable');
+                        var peticion = $.ajax(params);
+                        peticion.then(success);
+                        peticion.fail(failure);
+                        peticion.always(function () { hideLoading('wrap-responsable'); });
+                        return peticion;
+                    }
                 }
             }));
 
             // ── Cascada Predio → Oficina → Responsable ─────────────────────
-            // Cada nivel filtra al siguiente y limpia su selección: una oficina
-            // fuera del predio elegido, o un responsable fuera de la oficina
-            // elegida, dejarían de existir en el filtro y quedarían "fantasma".
             var ofiAll = $ofi.find('option[data-predio]').map(function () {
                 return { id: this.value, nombre: this.textContent, predio: this.getAttribute('data-predio') || '' };
             }).get();
 
             $predio.on('change', function () {
+                showLoading('wrap-oficina');
+                showLoading('wrap-responsable');
                 var pred = String($(this).val() || '');
                 $ofi.find('option[data-predio]').remove();
                 var lista = pred ? ofiAll.filter(function (o) { return o.predio === pred; }) : ofiAll;
@@ -183,13 +385,232 @@
                     $ofi.append($('<option>').val(o.id).attr('data-predio', o.predio).text(o.nombre));
                 });
                 $ofi.val('').trigger('change');
+                hideLoading('wrap-oficina');
             });
 
-            // Al cambiar de oficina, el responsable elegido puede ya no pertenecer
-            // a ella: se limpia para forzar una búsqueda nueva y evitar filtrar
-            // con un id que el usuario ya no ve seleccionado en pantalla.
             $ofi.on('change', function () {
+                showLoading('wrap-responsable');
                 $resp.val(null).trigger('change');
+                hideLoading('wrap-responsable');
+            });
+
+            // ── Tarjeta Responsable ─────────────────────────────────────────
+            var $respCardWrap = $('#respCardWrap');
+            var $respCardBadge = $('#respCardBadge');
+            var $rcNombre = $('#rc-nombre');
+            var $rcCi = $('#rc-ci');
+            var $rcCargo = $('#rc-cargo');
+            var $rcOficina = $('#rc-oficina');
+            var $rcPredio = $('#rc-predio');
+            var $rcTotal = $('#rc-total span');
+            var $listaGrupos = $('#listaGrupos');
+            var $btnDesglose = $('#btnDesglose');
+            var $iconDesglose = $('#iconDesglose');
+            var $txtDesglose = $('#txtDesglose');
+            var $desgloseCollapse = $('#desgloseGrupo');
+            var $respBloqueoBtns = $('#respBloqueoBtns');
+            var $btnBloquear = $('#btnBloquear');
+            var $btnDesbloquear = $('#btnDesbloquear');
+            var currentResponsableId = null;
+            var currentGrupoFilter = null;
+
+            function loadResponsableCard(idResponsable) {
+                if (!idResponsable) {
+                    $respCardWrap.fadeOut(200);
+                    $respBloqueoBtns.hide();
+                    currentResponsableId = null;
+                    currentGrupoFilter = null;
+                    return;
+                }
+                currentResponsableId = idResponsable;
+                $.ajax({
+                    url: '/api/responsables/card',
+                    data: { idResponsable: idResponsable },
+                    dataType: 'json',
+                    beforeSend: function () { $respCardWrap.addClass('select-loading'); },
+                    success: function (data) {
+                        if (!data) { $respCardWrap.fadeOut(200); $respBloqueoBtns.hide(); return; }
+                        $rcNombre.text(data.nombreCompleto || '—');
+                        $rcCi.text(data.ci ? 'CI: ' + data.ci : '—');
+                        $rcCargo.text(data.cargo || '—');
+                        $rcOficina.text((data.oficinaNumero ? data.oficinaNumero + ' - ' : '') + (data.oficinaNombre || '—'));
+                        $rcPredio.text(data.predio || '—');
+                        var total = data.totalActivos || 0;
+                        $rcTotal.text(total);
+                        $respCardBadge.text(total + ' activo' + (total !== 1 ? 's' : ''));
+
+                        // Mostrar botones de bloqueo
+                        $respBloqueoBtns.show();
+
+                        // Llenar desglose
+                        $listaGrupos.empty();
+                        var desglose = data.desglosePorGrupo || [];
+                        if (desglose.length) {
+                            desglose.forEach(function (g) {
+                                var item = $('<div class="grupo-item"></div>');
+                                item.data('grupo-id', g.idGrupoContable);
+                                item.data('grupo-nombre', g.grupoContable || 'Sin grupo');
+                                item.append($('<span class="grupo-name"></span>').text(g.grupoContable || 'Sin grupo'));
+                                item.append('<span class="grupo-count">' + (g.cantidad || 0) + '</span>');
+                                // Click handler para filtrar la tabla
+                                item.on('click', function () {
+                                    var grupoId = $(this).data('grupo-id');
+                                    filtrarPorGrupoContable(grupoId);
+                                    // Marcar activo visualmente
+                                    $listaGrupos.find('.grupo-item').removeClass('active');
+                                    $(this).addClass('active');
+                                });
+                                $listaGrupos.append(item);
+                            });
+                        } else {
+                            $listaGrupos.html('<div class="text-muted text-center py-2 small">Sin desglose disponible</div>');
+                        }
+                        $respCardWrap.fadeIn(300);
+                    },
+                    error: function () { $respCardWrap.fadeOut(200); $respBloqueoBtns.hide(); },
+                    complete: function () { $respCardWrap.removeClass('select-loading'); }
+                });
+            }
+
+            function filtrarPorGrupoContable(grupoId) {
+                currentGrupoFilter = grupoId;
+                tabla.ajax.reload();
+            }
+
+            /** Pide la observación con un diálogo (antes era el prompt() del navegador). */
+            function pedirObservacion(titulo, texto, color) {
+                return Swal.fire({
+                    title: titulo,
+                    text: texto,
+                    input: 'textarea',
+                    inputPlaceholder: 'Observación (opcional)',
+                    showCancelButton: true,
+                    confirmButtonText: 'Confirmar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: color
+                }).then(function (r) { return r.isConfirmed ? (r.value || '') : null; });
+            }
+
+            function mensajeError(xhr, porDefecto) {
+                return (xhr && xhr.responseJSON && xhr.responseJSON.msg) || porDefecto;
+            }
+
+            async function bloquearActivosResponsable() {
+                if (!currentResponsableId) return;
+                var observacion = await pedirObservacion('Bloquear activos',
+                    'Los activos vigentes de este responsable no se podrán mover (asignar, transferir ni cambiar de oficina) hasta desbloquearlos.',
+                    '#ff9f43');
+                if (observacion === null) return; // Usuario canceló
+                
+                $btnBloquear.prop('disabled', true).html('<i class="ti ti-loader me-1"></i> Bloqueando…');
+                $.ajax({
+                    url: '/api/activos/bloquear-por-responsable',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ idResponsable: currentResponsableId, observacion: observacion || '' }),
+                    success: function (res) {
+                        if (res.ok) {
+                            if (window.Swal) Swal.fire('Éxito', res.msg || 'Activos bloqueados correctamente', 'success');
+                            tabla.ajax.reload();
+                        } else {
+                            if (window.Swal) Swal.fire('Error', res.msg || 'No se pudo bloquear', 'error');
+                        }
+                    },
+                    error: function (xhr) {
+                        if (window.Swal) Swal.fire('Error', mensajeError(xhr, 'Error de red al bloquear'), 'error');
+                    },
+                    complete: function () {
+                        $btnBloquear.prop('disabled', false).html('<i class="ti ti-lock me-1"></i> Bloquear');
+                    }
+                });
+            }
+
+            async function desbloquearActivosResponsable() {
+                if (!currentResponsableId) return;
+                var observacion = await pedirObservacion('Desbloquear activos',
+                    'Los activos de este responsable se podrán volver a mover.', '#28c76f');
+                if (observacion === null) return; // Usuario canceló
+                
+                $btnDesbloquear.prop('disabled', true).html('<i class="ti ti-loader me-1"></i> Desbloqueando…');
+                $.ajax({
+                    url: '/api/activos/desbloquear-por-responsable',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ idResponsable: currentResponsableId, observacion: observacion || '' }),
+                    success: function (res) {
+                        if (res.ok) {
+                            if (window.Swal) Swal.fire('Éxito', res.msg || 'Activos desbloqueados correctamente', 'success');
+                            tabla.ajax.reload();
+                        } else {
+                            if (window.Swal) Swal.fire('Error', res.msg || 'No se pudo desbloquear', 'error');
+                        }
+                    },
+                    error: function (xhr) {
+                        if (window.Swal) Swal.fire('Error', mensajeError(xhr, 'Error de red al desbloquear'), 'error');
+                    },
+                    complete: function () {
+                        $btnDesbloquear.prop('disabled', false).html('<i class="ti ti-lock-open me-1"></i> Desbloquear');
+                    }
+                });
+            }
+
+            // Los botones las llaman con onclick="…()": fuera del IIFE no existían y fallaban.
+            window.bloquearActivosResponsable = bloquearActivosResponsable;
+            window.desbloquearActivosResponsable = desbloquearActivosResponsable;
+            window.mostrarHistorialBloqueo = mostrarHistorialBloqueo;
+
+            function mostrarHistorialBloqueo() {
+                if (!currentResponsableId) return;
+                
+                $('#historialBloqueoBody').html('<tr><td colspan="6" class="text-center py-3"><i class="ti ti-loader me-1"></i> Cargando…</td></tr>');
+                var modal = new bootstrap.Modal(document.getElementById('historialBloqueoModal'));
+                modal.show();
+                
+                $.ajax({
+                    url: '/api/activos/historial-bloqueo/responsable',
+                    data: { idResponsable: currentResponsableId },
+                    success: function (data) {
+                        var $tbody = $('#historialBloqueoBody');
+                        $tbody.empty();
+                        if (!data || data.length === 0) {
+                            $tbody.html('<tr><td colspan="6" class="text-center text-muted py-3">Sin historial de bloqueos</td></tr>');
+                            return;
+                        }
+                        data.forEach(function (h) {
+                            var accionClass = h.accion === 'BLOQUEO' ? 'accion-bloqueo' : 'accion-desbloqueo';
+                            var fecha = h.fecha ? new Date(h.fecha).toLocaleString('es-BO') : '—';
+                            var activoInfo = h.activoCodigo ? h.activoCodigo + ' - ' + (h.activoDescripcion || '') : '—';
+                            // .text(): la observación la escribe un usuario, no se inserta como HTML.
+                            var tr = $('<tr></tr>');
+                            tr.append($('<td></td>').text(activoInfo));
+                            tr.append($('<td></td>').text(h.responsable || '—'));
+                            tr.append($('<td></td>').append($('<span></span>').addClass('accion-badge ' + accionClass).text(h.accion || '')));
+                            tr.append($('<td></td>').text(h.usuario || '—'));
+                            tr.append($('<td></td>').text(fecha));
+                            tr.append($('<td class="text-truncate" style="max-width:200px;"></td>').text(h.observacion || ''));
+                            $tbody.append(tr);
+                        });
+                    },
+                    error: function () {
+                        $('#historialBloqueoBody').html('<tr><td colspan="6" class="text-center text-danger py-3">Error cargando historial</td></tr>');
+                    }
+                });
+            }
+
+            // Toggle texto/icono del botón desglose
+            $desgloseCollapse.on('show.bs.collapse', function () {
+                $iconDesglose.removeClass('ti-chevron-down').addClass('ti-chevron-up');
+                $txtDesglose.text('Ocultar desglose');
+            });
+            $desgloseCollapse.on('hide.bs.collapse', function () {
+                $iconDesglose.removeClass('ti-chevron-up').addClass('ti-chevron-down');
+                $txtDesglose.text('Ver desglose');
+            });
+
+            // Cuando cambia el responsable en el filtro, cargar tarjeta
+            $resp.on('change', function () {
+                var id = $(this).val();
+                loadResponsableCard(id ? Number(id) : null);
             });
 
             // ── Inicializar / reinicializar DataTable ──────────────────────
@@ -221,6 +642,7 @@
                     d.predio      = val('#f-predio');
                     d.usuario     = val('#f-usuario');
                     d.fecha       = val('#f-fecha');
+                    d.grupo       = currentGrupoFilter;
                     $.ajax({
                         url: URL_DT, type: 'POST', data: d,
                         success: function (res) {
@@ -258,9 +680,6 @@
             $('#btnFiltrar').on('click', function () { tabla.ajax.reload(); });
             $('#f-codigo, #f-fecha, #f-usuario').on('keydown', function (e) { if (e.key === 'Enter') tabla.ajax.reload(); });
 
-            // Cambiar predio/oficina dispara varios 'change' encadenados (el propio
-            // + los de oficina/responsable que se limpian en cascada): se agrupan
-            // en un solo reload para no pedir la tabla 2-3 veces por un solo clic.
             var reloadTimer = null;
             function reloadDebounced() {
                 clearTimeout(reloadTimer);
@@ -270,9 +689,12 @@
 
             $('#btnLimpiar').on('click', function () {
                 $('#f-codigo, #f-fecha, #f-usuario').val('');
-                $('#f-predio').val(null).trigger('change'); // cascada: limpia oficina y responsable
-                clearTimeout(reloadTimer); // la cascada ya encoló un reload; con este basta
+                $('#f-predio').val(null).trigger('change');
+                clearTimeout(reloadTimer);
+                currentGrupoFilter = null;
+                $listaGrupos.find('.grupo-item').removeClass('active');
                 tabla.search('').ajax.reload();
+                loadResponsableCard(null);
             });
 
             // ── Exportar a Excel (todos los resultados filtrados) ──────────
@@ -321,4 +743,35 @@
             });
         })();
     </script>
+
+    <!-- Modal Historial Bloqueo -->
+    <div class="modal fade historial-modal" id="historialBloqueoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="ti ti-history me-2"></i>Historial de Bloqueos / Desbloqueos</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 historial-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:30%">Activo</th>
+                                    <th style="width:20%">Responsable</th>
+                                    <th style="width:12%">Acción</th>
+                                    <th style="width:15%">Usuario</th>
+                                    <th style="width:13%">Fecha</th>
+                                    <th>Observación</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historialBloqueoBody">
+                                <!-- Se llena dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

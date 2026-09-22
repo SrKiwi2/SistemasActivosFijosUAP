@@ -185,6 +185,18 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
                 "No se puede aprobar. Errores:\n" + String.join("\n", erroresValidacion));
         }
 
+        // ── 4b. Bienes bloqueados: se revisa ANTES de tocar ACTUAL.DBF ─────────
+        List<String> bloqueados = new ArrayList<>();
+        for (SolTransferenciaDbf f : grupo) {
+            activoService.findByCodigo(f.getCodigoO())
+                .filter(a -> Boolean.TRUE.equals(a.getBloqueado()))
+                .ifPresent(a -> bloqueados.add(a.getCodigo()));
+        }
+        if (!bloqueados.isEmpty()) {
+            throw new IllegalStateException("No se puede aprobar: estos activos están bloqueados — "
+                + String.join(", ", bloqueados) + ". Un administrador debe desbloquearlos primero.");
+        }
+
         // ── 5. Resolver contexto destino (predio → oficina → responsable) ─────
         //    ESTE BLOQUE CORRIGE EL BUG PRINCIPAL
         ContextoDestino contextoD = resolverContextoDestino(primero, usuarioNombre);

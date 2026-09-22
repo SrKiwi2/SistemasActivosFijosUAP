@@ -38,7 +38,12 @@ public class ConsultaActivosController {
 
     @ValidarUsuarioAutenticado
     @GetMapping("/activos/vista")
-    public String consultaActivos(Model model) {
+    public String consultaActivos(Model model, jakarta.servlet.http.HttpServletRequest request) {
+        // Los botones de bloqueo solo se muestran a quien puede usarlos (el endpoint lo vuelve a revisar).
+        Object u = request.getSession().getAttribute("usuario");
+        model.addAttribute("puedeBloquear",
+                u instanceof com.usic.SistemasActivosFijosUAP.model.entity.Usuario usuario
+                && com.usic.SistemasActivosFijosUAP.controller.rest.CatalogoRestController.puedeBloquear(usuario));
         model.addAttribute("predios", predioServicio.findAll());
         model.addAttribute("oficinas", oficinaService.listarOficinas());
         return "consulta/activos";

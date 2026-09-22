@@ -44,6 +44,7 @@ public class OpcionMenuSeeder {
     private static final String[][] GRUPOS = {
         { "grp_usuarios",      "sec_admin",       "Usuarios y Accesos",       "ti ti-users-group",            "purple" },
         { "grp_comunicacion",  "sec_admin",       "Comunicación",             "ti ti-mail",                   "cyan" },
+        { "grp_supervision",   "sec_admin",       "Supervisión",              "ti ti-eye-check",              "red" },
         { "grp_contable",      "sec_catalogos",   "Clasificación Contable",   "ti ti-adjustments-horizontal", "teal" },
         { "grp_geo",           "sec_catalogos",   "Ámbito Geográfico",        "ti ti-map-2",                  "blue" },
         { "grp_adminactivos",  "sec_operaciones", "Administración de Activos", "ti ti-packages",              "green" },
@@ -68,6 +69,10 @@ public class OpcionMenuSeeder {
         { "opcion_menu_admin",     "grp_usuarios",     "Gestión de Menú",              "ti ti-menu-2",           "purple", "/administracion/menu/vista",                         "/administracion/menu",                  "" },
 
         { "opcion_comunicados",    "grp_comunicacion", "Comunicados",                  "ti ti-send",             "cyan",   "/administracion/comunicados/vista",                  "/administracion/comunicados",           "" },
+
+        // Solo ADMINISTRADOR / SUPER USUARIO (los controladores lo vuelven a revisar por rol).
+        { "opcion_actividad",      "grp_supervision",  "Monitoreo de actividad",       "ti ti-activity",         "red",    "/administracion/actividad/vista",                    "/administracion/actividad",             "" },
+        { "opcion_autorizaciones", "grp_supervision",  "Autorizaciones",               "ti ti-shield-check",     "amber",  "/administracion/autorizaciones/vista",               "/administracion/autorizaciones",        "" },
 
         { "opcion_contable",       "grp_contable",     "Grupo Contable",               "ti ti-category-2",       "teal",   "/administracion/grupoc/vista",                       "/administracion/grupoc",                "" },
         { "opcion_auxiliar",       "grp_contable",     "Auxiliar",                     "ti ti-folders",          "blue",   "/administracion/auxiliar/vista",                     "/administracion/auxiliar",              "" },

@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -32,6 +33,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IOrganismoFinancieroServi
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IHistorialBloqueoActivoService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoConsultaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoResponsableDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.AuxOption;
@@ -39,10 +41,13 @@ import com.usic.SistemasActivosFijosUAP.model.dto.GrupoMetaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.OficinaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.RespOption;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResponsableDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableActivoGrupoDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableCardDataDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
+import com.usic.SistemasActivosFijosUAP.model.entity.HistorialBloqueoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
@@ -69,6 +74,7 @@ public class CatalogoRestController {
     private final ICargoService cargoService;
     /** Alta de auxiliares: el mismo servicio que usa el ABM del módulo Auxiliar. */
     private final AuxiliarRegistroService auxiliarRegistroService;
+    private final IHistorialBloqueoActivoService historialBloqueoService;
 
     public CatalogoRestController(IResponsableService responsableService,
         IOficinaService oficinaService,
@@ -80,7 +86,8 @@ public class CatalogoRestController {
         IMunicipioService municipioService,
         IOrganismoFinancieroService organismoFinancieroService,
         ICargoService cargoService,
-        AuxiliarRegistroService auxiliarRegistroService) {
+        AuxiliarRegistroService auxiliarRegistroService,
+        IHistorialBloqueoActivoService historialBloqueoService) {
         this.auxiliarRegistroService = auxiliarRegistroService;
         this.responsableService = responsableService;
         this.oficinaService = oficinaService;
@@ -92,6 +99,7 @@ public class CatalogoRestController {
         this.municipioService = municipioService;
         this.organismoFinancieroService = organismoFinancieroService;
         this.cargoService = cargoService;
+        this.historialBloqueoService = historialBloqueoService;
     }
 
     @GetMapping("/responsables")
@@ -138,6 +146,51 @@ public class CatalogoRestController {
             datos.put("nombreCompleto", responsable.getPersona().getNombreCompleto());
         }
         return datos;
+    }
+
+    @GetMapping("/responsables/card")
+    @Transactional(readOnly = true)
+    public ResponseEntity<ResponsableCardDataDTO> obtenerCardResponsable(@RequestParam Long idResponsable) {
+        Responsable responsable = responsableService.findById(idResponsable);
+        if (responsable == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Bloque A: Información del Responsable
+        String nombreCompleto = "";
+        String ci = "";
+        String cargo = "";
+        if (responsable.getPersona() != null) {
+            nombreCompleto = responsable.getPersona().getNombreCompleto();
+            ci = responsable.getPersona().getCi();
+        }
+        if (responsable.getCargo() != null) {
+            cargo = responsable.getCargo().getNombre();
+        }
+
+        // Bloque B: Datos de la Ubicación
+        String oficinaNumero = "";
+        String oficinaNombre = "";
+        String predio = "";
+        if (responsable.getOficina() != null) {
+            oficinaNumero = String.valueOf(responsable.getOficina().getCodOfi());
+            oficinaNombre = responsable.getOficina().getNombre();
+            if (responsable.getOficina().getPredio() != null) {
+                predio = responsable.getOficina().getPredio().getDescrip();
+            }
+        }
+
+        // Bloque C: Resumen de Activos
+        List<ResponsableActivoGrupoDTO> desglose = activoService.conteoPorGrupoContableDeResponsable(idResponsable);
+        Long totalActivos = desglose.stream().mapToLong(ResponsableActivoGrupoDTO::getCantidad).sum();
+
+        ResponsableCardDataDTO dto = new ResponsableCardDataDTO(
+            nombreCompleto, ci, cargo,
+            oficinaNumero, oficinaNombre, predio,
+            totalActivos, desglose
+        );
+
+        return ResponseEntity.ok(dto);
     }
 
     @GetMapping("/buscar-activo")
@@ -583,7 +636,13 @@ public class CatalogoRestController {
     @ResponseBody
     public ResponseEntity<?> activosPorResponsable(@RequestParam Long responsableId) {
         try {
-            List<Activo> activos = activoService.findByResponsableIdResponsable(responsableId);
+            // Solo los ACTIVO: los PENDIENTE todavía no están aprobados y no existen en el
+            // VSIAF, y los CANCELADO están dados de baja. Reasignar cualquiera de los dos
+            // encolaría un UPDATE contra un registro que no está en ACTUAL.DBF. Es además
+            // el mismo criterio que usan Consulta de Activos y el Mapa de Control, que
+            // antes daban un número distinto para el mismo responsable.
+            List<Activo> activos = activoService.findByResponsableIdResponsableAndEstado(
+                    responsableId, Activo.ESTADO_ACTIVO);
             // Proyección ligera — no devolver campos innecesarios
             List<Map<String, Object>> resultado = activos.stream().map(a -> {
                 Map<String, Object> m = new java.util.LinkedHashMap<>();
@@ -759,5 +818,136 @@ public class CatalogoRestController {
         public String ci;
         public String codigoFuncionario;
         public Long   idCargo;
+    }
+
+    // ─── BLOQUEO DE ACTIVOS ─────────────────────────────────────────────────────
+
+    /**
+     * Bloquear/desbloquear es de administración: congela los bienes de un responsable
+     * para cualquier movimiento. El chequeo va acá porque /api/** es permitAll().
+     */
+    private static final Set<String> ROLES_BLOQUEO = Set.of("ADMINISTRADOR", "SUPER USUARIO");
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService actividadService;
+
+    private void registrarBloqueo(Usuario usuario, Long idResponsable, boolean bloquear, String observacion) {
+        Responsable r = responsableService.findById(idResponsable);
+        String nombre = (r != null && r.getPersona() != null) ? r.getPersona().getNombreCompleto() : ("#" + idResponsable);
+        String ref = (r != null ? r.getCodigoFuncionario() + " " : "") + nombre;
+        actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_BLOQUEO,
+                bloquear ? com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_BLOQUEO : com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_DESBLOQUEO, ref,
+                (bloquear ? "Bloqueó" : "Desbloqueó") + " los activos del responsable " + nombre
+                + (observacion != null && !observacion.isBlank() ? ". Observación: " + observacion : ""),
+                idResponsable);
+    }
+
+    public static boolean puedeBloquear(Usuario usuario) {
+        return usuario != null && usuario.getRol() != null && usuario.getRol().getNombre() != null
+                && ROLES_BLOQUEO.contains(usuario.getRol().getNombre().trim().toUpperCase());
+    }
+
+    @PostMapping("/activos/bloquear-por-responsable")
+    @ResponseBody
+    public ResponseEntity<?> bloquearActivosPorResponsable(
+            HttpServletRequest request,
+            @RequestBody BloqueoResponsableRequest payload) {
+
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(401).body(Map.of("ok", false, "msg", "Sesión expirada"));
+        }
+        if (!puedeBloquear(usuario)) {
+            return ResponseEntity.status(403).body(Map.of("ok", false,
+                    "msg", "Solo un ADMINISTRADOR o SUPER USUARIO puede bloquear o desbloquear activos."));
+        }
+
+        try {
+            activoService.bloquearActivosDeResponsable(payload.idResponsable, usuario, payload.observacion);
+            registrarBloqueo(usuario, payload.idResponsable, true, payload.observacion);
+            return ResponseEntity.ok(Map.of("ok", true, "msg", "Activos bloqueados correctamente"));
+        } catch (Exception e) {
+            log.error("[BLOQUEO] Error bloqueando activos: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/activos/desbloquear-por-responsable")
+    @ResponseBody
+    public ResponseEntity<?> desbloquearActivosPorResponsable(
+            HttpServletRequest request,
+            @RequestBody BloqueoResponsableRequest payload) {
+
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(401).body(Map.of("ok", false, "msg", "Sesión expirada"));
+        }
+        if (!puedeBloquear(usuario)) {
+            return ResponseEntity.status(403).body(Map.of("ok", false,
+                    "msg", "Solo un ADMINISTRADOR o SUPER USUARIO puede bloquear o desbloquear activos."));
+        }
+
+        try {
+            activoService.desbloquearActivosDeResponsable(payload.idResponsable, usuario, payload.observacion);
+            registrarBloqueo(usuario, payload.idResponsable, false, payload.observacion);
+            return ResponseEntity.ok(Map.of("ok", true, "msg", "Activos desbloqueados correctamente"));
+        } catch (Exception e) {
+            log.error("[DESBLOQUEO] Error desbloqueando activos: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/activos/historial-bloqueo/responsable")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> historialBloqueoPorResponsable(
+            @RequestParam Long idResponsable) {
+        try {
+            List<HistorialBloqueoActivo> historial = activoService.obtenerHistorialBloqueoPorResponsable(idResponsable);
+            List<Map<String, Object>> result = historial.stream().map(h -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("idHistorial", h.getIdHistorialBloqueo());
+                m.put("activoCodigo", h.getActivo() != null ? h.getActivo().getCodigo() : null);
+                m.put("activoDescripcion", h.getActivo() != null ? h.getActivo().getDescripcion() : null);
+                m.put("responsable", h.getResponsable() != null ? h.getResponsable().getPersona().getNombreCompleto() : null);
+                m.put("accion", h.getAccion());
+                m.put("usuario", h.getUsuario());
+                m.put("fecha", h.getFecha() != null ? h.getFecha().toString() : null);
+                m.put("observacion", h.getObservacion());
+                return m;
+            }).toList();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("[HIST-BLOQ] Error: {}", e.getMessage());
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @GetMapping("/activos/historial-bloqueo/activo")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> historialBloqueoPorActivo(
+            @RequestParam Long idActivo) {
+        try {
+            List<HistorialBloqueoActivo> historial = activoService.obtenerHistorialBloqueoPorActivo(idActivo);
+            List<Map<String, Object>> result = historial.stream().map(h -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("idHistorial", h.getIdHistorialBloqueo());
+                m.put("activoCodigo", h.getActivo() != null ? h.getActivo().getCodigo() : null);
+                m.put("responsable", h.getResponsable() != null ? h.getResponsable().getPersona().getNombreCompleto() : null);
+                m.put("accion", h.getAccion());
+                m.put("usuario", h.getUsuario());
+                m.put("fecha", h.getFecha() != null ? h.getFecha().toString() : null);
+                m.put("observacion", h.getObservacion());
+                return m;
+            }).toList();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("[HIST-BLOQ] Error: {}", e.getMessage());
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    public static class BloqueoResponsableRequest {
+        public Long idResponsable;
+        public String observacion;
     }
 }

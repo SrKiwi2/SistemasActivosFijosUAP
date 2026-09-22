@@ -126,6 +126,7 @@ public class ActivosController {
 
     private final PasswordEncoder passwordEncoder;
     private final IHistorialActivoDao historialActivoDao;
+    private final com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService actividadService;
 
     /**
      * Código del permiso (opcion_menu oculto) que habilita el cambio urgente del
@@ -177,11 +178,12 @@ public class ActivosController {
         String predioId = params.get("predio");
         String usuario = params.get("usuario");
         String fecha = params.get("fecha");
+        String grupoId = params.get("grupo");
 
         PageRequest pageRequest = PageRequest.of(start / length, length);
 
         Page<Activo> pagina = activoService.buscarConFiltros(
-                searchValue, codigo, responsableId, oficinaId, predioId, usuario, fecha, pageRequest);
+                searchValue, codigo, responsableId, oficinaId, predioId, usuario, fecha, grupoId, pageRequest);
 
         List<ActivoDTO> activosDTO = pagina.getContent().stream().map(activo -> {
             ActivoDTO dto = new ActivoDTO();
@@ -378,6 +380,12 @@ public class ActivosController {
             Map<String, Object> ok = new LinkedHashMap<>();
             ok.put("ok", true);
             ok.put("msg", String.format("Se registraron %d activos correctamente...", cantidad));
+            actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ACTIVO, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_REGISTRO,
+                    rangoCodigos(codigosGenerados),
+                    String.format("Registró %d activo(s) pendiente(s) de aprobación: %s", codigosGenerados.size(),
+                            rangoCodigos(codigosGenerados)),
+                    codigosGenerados.size(), codigosGenerados.size() == 1 && !activosGuardados.isEmpty()
+                            ? activosGuardados.get(0).getIdActivo() : null);
             ok.put("idsParaReporte", idsReporte);
 
             return ResponseEntity.ok(ok);
@@ -387,6 +395,14 @@ public class ActivosController {
             log.error("Error en registro masivo", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
         }
+    }
+
+    /** "01-02-001, 01-02-002" o "01-02-001 … 01-02-120 (120)" para la bitácora de actividad. */
+    private static String rangoCodigos(List<String> codigos) {
+        List<String> c = codigos.stream().filter(java.util.Objects::nonNull).toList();
+        if (c.isEmpty()) return "";
+        if (c.size() <= 3) return String.join(", ", c);
+        return c.get(0) + " … " + c.get(c.size() - 1) + " (" + c.size() + ")";
     }
 
     private String incrementarCodigoString(String codigoBase, int incremento) {
@@ -791,6 +807,19 @@ public class ActivosController {
                 activoOriginal.setGrupoContable(null);
             }
 
+            // Un bien bloqueado no cambia de oficina ni de responsable (el resto sí se edita).
+            if (Boolean.TRUE.equals(activoOriginal.getBloqueado())) {
+                Long ofiNueva = activoForm.getOficina() != null ? activoForm.getOficina().getIdOficina() : null;
+                Long respNuevo = activoForm.getResponsable() != null ? activoForm.getResponsable().getIdResponsable() : null;
+                Long ofiActual = activoOriginal.getOficina() != null ? activoOriginal.getOficina().getIdOficina() : null;
+                Long respActual = activoOriginal.getResponsable() != null ? activoOriginal.getResponsable().getIdResponsable() : null;
+                if (!java.util.Objects.equals(ofiNueva, ofiActual) || !java.util.Objects.equals(respNuevo, respActual)) {
+                    return ResponseEntity.badRequest().body(Map.of("ok", false, "msg",
+                            "El activo " + activoOriginal.getCodigo() + " está bloqueado: no se puede cambiar su oficina "
+                            + "ni su responsable. Un administrador debe desbloquearlo primero."));
+                }
+            }
+
             if (activoForm.getOficina() != null && activoForm.getOficina().getIdOficina() != null) {
                 Oficina oficinaCompleta = oficinaService.findById(activoForm.getOficina().getIdOficina());
                 activoOriginal.setOficina(oficinaCompleta);
@@ -846,6 +875,9 @@ public class ActivosController {
             activoOriginal.setApiEstado(Short.valueOf("3"));
             activoService.save(activoOriginal);
             log.info("Activo {} actualizado en BD.", activoOriginal.getCodigo());
+            actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ACTIVO, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_MODIFICACION,
+                    activoOriginal.getCodigo(), "Modificó el activo " + activoOriginal.getCodigo(),
+                    activoOriginal.getIdActivo());
 
             if (estabaActivo) {
                 try {
@@ -1033,6 +1065,54 @@ public class ActivosController {
     }
 
     /** Registra el cambio de código en {@code historial_activo} sin romper el flujo principal. */
+    /**
+     * Deja el cambio de custodio en {@code historial_activo}. La oficina va igual en el
+     * "antes" y el "después" a propósito: esta pantalla no la mueve, y dejarla vacía haría
+     * ver el evento como un traslado que no ocurrió.
+     *
+     * <p>No rompe el flujo si falla: los activos ya están guardados y la orden al VSIAF ya
+     * fue encolada; quedarse sin la fila de historial es molesto, perder la reasignación no.
+     */
+    private void registrarHistorialAsignacion(Activo activo, Responsable respAnterior,
+                                              Responsable respNuevo, Oficina oficina,
+                                              Usuario usuario, String usuNombre, Long usuId) {
+        try {
+            HistorialActivo h = new HistorialActivo();
+            h.setActivo(activo);
+            h.setCodigoActivo(activo.getCodigo());
+            h.setTipoEvento("ASIGNACION");
+            h.setFechaEvento(LocalDateTime.now());
+            h.setIdUsuario(usuId);
+            h.setNombreUsuario(usuNombre);
+            String antes = nombreDe(respAnterior);
+            String despues = nombreDe(respNuevo);
+            h.setDescripcionEvento(String.format(
+                    "Cambio de responsable dentro de la misma oficina: '%s' → '%s'.",
+                    antes != null ? antes : "sin responsable",
+                    despues != null ? despues : "sin responsable"));
+
+            if (oficina != null) {
+                h.setOficinaAnterior(oficina);
+                h.setOficinaNueva(oficina);
+                h.setNombreOficinaAnterior(oficina.getNombre());
+                h.setNombreOficinaNueva(oficina.getNombre());
+            }
+            if (respAnterior != null) {
+                h.setResponsableAnterior(respAnterior);
+                h.setNombreRespAnterior(nombreDe(respAnterior));
+            }
+            if (respNuevo != null) {
+                h.setResponsableNuevo(respNuevo);
+                h.setNombreRespNuevo(nombreDe(respNuevo));
+            }
+
+            historialActivoDao.save(h);
+        } catch (Exception e) {
+            log.warn("[ASIGNACION] No se pudo registrar el historial del activo {}: {}",
+                    activo.getCodigo(), e.getMessage());
+        }
+    }
+
     private void registrarHistorialCambioCodigo(Activo activo, String codigoAnterior, String codigoNuevo,
                                                 String motivo, Usuario usuario) {
         try {
@@ -1183,15 +1263,28 @@ public class ActivosController {
     
             // 1. Buscar activos y capturar estado ANTES del cambio
             List<TransferenciaService.ActivoConOrigen> acos = new ArrayList<>();
+            List<String> activosBloqueados = new ArrayList<>();
             for (String codigo : payload.codigos) {
-                activoService.findByCodigo(codigo).ifPresent(a ->
-                    acos.add(new TransferenciaService.ActivoConOrigen(a))
-                );
+                Optional<Activo> optActivo = activoService.findByCodigo(codigo);
+                if (optActivo.isPresent()) {
+                    Activo a = optActivo.get();
+                    if (Boolean.TRUE.equals(a.getBloqueado())) {
+                        activosBloqueados.add(codigo);
+                    } else {
+                        acos.add(new TransferenciaService.ActivoConOrigen(a));
+                    }
+                }
+            }
+    
+            if (!activosBloqueados.isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg", 
+                        "Los siguientes activos están bloqueados y no se pueden transferir: " + String.join(", ", activosBloqueados)));
             }
     
             if (acos.isEmpty()) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados."));
+                    .body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados o todos están bloqueados."));
             }
 
             Map<Long, Auxiliar> cacheAuxiliaresDestino = new HashMap<>();
@@ -1238,6 +1331,13 @@ public class ActivosController {
                 activoService.save(ac.activo);
             }
             log.info("Transferidos {} activos → Oficina ID: {}", acos.size(), payload.idOficina);
+            List<String> codigosTransf = acos.stream().map(x -> x.activo.getCodigo()).toList();
+            actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_TRANSFERENCIA, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_MOVIMIENTO,
+                    rangoCodigos(codigosTransf), String.format("Transferencia %s de %d activo(s) a %s — %s: %s",
+                            tipo.toLowerCase(), codigosTransf.size(),
+                            com.usic.SistemasActivosFijosUAP.model.service.supervision.OficinaGestionService.referencia(ofDestino),
+                            respDestino.getPersona() != null ? respDestino.getPersona().getNombreCompleto() : "",
+                            rangoCodigos(codigosTransf)), codigosTransf.size(), null);
     
             // 4. Registrar transferencia + historial automáticamente
             Transferencia trf = transferenciaService.registrarTransferencia(
@@ -1288,8 +1388,10 @@ public class ActivosController {
                         Short estadoActual = respDestino.getApiEstado();
                         if (estadoActual == null || estadoActual == 1) {
                             respDestino.setApiEstado(Short.valueOf("0"));
-                            responsableService.save(respDestino);
                         }
+                        // Ya salió al VSIAF (o ya estaba): deja de figurar como pendiente en Responsables.
+                        respDestino.setPendienteDbf(false);
+                        responsableService.save(respDestino);
                     }
                 }
             } catch (Exception e) {
@@ -1513,7 +1615,13 @@ public class ActivosController {
         }
     }
 
-    public class AsignacionMasivaRequest {
+    /**
+     * static a propósito: Jackson no puede instanciar una clase interna no estática
+     * ("non-static inner classes can only be instantiated using default, no-argument
+     * constructor"), así que sin esto toda llamada a /asignacion-masiva moría con un 500
+     * antes de entrar al método.
+     */
+    public static class AsignacionMasivaRequest {
         public Long    idOficina;
         public Long    idResponsableOrigen;
         public Long    idResponsableDestino;
@@ -1546,31 +1654,80 @@ public class ActivosController {
                 return ResponseEntity.badRequest()
                     .body(Map.of("ok", false, "msg", "El responsable destino no pertenece a la oficina indicada."));
             }
-    
+
+            // Reasignar a la misma persona no cambia nada, pero sí encolaría órdenes al
+            // VSIAF y ensuciaría el historial con un movimiento que no ocurrió.
+            if (respDestino.getIdResponsable().equals(payload.idResponsableOrigen)) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg",
+                        "El responsable origen y el destino son el mismo."));
+            }
+
             // 2. Buscar activos del responsable origen
             List<Activo> activos = new ArrayList<>();
+            List<String> activosBloqueados = new ArrayList<>();
             for (String codigo : payload.codigos) {
-                activoService.findByCodigo(codigo).ifPresent(activos::add);
+                Optional<Activo> optActivo = activoService.findByCodigo(codigo);
+                if (optActivo.isPresent()) {
+                    Activo a = optActivo.get();
+                    if (Boolean.TRUE.equals(a.getBloqueado())) {
+                        activosBloqueados.add(codigo);
+                    } else {
+                        activos.add(a);
+                    }
+                }
             }
-    
+
+            if (!activosBloqueados.isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg",
+                        "Los siguientes activos están bloqueados y no se pueden reasignar: " + String.join(", ", activosBloqueados)));
+            }
+
             if (activos.isEmpty()) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados."));
+                    .body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados o todos están bloqueados."));
             }
-    
+
             // Verificación extra: todos los activos deben pertenecer al resp origen
             // (evitar manipulación de payload)
             activos.removeIf(a ->
                 a.getResponsable() == null ||
                 !a.getResponsable().getIdResponsable().equals(payload.idResponsableOrigen)
             );
-    
+
             if (activos.isEmpty()) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("ok", false, "msg",
                         "Ninguno de los activos pertenece al responsable origen indicado."));
             }
-    
+
+            // Solo se reasigna lo que está vigente. La pantalla ya no ofrece los PENDIENTE
+            // ni los CANCELADO, pero el payload puede venir de una lista vieja: mover un
+            // bien que no está en el VSIAF encolaría un UPDATE contra un registro que allá
+            // no existe, y los dos sistemas quedarían diciendo cosas distintas.
+            List<String> noVigentes = activos.stream()
+                .filter(a -> !Activo.ESTADO_ACTIVO.equals(a.getEstado()))
+                .map(Activo::getCodigo)
+                .toList();
+
+            if (!noVigentes.isEmpty()) {
+                activos.removeIf(a -> !Activo.ESTADO_ACTIVO.equals(a.getEstado()));
+                log.warn("[ASIGNACION] {} activo(s) omitidos por no estar en estado ACTIVO: {}",
+                    noVigentes.size(), noVigentes);
+            }
+
+            if (activos.isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg",
+                        "Ninguno de los activos seleccionados está en estado ACTIVO. "
+                        + "Los bienes pendientes de aprobación o dados de baja no se pueden reasignar."));
+            }
+
+            // Se guarda antes de mutar: después del bucle todos apuntan al destino y ya no
+            // se sabría de quién venían para dejarlo en el historial.
+            Responsable respOrigen = responsableService.findById(payload.idResponsableOrigen);
+
             // 3. Modificar en memoria — SOLO el responsable cambia (oficina permanece igual)
             LocalDate hoy = LocalDate.now();
             for (Activo a : activos) {
@@ -1583,13 +1740,26 @@ public class ActivosController {
                 if (usuario != null) a.setModificacionIdUsuario(usuId);
                 a.setModificacion(new java.util.Date());
             }
-    
+
             // 4. Guardar en BD
             for (Activo a : activos) {
                 activoService.save(a);
             }
             log.info("[ASIGNACION] {} activos reasignados → Resp ID: {} | Usuario: {}",
                 activos.size(), payload.idResponsableDestino, usuNombre);
+
+            // Rastro en el historial del bien: un cambio de custodio es de las cosas que
+            // después hay que poder reconstruir, y hasta ahora esta pantalla no dejaba nada.
+            for (Activo a : activos) {
+                registrarHistorialAsignacion(a, respOrigen, respDestino, oficina, usuario, usuNombre, usuId);
+            }
+            List<String> codigosAsig = activos.stream().map(Activo::getCodigo).toList();
+            actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ASIGNACION, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_MOVIMIENTO,
+                    rangoCodigos(codigosAsig), String.format("Reasignó %d activo(s) de %s a %s: %s",
+                            codigosAsig.size(),
+                            respOrigen != null && respOrigen.getPersona() != null ? respOrigen.getPersona().getNombreCompleto() : "—",
+                            respDestino.getPersona() != null ? respDestino.getPersona().getNombreCompleto() : "—",
+                            rangoCodigos(codigosAsig)), codigosAsig.size(), null);
 
             // ── Sincronizar Responsable destino si es nuevo (apiEstado == 1) ──────────────
             try {
@@ -1625,8 +1795,10 @@ public class ActivosController {
                         Short estadoActual = respDestino.getApiEstado();
                         if (estadoActual == null || estadoActual == 1) {
                             respDestino.setApiEstado(Short.valueOf("0"));
-                            responsableService.save(respDestino);
                         }
+                        // Ya salió al VSIAF (o ya estaba): deja de figurar como pendiente en Responsables.
+                        respDestino.setPendienteDbf(false);
+                        responsableService.save(respDestino);
                     }
                 }
             } catch (Exception e) {
@@ -2497,11 +2669,15 @@ public class ActivosController {
 
     @ValidarUsuarioAutenticado
     @PostMapping("/eliminar/{id_activo}")
-    public ResponseEntity<String> eliminar(Model model, @PathVariable("id_activo") String idActivo) throws Exception {
+    public ResponseEntity<String> eliminar(Model model, HttpServletRequest request,
+            @PathVariable("id_activo") String idActivo) throws Exception {
         Long id = Long.parseLong(Encriptar.decrypt(idActivo));
         Activo activo = activoService.findById(id);
         activo.setEstado("ELIMINADO");
         activoService.save(activo);
+        actividadService.registrar((Usuario) request.getSession().getAttribute("usuario"),
+                com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ACTIVO, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_ELIMINACION, activo.getCodigo(),
+                "Eliminó el activo " + activo.getCodigo(), activo.getIdActivo());
         return ResponseEntity.ok("Registro Eliminado");
     }
 
@@ -2760,6 +2936,7 @@ public class ActivosController {
             if (oficina.getCodOfi() != null) {
                 oficina.setApiEstado(Short.valueOf("1"));
                 oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
+                oficina.setPendienteDbf(false);   // viajó con el activo: ya no está pendiente en Oficinas
                 oficinaService.save(oficina);
             }
 
@@ -2768,6 +2945,7 @@ public class ActivosController {
                     && !resp.getCodigoFuncionario().replaceAll("\\D+", "").isEmpty()) {
                 resp.setApiEstado(Short.valueOf("1"));
                 respDbfWriterService.insertarDesdeResponsable(resp, entidadCode, unidadCode, usuarioNombre);
+                resp.setPendienteDbf(false);      // viajó con el activo: ya no está pendiente en Responsables
                 responsableService.save(resp);
             }
 
@@ -2782,6 +2960,8 @@ public class ActivosController {
             activoService.save(a);
 
             notificarCambioPendientes("aprobacion");
+            actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ACTIVO, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_APROBACION,
+                    a.getCodigo(), "Aprobó el activo " + a.getCodigo() + " y lo envió al VSIAF", a.getIdActivo());
             if (fallaAux != null) {
                 return Map.of("ok", true, "id", id, "vsiaf", "PARCIAL",
                     "message", "Activo aprobado, pero su auxiliar NO se pudo enviar al VSIAF (" + fallaAux
@@ -2807,6 +2987,7 @@ public class ActivosController {
         int exitos = 0;
         int errores = 0;
         List<String> detallesError = new ArrayList<>();
+        List<String> aprobados = new ArrayList<>();
     
         for (String idEnc : idsEnc) {
             try {
@@ -2847,6 +3028,7 @@ public class ActivosController {
                 if (codOfic != null) {
                     oficina.setApiEstado(Short.valueOf("1"));
                     oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
+                    oficina.setPendienteDbf(false);
                     oficinaService.save(oficina);
                 }
 
@@ -2856,6 +3038,7 @@ public class ActivosController {
                         && !resp.getCodigoFuncionario().replaceAll("\\D+", "").isEmpty()) {
                     resp.setApiEstado(Short.valueOf("1"));
                     respDbfWriterService.insertarDesdeResponsable(resp, entidadCode, unidadCode, usuarioNombre);
+                    resp.setPendienteDbf(false);
                     responsableService.save(resp);
                 }
 
@@ -2877,6 +3060,7 @@ public class ActivosController {
                 marcarEnvioAlVsiaf(a);
                 activoService.save(a);
                 exitos++;
+                aprobados.add(a.getCodigo());
     
             } catch (Exception e) {
                 log.error("[APROBAR] Error procesando id {}: {}", idEnc, e.getMessage());
@@ -2894,7 +3078,12 @@ public class ActivosController {
         result.put("msg", String.format("Proceso finalizado. Éxitos: %d | Errores: %d. %s",
                 exitos, errores, exitos > 0 ? detalleEnvio() : ""));
 
-        if (exitos > 0) notificarCambioPendientes("aprobacion-masiva");
+        if (exitos > 0) {
+            notificarCambioPendientes("aprobacion-masiva");
+            actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ACTIVO, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_APROBACION,
+                    rangoCodigos(aprobados), String.format("Aprobó %d activo(s) y los envió al VSIAF: %s",
+                            aprobados.size(), rangoCodigos(aprobados)), aprobados.size(), null);
+        }
         return ResponseEntity.ok(result);
     }
 

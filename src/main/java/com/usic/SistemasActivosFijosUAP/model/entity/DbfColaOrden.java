@@ -29,7 +29,8 @@ import lombok.Setter;
 @Entity
 @Table(name = "dbf_cola_orden", indexes = {
     @Index(name = "ix_cola_orden_estado", columnList = "estado"),
-    @Index(name = "ix_cola_orden_activo", columnList = "id_activo")
+    @Index(name = "ix_cola_orden_activo", columnList = "id_activo"),
+    @Index(name = "ix_cola_orden_registro", columnList = "tabla, id_registro")
 })
 @Getter @Setter @NoArgsConstructor
 public class DbfColaOrden {
@@ -78,6 +79,14 @@ public class DbfColaOrden {
     /** Activo al que corresponde la orden, cuando la tabla es ACTUAL. */
     @Column(name = "id_activo")
     private Long idActivo;
+
+    /**
+     * Id en el SCIAF de la oficina / responsable / auxiliar al que corresponde la orden,
+     * según {@link #tabla}. Null en las órdenes de ACTUAL y en las emitidas antes de que
+     * existiera esta columna.
+     */
+    @Column(name = "id_registro")
+    private Long idRegistro;
 
     /** Código del activo, o del auxiliar / oficina / responsable según la tabla. */
     @Column(name = "referencia", length = 120)

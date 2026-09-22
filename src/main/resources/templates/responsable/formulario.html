@@ -193,6 +193,26 @@
     <form id="formResponsable" autocomplete="off">
         <input type="hidden" name="idResponsable" th:value="${responsable.idResponsable}">
 
+        <!-- Auditoría (solo edición) -->
+        <div th:if="${responsable.idResponsable != null and esAdmin == true}" class="small text-muted mb-2">
+            <i class="fa-solid fa-user-clock me-1"></i>
+            Registrado
+            <th:block th:if="${registradoPor != null}">por <strong th:text="${registradoPor}"></strong></th:block>
+            <th:block th:if="${responsable.registro != null}" th:text="${'el ' + #dates.format(responsable.registro, 'dd/MM/yyyy HH:mm')}"></th:block>
+            <th:block th:if="${modificadoPor != null}">
+                · última modificación por <strong th:text="${modificadoPor}"></strong>
+                <th:block th:if="${responsable.modificacion != null}" th:text="${'el ' + #dates.format(responsable.modificacion, 'dd/MM/yyyy HH:mm')}"></th:block>
+            </th:block>
+        </div>
+
+        <!-- Clave bloqueada: tiene bienes a cargo -->
+        <div th:if="${bloquearClave}" class="alert alert-info py-2 small mb-3">
+            <i class="fa-solid fa-lock me-1"></i>
+            Tiene <strong th:text="${activosACargo}">0</strong> activo(s) a cargo: la <strong>oficina</strong> y el
+            <strong>código de funcionario</strong> no se pueden cambiar (en el VSIAF los bienes quedarían sin responsable).
+            Para moverlo use una transferencia.
+        </div>
+
         <!-- SECCIÓN 1: Identificación -->
         <div class="frm-section">
             <div class="frm-section-header sh-blue">
@@ -207,7 +227,7 @@
                             C.I. / Documento <span class="text-danger">*</span>
                         </label>
                         <div class="d-flex gap-2 align-items-start">
-                            <input type="text" class="form-control form-control-sm" id="txtCi" name="ci"
+                            <input type="text" class="form-control form-control-sm" id="txtCi" name="ci" maxlength="15"
                                 th:value="${responsable.persona?.ci}" placeholder="Número de carnet"
                                 style="max-width:180px;" required>
                             <select class="form-select form-select-sm" name="codExp" style="max-width:110px;" required>
@@ -273,7 +293,7 @@
                         <label class="frm-label">Oficina <span class="text-danger">*</span></label>
                         <div class="d-flex gap-1">
                             <div class="flex-grow-1">
-                                <select id="selectOficinaForm" name="idOficina" required>
+                                <select id="selectOficinaForm" name="idOficina" required th:disabled="${bloquearClave}">
                                     <option value="">Buscar oficina…</option>
                                     <option th:each="of : ${oficinas}" th:value="${of.idOficina}"
                                         th:text="${of.predio.unidad + ' — ' + of.codOfi + ' | ' + of.nombre}"
@@ -281,7 +301,9 @@
                                     </option>
                                 </select>
                             </div>
-                            <button class="btn btn-success btn-sm flex-shrink-0" type="button" id="btnNuevaOficina"
+                            <!-- Un select deshabilitado no se envía: el valor viaja en este oculto -->
+                            <input th:if="${bloquearClave}" type="hidden" name="idOficina" th:value="${responsable.oficina?.idOficina}">
+                            <button th:unless="${bloquearClave}" class="btn btn-success btn-sm flex-shrink-0" type="button" id="btnNuevaOficina"
                                 title="Registrar nueva oficina"
                                 style="height:36px;width:36px;padding:0;display:flex;align-items:center;justify-content:center;">
                                 <i class="fa-solid fa-plus"></i>
@@ -316,8 +338,10 @@
                         </label>
                         <div class="input-group input-group-sm">
                             <input type="text" class="form-control" id="txtCodFun" name="codigoFuncionario"
-                                th:value="${responsable.codigoFuncionario}" placeholder="Correlativo" required>
-                            <button class="btn btn-outline-secondary" type="button" id="btnSugerir"
+                                inputmode="numeric" pattern="\d{1,5}" maxlength="5"
+                                th:value="${responsable.codigoFuncionario}" placeholder="Correlativo" required
+                                th:readonly="${bloquearClave}">
+                            <button th:unless="${bloquearClave}" class="btn btn-outline-secondary" type="button" id="btnSugerir"
                                 title="Autogenerar siguiente código">
                                 <i class="fa-solid fa-wand-magic-sparkles"></i>
                             </button>
@@ -460,7 +484,7 @@
 
             showGlobalLoader({ texto: 'Cargando formulario de oficina…' });
 
-            $('#prediocontenidoModalOficina').load('/administracion/oficina/formulario', function (response, status) {
+            $('#prediocontenidoModalOficina').load('/administracion/oficina/formulario?embebido=true', function (response, status) {
                 hideGlobalLoader();
 
                 if (status === 'error') {
@@ -477,15 +501,22 @@
                     $modal2.css('z-index', '1075');
                 });
 
+                // El formulario de oficina avisa con el id de la recién creada: se preselecciona esa.
+                let idNueva = null;
+                $(document).off('oficina:registrada.respForm').one('oficina:registrada.respForm', function (e, res) {
+                    idNueva = res && res.id;
+                });
+
                 $modal2.modal('show');
 
                 $modal2.one('hidden.bs.modal', function () {
-                    recargarSelectOficinas();
+                    $(document).off('oficina:registrada.respForm');
+                    if (idNueva) recargarSelectOficinas(idNueva);
                 });
             });
         });
 
-        function recargarSelectOficinas() {
+        function recargarSelectOficinas(idSeleccionar) {
             showGlobalLoader({ texto: 'Actualizando lista de oficinas…' });
 
             $.get('/administracion/responsable/api/oficinas/list-select', function (data) {
@@ -501,7 +532,7 @@
                 // 2) Reconstruir opciones
                 let opts = '<option value="">Buscar oficina…</option>';
                 data.forEach(function (o) {
-                    const label = o.predio.unidad + ' — ' + o.codOfi + ' | ' + o.nombre;
+                    const label = $('<div>').text(o.predio.unidad + ' — ' + o.codOfi + ' | ' + o.nombre).html();
                     const sel   = String(o.idOficina) === String(currentVal) ? ' selected' : '';
                     opts += `<option value="${o.idOficina}"${sel}>${label}</option>`;
                 });
@@ -520,12 +551,10 @@
                     }
                 });
 
-                // 4) Si la oficina recién creada llegó como última del array, preseleccionarla
-                if (data.length > 0) {
-                    const ultimaOficina = data[data.length - 1];
-                    $('#selectOficinaForm')
-                        .val(String(ultimaOficina.idOficina))
-                        .trigger('change');
+                // 4) Preseleccionar la oficina recién creada y sugerir el primer código
+                if (idSeleccionar) {
+                    $('#selectOficinaForm').val(String(idSeleccionar)).trigger('change');
+                    sugerirCodigo(idSeleccionar);
                 }
 
             }).fail(function () {
@@ -576,9 +605,17 @@
         }
 
         /* ── Guardar ─────────────────────────────────────── */
+        let guardando = false;
+
         $('#btnGuardar').on('click', function () {
+            if (guardando) return;                 // anti doble-click
             if (!$('#formResponsable')[0].checkValidity()) {
                 $('#formResponsable')[0].reportValidity();
+                return;
+            }
+            const cargo = ($('#selectCargo').val() || '').trim();
+            if (cargo.length > 40) {
+                Swal.fire('Atención', 'El cargo no puede tener más de 40 caracteres (largo del campo en el VSIAF).', 'warning');
                 return;
             }
 
@@ -586,33 +623,90 @@
             const url = idEnc
                 ? '/administracion/responsable/modificar-responsable'
                 : '/administracion/responsable/registrar-responsable';
+            enviar(url, $('#formResponsable').serialize(), !!idEnc);
+        });
 
-            showGlobalLoader({ texto: idEnc ? 'Actualizando responsable…' : 'Registrando responsable…' });
+        function pedirAutorizacion(url, datos, msg) {
+            Swal.fire({
+                icon: 'info',
+                title: 'Requiere autorización',
+                html: `<div class="text-start small mb-2">${$('<div>').text(msg).html()}</div>
+                       <div class="text-start small text-muted">Su pedido le llega al revisor. No se aplica nada hasta que lo apruebe;
+                       le avisaremos aquí mismo cuando lo resuelva.</div>`,
+                input: 'textarea',
+                inputPlaceholder: 'Motivo del cambio (obligatorio)',
+                inputValidator: v => !(v || '').trim() ? 'Indique el motivo' : undefined,
+                showCancelButton: true,
+                confirmButtonText: 'Enviar solicitud',
+                cancelButtonText: 'Cancelar'
+            }).then(r => {
+                if (r.isConfirmed) enviar(url, datos + '&' + $.param({ solicitarAutorizacion: true, motivoSolicitud: r.value }), true);
+            });
+        }
+
+        function enviar(url, datos, esEdit) {
+            guardando = true;
+            $('#btnGuardar').prop('disabled', true);
+            showGlobalLoader({ texto: esEdit ? 'Actualizando responsable…' : 'Registrando responsable…' });
 
             $.ajax({
                 type: 'POST',
                 url,
-                data: $('#formResponsable').serialize(),
+                data: datos,
                 success: function (res) {
-                    hideGlobalLoader();
-                    if (res.ok) {
-                        Swal.fire({
-                            toast: true, position: 'top-end', icon: 'success',
-                            title: res.msg, showConfirmButton: false, timer: 2400
-                        });
+                    terminar();
+                    if (res.requiereAutorizacion) { pedirAutorizacion(url, datos, res.msg); return; }
+                    if (res.ok && res.solicitud) {
                         $modal.modal('hide');
                         $('#data-table').DataTable().ajax.reload(null, false);
+                        Swal.fire({ icon: 'info', title: 'Solicitud enviada', text: res.msg, timer: 5000, showConfirmButton: false });
+                        return;
+                    }
+                    if (res.ok) {
+                        $modal.modal('hide');
+                        $('#data-table').DataTable().ajax.reload(null, false);
+                        if (res.vsiafOk === false) {
+                            Swal.fire('Guardado, pero no llegó al VSIAF', res.msg, 'warning');
+                        } else {
+                            Swal.fire({
+                                toast: true, position: 'top-end', icon: 'success',
+                                title: res.msg, showConfirmButton: false, timer: 4000
+                            });
+                        }
                     } else {
-                        const icon = res.msg?.includes('DBF') ? 'warning' : 'error';
-                        Swal.fire('Atención', res.msg, icon);
+                        Swal.fire('Atención', res.msg, 'error');
                     }
                 },
                 error: function (xhr) {
-                    hideGlobalLoader();
+                    terminar();
+                    // Personas con nombre parecido y ninguna con ese CI: preguntar antes de crear otra.
+                    if (xhr.status === 409 && xhr.responseJSON && xhr.responseJSON.requireConfirmacion) {
+                        const lista = (xhr.responseJSON.personasCoincidentes || [])
+                            .map(p => `<li>${$('<div>').text(p.nombreCompleto).html()} <span class="text-muted">(CI: ${$('<div>').text(p.ci || 'sin CI').html()})</span></li>`)
+                            .join('');
+                        Swal.fire({
+                            icon: 'question',
+                            title: 'Personas con nombre similar',
+                            html: `<div class="text-start small">Ya hay registradas:<ul class="mt-2">${lista}</ul>
+                                   Si es otra persona, créela igual. Si es una de estas, cancele y búsquela por su C.I.</div>`,
+                            showCancelButton: true,
+                            confirmButtonText: 'Es otra persona: crear',
+                            cancelButtonText: 'Cancelar'
+                        }).then(r => {
+                            if (r.isConfirmed) enviar('/administracion/responsable/registrar-responsable-forzado', datos, false);
+                        });
+                        return;
+                    }
                     Swal.fire('Error', xhr.responseJSON?.msg || 'Error desconocido', 'error');
                 }
             });
-        });
+        }
+
+        function terminar() {
+            guardando = false;
+            $('#btnGuardar').prop('disabled', false);
+            hideGlobalLoader();
+        }
 
     })();
 </script>

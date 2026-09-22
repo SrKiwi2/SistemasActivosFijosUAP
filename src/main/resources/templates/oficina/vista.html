@@ -15,10 +15,76 @@
         // Auto-refresco por SSE: si el VSIAF cambia y se sincroniza, recargar esta tabla sola.
         if (window.registrarTablaSse) window.registrarTablaSse('oficina', function () { cargarTabla(); });
 
-        // Inicializar tooltips
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
+        // Una solicitud de autorización se resolvió (o llegó una nueva): refrescar la tabla.
+        if (window.sciafEscuchar) window.sciafEscuchar('autorizacion', 'oficina', function (d) {
+            if (!$('#tablaRegistro').length || (d && d.modulo && d.modulo !== 'OFICINA')) return;
+            if (!$('.modal.show').length) cargarTabla();
+        });
+
+        // El worker resolvió órdenes de la cola: si hay oficinas "En cola", refrescar su estado.
+        // Se pospone si hay un modal abierto para no cerrarle el formulario a nadie.
+        $(document).off('sciaf:cola-vsiaf.oficina').on('sciaf:cola-vsiaf.oficina', function () {
+            if (!$('#tablaRegistro').length) { $(document).off('sciaf:cola-vsiaf.oficina'); return; }
+            if (!$('#tablaRegistro [data-estado-vsiaf="EN_COLA"]').length) return;
+            if ($('.modal.show').length) return;
+            cargarTabla();
+        });
+    });
+
+    // ── Botones de la tabla (delegados una sola vez; el fragmento se recarga seguido) ──
+    $(document).off('click.oficinaMod', '.btn-editar-oficina').on('click.oficinaMod', '.btn-editar-oficina', function () {
+        cargarFormularioEdit($(this).data('id'));
+    });
+
+    $(document).off('click.oficinaMod', '.btn-eliminar-oficina').on('click.oficinaMod', '.btn-eliminar-oficina', function () {
+        eliminar($(this).data('nombre'), $(this).data('id'), String($(this).data('admin')) === 'true');
+    });
+
+    $(document).off('click.oficinaMod', '#btnSyncOficina').on('click.oficinaMod', '#btnSyncOficina', function () {
+        sincronizarOficinas(false);
+    });
+
+    $(document).off('click.oficinaMod', '#btnSyncCompleto').on('click.oficinaMod', '#btnSyncCompleto', function () {
+        Swal.fire({
+            title: '¿Forzar sincronización completa?',
+            text: "Esto procesará todos los registros y puede tardar más tiempo",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, sincronizar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) sincronizarOficinas(true);
+        });
+    });
+
+    // Enviar / reenviar al VSIAF una oficina pendiente o rechazada
+    $(document).off('click.oficinaMod', '.btn-subir-dbf').on('click.oficinaMod', '.btn-subir-dbf', function () {
+        const idEnc = $(this).data('id');
+        Swal.fire({
+            title: 'Enviar al VSIAF',
+            text: "Esta oficina está en el SCIAF pero no llegó al VSIAF. ¿Enviarla ahora?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, enviar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#ffc107'
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+            showGlobalLoader({ texto: 'Enviando al VSIAF…' });
+            $.ajax({
+                type: 'POST',
+                url: '/administracion/oficina/subir-dbf/' + idEnc,
+                success: function (res) {
+                    Swal.fire(res.ok ? 'Enviada' : 'Atención', res.msg, res.ok ? 'success' : 'warning');
+                    cargarTabla();
+                },
+                error: function (xhr) {
+                    Swal.fire('Error', xhr.responseJSON?.msg || 'No se pudo enviar.', 'error');
+                },
+                complete: hideGlobalLoader
+            });
         });
     });
 
@@ -88,7 +154,71 @@
         cargarFormularioEditAlert(id, "/administracion/oficina/formulario-edit", "#prediocontenidoModalOficina", "#formularioOficina");
     }
 
-    function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/oficina/eliminar", cargarTabla);
+    // Muestra el motivo real si el servidor lo rechaza (p. ej. la oficina tiene responsables o activos).
+    // Un ADMINISTRADOR / SUPER USUARIO elimina directo; el resto envía una solicitud con motivo.
+    function eliminar(nombre, id, esAdmin) {
+        Swal.fire({
+            title: esAdmin ? 'Eliminar oficina' : 'Solicitar eliminación',
+            text: esAdmin
+                ? '¿Eliminar "' + nombre + '" del SCIAF? En el VSIAF la oficina sigue existiendo.'
+                : 'Eliminar "' + nombre + '" requiere autorización. Indique el motivo; se aplicará cuando el revisor lo apruebe.',
+            input: esAdmin ? undefined : 'textarea',
+            inputPlaceholder: 'Motivo (obligatorio)',
+            inputValidator: esAdmin ? undefined : (v => !(v || '').trim() ? 'Indique el motivo' : undefined),
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: esAdmin ? 'Sí, eliminar' : 'Enviar solicitud',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#dc3545',
+            reverseButtons: true
+        }).then((r) => {
+            if (!r.isConfirmed) return;
+            $.post('/administracion/oficina/eliminar/' + id, esAdmin ? {} : { motivo: r.value })
+                .done(function (res) {
+                    cargarTabla();
+                    Swal.fire(res.solicitud ? 'Solicitud enviada' : 'Eliminada', res.msg, res.solicitud ? 'info' : 'success');
+                })
+                .fail(function (xhr) { Swal.fire('No se eliminó', xhr.responseJSON?.msg || 'Error al eliminar.', 'error'); });
+        });
+    }
+
+    function sincronizarOficinas(forzarCompleto) {
+        Swal.fire({
+            title: 'Sincronizando Oficinas...',
+            html: 'Por favor espere',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.ajax({
+            type: 'POST',
+            url: "/administracion/oficina/sync-from-mounted",
+            data: { forzarCompleto: forzarCompleto },
+            success: function (res) {
+                const tiempoSegundos = (res.duracionMs / 1000).toFixed(2);
+                Swal.fire({
+                    title: 'Completado',
+                    icon: 'success',
+                    confirmButtonText: 'Aceptar',
+                    html: `
+                        <div class="text-start">
+                            <p><strong>✅ Sincronización de Oficinas exitosa</strong></p>
+                            <hr>
+                            <p><i class="fa-solid fa-file-import"></i> Total leídas: <strong>${res.totalLeidas}</strong></p>
+                            <p><i class="fa-solid fa-plus-circle text-success"></i> Insertados: <strong>${res.insertados}</strong></p>
+                            <p><i class="fa-solid fa-edit text-primary"></i> Actualizados: <strong>${res.actualizados}</strong></p>
+                            <p><i class="fa-solid fa-check-circle text-info"></i> Omitidos (sin cambios): <strong>${res.omitidos}</strong></p>
+                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin entidad: <strong>${res.sinEntidad}</strong></p>
+                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin predio: <strong>${res.sinPredio}</strong></p>
+                            <p><i class="fa-solid fa-clock"></i> Tiempo: <strong>${tiempoSegundos}s</strong></p>
+                        </div>`
+                });
+                cargarTabla();
+            },
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
+                Swal.fire('Error en Sincronización', msg, 'error');
+            }
+        });
     }
 </script>

@@ -181,7 +181,7 @@ public class OficinaDbfWriterService {
         // ── Modo COLA: dejar la orden para el worker VFPOLEDB (mantiene el índice .CDX) ──
         if ("cola".equalsIgnoreCase(writeMode)) {
             colaService.encolarInsert("OFICINA", construirCamposOficina(oficina, entidadCode, unidadCode, usuario),
-                    ReferenciaOrdenDbf.deApoyo("CODOFIC=" + oficina.getCodOfi(), usuario));
+                    ReferenciaOrdenDbf.deApoyo(oficina.getIdOficina(), "CODOFIC=" + oficina.getCodOfi(), usuario));
             log.info("📤 Oficina {} encolada para VSIAF (modo cola)", oficina.getCodOfi());
             return;
         }
@@ -255,7 +255,7 @@ public class OficinaDbfWriterService {
             clave.put("UNIDAD", unidadOriginal);
             clave.put("CODOFIC", codOficOriginal);
             colaService.encolarUpdate("OFICINA", clave, construirCamposOficina(oficina, entidadCode, unidadCode, usuario),
-                    ReferenciaOrdenDbf.deApoyo("CODOFIC=" + codOficOriginal, usuario));
+                    ReferenciaOrdenDbf.deApoyo(oficina.getIdOficina(), "CODOFIC=" + codOficOriginal, usuario));
             log.info("📤 Oficina {} encolada para UPDATE en VSIAF (modo cola)", codOficOriginal);
             return;
         }
@@ -375,10 +375,16 @@ public class OficinaDbfWriterService {
 
     /** Arma el mapa campo→valor (crudo) de OFICINA para encolar la orden al worker VFPOLEDB. */
     private Map<String, Object> construirCamposOficina(Oficina o, String ent, String uni, String usr) {
-        String[] campos = { "ENTIDAD", "UNIDAD", "CODOFIC", "NOMOFIC", "OBSERV", "FEULT", "USUAR", "API_ESTADO" };
+        String[] campos = { "ENTIDAD", "UNIDAD", "CODOFIC", "NOMOFIC", "FEULT", "USUAR", "API_ESTADO" };
         Map<String, Object> m = new LinkedHashMap<>();
         for (String c : campos) {
             m.put(c, obtenerValorCampo(c, o, ent, uni, usr));
+        }
+        // OBSERV es memo en el VSIAF y en PostgreSQL suele estar vacío (la lectura del DBF
+        // no trae el memo). Mandarlo vacío en un UPDATE borraba la observación que la
+        // oficina tuviera en el VSIAF: solo viaja cuando hay algo que escribir.
+        if (o.getObserv() != null && !o.getObserv().isBlank()) {
+            m.put("OBSERV", o.getObserv().trim());
         }
         return m;
     }

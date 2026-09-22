@@ -29,16 +29,24 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
-import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.OficinaDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
+import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
+import com.usic.SistemasActivosFijosUAP.model.dao.IOficinaDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.SyncControl;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.ResponsableAltaService;
 import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
+import com.usic.SistemasActivosFijosUAP.model.service.VsiafApoyoService;
+import com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService;
+import com.usic.SistemasActivosFijosUAP.model.service.supervision.AutorizacionService;
+import com.usic.SistemasActivosFijosUAP.model.service.supervision.OficinaGestionService;
+import com.usic.SistemasActivosFijosUAP.model.service.supervision.OficinaGestionService.DatosOficina;
+import com.usic.SistemasActivosFijosUAP.config.RolesSciaf;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -52,15 +60,41 @@ public class OficinaController {
     private final IPredioServicio predioServicio;
     private final IEntidadService entidadService;
     private final JavaDbfService dbfService;
-    private final OficinaDbfWriterService oficinaDbfWriterService;
     private final SyncControlService syncControlService;
+    private final VsiafApoyoService vsiafApoyoService;
+    private final ResponsableAltaService responsableAltaService;
+    private final IResponsableService responsableService;
+    private final IOficinaDao oficinaDao;
+    private final OficinaGestionService oficinaGestionService;
+    private final AutorizacionService autorizacionService;
+    private final ActividadService actividadService;
 
     private static final Logger log = LoggerFactory.getLogger(OficinaController.class);
+
+    /**
+     * ADMINISTRADOR / SUPER USUARIO: sincronizan a mano, ven la auditoría y aplican directo
+     * los cambios de alto impacto. El resto (p. ej. APOYO) registra y edita; para eliminar
+     * o cambiar la clave (predio/código) genera una solicitud de autorización.
+     */
+    private static boolean esAdmin(HttpServletRequest request) {
+        return RolesSciaf.esAdministrativo(request);
+    }
+
+    private static final String MSG_SOLO_ADMIN = "Solo un ADMINISTRADOR o SUPER USUARIO puede hacer esta operación.";
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
     public String inicio_oficina(Model model) {
+        loadSyncInfo(model);
+        return "oficina/vista";
+    }
 
+    /**
+     * Datos de la última sincronización con el VSIAF. Los usa la cabecera de la tabla,
+     * que es un fragmento aparte: antes solo se cargaban en /vista y el fragmento
+     * mostraba siempre "Nunca".
+     */
+    private void loadSyncInfo(Model model) {
         try {
             SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("oficina");
             
@@ -82,13 +116,11 @@ public class OficinaController {
             model.addAttribute("ultimaSincronizacion", "Error al obtener info");
             model.addAttribute("estadoSync", "ERROR");
         }
-
-        return "oficina/vista";
     }
 
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla-registros")
-    public String tablaRegistros_oficina(Model model,
+    public String tablaRegistros_oficina(Model model, HttpServletRequest request,
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "gestion", required = false) Short gestionPreferida) {
 
@@ -111,11 +143,29 @@ public class OficinaController {
             model.addAttribute("id_encryptado", encryptedIds);
             model.addAttribute("sourceUsed", "db");
 
+            // Estado real del envío al VSIAF (cola del worker) y quién registró / modificó.
+            Map<Long, Boolean> pendientes = new java.util.HashMap<>();
+            Set<Long> idsUsuarios = new HashSet<>();
+            if (listasOficinas != null) {
+                for (Oficina o : listasOficinas) {
+                    if (o.getIdOficina() == null) continue;
+                    pendientes.put(o.getIdOficina(), o.isPendienteDbf());
+                    idsUsuarios.add(o.getRegistroIdUsuario());
+                    idsUsuarios.add(o.getModificacionIdUsuario());
+                }
+            }
+            model.addAttribute("estadosVsiaf", vsiafApoyoService.estados(VsiafApoyoService.TABLA_OFICINA, pendientes));
+            model.addAttribute("conSolicitud", autorizacionService.idsConSolicitudPendiente(
+                    ActividadService.MOD_OFICINA, pendientes.keySet()));
+            // Auditoría: solo la ven ADMINISTRADOR / SUPER USUARIO (ni se manda a los demás).
+            model.addAttribute("nombresUsuario", esAdmin(request) ? vsiafApoyoService.nombresUsuario(idsUsuarios) : Map.of());
+
         } catch (Exception e) {
             log.error("Error cargando tabla oficinas", e);
             model.addAttribute("error", "Error cargando datos: " + e.getMessage());
         }
-        
+        model.addAttribute("esAdmin", esAdmin(request));
+        loadSyncInfo(model);
         return "oficina/tabla_registro";
     }
 
@@ -138,9 +188,13 @@ public class OficinaController {
 
     @ValidarUsuarioAutenticado
     @RequestMapping("/formulario")
-    public String formulario_oficina(Model model, Oficina oficina) {
+    public String formulario_oficina(Model model,
+            @RequestParam(name = "embebido", defaultValue = "false") boolean embebido) {
         model.addAttribute("oficina", new Oficina());
         model.addAttribute("predios", predioServicio.findAll());
+        // Embebido = abierto desde el alta de responsable: ahí no tiene sentido ofrecer
+        // registrar otro responsable junto con la oficina.
+        model.addAttribute("embebido", embebido);
         return "oficina/formulario";
     }
 
@@ -152,11 +206,27 @@ public class OficinaController {
 
     @ValidarUsuarioAutenticado
     @PostMapping("/formulario-edit/{id_oficina}")
-    public String formularioEdit_oficina(Model model, @PathVariable("id_oficina") String idOficina) throws Exception {
+    public String formularioEdit_oficina(Model model, HttpServletRequest request,
+            @PathVariable("id_oficina") String idOficina) throws Exception {
         Long id = Long.parseLong(Encriptar.decrypt(idOficina));
-        model.addAttribute("oficina", oficinaService.findById(id));
+        Oficina oficina = oficinaService.findById(id);
+        model.addAttribute("oficina", oficina);
+        boolean admin = esAdmin(request);
+        model.addAttribute("esAdmin", admin);
+        if (oficina != null && admin) {
+            Map<Long, String> nombres = vsiafApoyoService.nombresUsuario(
+                    java.util.Arrays.asList(oficina.getRegistroIdUsuario(), oficina.getModificacionIdUsuario()));
+            model.addAttribute("registradoPor", nombres.get(oficina.getRegistroIdUsuario()));
+            model.addAttribute("modificadoPor", nombres.get(oficina.getModificacionIdUsuario()));
+        }
         model.addAttribute("predios", predioServicio.findAll());
         model.addAttribute("edit", "true");
+        // Con responsables o bienes, predio y código (la clave en el VSIAF) no se tocan.
+        long responsables = oficinaDao.contarResponsablesVigentes(id);
+        long activos = oficinaDao.contarActivos(id);
+        model.addAttribute("responsablesOficina", responsables);
+        model.addAttribute("activosOficina", activos);
+        model.addAttribute("bloquearClave", responsables + activos > 0);
         return "oficina/formulario";
     }
 
@@ -167,10 +237,21 @@ public class OficinaController {
             HttpServletRequest request,
             @Validated @ModelAttribute Oficina oficina,
             BindingResult br,
-            @RequestParam(defaultValue = "false") boolean modoRapido) {
+            @RequestParam(defaultValue = "false") boolean modoRapido,
+            // Alta del responsable junto con la oficina (opcional, solo desde este módulo)
+            @RequestParam(defaultValue = "false") boolean conResponsable,
+            @RequestParam(required = false) String respCi,
+            @RequestParam(required = false, defaultValue = "9") Short respCodExp,
+            @RequestParam(required = false) String respNombre,
+            @RequestParam(required = false) String respPaterno,
+            @RequestParam(required = false) String respMaterno,
+            @RequestParam(required = false) String respCorreo,
+            @RequestParam(required = false) String respCargo,
+            @RequestParam(required = false) String respCodigoFuncionario,
+            @RequestParam(defaultValue = "false") boolean respForzar) {
 
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-        
+
         if (br.hasErrors()) {
             return ResponseEntity.badRequest().body(Map.of(
                 "ok", false,
@@ -179,66 +260,112 @@ public class OficinaController {
                         .toList()
             ));
         }
-        
-        String usuarioNombre = usuario.getUsuario();
-        
+
+        String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+
+        // Un alta nunca pisa una oficina existente, aunque el cliente mande un id.
+        oficina.setIdOficina(null);
+        Predio predio = (oficina.getPredio() != null && oficina.getPredio().getIdPredio() != null)
+                ? predioServicio.findById(oficina.getPredio().getIdPredio()) : null;
+        String invalido = oficinaGestionService.validar(predio, oficina.getCodOfi(), oficina.getNombre(), null);
+        if (invalido != null) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", invalido));
+        }
+
+        oficina.setPredio(predio);
+        oficina.setNombre(oficina.getNombre().trim());
+        oficina.setObserv(oficina.getObserv() != null && !oficina.getObserv().isBlank() ? oficina.getObserv().trim() : null);
         oficina.setEstado("ACTIVO");
         oficina.setFechaUlt(LocalDate.now());
         oficina.setUsuario(usuarioNombre);
         oficina.setApiEstado(modoRapido ? Short.valueOf("3") : Short.valueOf("1"));
-        // modoRapido difiere la escritura al DBF → queda pendiente; el alta normal se encola enseguida.
+        // modoRapido (alta al vuelo desde Registro de Activos) queda pendiente y viaja al
+        // VSIAF cuando se aprueba el activo que la usa. El alta desde este módulo va enseguida.
         oficina.setPendienteDbf(modoRapido);
         if (usuario != null) oficina.setRegistroIdUsuario(usuario.getIdUsuario());
 
-        Predio predioOficina = predioServicio.findById(oficina.getPredio().getIdPredio());
-        Long idEntidadOficina = predioOficina.getEntidad().getIdEntidad();
-        Entidad entidadOficina = entidadService.findById(idEntidadOficina);
-
-        String entidadCode = entidadOficina.getEntidadCodigo();
-        String unidadCode = predioOficina.getUnidad();
-        
-        if (oficina.getPredio() != null && oficina.getPredio().getCodigo() != null) {
-            unidadCode = oficina.getPredio().getCodigo();
-        }
-        
-        // Sin escaneo de OFICINA.DBF por CIFS: el worker VFPOLEDB hace insert-if-not-exists
-        // por índice (.CDX) y la constraint única de PG protege la BD. El alta no se bloquea leyendo el DBF.
-        oficinaService.save(oficina);
-        
-        if (!modoRapido) {
-            try {
-                oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
-                log.info("Oficina {} registrada en PostgreSQL y DBF", oficina.getIdOficina());
-            } catch (Exception e) {
-                log.error("Error insertando oficina en DBF: {}", e.getMessage(), e);
-                return ResponseEntity.status(500).body(Map.of(
-                    "ok", false,
-                    "msg", "Se guardó en la base de datos pero falló el registro en DBF: " + e.getMessage()
+        if (!conResponsable || modoRapido) {
+            oficinaService.save(oficina);
+            registrarActividadAlta(usuario, oficina, modoRapido ? " (desde Registro de Activos)" : "");
+            if (modoRapido) {
+                return ResponseEntity.ok(Map.of(
+                    "ok", true,
+                    "msg", "Oficina registrada. Se enviará al VSIAF junto con el activo cuando se apruebe.",
+                    "id", oficina.getIdOficina()
                 ));
             }
+            VsiafApoyoService.Envio envio = vsiafApoyoService.insertarOficina(oficina, usuarioNombre);
             return ResponseEntity.ok(Map.of(
                 "ok", true,
-                "msg", "Se realizó el registro correctamente en PostgreSQL y DBF",
+                "vsiafOk", envio.ok(),
+                "msg", "Oficina registrada. " + envio.mensaje(),
                 "id", oficina.getIdOficina()
             ));
         }
 
-        log.info("Oficina {} registrada en PostgreSQL (pendiente DBF)", oficina.getIdOficina());
+        // ── Oficina + su responsable, todo o nada ─────────────────────────────
+        ResponsableAltaService.ResultadoAlta alta;
+        try {
+            alta = responsableAltaService.registrarOficinaConResponsable(oficina,
+                    new ResponsableAltaService.DatosAlta(respCi, respCodExp, respCodigoFuncionario, null,
+                            respNombre, respPaterno, respMaterno, respCorreo, respCargo),
+                    usuario, respForzar);
+        } catch (ResponsableAltaService.PersonasSimilaresException similares) {
+            return ResponseEntity.status(409).body(similares.cuerpo());
+        } catch (IllegalArgumentException datoInvalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Responsable: " + datoInvalido.getMessage()));
+        } catch (Exception e) {
+            log.error("Error registrando oficina con responsable", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false,
+                    "msg", "No se registró nada (ni oficina ni responsable): " + e.getMessage()));
+        }
+
+        // Primero la oficina: el worker procesa por nombre de archivo (OFICINA_… antes que RESP_…).
+        VsiafApoyoService.Envio envOfi = vsiafApoyoService.insertarOficina(oficina, usuarioNombre);
+        com.usic.SistemasActivosFijosUAP.model.entity.Responsable respCargado =
+                responsableService.findByIdWithRelations(alta.responsable().getIdResponsable());
+        VsiafApoyoService.Envio envResp = vsiafApoyoService.insertarResponsable(respCargado, usuarioNombre);
+
+        registrarActividadAlta(usuario, oficina, " junto con su responsable");
+        actividadService.registrar(usuario, ActividadService.MOD_RESPONSABLE, ActividadService.ACC_REGISTRO,
+                com.usic.SistemasActivosFijosUAP.model.service.supervision.ResponsableGestionService.referencia(respCargado),
+                "Registró al responsable "
+                + com.usic.SistemasActivosFijosUAP.model.service.supervision.ResponsableGestionService.referencia(respCargado)
+                + " en la nueva oficina", respCargado.getIdResponsable());
+
+        String msgVsiaf = (envOfi.ok() && envResp.ok()) ? envOfi.mensaje()
+                : (!envOfi.ok() ? "Oficina: " + envOfi.mensaje() + " " : "")
+                  + (!envResp.ok() ? "Responsable: " + envResp.mensaje() : "");
         return ResponseEntity.ok(Map.of(
             "ok", true,
-            "msg", "Oficina registrada. Pendiente sincronización con DBF.",
-            "id", oficina.getIdOficina()
+            "vsiafOk", envOfi.ok() && envResp.ok(),
+            "msg", "Oficina y responsable registrados" + (alta.personaNueva() ? " (nueva persona)" : "") + ". " + msgVsiaf,
+            "id", oficina.getIdOficina(),
+            "idResponsable", alta.responsable().getIdResponsable()
         ));
     }
 
+    /**
+     * Edición. Nombre y observaciones se aplican siempre. Cambiar predio o código (la clave
+     * en el VSIAF) lo aplica directo un ADMINISTRADOR / SUPER USUARIO; los demás generan
+     * una solicitud de autorización:
+     * <ol>
+     *   <li>Sin {@code solicitarAutorizacion}: se valida y se responde
+     *       {@code requiereAutorizacion=true} para que la pantalla pida el motivo.</li>
+     *   <li>Con {@code solicitarAutorizacion=true} + {@code motivoSolicitud}: se crea la
+     *       solicitud y no se aplica nada hasta que el revisor la apruebe.</li>
+     * </ol>
+     */
     @ValidarUsuarioAutenticado
     @PostMapping("/modificar-oficina")
     @ResponseBody
     public ResponseEntity<?> modificar_oficina(
             HttpServletRequest request,
             @Validated @ModelAttribute Oficina oficinaForm,
-            BindingResult br) {
-        
+            BindingResult br,
+            @RequestParam(defaultValue = "false") boolean solicitarAutorizacion,
+            @RequestParam(required = false) String motivoSolicitud) {
+
         if (br.hasErrors()) {
             return ResponseEntity.badRequest().body(Map.of(
                 "ok", false,
@@ -247,140 +374,102 @@ public class OficinaController {
                         .toList()
             ));
         }
-        
+
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-        String usuarioNombre = usuario.getUsuario();
-        
-        Oficina oficinaOriginal = oficinaService.findById(oficinaForm.getIdOficina());
-        if (oficinaOriginal == null) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "ok", false,
-                "msg", "No se encontró la oficina con ID: " + oficinaForm.getIdOficina()
-            ));
-        }
+        DatosOficina datos = new DatosOficina(oficinaForm.getIdOficina(),
+                oficinaForm.getPredio() != null ? oficinaForm.getPredio().getIdPredio() : null,
+                oficinaForm.getCodOfi(), oficinaForm.getNombre(), oficinaForm.getObserv());
 
-        Predio predioOriginal = oficinaOriginal.getPredio();
-        if (predioOriginal == null) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "ok", false,
-                "msg", "Error: La oficina original no tiene un Predio asociado."
-            ));
-        }
-        
-        Entidad entidad = predioOriginal.getEntidad();
-        if (entidad == null) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "ok", false,
-                "msg", "Error: El Predio original no tiene una Entidad asociada."
-            ));
-        }
-
-        if (oficinaForm.getPredio() == null || oficinaForm.getPredio().getIdPredio() == null) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "ok", false,
-                "msg", "Error: El formulario no proporciona el ID de Predio para la modificación."
-            ));
-        }
-
-        Predio preido = predioServicio.findById(oficinaForm.getPredio().getIdPredio());
-        if (preido == null) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "ok", false,
-                "msg", "Error: El Predio con ID " + oficinaForm.getPredio().getIdPredio() + " no fue encontrado."
-            ));
-        }
-
-        Short codOficOriginal = oficinaOriginal.getCodOfi();
-        String entidadOriginal = entidad.getEntidadCodigo();
-        String unidadOriginal = preido.getUnidad();
-        
-        oficinaOriginal.setPredio(oficinaForm.getPredio());
-        oficinaOriginal.setCodOfi(oficinaForm.getCodOfi());
-        oficinaOriginal.setNombre(oficinaForm.getNombre());
-        oficinaOriginal.setObserv(oficinaForm.getObserv());
-        oficinaOriginal.setFechaUlt(LocalDate.now());
-        oficinaOriginal.setModificacion(new Date());
-        oficinaOriginal.setUsuario(usuarioNombre);
-        if (usuario != null) {
-            oficinaOriginal.setModificacionIdUsuario(usuario.getIdUsuario());
-        }
-        oficinaOriginal.setEstado("ACTIVO");
-        // La edición encola el UPDATE al VSIAF enseguida → ya no queda pendiente.
-        oficinaOriginal.setPendienteDbf(false);
-
-        oficinaService.save(oficinaOriginal);
-        
         try {
-            String entidadCode = preido.getEntidad().getEntidadCodigo();
-            String unidadCode = preido.getUnidad();
-            
-            oficinaDbfWriterService.actualizarDesdeOficina(
-                codOficOriginal,
-                entidadOriginal,
-                unidadOriginal,
-                oficinaOriginal,
-                entidadCode,
-                unidadCode,
-                usuarioNombre
-            );
-            
-            log.info("Oficina {} actualizada en PostgreSQL y DBF", oficinaOriginal.getIdOficina());
-            
-        } catch (Exception e) {
-            log.error("Error actualizando oficina en DBF: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).body(Map.of(
-                "ok", false,
-                "msg", "Se guardó en la base de datos pero falló la actualización en DBF: " + e.getMessage()
-            ));
+            Oficina original = oficinaGestionService.buscar(datos.idOficina());
+            boolean cambiaClave = oficinaGestionService.cambiaClave(original, datos);
+
+            if (cambiaClave && !esAdmin(request)) {
+                oficinaGestionService.validarModificacion(datos);   // que no se pida algo imposible
+                String resumen = oficinaGestionService.describirCambios(original, datos);
+                if (!solicitarAutorizacion) {
+                    return ResponseEntity.ok(Map.of("ok", false, "requiereAutorizacion", true,
+                        "msg", "Cambiar el predio o el código de una oficina requiere autorización. Cambios: " + resumen));
+                }
+                autorizacionService.solicitar(OficinaGestionService.TIPO_MODIFICAR, ActividadService.MOD_OFICINA,
+                        original.getIdOficina(), OficinaGestionService.referencia(original), resumen,
+                        datos.aMapa(), motivoSolicitud, usuario);
+                return ResponseEntity.ok(Map.of("ok", true, "solicitud", true,
+                    "msg", "Solicitud enviada. Se aplicará cuando el revisor la apruebe; le avisaremos aquí mismo."));
+            }
+
+            OficinaGestionService.Resultado r = oficinaGestionService.modificar(datos, usuario);
+            return ResponseEntity.ok(Map.of("ok", true, "vsiafOk", r.vsiafOk(), "msg", r.msg()));
+
+        } catch (IllegalArgumentException | IllegalStateException invalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", invalido.getMessage()));
         }
-        
-        return ResponseEntity.ok(Map.of(
-            "ok", true,
-            "msg", "Se modificó correctamente en PostgreSQL y DBF"
-        ));
     }
 
+    private void registrarActividadAlta(Usuario usuario, Oficina oficina, String detalle) {
+        actividadService.registrar(usuario, ActividadService.MOD_OFICINA, ActividadService.ACC_REGISTRO,
+                OficinaGestionService.referencia(oficina),
+                "Registró la oficina " + OficinaGestionService.referencia(oficina) + detalle, oficina.getIdOficina());
+    }
+
+    /**
+     * Baja lógica en el SCIAF (en el VSIAF la fila sigue existiendo), solo sin
+     * responsables ni bienes. Un ADMINISTRADOR / SUPER USUARIO la aplica directo; el resto
+     * envía una solicitud de autorización con {@code motivo}.
+     */
     @ValidarUsuarioAutenticado
     @PostMapping("/eliminar/{id_oficina}")
-    public ResponseEntity<String> eliminar(Model model, @PathVariable("id_oficina") String idOficina) throws Exception {
-        Long id = Long.parseLong(Encriptar.decrypt(idOficina));
-        Oficina oficina = oficinaService.findById(id);
-        oficina.setEstado("ELIMINADO");
-        oficinaService.save(oficina);
-        return ResponseEntity.ok("Registro Eliminado");
+    @ResponseBody
+    public ResponseEntity<?> eliminar(HttpServletRequest request,
+            @PathVariable("id_oficina") String idOficina,
+            @RequestParam(required = false) String motivo) {
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        try {
+            Long id = Long.parseLong(Encriptar.decrypt(idOficina));
+            Oficina oficina = oficinaGestionService.buscar(id);
+            String dep = oficinaGestionService.dependenciasQueImpidenEliminar(oficina);
+            if (dep != null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", dep));
+
+            if (!esAdmin(request)) {
+                autorizacionService.solicitar(OficinaGestionService.TIPO_ELIMINAR, ActividadService.MOD_OFICINA,
+                        id, OficinaGestionService.referencia(oficina), "Eliminar la oficina",
+                        Map.of("idOficina", id), motivo, usuario);
+                return ResponseEntity.ok(Map.of("ok", true, "solicitud", true,
+                        "msg", "Solicitud de eliminación enviada. Se aplicará cuando el revisor la apruebe."));
+            }
+            OficinaGestionService.Resultado r = oficinaGestionService.eliminar(id, usuario);
+            return ResponseEntity.ok(Map.of("ok", true, "msg", r.msg()));
+
+        } catch (IllegalArgumentException | IllegalStateException invalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", invalido.getMessage()));
+        } catch (Exception e) {
+            log.error("Error eliminando oficina", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
     }
 
+    /**
+     * Reenvía al VSIAF una oficina que quedó pendiente o que el worker rechazó. Actúa
+     * sobre un solo registro y usa la misma cola que el alta.
+     */
     @ValidarUsuarioAutenticado
     @PostMapping("/subir-dbf/{id_oficina}")
     @ResponseBody
-    public ResponseEntity<?> subirOficinaADbf(HttpServletRequest request, 
+    public ResponseEntity<?> subirOficinaADbf(HttpServletRequest request,
                                               @PathVariable("id_oficina") String idOficinaEnc) {
         try {
             Long id = Long.parseLong(Encriptar.decrypt(idOficinaEnc));
             Oficina oficina = oficinaService.findById(id);
-            
             if (oficina == null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Oficina no encontrada"));
 
-            Predio predio = oficina.getPredio();
-            String entidadCode = predio.getEntidad().getEntidadCodigo();
-            String unidadCode = predio.getUnidad();
-            
             Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-            String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
-
-            // Usamos el WriterService (el que usa RandomAccessFile o DBFWriter)
-            if (oficinaDbfWriterService.existsByCodOfic(oficina.getCodOfi(), entidadCode, unidadCode)) {
-                 oficina.setPendienteDbf(false);
-                 oficinaService.save(oficina);
-                 return ResponseEntity.ok(Map.of("ok", true, "msg", "La oficina ya existe en el DBF."));
-            }
-
-            // Insertar
-            oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
-            oficina.setPendienteDbf(false);
-            oficinaService.save(oficina);
-
-            return ResponseEntity.ok(Map.of("ok", true, "msg", "Oficina registrada correctamente en el DBF."));
+            VsiafApoyoService.Envio envio = vsiafApoyoService.reenviarOficina(oficina,
+                    usuario != null ? usuario.getUsuario() : "SISTEMA");
+            actividadService.registrar(usuario, ActividadService.MOD_OFICINA, ActividadService.ACC_REENVIO,
+                    OficinaGestionService.referencia(oficina), "Reenvió al VSIAF la oficina "
+                    + OficinaGestionService.referencia(oficina) + (envio.ok() ? "" : " (falló: " + envio.mensaje() + ")"),
+                    oficina.getIdOficina());
+            return ResponseEntity.ok(Map.of("ok", envio.ok(), "msg", envio.mensaje()));
 
         } catch (Exception e) {
             log.error("Error subiendo a DBF", e);
@@ -388,14 +477,25 @@ public class OficinaController {
         }
     }
 
+    /** Sincronización manual desde el DBF: solo administradores (el resto no la necesita). */
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
     @ResponseBody
-    public ResponseEntity<?> syncFromMounted(
+    public ResponseEntity<?> syncFromMountedManual(
+            HttpServletRequest request,
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "gestion", required = false) Short gestionPreferida,
             @RequestParam(name = "forzarCompleto", defaultValue = "false") boolean forzarCompleto) {
-        
+
+        if (!esAdmin(request)) {
+            return ResponseEntity.status(403).body(Map.of("ok", false, "message", MSG_SOLO_ADMIN));
+        }
+        return syncFromMounted(q, gestionPreferida, forzarCompleto);
+    }
+
+    /** La usa también {@code SyncOrchestrator} (sincronización programada), sin petición HTTP. */
+    public ResponseEntity<?> syncFromMounted(String q, Short gestionPreferida, boolean forzarCompleto) {
+
         long inicio = System.currentTimeMillis();
         
         try {

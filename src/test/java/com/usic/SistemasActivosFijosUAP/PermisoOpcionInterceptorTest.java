@@ -136,4 +136,28 @@ class PermisoOpcionInterceptorTest {
         assertTrue(permite(faltantes, "/administracion/control-activos/hallazgos/12/resolver"));
         assertFalse(permite(faltantes, "/administracion/control-activos/vista"));
     }
+
+    /**
+     * APOYO con solo "Responsables": el alta abre el modal de oficina nueva, que pide el
+     * correlativo y guarda bajo /administracion/oficina. Antes solo estaba habilitado el
+     * formulario, y guardar la oficina daba 403.
+     */
+    @Test
+    void responsablesPuedeCrearLaOficinaDesdeSuModal() throws Exception {
+        Set<String> responsables = Set.of("opcion_responsable");
+        assertTrue(permite(responsables, "/administracion/oficina/formulario"));
+        assertTrue(permite(responsables, "/administracion/oficina/registrar-oficina"));
+        assertTrue(permite(responsables, "/administracion/oficina/siguiente-codigo/7"));
+        assertFalse(permite(responsables, "/administracion/oficina/eliminar/abc"));
+        assertFalse(permite(responsables, "/administracion/oficina/vista"));
+    }
+
+    /** APOYO con solo "Oficinas": el alta de oficina busca por CI al responsable que registra junto. */
+    @Test
+    void oficinasPuedeBuscarAlResponsablePorCi() throws Exception {
+        Set<String> oficinas = Set.of("opcion_oficina");
+        assertTrue(permite(oficinas, "/administracion/responsable/api/personas/buscar-por-ci"));
+        assertFalse(permite(oficinas, "/administracion/responsable/vista"));
+        assertFalse(permite(oficinas, "/administracion/responsable/registrar-responsable"));
+    }
 }

@@ -54,6 +54,7 @@ public class DbfColaRegistroService {
             orden.setEstado(DbfColaOrden.ENCOLADA);
             if (ref != null) {
                 orden.setIdActivo(ref.idActivo());
+                orden.setIdRegistro(ref.idRegistro());
                 orden.setReferencia(recortar(ref.referencia(), 120));
                 orden.setUsuario(recortar(ref.usuario(), 60));
             }

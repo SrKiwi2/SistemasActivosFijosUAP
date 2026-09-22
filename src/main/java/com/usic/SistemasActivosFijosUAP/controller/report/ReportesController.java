@@ -95,6 +95,13 @@ public class ReportesController {
  
             Responsable resp = activos.get(0).getResponsable();
             Oficina oficinaDestino = activos.get(0).getOficina();
+
+            // El acta reasigna al responsable del primero: un bien bloqueado no puede cambiar de manos.
+            for (Activo a : activos) {
+                boolean cambia = a.getResponsable() == null || resp == null
+                        || !a.getResponsable().getIdResponsable().equals(resp.getIdResponsable());
+                if (cambia) a.exigirNoBloqueado("reasignar en el acta");
+            }
  
             int anio = LocalDate.now().getYear();
             ConfiguracionGestion config = configuracionGestionService.findByGestion(anio)
@@ -188,6 +195,11 @@ public class ReportesController {
 
             return new ResponseEntity<>(docxBytes, headers, HttpStatus.OK);
  
+        } catch (IllegalStateException bloqueado) {
+            // Bien bloqueado: 409 con el motivo en texto, para que la pantalla pueda mostrarlo.
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(bloqueado.getMessage().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().build();

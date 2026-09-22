@@ -1,0 +1,200 @@
+<!-- ═══════════════════════════════════════════════════════
+     Autorizaciones: solicitudes de operaciones de alto impacto.
+     Ven: ADMINISTRADOR y SUPER USUARIO. Resuelven: el ADMINISTRADOR y el
+     SUPER USUARIO designado como revisor. Todo por AJAX, en vivo por SSE.
+     ═══════════════════════════════════════════════════════ -->
+<style>
+    #mod-autorizaciones .sol-card { border: 0; border-radius: 14px; box-shadow: 0 2px 12px rgba(34,41,47,.07);
+        border-left: 5px solid #ff9f43; transition: transform .2s, box-shadow .2s; }
+    #mod-autorizaciones .sol-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(34,41,47,.12); }
+    #mod-autorizaciones .sol-card.nueva { animation: autFlash 2.4s ease; }
+    @keyframes autFlash { 0% { background: rgba(255,159,67,.18); } 100% { background: #fff; } }
+    #mod-autorizaciones .sol-tipo { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+    #mod-autorizaciones .sol-ref { font-family: monospace; font-size: .8rem; background: #f3f2f7; border-radius: 6px; padding: 2px 8px; }
+    #mod-autorizaciones .sol-resumen { font-size: .82rem; background: #fafafc; border-radius: 8px; padding: 8px 10px; }
+    #mod-autorizaciones .sol-motivo { font-size: .82rem; color: #6e6b7b; }
+    #mod-autorizaciones .vacio { color: #a8aaae; }
+</style>
+
+<div class="container-xxl flex-grow-1 container-p-y" id="mod-autorizaciones">
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center py-2 mb-3 gap-2">
+        <h4 class="fw-bold mb-0"><span class="text-muted fw-light">Supervisión /</span> Autorizaciones</h4>
+        <span class="badge bg-label-warning fs-6" id="badgePendientes">0 pendientes</span>
+    </div>
+
+    <!-- Revisor designado -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body d-flex flex-wrap gap-3 align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <i class="ti ti-user-shield text-primary" style="font-size:1.4rem;"></i>
+                <div class="lh-sm">
+                    <div class="small text-muted">Revisor de solicitudes</div>
+                    <div class="fw-semibold" id="revisorActual"
+                         th:text="${revisor != null ? revisor.usuario : 'Sin designar (solo el administrador)'}">—</div>
+                </div>
+            </div>
+            <div th:if="${esAdministrador}" class="d-flex gap-2 align-items-center ms-md-auto">
+                <select id="selRevisor" class="form-select form-select-sm" style="min-width:220px;">
+                    <option value="">— Sin revisor —</option>
+                    <option th:each="u : ${superUsuarios}" th:value="${u.idUsuario}"
+                            th:text="${u.usuario + (u.persona != null ? ' · ' + u.persona.nombre : '')}"
+                            th:selected="${revisor != null and revisor.idUsuario == u.idUsuario}"></option>
+                </select>
+                <button class="btn btn-sm btn-primary" id="btnGuardarRevisor">Guardar</button>
+            </div>
+            <div th:unless="${puedeRevisar}" class="small text-muted ms-md-auto">
+                <i class="ti ti-eye me-1"></i> Solo lectura: no está designado como revisor.
+            </div>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabPendientes" type="button">
+            <i class="ti ti-hourglass me-1"></i> Pendientes</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabHistorial" type="button">
+            <i class="ti ti-history me-1"></i> Historial</button></li>
+    </ul>
+
+    <div class="tab-content p-0 bg-transparent shadow-none">
+        <div class="tab-pane fade show active" id="tabPendientes">
+            <div class="row g-3" id="listaPendientes">
+                <div class="col-12 text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando…</div>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="tabHistorial">
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr><th>Solicitud</th><th>Solicitante</th><th>Estado</th><th>Resuelta por</th><th>Respuesta</th></tr>
+                        </thead>
+                        <tbody id="tbHistorial"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+(function () {
+    'use strict';
+
+    const PUEDE_REVISAR = /*[[${puedeRevisar == true}]]*/ false;
+    const ESTADOS = { APROBADA: 'bg-label-success', RECHAZADA: 'bg-label-danger', FALLIDA: 'bg-label-dark', ANULADA: 'bg-label-secondary' };
+    let idsVistos = null;
+
+    function esc(v) { return $('<div>').text(v == null ? '' : String(v)).html(); }
+
+    function tarjeta(s, esNueva) {
+        const botones = PUEDE_REVISAR ? `
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-sm btn-success btn-aprobar" data-id="${s.idSolicitud}"><i class="ti ti-check me-1"></i>Aprobar</button>
+                <button class="btn btn-sm btn-outline-danger btn-rechazar" data-id="${s.idSolicitud}"><i class="ti ti-x me-1"></i>Rechazar</button>
+            </div>` : '';
+        return `
+            <div class="col-12 col-lg-6">
+                <div class="card sol-card h-100 ${esNueva ? 'nueva' : ''}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div>
+                                <div class="sol-tipo text-warning">${esc(s.tipoTexto)}</div>
+                                <span class="sol-ref">${esc(s.referencia)}</span>
+                            </div>
+                            <small class="text-muted text-nowrap">${esc(s.fechaSolicitud)}</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <span class="avatar avatar-xs"><span class="avatar-initial rounded-circle bg-label-warning">${esc(String(s.solicitante || '?').substring(0, 2).toUpperCase())}</span></span>
+                            <span class="small">Pedido por <strong>${esc(s.solicitante)}</strong></span>
+                        </div>
+                        <div class="sol-resumen mt-2"><i class="ti ti-arrows-right-left me-1 text-muted"></i>${esc(s.resumen)}</div>
+                        <div class="sol-motivo mt-2"><strong>Motivo:</strong> ${esc(s.motivo)}</div>
+                        ${botones}
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    function cargar() {
+        $.get('/administracion/autorizaciones/api/listado', function (r) {
+            const pend = r.pendientes || [];
+            const nuevosVistos = new Set(pend.map(p => p.idSolicitud));
+            $('#badgePendientes').text(pend.length + (pend.length === 1 ? ' pendiente' : ' pendientes'));
+            $('#listaPendientes').html(pend.length
+                ? pend.map(s => tarjeta(s, idsVistos && !idsVistos.has(s.idSolicitud))).join('')
+                : `<div class="col-12"><div class="card border-0 shadow-sm"><div class="card-body text-center py-5 vacio">
+                       <i class="ti ti-circle-check d-block mb-2" style="font-size:2rem;"></i>No hay solicitudes pendientes.</div></div></div>`);
+            idsVistos = nuevosVistos;
+
+            const hist = r.historial || [];
+            $('#tbHistorial').html(hist.length ? hist.map(s => `
+                <tr>
+                    <td><div class="small fw-semibold">${esc(s.tipoTexto)}</div><span class="sol-ref">${esc(s.referencia)}</span>
+                        <div class="small text-muted mt-1">${esc(s.resumen)}</div></td>
+                    <td class="small">${esc(s.solicitante)}<div class="text-muted">${esc(s.fechaSolicitud)}</div></td>
+                    <td><span class="badge ${ESTADOS[s.estado] || 'bg-label-secondary'}">${esc(s.estado)}</span></td>
+                    <td class="small">${esc(s.revisor || '—')}<div class="text-muted">${esc(s.fechaRevision)}</div></td>
+                    <td class="small" style="max-width:320px;">${esc(s.respuesta || '')}</td>
+                </tr>`).join('') : '<tr><td colspan="5" class="text-center text-muted py-4">Sin historial.</td></tr>');
+        }).fail(function () {
+            $('#listaPendientes').html('<div class="col-12 text-danger">No se pudieron cargar las solicitudes.</div>');
+        });
+    }
+
+    function resolver(id, accion) {
+        const aprobar = accion === 'aprobar';
+        Swal.fire({
+            title: aprobar ? '¿Aprobar la solicitud?' : '¿Rechazar la solicitud?',
+            text: aprobar ? 'El cambio se aplica ahora y se envía al VSIAF.' : 'El solicitante verá el motivo.',
+            input: 'textarea',
+            inputPlaceholder: aprobar ? 'Comentario (opcional)' : 'Motivo del rechazo (obligatorio)',
+            inputValidator: v => (!aprobar && !(v || '').trim()) ? 'Indique el motivo del rechazo' : undefined,
+            icon: aprobar ? 'question' : 'warning',
+            showCancelButton: true,
+            confirmButtonText: aprobar ? 'Sí, aprobar' : 'Sí, rechazar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: aprobar ? '#28c76f' : '#ea5455'
+        }).then(function (r) {
+            if (!r.isConfirmed) return;
+            $.post(`/administracion/autorizaciones/api/${id}/${accion}`, { comentario: r.value || '' })
+                .done(function (res) {
+                    const ok = res.estado === 'APROBADA' || res.estado === 'RECHAZADA';
+                    Swal.fire({
+                        toast: !ok ? false : true, position: ok ? 'top-end' : 'center',
+                        icon: res.estado === 'FALLIDA' ? 'warning' : 'success',
+                        title: res.estado === 'FALLIDA' ? 'Aprobada, pero no se pudo aplicar' : 'Solicitud ' + res.estado.toLowerCase(),
+                        text: res.msg, showConfirmButton: !ok, timer: ok ? 3500 : undefined
+                    });
+                    cargar();
+                })
+                .fail(function (xhr) {
+                    Swal.fire('No se pudo', xhr.responseJSON?.msg || 'Error de conexión', 'error');
+                    cargar();
+                });
+        });
+    }
+
+    $('#mod-autorizaciones').off('click.aut')
+        .on('click.aut', '.btn-aprobar', function () { resolver($(this).data('id'), 'aprobar'); })
+        .on('click.aut', '.btn-rechazar', function () { resolver($(this).data('id'), 'rechazar'); });
+
+    $('#btnGuardarRevisor').on('click', function () {
+        const id = $('#selRevisor').val();
+        $.post('/administracion/autorizaciones/api/revisor', id ? { idUsuario: id } : {})
+            .done(function (res) {
+                $('#revisorActual').text(id ? $('#selRevisor option:selected').text() : 'Sin designar (solo el administrador)');
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.msg, showConfirmButton: false, timer: 3000 });
+            })
+            .fail(xhr => Swal.fire('No se pudo', xhr.responseJSON?.msg || 'Error', 'error'));
+    });
+
+    cargar();
+    if (window.sciafEscuchar) {
+        window.sciafEscuchar('autorizacion', 'bandeja', function () {
+            if (!document.getElementById('mod-autorizaciones')) return;
+            cargar();
+        });
+    }
+})();
+</script>

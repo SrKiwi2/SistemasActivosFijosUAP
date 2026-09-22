@@ -33,7 +33,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
-import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.RespDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
@@ -42,15 +41,20 @@ import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SyncResult;
 import com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableApiDataDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
-import com.usic.SistemasActivosFijosUAP.model.entity.Entidad;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
-import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.SyncControl;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesResponsableRepo;
+import com.usic.SistemasActivosFijosUAP.model.service.ResponsableAltaService;
 import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
+import com.usic.SistemasActivosFijosUAP.model.service.VsiafApoyoService;
+import com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService;
+import com.usic.SistemasActivosFijosUAP.model.service.supervision.AutorizacionService;
+import com.usic.SistemasActivosFijosUAP.model.service.supervision.ResponsableGestionService;
+import com.usic.SistemasActivosFijosUAP.model.service.supervision.ResponsableGestionService.DatosResponsable;
+import com.usic.SistemasActivosFijosUAP.config.RolesSciaf;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -66,15 +70,36 @@ public class ResponsableController {
     private final ICargoService cargoService;
     private final FuncionesResponsableRepo funcionesResponsableRepo;
     private final JavaDbfService dbfService;
-    private final RespDbfWriterService respDbfWriterService;
     private final SyncControlService syncControlService;
+    private final ResponsableAltaService responsableAltaService;
+    private final VsiafApoyoService vsiafApoyoService;
+    private final IResposableDao responsableDao;
+    private final ResponsableGestionService responsableGestionService;
+    private final AutorizacionService autorizacionService;
+    private final ActividadService actividadService;
 
     private static final Logger log = LoggerFactory.getLogger(ResponsableController.class);
 
+    /**
+     * Roles que pueden sincronizar a mano con el VSIAF y eliminar responsables. El resto
+     * (p. ej. APOYO) registra y edita: sus cambios viajan solos al VSIAF por el worker.
+     * El chequeo va en el servidor, no solo ocultando botones: en este proyecto casi
+     * todas las rutas son permitAll() y cualquiera puede llamar al endpoint a mano.
+     */
+    private static boolean esAdmin(HttpServletRequest request) {
+        return RolesSciaf.esAdministrativo(request);
+    }
+
+    private static ResponseEntity<Map<String, Object>> soloAdmin() {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("ok", false,
+                "msg", "Solo un ADMINISTRADOR o SUPER USUARIO puede hacer esta operación."));
+    }
+
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String inicioResponsable(Model model) {
+    public String inicioResponsable(Model model, HttpServletRequest request) {
         model.addAttribute("oficinas", oficinaService.listarOficinas());
+        model.addAttribute("esAdmin", esAdmin(request));
         return "responsable/vista";
     }
 
@@ -87,7 +112,11 @@ public class ResponsableController {
             @RequestParam(name = "start", defaultValue = "0") int start,
             @RequestParam(name = "length", defaultValue = "25") int length,
             @RequestParam(name = "search[value]", required = false) String search,
-            @RequestParam(name = "oficinaId", required = false) Long oficinaId) {
+            @RequestParam(name = "oficinaId", required = false) Long oficinaId,
+            HttpServletRequest request) {
+
+        // Auditoría (quién registró / modificó): solo ADMINISTRADOR / SUPER USUARIO, y ni se envía a los demás.
+        boolean admin = esAdmin(request);
 
         int size = (length < 0) ? 1000 : length;
         int page = Math.max(start, 0) / Math.max(size, 1);
@@ -95,6 +124,24 @@ public class ResponsableController {
         Page<IResposableDao.ResponsableRow> p = responsableService.datatable(search, oficinaId, pageable);
 
         List<Map<String, Object>> data = new ArrayList<>(p.getNumberOfElements());
+
+        // Estado real del envío al VSIAF (cola del worker) y auditoría de la página visible.
+        Map<Long, Boolean> pendientes = new HashMap<>();
+        for (var row : p.getContent()) pendientes.put(row.getIdResponsable(), Boolean.TRUE.equals(row.getPendienteDbf()));
+        Map<Long, VsiafApoyoService.EstadoVsiaf> estados = vsiafApoyoService.estados(VsiafApoyoService.TABLA_RESP, pendientes);
+        Set<Long> conSolicitud = autorizacionService.idsConSolicitudPendiente(ActividadService.MOD_RESPONSABLE, pendientes.keySet());
+
+        Map<Long, Responsable> entidades = new HashMap<>();
+        if (admin) {
+            for (Responsable r : responsableDao.findAllById(pendientes.keySet())) entidades.put(r.getIdResponsable(), r);
+        }
+        Set<Long> idsUsuarios = new HashSet<>();
+        for (Responsable r : entidades.values()) {
+            idsUsuarios.add(r.getRegistroIdUsuario());
+            idsUsuarios.add(r.getModificacionIdUsuario());
+        }
+        Map<Long, String> nombresUsuario = vsiafApoyoService.nombresUsuario(idsUsuarios);
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
         for (var row : p.getContent()) {
             String idEnc = "";
@@ -115,7 +162,20 @@ public class ResponsableController {
             m.put("oficina", nvl(row.getOficina()));
             m.put("cargo", nvl(row.getCargo()));
             m.put("idResponsable", row.getIdResponsable());
-            m.put("existeEnDbf", enDbf); 
+            m.put("existeEnDbf", enDbf);
+
+            VsiafApoyoService.EstadoVsiaf est = estados.get(row.getIdResponsable());
+            m.put("estadoVsiaf", est != null ? est.codigo() : VsiafApoyoService.EST_VSIAF);
+            m.put("estadoTexto", est != null ? est.texto() : "En VSIAF");
+            m.put("estadoDetalle", est != null ? est.detalle() : "");
+            m.put("solicitudPendiente", conSolicitud.contains(row.getIdResponsable()));
+
+            Responsable ent = admin ? entidades.get(row.getIdResponsable()) : null;
+            m.put("registradoPor", ent != null ? nvl(nombresUsuario.get(ent.getRegistroIdUsuario())) : "");
+            m.put("fechaRegistro", ent != null && ent.getRegistro() != null ? fmt.format(aLocal(ent.getRegistro())) : "");
+            m.put("modificadoPor", ent != null ? nvl(nombresUsuario.get(ent.getModificacionIdUsuario())) : "");
+            m.put("fechaModificacion", ent != null && ent.getModificacion() != null ? fmt.format(aLocal(ent.getModificacion())) : "");
+            m.put("usuarioVsiaf", ent != null ? nvl(ent.getUsuario()) : "");
             data.add(m);
         }
 
@@ -132,7 +192,8 @@ public class ResponsableController {
 
     @ValidarUsuarioAutenticado
     @RequestMapping("/formulario")
-    public String formularioResponsable(Model model, @RequestParam(required = false) String id) { 
+    public String formularioResponsable(Model model, HttpServletRequest request,
+            @RequestParam(required = false) String id) { 
         Responsable responsable = new Responsable();
         
         if (id != null && !id.isEmpty()) {
@@ -148,6 +209,20 @@ public class ResponsableController {
         }
 
         if(responsable.getCodExp() == null) responsable.setCodExp(Short.valueOf("9"));
+
+        // Con bienes a cargo, la oficina y el código (la clave en el VSIAF) no se tocan.
+        long activosACargo = (responsable.getIdResponsable() != null)
+                ? responsableDao.contarActivosAsignados(responsable.getIdResponsable()) : 0;
+        model.addAttribute("activosACargo", activosACargo);
+        model.addAttribute("bloquearClave", activosACargo > 0);
+        boolean admin = esAdmin(request);
+        model.addAttribute("esAdmin", admin);
+        if (responsable.getIdResponsable() != null && admin) {
+            Map<Long, String> nombres = vsiafApoyoService.nombresUsuario(
+                    java.util.Arrays.asList(responsable.getRegistroIdUsuario(), responsable.getModificacionIdUsuario()));
+            model.addAttribute("registradoPor", nombres.get(responsable.getRegistroIdUsuario()));
+            model.addAttribute("modificadoPor", nombres.get(responsable.getModificacionIdUsuario()));
+        }
 
         model.addAttribute("responsable", responsable);
         model.addAttribute("oficinas", oficinaService.listarOficinas());
@@ -184,9 +259,9 @@ public class ResponsableController {
     public ResponseEntity<?> registrarResponsable(
             HttpServletRequest request,
             @RequestParam(required = false) String codigoApi,
-            @RequestParam String ci,
-            @RequestParam(required = false, defaultValue = "1") Short codExp,
-            @RequestParam String codigoFuncionario,
+            @RequestParam(required = false) String ci,
+            @RequestParam(required = false, defaultValue = "9") Short codExp,
+            @RequestParam(required = false) String codigoFuncionario,
             @RequestParam Long idOficina,
             @RequestParam(required = false) String nombre,
             @RequestParam(required = false) String paterno,
@@ -194,377 +269,151 @@ public class ResponsableController {
             @RequestParam(required = false) String correo,
             @RequestParam(value = "cargoApi", required = false) String cargoApi,
             @RequestParam(value = "cargoNombre", required = false) String cargoNombreParam,
-            @RequestParam(defaultValue = "false") boolean modoRapido) {
+            @RequestParam(defaultValue = "false") boolean modoRapido,
+            @RequestParam(defaultValue = "false") boolean forzarCreacion) {
 
         // Distintos formularios mandan el cargo con nombre distinto (cargoApi / cargoNombre): aceptar ambos.
         String cargoNombre = (cargoApi != null && !cargoApi.isBlank()) ? cargoApi : cargoNombreParam;
 
-        log.info("=== INICIANDO REGISTRO DE RESPONSABLE ===");
-        log.info("CI: {}, Código: {}, Nombre: {}, Paterno: {}, Materno: {}", 
-            ci, codigoFuncionario, nombre, paterno, materno);
-        
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
-        
+
         try {
-            
             Oficina oficina = oficinaService.findById(idOficina);
-            if (oficina == null) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "ok", false,
-                    "msg", "No se encontró la oficina especificada"
-                ));
-            }
-            
-            Responsable respExistente = responsableService.findByCodigoFuncionarioYOficina(
-                codigoFuncionario, idOficina
-            );
-            if (respExistente != null) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "ok", false,
-                    "msg", String.format("Ya existe un responsable con código %s en la oficina %s", 
-                                        codigoFuncionario, oficina.getNombre())
-                ));
-            }
-            
-            Persona persona = null;
-            boolean personaNueva = false;
-            
-            if (ci != null && !ci.trim().isEmpty()) {
-                persona = personaService.buscarPersonaPorCI(ci.trim());
-                log.info("Búsqueda por CI '{}': {}", ci, (persona != null ? "Encontrada" : "No encontrada"));
-            }
-            
-            if (persona == null) {
-                boolean tieneDatosSuficientes = (nombre != null && !nombre.trim().isEmpty()) && 
-                                            (paterno != null && !paterno.trim().isEmpty());
-                
-                if (tieneDatosSuficientes) {
-                    log.info("Buscando por nombre: {} {} {}", nombre, paterno, materno);
-                    
-                    try {
-
-                        persona = personaService.buscarPersonaPorNombreCompletoUno(
-                            nombre.trim(), 
-                            paterno.trim(), 
-                            (materno != null && !materno.trim().isEmpty()) ? materno.trim() : null
-                        );
-                        
-                        log.info("Búsqueda exacta por nombre: {}", (persona != null ? "Encontrada" : "No encontrada"));
-                        
-                        if (persona == null) {
-                            List<Persona> personasCoincidentes = personaService.buscarPorNombreApellidos(
-                                nombre.trim(), 
-                                paterno.trim(), 
-                                (materno != null && !materno.trim().isEmpty()) ? materno.trim() : null
-                            );
-                            
-                            if (personasCoincidentes != null && !personasCoincidentes.isEmpty()) {
-                                log.info("Se encontraron {} personas coincidentes", personasCoincidentes.size());
-                                
-                                StringBuilder msg = new StringBuilder("Se encontraron personas similares:\n");
-                                for (Persona p : personasCoincidentes) {
-                                    msg.append(String.format("- %s (CI: %s)\n", 
-                                        p.getNombreCompleto(), 
-                                        p.getCi() != null ? p.getCi() : "Sin CI"
-                                    ));
-                                }
-                                msg.append("\n¿Desea continuar creando una nueva persona?");
-                                
-                                return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
-                                    "ok", false,
-                                    "msg", msg.toString(),
-                                    "personasCoincidentes", personasCoincidentes.stream()
-                                        .limit(10)
-                                        .map(p -> Map.of(
-                                            "idPersona", p.getIdPersona(),
-                                            "nombreCompleto", p.getNombreCompleto(),
-                                            "ci", p.getCi() != null ? p.getCi() : "",
-                                            "correo", p.getCorreo() != null ? p.getCorreo() : ""
-                                        ))
-                                        .collect(Collectors.toList()),
-                                    "requireConfirmacion", true
-                                ));
-                            }
-                        }
-                    } catch (Exception e) {
-                        log.error("Error en búsqueda por nombre: {}", e.getMessage());
-                    }
-                } else {
-                    log.warn("No se proporcionaron datos suficientes para buscar por nombre (nombre y paterno requeridos)");
-                }
-            }
-            
-            if (persona != null) {
-                boolean yaEsResponsableEnOficina = responsableService.existeResponsablePorPersonaYOficina(
-                    persona.getIdPersona(), idOficina
-                );
-                
-                if (yaEsResponsableEnOficina) {
-                    return ResponseEntity.badRequest().body(Map.of(
-                        "ok", false,
-                        "msg", String.format("La persona %s ya es responsable en la oficina %s", 
-                                            persona.getNombreCompleto(), oficina.getNombre())
-                    ));
-                }
+            if (oficina == null || !"ACTIVO".equals(oficina.getEstado())) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No se encontró la oficina especificada."));
             }
 
-            if (persona == null) {
-                personaNueva = true;
-                persona = new Persona();
-                persona.setCi(ci != null && !ci.trim().isEmpty() ? ci.trim() : null);
-                persona.setNombre(nombre != null && !nombre.trim().isEmpty() ? nombre.trim().toUpperCase() : null);
-                persona.setPaterno(paterno != null && !paterno.trim().isEmpty() ? paterno.trim().toUpperCase() : null);
-                persona.setMaterno(materno != null && !materno.trim().isEmpty() ? materno.trim().toUpperCase() : null);
-                persona.setCorreo(correo != null && !correo.trim().isEmpty() ? correo.trim() : null);
-                persona.setEstado("ACTIVO");
-                
-                if (usuario != null) {
-                    persona.setRegistroIdUsuario(usuario.getIdUsuario());
-                }
-                
-                personaService.save(persona);
-                log.info("✅ Nueva persona creada: {} (ID: {})", persona.getNombreCompleto(), persona.getIdPersona());
-            } else {
-                log.info("✅ Persona existente encontrada: {} (ID: {})", persona.getNombreCompleto(), persona.getIdPersona());
-            }
+            // modoRapido (alta al vuelo desde Activos / Asignación / Transferencia): queda
+            // pendiente y viaja al VSIAF junto con el movimiento que lo usa. El alta desde
+            // este módulo va al VSIAF enseguida.
+            ResponsableAltaService.ResultadoAlta alta = responsableAltaService.registrar(
+                    new ResponsableAltaService.DatosAlta(ci, codExp, codigoFuncionario, codigoApi,
+                            nombre, paterno, materno, correo, cargoNombre),
+                    oficina, usuario, forzarCreacion, modoRapido);
+            Responsable responsable = alta.responsable();
+            Responsable cargadoAlta = responsableService.findByIdWithRelations(responsable.getIdResponsable());
+            actividadService.registrar(usuario, ActividadService.MOD_RESPONSABLE, ActividadService.ACC_REGISTRO,
+                    ResponsableGestionService.referencia(cargadoAlta),
+                    "Registró al responsable " + ResponsableGestionService.referencia(cargadoAlta)
+                    + (modoRapido ? " (alta rápida desde otro módulo)" : ""), responsable.getIdResponsable());
 
-            Responsable responsable = new Responsable();
-            responsable.setCodigoApi(codigoApi);
-            responsable.setCodigoFuncionario(codigoFuncionario.trim());
-            responsable.setPersona(persona);
-            responsable.setOficina(oficina);
-
-            if (cargoNombre != null && !cargoNombre.trim().isEmpty()) {
-                Cargo cargoEncontrado = cargoService.buscarPorNombre(cargoNombre.trim());
-                if (cargoEncontrado == null) {
-                    Cargo nuevoCargo = new Cargo();
-                    nuevoCargo.setNombre(cargoNombre.trim().toUpperCase());
-                    nuevoCargo.setDescripcion("Cargo proporcionado de la API");
-                    nuevoCargo.setEstado("ACTIVO");
-                    nuevoCargo.setRegistro(new Date());
-                    if (usuario != null) {
-                        nuevoCargo.setRegistroIdUsuario(usuario.getIdUsuario());
-                    }
-                    cargoService.save(nuevoCargo);
-                    responsable.setCargo(nuevoCargo);
-                    log.info("✅ Nuevo cargo creado: {}", nuevoCargo.getNombre());
-                } else {
-                    responsable.setCargo(cargoEncontrado);
-                    log.info("✅ Cargo existente asignado: {}", cargoEncontrado.getNombre());
-                }
-            }
-            
-            responsable.setFechaUlt(LocalDate.now());
-            responsable.setUsuario(usuarioNombre);
-            responsable.setApiEstado(modoRapido ? Short.valueOf("3") : Short.valueOf("1"));
-            // modoRapido difiere la escritura al DBF → queda pendiente; el alta normal se encola enseguida.
-            responsable.setPendienteDbf(modoRapido);
-            responsable.setCodExp(codExp != null ? codExp : Short.valueOf("9"));
-            responsable.setEstado("ACTIVO");
-            
-            if (usuario != null) {
-                responsable.setRegistroIdUsuario(usuario.getIdUsuario());
-            }
-            
-            responsableService.save(responsable);
             if (modoRapido) {
-                log.info("Responsable {} registrado en PostgreSQL (pendiente DBF - modoRapido)", 
-                        responsable.getIdResponsable());
                 return ResponseEntity.ok(Map.of(
                     "ok", true,
-                    "msg", "Responsable registrado. Pendiente sincronización con DBF.",
+                    "msg", "Responsable registrado. Se enviará al VSIAF junto con el movimiento que lo utilice.",
                     "id", responsable.getIdResponsable(),
-                    "personaNueva", personaNueva
+                    "personaNueva", alta.personaNueva()
                 ));
             }
 
-            Responsable responsableCargado = responsableService.findByIdWithRelations(responsable.getIdResponsable());
+            VsiafApoyoService.Envio envio = vsiafApoyoService.insertarResponsable(cargadoAlta, usuarioNombre);
 
-            try {
-                Predio predio = oficina.getPredio();
-                Entidad entidad = (predio != null) ? predio.getEntidad() : null;
-                
-                if (predio == null || entidad == null) {
-                    log.warn("Responsable {} sin predio/entidad completo, no se sincroniza con DBF", 
-                            responsable.getIdResponsable());
-                    return ResponseEntity.ok(Map.of(
-                        "ok", true,
-                        "msg", "Registrado en PostgreSQL, pero SIN datos de Predio/Entidad para DBF",
-                        "id", responsable.getIdResponsable(),
-                        "personaNueva", personaNueva
-                    ));
-                }
-                
-                String entidadCode = entidad.getEntidadCodigo();
-                String unidadCode = predio.getUnidad();
-
-                // Sin escaneo de RESP.DBF por CIFS: el worker VFPOLEDB hace insert-if-not-exists
-                // por índice (.CDX), así el alta no se bloquea leyendo el DBF.
-                respDbfWriterService.insertarDesdeResponsable(
-                    responsableCargado, entidadCode, unidadCode, usuarioNombre
-                );
-                
-                log.info("Responsable {} registrado exitosamente en PostgreSQL y DBF", 
-                        responsable.getIdResponsable());
-                
-            } catch (Exception e) {
-                log.error("Error insertando responsable en DBF: {}", e.getMessage(), e);
-                return ResponseEntity.status(500).body(Map.of(
-                    "ok", false,
-                    "msg", "Se guardó en PostgreSQL pero falló el registro en DBF: " + e.getMessage(),
-                    "id", responsable.getIdResponsable()
-                ));
-            }
-            
             return ResponseEntity.ok(Map.of(
                 "ok", true,
-                "msg", String.format("Responsable registrado correctamente%s", 
-                                    personaNueva ? " (nueva persona creada)" : ""),
+                "vsiafOk", envio.ok(),
+                "msg", "Responsable registrado" + (alta.personaNueva() ? " (nueva persona)" : "") + ". " + envio.mensaje(),
                 "id", responsable.getIdResponsable(),
-                "personaNueva", personaNueva
+                "personaNueva", alta.personaNueva()
             ));
-            
+
+        } catch (ResponsableAltaService.PersonasSimilaresException similares) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(similares.cuerpo());
+        } catch (IllegalArgumentException invalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", invalido.getMessage()));
         } catch (Exception e) {
             log.error("Error registrando responsable: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).body(Map.of(
-                "ok", false,
-                "msg", "Error al registrar: " + e.getMessage()
-            ));
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error al registrar: " + e.getMessage()));
         }
     }
 
+    /**
+     * Edición. Datos de la persona y cargo se aplican siempre. Cambiar oficina o código
+     * (la clave en el VSIAF) lo aplica directo un ADMINISTRADOR / SUPER USUARIO; los demás
+     * generan una solicitud de autorización (ver {@code OficinaController.modificar_oficina}).
+     */
     @ValidarUsuarioAutenticado
     @PostMapping("/modificar-responsable")
     @ResponseBody
     public ResponseEntity<?> modificarResponsable(
             HttpServletRequest request,
             @RequestParam String idResponsableEnc,
-            @RequestParam String ci,
-            @RequestParam(required = false, defaultValue = "1") Short codExp,
-            @RequestParam String codigoFuncionario,
+            @RequestParam(required = false) String ci,
+            @RequestParam(required = false, defaultValue = "9") Short codExp,
+            @RequestParam(required = false) String codigoFuncionario,
             @RequestParam Long idOficina,
             @RequestParam(required = false) String nombre,
             @RequestParam(required = false) String paterno,
             @RequestParam(required = false) String materno,
             @RequestParam(required = false) String correo,
             @RequestParam(required = false) String cargoApi,
-            @RequestParam(required = false) String codigoApi) {
+            @RequestParam(required = false) String codigoApi,
+            @RequestParam(defaultValue = "false") boolean solicitarAutorizacion,
+            @RequestParam(required = false) String motivoSolicitud) {
 
-        log.info("=== MODIFICANDO RESPONSABLE ===");
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-        String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
 
         try {
             Long id = Long.parseLong(Encriptar.decrypt(idResponsableEnc));
-            Responsable responsable = responsableService.findByIdWithRelations(id);
-            
-            if (responsable == null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Responsable no encontrado"));
+            DatosResponsable datos = new DatosResponsable(id, ci, codExp, codigoFuncionario, idOficina,
+                    nombre, paterno, materno, correo, cargoApi, codigoApi);
+            Responsable original = responsableGestionService.buscar(id);
 
-            Oficina ofiOriginal = responsable.getOficina();
-            String entidadOriginal = ofiOriginal.getPredio().getEntidad().getEntidadCodigo();
-            String unidadOriginal = ofiOriginal.getPredio().getUnidad();
-            Short codOficOriginal = ofiOriginal.getCodOfi();
-            Integer codRespOriginal = null;
-            try {
-                codRespOriginal = Integer.valueOf(responsable.getCodigoFuncionario().replaceAll("\\D+", ""));
-            } catch (Exception e) {}
-
-            Persona persona = responsable.getPersona();
-            boolean cambioPersona = false;
-
-            if (nombre != null && !nombre.trim().isEmpty()) { persona.setNombre(nombre.trim().toUpperCase()); cambioPersona = true; }
-            if (paterno != null) { persona.setPaterno(paterno.trim().toUpperCase()); cambioPersona = true; }
-            if (materno != null) { persona.setMaterno(materno.trim().toUpperCase()); cambioPersona = true; }
-            if (ci != null) { persona.setCi(ci.trim()); cambioPersona = true; }
-            if (correo != null) { persona.setCorreo(correo.trim()); cambioPersona = true; }
-            if (cambioPersona) personaService.save(persona);
-
-            Oficina nuevaOficina = oficinaService.findById(idOficina);
-            responsable.setOficina(nuevaOficina);
-
-            if (cargoApi != null && !cargoApi.trim().isEmpty()) {
-                Cargo cargo = cargoService.buscarPorNombre(cargoApi.trim());
-                if (cargo == null) {
-                    cargo = new Cargo();
-                    cargo.setNombre(cargoApi.trim().toUpperCase());
-                    cargo.setEstado("ACTIVO");
-                    cargoService.save(cargo);
+            if (responsableGestionService.cambiaClave(original, datos) && !esAdmin(request)) {
+                responsableGestionService.validarModificacion(datos);   // que no se pida algo imposible
+                String resumen = responsableGestionService.describirCambios(original, datos);
+                if (!solicitarAutorizacion) {
+                    return ResponseEntity.ok(Map.of("ok", false, "requiereAutorizacion", true,
+                        "msg", "Cambiar la oficina o el código de un responsable requiere autorización. Cambios: " + resumen));
                 }
-                responsable.setCargo(cargo);
+                autorizacionService.solicitar(ResponsableGestionService.TIPO_MODIFICAR, ActividadService.MOD_RESPONSABLE,
+                        id, ResponsableGestionService.referencia(original), resumen, datos.aMapa(),
+                        motivoSolicitud, usuario);
+                return ResponseEntity.ok(Map.of("ok", true, "solicitud", true,
+                    "msg", "Solicitud enviada. Se aplicará cuando el revisor la apruebe; le avisaremos aquí mismo."));
             }
 
-            responsable.setCodigoFuncionario(codigoFuncionario.trim());
-            responsable.setCodigoApi(codigoApi);
-            responsable.setCodExp(codExp);
-            responsable.setFechaUlt(LocalDate.now());
-            responsable.setUsuario(usuarioNombre);
-            // La edición encola el UPDATE al VSIAF enseguida → ya no queda pendiente.
-            responsable.setPendienteDbf(false);
+            ResponsableGestionService.Resultado r = responsableGestionService.modificar(datos, usuario);
+            return ResponseEntity.ok(Map.of("ok", true, "vsiafOk", r.vsiafOk(), "msg", r.msg()));
 
-            responsableService.save(responsable);
-            log.info("Responsable actualizado en BD: ID={}", responsable.getIdResponsable());
-
-            try {
-                String entidadNueva = nuevaOficina.getPredio().getEntidad().getEntidadCodigo();
-                String unidadNueva = nuevaOficina.getPredio().getUnidad();
-
-                if (codRespOriginal != null) {
-                    respDbfWriterService.actualizarDesdeResponsable(
-                        codRespOriginal, 
-                        codOficOriginal, 
-                        entidadOriginal, 
-                        unidadOriginal,
-                        responsable, 
-                        entidadNueva, 
-                        unidadNueva, 
-                        usuarioNombre
-                    );
-                    log.info("Sincronización DBF exitosa (Update)");
-                } else {
-                    respDbfWriterService.insertarDesdeResponsable(responsable, entidadNueva, unidadNueva, usuarioNombre);
-                    log.info("Sincronización DBF exitosa (Insert fallback)");
-                }
-
-                return ResponseEntity.ok(Map.of("ok", true, "msg", "Responsable modificado correctamente en BD y DBF"));
-
-            } catch (Exception e) {
-                log.error("Error actualizando DBF: {}", e.getMessage());
-                return ResponseEntity.ok(Map.of(
-                    "ok", true,
-                    "msg", "Guardado en BD, pero error en DBF: " + e.getMessage()
-                ));
-            }
-
+        } catch (IllegalArgumentException | IllegalStateException invalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", invalido.getMessage()));
         } catch (Exception e) {
             log.error("Error fatal modificando: {}", e.getMessage(), e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
         }
     }
 
+    /**
+     * Alta después de que el usuario confirmó que, pese a haber personas con un nombre
+     * parecido, se trata de alguien nuevo. Antes este endpoint le pasaba
+     * {@code forzarCreacion} a {@code registrarResponsable} en el lugar de
+     * {@code modoRapido}: la búsqueda de similares se repetía, devolvía otra vez 409 y la
+     * confirmación no servía de nada.
+     */
     @ValidarUsuarioAutenticado
     @PostMapping("/registrar-responsable-forzado")
     @ResponseBody
     public ResponseEntity<?> registrarResponsableForzado(
             HttpServletRequest request,
             @RequestParam(required = false) String codigoApi,
-            @RequestParam String ci,
-            @RequestParam(required = false, defaultValue = "1") Short codExp,
-            @RequestParam String codigoFuncionario,
+            @RequestParam(required = false) String ci,
+            @RequestParam(required = false, defaultValue = "9") Short codExp,
+            @RequestParam(required = false) String codigoFuncionario,
             @RequestParam Long idOficina,
-            @RequestParam String nombre,
-            @RequestParam String paterno,
+            @RequestParam(required = false) String nombre,
+            @RequestParam(required = false) String paterno,
             @RequestParam(required = false) String materno,
             @RequestParam(required = false) String correo,
-            @RequestParam(required = false) Long idCargo,
+            @RequestParam(required = false) String cargoApi,
             @RequestParam(required = false) String nombreCargoApi,
             @RequestParam(value = "cargoNombre", required = false) String cargoNombre,
-            @RequestParam(defaultValue = "false") boolean forzarCreacion) {
+            @RequestParam(defaultValue = "false") boolean modoRapido) {
 
-        // Aceptar el cargo venga como nombreCargoApi o cargoNombre
-        String cargoEfectivo = (nombreCargoApi != null && !nombreCargoApi.isBlank()) ? nombreCargoApi : cargoNombre;
-        return registrarResponsable(request, codigoApi, ci, codExp, codigoFuncionario,
-                                   idOficina, nombre, paterno, materno, correo, cargoEfectivo, null, forzarCreacion);
+        String cargoEfectivo = (nombreCargoApi != null && !nombreCargoApi.isBlank()) ? nombreCargoApi
+                : (cargoApi != null && !cargoApi.isBlank()) ? cargoApi : cargoNombre;
+        return registrarResponsable(request, codigoApi, ci, codExp, codigoFuncionario, idOficina,
+                nombre, paterno, materno, correo, cargoEfectivo, null, modoRapido, true);
     }
 
     private boolean esCiValido(String ci) {
@@ -576,14 +425,24 @@ public class ResponsableController {
         return ciLimpio.matches("\\d{5,}");
     }
 
+    /** Sincronización manual desde el DBF: solo administradores (el resto no la necesita). */
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
     @ResponseBody
     @Transactional
-    public ResponseEntity<?> syncFromMounted(
+    public ResponseEntity<?> syncFromMountedManual(
+            HttpServletRequest request,
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "forzarCompleto", defaultValue = "false") boolean forzarCompleto) {
-        
+
+        if (!esAdmin(request)) return soloAdmin();
+        return syncFromMounted(q, forzarCompleto);
+    }
+
+    /** La usa también {@code SyncOrchestrator} (sincronización programada), sin petición HTTP. */
+    @Transactional
+    public ResponseEntity<?> syncFromMounted(String q, boolean forzarCompleto) {
+
         long inicio = System.currentTimeMillis();
         
         try {
@@ -961,6 +820,11 @@ public class ResponsableController {
         }
     }
 
+    /**
+     * Reenvía al VSIAF un responsable que quedó pendiente o que el worker rechazó. Es el
+     * único "sincronizar" que ve un usuario que no es administrador: actúa sobre un solo
+     * registro y usa la misma cola que el alta.
+     */
     @ValidarUsuarioAutenticado
     @PostMapping("/subir-dbf/{id}")
     @ResponseBody
@@ -968,38 +832,53 @@ public class ResponsableController {
         try {
             Long id = Long.parseLong(Encriptar.decrypt(idEnc));
             Responsable resp = responsableService.findByIdWithRelations(id);
-            
             if (resp == null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No encontrado"));
 
-            Oficina ofi = resp.getOficina();
-            if (ofi == null || ofi.getPredio() == null || ofi.getPredio().getEntidad() == null) {
-                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Datos de oficina incompletos"));
-            }
-
-            String entidad = ofi.getPredio().getEntidad().getEntidadCodigo();
-            String unidad = ofi.getPredio().getUnidad();
-            String usuario = (Usuario) request.getSession().getAttribute("usuario") != null ? 
-                             ((Usuario) request.getSession().getAttribute("usuario")).getUsuario() : "SISTEMA";
-            Integer codResp = Integer.valueOf(resp.getCodigoFuncionario().replaceAll("\\D+", ""));
-
-            if (respDbfWriterService.existsByCodResp(codResp, ofi.getCodOfi(), entidad, unidad)) {
-                // Actualizar
-                respDbfWriterService.actualizarDesdeResponsable(
-                    codResp, ofi.getCodOfi(), entidad, unidad,
-                    resp, entidad, unidad, usuario
-                );
-                resp.setPendienteDbf(false);
-                responsableService.save(resp);
-                return ResponseEntity.ok(Map.of("ok", true, "msg", "Responsable actualizado en DBF."));
-            }
-
-            respDbfWriterService.insertarDesdeResponsable(resp, entidad, unidad, usuario);
-            resp.setPendienteDbf(false);
-            responsableService.save(resp);
-            return ResponseEntity.ok(Map.of("ok", true, "msg", "Responsable insertado en DBF."));
+            Usuario u = (Usuario) request.getSession().getAttribute("usuario");
+            VsiafApoyoService.Envio envio = vsiafApoyoService.reenviarResponsable(resp, u != null ? u.getUsuario() : "SISTEMA");
+            actividadService.registrar(u, ActividadService.MOD_RESPONSABLE, ActividadService.ACC_REENVIO,
+                    ResponsableGestionService.referencia(resp), "Reenvió al VSIAF al responsable "
+                    + ResponsableGestionService.referencia(resp) + (envio.ok() ? "" : " (falló: " + envio.mensaje() + ")"),
+                    resp.getIdResponsable());
+            return ResponseEntity.ok(Map.of("ok", envio.ok(), "msg", envio.mensaje()));
 
         } catch (Exception e) {
             log.error("Error subiendo responsable", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Baja lógica en el SCIAF, solo sin bienes a cargo (en el VSIAF la fila sigue). Un
+     * ADMINISTRADOR / SUPER USUARIO la aplica directo; el resto envía una solicitud con
+     * {@code motivo}. Antes la vista llamaba a este endpoint pero no existía.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/eliminar/{id}")
+    @ResponseBody
+    public ResponseEntity<?> eliminarResponsable(@PathVariable("id") String idEnc, HttpServletRequest request,
+            @RequestParam(required = false) String motivo) {
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        try {
+            Long id = Long.parseLong(Encriptar.decrypt(idEnc));
+            Responsable resp = responsableGestionService.buscar(id);
+            String dep = responsableGestionService.dependenciasQueImpidenEliminar(resp);
+            if (dep != null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", dep));
+
+            if (!esAdmin(request)) {
+                autorizacionService.solicitar(ResponsableGestionService.TIPO_ELIMINAR, ActividadService.MOD_RESPONSABLE,
+                        id, ResponsableGestionService.referencia(resp), "Eliminar al responsable",
+                        Map.of("idResponsable", id), motivo, usuario);
+                return ResponseEntity.ok(Map.of("ok", true, "solicitud", true,
+                        "msg", "Solicitud de eliminación enviada. Se aplicará cuando el revisor la apruebe."));
+            }
+            ResponsableGestionService.Resultado r = responsableGestionService.eliminar(id, usuario);
+            return ResponseEntity.ok(Map.of("ok", true, "msg", r.msg()));
+
+        } catch (IllegalArgumentException | IllegalStateException invalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", invalido.getMessage()));
+        } catch (Exception e) {
+            log.error("Error eliminando responsable", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
         }
     }
@@ -1083,5 +962,9 @@ public class ResponsableController {
 
     private static String nvl(String s) {
         return s == null ? "" : s;
+    }
+
+    private static LocalDateTime aLocal(Date d) {
+        return LocalDateTime.ofInstant(d.toInstant(), java.time.ZoneId.systemDefault());
     }
 }

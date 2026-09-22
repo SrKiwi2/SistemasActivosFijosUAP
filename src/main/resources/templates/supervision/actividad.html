@@ -1,0 +1,274 @@
+<!-- ═══════════════════════════════════════════════════════
+     Monitoreo de actividad (solo ADMINISTRADOR / SUPER USUARIO)
+     Solo lectura. Se actualiza solo con el evento SSE "actividad".
+     ═══════════════════════════════════════════════════════ -->
+<style>
+    #mon-actividad .kpi { border: 0; border-radius: 14px; box-shadow: 0 2px 10px rgba(34,41,47,.06); }
+    #mon-actividad .kpi .kpi-ico { width: 42px; height: 42px; border-radius: 12px; display: flex;
+        align-items: center; justify-content: center; font-size: 1.25rem; }
+    #mon-actividad .kpi .kpi-num { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+    #mon-actividad .kpi .kpi-lbl { font-size: .72rem; text-transform: uppercase; letter-spacing: .4px; color: #8a8d93; }
+    #mon-actividad .acc-badge { font-size: .68rem; font-weight: 700; letter-spacing: .3px; }
+    #mon-actividad .ref-chip { font-family: monospace; font-size: .75rem; background: #f3f2f7; border-radius: 6px;
+        padding: 2px 7px; border: 0; cursor: pointer; white-space: nowrap; }
+    #mon-actividad .ref-chip:hover { background: #e8e6f0; }
+    #mon-actividad tr.fila-nueva { animation: monFlash 2.4s ease; }
+    @keyframes monFlash { 0% { background: rgba(115,103,240,.18); } 100% { background: transparent; } }
+    #mon-actividad .en-vivo { display: inline-flex; align-items: center; gap: 6px; font-size: .75rem; color: #28c76f; font-weight: 600; }
+    #mon-actividad .en-vivo::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #28c76f;
+        box-shadow: 0 0 0 0 rgba(40,199,111,.6); animation: monPulso 1.8s infinite; }
+    @keyframes monPulso { 0% { box-shadow: 0 0 0 0 rgba(40,199,111,.6); } 70% { box-shadow: 0 0 0 8px rgba(40,199,111,0); } 100% { box-shadow: 0 0 0 0 rgba(40,199,111,0); } }
+    #tblActividad_processing { display: none !important; }
+</style>
+
+<div class="container-xxl flex-grow-1 container-p-y" id="mon-actividad">
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center py-2 mb-3 gap-2">
+        <h4 class="fw-bold mb-0"><span class="text-muted fw-light">Supervisión /</span> Monitoreo de actividad</h4>
+        <span class="en-vivo">En vivo</span>
+    </div>
+
+    <!-- Resumen del día -->
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3">
+            <div class="card kpi"><div class="card-body d-flex gap-3 align-items-center">
+                <div class="kpi-ico bg-label-primary"><i class="ti ti-activity"></i></div>
+                <div><div class="kpi-num" id="kpiTotal">0</div><div class="kpi-lbl">Acciones hoy</div></div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card kpi"><div class="card-body d-flex gap-3 align-items-center">
+                <div class="kpi-ico bg-label-success"><i class="ti ti-circle-plus"></i></div>
+                <div><div class="kpi-num" id="kpiRegistros">0</div><div class="kpi-lbl">Registros hoy</div></div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card kpi"><div class="card-body d-flex gap-3 align-items-center">
+                <div class="kpi-ico bg-label-info"><i class="ti ti-pencil"></i></div>
+                <div><div class="kpi-num" id="kpiModif">0</div><div class="kpi-lbl">Modificaciones hoy</div></div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card kpi"><div class="card-body d-flex gap-3 align-items-center">
+                <div class="kpi-ico bg-label-warning"><i class="ti ti-shield-question"></i></div>
+                <div><div class="kpi-num" id="kpiSolicitudes">0</div><div class="kpi-lbl">Solicitudes pendientes</div></div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <!-- Filtros + tabla -->
+        <div class="col-12 col-xl-9">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body pb-2">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-bold text-muted mb-1">Usuario</label>
+                            <select id="fUsuario" class="form-select form-select-sm">
+                                <option value="">Todos</option>
+                                <option th:each="u : ${usuarios}" th:value="${u}" th:text="${u}"></option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small fw-bold text-muted mb-1">Módulo</label>
+                            <select id="fModulo" class="form-select form-select-sm">
+                                <option value="">Todos</option>
+                                <option value="ACTIVO">Activos</option>
+                                <option value="OFICINA">Oficinas</option>
+                                <option value="RESPONSABLE">Responsables</option>
+                                <option value="ASIGNACION">Asignación</option>
+                                <option value="TRANSFERENCIA">Transferencia</option>
+                                <option value="BLOQUEO">Bloqueo</option>
+                                <option value="AUTORIZACION">Autorizaciones</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small fw-bold text-muted mb-1">Acción</label>
+                            <select id="fAccion" class="form-select form-select-sm">
+                                <option value="">Todas</option>
+                                <option value="REGISTRO">Registro</option>
+                                <option value="MODIFICACION">Modificación</option>
+                                <option value="ELIMINACION">Eliminación</option>
+                                <option value="APROBACION">Aprobación</option>
+                                <option value="MOVIMIENTO">Movimiento</option>
+                                <option value="SOLICITUD">Solicitud</option>
+                                <option value="RECHAZO">Rechazo</option>
+                                <option value="BLOQUEO">Bloqueo</option>
+                                <option value="DESBLOQUEO">Desbloqueo</option>
+                                <option value="REENVIO">Reenvío VSIAF</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small fw-bold text-muted mb-1">Desde</label>
+                            <input type="date" id="fDesde" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small fw-bold text-muted mb-1">Hasta</label>
+                            <input type="date" id="fHasta" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6 col-md-1 d-grid">
+                            <button class="btn btn-sm btn-outline-secondary" id="btnLimpiarFiltros" title="Limpiar filtros">
+                                <i class="ti ti-filter-off"></i>
+                            </button>
+                        </div>
+                        <div class="col-12">
+                            <input type="search" id="fTexto" class="form-control form-control-sm"
+                                   placeholder="Buscar por código o texto (ej. 01-02-0123, CAUN-5, nombre del responsable)…">
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="tblActividad" style="width:100%">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:130px">Fecha</th>
+                                <th style="width:120px">Usuario</th>
+                                <th style="width:150px">Módulo / Acción</th>
+                                <th>Detalle</th>
+                                <th style="width:170px">Código</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Usuarios más activos hoy -->
+        <div class="col-12 col-xl-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header pb-2"><h6 class="mb-0"><i class="ti ti-users me-1"></i> Más activos hoy</h6></div>
+                <div class="card-body pt-2" id="topUsuarios">
+                    <div class="text-muted small">Sin actividad todavía.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    const ACC = {
+        REGISTRO: ['bg-label-success', 'Registro'], MODIFICACION: ['bg-label-info', 'Modificación'],
+        ELIMINACION: ['bg-label-danger', 'Eliminación'], APROBACION: ['bg-label-success', 'Aprobación'],
+        MOVIMIENTO: ['bg-label-primary', 'Movimiento'], SOLICITUD: ['bg-label-warning', 'Solicitud'],
+        RECHAZO: ['bg-label-danger', 'Rechazo'], BLOQUEO: ['bg-label-warning', 'Bloqueo'],
+        DESBLOQUEO: ['bg-label-success', 'Desbloqueo'], REENVIO: ['bg-label-info', 'Reenvío VSIAF']
+    };
+    const MOD = { ACTIVO: 'Activos', OFICINA: 'Oficinas', RESPONSABLE: 'Responsables', ASIGNACION: 'Asignación',
+        TRANSFERENCIA: 'Transferencia', BLOQUEO: 'Bloqueo', AUTORIZACION: 'Autorizaciones' };
+
+    function esc(v) { return $('<div>').text(v == null ? '' : String(v)).html(); }
+
+    $('#fUsuario, #fModulo, #fAccion').each(function () {
+        $(this).select2({ width: '100%', minimumResultsForSearch: 6, dropdownParent: $('#mon-actividad') });
+    });
+
+    let ultimoId = 0;       // para resaltar las filas que llegan en vivo
+
+    const tabla = $('#tblActividad').DataTable({
+        serverSide: true,
+        processing: false,
+        searching: false,
+        ordering: false,
+        pageLength: 25,
+        lengthMenu: [25, 50, 100],
+        ajax: {
+            url: '/administracion/actividad/api/datatables',
+            type: 'POST',
+            data: function (d) {
+                d.usuario = $('#fUsuario').val();
+                d.modulo = $('#fModulo').val();
+                d.accion = $('#fAccion').val();
+                d.texto = $('#fTexto').val();
+                d.desde = $('#fDesde').val();
+                d.hasta = $('#fHasta').val();
+            }
+        },
+        columns: [
+            { data: 'fecha', render: d => `<span class="small text-nowrap">${esc(d)}</span>` },
+            { data: 'usuario', render: (d, t, r) => `<div class="lh-sm"><div class="fw-semibold">${esc(d)}</div>
+                                                      <small class="text-muted">${esc(r.rol)}</small></div>` },
+            { data: 'accion', render: (d, t, r) => {
+                const a = ACC[d] || ['bg-label-secondary', d];
+                return `<div class="lh-sm"><span class="badge acc-badge ${a[0]}">${esc(a[1])}</span>
+                        <div class="small text-muted mt-1">${esc(MOD[r.modulo] || r.modulo)}</div></div>`;
+            } },
+            { data: 'descripcion', render: (d, t, r) => `<div class="small">${esc(d)}</div>` +
+                (r.cantidad > 1 ? `<span class="badge bg-label-secondary mt-1">${r.cantidad} registros</span>` : '') },
+            { data: 'referencia', render: d => d
+                ? `<button type="button" class="ref-chip" data-ref="${esc(d)}" title="Copiar para buscarlo en su módulo">
+                       <i class="ti ti-copy me-1"></i>${esc(d)}</button>` : '' }
+        ],
+        createdRow: function (row, data) {
+            if (ultimoId && data.idActividad > ultimoId) $(row).addClass('fila-nueva');
+        },
+        drawCallback: function () {
+            const filas = this.api().rows().data().toArray();
+            if (filas.length) ultimoId = Math.max(ultimoId, ...filas.map(f => f.idActividad || 0));
+        },
+        language: {
+            emptyTable: 'Sin actividad registrada con estos filtros',
+            info: 'Mostrando _START_ a _END_ de _TOTAL_',
+            infoEmpty: 'Sin registros', lengthMenu: 'Mostrar _MENU_',
+            paginate: { first: 'Primero', last: 'Último', next: 'Sig.', previous: 'Ant.' }
+        }
+    });
+
+    // Copiar el código para ir a buscarlo en su módulo
+    $('#tblActividad').off('click.mon').on('click.mon', '.ref-chip', function () {
+        const ref = $(this).data('ref');
+        navigator.clipboard?.writeText(ref).then(() => {
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Código copiado: ' + ref,
+                showConfirmButton: false, timer: 1800 });
+        });
+    });
+
+    let tDebounce;
+    $('#fTexto').on('input', function () {
+        clearTimeout(tDebounce);
+        tDebounce = setTimeout(() => tabla.ajax.reload(), 350);
+    });
+    $('#fUsuario, #fModulo, #fAccion, #fDesde, #fHasta').on('change', () => tabla.ajax.reload());
+    $('#btnLimpiarFiltros').on('click', function () {
+        $('#fUsuario, #fModulo, #fAccion').val('').trigger('change.select2');
+        $('#fTexto, #fDesde, #fHasta').val('');
+        tabla.ajax.reload();
+    });
+
+    function cargarResumen() {
+        $.get('/administracion/actividad/api/resumen', function (r) {
+            $('#kpiTotal').text(r.totalHoy || 0);
+            $('#kpiRegistros').text((r.porAccion && r.porAccion.REGISTRO) || 0);
+            $('#kpiModif').text((r.porAccion && r.porAccion.MODIFICACION) || 0);
+            $('#kpiSolicitudes').text(r.solicitudesPendientes || 0);
+            const top = r.topUsuarios || [];
+            $('#topUsuarios').html(top.length ? top.map((u, i) => `
+                <div class="d-flex align-items-center justify-content-between py-2 ${i ? 'border-top' : ''}">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="avatar avatar-sm"><span class="avatar-initial rounded-circle bg-label-primary">${esc(String(u.usuario).substring(0, 2).toUpperCase())}</span></span>
+                        <span class="fw-semibold small">${esc(u.usuario)}</span>
+                    </div>
+                    <span class="badge bg-label-primary">${u.total}</span>
+                </div>`).join('') : '<div class="text-muted small">Sin actividad todavía.</div>');
+        });
+    }
+    cargarResumen();
+
+    // En vivo: cada acción de otro usuario recarga la primera página y el resumen.
+    if (window.sciafEscuchar) {
+        let tVivo;
+        const refrescar = function () {
+            if (!document.getElementById('tblActividad')) return;   // se salió del módulo
+            clearTimeout(tVivo);
+            tVivo = setTimeout(function () {                        // agrupa ráfagas
+                if (tabla.page.info().page === 0) tabla.ajax.reload(null, false);
+                cargarResumen();
+            }, 500);
+        };
+        window.sciafEscuchar('actividad', 'monitoreo', refrescar);
+        window.sciafEscuchar('autorizacion', 'monitoreo', refrescar);
+    }
+})();
+</script>

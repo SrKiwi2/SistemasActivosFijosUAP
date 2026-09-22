@@ -667,6 +667,17 @@ public class AsignacionEdicionService {
                                            AsignacionActivo origen, AsignacionActivo destino) {
         boolean cambio = false;
 
+        boolean mueve = (responsable != null && (activo.getResponsable() == null
+                || !responsable.getIdResponsable().equals(activo.getResponsable().getIdResponsable())))
+                || (oficina != null && (activo.getOficina() == null
+                || !oficina.getIdOficina().equals(activo.getOficina().getIdOficina())));
+        if (mueve && Boolean.TRUE.equals(activo.getBloqueado())) {
+            // IllegalArgumentException: el controlador la muestra como mensaje y la transacción se revierte.
+            throw new IllegalArgumentException("El activo " + activo.getCodigo()
+                    + " está bloqueado: no se puede mover a otro responsable u oficina. "
+                    + "Un administrador debe desbloquearlo primero.");
+        }
+
         if (responsable != null && (activo.getResponsable() == null
                 || !responsable.getIdResponsable().equals(activo.getResponsable().getIdResponsable()))) {
             activo.setResponsable(responsable);
