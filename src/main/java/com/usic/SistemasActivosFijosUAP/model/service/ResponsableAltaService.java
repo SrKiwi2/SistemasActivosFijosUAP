@@ -42,6 +42,8 @@ public class ResponsableAltaService {
     /** Largos de RESP.DBF: lo que no entra, el VSIAF lo recorta o lo rechaza. */
     public static final int MAX_CI = 15;
     public static final int MAX_CARGO = 40;
+    /** NOMRESP: nombre y apellidos viajan juntos en un solo campo. */
+    public static final int MAX_NOMBRE_COMPLETO = 35;
     public static final int MAX_COD_RESP = 99999;
 
     private final IResponsableService responsableService;
@@ -115,6 +117,7 @@ public class ResponsableAltaService {
         String cargoNombre = mayus(d.cargo());
 
         validar(ci, codFun, cargoNombre);
+        validarNombreCompleto(nombre, paterno, materno);
 
         if (oficina.getIdOficina() != null
                 && responsableService.findByCodigoFuncionarioYOficina(codFun, oficina.getIdOficina()) != null) {
@@ -238,6 +241,22 @@ public class ResponsableAltaService {
         if (cargo.length() > MAX_CARGO) {
             throw new IllegalArgumentException("El cargo no puede tener más de " + MAX_CARGO
                     + " caracteres (es el largo del campo en el VSIAF).");
+        }
+    }
+
+    /**
+     * Nombre + apellidos entran en NOMRESP, de 35 caracteres. Se valida en el alta: más
+     * largo, el VSIAF lo recorta por su cuenta y deja de coincidir con el SCIAF. En la
+     * edición de registros viejos no se bloquea, solo se avisa desde la pantalla.
+     */
+    public void validarNombreCompleto(String nombre, String paterno, String materno) {
+        String completo = java.util.stream.Stream.of(mayus(nombre), mayus(paterno), mayus(materno))
+                .filter(java.util.Objects::nonNull)
+                .reduce((a, b) -> a + " " + b).orElse("");
+        if (completo.length() > MAX_NOMBRE_COMPLETO) {
+            throw new IllegalArgumentException(String.format(
+                    "El nombre completo tiene %d caracteres y el VSIAF admite %d. Abrevie el nombre.",
+                    completo.length(), MAX_NOMBRE_COMPLETO));
         }
     }
 

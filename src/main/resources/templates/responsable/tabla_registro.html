@@ -1,25 +1,27 @@
 <div class="card">
-    <div class="card-header d-flex justify-content-lg-between">
-        <h5>Registro Responsable</h5>
-        <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
-              <i class="fa-solid fa-file-import me-1"></i> Importar DBF
+    <!-- Encabezado responsivo: apila botones en móvil -->
+    <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+        <h5 class="m-0">Registro Responsable</h5>
+        <div class="d-flex flex-wrap justify-content-center gap-2">
+            <button type="button" class="btn btn-outline-secondary text-nowrap" data-bs-toggle="modal" data-bs-target="#modalImportDbf">
+              <i class="fa-solid fa-file-import me-1"></i> <span class="d-none d-sm-inline">Importar DBF</span>
             </button>
-            <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-                data-bs-target="#modalFormularioResponsable">
-                <i class="fa-solid fa-user-plus"></i> Agregar Responsable
+            <button type="button" class="btn btn-primary text-nowrap" onclick="cargarFormulario()" data-bs-toggle="modal" data-bs-target="#modalFormularioResponsable">
+                <i class="fa-solid fa-user-plus me-1"></i> Agregar Responsable
             </button>
         </div>
     </div>
+    
     <div class="card-datatable table-responsive pt-0">
-        <table class="datatables-basic table table-hover" id="data-table">
+        <!-- style width:100% vital para DataTables responsive -->
+        <table class="datatables-basic table table-hover" id="data-table" style="width: 100%;">
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>CODIGO FUNCIONARIO</th>
+                    <th>CÓD. FUNCIONARIO</th>
                     <th>NOMBRE</th>
-                    <th>APELLIDO PATERNO</th>
-                    <th>APELLIDO MATERNO</th>
+                    <th>PATERNO</th>
+                    <th>MATERNO</th>
                     <th>C.I.</th>
                     <th>OFICINA</th>
                     <th>CARGO</th>
@@ -28,19 +30,20 @@
             </thead>
             <tbody class="animate__animated animate__bounceInDown">
                 <tr th:each="responsables, index: ${listaResponsables}">
-                    <th th:text="${index.index+1}"></th>
-                    <th th:text="${responsables.codigoFuncionario}"></th>
-                    <th th:text="${responsables?.persona?.nombre ?: 'Vacío'}"></th>
-                    <th th:text="${responsables?.persona?.paterno ?: 'Vacío'}"></th>
-                    <th th:text="${responsables?.persona?.materno ?: 'Vacío'}"></th>
-                    <th th:text="${responsables?.persona?.ci ?: 'Vacío'}"></th>                    
-                    <th th:text="${responsables.oficina.codOfi}"></th>
-                    <th th:text="${responsables?.cargo?.nombre ?: 'Vacío'}"></th>
-                    <th>
-                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${responsables.persona.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
-                            <i class="fa-solid fa-trash"></i> Eliminar
+                    <!-- CORRECCIÓN: Todo esto a <td> para que la tabla no se descuadre -->
+                    <td th:text="${index.index+1}"></td>
+                    <td th:text="${responsables.codigoFuncionario}"></td>
+                    <td th:text="${responsables?.persona?.nombre ?: 'Vacío'}"></td>
+                    <td th:text="${responsables?.persona?.paterno ?: 'Vacío'}"></td>
+                    <td th:text="${responsables?.persona?.materno ?: 'Vacío'}"></td>
+                    <td th:text="${responsables?.persona?.ci ?: 'Vacío'}"></td>                    
+                    <td th:text="${responsables.oficina.codOfi}"></td>
+                    <td th:text="${responsables?.cargo?.nombre ?: 'Vacío'}"></td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-danger text-nowrap" th:onclick="eliminar([[${responsables.persona.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
+                            <i class="fa-solid fa-trash"></i> <span class="d-none d-lg-inline">Eliminar</span>
                         </button>
-                    </th>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -49,6 +52,8 @@
 
 <script>
     $('#data-table').DataTable({
+        scrollX: true,       // Habilita barra de desplazamiento horizontal en móviles
+        autoWidth: false,    // Evita cálculos forzados de columnas que rompen el diseño
         language: {
             "sLengthMenu": "Mostrar _MENU_ registros",
             "sZeroRecords": "No se encontraron resultados",

@@ -823,10 +823,21 @@
 
         const tipo = S.preview?.tipo || 'INTERNA';
         const porCrear = S.preview?.auxiliaresPorCrear || [];
-        let confirmMsg = `¿Confirma la transferencia ${tipo === 'EXTERNA' ? 'EXTERNA (cambia de predio)' : 'INTERNA'} de ${S.list.length} activo(s)?`;
-        if (porCrear.length) confirmMsg += `\n\nSe crearán ${porCrear.length} auxiliar(es) en el predio destino:\n· ` + porCrear.map(a => a.nombre).join('\n· ');
-        if (!obs) confirmMsg += `\n\n(No escribió ninguna observación.)`;
-        if (!confirm(confirmMsg)) return;
+        let detalle = tipo === 'EXTERNA'
+            ? 'Transferencia <b>EXTERNA</b>: cambia de predio.'
+            : 'Transferencia <b>INTERNA</b>: mismo predio.';
+        if (porCrear.length) {
+            detalle += `<br><br>Se crearán ${porCrear.length} auxiliar(es) en el predio destino:<br>· `
+                     + porCrear.map(a => a.nombre).join('<br>· ');
+        }
+        if (!obs) detalle += `<br><br><i>No escribió ninguna observación.</i>`;
+
+        const seguir = await sciafConfirmar({
+            titulo: `¿Transferir ${S.list.length} activo(s)?`,
+            texto: detalle,
+            aceptar: 'Sí, transferir'
+        });
+        if (!seguir) return;
 
         const btn = document.getElementById('tf-btn-go');
         btn.disabled = true;
@@ -901,6 +912,11 @@
 
         tfCargoSelect2();
 
+        // El nombre completo viaja al VSIAF en un solo campo de 35 caracteres.
+        if (window.sciafContador) {
+            S.contadorNombre = sciafContador.combinado(['#tf-nr-nombre', '#tf-nr-paterno', '#tf-nr-materno'], 35);
+        }
+
         document.getElementById('tf-nr-ci').onblur = async function () {
             const ci = this.value.trim();
             if (!ci) return;
@@ -967,6 +983,9 @@
         if (!paterno) { tfToast('w', 'Requerido', 'El apellido paterno es obligatorio.'); return; }
         if (!codfunc) { tfToast('w', 'Requerido', 'El código de funcionario es obligatorio.'); return; }
         if (!cargo) { tfToast('w', 'Requerido', 'Seleccione o escriba un cargo.'); return; }
+        if (S.contadorNombre && S.contadorNombre.excede()) {
+            tfToast('w', 'Nombre demasiado largo', S.contadorNombre.mensaje()); return;
+        }
 
         tfOverlay('Registrando responsable…');
         try {
@@ -980,7 +999,14 @@
             if (r.status === 409) {
                 tfOverlayOff();
                 const conflicto = await r.json();
-                if (!confirm(`Persona similar encontrada:\n${conflicto.msg}\n\n¿Crear de todas formas?`)) return;
+                const forzar = await sciafConfirmar({
+                    titulo: 'Ya existe una persona parecida',
+                    texto: `${conflicto.msg}<br><br>Si es la misma persona, cancele y búsquela por C.I. `
+                         + `en vez de crearla otra vez.`,
+                    aceptar: 'Es otra persona, crearla',
+                    peligrosa: true
+                });
+                if (!forzar) return;
                 tfOverlay('Registrando…');
                 r = await fetch('/administracion/responsable/registrar-responsable-forzado', { method: 'POST', body: fd });
             }

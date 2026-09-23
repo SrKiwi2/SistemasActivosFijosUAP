@@ -153,6 +153,11 @@ function manejarEnvioFormulario(selectorFormulario) {
                 return;
             }
 
+            // Siempre se pregunta antes de guardar: un clic sin querer ya dejaba el
+            // registro hecho (y en varios casos ya enviado al VSIAF).
+            sciafConfirmarEnvio(this).then(function (seguir) {
+                if (!seguir) return;
+
             // Verifica si la sesión está activa antes de enviar el formulario
             $.ajax({
                 url: "/adm/cargar-datos",
@@ -255,6 +260,28 @@ function manejarEnvioFormulario(selectorFormulario) {
                     }
                 }
             });
+
+            });  // fin de la confirmación
         });
+    });
+}
+
+/**
+ * Arma la pregunta según lo que hace el formulario, para que diga qué va a pasar en vez
+ * de un "¿está seguro?" a secas. Si por lo que sea no cargó el ayudante, no se traba el
+ * guardado: sigue de largo.
+ */
+function sciafConfirmarEnvio(formulario) {
+    if (!window.sciafConfirmar) return Promise.resolve(true);
+
+    var accion = ($(formulario).attr('action') || '').toLowerCase();
+    var modifica = accion.indexOf('modificar') >= 0
+        || accion.indexOf('editar') >= 0
+        || accion.indexOf('actualizar') >= 0;
+
+    return window.sciafConfirmar({
+        titulo: modifica ? '¿Guardar los cambios?' : '¿Registrar los datos?',
+        texto: 'Revise que los datos estén correctos antes de continuar.',
+        aceptar: modifica ? 'Sí, guardar' : 'Sí, registrar'
     });
 }

@@ -335,6 +335,11 @@
 <script>
     (function () {
         const $form = $('#formularioOficina');
+
+        // Largos que impone el VSIAF: NOMOFIC 65 y el nombre completo del responsable 35.
+        if (window.sciafContador) {
+            sciafContador.simple('#inputNombre', 65, { etiqueta: 'Nombre de la oficina en el VSIAF' });
+        }
         const $btnGuardar = $('#btnGuardarOficina');
         const $btnCancelar = $('#btnCancelarOficina');
         const $modal = $('#modalFormularioOficina');
@@ -361,6 +366,10 @@
             if (!conResponsable()) $seccionResp.find('.is-invalid').removeClass('is-invalid');
         }
         $('#chkConResponsable').on('change', alternarResponsable);
+
+        const contadorNombreResp = ($seccionResp.length && window.sciafContador)
+            ? sciafContador.combinado(['#respNombre', '#respPaterno', '#respMaterno'], 35)
+            : null;
 
         if ($seccionResp.length) {
             // Select2 del cargo: busca en el catálogo y permite escribir uno nuevo.
@@ -452,6 +461,11 @@
                 }
                 const cf = parseInt($('#respCodFun').val(), 10);
                 if (!marcar($('#respCodFun'), isNaN(cf) || cf < 1 || cf > 99999)) { ok = false; mensajes.push('código de funcionario'); }
+                // El nombre completo viaja al VSIAF en un solo campo de 35 caracteres.
+                if (contadorNombreResp && contadorNombreResp.excede()) {
+                    ok = false;
+                    mensajes.push('nombre completo del responsable (máx. 35)');
+                }
             }
             return { ok, mensajes };
         }

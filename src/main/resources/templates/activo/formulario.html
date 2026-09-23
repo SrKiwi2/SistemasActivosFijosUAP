@@ -2078,14 +2078,21 @@
                         NOMBRE DE LA OFICINA <span class="text-danger">*</span>
                     </label>
                     <input id="swal-nombre-ofi"
-                           class="swal2-input mt-0"
+                           class="swal2-input mt-0" maxlength="65"
                            placeholder="Ej: Dirección de Postgrado">
+                    <div id="swal-cont-ofi"></div>
                 </div>`,
                     showCancelButton: true,
                     confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> Guardar',
                     cancelButtonText: 'Cancelar',
                     confirmButtonColor: '#28a745',
                     focusConfirm: false,
+                    didOpen: () => {
+                        // NOMOFIC en el VSIAF admite 65 caracteres.
+                        if (window.sciafContador) {
+                            sciafContador.simple('#swal-nombre-ofi', 65, { contenedor: '#swal-cont-ofi' });
+                        }
+                    },
                     preConfirm: () => {
                         const cod = document.getElementById('swal-cod-ofi').value.trim();
                         const nom = document.getElementById('swal-nombre-ofi').value.trim();
@@ -2342,6 +2349,11 @@
 
                         initCargoSelect2();
 
+                        if (window.sciafContador) {
+                            sciafContador.combinado(
+                                ['#swal-resp-nombre', '#swal-resp-paterno', '#swal-resp-materno'], 35);
+                        }
+
                         document.getElementById('swal-btn-nuevo-cargo').addEventListener('click', function () {
                             // Destruir Select2 para que no interfiera
                             if ($('#swal-resp-cargo').data('select2')) {
@@ -2368,6 +2380,14 @@
                         const ci = document.getElementById('swal-resp-ci').value.trim();
                         const nombre = document.getElementById('swal-resp-nombre').value.trim();
                         const paterno = document.getElementById('swal-resp-paterno').value.trim();
+                        const maternoTmp = document.getElementById('swal-resp-materno').value.trim();
+                        // En el VSIAF el nombre completo entra en un campo de 35 caracteres.
+                        const completo = [nombre, paterno, maternoTmp].filter(Boolean).join(' ');
+                        if (completo.length > 35) {
+                            Swal.showValidationMessage(
+                                `El nombre completo tiene ${completo.length} caracteres y el VSIAF admite 35. Abrévielo.`);
+                            return false;
+                        }
                         const codFunc = document.getElementById('swal-resp-codfunc').value.trim();
 
                         const cargoWrapVisible =
@@ -3230,6 +3250,17 @@
 
         async function guardarSingle(formElement) {
             const formData = new FormData(formElement);
+
+            // Modificar un activo también viaja al VSIAF: se pregunta antes, como en el alta.
+            const cod = (formData.get('codigo') || '').toString().trim();
+            const seguir = await sciafConfirmar({
+                titulo: '¿Guardar los cambios del activo?',
+                texto: (cod ? 'Activo <b>' + cod + '</b>.<br>' : '')
+                     + 'El código no cambia; los cambios se envían también al VSIAF.',
+                aceptar: 'Sí, guardar'
+            });
+            if (!seguir) return;
+
             showGlobalLoader({ texto: 'Guardando...' });
             try {
                 const r = await fetch('/administracion/activo/modificar-activo', { method: 'POST', body: formData });

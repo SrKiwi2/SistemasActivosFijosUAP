@@ -195,8 +195,7 @@
 
         <!-- Auditoría (solo edición) -->
         <div th:if="${responsable.idResponsable != null and esAdmin == true}" class="small text-muted mb-2">
-            <i class="fa-solid fa-user-clock me-1"></i>
-            Registrado
+            <i class="fa-solid fa-user-clock me-1"></i> Registrado
             <th:block th:if="${registradoPor != null}">por <strong th:text="${registradoPor}"></strong></th:block>
             <th:block th:if="${responsable.registro != null}" th:text="${'el ' + #dates.format(responsable.registro, 'dd/MM/yyyy HH:mm')}"></th:block>
             <th:block th:if="${modificadoPor != null}">
@@ -205,12 +204,8 @@
             </th:block>
         </div>
 
-        <!-- Clave bloqueada: tiene bienes a cargo -->
         <div th:if="${bloquearClave}" class="alert alert-info py-2 small mb-3">
-            <i class="fa-solid fa-lock me-1"></i>
-            Tiene <strong th:text="${activosACargo}">0</strong> activo(s) a cargo: la <strong>oficina</strong> y el
-            <strong>código de funcionario</strong> no se pueden cambiar (en el VSIAF los bienes quedarían sin responsable).
-            Para moverlo use una transferencia.
+            <i class="fa-solid fa-lock me-1"></i> Tiene <strong th:text="${activosACargo}">0</strong> activo(s) a cargo...
         </div>
 
         <!-- SECCIÓN 1: Identificación -->
@@ -220,17 +215,15 @@
             </div>
             <div class="frm-section-body">
                 <div class="row g-3">
-
-                    <!-- CI + expedición + botón buscar -->
+                    <!-- CORRECCIÓN: flex-wrap para que bajen de línea si no caben en móvil -->
                     <div class="col-12">
-                        <label class="frm-label">
-                            C.I. / Documento <span class="text-danger">*</span>
-                        </label>
-                        <div class="d-flex gap-2 align-items-start">
-                            <input type="text" class="form-control form-control-sm" id="txtCi" name="ci" maxlength="15"
-                                th:value="${responsable.persona?.ci}" placeholder="Número de carnet"
-                                style="max-width:180px;" required>
-                            <select class="form-select form-select-sm" name="codExp" style="max-width:110px;" required>
+                        <label class="frm-label">C.I. / Documento <span class="text-danger">*</span></label>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <!-- flex-grow-1 para que el input ocupe el espacio disponible -->
+                            <input type="text" class="form-control form-control-sm flex-grow-1" id="txtCi" name="ci" maxlength="15"
+                                th:value="${responsable.persona?.ci}" placeholder="Número de carnet" style="min-width: 140px;" required>
+                            
+                            <select class="form-select form-select-sm" name="codExp" style="width: auto;" required>
                                 <option value="1" th:selected="${responsable.codExp == 1}">CHQ (1)</option>
                                 <option value="2" th:selected="${responsable.codExp == 2}">LPZ (2)</option>
                                 <option value="3" th:selected="${responsable.codExp == 3}">CBB (3)</option>
@@ -241,40 +234,29 @@
                                 <option value="8" th:selected="${responsable.codExp == 8}">BEN (8)</option>
                                 <option value="9" th:selected="${responsable.codExp == 9}">PAN (9)</option>
                             </select>
-                            <button class="btn btn-primary btn-sm px-3 flex-shrink-0" type="button"
-                                id="btnBuscarPersona">
+                            
+                            <button class="btn btn-primary btn-sm px-3 flex-shrink-0" type="button" id="btnBuscarPersona">
                                 <i class="fa-solid fa-magnifying-glass me-1"></i> Buscar
                             </button>
                         </div>
-                        <!-- Status de búsqueda -->
                         <div id="personaStatus" class="mt-2 d-none"></div>
                     </div>
 
-                    <!-- Nombres -->
-                    <div class="col-md-4">
+                    <div class="col-12 col-md-4">
                         <label class="frm-label">Nombres <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm input-persona" id="txtNombre"
-                            name="nombre" th:value="${responsable.persona?.nombre}" placeholder="Nombres" readonly
-                            required>
+                        <input type="text" class="form-control form-control-sm input-persona" id="txtNombre" name="nombre" th:value="${responsable.persona?.nombre}" readonly required>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-12 col-md-4">
                         <label class="frm-label">Ap. Paterno <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm input-persona" id="txtPaterno"
-                            name="paterno" th:value="${responsable.persona?.paterno}" placeholder="Apellido paterno"
-                            readonly required>
+                        <input type="text" class="form-control form-control-sm input-persona" id="txtPaterno" name="paterno" th:value="${responsable.persona?.paterno}" readonly required>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-12 col-md-4">
                         <label class="frm-label">Ap. Materno</label>
-                        <input type="text" class="form-control form-control-sm input-persona" id="txtMaterno"
-                            name="materno" th:value="${responsable.persona?.materno}" placeholder="Apellido materno"
-                            readonly>
+                        <input type="text" class="form-control form-control-sm input-persona" id="txtMaterno" name="materno" th:value="${responsable.persona?.materno}" readonly>
                     </div>
-
-                    <!-- Correo -->
-                    <div class="col-md-8">
+                    <div class="col-12 col-md-8">
                         <label class="frm-label">Correo Electrónico</label>
-                        <input type="email" class="form-control form-control-sm input-persona" name="correo"
-                            th:value="${responsable.persona?.correo}" placeholder="opcional@correo.com" readonly>
+                        <input type="email" class="form-control form-control-sm input-persona" name="correo" th:value="${responsable.persona?.correo}" placeholder="opcional@correo.com" readonly>
                     </div>
                 </div>
             </div>
@@ -287,12 +269,11 @@
             </div>
             <div class="frm-section-body">
                 <div class="row g-3">
-
-                    <!-- Oficina -->
                     <div class="col-12">
                         <label class="frm-label">Oficina <span class="text-danger">*</span></label>
-                        <div class="d-flex gap-1">
-                            <div class="flex-grow-1">
+                        <div class="d-flex gap-2 align-items-center">
+                            <!-- CORRECCIÓN CLAVE: min-width: 0 evita que el select2 rompa el borde en móviles -->
+                            <div class="flex-grow-1" style="min-width: 0;">
                                 <select id="selectOficinaForm" name="idOficina" required th:disabled="${bloquearClave}">
                                     <option value="">Buscar oficina…</option>
                                     <option th:each="of : ${oficinas}" th:value="${of.idOficina}"
@@ -301,69 +282,50 @@
                                     </option>
                                 </select>
                             </div>
-                            <!-- Un select deshabilitado no se envía: el valor viaja en este oculto -->
                             <input th:if="${bloquearClave}" type="hidden" name="idOficina" th:value="${responsable.oficina?.idOficina}">
-                            <button th:unless="${bloquearClave}" class="btn btn-success btn-sm flex-shrink-0" type="button" id="btnNuevaOficina"
-                                title="Registrar nueva oficina"
-                                style="height:36px;width:36px;padding:0;display:flex;align-items:center;justify-content:center;">
+                            <button th:unless="${bloquearClave}" class="btn btn-success btn-sm flex-shrink-0" type="button" id="btnNuevaOficina" title="Registrar nueva oficina">
                                 <i class="fa-solid fa-plus"></i>
                             </button>
                         </div>
                     </div>
 
-                    <!-- Cargo -->
                     <div class="col-12">
                         <label class="frm-label">Cargo <span class="text-danger">*</span></label>
-                        <div class="d-flex gap-1">
-                            <div class="flex-grow-1">
+                        <div class="d-flex gap-2 align-items-center">
+                            <!-- CORRECCIÓN CLAVE: min-width: 0 aquí también -->
+                            <div class="flex-grow-1" style="min-width: 0;">
                                 <select id="selectCargo" name="cargoApi" required>
                                     <option value="">Seleccione o escriba un cargo…</option>
-                                    <option th:if="${responsable.cargo != null}" th:value="${responsable.cargo.nombre}"
-                                        th:text="${responsable.cargo.nombre}" selected>
-                                    </option>
+                                    <option th:if="${responsable.cargo != null}" th:value="${responsable.cargo.nombre}" th:text="${responsable.cargo.nombre}" selected></option>
                                 </select>
                             </div>
-                            <button class="btn btn-info text-white btn-sm flex-shrink-0" type="button"
-                                id="btnNuevoCargo" title="Agregar cargo nuevo"
-                                style="height:36px;white-space:nowrap;padding:0 10px;">
-                                <i class="fa-solid fa-plus me-1"></i> Nuevo
+                            <button class="btn btn-info text-white btn-sm flex-shrink-0 text-nowrap" type="button" id="btnNuevoCargo">
+                                <i class="fa-solid fa-plus me-1"></i> <span class="d-none d-sm-inline">Nuevo</span>
                             </button>
                         </div>
                     </div>
 
-                    <!-- Código funcionario -->
-                    <div class="col-md-5">
-                        <label class="frm-label">
-                            Cód. Funcionario <span class="text-danger">*</span>
-                        </label>
+                    <div class="col-12 col-md-5">
+                        <label class="frm-label">Cód. Funcionario <span class="text-danger">*</span></label>
                         <div class="input-group input-group-sm">
-                            <input type="text" class="form-control" id="txtCodFun" name="codigoFuncionario"
-                                inputmode="numeric" pattern="\d{1,5}" maxlength="5"
-                                th:value="${responsable.codigoFuncionario}" placeholder="Correlativo" required
-                                th:readonly="${bloquearClave}">
-                            <button th:unless="${bloquearClave}" class="btn btn-outline-secondary" type="button" id="btnSugerir"
-                                title="Autogenerar siguiente código">
+                            <input type="text" class="form-control" id="txtCodFun" name="codigoFuncionario" th:value="${responsable.codigoFuncionario}" required th:readonly="${bloquearClave}">
+                            <button th:unless="${bloquearClave}" class="btn btn-outline-secondary" type="button" id="btnSugerir">
                                 <i class="fa-solid fa-wand-magic-sparkles"></i>
                             </button>
                         </div>
-                        <small class="text-muted" style="font-size:0.7rem;">
-                            Número correlativo dentro de la oficina
-                        </small>
                     </div>
 
-                    <!-- Código API -->
-                    <div class="col-md-7">
+                    <div class="col-12 col-md-7">
                         <label class="frm-label">Código API <span class="text-muted fw-normal">(opcional)</span></label>
-                        <input type="text" class="form-control form-control-sm" name="codigoApi"
-                            th:value="${responsable.codigoApi}" placeholder="Código externo si aplica">
+                        <input type="text" class="form-control form-control-sm" name="codigoApi" th:value="${responsable.codigoApi}">
                     </div>
-
                 </div>
             </div>
         </div>
-
     </form>
-</div><!-- /modal-body -->
+</div>
+
+<!-- /modal-body -->
 
 <!-- ── Footer ─────────────────────────────────────────── -->
 <div class="modal-footer border-0 bg-light py-2 px-4">
@@ -387,6 +349,12 @@
 
         const $modal = $('#modalFormularioResponsable');
         const esEdicion = !!(+$('input[name="idResponsable"]').val());
+
+        // En el VSIAF el nombre completo va en un solo campo de 35 caracteres: se muestra
+        // cuánto se lleva usado para que nadie se entere del recorte después.
+        const contadorNombre = window.sciafContador
+            ? sciafContador.combinado(['#txtNombre', '#txtPaterno', '#txtMaterno'], 35)
+            : null;
 
         /* ── Modo edición: habilitar campos persona ──────── */
         if (esEdicion) {
@@ -619,6 +587,14 @@
             if (!$('#formResponsable')[0].checkValidity()) {
                 $('#formResponsable')[0].reportValidity();
                 return;
+            }
+            if (contadorNombre && contadorNombre.excede()) {
+                // En un alta se corrige antes de guardar; en una edición de un registro
+                // viejo se avisa, pero no se le traba el trabajo al usuario.
+                if (!esEdicion) { Swal.fire('Nombre demasiado largo', contadorNombre.mensaje(), 'warning'); return; }
+                Swal.fire({ toast: true, position: 'top-end', icon: 'warning',
+                    title: 'El VSIAF recortará el nombre a 35 caracteres',
+                    showConfirmButton: false, timer: 4000 });
             }
             const cargo = ($('#selectCargo').val() || '').trim();
             if (cargo.length > 40) {
