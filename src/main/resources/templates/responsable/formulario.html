@@ -563,19 +563,26 @@
             });
         }
 
-        /* ── Nuevo cargo (SweetAlert) ────────────────────── */
+        /* ── Nuevo cargo ──────────────────────────────────
+           El diálogo se abre sobre el modal del formulario; que ahí se pueda escribir lo
+           resuelve sciaf-modales.js (Bootstrap le quitaba el foco al campo). */
         $('#btnNuevoCargo').on('click', function () {
             Swal.fire({
                 title: 'Nuevo Cargo',
                 input: 'text',
-                inputLabel: 'Nombre del cargo',
+                inputLabel: 'Nombre del cargo (máx. 40 caracteres)',
                 inputPlaceholder: 'Ej: DIRECTOR DE SISTEMAS',
+                inputAttributes: { maxlength: 40, autocapitalize: 'characters' },
                 showCancelButton: true,
                 confirmButtonText: 'Usar',
                 cancelButtonText: 'Cancelar',
+                didOpen: () => { const i = Swal.getInput(); if (i) i.focus(); },
                 preConfirm: val => {
-                    if (!val?.trim()) { Swal.showValidationMessage('Escriba un nombre de cargo'); }
-                    return val.trim().toUpperCase();
+                    const t = (val || '').trim();
+                    if (!t) { Swal.showValidationMessage('Escriba un nombre de cargo'); return false; }
+                    // 40 es el largo del campo CARGO en RESP.DBF: más largo, el VSIAF lo corta.
+                    if (t.length > 40) { Swal.showValidationMessage('El cargo no puede pasar de 40 caracteres'); return false; }
+                    return t.toUpperCase();
                 }
             }).then(res => {
                 if (res.isConfirmed) {

@@ -138,7 +138,8 @@
                         <div th:if="${trf.oficinaDestino != null}" class="text-truncate" style="max-width:190px">
                             <span class="badge bg-label-secondary" style="font-size:.68rem"
                                   th:text="${trf.oficinaDestino.codOfi ?: '—'}">—</span>
-                            <span class="small" th:text="${trf.oficinaDestino.nombre}">—</span>
+                            <span class="small"
+                                  th:text="${(trf.oficinaDestino.codOfi != null ? trf.oficinaDestino.codOfi + ' — ' : '') + trf.oficinaDestino.nombre}">—</span>
                         </div>
                         <div th:unless="${trf.oficinaDestino != null}" class="small text-muted text-truncate"
                              style="max-width:190px"

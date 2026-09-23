@@ -42,6 +42,14 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         "opcion_rol", "opcion_persona", "opcion_usuario", "opcion_responsable"
     );
 
+    /**
+     * Transferencia interna y externa se unificaron en {@code opcion_transferencia}: quien
+     * tuviera cualquiera de las dos sigue entrando, sin volver a asignarle permisos.
+     */
+    private static final Set<String> CODIGOS_TRANSFERENCIA_VIEJOS = Set.of(
+        "opcion_trInterna", "opcion_trExterna"
+    );
+
     /** Opciones de "Seguimiento y Consultas" + "Reportes" que ve APOYO. */
     private static final Set<String> CODIGOS_CONSULTA = Set.of(
         "opcion_aan", "opcion_ta", "opcion_ActivoIngreso", "opcion_ba",
@@ -203,6 +211,9 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
             Set<String> asignados = codigosPorUsuario(usuario.getIdUsuario());
             if (!asignados.isEmpty()) {
                 if ("SUPER USUARIO".equals(rol)) asignados.addAll(CODIGOS_SUPERVISION);
+                if (asignados.stream().anyMatch(CODIGOS_TRANSFERENCIA_VIEJOS::contains)) {
+                    asignados.add("opcion_transferencia");
+                }
                 return asignados;
             }
         }

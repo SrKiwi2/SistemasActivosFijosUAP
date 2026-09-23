@@ -2020,8 +2020,45 @@
         }
 
         /* ────────── BOOT ────────── */
+        /**
+         * Llegada desde Consulta de Activos ("Cambiar de responsable"): allá se deja el
+         * responsable en sessionStorage y acá se posiciona la pantalla en su predio, su
+         * oficina y en él como origen, para no tener que volver a buscarlo a mano.
+         */
+        async function aaPrepararDesdeConsulta() {
+            let id = null;
+            try {
+                id = sessionStorage.getItem('sciaf.asignar.responsable');
+                sessionStorage.removeItem('sciaf.asignar.responsable');
+            } catch (e) { return; }
+            if (!id) return;
+
+            try {
+                const r = await fetch(`/api/responsables/${id}/ubicacion`);
+                if (!r.ok) return;
+                const u = await r.json();
+                if (!u.idPredio || !u.idOficina) return;
+
+                const esperar = ms => new Promise(res => setTimeout(res, ms));
+                $('#aa-predio').val(String(u.idPredio)).trigger('change.select2');
+                await window.aaPredioChange();
+                await esperar(150);
+                $('#aa-oficina').val(String(u.idOficina)).trigger('change.select2');
+                await window.aaOficinaChange();
+                await esperar(150);
+                $('#aa-resp1').val(String(u.idResponsable)).trigger('change.select2').trigger('change.aa');
+                aaToast('i', 'Responsable cargado',
+                    `${u.nombre} — ${u.oficina}. Elija el responsable destino.`);
+            } catch (e) { /* si algo falla, la pantalla queda para usarse a mano */ }
+        }
+
+        // Con las pestañas, la pantalla puede estar ya abierta: en ese caso no vuelve a
+        // arrancar, así que Consulta avisa con este evento para que se posicione igual.
+        $(document).off('sciaf:asignar-responsable.aa')
+                   .on('sciaf:asignar-responsable.aa', function () { aaPrepararDesdeConsulta(); });
+
         (function boot() {
-            if (typeof $ !== 'undefined' && $.fn?.select2) window.aaInitSelect2();
+            if (typeof $ !== 'undefined' && $.fn?.select2) { window.aaInitSelect2(); aaPrepararDesdeConsulta(); }
             else setTimeout(boot, 80);
         })();
 

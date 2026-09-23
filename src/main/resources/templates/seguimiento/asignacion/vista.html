@@ -1567,7 +1567,8 @@
             _configsSeparar.map(c => `<option value="${c.idConfig}">${escHtml(c.prefijoDocumento)} — ${escHtml(c.ciudad ?? '')} (${c.gestion})</option>`).join(''));
 
         $('#sep-oficina').html('<option value="">— Mantener la del acta original —</option>' +
-            (oficinas || []).map(o => `<option value="${o.idOficina ?? o.id}">${escHtml(o.nombre)}</option>`).join(''));
+            (oficinas || []).map(o => `<option value="${o.idOficina ?? o.id}">${escHtml(
+                (o.codOfi != null ? o.codOfi + ' — ' : '') + (o.nombre ?? ''))}</option>`).join(''));
 
         $('#sep-responsable').html('<option value="">— Mantener el del acta original —</option>');
     }

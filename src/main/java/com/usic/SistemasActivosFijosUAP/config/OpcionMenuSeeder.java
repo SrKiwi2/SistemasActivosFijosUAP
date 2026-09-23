@@ -88,6 +88,9 @@ public class OpcionMenuSeeder {
         { "opcion_activo",         "grp_adminactivos", "Registro Activos",             "ti ti-clipboard-list",   "green",  "/administracion/activo/vista",                       "/administracion/activo",                "" },
         { "opcion_activop",        "grp_adminactivos", "Registro Activos Pendientes",  "ti ti-clock-exclamation","amber",  "/administracion/activo/vistap",                      "/administracion/activo/vistap",         "PEND." },
 
+        { "opcion_transferencia",  "grp_transfer",     "Transferencia de Activos",     "ti ti-arrows-exchange",  "green",  "/administracion/trasnferencia/transferencia",        "/administracion/trasnferencia/transferencia", "" },
+        // Interna y externa se unificaron en la opción de arriba; estos dos quedan ocultos
+        // (ver OCULTOS) para no romper los permisos ya asignados a los usuarios.
         { "opcion_trInterna",      "grp_transfer",     "Transferencia interna",        "ti ti-building",         "green",  "/administracion/trasnferencia/trasnferenciaInterna", "/administracion/trasnferencia/trasnferenciaInterna", "" },
         { "opcion_trExterna",      "grp_transfer",     "Transferencia externa",        "ti ti-truck-delivery",   "amber",  "/administracion/trasnferencia/trasnferenciaExterna", "/administracion/trasnferencia/trasnferenciaExterna", "" },
         { "opcion_trLondra",       "grp_transfer",     "Transferencia Londra",         "ti ti-truck-delivery",   "amber",  "/administracion/transferenciasLondra/vista",         "/administracion/transferenciasLondra",  "" },
@@ -146,6 +149,14 @@ public class OpcionMenuSeeder {
         { "MOV_ASIGNACIONES_SUBIR", "grp_movil", "Móvil · Subir asignaciones al VSIAF", "ti ti-cloud-upload",   "red"   },
         { "MOV_NOTIFICACIONES",     "grp_movil", "Móvil · Notificaciones del sistema", "ti ti-bell",            "amber" },
     };
+
+    /**
+     * Ítems que existen pero ya no se muestran en el sidebar: su pantalla se unificó con
+     * otra. Se conservan porque hay usuarios con ese permiso asignado.
+     */
+    private static final java.util.Set<String> OCULTOS = java.util.Set.of(
+        "opcion_trInterna", "opcion_trExterna"
+    );
 
     @Bean
     ApplicationRunner initOpcionesMenu(IOpcionMenuDao dao) {
@@ -218,6 +229,7 @@ public class OpcionMenuSeeder {
                 o.setOrden(i + 1);
                 o.setSeccion(descSeccion.get(seccionDeGrupo.get(it[1])));
                 o.setGrupo(descGrupo.get(it[1]));
+                if (OCULTOS.contains(it[0])) o.setVisible(false);
                 dao.save(o);
                 total++;
             }

@@ -41,6 +41,7 @@
     <script src="../../assets/js/p-baja.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <script src="../../assets/js/p-scanner.js"></script>
+    <script src="/assets/js/sciaf-modales.js"></script>
     <script src="/assets/js/avisos-sciaf.js"></script>
     <script src="/assets/js/topbar.js"></script>
     <script src="/assets/js/estado-conexiones.js"></script>
@@ -289,4 +290,9 @@
             });
         })();
     </script>
+
+    <!-- Pestañas internas + respaldo del trabajo a medias.
+         Va al FINAL a propósito: envuelve window.cargarContenido, que el bloque de arriba
+         define recién al estar listo el DOM. -->
+    <script src="/assets/js/sciaf-pestanas.js"></script>
 </div>

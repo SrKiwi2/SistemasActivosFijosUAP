@@ -255,6 +255,10 @@
                             
                             <!-- Botones de Bloqueo/Desbloqueo -->
                             <div class="resp-bloqueo-btns" id="respBloqueoBtns" style="display:none;">
+                                <button type="button" class="btn btn-primary" id="btnCambiarResponsable"
+                                        style="display:none;" onclick="irACambiarResponsable()">
+                                    <i class="ti ti-arrows-exchange me-1"></i> Cambiar de responsable
+                                </button>
                                 <button th:if="${puedeBloquear}" type="button" class="btn btn-warning" id="btnBloquear" onclick="bloquearActivosResponsable()">
                                     <i class="ti ti-lock me-1"></i> Bloquear
                                 </button>
@@ -409,6 +413,7 @@
             var $txtDesglose = $('#txtDesglose');
             var $desgloseCollapse = $('#desgloseGrupo');
             var $respBloqueoBtns = $('#respBloqueoBtns');
+            var URL_ASIGNAR = '/administracion/asignar/asignacionActivo';
             var $btnBloquear = $('#btnBloquear');
             var $btnDesbloquear = $('#btnDesbloquear');
             var currentResponsableId = null;
@@ -441,6 +446,9 @@
 
                         // Mostrar botones de bloqueo
                         $respBloqueoBtns.show();
+                        // El atajo a Asignar Activos solo si el usuario tiene ese módulo.
+                        $('#btnCambiarResponsable').toggle(
+                            $('#layout-menu .menu-item[data-url="' + URL_ASIGNAR + '"]').length > 0);
 
                         // Llenar desglose
                         $listaGrupos.empty();
@@ -494,6 +502,28 @@
             function mensajeError(xhr, porDefecto) {
                 return (xhr && xhr.responseJSON && xhr.responseJSON.msg) || porDefecto;
             }
+
+            /**
+              * Lleva a "Asignar Activos" con este responsable ya elegido como origen, que es
+              * donde todos sus bienes pasan a otro responsable. El botón solo aparece si el
+              * usuario tiene ese módulo habilitado en su menú.
+              */
+            window.irACambiarResponsable = function () {
+                if (!currentResponsableId) return;
+                try {
+                    sessionStorage.setItem('sciaf.asignar.responsable', String(currentResponsableId));
+                } catch (e) { /* sin sessionStorage se abre igual, sin preselección */ }
+                if (typeof window.cargarContenido === 'function') {
+                    window.cargarContenido(URL_ASIGNAR);
+                    // Si esa pestaña ya estaba abierta no se recarga: se le avisa para que
+                    // se posicione en el responsable igual.
+                    setTimeout(function () {
+                        $(document).trigger('sciaf:asignar-responsable');
+                    }, 450);
+                } else {
+                    window.location.href = URL_ASIGNAR;
+                }
+            };
 
             async function bloquearActivosResponsable() {
                 if (!currentResponsableId) return;
@@ -674,6 +704,23 @@
                     { data: 'vidaUtil', className: 'text-center' },
                     { data: 'fechaAdquisicion' }
                 ]
+            });
+
+            // ── Pestañas: los filtros los repone el gestor (son campos); acá solo hay que
+            //    volver a ejecutar la búsqueda y recargar la tarjeta del responsable.
+            if (window.sciafPestanas) window.sciafPestanas.moduloActivo('consulta-activos');
+            if (window.sciafModulo) window.sciafModulo.registrar('consulta-activos', {
+                guardar: function () {
+                    return { pagina: tabla.page.info().page, grupo: currentGrupoFilter };
+                },
+                despues: function (d) {
+                    currentGrupoFilter = (d && d.grupo) || null;
+                    var idResp = $('#f-responsable').val();
+                    if (idResp) loadResponsableCard(Number(idResp));
+                    tabla.ajax.reload(function () {
+                        if (d && d.pagina) tabla.page(d.pagina).draw('page');
+                    }, false);
+                }
             });
 
             // ── Acciones de filtro ─────────────────────────────────────────

@@ -275,7 +275,9 @@
                     <!-- Oficina destino -->
                     <td>
                         <span class="small d-inline-block text-truncate" style="max-width:180px"
-                              th:text="${asig.oficinaDestino != null ? asig.oficinaDestino.nombre : '—'}">—</span>
+                              th:text="${asig.oficinaDestino != null
+                                        ? (asig.oficinaDestino.codOfi != null ? asig.oficinaDestino.codOfi + ' — ' : '') + asig.oficinaDestino.nombre
+                                        : '—'}">—</span>
                     </td>
 
                     <!--

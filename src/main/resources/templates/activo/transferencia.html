@@ -1,0 +1,1073 @@
+<!-- =====================================================================
+     TRANSFERENCIA DE ACTIVOS FIJOS  (interna + externa en una sola vista)
+     Fragmento Thymeleaf | sin <head><body><html>
+
+     El tipo NO lo elige el usuario: lo decide el movimiento. Si el predio de
+     destino es distinto al del activo, es EXTERNA y hay que reubicar su
+     auxiliar en el predio destino (en el VSIAF el auxiliar es por unidad).
+     Eso se avisa ANTES de confirmar con /transferencia-masiva/previsualizar.
+
+     Endpoints: POST /administracion/activo/transferencia-masiva
+                POST /administracion/activo/transferencia-masiva/previsualizar
+====================================================================== -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+    .tf-wrap {
+        --bg-page: #f0f2f5;
+        --bg-panel: #ffffff;
+        --bg-input: #f4f6fa;
+        --bg-hover: #f0f4ff;
+        --border-soft: #e4e8f0;
+        --border-med: #c9d0e0;
+        --border-focus: #3b5bdb;
+        --txt-primary: #1a2340;
+        --txt-sub: #5a6a8a;
+        --txt-muted: #8a93a8;
+        --accent: #3b5bdb;
+        --accent-lt: rgba(59, 91, 219, .09);
+        --accent-hov: #2f4ac7;
+        --green: #12b76a;
+        --green-lt: rgba(18, 183, 106, .10);
+        --red: #f04438;
+        --red-lt: rgba(240, 68, 56, .10);
+        --amber: #f79009;
+        --amber-lt: rgba(247, 144, 9, .12);
+        --orange: #ea580c;
+        --orange-lt: rgba(234, 88, 12, .10);
+        --font-ui: 'Inter', system-ui, sans-serif;
+        --font-mono: 'JetBrains Mono', 'Fira Mono', monospace;
+        --r-sm: 6px;
+        --r-md: 9px;
+        --r-lg: 12px;
+        --sh-sm: 0 1px 3px rgba(0, 0, 0, .06);
+        --sh-md: 0 6px 18px rgba(0, 0, 0, .12);
+        --t: .16s ease;
+    }
+
+    .tf-wrap, .tf-wrap * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    .tf-wrap {
+        font-family: var(--font-ui);
+        color: var(--txt-primary);
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 56px);
+        overflow: hidden;
+        background: var(--bg-page);
+        font-size: 14px;
+    }
+
+    /* ── Topbar ─────────────────────────────────────────── */
+    .tf-topbar {
+        height: 54px; flex-shrink: 0; background: var(--bg-panel);
+        border-bottom: 1px solid var(--border-soft); box-shadow: var(--sh-sm);
+        display: flex; align-items: center; gap: 12px; padding: 0 22px; z-index: 20;
+    }
+    .tf-topbar-icon {
+        width: 32px; height: 32px; background: var(--accent); border-radius: 7px;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .tf-topbar-icon svg { width: 16px; height: 16px; color: #fff; }
+    .tf-topbar-title { font-size: 16px; font-weight: 600; }
+    .tf-tipo-badge {
+        display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px; border-radius: 100px;
+        font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+        background: var(--bg-input); color: var(--txt-muted);
+    }
+    .tf-tipo-badge.interna { background: var(--accent-lt); color: var(--accent); }
+    .tf-tipo-badge.externa { background: var(--orange-lt); color: var(--orange); }
+    .tf-topbar-clock { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--txt-muted); }
+
+    /* ── Controles ──────────────────────────────────────── */
+    .tf-controls {
+        flex-shrink: 0; background: var(--bg-panel); border-bottom: 1px solid var(--border-soft);
+        padding: 13px 22px 12px; display: flex; flex-direction: column; gap: 11px;
+    }
+    .tf-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+    .tf-row + .tf-row { padding-top: 10px; border-top: 1px solid var(--border-soft); }
+    .tf-tag {
+        display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px; border-radius: 100px;
+        font-size: 11px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase;
+        white-space: nowrap; align-self: flex-end; margin-bottom: 4px;
+        background: var(--accent-lt); color: var(--accent);
+    }
+    .tf-group { display: flex; flex-direction: column; gap: 5px; }
+    .tf-group.grow { flex: 1; min-width: 190px; }
+    .tf-lbl {
+        font-size: 11px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase;
+        color: var(--txt-sub); display: flex; align-items: center; gap: 6px;
+    }
+    .tf-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .tf-input, .tf-sel {
+        width: 100%; background: var(--bg-input); border: 1px solid var(--border-med);
+        border-radius: var(--r-sm); color: var(--txt-primary); font-family: var(--font-ui);
+        font-size: 14.5px; padding: 9px 13px; outline: none; height: 44px;
+        transition: border-color var(--t), box-shadow var(--t); appearance: none;
+    }
+    .tf-input:focus, .tf-sel:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-lt); }
+    .tf-sel {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%238a93a8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 11px center; padding-right: 30px; cursor: pointer;
+    }
+    .tf-sel:disabled { opacity: .45; cursor: not-allowed; }
+    .tf-search { display: flex; gap: 8px; }
+    .tf-search .tf-input { flex: 1; min-width: 150px; }
+    .tf-drop {
+        display: flex; align-items: center; gap: 8px; background: var(--bg-input);
+        border: 1.5px dashed var(--border-med); border-radius: var(--r-sm); padding: 6px 14px;
+        height: 44px; cursor: pointer; position: relative; white-space: nowrap;
+        transition: border-color var(--t), background var(--t); font-size: 13.5px; color: var(--txt-sub);
+    }
+    .tf-drop:hover, .tf-drop.dragover { border-color: var(--accent); background: var(--accent-lt); color: var(--accent); }
+    .tf-drop input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .tf-textarea {
+        width: 100%; background: var(--bg-input); border: 1px solid var(--border-med);
+        border-radius: var(--r-sm); color: var(--txt-primary); font-family: var(--font-ui);
+        font-size: 14px; padding: 9px 13px; outline: none; resize: vertical; min-height: 44px;
+        transition: border-color var(--t), box-shadow var(--t);
+    }
+    .tf-textarea:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-lt); }
+    .tf-btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none;
+        border-radius: var(--r-sm); font-family: var(--font-ui); font-size: 13.5px; font-weight: 500;
+        cursor: pointer; padding: 0 16px; height: 44px; white-space: nowrap; transition: all var(--t);
+        outline: none; flex-shrink: 0;
+    }
+    .tf-btn-accent { background: var(--accent); color: #fff; }
+    .tf-btn-accent:hover:not(:disabled) { background: var(--accent-hov); }
+    .tf-btn-ghost { background: var(--bg-input); color: var(--txt-sub); border: 1px solid var(--border-med); }
+    .tf-btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--accent-lt); }
+    .tf-btn-go { background: var(--green); color: #fff; font-weight: 600; font-size: 15px; padding: 0 24px; height: 46px; }
+    .tf-btn-go.externa { background: var(--orange); }
+    .tf-btn-go:hover:not(:disabled) { filter: brightness(1.07); }
+    .tf-btn-go:disabled { opacity: .4; cursor: not-allowed; }
+    .tf-btn-icon {
+        width: 44px; height: 44px; padding: 0; border: 1px solid var(--border-med);
+        border-radius: var(--r-sm); background: var(--bg-input); color: var(--accent); cursor: pointer;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all var(--t);
+    }
+    .tf-btn-icon:hover:not(:disabled) { background: var(--accent-lt); border-color: var(--accent); }
+    .tf-btn-icon:disabled { opacity: .4; cursor: not-allowed; }
+    .tf-badge {
+        display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px;
+        padding: 0 9px; border-radius: 100px; font-family: var(--font-mono); font-size: 13px;
+        font-weight: 700; background: var(--accent-lt); color: var(--accent);
+    }
+    .tf-prog { height: 3px; background: var(--border-soft); border-radius: 2px; margin-top: 5px; overflow: hidden; display: none; }
+    .tf-prog-bar { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+
+    /* ── Panel de aviso (previsualización) ──────────────── */
+    .tf-aviso {
+        display: none; flex-direction: column; gap: 8px; padding: 12px 15px;
+        border-radius: var(--r-md); border: 1px solid var(--amber); background: var(--amber-lt);
+        font-size: 13.5px; color: var(--txt-primary);
+    }
+    .tf-aviso.info { border-color: var(--accent); background: var(--accent-lt); }
+    .tf-aviso.error { border-color: var(--red); background: var(--red-lt); }
+    .tf-aviso-head { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 14px; }
+    .tf-aviso ul { margin: 0 0 0 20px; display: flex; flex-direction: column; gap: 4px; }
+    .tf-aviso li { list-style: disc; line-height: 1.5; }
+    .tf-aviso code { font-family: var(--font-mono); background: rgba(255, 255, 255, .7); padding: 1px 6px; border-radius: 4px; }
+
+    /* ── Tabla ──────────────────────────────────────────── */
+    .tf-main { flex: 1; overflow: auto; padding: 16px 22px; min-height: 0; position: relative; }
+    .tf-main::-webkit-scrollbar { width: 6px; height: 6px; }
+    .tf-main::-webkit-scrollbar-thumb { background: var(--border-med); border-radius: 4px; }
+    .tf-empty {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        min-height: 50vh; gap: 12px; color: var(--txt-muted); text-align: center;
+    }
+    .tf-empty-ico {
+        width: 64px; height: 64px; border: 1.5px dashed var(--border-med); border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; font-size: 26px;
+    }
+    .tf-empty-t { font-size: 15px; font-weight: 600; color: var(--txt-sub); }
+    .tf-empty-s { font-size: 13.5px; line-height: 1.7; }
+    .tf-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .tf-table thead th {
+        text-align: left; font-size: 11px; letter-spacing: .7px; text-transform: uppercase;
+        color: var(--txt-sub); padding: 0 10px 10px; border-bottom: 1px solid var(--border-soft);
+        font-weight: 700; white-space: nowrap; position: sticky; top: -16px; background: var(--bg-page);
+    }
+    .tf-table thead th:first-child { padding-left: 0; }
+    .tf-table tbody tr { border-bottom: 1px solid var(--border-soft); transition: background var(--t); animation: tfIn .18s ease both; }
+    @keyframes tfIn { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
+    .tf-table tbody tr:hover { background: var(--bg-hover); }
+    .tf-table tbody tr.externa { background: rgba(234, 88, 12, .045); }
+    .tf-table tbody td { padding: 10px; vertical-align: middle; }
+    .tf-table tbody td:first-child { padding-left: 0; }
+    .tf-code { font-family: var(--font-mono); font-size: 13.5px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+    .tf-desc { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tf-meta { font-size: 12.5px; color: var(--txt-sub); }
+    .tf-pill {
+        display: inline-flex; align-items: center; font-size: 11px; font-weight: 700;
+        border-radius: 100px; padding: 3px 10px; text-transform: uppercase;
+    }
+    .tf-pill-g { background: var(--green-lt); color: var(--green); }
+    .tf-pill-r { background: var(--red-lt); color: var(--red); }
+    .tf-pill-o { background: var(--orange-lt); color: var(--orange); }
+    .tf-pill-a { background: var(--accent-lt); color: var(--accent); }
+    .tf-rm {
+        background: none; border: none; color: var(--txt-muted); cursor: pointer; padding: 5px 6px;
+        border-radius: 5px; display: flex; align-items: center; transition: color var(--t), background var(--t);
+    }
+    .tf-rm:hover { color: var(--red); background: var(--red-lt); }
+
+    /* ── Overlay / toasts / modales ─────────────────────── */
+    .tf-overlay {
+        position: fixed; inset: 0; background: rgba(255, 255, 255, .75); backdrop-filter: blur(3px);
+        display: flex; align-items: center; justify-content: center; z-index: 200; opacity: 0;
+        pointer-events: none; transition: opacity .2s;
+    }
+    .tf-overlay.on { opacity: 1; pointer-events: all; }
+    .tf-overlay-box {
+        background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: var(--r-md);
+        padding: 22px 30px; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: var(--sh-md);
+    }
+    .tf-overlay-txt { font-size: 13.5px; color: var(--txt-sub); }
+    .tf-spin { border: 3px solid var(--border-soft); border-top-color: var(--accent); border-radius: 50%; animation: tfRot .55s linear infinite; display: inline-block; }
+    @keyframes tfRot { to { transform: rotate(360deg) } }
+    .tf-toasts { position: fixed; bottom: 18px; right: 18px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .tf-toast {
+        background: #fff; border: 1px solid #e4e8f0; border-radius: 9px; padding: 12px 16px;
+        min-width: 280px; max-width: 360px; box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
+        display: flex; align-items: flex-start; gap: 10px; pointer-events: all; animation: tfTIn .22s ease both;
+        font-family: 'Inter', system-ui, sans-serif;
+    }
+    @keyframes tfTIn { from { opacity: 0; transform: translateX(14px) } to { opacity: 1; transform: none } }
+    .tf-toast-s { border-left: 4px solid #12b76a; }
+    .tf-toast-e { border-left: 4px solid #f04438; }
+    .tf-toast-w { border-left: 4px solid #f79009; }
+    .tf-toast-ti { font-size: 13.5px; font-weight: 600; color: #1a2340; margin-bottom: 3px; }
+    .tf-toast-ms { font-size: 13px; color: #5a6a8a; line-height: 1.5; }
+    .tf-modal-bg {
+        position: fixed; inset: 0; background: rgba(26, 35, 64, .45); backdrop-filter: blur(4px);
+        z-index: 300; display: flex; align-items: center; justify-content: center; opacity: 0;
+        pointer-events: none; transition: opacity .2s; font-family: 'Inter', system-ui, sans-serif;
+    }
+    .tf-modal-bg.on { opacity: 1; pointer-events: all; }
+    .tf-modal {
+        background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .2);
+        width: 520px; max-width: 96vw; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .tf-modal-head { padding: 16px 20px; border-bottom: 1px solid #e4e8f0; display: flex; align-items: center; gap: 10px; }
+    .tf-modal-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 13px; overflow-y: auto; }
+    .tf-modal-foot { padding: 13px 20px; border-top: 1px solid #e4e8f0; display: flex; gap: 9px; justify-content: flex-end; }
+
+    /* Select2 del módulo */
+    .tf-wrap .select2-container { width: 100% !important; }
+    .tf-wrap .select2-container--default .select2-selection--single {
+        background-color: var(--bg-input); border: 1px solid var(--border-med); border-radius: var(--r-sm);
+        height: 44px; display: flex; align-items: center;
+    }
+    .tf-wrap .select2-container--default .select2-selection--single .select2-selection__rendered {
+        color: var(--txt-primary) !important; font-size: 14.5px; line-height: 42px !important;
+        padding-left: 12px !important; padding-right: 28px !important;
+    }
+    .tf-wrap .select2-container--default .select2-selection--single .select2-selection__arrow { height: 42px; right: 8px; }
+    .tf-wrap .select2-dropdown { border: 1px solid var(--accent); border-radius: var(--r-md); box-shadow: var(--sh-md); }
+    .tf-wrap .select2-results__option { font-size: 14px; padding: 9px 13px; }
+
+    @media (max-width: 900px) {
+        .tf-wrap { height: auto; overflow: visible; }
+        .tf-row { flex-direction: column; align-items: stretch; }
+        .tf-topbar-clock { display: none; }
+    }
+</style>
+
+<div class="tf-wrap">
+
+    <header class="tf-topbar">
+        <div class="tf-topbar-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+        </div>
+        <span class="tf-topbar-title">Transferencia de Activos Fijos</span>
+        <span class="tf-tipo-badge" id="tf-tipo">Sin determinar</span>
+        <span class="tf-topbar-clock" id="tf-clock">—</span>
+    </header>
+
+    <div class="tf-controls">
+
+        <!-- Activos -->
+        <div class="tf-row">
+            <div class="tf-group grow">
+                <span class="tf-lbl"><span class="tf-dot" style="background:var(--green)"></span>Buscar activo por código</span>
+                <div class="tf-search">
+                    <input class="tf-input" type="text" id="tf-cod" placeholder="Ej: 01-02-0123"
+                        onkeydown="if(event.key==='Enter') tfBuscar()" />
+                    <button class="tf-btn tf-btn-accent" onclick="tfBuscar()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                        </svg>
+                        Buscar
+                    </button>
+                </div>
+            </div>
+
+            <div class="tf-group">
+                <span class="tf-lbl"><span class="tf-dot" style="background:var(--amber)"></span>Carga masiva</span>
+                <div class="tf-drop" id="tf-drop" ondragover="event.preventDefault();this.classList.add('dragover')"
+                    ondragleave="this.classList.remove('dragover')" ondrop="tfDrop(event)">
+                    <input type="file" id="tf-file" accept=".xlsx,.xls,.csv" onchange="tfExcelChange(event)" />
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    Subir Excel
+                </div>
+                <div class="tf-prog" id="tf-prog"><div class="tf-prog-bar" id="tf-prog-bar"></div></div>
+            </div>
+
+            <div class="tf-group" style="justify-content:flex-end">
+                <span class="tf-lbl" style="opacity:0">—</span>
+                <button class="tf-btn tf-btn-ghost" onclick="tfLimpiar()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+                    </svg>
+                    Limpiar
+                </button>
+            </div>
+        </div>
+
+        <!-- Destino -->
+        <div class="tf-row">
+            <span class="tf-tag">
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2.5"><path d="M17 16l4-4m0 0l-4-4m4 4H7" /></svg>
+                Destino
+            </span>
+
+            <div class="tf-group grow">
+                <span class="tf-lbl"><span class="tf-dot" style="background:var(--accent)"></span>Predio destino</span>
+                <select id="tf-predio" class="tf-sel">
+                    <option value="">— Seleccione predio —</option>
+                    <th:block th:each="p : ${predios}">
+                        <option th:value="${p.idPredio}" th:attr="data-unidad=${p.unidad}"
+                                th:text="${p.descrip} + ' - ' + ${p.codigo}"></option>
+                    </th:block>
+                </select>
+            </div>
+
+            <div class="tf-group grow">
+                <span class="tf-lbl"><span class="tf-dot" style="background:var(--accent)"></span>Oficina destino</span>
+                <select id="tf-oficina" class="tf-sel" disabled>
+                    <option value="">— Seleccione predio primero —</option>
+                </select>
+            </div>
+
+            <div class="tf-group grow">
+                <span class="tf-lbl"><span class="tf-dot" style="background:var(--accent)"></span>Responsable destino</span>
+                <div style="display:flex;gap:8px;">
+                    <select id="tf-resp" class="tf-sel" disabled style="flex:1;min-width:0;">
+                        <option value="">— Seleccione oficina primero —</option>
+                    </select>
+                    <button type="button" class="tf-btn-icon" id="tf-btn-new-resp" disabled
+                            title="Registrar un responsable nuevo en la oficina destino"
+                            onclick="tfAbrirModalNuevoResp()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Documento / observación / acción -->
+        <div class="tf-row">
+            <div class="tf-group" style="min-width:210px;">
+                <span class="tf-lbl">Documento / referencia</span>
+                <input class="tf-input" type="text" id="tf-doc-ref" placeholder="Ej: NOTA-2025-015" />
+            </div>
+
+            <div class="tf-group grow">
+                <span class="tf-lbl">Observación de la transferencia</span>
+                <textarea class="tf-textarea" id="tf-observacion" rows="1"
+                    placeholder="Motivo, detalle o cualquier aclaración; queda guardada con el número de transferencia."></textarea>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;align-self:flex-end;">
+                <span style="font-size:13px;color:var(--txt-sub)">Activos:</span>
+                <span class="tf-badge" id="tf-cnt">0</span>
+                <button class="tf-btn tf-btn-go" id="tf-btn-go" disabled onclick="tfTransferir()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2.3">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span id="tf-btn-go-txt">Transferir</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Aviso de lo que va a pasar (auxiliares, tipo, bloqueados) -->
+        <div class="tf-aviso" id="tf-aviso"></div>
+    </div>
+
+    <div class="tf-main">
+        <div class="tf-overlay" id="tf-overlay">
+            <div class="tf-overlay-box">
+                <div class="tf-spin" style="width:26px;height:26px;"></div>
+                <span class="tf-overlay-txt" id="tf-overlay-txt">Procesando…</span>
+            </div>
+        </div>
+
+        <div class="tf-empty" id="tf-empty">
+            <div class="tf-empty-ico">📦</div>
+            <div class="tf-empty-t">Sin activos cargados</div>
+            <div class="tf-empty-s">Busque por código o suba un Excel.<br>
+                Luego elija el predio, la oficina y el responsable de destino.</div>
+        </div>
+
+        <table class="tf-table" id="tf-table" style="display:none;">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>Grupo contable</th>
+                    <th>Predio actual</th>
+                    <th>Oficina actual</th>
+                    <th>Responsable actual</th>
+                    <th>Auxiliar</th>
+                    <th>Estado</th>
+                    <th>Movimiento</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="tf-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="tf-toasts" id="tf-toasts"></div>
+
+<!-- Modal: nuevo responsable en la oficina destino -->
+<div class="tf-modal-bg" id="tf-modal-bg">
+    <div class="tf-modal" style="width:460px;" onclick="event.stopPropagation()">
+        <div class="tf-modal-head">
+            <div style="width:32px;height:32px;background:rgba(59,91,219,.1);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#3b5bdb" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+            </div>
+            <div>
+                <div style="font-size:15px;font-weight:600;">Registrar nuevo responsable</div>
+                <div id="tf-modal-sub" style="font-size:12.5px;color:#8a93a8;margin-top:2px;">Oficina: —</div>
+            </div>
+            <button onclick="tfCerrarModal()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#8a93a8;font-size:20px;line-height:1;">&times;</button>
+        </div>
+        <div class="tf-modal-body">
+            <div style="display:flex;gap:12px;">
+                <div class="tf-group" style="flex:1;">
+                    <span class="tf-lbl">C.I. <span style="color:var(--red)">*</span></span>
+                    <input class="tf-input" type="text" id="tf-nr-ci" placeholder="Ej: 12345678" maxlength="15" />
+                </div>
+                <div class="tf-group" style="flex:1;">
+                    <span class="tf-lbl">Cód. funcionario <span style="color:var(--red)">*</span></span>
+                    <input class="tf-input" type="text" id="tf-nr-codfunc" placeholder="42" style="font-family:var(--font-mono);" />
+                </div>
+            </div>
+            <div class="tf-group">
+                <span class="tf-lbl">Nombre(s) <span style="color:var(--red)">*</span></span>
+                <input class="tf-input" type="text" id="tf-nr-nombre" placeholder="Ej: Juan Carlos" />
+            </div>
+            <div style="display:flex;gap:12px;">
+                <div class="tf-group" style="flex:1;">
+                    <span class="tf-lbl">Paterno <span style="color:var(--red)">*</span></span>
+                    <input class="tf-input" type="text" id="tf-nr-paterno" placeholder="Apellido paterno" />
+                </div>
+                <div class="tf-group" style="flex:1;">
+                    <span class="tf-lbl">Materno</span>
+                    <input class="tf-input" type="text" id="tf-nr-materno" placeholder="(Opcional)" />
+                </div>
+            </div>
+            <div class="tf-group">
+                <span class="tf-lbl">Cargo <span style="color:var(--red)">*</span></span>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <select id="tf-nr-cargo" style="flex:1;min-width:0;"></select>
+                    <button type="button" class="tf-btn-icon" id="tf-nr-btn-nuevo-cargo" title="Escribir un cargo nuevo">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2.5"><path d="M12 4v16m8-8H4" /></svg>
+                    </button>
+                </div>
+                <div id="tf-nr-cargo-nuevo-wrap" style="display:none;gap:8px;align-items:center;margin-top:5px;">
+                    <input id="tf-nr-cargo-nuevo-txt" class="tf-input" style="flex:1;" placeholder="Nombre del nuevo cargo…" />
+                    <button type="button" id="tf-nr-btn-cancelar-cargo" class="tf-btn tf-btn-ghost" style="height:44px;">✕</button>
+                </div>
+            </div>
+        </div>
+        <div class="tf-modal-foot">
+            <button onclick="tfCerrarModal()" class="tf-btn tf-btn-ghost">Cancelar</button>
+            <button onclick="tfGuardarNuevoResp()" class="tf-btn tf-btn-go" style="height:44px;">Registrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: resultado de la transferencia -->
+<div class="tf-modal-bg" id="tf-res-bg">
+    <div class="tf-modal" onclick="event.stopPropagation()">
+        <div class="tf-modal-head">
+            <span id="tf-res-ico" style="font-size:22px;">✅</span>
+            <div>
+                <div style="font-size:15px;font-weight:600;" id="tf-res-titulo">Transferencia registrada</div>
+                <div style="font-size:12.5px;color:#8a93a8;margin-top:2px;" id="tf-res-sub">—</div>
+            </div>
+        </div>
+        <div class="tf-modal-body" id="tf-res-body"></div>
+        <div class="tf-modal-foot">
+            <button onclick="tfCerrarResultado()" class="tf-btn tf-btn-accent" style="height:42px;">Entendido</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    const S = { list: [], codes: new Set(), preview: null, oficinaId: null, oficinaNombre: '' };
+    const BORRADOR = 'transferencia';
+
+    clearInterval(window._tfClock);
+    window._tfClock = setInterval(() => {
+        const el = document.getElementById('tf-clock');
+        if (el) el.textContent = new Date().toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'medium' });
+    }, 1000);
+
+    function x(s) { return s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function set(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+
+    /* ── Select2 y cascada de destino ───────────────────── */
+    window.tfInitSelect2 = function () {
+        if (typeof $ === 'undefined' || !$.fn?.select2) return setTimeout(window.tfInitSelect2, 80);
+        ['#tf-predio', '#tf-oficina', '#tf-resp'].forEach(id => {
+            try { const $e = $(id); if ($e.hasClass('select2-hidden-accessible')) $e.select2('destroy'); $e.off('change.tf'); } catch (_) {}
+        });
+        const b = { width: '100%', allowClear: true, minimumResultsForSearch: 6 };
+        $('#tf-predio').select2({ ...b, placeholder: '— Seleccione predio —' });
+        $('#tf-oficina').select2({ ...b, placeholder: '— Seleccione oficina —' });
+        $('#tf-resp').select2({ ...b, placeholder: '— Seleccione responsable —' });
+        $('#tf-predio').on('change.tf', tfPredioChange);
+        $('#tf-oficina').on('change.tf', tfOficinaChange);
+        $('#tf-resp').on('change.tf', () => { tfCheckBtn(); tfGuardarBorrador(); });
+    };
+
+    async function tfPredioChange() {
+        const id = $('#tf-predio').val(), $of = $('#tf-oficina'), $re = $('#tf-resp');
+        $re.empty().append('<option value="">— Seleccione oficina primero —</option>').prop('disabled', true).trigger('change.select2');
+        tfBotonNuevoResp(false);
+        if (!id) {
+            $of.empty().append('<option value="">— Seleccione predio primero —</option>').prop('disabled', true).trigger('change.select2');
+            tfPrevisualizar(); return;
+        }
+        $of.empty().append('<option value="">— Cargando… —</option>').prop('disabled', true).trigger('change.select2');
+        try {
+            const data = await fetch(`/api/oficinas/por-predio?predioId=${id}`).then(r => r.json());
+            $of.empty().append('<option value="">— Seleccione oficina —</option>');
+            // Siempre CÓDIGO + NOMBRE: hay oficinas con el mismo nombre en distintos predios.
+            data.forEach(o => $of.append($('<option>').val(o.idOficina)
+                .text(`${o.codOfi} — ${o.nombre}`).attr('data-nombre', o.nombre)));
+            $of.prop('disabled', false).trigger('change.select2');
+        } catch (_) { tfToast('e', 'Error', 'No se pudieron cargar las oficinas.'); }
+        tfPrevisualizar();
+    }
+
+    async function tfOficinaChange() {
+        const id = $('#tf-oficina').val(), $re = $('#tf-resp');
+        S.oficinaId = id ? parseInt(id) : null;
+        S.oficinaNombre = id ? $('#tf-oficina option:selected').text() : '';
+        tfBotonNuevoResp(!!id);
+        if (!id) {
+            $re.empty().append('<option value="">— Seleccione oficina primero —</option>').prop('disabled', true).trigger('change.select2');
+            tfCheckBtn(); tfPrevisualizar(); return;
+        }
+        $re.empty().append('<option value="">— Cargando… —</option>').prop('disabled', true).trigger('change.select2');
+        try {
+            const data = await fetch(`/api/responsables/por-oficina?oficinaId=${id}`).then(r => r.json());
+            $re.empty().append('<option value="">— Seleccione responsable —</option>');
+            data.forEach(r => $re.append($('<option>').val(r.idResponsable)
+                .text(`${r.codigoFuncionario} — ${r.nombre}`).attr('data-nombre', r.nombre)));
+            $re.prop('disabled', false).trigger('change.select2');
+        } catch (_) { tfToast('e', 'Error', 'No se pudieron cargar los responsables.'); }
+        tfCheckBtn(); tfPrevisualizar(); tfGuardarBorrador();
+    }
+
+    function tfBotonNuevoResp(activo) {
+        const b = document.getElementById('tf-btn-new-resp');
+        if (b) b.disabled = !activo;
+    }
+
+    function tfCheckBtn() {
+        const ok = $('#tf-oficina').val() && $('#tf-resp').val() && S.list.length > 0;
+        document.getElementById('tf-btn-go').disabled = !ok;
+    }
+
+    /* ── Carga de activos ───────────────────────────────── */
+    window.tfBuscar = async function () {
+        const cod = document.getElementById('tf-cod').value.trim();
+        if (!cod) { tfToast('w', 'Campo vacío', 'Ingrese un código.'); return; }
+        if (S.codes.has(cod.toUpperCase())) { tfToast('w', 'Duplicado', `"${cod}" ya está en la lista.`); return; }
+        tfOverlay(`Buscando ${cod}…`);
+        try {
+            const r = await fetch(`/api/activos/por-codigo?codigo=${encodeURIComponent(cod)}`);
+            if (!r.ok) { tfToast('e', 'No encontrado', `No existe un activo con código "${cod}".`); return; }
+            const d = await r.json();
+            if (!d?.idActivo) { tfToast('e', 'No encontrado', `No existe un activo con código "${cod}".`); return; }
+            tfAdd(d);
+            tfToast('s', 'Activo agregado', `${d.codigo} — ${d.descripcion || ''}`);
+        } catch (e) { tfToast('e', 'Error', e.message); }
+        finally { tfOverlayOff(); }
+    };
+
+    window.tfDrop = function (e) {
+        e.preventDefault(); document.getElementById('tf-drop').classList.remove('dragover');
+        const f = e.dataTransfer.files[0]; if (f) tfExcel(f);
+    };
+    window.tfExcelChange = function (e) { const f = e.target.files[0]; if (f) tfExcel(f); e.target.value = ''; };
+
+    async function tfExcel(file) {
+        const pg = document.getElementById('tf-prog'), bar = document.getElementById('tf-prog-bar');
+        pg.style.display = 'block'; bar.style.width = '10%';
+        try {
+            const buf = await file.arrayBuffer(); bar.style.width = '30%';
+            const wb = XLSX.read(buf, { type: 'array' });
+            const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+            let cods = rows.map(r => String(r[0] || '').trim()).filter(c => c);
+            if (cods.length && isNaN(cods[0]) && /cod/i.test(cods[0])) cods.shift();
+            const nuevos = cods.filter(c => !S.codes.has(c.toUpperCase()));
+            const dups = cods.length - nuevos.length;
+            if (!nuevos.length) { tfToast('w', 'Sin nuevos', 'Todos ya están en la lista.'); pg.style.display = 'none'; return; }
+            bar.style.width = '50%'; tfOverlay(`Cargando ${nuevos.length} activos…`);
+            const data = await fetch('/api/activos/por-codigos', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ codigos: nuevos })
+            }).then(r => r.json());
+            bar.style.width = '90%';
+            let ok = 0, no = [];
+            data.forEach(a => { if (a?.idActivo) { tfAdd(a, true); ok++; } else if (a.codigoBuscado) no.push(a.codigoBuscado); });
+            bar.style.width = '100%';
+            const m = [`${ok} activo(s) cargados.`];
+            if (dups) m.push(`${dups} ya estaban.`);
+            if (no.length) m.push(`${no.length} no encontrados.`);
+            tfToast('s', 'Excel procesado', m.join(' '));
+            tfPrevisualizar();
+        } catch (e) { tfToast('e', 'Error al leer el Excel', e.message); }
+        finally { tfOverlayOff(); setTimeout(() => { pg.style.display = 'none'; bar.style.width = '0'; }, 1300); }
+    }
+
+    function tfAdd(a, sinPreview) {
+        if (S.codes.has(a.codigo.toUpperCase())) return;
+        S.list.push(a); S.codes.add(a.codigo.toUpperCase());
+        tfRow(a); tfCounts(); tfCheckBtn();
+        document.getElementById('tf-empty').style.display = 'none';
+        document.getElementById('tf-table').style.display = 'table';
+        if (!sinPreview) tfPrevisualizar();
+        tfGuardarBorrador();
+    }
+
+    function tfRow(a) {
+        const tb = document.getElementById('tf-tbody');
+        const tr = document.createElement('tr');
+        tr.id = `tf-r-${a.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
+        const estado = (a.estadoActivo?.nombre || 'SIN ESTADO').toUpperCase();
+        const pill = (estado === 'MALO' || estado === 'OBSOLETO') ? 'tf-pill-r' : 'tf-pill-g';
+        tr.innerHTML = `
+            <td class="tf-code">${x(a.codigo)}</td>
+            <td class="tf-desc" title="${x(a.descripcion || '')}">${x(a.descripcion || '—')}</td>
+            <td class="tf-meta">${x(a.grupoContable?.nombre || '—')}</td>
+            <td class="tf-meta">${x(a.predio?.unidad || '—')}</td>
+            <td class="tf-meta">${x(a.oficina?.etiqueta || a.oficina?.nombre || '—')}</td>
+            <td class="tf-meta">${x(a.responsable?.nombre || '—')}</td>
+            <td class="tf-meta">${x(a.auxiliar ? (a.auxiliar.codAux + ' — ' + a.auxiliar.nombre) : '—')}</td>
+            <td><span class="tf-pill ${pill}">${x(estado)}</span></td>
+            <td class="tf-mov"><span class="tf-meta">—</span></td>
+            <td>
+                <button class="tf-rm" onclick="tfQuitar('${x(a.codigo)}')" title="Quitar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </td>`;
+        tb.appendChild(tr);
+    }
+
+    window.tfQuitar = function (cod) {
+        const tr = document.getElementById(`tf-r-${cod.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`);
+        if (tr) { tr.style.cssText += 'opacity:0;transition:.2s'; setTimeout(() => tr.remove(), 200); }
+        S.list = S.list.filter(a => a.codigo.toUpperCase() !== cod.toUpperCase());
+        S.codes.delete(cod.toUpperCase());
+        tfCounts(); tfCheckBtn(); tfPrevisualizar(); tfGuardarBorrador();
+        if (!S.list.length) {
+            document.getElementById('tf-empty').style.display = 'flex';
+            document.getElementById('tf-table').style.display = 'none';
+        }
+    };
+
+    window.tfLimpiar = function () {
+        S.list = []; S.codes.clear(); S.preview = null;
+        document.getElementById('tf-tbody').innerHTML = '';
+        document.getElementById('tf-empty').style.display = 'flex';
+        document.getElementById('tf-table').style.display = 'none';
+        document.getElementById('tf-aviso').style.display = 'none';
+        tfTipo(null); tfCounts(); tfCheckBtn(); tfGuardarBorrador();
+    };
+
+    /* ── Previsualización: tipo + auxiliares ────────────── */
+    let tPrev;
+    function tfPrevisualizar() {
+        clearTimeout(tPrev);
+        tPrev = setTimeout(tfPrevisualizarYa, 350);
+    }
+
+    async function tfPrevisualizarYa() {
+        const ofId = $('#tf-oficina').val();
+        const aviso = document.getElementById('tf-aviso');
+        if (!ofId || !S.list.length) {
+            aviso.style.display = 'none'; S.preview = null; tfTipo(null); tfMarcarFilas(null); return;
+        }
+        try {
+            const res = await fetch('/administracion/activo/transferencia-masiva/previsualizar', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idOficina: parseInt(ofId), codigos: S.list.map(a => a.codigo) })
+            });
+            const d = await res.json();
+            if (!d.ok) { aviso.style.display = 'none'; return; }
+            S.preview = d;
+            tfTipo(d.tipo);
+            tfMarcarFilas(d);
+            tfRenderAviso(d);
+        } catch (_) { /* la previsualización no debe frenar el trabajo */ }
+    }
+
+    function tfTipo(tipo) {
+        const b = document.getElementById('tf-tipo');
+        const btn = document.getElementById('tf-btn-go');
+        b.classList.remove('interna', 'externa');
+        if (!tipo) { b.textContent = 'Sin determinar'; btn.classList.remove('externa'); set('tf-btn-go-txt', 'Transferir'); return; }
+        b.classList.add(tipo.toLowerCase());
+        b.textContent = tipo === 'EXTERNA' ? 'Externa · cambia de predio' : 'Interna · mismo predio';
+        btn.classList.toggle('externa', tipo === 'EXTERNA');
+        set('tf-btn-go-txt', tipo === 'EXTERNA' ? 'Transferir (externa)' : 'Transferir (interna)');
+    }
+
+    function tfMarcarFilas(d) {
+        const porCodigo = {};
+        (d?.activos || []).forEach(a => porCodigo[a.codigo] = a);
+        S.list.forEach(a => {
+            const tr = document.getElementById(`tf-r-${a.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`);
+            if (!tr) return;
+            const celda = tr.querySelector('.tf-mov');
+            const info = porCodigo[a.codigo];
+            if (!info) { tr.classList.remove('externa'); celda.innerHTML = '<span class="tf-meta">—</span>'; return; }
+            tr.classList.toggle('externa', !!info.cambiaPredio);
+            celda.innerHTML = info.cambiaPredio
+                ? `<span class="tf-pill tf-pill-o">Externa</span>`
+                : `<span class="tf-pill tf-pill-a">Interna</span>`;
+        });
+    }
+
+    function tfRenderAviso(d) {
+        const aviso = document.getElementById('tf-aviso');
+        const partes = [];
+        const porCrear = d.auxiliaresPorCrear || [];
+        const externos = (d.activos || []).filter(a => a.cambiaPredio);
+        const sinAux = (d.activos || []).filter(a => a.cambiaPredio && a.sinAuxiliar);
+
+        aviso.className = 'tf-aviso' + (d.tipo === 'EXTERNA' ? '' : ' info');
+
+        if (d.tipo === 'EXTERNA') {
+            partes.push(`<div class="tf-aviso-head">⚠️ Transferencia externa: ${externos.length} activo(s) cambian de predio → <code>${x(d.predioDestino)}</code></div>`);
+            if (porCrear.length) {
+                partes.push(`<div>En el VSIAF el <b>auxiliar es propio de cada predio</b>. Para que los activos no lleguen sin auxiliar,
+                    el sistema va a <b>crear ${porCrear.length} auxiliar(es)</b> en <code>${x(d.predioDestino)}</code>, con el mismo nombre que el de origen:</div>`);
+                partes.push('<ul>' + porCrear.map(a =>
+                    `<li><code>${x(a.nombre)}</code> <span class="tf-meta">(grupo contable: ${x(a.grupoContable)})</span></li>`).join('') + '</ul>');
+                partes.push(`<div class="tf-meta">Revise que corresponda: es el único dato que el sistema crea por su cuenta en este movimiento.</div>`);
+            } else if (externos.length) {
+                partes.push(`<div>Los auxiliares ya existen en <code>${x(d.predioDestino)}</code>: no se creará ninguno.</div>`);
+            }
+            if (sinAux.length) {
+                partes.push(`<div>⚠️ ${sinAux.length} activo(s) sin auxiliar: en el VSIAF quedarán sin auxiliar
+                    (<code>${x(sinAux.map(a => a.codigo).join(', '))}</code>).</div>`);
+            }
+        } else {
+            partes.push(`<div class="tf-aviso-head">ℹ️ Transferencia interna: mismo predio (<code>${x(d.predioDestino)}</code>), los auxiliares no cambian.</div>`);
+        }
+
+        if ((d.bloqueados || []).length) {
+            aviso.className = 'tf-aviso error';
+            partes.push(`<div>🔒 Bloqueados (no se transferirán): <code>${x(d.bloqueados.join(', '))}</code></div>`);
+        }
+        if ((d.noEncontrados || []).length) {
+            partes.push(`<div>❓ No encontrados: <code>${x(d.noEncontrados.join(', '))}</code></div>`);
+        }
+
+        aviso.innerHTML = partes.join('');
+        aviso.style.display = 'flex';
+    }
+
+    /* ── Transferir ─────────────────────────────────────── */
+    window.tfTransferir = async function () {
+        const ofId = document.getElementById('tf-oficina').value;
+        const respId = document.getElementById('tf-resp').value;
+        const docRef = document.getElementById('tf-doc-ref').value.trim();
+        const obs = document.getElementById('tf-observacion').value.trim();
+        if (!ofId || !respId) { tfToast('w', 'Incompleto', 'Seleccione oficina y responsable de destino.'); return; }
+        if (!S.list.length) { tfToast('w', 'Sin activos', 'No hay activos en la lista.'); return; }
+
+        const tipo = S.preview?.tipo || 'INTERNA';
+        const porCrear = S.preview?.auxiliaresPorCrear || [];
+        let confirmMsg = `¿Confirma la transferencia ${tipo === 'EXTERNA' ? 'EXTERNA (cambia de predio)' : 'INTERNA'} de ${S.list.length} activo(s)?`;
+        if (porCrear.length) confirmMsg += `\n\nSe crearán ${porCrear.length} auxiliar(es) en el predio destino:\n· ` + porCrear.map(a => a.nombre).join('\n· ');
+        if (!obs) confirmMsg += `\n\n(No escribió ninguna observación.)`;
+        if (!confirm(confirmMsg)) return;
+
+        const btn = document.getElementById('tf-btn-go');
+        btn.disabled = true;
+        tfOverlay(`Transfiriendo ${S.list.length} activo(s)…`);
+        try {
+            const res = await fetch('/administracion/activo/transferencia-masiva', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    idOficina: parseInt(ofId), idResponsable: parseInt(respId),
+                    codigos: S.list.map(a => a.codigo),
+                    tipo: tipo,
+                    documentoReferencia: docRef || null,
+                    observacion: obs || null
+                })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                tfMostrarResultado(data);
+                tfLimpiar();
+                document.getElementById('tf-doc-ref').value = '';
+                document.getElementById('tf-observacion').value = '';
+            } else {
+                tfToast('e', 'No se transfirió', data.msg || 'Revise los datos.');
+            }
+        } catch (e) { tfToast('e', 'Error de red', e.message); }
+        finally { tfOverlayOff(); btn.disabled = false; tfCheckBtn(); }
+    };
+
+    function tfMostrarResultado(data) {
+        const aux = data.auxiliares || [];
+        const creados = aux.filter(a => a.creado);
+        const fallos = aux.filter(a => a.vsiafOk === false);
+        document.getElementById('tf-res-ico').textContent = data.vsiafOk === false ? '⚠️' : '✅';
+        document.getElementById('tf-res-titulo').textContent = data.vsiafOk === false
+            ? 'Guardado, pero no llegó al VSIAF' : `Transferencia ${String(data.tipo || '').toLowerCase()} registrada`;
+        document.getElementById('tf-res-sub').textContent = `N.º ${data.numeroTransferencia || 'S/N'}`;
+
+        const partes = [`<div style="font-size:14px;">${x(data.msg)}</div>`];
+        if (creados.length) {
+            partes.push(`<div style="font-size:14px;"><b>Auxiliares creados en el predio destino</b> (revíselos):</div>
+                <ul style="margin-left:20px;font-size:13.5px;display:flex;flex-direction:column;gap:5px;">` +
+                creados.map(a => `<li><code>${x(a.auxiliarDestino)}</code> — código ${x(a.codAuxDestino)}
+                    <span style="color:#8a93a8">(activo ${x(a.codigo)})</span></li>`).join('') + '</ul>');
+        }
+        if (fallos.length) {
+            partes.push(`<div style="color:#f04438;font-size:13.5px;">Algún auxiliar no llegó al VSIAF:
+                ${x(fallos.map(a => a.mensaje).join(' | '))}</div>`);
+        }
+        partes.push(`<div style="font-size:13px;color:#8a93a8;">Puede seguir el estado de estos activos en el
+            historial de transferencias, buscando por el número <code>${x(data.numeroTransferencia || '')}</code>.</div>`);
+        document.getElementById('tf-res-body').innerHTML = partes.join('');
+        document.getElementById('tf-res-bg').classList.add('on');
+    }
+
+    window.tfCerrarResultado = function () { document.getElementById('tf-res-bg').classList.remove('on'); };
+
+    /* ── Nuevo responsable en la oficina destino ────────── */
+    window.tfAbrirModalNuevoResp = async function () {
+        if (!S.oficinaId) { tfToast('w', 'Sin oficina', 'Seleccione una oficina destino primero.'); return; }
+        document.getElementById('tf-modal-sub').textContent = `Oficina: ${S.oficinaNombre}`;
+        ['tf-nr-ci', 'tf-nr-codfunc', 'tf-nr-nombre', 'tf-nr-paterno', 'tf-nr-materno']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        document.getElementById('tf-nr-cargo-nuevo-wrap').style.display = 'none';
+        document.getElementById('tf-nr-cargo-nuevo-txt').value = '';
+        document.getElementById('tf-nr-btn-nuevo-cargo').style.display = 'flex';
+        document.getElementById('tf-nr-cargo').style.display = '';
+
+        try {
+            const r = await fetch(`/administracion/responsable/obtener-siguiente-codigo-funcionario?idOficina=${S.oficinaId}`);
+            if (r.ok) document.getElementById('tf-nr-codfunc').value = await r.json();
+        } catch (_) {}
+
+        tfCargoSelect2();
+
+        document.getElementById('tf-nr-ci').onblur = async function () {
+            const ci = this.value.trim();
+            if (!ci) return;
+            try {
+                const r = await fetch(`/administracion/responsable/api/personas/buscar-por-ci?ci=${encodeURIComponent(ci)}`);
+                if (r.ok) {
+                    const p = await r.json();
+                    if (p.nombre) document.getElementById('tf-nr-nombre').value = p.nombre;
+                    if (p.paterno) document.getElementById('tf-nr-paterno').value = p.paterno;
+                    if (p.materno) document.getElementById('tf-nr-materno').value = p.materno;
+                }
+            } catch (_) {}
+        };
+
+        document.getElementById('tf-nr-btn-nuevo-cargo').onclick = function () {
+            if ($('#tf-nr-cargo').data('select2')) $('#tf-nr-cargo').select2('destroy');
+            $('#tf-nr-cargo').val('').hide();
+            document.getElementById('tf-nr-cargo-nuevo-wrap').style.display = 'flex';
+            this.style.display = 'none';
+            document.getElementById('tf-nr-cargo-nuevo-txt').focus();
+        };
+        document.getElementById('tf-nr-btn-cancelar-cargo').onclick = function () {
+            document.getElementById('tf-nr-cargo-nuevo-wrap').style.display = 'none';
+            document.getElementById('tf-nr-cargo-nuevo-txt').value = '';
+            document.getElementById('tf-nr-btn-nuevo-cargo').style.display = 'flex';
+            $('#tf-nr-cargo').show();
+            tfCargoSelect2();
+        };
+
+        document.getElementById('tf-modal-bg').classList.add('on');
+    };
+
+    function tfCargoSelect2() {
+        const $c = $('#tf-nr-cargo');
+        if ($c.data('select2')) $c.select2('destroy');
+        $c.select2({
+            width: '100%', placeholder: 'Buscar cargo…', allowClear: true, minimumInputLength: 0,
+            dropdownParent: $('#tf-modal-bg'),
+            language: { searching: () => 'Buscando…', noResults: () => 'Sin resultados' },
+            ajax: {
+                url: '/api/cargos/search', dataType: 'json', delay: 250,
+                data: params => ({ q: params.term || '' }),
+                processResults: data => ({ results: data.map(c => ({ id: c.nombre, text: c.nombre })) }),
+                cache: true
+            }
+        });
+    }
+
+    window.tfCerrarModal = function () { document.getElementById('tf-modal-bg').classList.remove('on'); };
+
+    window.tfGuardarNuevoResp = async function () {
+        const ci = document.getElementById('tf-nr-ci').value.trim();
+        const nombre = document.getElementById('tf-nr-nombre').value.trim();
+        const paterno = document.getElementById('tf-nr-paterno').value.trim();
+        const materno = document.getElementById('tf-nr-materno').value.trim();
+        const codfunc = document.getElementById('tf-nr-codfunc').value.trim();
+        const cargoNuevoVisible = document.getElementById('tf-nr-cargo-nuevo-wrap').style.display !== 'none';
+        const cargo = cargoNuevoVisible
+            ? document.getElementById('tf-nr-cargo-nuevo-txt').value.trim()
+            : ($('#tf-nr-cargo').val() || '');
+
+        if (!ci) { tfToast('w', 'Requerido', 'El C.I. es obligatorio.'); return; }
+        if (!nombre) { tfToast('w', 'Requerido', 'El nombre es obligatorio.'); return; }
+        if (!paterno) { tfToast('w', 'Requerido', 'El apellido paterno es obligatorio.'); return; }
+        if (!codfunc) { tfToast('w', 'Requerido', 'El código de funcionario es obligatorio.'); return; }
+        if (!cargo) { tfToast('w', 'Requerido', 'Seleccione o escriba un cargo.'); return; }
+
+        tfOverlay('Registrando responsable…');
+        try {
+            const fd = new FormData();
+            fd.append('ci', ci); fd.append('nombre', nombre); fd.append('paterno', paterno);
+            fd.append('materno', materno); fd.append('codigoFuncionario', codfunc);
+            fd.append('idOficina', S.oficinaId); fd.append('cargoNombre', cargo);
+            fd.append('modoRapido', 'true');
+
+            let r = await fetch('/administracion/responsable/registrar-responsable', { method: 'POST', body: fd });
+            if (r.status === 409) {
+                tfOverlayOff();
+                const conflicto = await r.json();
+                if (!confirm(`Persona similar encontrada:\n${conflicto.msg}\n\n¿Crear de todas formas?`)) return;
+                tfOverlay('Registrando…');
+                r = await fetch('/administracion/responsable/registrar-responsable-forzado', { method: 'POST', body: fd });
+            }
+            const res = await r.json();
+            tfOverlayOff();
+            if (!res.ok) throw new Error(res.msg);
+
+            tfToast('s', 'Responsable registrado', `${nombre} ${paterno} — se enviará al VSIAF con este movimiento.`);
+            tfCerrarModal();
+
+            const ofId = $('#tf-oficina').val();
+            if (ofId) {
+                const data = await fetch(`/api/responsables/por-oficina?oficinaId=${ofId}`).then(r2 => r2.json());
+                const $re = $('#tf-resp');
+                $re.empty().append('<option value="">— Seleccione responsable —</option>');
+                data.forEach(resp => $re.append($('<option>').val(resp.idResponsable)
+                    .text(`${resp.codigoFuncionario} — ${resp.nombre}`).attr('data-nombre', resp.nombre)));
+                $re.prop('disabled', false).trigger('change.select2');
+                if (res.id) setTimeout(() => { $('#tf-resp').val(String(res.id)).trigger('change.select2'); tfCheckBtn(); }, 150);
+            }
+        } catch (err) { tfOverlayOff(); tfToast('e', 'Error', err.message); }
+    };
+
+    /* ── Borrador: se conserva al cambiar de pestaña o de día ── */
+    function tfEstado() {
+        return {
+            codigos: S.list.map(a => a.codigo),
+            idPredio: $('#tf-predio').val() || null,
+            idOficina: $('#tf-oficina').val() || null,
+            idResponsable: $('#tf-resp').val() || null,
+            documentoReferencia: document.getElementById('tf-doc-ref').value,
+            observacion: document.getElementById('tf-observacion').value
+        };
+    }
+
+    function tfGuardarBorrador() {
+        if (window.sciafBorrador) window.sciafBorrador.guardar(BORRADOR, tfEstado());
+    }
+
+    async function tfRestaurarBorrador() {
+        if (!window.sciafBorrador) return;
+        const d = await window.sciafBorrador.leer(BORRADOR);
+        if (!d || !d.codigos?.length && !d.idOficina) return;
+
+        if (d.idPredio) {
+            $('#tf-predio').val(String(d.idPredio)).trigger('change.select2');
+            await tfPredioChange();
+            if (d.idOficina) {
+                $('#tf-oficina').val(String(d.idOficina)).trigger('change.select2');
+                await tfOficinaChange();
+                if (d.idResponsable) $('#tf-resp').val(String(d.idResponsable)).trigger('change.select2');
+            }
+        }
+        document.getElementById('tf-doc-ref').value = d.documentoReferencia || '';
+        document.getElementById('tf-observacion').value = d.observacion || '';
+
+        if (d.codigos?.length) {
+            const data = await fetch('/api/activos/por-codigos', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codigos: d.codigos })
+            }).then(r => r.json());
+            data.forEach(a => { if (a?.idActivo) tfAdd(a, true); });
+            tfToast('s', 'Se recuperó su trabajo', `${S.list.length} activo(s) que había cargado antes.`);
+        }
+        tfCheckBtn(); tfPrevisualizar();
+    }
+
+    $('#tf-doc-ref, #tf-observacion').on('input', () => tfGuardarBorrador());
+
+    /* ── Utilidades ─────────────────────────────────────── */
+    function tfCounts() { set('tf-cnt', S.list.length); }
+    function tfOverlay(msg) { set('tf-overlay-txt', msg); document.getElementById('tf-overlay').classList.add('on'); }
+    function tfOverlayOff() { document.getElementById('tf-overlay').classList.remove('on'); }
+    function tfToast(type, title, msg) {
+        const icons = { s: '✅', e: '❌', w: '⚠️', i: 'ℹ️' };
+        const cls = { s: 'tf-toast-s', e: 'tf-toast-e', w: 'tf-toast-w', i: 'tf-toast-s' };
+        const c = document.getElementById('tf-toasts'), d = document.createElement('div');
+        d.className = `tf-toast ${cls[type] || 'tf-toast-s'}`;
+        d.innerHTML = `<span style="font-size:16px;flex-shrink:0;">${icons[type] || 'ℹ️'}</span>
+            <div><div class="tf-toast-ti">${x(title)}</div><div class="tf-toast-ms">${x(msg)}</div></div>`;
+        c.appendChild(d);
+        setTimeout(() => { d.style.cssText += 'opacity:0;transform:translateX(12px);transition:.3s'; setTimeout(() => d.remove(), 330); }, 4800);
+    }
+
+    (function boot() {
+        if (typeof $ !== 'undefined' && $.fn?.select2) { window.tfInitSelect2(); tfRestaurarBorrador(); }
+        else setTimeout(boot, 80);
+    })();
+})();
+</script>

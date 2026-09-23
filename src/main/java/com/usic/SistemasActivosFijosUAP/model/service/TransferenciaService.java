@@ -31,6 +31,7 @@ public class TransferenciaService {
     private final ITransferenciaService transferenciaService;
     private final IActivoService activoService;
     private final IHistorialActivoDao historialActivoDao;
+    private final com.usic.SistemasActivosFijosUAP.model.dao.ITransferenciaDao transferenciaDao;
 
     @Transactional
     public Transferencia crearYGuardar(Responsable respOrigen,
@@ -86,6 +87,10 @@ public class TransferenciaService {
         return s == null ? "" : s.trim();
     }
 
+    private static String vacioANulo(String s) {
+        return (s == null || s.isBlank()) ? null : s.trim();
+    }
+
     /* NUEVA CONFIGURACION DE REGISTRO DE TRANSFERENCIA E HISTORIAL */
     @Transactional
     public Transferencia registrarTransferencia(
@@ -95,12 +100,39 @@ public class TransferenciaService {
             Responsable respDestino,
             Long idUsuario,
             String nombreUsuario) {
+        return registrarTransferencia(activosConEstadoAnterior, tipo, ofDestino, respDestino,
+                idUsuario, nombreUsuario, null, null, null);
+    }
+
+    /**
+     * Registra la cabecera, el detalle y el historial de una transferencia.
+     * <p>
+     * El documento de referencia, la observación y la institución destino entran en el
+     * INSERT: antes se guardaban con un UPDATE posterior que reescribía todas las columnas
+     * y borraba el {@code numero_transferencia} que pone el trigger de la base (NOT NULL),
+     * y la transferencia externa terminaba en "could not execute batch" con los activos ya
+     * movidos y sin sincronizar al VSIAF.
+     */
+    @Transactional
+    public Transferencia registrarTransferencia(
+            List<ActivoConOrigen> activosConEstadoAnterior,
+            String tipo,
+            Oficina ofDestino,
+            Responsable respDestino,
+            Long idUsuario,
+            String nombreUsuario,
+            String documentoReferencia,
+            String observacion,
+            String institucionDestino) {
  
         LocalDate hoy = LocalDate.now();
  
         // 1. Cabecera
         Transferencia trf = new Transferencia();
         trf.setTipo(tipo);
+        trf.setDocumentoReferencia(vacioANulo(documentoReferencia));
+        trf.setObservacion(vacioANulo(observacion));
+        trf.setInstitucionDestino(vacioANulo(institucionDestino));
         trf.setFechaTransferencia(hoy);
         trf.setEstadoProceso("COMPLETADA");
         trf.setOficinaDestino(ofDestino);
@@ -157,6 +189,16 @@ public class TransferenciaService {
  
         // 3. Persistir (el trigger SQL genera el número de transferencia)
         Transferencia saved = transferenciaService.save(trf);
+
+        // El trigger escribe el número en la base, no en la entidad: se relee para poder
+        // mostrárselo al usuario y para que un UPDATE posterior no lo mande en null.
+        try {
+            String numero = transferenciaDao.numeroDe(saved.getIdTransferencia());
+            if (numero != null) saved.setNumeroTransferencia(numero);
+        } catch (Exception e) {
+            log.warn("No se pudo releer el número de la transferencia {}: {}",
+                     saved.getIdTransferencia(), e.getMessage());
+        }
         log.info("Transferencia {} registrada — {} activos", saved.getNumeroTransferencia(),
                  activosConEstadoAnterior.size());
  

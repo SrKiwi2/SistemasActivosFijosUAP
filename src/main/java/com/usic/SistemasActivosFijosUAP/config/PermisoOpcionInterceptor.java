@@ -66,6 +66,15 @@ public class PermisoOpcionInterceptor implements HandlerInterceptor {
             Map.entry("opcion_trExterna", Set.of(
                     "/administracion/activo/transferencia-masiva")),
 
+            // Transferencia (interna + externa en una sola pantalla): confirma contra el
+            // módulo de activos y puede dar de alta un responsable en la oficina destino.
+            Map.entry("opcion_transferencia", Set.of(
+                    "/administracion/activo/transferencia-masiva",
+                    "/administracion/responsable/obtener-siguiente-codigo-funcionario",
+                    "/administracion/responsable/api/personas/buscar-por-ci",
+                    "/administracion/responsable/registrar-responsable",
+                    "/administracion/responsable/registrar-responsable-forzado")),
+
             Map.entry("opcion_consulta_activo", Set.of(
                     "/administracion/activo/datatables")),
 

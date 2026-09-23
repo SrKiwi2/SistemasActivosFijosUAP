@@ -21,8 +21,16 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * {@code @DynamicUpdate}: {@code numero_transferencia} lo genera un trigger de la base al
+ * insertar, y la entidad en memoria se queda con null. Sin esto, cualquier UPDATE posterior
+ * (guardar la observación, por ejemplo) reescribía TODAS las columnas y mandaba ese null,
+ * que la base rechaza por NOT NULL — así fallaban las transferencias externas: los activos
+ * ya estaban guardados, pero la cabecera reventaba antes de sincronizar el VSIAF.
+ */
 @Setter @Getter @NoArgsConstructor
 @Entity
+@org.hibernate.annotations.DynamicUpdate
 @Table(name = "transferencia")
 public class Transferencia extends AuditoriaConfig {
 
