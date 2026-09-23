@@ -52,16 +52,24 @@ public class EspacioTrabajoRestController {
     public ResponseEntity<?> leer(HttpServletRequest request, @RequestParam String clave) {
         Usuario u = RolesSciaf.usuarioDe(request);
         if (u == null) return ResponseEntity.status(401).body(Map.of("ok", false));
-        return dao.findByIdUsuarioAndClave(u.getIdUsuario(), clave)
-                .map(e -> {
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("ok", true);
-                    m.put("clave", clave);
-                    m.put("datos", e.getDatosJson());
-                    m.put("fecha", e.getFechaActualizacion() != null ? e.getFechaActualizacion().toString() : null);
-                    return ResponseEntity.ok(m);
-                })
-                .orElseGet(() -> ResponseEntity.ok(Map.of("ok", true, "clave", clave, "datos", (Object) null)));
+        // Nunca 500: esto es una comodidad (recordar la pantalla a medias). Si algo falla
+        // —la tabla todavía no existe tras un despliegue, por ejemplo— se responde "sin
+        // datos" y el sistema sigue funcionando igual.
+        try {
+            return dao.findByIdUsuarioAndClave(u.getIdUsuario(), clave)
+                    .map(e -> {
+                        Map<String, Object> m = new LinkedHashMap<>();
+                        m.put("ok", true);
+                        m.put("clave", clave);
+                        m.put("datos", e.getDatosJson());
+                        m.put("fecha", e.getFechaActualizacion() != null ? e.getFechaActualizacion().toString() : null);
+                        return ResponseEntity.ok(m);
+                    })
+                    .orElseGet(() -> ResponseEntity.ok(Map.of("ok", true, "clave", clave, "datos", (Object) null)));
+        } catch (Exception e) {
+            log.warn("[ESPACIO] No se pudo leer '{}' de {}: {}", clave, u.getUsuario(), e.getMessage());
+            return ResponseEntity.ok(Map.of("ok", false, "clave", clave, "datos", (Object) null));
+        }
     }
 
     @PutMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -73,17 +81,22 @@ public class EspacioTrabajoRestController {
         if (datosJson != null && datosJson.length() > MAX_CARACTERES) {
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "El borrador es demasiado grande."));
         }
-        EspacioUsuario e = dao.findByIdUsuarioAndClave(u.getIdUsuario(), clave)
-                .orElseGet(() -> {
-                    EspacioUsuario nuevo = new EspacioUsuario();
-                    nuevo.setIdUsuario(u.getIdUsuario());
-                    nuevo.setClave(clave);
-                    return nuevo;
-                });
-        e.setDatosJson(datosJson);
-        e.setFechaActualizacion(LocalDateTime.now());
-        dao.save(e);
-        return ResponseEntity.ok(Map.of("ok", true));
+        try {
+            EspacioUsuario e = dao.findByIdUsuarioAndClave(u.getIdUsuario(), clave)
+                    .orElseGet(() -> {
+                        EspacioUsuario nuevo = new EspacioUsuario();
+                        nuevo.setIdUsuario(u.getIdUsuario());
+                        nuevo.setClave(clave);
+                        return nuevo;
+                    });
+            e.setDatosJson(datosJson);
+            e.setFechaActualizacion(LocalDateTime.now());
+            dao.save(e);
+            return ResponseEntity.ok(Map.of("ok", true));
+        } catch (Exception e) {
+            log.warn("[ESPACIO] No se pudo guardar '{}' de {}: {}", clave, u.getUsuario(), e.getMessage());
+            return ResponseEntity.ok(Map.of("ok", false));
+        }
     }
 
     @DeleteMapping
@@ -91,7 +104,11 @@ public class EspacioTrabajoRestController {
     public ResponseEntity<?> borrar(HttpServletRequest request, @RequestParam String clave) {
         Usuario u = RolesSciaf.usuarioDe(request);
         if (u == null) return ResponseEntity.status(401).body(Map.of("ok", false));
-        dao.deleteByIdUsuarioAndClave(u.getIdUsuario(), clave);
+        try {
+            dao.deleteByIdUsuarioAndClave(u.getIdUsuario(), clave);
+        } catch (Exception e) {
+            log.warn("[ESPACIO] No se pudo borrar '{}': {}", clave, e.getMessage());
+        }
         return ResponseEntity.ok(Map.of("ok", true));
     }
 

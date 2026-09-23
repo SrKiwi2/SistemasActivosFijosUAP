@@ -215,11 +215,35 @@
         }
 
         const cargarOriginal = window.cargarContenido;
-        // /adm/inicio no es un fragmento: devuelve la página entera (con su <html> y sus
-        // scripts). Pedirla por AJAX y meterla dentro del contenido dejaba la pantalla en
-        // blanco y reventaba el personalizador de la plantilla. Se guarda el Inicio tal
-        // como vino en la página y se vuelve a poner ese mismo HTML cuando hace falta.
-        const inicioHtml = $contenido.html();
+
+        /**
+         * /adm/inicio NO es un fragmento: devuelve la página de administración entera. Si
+         * alguien la pide por AJAX y la mete dentro de #contenido queda una página dentro
+         * de otra: el navegador entra en "Quirks Mode", revienta el personalizador de la
+         * plantilla y la pantalla se ve en blanco. El layout hace justo eso al abrir la
+         * sesión, antes de que este gestor exista, así que acá se repara: de la página
+         * inyectada se rescata su propio #contenido, que es el Inicio de verdad.
+         */
+        function repararInicioInyectado() {
+            const $dup = $contenido.find('#contenido').first();
+            if (!$dup.length) return false;
+            $contenido.html($dup.html());
+            return true;
+        }
+
+        repararInicioInyectado();
+        // El Inicio, tal como vino en la página: se reinyecta cuando hace falta, nunca se pide.
+        let inicioHtml = $contenido.html();
+
+        // El layout puede terminar su carga después que este gestor: si mete la página
+        // entera, se repara y se vuelve a tomar el Inicio bueno.
+        [400, 1000, 2200].forEach(ms => setTimeout(() => {
+            if (activa >= 0 && pestanas[activa] && pestanas[activa].url !== INICIO) return;
+            if (repararInicioInyectado() || !(inicioHtml || '').trim()) {
+                const actual = $contenido.html();
+                if ((actual || '').trim()) inicioHtml = actual;
+            }
+        }, ms));
         const pestanas = [];          // { url, titulo, icono, $dom, scroll, cargada, modulo }
         let activa = -1;
         // "restaurando": se está reponiendo el contenido de una pantalla (no conviene
@@ -362,9 +386,17 @@
             $contenido.empty();
             p.$dom = null;
             render(); marcarMenu(p.url);
-            if (p.url === INICIO) $contenido.html(inicioHtml);   // nunca por AJAX
-            else cargarOriginal(p.url);
+            if (p.url === INICIO) {
+                // Nunca por AJAX (devuelve la página entera). Si por lo que sea no se pudo
+                // guardar su contenido, se recarga la página de verdad: mejor eso que
+                // dejar la pantalla vacía.
+                if (inicioHtml && inicioHtml.trim()) $contenido.html(inicioHtml);
+                else { window.location.href = INICIO; return; }
+            } else {
+                cargarOriginal(p.url);
+            }
             p.cargada = true;
+            vigilarContenido(p);
             esperarContenido().then(() => {
                 if (pestanas[activa] !== p) return;
                 const t = $contenido.find('h4,h5').first().text().trim();
@@ -372,6 +404,31 @@
                 reponerEstado(p);
             });
             guardarPestanas();
+        }
+
+        /**
+         * Red de seguridad: si una pantalla no llegó a dibujarse (la petición falló, el
+         * servidor devolvió algo que no es un fragmento…), en vez de dejar el área vacía se
+         * muestra un aviso con la forma de reintentar.
+         */
+        function vigilarContenido(p) {
+            setTimeout(() => {
+                if (pestanas[activa] !== p) return;
+                if ($contenido.children().length) return;
+                p.cargada = false;
+                $contenido.html(`
+                    <div class="card border-0 shadow-sm">
+                      <div class="card-body text-center py-5">
+                        <i class="ti ti-alert-triangle ti-lg text-warning d-block mb-2" style="font-size:2rem;"></i>
+                        <h5 class="mb-1">No se pudo mostrar «${escapar(p.titulo)}»</h5>
+                        <p class="text-muted mb-3">La pantalla no respondió. Puede reintentar o volver al inicio.</p>
+                        <button class="btn btn-primary btn-sm me-2" id="sciaf-reintentar">Reintentar</button>
+                        <button class="btn btn-outline-secondary btn-sm" id="sciaf-ir-inicio">Ir al inicio</button>
+                      </div>
+                    </div>`);
+                $('#sciaf-reintentar').on('click', () => activar(pestanas.indexOf(p), true));
+                $('#sciaf-ir-inicio').on('click', () => { const i = pestanas.findIndex(t => t.url === INICIO); if (i >= 0) activar(i); });
+            }, 6000);
         }
 
         function cerrar(i, silencioso) {
@@ -495,7 +552,8 @@
         }
 
         async function restaurar() {
-            const d = await Espacio.leer(CLAVE_PESTANAS);
+            let d = null;
+            try { d = await Espacio.leer(CLAVE_PESTANAS); } catch (e) { d = null; }
             await esperarInicio();
             // Sin pestañas guardadas: se queda el Inicio que ya cargó el layout.
             if (!d || !Array.isArray(d.pestanas) || !d.pestanas.length) { render(); return; }
@@ -514,7 +572,14 @@
             activa = -1;
             render();
             reconstruyendoLista = false;
-            activar(Math.min(Math.max(d.activa ?? 0, 0), pestanas.length - 1));
+            try {
+                activar(Math.min(Math.max(d.activa ?? 0, 0), pestanas.length - 1));
+            } catch (e) {
+                // Un estado guardado raro no puede dejar al usuario sin pantalla.
+                console.warn('[Pestañas] No se pudo restaurar la sesión anterior:', e);
+                const i = pestanas.findIndex(t => t.url === INICIO);
+                if (i >= 0) activar(i);
+            }
             if (pestanas.length > 1 && window.Swal) {
                 setTimeout(() => Swal.fire({
                     toast: true, position: 'bottom-end', icon: 'info',
