@@ -235,15 +235,26 @@
         // El Inicio, tal como vino en la página: se reinyecta cuando hace falta, nunca se pide.
         let inicioHtml = $contenido.html();
 
-        // El layout puede terminar su carga después que este gestor: si mete la página
-        // entera, se repara y se vuelve a tomar el Inicio bueno.
-        [400, 1000, 2200].forEach(ms => setTimeout(() => {
-            if (activa >= 0 && pestanas[activa] && pestanas[activa].url !== INICIO) return;
-            if (repararInicioInyectado() || !(inicioHtml || '').trim()) {
-                const actual = $contenido.html();
-                if ((actual || '').trim()) inicioHtml = actual;
+        // El layout puede terminar su carga mucho después que este gestor (y en algunos
+        // despliegues tarda): se vigila un rato en vez de mirar solo un par de veces.
+        (function vigilarInicio(intentos) {
+            setTimeout(() => {
+                const esInicio = activa < 0 || !pestanas[activa] || pestanas[activa].url === INICIO;
+                if (esInicio) {
+                    const reparado = repararInicioInyectado();
+                    const actual = $contenido.html();
+                    if ((reparado || !(inicioHtml || '').trim()) && (actual || '').trim()) inicioHtml = actual;
+                }
+                if (intentos > 0) vigilarInicio(intentos - 1);
+            }, 400);
+        })(20);   // ~8 segundos
+
+        // Pase lo que pase, el usuario no se queda mirando una pantalla vacía.
+        setTimeout(() => {
+            if (activa >= 0 && pestanas[activa] && !$contenido.children().length) {
+                avisoPantallaVacia(pestanas[activa]);
             }
-        }, ms));
+        }, 7000);
         const pestanas = [];          // { url, titulo, icono, $dom, scroll, cargada, modulo }
         let activa = -1;
         // "restaurando": se está reponiendo el contenido de una pantalla (no conviene
@@ -415,6 +426,11 @@
             setTimeout(() => {
                 if (pestanas[activa] !== p) return;
                 if ($contenido.children().length) return;
+                avisoPantallaVacia(p);
+            }, 6000);
+        }
+
+        function avisoPantallaVacia(p) {
                 p.cargada = false;
                 $contenido.html(`
                     <div class="card border-0 shadow-sm">
@@ -426,9 +442,16 @@
                         <button class="btn btn-outline-secondary btn-sm" id="sciaf-ir-inicio">Ir al inicio</button>
                       </div>
                     </div>`);
-                $('#sciaf-reintentar').on('click', () => activar(pestanas.indexOf(p), true));
-                $('#sciaf-ir-inicio').on('click', () => { const i = pestanas.findIndex(t => t.url === INICIO); if (i >= 0) activar(i); });
-            }, 6000);
+                $('#sciaf-reintentar').on('click', () => {
+                    const i = pestanas.indexOf(p);
+                    if (p.url === INICIO) window.location.href = INICIO; else activar(i, true);
+                });
+                $('#sciaf-ir-inicio').on('click', () => {
+                    // Si se tiene el Inicio guardado se usa; si no, se recarga de verdad.
+                    const i = pestanas.findIndex(t => t.url === INICIO);
+                    if (i >= 0 && (inicioHtml || '').trim()) activar(i, true);
+                    else window.location.href = INICIO;
+                });
         }
 
         function cerrar(i, silencioso) {
@@ -459,14 +482,27 @@
             render(); guardarPestanas();
         }
 
+        /**
+         * Cierra todo y deja el Inicio. Importante: el Inicio se conserva VIVO (sus nodos
+         * originales), no se vuelve a crear desde su HTML. Recrearlo dejaba la pantalla
+         * "en blanco": los nodos estaban, pero sin el estado con el que la plantilla los
+         * había dibujado (las tarjetas animadas quedan invisibles).
+         */
         function cerrarTodas() {
             pestanas.filter(p => p.url !== INICIO).forEach(p => Espacio.limpiar(claveTab(p.url)));
             const inicio = pestanas.find(p => p.url === INICIO);
+            const estabaEnInicio = activa >= 0 && pestanas[activa] && pestanas[activa].url === INICIO;
             pestanas.length = 0;
-            activa = -1;
-            $contenido.empty();
-            if (inicio) { inicio.cargada = false; inicio.$dom = null; pestanas.push(inicio); activar(0); }
-            else abrir(INICIO);
+            if (!inicio) { activa = -1; $contenido.empty(); abrir(INICIO); guardarPestanas(); return; }
+
+            pestanas.push(inicio);
+            if (estabaEnInicio) {
+                activa = 0;              // ya está en pantalla: no se toca nada
+                render();
+            } else {
+                activa = -1;
+                activar(0);              // vuelve su DOM guardado, intacto
+            }
             guardarPestanas();
         }
 
@@ -569,7 +605,10 @@
             if (!pestanas.some(p => p.url === INICIO)) {
                 pestanas.unshift({ url: INICIO, ...infoMenu(INICIO), $dom: null, scroll: 0, cargada: false });
             }
-            activa = -1;
+            // El Inicio ya está dibujado en la página: se adopta tal cual, sin recrearlo.
+            const iInicio = pestanas.findIndex(p => p.url === INICIO);
+            if (iInicio >= 0) { pestanas[iInicio].cargada = true; pestanas[iInicio].$dom = null; }
+            activa = iInicio;
             render();
             reconstruyendoLista = false;
             try {
@@ -610,6 +649,29 @@
         }
 
         window.sciafPestanas = {
+            /** Para diagnosticar desde la consola: sciafPestanas.diagnostico() */
+            diagnostico: () => {
+                const html = $contenido.html() || '';
+                const info = {
+                    ctx: document.body.dataset.ctx || '(sin data-ctx)',
+                    contenidoVacio: !$contenido.children().length,
+                    contenidoLargo: html.length,
+                    contenidoInicio: html.trim().substring(0, 120),
+                    tienePaginaAnidada: $contenido.find('#contenido, #layout-menu').length > 0,
+                    inicioGuardadoLargo: (inicioHtml || '').length,
+                    pestanaActiva: activa >= 0 && pestanas[activa] ? pestanas[activa].url : null,
+                    pestanas: pestanas.map(p => p.url),
+                    respaldoLocal: (() => { try { return localStorage.getItem('sciaf.espacio.' + CLAVE_PESTANAS); } catch (e) { return 'sin acceso'; } })()
+                };
+                console.table(info);
+                return info;
+            },
+            /** Borra el respaldo y deja el sistema como recién instalado. */
+            reiniciarEspacio: async () => {
+                try { Object.keys(localStorage).filter(k => k.indexOf('sciaf.espacio.') === 0).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+                await Espacio.limpiar(CLAVE_PESTANAS);
+                window.location.href = INICIO;
+            },
             recargarActiva: () => activar(activa, true),
             abrir: url => abrir(url),
             cerrarActiva: () => cerrar(activa),
