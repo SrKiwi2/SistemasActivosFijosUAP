@@ -10,10 +10,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.usic.SistemasActivosFijosUAP.config.RolesSciaf;
@@ -32,6 +32,10 @@ import lombok.extern.slf4j.Slf4j;
  * <p>
  * Cada usuario solo ve y escribe lo suyo: la clave es {@code (usuario en sesión, clave)},
  * nunca un id que venga del navegador.
+ * <p>
+ * La clave viaja como parámetro y no dentro de la ruta porque contiene barras (p. ej.
+ * {@code tab./adm/inicio}): una barra codificada en la ruta la rechaza el servidor y todas
+ * las lecturas y guardados respondían 404.
  */
 @Slf4j
 @RestController
@@ -44,8 +48,8 @@ public class EspacioTrabajoRestController {
 
     private final IEspacioUsuarioDao dao;
 
-    @GetMapping("/{clave}")
-    public ResponseEntity<?> leer(HttpServletRequest request, @PathVariable String clave) {
+    @GetMapping
+    public ResponseEntity<?> leer(HttpServletRequest request, @RequestParam String clave) {
         Usuario u = RolesSciaf.usuarioDe(request);
         if (u == null) return ResponseEntity.status(401).body(Map.of("ok", false));
         return dao.findByIdUsuarioAndClave(u.getIdUsuario(), clave)
@@ -60,9 +64,9 @@ public class EspacioTrabajoRestController {
                 .orElseGet(() -> ResponseEntity.ok(Map.of("ok", true, "clave", clave, "datos", (Object) null)));
     }
 
-    @PutMapping(value = "/{clave}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PutMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Transactional
-    public ResponseEntity<?> guardar(HttpServletRequest request, @PathVariable String clave,
+    public ResponseEntity<?> guardar(HttpServletRequest request, @RequestParam String clave,
                                      @RequestBody(required = false) String datosJson) {
         Usuario u = RolesSciaf.usuarioDe(request);
         if (u == null) return ResponseEntity.status(401).body(Map.of("ok", false));
@@ -82,9 +86,9 @@ public class EspacioTrabajoRestController {
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
-    @DeleteMapping("/{clave}")
+    @DeleteMapping
     @Transactional
-    public ResponseEntity<?> borrar(HttpServletRequest request, @PathVariable String clave) {
+    public ResponseEntity<?> borrar(HttpServletRequest request, @RequestParam String clave) {
         Usuario u = RolesSciaf.usuarioDe(request);
         if (u == null) return ResponseEntity.status(401).body(Map.of("ok", false));
         dao.deleteByIdUsuarioAndClave(u.getIdUsuario(), clave);

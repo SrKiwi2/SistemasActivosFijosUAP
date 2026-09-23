@@ -25,7 +25,7 @@
 (function () {
     'use strict';
 
-    const API = clave => `/api/espacio/${encodeURIComponent(clave)}`;
+    const API = clave => `/api/espacio?clave=${encodeURIComponent(clave)}`;
     const CLAVE_PESTANAS = '__pestanas';
     const INICIO = '/adm/inicio';
     const MAX_PESTANAS = 12;
@@ -215,9 +215,20 @@
         }
 
         const cargarOriginal = window.cargarContenido;
+        // /adm/inicio no es un fragmento: devuelve la página entera (con su <html> y sus
+        // scripts). Pedirla por AJAX y meterla dentro del contenido dejaba la pantalla en
+        // blanco y reventaba el personalizador de la plantilla. Se guarda el Inicio tal
+        // como vino en la página y se vuelve a poner ese mismo HTML cuando hace falta.
+        const inicioHtml = $contenido.html();
         const pestanas = [];          // { url, titulo, icono, $dom, scroll, cargada, modulo }
         let activa = -1;
+        // "restaurando": se está reponiendo el contenido de una pantalla (no conviene
+        // fotografiar sus campos a medio llenar).
+        // "reconstruyendoLista": se está rearmando la lista de pestañas al abrir la sesión.
+        // Son cosas distintas: si se usa una sola, cerrar pestañas mientras una repone su
+        // contenido no quedaba guardado, y al recargar volvían las pestañas viejas.
         let restaurando = false;
+        let reconstruyendoLista = false;
         let ultimoGuardado = '';
 
         estilos();
@@ -351,7 +362,8 @@
             $contenido.empty();
             p.$dom = null;
             render(); marcarMenu(p.url);
-            cargarOriginal(p.url);
+            if (p.url === INICIO) $contenido.html(inicioHtml);   // nunca por AJAX
+            else cargarOriginal(p.url);
             p.cargada = true;
             esperarContenido().then(() => {
                 if (pestanas[activa] !== p) return;
@@ -457,7 +469,7 @@
         /* ── Lista de pestañas abiertas ─────────────────────────────── */
         let tGuardar;
         function guardarPestanas(alCerrar) {
-            if (restaurando) return;
+            if (reconstruyendoLista) return;
             const datos = {
                 activa: activa,
                 pestanas: pestanas.map(p => ({ url: p.url, titulo: p.titulo, icono: p.icono }))
@@ -487,7 +499,7 @@
             await esperarInicio();
             // Sin pestañas guardadas: se queda el Inicio que ya cargó el layout.
             if (!d || !Array.isArray(d.pestanas) || !d.pestanas.length) { render(); return; }
-            restaurando = true;
+            reconstruyendoLista = true;
             pestanas.length = 0;
             d.pestanas.forEach(p => {
                 if (!p.url) return;
@@ -501,7 +513,7 @@
             }
             activa = -1;
             render();
-            restaurando = false;
+            reconstruyendoLista = false;
             activar(Math.min(Math.max(d.activa ?? 0, 0), pestanas.length - 1));
             if (pestanas.length > 1 && window.Swal) {
                 setTimeout(() => Swal.fire({
