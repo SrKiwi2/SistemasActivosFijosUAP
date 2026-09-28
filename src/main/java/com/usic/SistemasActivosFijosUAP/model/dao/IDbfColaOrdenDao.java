@@ -70,4 +70,12 @@ public interface IDbfColaOrdenDao extends JpaRepository<DbfColaOrden, Long> {
 
     /** La orden más reciente de un activo, para anotarle el contador de reintentos. */
     java.util.Optional<DbfColaOrden> findFirstByIdActivoOrderByIdOrdenDesc(Long idActivo);
+
+    /**
+     * La orden más reciente de una tabla para el activo, encolada desde cierto momento.
+     * Custodia de faltantes: dice si el traslado a la custodia ya llegó al VSIAF (un
+     * reintento automático deja una orden nueva y esta la encuentra igual).
+     */
+    java.util.Optional<DbfColaOrden> findFirstByIdActivoAndTablaAndFechaEncoladoGreaterThanEqualOrderByIdOrdenDesc(
+            Long idActivo, String tabla, java.time.LocalDateTime desde);
 }

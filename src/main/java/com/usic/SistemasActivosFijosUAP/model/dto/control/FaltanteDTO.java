@@ -36,5 +36,18 @@ public record FaltanteDTO(
         /** Responsable de custodia del predio; null mientras no se envíe. */
         Long          idResponsableCustodia,
         LocalDateTime fechaEnvioCustodia,
-        String        usuarioEnvioCustodia
+        String        usuarioEnvioCustodia,
+        /** Persona a la que se imputa: una misma persona es responsable en varias oficinas. */
+        Long          idPersona,
+        String        ci,
+        Short         codOfi,
+        String        unidad,
+        /** Acta de faltantes en la que se registró; null si todavía no se registró. */
+        Long          idActa,
+        String        numeroActa,
+        /** ESPERANDO_ALTA | ENVIADO | CONFIRMADO | ERROR; null si no se pidió el traslado. */
+        String        estadoEnvio,
+        String        mensajeEnvio,
+        /** Histórico regularizado sin oficina de origen conocida (apunta a la oficina de faltantes). */
+        boolean       origenNoRegistrado
 ) {}

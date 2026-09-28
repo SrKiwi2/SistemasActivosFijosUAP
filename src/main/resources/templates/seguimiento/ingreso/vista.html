@@ -857,7 +857,8 @@
             <select id="ia-f-oficina" class="ia-sel">
                 <option value="">— Todas las oficinas —</option>
                 <th:block th:each="o : ${oficinas}">
-                    <option th:value="${o.idOficina}" th:text="${o.nombre}"></option>
+                    <option th:value="${o.idOficina}"
+                            th:text="${(o.codOfi != null ? o.codOfi + ' — ' : '') + o.nombre}"></option>
                 </th:block>
             </select>
         </div>
@@ -868,7 +869,8 @@
             <select id="ia-f-resp" class="ia-sel">
                 <option value="">— Todos —</option>
                 <th:block th:each="r : ${responsables}">
-                    <option th:value="${r.idResponsable}" th:text="${r.persona.nombreCompleto}"></option>
+                    <option th:value="${r.idResponsable}"
+                            th:text="${(r.codigoFuncionario != null ? r.codigoFuncionario : 'S/C') + ' — ' + r.persona.nombreCompleto}"></option>
                 </th:block>
             </select>
         </div>

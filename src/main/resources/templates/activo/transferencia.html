@@ -512,18 +512,21 @@
 </div>
 
 <!-- Modal: resultado de la transferencia -->
-<div class="tf-modal-bg" id="tf-res-bg">
-    <div class="tf-modal" onclick="event.stopPropagation()">
+<div class="tf-modal-bg" id="tf-res-bg" onclick="tfCerrarResultado()">
+    <div class="tf-modal" id="tf-res-modal" onclick="event.stopPropagation()">
         <div class="tf-modal-head">
             <span id="tf-res-ico" style="font-size:22px;">✅</span>
             <div>
                 <div style="font-size:15px;font-weight:600;" id="tf-res-titulo">Transferencia registrada</div>
                 <div style="font-size:12.5px;color:#8a93a8;margin-top:2px;" id="tf-res-sub">—</div>
             </div>
+            <button type="button" onclick="tfCerrarResultado()" title="Cerrar" aria-label="Cerrar"
+                    style="margin-left:auto;background:none;border:none;cursor:pointer;color:#8a93a8;font-size:22px;line-height:1;">&times;</button>
         </div>
         <div class="tf-modal-body" id="tf-res-body"></div>
-        <div class="tf-modal-foot">
-            <button onclick="tfCerrarResultado()" class="tf-btn tf-btn-accent" style="height:42px;">Entendido</button>
+        <div class="tf-modal-foot" style="align-items:center;">
+            <span id="tf-res-timer" style="font-size:12px;color:#8a93a8;margin-right:auto;"></span>
+            <button type="button" onclick="tfCerrarResultado()" class="tf-btn tf-btn-accent" style="height:42px;">Entendido</button>
         </div>
     </div>
 </div>
@@ -683,7 +686,7 @@
             <td class="tf-meta">${x(a.grupoContable?.nombre || '—')}</td>
             <td class="tf-meta">${x(a.predio?.unidad || '—')}</td>
             <td class="tf-meta">${x(a.oficina?.etiqueta || a.oficina?.nombre || '—')}</td>
-            <td class="tf-meta">${x(a.responsable?.nombre || '—')}</td>
+            <td class="tf-meta">${x(a.responsable ? (a.responsable.codigoFuncionario || 'S/C') + ' — ' + a.responsable.nombre : '—')}</td>
             <td class="tf-meta">${x(a.auxiliar ? (a.auxiliar.codAux + ' — ' + a.auxiliar.nombre) : '—')}</td>
             <td><span class="tf-pill ${pill}">${x(estado)}</span></td>
             <td class="tf-mov"><span class="tf-meta">—</span></td>
@@ -804,6 +807,10 @@
             aviso.className = 'tf-aviso error';
             partes.push(`<div>🔒 Bloqueados (no se transferirán): <code>${x(d.bloqueados.join(', '))}</code></div>`);
         }
+        if ((d.enCustodia || []).length) {
+            aviso.className = 'tf-aviso error';
+            partes.push(`<div>📦 En la oficina de faltantes (salen solo resolviendo su faltante): <code>${x(d.enCustodia.join(', '))}</code></div>`);
+        }
         if ((d.noEncontrados || []).length) {
             partes.push(`<div>❓ No encontrados: <code>${x(d.noEncontrados.join(', '))}</code></div>`);
         }
@@ -890,9 +897,43 @@
             historial de transferencias, buscando por el número <code>${x(data.numeroTransferencia || '')}</code>.</div>`);
         document.getElementById('tf-res-body').innerHTML = partes.join('');
         document.getElementById('tf-res-bg').classList.add('on');
+        // Si todo salió bien se cierra solo; si algo no llegó al VSIAF se queda hasta que
+        // lo cierren, para que el aviso no se pierda.
+        tfTimerResultado(data.vsiafOk === false || fallos.length ? 0 : 12);
     }
 
-    window.tfCerrarResultado = function () { document.getElementById('tf-res-bg').classList.remove('on'); };
+    let tResultado = null, segResultado = 0, pausaResultado = false;
+    function tfTimerResultado(seg) {
+        clearInterval(tResultado);
+        segResultado = seg; pausaResultado = false;
+        const el = document.getElementById('tf-res-timer');
+        if (!seg) { el.textContent = ''; return; }
+        const pintar = () => { el.textContent = `Se cierra solo en ${segResultado} s`; };
+        pintar();
+        tResultado = setInterval(() => {
+            if (pausaResultado) return;
+            segResultado--;
+            if (segResultado <= 0) { window.tfCerrarResultado(); return; }
+            pintar();
+        }, 1000);
+    }
+    // Con el puntero encima se pausa: está leyendo el detalle.
+    const $resModal = document.getElementById('tf-res-modal');
+    $resModal.onmouseenter = () => { pausaResultado = true; };
+    $resModal.onmouseleave = () => { pausaResultado = false; };
+
+    window.tfCerrarResultado = function () {
+        clearInterval(tResultado);
+        document.getElementById('tf-res-timer').textContent = '';
+        document.getElementById('tf-res-bg').classList.remove('on');
+    };
+
+    // Esc cierra el modal abierto (resultado o nuevo responsable).
+    $(document).off('keydown.tfModal').on('keydown.tfModal', function (e) {
+        if (e.key !== 'Escape') return;
+        if (document.getElementById('tf-res-bg')?.classList.contains('on')) window.tfCerrarResultado();
+        else if (document.getElementById('tf-modal-bg')?.classList.contains('on')) window.tfCerrarModal();
+    });
 
     /* ── Nuevo responsable en la oficina destino ────────── */
     window.tfAbrirModalNuevoResp = async function () {
@@ -1014,7 +1055,7 @@
             tfOverlayOff();
             if (!res.ok) throw new Error(res.msg);
 
-            tfToast('s', 'Responsable registrado', `${nombre} ${paterno} — se enviará al VSIAF con este movimiento.`);
+            tfToast(res.vsiafOk === false ? 'w' : 's', 'Responsable registrado', `${nombre} ${paterno} — ${res.msg || ''}`);
             tfCerrarModal();
 
             const ofId = $('#tf-oficina').val();

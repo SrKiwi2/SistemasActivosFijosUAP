@@ -19,7 +19,9 @@ public record TileOficinaDTO(
         Long          idLevantamientoEnCurso,
         LocalDateTime ultimoLevantamiento,
         Integer       ultimoEncontrados,
-        Integer       ultimoEsperados
+        Integer       ultimoEsperados,
+        /** Oficina de faltantes del predio: sus activos son bienes en custodia, no un ambiente. */
+        boolean       esCustodia
 ) {
 
     /** Derivados, no son componentes del record: Jackson los incluye por la anotación. */

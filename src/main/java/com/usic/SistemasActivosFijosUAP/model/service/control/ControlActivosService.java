@@ -233,6 +233,12 @@ public class ControlActivosService {
 
         Oficina oficina = oficinaDao.findById(req.idOficina())
                 .orElseThrow(() -> new ReglaNegocioException("La oficina no existe"));
+        if (oficina.isEsCustodia()) {
+            // Sus bienes ya son faltantes registrados: recorrerla los volvería a imputar.
+            throw new ReglaNegocioException("La oficina " + oficina.getNombre()
+                    + " es la oficina de faltantes del predio: no se hace levantamiento ahí. "
+                    + "Sus bienes se siguen desde Faltantes.");
+        }
 
         Inventario inv = new Inventario();
         inv.setOficina(oficina);
@@ -419,6 +425,7 @@ public class ControlActivosService {
         if (RESUELTO.equals(h.getEstadoHallazgo())) {
             throw new ReglaNegocioException("El hallazgo ya fue resuelto");
         }
+        exigirFueraDeCustodia(h);
 
         h.setEstadoHallazgo(RESUELTO);
         h.setTipoResolucion(req.tipoResolucion());
@@ -437,6 +444,10 @@ public class ControlActivosService {
     public void reabrir(Long idHallazgo, String usuario) {
         HallazgoInventario h = hallazgoDao.findById(idHallazgo)
                 .orElseThrow(() -> new ReglaNegocioException("El hallazgo no existe"));
+        if (ActaFaltanteService.ANULADO.equals(h.getEstadoHallazgo())) {
+            throw new ReglaNegocioException("El faltante se anuló junto con su acta: regístrelo en un acta nueva.");
+        }
+        exigirFueraDeCustodia(h);
 
         h.setEstadoHallazgo(ABIERTO);
         h.setTipoResolucion(null);
@@ -453,6 +464,23 @@ public class ControlActivosService {
     private Inventario cargar(Long id) {
         return inventarioDao.findConUbicacion(id)
                 .orElseThrow(() -> new ReglaNegocioException("El levantamiento no existe"));
+    }
+
+    /**
+     * Un faltante registrado en un acta tiene su bien camino a (o ya en) la custodia del
+     * predio. Cerrarlo desde acá dejaría el bien en la oficina de faltantes con el caso
+     * cerrado: eso se resuelve sacándolo de la custodia (fase 5 de la custodia).
+     */
+    private void exigirFueraDeCustodia(HallazgoInventario h) {
+        if (h.getActa() != null && RESUELTO.equals(h.getEstadoHallazgo())) {
+            throw new ReglaNegocioException("Este faltante se resolvió dentro del acta " + h.getActa().getNumero()
+                    + ": no se reabre. Si el bien vuelve a faltar, regístrelo en un acta nueva.");
+        }
+        if (h.getEstadoEnvio() != null) {
+            throw new ReglaNegocioException("Este faltante está registrado en el acta "
+                    + (h.getActa() != null ? h.getActa().getNumero() : "")
+                    + ": se resuelve desde Faltantes, que saca el bien de la custodia.");
+        }
     }
 
     private void exigirAbierto(Inventario inv) {
@@ -594,6 +622,12 @@ public class ControlActivosService {
             sb.append(": condición constatada ").append(d.getEstadoObservado().getNombre());
         }
         return sb.toString();
+    }
+
+    /** Para quien resuelve faltantes por otro camino (la custodia): mantiene el contador del levantamiento. */
+    @Transactional
+    public void recalcularFaltantesDe(Inventario inv) {
+        recalcularFaltantes(inv);
     }
 
     /** Mantiene al día el contador que pinta los tiles sin recontar hallazgos. */

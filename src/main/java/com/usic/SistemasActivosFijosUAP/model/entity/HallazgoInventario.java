@@ -142,4 +142,23 @@ public class HallazgoInventario extends AuditoriaConfig {
     @Size(max = 60)
     @Column(name = "usuario_envio_custodia", length = 60)
     private String usuarioEnvioCustodia;
+
+    /** Acta de faltantes en la que se registró. Vacío mientras sea un faltante ABIERTO sin registrar. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_acta", foreignKey = @jakarta.persistence.ForeignKey(name = "fk_hall_acta"))
+    private ActaFaltante acta;
+
+    /**
+     * Paso del traslado a la custodia en el VSIAF (null = no se pidió):
+     * ESPERANDO_ALTA — el responsable de custodia todavía no está confirmado en el VSIAF;
+     * ENVIADO — el bien ya se movió en el SCIAF y su UPDATE de ACTUAL está en la cola;
+     * CONFIRMADO — el worker lo aplicó (el hallazgo pasa a EN_CUSTODIA);
+     * ERROR — el VSIAF rechazó el alta o el traslado ({@link #mensajeEnvio}).
+     */
+    @Size(max = 15)
+    @Column(name = "estado_envio", length = 15)
+    private String estadoEnvio;
+
+    @Column(name = "mensaje_envio", columnDefinition = "text")
+    private String mensajeEnvio;
 }

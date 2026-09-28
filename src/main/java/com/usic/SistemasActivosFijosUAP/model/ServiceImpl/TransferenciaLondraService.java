@@ -185,21 +185,32 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
                 "No se puede aprobar. Errores:\n" + String.join("\n", erroresValidacion));
         }
 
-        // ── 4b. Bienes bloqueados: se revisa ANTES de tocar ACTUAL.DBF ─────────
+        // ── 4b. Bienes bloqueados o en custodia: se revisa ANTES de tocar ACTUAL.DBF ─
         List<String> bloqueados = new ArrayList<>();
+        List<String> enCustodia = new ArrayList<>();
         for (SolTransferenciaDbf f : grupo) {
-            activoService.findByCodigo(f.getCodigoO())
-                .filter(a -> Boolean.TRUE.equals(a.getBloqueado()))
-                .ifPresent(a -> bloqueados.add(a.getCodigo()));
+            activoService.findByCodigo(f.getCodigoO()).ifPresent(a -> {
+                if (Boolean.TRUE.equals(a.getBloqueado())) bloqueados.add(a.getCodigo());
+                else if (a.enCustodia()) enCustodia.add(a.getCodigo());
+            });
         }
         if (!bloqueados.isEmpty()) {
             throw new IllegalStateException("No se puede aprobar: estos activos están bloqueados — "
                 + String.join(", ", bloqueados) + ". Un administrador debe desbloquearlos primero.");
         }
+        if (!enCustodia.isEmpty()) {
+            throw new IllegalStateException("No se puede aprobar: estos activos están en la oficina de faltantes — "
+                + String.join(", ", enCustodia) + ". Salen de ahí resolviendo su faltante en Control de Activos.");
+        }
 
         // ── 5. Resolver contexto destino (predio → oficina → responsable) ─────
         //    ESTE BLOQUE CORRIGE EL BUG PRINCIPAL
         ContextoDestino contextoD = resolverContextoDestino(primero, usuarioNombre);
+        String destinoInvalido = com.usic.SistemasActivosFijosUAP.model.service.control.ReglasCustodia
+                .motivoDestino(contextoD.getOficinaD(), contextoD.getResponsableD());
+        if (destinoInvalido != null) {
+            throw new IllegalStateException("No se puede aprobar: " + destinoInvalido);
+        }
 
         // ── 6. Resolver Auxiliar destino por cada activo (solo EXTERNA) ───────────
         Map<String, Auxiliar> auxiliarDestinoMap = new HashMap<>();
@@ -762,6 +773,8 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         nuevo.setFechaUlt(LocalDate.now());
         nuevo.setUsuario(usuarioNombre);
         nuevo.setEstado("ACTIVO");
+        // API_ESTADO del VSIAF: 1 = ACTIVO (sin valor llegaba vacío a RESP.DBF).
+        nuevo.setApiEstado(Short.valueOf("1"));
 
         // Heredar cargo de cualquier responsable existente de esta persona
         responsableDao.findAllByPersonaIdPersona(persona.getIdPersona())

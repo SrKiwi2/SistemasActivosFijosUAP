@@ -1981,8 +1981,8 @@
 
                 if (!res.ok) throw new Error(res.msg);
 
-                aaToast('s', 'Responsable registrado',
-                    `${nombre} ${paterno} agregado. Pendiente de sincronización con DBF.`);
+                aaToast(res.vsiafOk === false ? 'w' : 's', 'Responsable registrado',
+                    `${nombre} ${paterno} — ${res.msg || ''}`);
 
                 document.getElementById('aa-modal-bg').classList.remove('on');
 

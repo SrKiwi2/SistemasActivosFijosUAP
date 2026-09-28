@@ -85,6 +85,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaDetalle;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
 import com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncService;
+import com.usic.SistemasActivosFijosUAP.model.service.control.ReglasCustodia;
 import com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService;
 
 import jakarta.persistence.EntityManager;
@@ -113,6 +114,7 @@ public class ActivosController {
     private final AuxiliarDbfWriterService auxiliarDbfWriterService;
     private final OficinaDbfWriterService oficinaDbfWriterService;
     private final RespDbfWriterService respDbfWriterService;
+    private final com.usic.SistemasActivosFijosUAP.model.service.VsiafApoyoService vsiafApoyoService;
 
     private final IConfiguracionGestionService configuracionGestionService;
     private final IAsignacionActivoService asignacionActivoService;
@@ -807,34 +809,31 @@ public class ActivosController {
                 activoOriginal.setGrupoContable(null);
             }
 
-            // Un bien bloqueado no cambia de oficina ni de responsable (el resto sí se edita).
-            if (Boolean.TRUE.equals(activoOriginal.getBloqueado())) {
-                Long ofiNueva = activoForm.getOficina() != null ? activoForm.getOficina().getIdOficina() : null;
-                Long respNuevo = activoForm.getResponsable() != null ? activoForm.getResponsable().getIdResponsable() : null;
-                Long ofiActual = activoOriginal.getOficina() != null ? activoOriginal.getOficina().getIdOficina() : null;
-                Long respActual = activoOriginal.getResponsable() != null ? activoOriginal.getResponsable().getIdResponsable() : null;
-                if (!java.util.Objects.equals(ofiNueva, ofiActual) || !java.util.Objects.equals(respNuevo, respActual)) {
-                    return ResponseEntity.badRequest().body(Map.of("ok", false, "msg",
-                            "El activo " + activoOriginal.getCodigo() + " está bloqueado: no se puede cambiar su oficina "
-                            + "ni su responsable. Un administrador debe desbloquearlo primero."));
+            // Un bien bloqueado o en la oficina de faltantes no cambia de oficina ni de
+            // responsable (el resto sí se edita); y la oficina de faltantes no es un destino.
+            Long ofiNueva = activoForm.getOficina() != null ? activoForm.getOficina().getIdOficina() : null;
+            Long respNuevo = activoForm.getResponsable() != null ? activoForm.getResponsable().getIdResponsable() : null;
+            Long ofiActual = activoOriginal.getOficina() != null ? activoOriginal.getOficina().getIdOficina() : null;
+            Long respActual = activoOriginal.getResponsable() != null ? activoOriginal.getResponsable().getIdResponsable() : null;
+            boolean cambiaUbicacion = !java.util.Objects.equals(ofiNueva, ofiActual)
+                    || !java.util.Objects.equals(respNuevo, respActual);
+            if (cambiaUbicacion) {
+                String motivo = activoOriginal.motivoInmovilizado("cambiar su oficina ni su responsable");
+                if (motivo != null) {
+                    return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", motivo));
                 }
             }
 
-            if (activoForm.getOficina() != null && activoForm.getOficina().getIdOficina() != null) {
-                Oficina oficinaCompleta = oficinaService.findById(activoForm.getOficina().getIdOficina());
-                activoOriginal.setOficina(oficinaCompleta);
-            } else {
-                activoOriginal.setOficina(null);
+            Oficina oficinaCompleta = ofiNueva != null ? oficinaService.findById(ofiNueva) : null;
+            Responsable responsableCompleto = respNuevo != null ? responsableService.findById(respNuevo) : null;
+            if (cambiaUbicacion) {
+                String motivo = ReglasCustodia.motivoDestino(oficinaCompleta, responsableCompleto);
+                if (motivo != null) {
+                    return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", motivo));
+                }
             }
-
-            if (activoForm.getResponsable() != null && activoForm.getResponsable().getIdResponsable() != null) {
-                Responsable responsableCompleto = responsableService.findById(
-                    activoForm.getResponsable().getIdResponsable()
-                );
-                activoOriginal.setResponsable(responsableCompleto);
-            } else {
-                activoOriginal.setResponsable(null);
-            }
+            activoOriginal.setOficina(oficinaCompleta);
+            activoOriginal.setResponsable(responsableCompleto);
 
             if (activoForm.getOrganismoFinanciero() != null && 
                 activoForm.getOrganismoFinanciero().getIdOrganismoFinanciero() != null) {
@@ -1260,9 +1259,14 @@ public class ActivosController {
                 return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Oficina destino no válida."));
             }
             Predio predioDestino = ofDestino.getPredio();
+            String destinoInvalido = ReglasCustodia.motivoDestino(ofDestino, null);
+            if (destinoInvalido != null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", destinoInvalido));
+            }
 
             List<Map<String, Object>> activos = new ArrayList<>();
             List<String> bloqueados = new ArrayList<>();
+            List<String> enCustodia = new ArrayList<>();
             List<String> noEncontrados = new ArrayList<>();
             Map<String, Map<String, Object>> auxiliaresPorCrear = new LinkedHashMap<>();
             boolean algunCambioDePredio = false;
@@ -1272,6 +1276,7 @@ public class ActivosController {
                 if (opt.isEmpty()) { noEncontrados.add(codigo); continue; }
                 Activo a = opt.get();
                 if (Boolean.TRUE.equals(a.getBloqueado())) { bloqueados.add(codigo); continue; }
+                if (a.enCustodia()) { enCustodia.add(codigo); continue; }
 
                 Predio predioActual = (a.getOficina() != null) ? a.getOficina().getPredio() : null;
                 boolean cambiaPredio = predioActual == null
@@ -1315,6 +1320,7 @@ public class ActivosController {
             res.put("oficinaDestino", etiquetaOficina(ofDestino));
             res.put("activos", activos);
             res.put("bloqueados", bloqueados);
+            res.put("enCustodia", enCustodia);
             res.put("noEncontrados", noEncontrados);
             res.put("auxiliaresPorCrear", new ArrayList<>(auxiliaresPorCrear.values()));
             return ResponseEntity.ok(res);
@@ -1353,6 +1359,10 @@ public class ActivosController {
                 return ResponseEntity.badRequest()
                     .body(Map.of("ok", false, "msg", "Oficina o Responsable no válidos."));
             }
+            String destinoInvalido = ReglasCustodia.motivoDestino(ofDestino, respDestino);
+            if (destinoInvalido != null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", destinoInvalido));
+            }
 
             String entidadCode = "";
             String unidadCode  = "";
@@ -1365,26 +1375,34 @@ public class ActivosController {
                 }
             }
             log.info("[TRANSF] Predio destino → entidad='{}' unidad='{}'", entidadCode, unidadCode);
-    
+
             // 1. Buscar activos y capturar estado ANTES del cambio
             List<TransferenciaService.ActivoConOrigen> acos = new ArrayList<>();
             List<String> activosBloqueados = new ArrayList<>();
+            List<String> activosEnCustodia = new ArrayList<>();
             for (String codigo : payload.codigos) {
                 Optional<Activo> optActivo = activoService.findByCodigo(codigo);
                 if (optActivo.isPresent()) {
                     Activo a = optActivo.get();
                     if (Boolean.TRUE.equals(a.getBloqueado())) {
                         activosBloqueados.add(codigo);
+                    } else if (a.enCustodia()) {
+                        activosEnCustodia.add(codigo);
                     } else {
                         acos.add(new TransferenciaService.ActivoConOrigen(a));
                     }
                 }
             }
-    
+
             if (!activosBloqueados.isEmpty()) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("ok", false, "msg", 
+                    .body(Map.of("ok", false, "msg",
                         "Los siguientes activos están bloqueados y no se pueden transferir: " + String.join(", ", activosBloqueados)));
+            }
+            if (!activosEnCustodia.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg",
+                        "Estos activos están en la oficina de faltantes y salen de ahí solo resolviendo su faltante "
+                        + "(Control de Activos → Faltantes): " + String.join(", ", activosEnCustodia)));
             }
     
             if (acos.isEmpty()) {
@@ -1476,6 +1494,11 @@ public class ActivosController {
                 ac.activo.getCodigo(),
                 ac.activo.getOficina() != null ? ac.activo.getOficina().getNombre() : "NULL"));
 
+            // ── Orden: 1) oficina destino, 2) responsable destino, 3) ACTUAL ───────
+            // Si la oficina destino se creó al vuelo y sigue pendiente, sale primero ella.
+            // La cola se aplica en el orden en que se deja, así el ACTUAL nunca llega antes.
+            List<String> avisosDependencias = vsiafApoyoService.asegurarEnVsiaf(ofDestino, null, usuNombre);
+
             // ── Sincronizar Responsable destino si es nuevo ───────────────────────
             try {
                 Short codOfic = ofDestino.getCodOfi();
@@ -1498,11 +1521,10 @@ public class ActivosController {
                             log.info("[TRANSF] Responsable codResp={} ya existe en DBF — omitido", codResp);
                         }
 
-                        // Marcar como sincronizado si era nuevo (apiEstado 1 o null)
-                        Short estadoActual = respDestino.getApiEstado();
-                        if (estadoActual == null || estadoActual == 1) {
-                            respDestino.setApiEstado(Short.valueOf("0"));
-                        }
+                        // Si se acaba de dar de alta, en el VSIAF quedó ACTIVO (1): espejarlo.
+                        // Antes se ponía 0, valor que el VSIAF no tiene y que viajaba en la
+                        // siguiente edición del responsable.
+                        if (!existeEnDbf) respDestino.setApiEstado(Short.valueOf("1"));
                         // Ya salió al VSIAF (o ya estaba): deja de figurar como pendiente en Responsables.
                         respDestino.setPendienteDbf(false);
                         responsableService.save(respDestino);
@@ -1535,6 +1557,10 @@ public class ActivosController {
                                     acos.size(), tipo.toLowerCase(), numeroTrf));
                 ok.put("numeroTransferencia", numeroTrf);
                 ok.put("auxiliares", avisosAuxiliar);
+                if (!avisosDependencias.isEmpty()) {
+                    ok.put("vsiafOk", false);
+                    ok.put("msg", ok.get("msg") + " Atención: " + String.join(" ", avisosDependencias));
+                }
                 return ResponseEntity.ok(ok);
             } catch (Exception e) {
                 log.error("Error sincronizando lote DBF: {}", e.getMessage());
@@ -1781,16 +1807,23 @@ public class ActivosController {
                     .body(Map.of("ok", false, "msg",
                         "El responsable origen y el destino son el mismo."));
             }
+            String destinoInvalido = ReglasCustodia.motivoDestino(oficina, respDestino);
+            if (destinoInvalido != null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", destinoInvalido));
+            }
 
             // 2. Buscar activos del responsable origen
             List<Activo> activos = new ArrayList<>();
             List<String> activosBloqueados = new ArrayList<>();
+            List<String> activosEnCustodia = new ArrayList<>();
             for (String codigo : payload.codigos) {
                 Optional<Activo> optActivo = activoService.findByCodigo(codigo);
                 if (optActivo.isPresent()) {
                     Activo a = optActivo.get();
                     if (Boolean.TRUE.equals(a.getBloqueado())) {
                         activosBloqueados.add(codigo);
+                    } else if (a.enCustodia()) {
+                        activosEnCustodia.add(codigo);
                     } else {
                         activos.add(a);
                     }
@@ -1801,6 +1834,11 @@ public class ActivosController {
                 return ResponseEntity.badRequest()
                     .body(Map.of("ok", false, "msg",
                         "Los siguientes activos están bloqueados y no se pueden reasignar: " + String.join(", ", activosBloqueados)));
+            }
+            if (!activosEnCustodia.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg",
+                        "Estos activos están en la oficina de faltantes y salen de ahí solo resolviendo su faltante "
+                        + "(Control de Activos → Faltantes): " + String.join(", ", activosEnCustodia)));
             }
 
             if (activos.isEmpty()) {
@@ -1880,6 +1918,9 @@ public class ActivosController {
                             respDestino.getPersona() != null ? respDestino.getPersona().getNombreCompleto() : "—",
                             rangoCodigos(codigosAsig)), codigosAsig.size(), null);
 
+            // ── Orden: 1) oficina, 2) responsable destino, 3) ACTUAL ──────────────────────
+            List<String> avisosDependencias = vsiafApoyoService.asegurarEnVsiaf(oficina, null, usuNombre);
+
             // ── Sincronizar Responsable destino si es nuevo (apiEstado == 1) ──────────────
             try {
                 String entCode = "";
@@ -1911,10 +1952,8 @@ public class ActivosController {
                             log.info("[ASIGNACION] Responsable codResp={} ya existe en DBF — omitido", codResp);
                         }
 
-                        Short estadoActual = respDestino.getApiEstado();
-                        if (estadoActual == null || estadoActual == 1) {
-                            respDestino.setApiEstado(Short.valueOf("0"));
-                        }
+                        // Si se acaba de dar de alta, en el VSIAF quedó ACTIVO (1): espejarlo.
+                        if (!existeEnDbf) respDestino.setApiEstado(Short.valueOf("1"));
                         // Ya salió al VSIAF (o ya estaba): deja de figurar como pendiente en Responsables.
                         respDestino.setPendienteDbf(false);
                         responsableService.save(respDestino);
@@ -1945,6 +1984,7 @@ public class ActivosController {
                     "msg", String.format("%d activo(s) reasignados a %s (BD + DBF).",
                         activos.size(), respDestino.getPersona() != null
                             ? respDestino.getPersona().getNombre() : respDestino.getCodigoFuncionario())
+                        + (avisosDependencias.isEmpty() ? "" : " Atención: " + String.join(" ", avisosDependencias))
                 ));
             } catch (Exception e) {
                 log.error("[ASIGNACION] Error sincronizando DBF: {}", e.getMessage());
@@ -2717,6 +2757,23 @@ public class ActivosController {
         Oficina oficinaFinal = (req.getIdOficina() != null)
                 ? oficinaService.findById(req.getIdOficina())
                 : a.getOficina();
+        Responsable responsableFinal = (req.getIdResponsable() != null)
+                ? responsableService.findById(req.getIdResponsable())
+                : a.getResponsable();
+
+        // Un bien bloqueado o en la oficina de faltantes no cambia de ubicación, y la oficina
+        // de faltantes no es un destino. Se valida antes de mutar, por el mismo motivo que el auxiliar.
+        boolean cambiaUbicacion =
+                !java.util.Objects.equals(oficinaFinal != null ? oficinaFinal.getIdOficina() : null,
+                        a.getOficina() != null ? a.getOficina().getIdOficina() : null)
+             || !java.util.Objects.equals(responsableFinal != null ? responsableFinal.getIdResponsable() : null,
+                        a.getResponsable() != null ? a.getResponsable().getIdResponsable() : null);
+        if (cambiaUbicacion) {
+            String motivo = a.motivoInmovilizado("cambiar su oficina ni su responsable");
+            if (motivo == null) motivo = ReglasCustodia.motivoDestino(oficinaFinal, responsableFinal);
+            if (motivo != null) throw new IllegalArgumentException(motivo);
+        }
+
         Auxiliar auxiliarFinal = resolverAuxiliarCoherente(req.getIdAuxiliar(), oficinaFinal, grupoFinal);
 
         if (req.getDescripcion() != null && !req.getDescripcion().isBlank()) {
@@ -2745,7 +2802,7 @@ public class ActivosController {
             a.setOficina(oficinaFinal);
 
         if (req.getIdResponsable() != null)
-            a.setResponsable(responsableService.findById(req.getIdResponsable()));
+            a.setResponsable(responsableFinal);
 
         a.setAuxiliar(auxiliarFinal);   // null cuando el request no manda idAuxiliar = limpiar
 
@@ -3035,6 +3092,11 @@ public class ActivosController {
                 return Map.of("ok", false,
                     "message", "No se puede subir al VSIAF: datos incompletos (falta " + String.join(", ", falt) + ").");
             }
+            // Todas las altas pasan por acá: un bien nuevo no entra a la oficina de faltantes.
+            String destinoInvalido = ReglasCustodia.motivoDestino(a.getOficina(), a.getResponsable());
+            if (destinoInvalido != null) {
+                return Map.of("ok", false, "message", "No se puede aprobar: " + destinoInvalido + " Corrija la oficina del bien.");
+            }
 
             Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
             String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
@@ -3129,7 +3191,13 @@ public class ActivosController {
                     detallesError.add("Activo " + (a != null ? a.getCodigo() : idEnc) + ": Faltan datos de Oficina/Predio.");
                     continue;
                 }
-    
+                String destinoInvalido = ReglasCustodia.motivoDestino(a.getOficina(), a.getResponsable());
+                if (destinoInvalido != null) {
+                    errores++;
+                    detallesError.add("Activo " + a.getCodigo() + ": " + destinoInvalido);
+                    continue;
+                }
+
                 Predio predio = a.getOficina().getPredio();
     
                 // ✅ UNIDAD = predio.unidad (campo textual: "CAUN", "CULP"…)

@@ -107,11 +107,12 @@ public class CatalogoRestController {
     public List<ResponsableDTO> listarResponsables() {
         return responsableService.listarResponsables()
                 .stream()
-                .map(r -> new ResponsableDTO(r.getIdResponsable(), r.getPersona().getNombre() + " " +  
-                                             r.getPersona().getPaterno() + " " + 
-                                             r.getPersona().getMaterno() + " - " + 
-                                             r.getOficina().getCodOfi()+ " - " +
-                                             r.getOficina().getPredio().getUnidad()))
+                // "COD — NOMBRE · Of. 45 (01)": la lista es global y el mismo código se repite en otras oficinas.
+                .map(r -> new ResponsableDTO(r.getIdResponsable(),
+                        (r.getCodigoFuncionario() != null ? r.getCodigoFuncionario() : "S/C") + " — "
+                        + r.getPersona().getNombreCompleto()
+                        + " · Of. " + r.getOficina().getCodOfi()
+                        + " (" + r.getOficina().getPredio().getUnidad() + ")"))
                 .toList();
     }
 
@@ -424,7 +425,8 @@ public class CatalogoRestController {
         return responsableService.findByOficinaIdOficina(oficinaId).stream()
             .map(r -> Map.of(
                 "id", r.getIdResponsable(),
-                "text", r.getPersona().getNombreCompleto()
+                "text", (r.getCodigoFuncionario() != null ? r.getCodigoFuncionario() : "S/C")
+                        + " — " + r.getPersona().getNombreCompleto()
             ))
             .collect(Collectors.toList());
     }

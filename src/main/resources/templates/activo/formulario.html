@@ -1113,7 +1113,8 @@
                         </label>
                         <select name="oficina.idOficina" id="oficinaId" class="form-select select2it">
                             <option value="">Seleccione...</option>
-                            <option th:each="o : ${oficinas}" th:value="${o.idOficina}" th:text="${o.nombre}"></option>
+                            <option th:each="o : ${oficinas}" th:value="${o.idOficina}"
+                                th:text="${(o.codOfi != null ? o.codOfi + ' - ' : '') + o.nombre}"></option>
                         </select>
                     </div>
 
@@ -2142,13 +2143,12 @@
 
                     $ofi.trigger('change');
 
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Oficina registrada',
-                        text: `"${formValues.nombre}" se enviará al VSIAF junto con el activo cuando se apruebe.`,
-                        timer: 2500,
-                        showConfirmButton: false
-                    });
+                    // Si no llegó al VSIAF se avisa y el mensaje queda hasta que lo cierren.
+                    Swal.fire(res.vsiafOk === false
+                        ? { icon: 'warning', title: 'Oficina registrada, con aviso', text: res.msg }
+                        : { icon: 'success', title: 'Oficina registrada',
+                            text: `"${formValues.nombre}": ${res.msg || 'enviada al VSIAF.'}`,
+                            timer: 2500, showConfirmButton: false });
 
                 } catch (err) {
                     hideGlobalLoader();
@@ -2461,13 +2461,10 @@
 
                     agregarResponsableAlSelect($row, res.id, `${formValues.nombre} ${formValues.paterno}`);
 
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Responsable registrado',
-                        text: `Se enviará al VSIAF junto con el activo cuando se apruebe.`,
-                        timer: 2500,
-                        showConfirmButton: false
-                    });
+                    Swal.fire(res.vsiafOk === false
+                        ? { icon: 'warning', title: 'Responsable registrado, con aviso', text: res.msg }
+                        : { icon: 'success', title: 'Responsable registrado',
+                            text: res.msg || 'Enviado al VSIAF.', timer: 2500, showConfirmButton: false });
 
                 } catch (err) {
                     hideGlobalLoader();

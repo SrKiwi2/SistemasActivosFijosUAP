@@ -278,22 +278,17 @@ public class OficinaController {
         oficina.setEstado("ACTIVO");
         oficina.setFechaUlt(LocalDate.now());
         oficina.setUsuario(usuarioNombre);
-        oficina.setApiEstado(modoRapido ? Short.valueOf("3") : Short.valueOf("1"));
-        // modoRapido (alta al vuelo desde Registro de Activos) queda pendiente y viaja al
-        // VSIAF cuando se aprueba el activo que la usa. El alta desde este módulo va enseguida.
-        oficina.setPendienteDbf(modoRapido);
+        // API_ESTADO espeja el VSIAF (1 = ACTIVO, 3 = INACTIVO): un alta es siempre activa.
+        oficina.setApiEstado(Short.valueOf("1"));
+        // Queda pendiente hasta que salga la orden al VSIAF (enviarOficina la baja a false).
+        // También el alta rápida (desde Registro de Activos) va al VSIAF enseguida: antes
+        // esperaba a que se aprobara el activo y la oficina quedaba pendiente mientras tanto.
+        oficina.setPendienteDbf(true);
         if (usuario != null) oficina.setRegistroIdUsuario(usuario.getIdUsuario());
 
         if (!conResponsable || modoRapido) {
             oficinaService.save(oficina);
             registrarActividadAlta(usuario, oficina, modoRapido ? " (desde Registro de Activos)" : "");
-            if (modoRapido) {
-                return ResponseEntity.ok(Map.of(
-                    "ok", true,
-                    "msg", "Oficina registrada. Se enviará al VSIAF junto con el activo cuando se apruebe.",
-                    "id", oficina.getIdOficina()
-                ));
-            }
             VsiafApoyoService.Envio envio = vsiafApoyoService.insertarOficina(oficina, usuarioNombre);
             return ResponseEntity.ok(Map.of(
                 "ok", true,
@@ -320,7 +315,7 @@ public class OficinaController {
                     "msg", "No se registró nada (ni oficina ni responsable): " + e.getMessage()));
         }
 
-        // Primero la oficina: el worker procesa por nombre de archivo (OFICINA_… antes que RESP_…).
+        // Primero la oficina: el worker aplica la cola en el orden en que se dejó.
         VsiafApoyoService.Envio envOfi = vsiafApoyoService.insertarOficina(oficina, usuarioNombre);
         com.usic.SistemasActivosFijosUAP.model.entity.Responsable respCargado =
                 responsableService.findByIdWithRelations(alta.responsable().getIdResponsable());

@@ -116,31 +116,29 @@
                     <!-- Tipo -->
                     <td class="text-center">
                         <span class="badge"
-                              th:classappend="${trf.tipo == 'INTERNA'} ? 'bg-label-info' : 'bg-label-warning'"
+                              th:classappend="${trf.tipo == 'INTERNA'} ? 'bg-info' : 'bg-warning text-dark'"
                               th:text="${trf.tipo ?: '—'}">—</span>
                     </td>
 
                     <!-- Responsable origen → destino -->
                     <td>
                         <div class="d-flex align-items-center gap-1 small">
-                            <span class="text-truncate text-muted" style="max-width:150px"
+                            <span class="text-truncate text-muted" style="max-width:170px"
                                   th:text="${trf.responsableOrigen != null and trf.responsableOrigen.persona != null
-                                            ? trf.responsableOrigen.persona.nombreCompleto : '—'}">—</span>
+                                            ? (trf.responsableOrigen.codigoFuncionario != null ? trf.responsableOrigen.codigoFuncionario + ' — ' : '')
+                                              + trf.responsableOrigen.persona.nombreCompleto : '—'}">—</span>
                             <i class="bx bx-right-arrow-alt text-muted flex-shrink-0"></i>
-                            <span class="text-truncate fw-semibold" style="max-width:150px"
+                            <span class="text-truncate fw-semibold" style="max-width:170px"
                                   th:text="${trf.responsableDestino != null and trf.responsableDestino.persona != null
-                                            ? trf.responsableDestino.persona.nombreCompleto : '—'}">—</span>
+                                            ? (trf.responsableDestino.codigoFuncionario != null ? trf.responsableDestino.codigoFuncionario + ' — ' : '')
+                                              + trf.responsableDestino.persona.nombreCompleto : '—'}">—</span>
                         </div>
                     </td>
 
                     <!-- Oficina destino, con su código: así se la identifica en el VSIAF -->
                     <td>
-                        <div th:if="${trf.oficinaDestino != null}" class="text-truncate" style="max-width:190px">
-                            <span class="badge bg-label-secondary" style="font-size:.68rem"
-                                  th:text="${trf.oficinaDestino.codOfi ?: '—'}">—</span>
-                            <span class="small"
-                                  th:text="${(trf.oficinaDestino.codOfi != null ? trf.oficinaDestino.codOfi + ' — ' : '') + trf.oficinaDestino.nombre}">—</span>
-                        </div>
+                        <span th:if="${trf.oficinaDestino != null}" class="small d-inline-block text-truncate" style="max-width:190px"
+                              th:text="${(trf.oficinaDestino.codOfi != null ? trf.oficinaDestino.codOfi + ' — ' : '') + trf.oficinaDestino.nombre}">—</span>
                         <div th:unless="${trf.oficinaDestino != null}" class="small text-muted text-truncate"
                              style="max-width:190px"
                              th:text="${trf.institucionDestino ?: '—'}">—</div>

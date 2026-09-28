@@ -72,6 +72,7 @@ public class AsignacionEdicionService {
     private final IOficinaService oficinaService;
     private final IConfiguracionGestionService configuracionGestionService;
     private final ActualDbfWriterService actualDbfWriterService;
+    private final com.usic.SistemasActivosFijosUAP.model.service.VsiafApoyoService vsiafApoyoService;
 
     public boolean puedeEditar(Usuario usuario) {
         return usuario != null && usuario.getRol() != null && usuario.getRol().getNombre() != null
@@ -671,11 +672,15 @@ public class AsignacionEdicionService {
                 || !responsable.getIdResponsable().equals(activo.getResponsable().getIdResponsable())))
                 || (oficina != null && (activo.getOficina() == null
                 || !oficina.getIdOficina().equals(activo.getOficina().getIdOficina())));
-        if (mueve && Boolean.TRUE.equals(activo.getBloqueado())) {
+        if (mueve) {
+            // Bloqueado o en la oficina de faltantes no se mueve; la oficina de faltantes no es destino.
             // IllegalArgumentException: el controlador la muestra como mensaje y la transacción se revierte.
-            throw new IllegalArgumentException("El activo " + activo.getCodigo()
-                    + " está bloqueado: no se puede mover a otro responsable u oficina. "
-                    + "Un administrador debe desbloquearlo primero.");
+            String motivo = activo.motivoInmovilizado("mover a otro responsable u oficina");
+            if (motivo == null) {
+                motivo = com.usic.SistemasActivosFijosUAP.model.service.control.ReglasCustodia
+                        .motivoDestino(oficina, responsable);
+            }
+            if (motivo != null) throw new IllegalArgumentException(motivo);
         }
 
         if (responsable != null && (activo.getResponsable() == null
@@ -725,6 +730,17 @@ public class AsignacionEdicionService {
     /** Encola el UPDATE de cada bien publicado. Un fallo se informa, no se traga. */
     private String enviarAlVsiaf(List<Activo> activos, Usuario usuario, List<String> avisos) {
         if (activos.isEmpty()) return AsignacionMovimiento.VSIAF_NO_APLICA;
+
+        // Primero la oficina y el responsable de destino, si todavía no están en el VSIAF
+        // (creados al vuelo y pendientes): la cola se aplica en el orden en que se deja, así
+        // el ACTUAL de cada bien llega después de ellos. Lo que ya está allá no se toca.
+        Set<String> dependenciasVistas = new java.util.HashSet<>();
+        for (Activo a : activos) {
+            String clave = (a.getOficina() != null ? a.getOficina().getIdOficina() : null) + "|"
+                    + (a.getResponsable() != null ? a.getResponsable().getIdResponsable() : null);
+            if (!dependenciasVistas.add(clave)) continue;
+            avisos.addAll(vsiafApoyoService.asegurarEnVsiaf(a.getOficina(), a.getResponsable(), usuario.getUsuario()));
+        }
 
         boolean huboError = false;
         for (Activo a : activos) {

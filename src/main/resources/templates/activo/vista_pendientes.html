@@ -1262,10 +1262,15 @@
         function ajustarAnclajes() {
             const raiz = document.documentElement;
 
+            // La franja de pestañas (#sciaf-tabs) también queda fija bajo el navbar y está
+            // por encima (z-index 6): si la barra de filtro frena a la altura del navbar,
+            // al hacer scroll queda escondida detrás de las pestañas. Frena debajo de ambas.
             const nav = document.getElementById('layout-navbar');
             if (nav) {
                 const abajo = nav.getBoundingClientRect().bottom;
-                if (abajo > 0) raiz.style.setProperty('--barra-masiva-top', (abajo + 8) + 'px');
+                const tabs = document.getElementById('sciaf-tabs');
+                const altoTabs = tabs ? tabs.offsetHeight : 0;
+                if (abajo > 0) raiz.style.setProperty('--barra-masiva-top', (abajo + altoTabs + 8) + 'px');
             }
 
             const cont = document.getElementById('contenido');

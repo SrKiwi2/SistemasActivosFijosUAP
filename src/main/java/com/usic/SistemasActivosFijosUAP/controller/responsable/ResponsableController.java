@@ -284,9 +284,9 @@ public class ResponsableController {
                 return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No se encontró la oficina especificada."));
             }
 
-            // modoRapido (alta al vuelo desde Activos / Asignación / Transferencia): queda
-            // pendiente y viaja al VSIAF junto con el movimiento que lo usa. El alta desde
-            // este módulo va al VSIAF enseguida.
+            // modoRapido (alta al vuelo desde Activos / Asignación / Transferencia) también
+            // va al VSIAF enseguida: así ya está allá cuando se encola el movimiento que lo
+            // usa. Antes esperaba a ese movimiento y, si no llegaba, quedaba pendiente.
             ResponsableAltaService.ResultadoAlta alta = responsableAltaService.registrar(
                     new ResponsableAltaService.DatosAlta(ci, codExp, codigoFuncionario, codigoApi,
                             nombre, paterno, materno, correo, cargoNombre),
@@ -298,16 +298,12 @@ public class ResponsableController {
                     "Registró al responsable " + ResponsableGestionService.referencia(cargadoAlta)
                     + (modoRapido ? " (alta rápida desde otro módulo)" : ""), responsable.getIdResponsable());
 
-            if (modoRapido) {
-                return ResponseEntity.ok(Map.of(
-                    "ok", true,
-                    "msg", "Responsable registrado. Se enviará al VSIAF junto con el movimiento que lo utilice.",
-                    "id", responsable.getIdResponsable(),
-                    "personaNueva", alta.personaNueva()
-                ));
-            }
-
+            // Si su oficina también se creó al vuelo y sigue pendiente, va primero ella.
+            List<String> avisosOficina = vsiafApoyoService.asegurarEnVsiaf(cargadoAlta.getOficina(), null, usuarioNombre);
             VsiafApoyoService.Envio envio = vsiafApoyoService.insertarResponsable(cargadoAlta, usuarioNombre);
+            if (!avisosOficina.isEmpty()) {
+                envio = new VsiafApoyoService.Envio(false, String.join(" ", avisosOficina) + " " + envio.mensaje());
+            }
 
             return ResponseEntity.ok(Map.of(
                 "ok", true,

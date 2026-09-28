@@ -180,7 +180,9 @@ public class RespDbfWriterService {
     public void insertarDesdeResponsable(Responsable resp, String entidadCode, String unidadCode, String usuario) {
         // ── Modo COLA: dejar la orden para el worker VFPOLEDB (mantiene el índice .CDX) ──
         if ("cola".equalsIgnoreCase(writeMode)) {
-            colaService.encolarInsert("RESP", construirCamposResp(resp, entidadCode, unidadCode, usuario),
+            Map<String, Object> campos = construirCamposResp(resp, entidadCode, unidadCode, usuario);
+            campos.put("API_ESTADO", API_ACTIVO);
+            colaService.encolarInsert("RESP", campos,
                     ReferenciaOrdenDbf.deApoyo(resp.getIdResponsable(), "CODRESP=" + resp.getCodigoFuncionario(), usuario));
             log.info("📤 Responsable CODRESP={} encolado para VSIAF (modo cola)", resp.getCodigoFuncionario());
             return;
@@ -220,7 +222,9 @@ public class RespDbfWriterService {
                 for (CampoDbf field : fields) {
                     Object valor = null;
                     // Ignorar contenido de MEMO para no romper punteros .dbt
-                    if (field.type != 'M') {
+                    if ("API_ESTADO".equalsIgnoreCase(field.name)) {
+                        valor = API_ACTIVO;
+                    } else if (field.type != 'M') {
                         valor = obtenerValorCampo(field.name, resp, entidadCode, unidadCode, usuario);
                     }
                     byte[] bytes = convertirValorABytes(valor, field);
@@ -362,6 +366,19 @@ public class RespDbfWriterService {
 
     // ================= HELPER METHODS =================
 
+    /**
+     * API_ESTADO en el VSIAF: 1 = ACTIVO, 3 = INACTIVO. Un alta siempre entra activa: el
+     * SCIAF guardaba 3 en los responsables creados al vuelo (Asignación, Transferencia) para
+     * marcarlos como pendientes, y así llegaban inactivos al VSIAF. Lo pendiente lo lleva
+     * {@code pendienteDbf}, no esta columna.
+     */
+    private static final short API_ACTIVO = 1;
+
+    /** En un UPDATE se respeta un 3 que venga del VSIAF; 0 o vacío no existen allá. */
+    private static short apiEstadoVsiaf(Short apiEstado) {
+        return (apiEstado == null || apiEstado == 0) ? API_ACTIVO : apiEstado;
+    }
+
     /** Arma el mapa campo→valor (crudo) de RESP para encolar la orden al worker VFPOLEDB. */
     private Map<String, Object> construirCamposResp(Responsable resp, String ent, String uni, String usr) {
         String[] campos = {
@@ -417,7 +434,7 @@ public class RespDbfWriterService {
             case "CI" -> (r.getPersona() != null) ? r.getPersona().getCi() : null;
             case "FEULT" -> java.sql.Date.valueOf(LocalDate.now());
             case "USUAR" -> usr;
-            case "API_ESTADO" -> r.getApiEstado() != null ? r.getApiEstado() : 1;
+            case "API_ESTADO" -> apiEstadoVsiaf(r.getApiEstado());
             case "COD_EXP" -> r.getCodExp() != null ? r.getCodExp() : 1;
             default -> null; 
         };

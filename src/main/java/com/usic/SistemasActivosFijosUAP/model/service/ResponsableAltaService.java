@@ -184,7 +184,9 @@ public class ResponsableAltaService {
         r.setCargo(cargoNombre != null ? obtenerCargo(cargoNombre, usuario) : null);
         r.setFechaUlt(LocalDate.now());
         r.setUsuario(usuario != null ? usuario.getUsuario() : "SISTEMA");
-        r.setApiEstado(pendienteDbf ? Short.valueOf("3") : Short.valueOf("1"));
+        // API_ESTADO espeja el VSIAF (1 = ACTIVO, 3 = INACTIVO): un alta es siempre activa.
+        // Lo pendiente de enviar lo marca pendienteDbf, no esta columna.
+        r.setApiEstado(Short.valueOf("1"));
         r.setPendienteDbf(pendienteDbf);
         r.setCodExp(d.codExp() != null ? d.codExp() : Short.valueOf("9"));
         r.setEstado("ACTIVO");

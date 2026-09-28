@@ -115,6 +115,38 @@ public class VsiafApoyoService {
         }
     }
 
+    // ── Dependencias de un movimiento ───────────────────────────────────────
+
+    /**
+     * Antes de encolar el movimiento de un bien (ACTUAL), deja en el VSIAF la oficina y el
+     * responsable a los que va, si todavía no están. ACTUAL solo guarda códigos: si el bien
+     * llega antes, en el VSIAF apunta a una oficina o un responsable que no existe.
+     * <p>
+     * Solo actúa sobre lo pendiente ({@code pendienteDbf}); lo que ya está en el VSIAF no se
+     * toca. El reenvío es alta-si-no-existe + actualización, así que repetirlo no duplica.
+     * Como la cola se aplica en el orden en que se dejó, estas órdenes quedan antes que el
+     * ACTUAL que se encole después.
+     *
+     * @return avisos para el usuario si algo no se pudo enviar (lista vacía si todo bien)
+     */
+    public List<String> asegurarEnVsiaf(Oficina oficina, Responsable responsable, String usuario) {
+        List<String> avisos = new java.util.ArrayList<>();
+        java.util.Set<Long> oficinasVistas = new java.util.HashSet<>();
+
+        // La oficina va primero: el responsable se registra dentro de ella.
+        for (Oficina o : java.util.Arrays.asList(oficina,
+                responsable != null ? responsable.getOficina() : null)) {
+            if (o == null || !o.isPendienteDbf() || !oficinasVistas.add(o.getIdOficina())) continue;
+            Envio e = reenviarOficina(o, usuario);
+            if (!e.ok()) avisos.add("Oficina " + o.getCodOfi() + " — " + o.getNombre() + ": " + e.mensaje());
+        }
+        if (responsable != null && responsable.isPendienteDbf()) {
+            Envio e = reenviarResponsable(responsable, usuario);
+            if (!e.ok()) avisos.add("Responsable " + responsable.getCodigoFuncionario() + ": " + e.mensaje());
+        }
+        return avisos;
+    }
+
     // ── Envío de oficinas ───────────────────────────────────────────────────
 
     /** Alta en OFICINA.DBF. */

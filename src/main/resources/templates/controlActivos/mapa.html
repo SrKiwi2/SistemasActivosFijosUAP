@@ -29,6 +29,9 @@
     #ca-wrap .ca-EN_CURSO     { background:#fff8e6; border-left-color:#ffab00; }
     #ca-wrap .ca-CONTROLADO   { background:#e8f8ef; border-left-color:#21a366; }
     #ca-wrap .ca-CON_FALTANTES{ background:#fdeaec; border-left-color:#e0384a; }
+    /* Oficina de faltantes del predio: no es un ambiente que se recorre, es la custodia. */
+    #ca-wrap .ca-CUSTODIA     { background:#f1ecfb; border-left-color:#7e57c2; }
+    #ca-wrap .ca-flag-cus     { background:#7e57c2; color:#fff; }
 
     #ca-wrap .ca-flag {
         position:absolute; top:8px; right:8px; font-size:.62rem; font-weight:700;
@@ -72,6 +75,7 @@
                 <span><i style="background:#ffab00"></i>En curso</span>
                 <span><i style="background:#21a366"></i>Controlado</span>
                 <span><i style="background:#e0384a"></i>Con faltantes</span>
+                <span><i style="background:#7e57c2"></i>Oficina de faltantes</span>
             </div>
         </div>
         <div class="d-flex gap-2">
@@ -469,6 +473,18 @@
         $('#ca-mas').on('click', function () { pintarOficinas(true); });
 
         function tileOficina(o) {
+                    if (o.esCustodia) {
+                        // Sus activos son bienes en custodia y sus responsables, las personas con faltantes.
+                        return tile('CUSTODIA',
+                            'data-id="' + o.idOficina + '" data-nombre="' + esc(o.nombre) + '" data-t="oficina" data-lev="" data-custodia="1"',
+                            '<div><div class="ca-sub">Of. ' + esc(o.codOfi) + '</div>' +
+                            '<div class="ca-nom">' + esc(o.nombre) + '</div></div>' +
+                            '<div class="ca-mets">' +
+                                '<b>' + num(o.activos) + '</b> en custodia<br>' +
+                                '<b>' + num(o.responsables) + '</b> persona' + (o.responsables === 1 ? '' : 's') +
+                            '</div>',
+                            '<span class="ca-flag ca-flag-cus">FALTANTES</span>');
+                    }
                     var barra = (o.idLevantamientoEnCurso)
                         ? '<div class="ca-bar"><span style="width:' + o.porcentajeAvance + '%"></span></div>'
                         : '';
@@ -532,8 +548,10 @@
                 // y al cerrarlo lo no revisado pasa a faltante, así que marcar por fuera
                 // dejaría hallazgos sin la sesión que los explica. Si no hay oficina en
                 // contexto el botón se esconde en vez de quedar inerte.
-                $('#ca-btn-levantar-of').toggleClass('d-none', !ctx.oficina);
-                $('#ca-act-hint').toggleClass('d-none', !ctx.oficina);
+                // La oficina de faltantes no se recorre: sus bienes ya son faltantes registrados.
+                var levantable = ctx.oficina && !ctx.oficina.custodia;
+                $('#ca-btn-levantar-of').toggleClass('d-none', !levantable);
+                $('#ca-act-hint').toggleClass('d-none', !levantable);
 
                 $('#ca-tabla-activos tbody').html(data.length ? data.map(function (a, i) {
                     var ctrl = a.faltanteAbierto
@@ -568,7 +586,7 @@
                 verPredios();
             }
             else if (tipo === 'predio') { ctx.predio = { id: id, nombre: nombre }; verOficinas(id); }
-            else if (tipo === 'oficina'){ ctx.oficina = { id: id, nombre: nombre, lev: $t.data('lev') }; verResponsables(id); }
+            else if (tipo === 'oficina'){ ctx.oficina = { id: id, nombre: nombre, lev: $t.data('lev'), custodia: $t.data('custodia') === 1 }; verResponsables(id); }
             else                        { ctx.responsable = { id: id, nombre: nombre }; verActivos(id); }
         });
 

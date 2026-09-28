@@ -22,7 +22,8 @@ import lombok.extern.slf4j.Slf4j;
  * .CDX automaticamente. Asi el SCIAF deja de escribir bytes crudos (que rompian
  * el indice y obligaban a reindexar).
  *
- * <p>Cada orden es un JSON en {@code <legacy.dbf.path>/_cola/<TABLA>_<ts>_<id>.json}:
+ * <p>Cada orden es un JSON en {@code <legacy.dbf.path>/_cola/Z<ts>_<seq>_<TABLA>_<id>.json}
+ * (el nombre empieza por el momento de encolado: el worker las aplica en ese orden):
  * <pre>
  *   { "tabla":"RESP", "op":"INSERT",
  *     "campos": { "ENTIDAD":"148", "CODRESP":"123", "NOMRESP":"...", ... } }
@@ -110,7 +111,10 @@ public class DbfColaService {
      *
      * @return nombre del archivo, sin ruta
      */
-    private String escribirOrden(String tabla, Map<String, Object> orden) {
+    /** Desempata las órdenes encoladas en el mismo milisegundo sin romper el orden. */
+    private static final java.util.concurrent.atomic.AtomicLong SECUENCIA = new java.util.concurrent.atomic.AtomicLong();
+
+    private synchronized String escribirOrden(String tabla, Map<String, Object> orden) {
         try {
             verificarMontaje();
 
@@ -122,8 +126,17 @@ public class DbfColaService {
             Files.createDirectories(Path.of(colaPath, "_hechos"));
             Files.createDirectories(Path.of(colaPath, "_errores"));
 
-            String nombre = tabla + "_" + System.currentTimeMillis() + "_"
-                    + UUID.randomUUID().toString().substring(0, 8);
+            // El worker aplica _cola/*.json por ORDEN ALFABÉTICO del nombre. Con la tabla
+            // adelante ("ACTUAL_…", "OFICINA_…", "RESP_…") un ACTUAL se aplicaba antes que
+            // la oficina o el responsable que se habían encolado primero. El nombre empieza
+            // ahora por el momento en que se encoló (más un contador para las del mismo
+            // milisegundo), así el orden alfabético es el orden en que se dejaron: primero
+            // la oficina y el responsable nuevos, después el movimiento del bien.
+            // La "Z" inicial hace que, si al desplegar quedaran órdenes con el formato
+            // viejo (empiezan con A, O o R), esas se apliquen antes que las nuevas.
+            String nombre = "Z" + System.currentTimeMillis() + "_"
+                    + String.format("%06d", SECUENCIA.incrementAndGet() % 1_000_000) + "_"
+                    + tabla + "_" + UUID.randomUUID().toString().substring(0, 8);
             Path tmp = cola.resolve(nombre + ".json.tmp");
             Path fin = cola.resolve(nombre + ".json");
 

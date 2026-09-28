@@ -180,7 +180,9 @@ public class OficinaDbfWriterService {
     public void insertarDesdeOficina(Oficina oficina, String entidadCode, String unidadCode, String usuario) {
         // ── Modo COLA: dejar la orden para el worker VFPOLEDB (mantiene el índice .CDX) ──
         if ("cola".equalsIgnoreCase(writeMode)) {
-            colaService.encolarInsert("OFICINA", construirCamposOficina(oficina, entidadCode, unidadCode, usuario),
+            Map<String, Object> campos = construirCamposOficina(oficina, entidadCode, unidadCode, usuario);
+            campos.put("API_ESTADO", API_ACTIVO);
+            colaService.encolarInsert("OFICINA", campos,
                     ReferenciaOrdenDbf.deApoyo(oficina.getIdOficina(), "CODOFIC=" + oficina.getCodOfi(), usuario));
             log.info("📤 Oficina {} encolada para VSIAF (modo cola)", oficina.getCodOfi());
             return;
@@ -217,7 +219,9 @@ public class OficinaDbfWriterService {
                 for (CampoDbf field : fields) {
                     Object valor = null;
                     // Ignoramos valor para Memos para no romper .dbt
-                    if (field.type != 'M') {
+                    if ("API_ESTADO".equalsIgnoreCase(field.name)) {
+                        valor = API_ACTIVO;
+                    } else if (field.type != 'M') {
                         valor = obtenerValorCampo(field.name, oficina, entidadCode, unidadCode, usuario);
                     }
                     byte[] bytes = convertirValorABytes(valor, field);
@@ -373,6 +377,13 @@ public class OficinaDbfWriterService {
         return lista;
     }
 
+    /**
+     * API_ESTADO en el VSIAF: 1 = ACTIVO, 3 = INACTIVO. Un alta siempre entra activa: las
+     * oficinas creadas al vuelo quedaban con 3 (su marca de pendiente) y llegaban inactivas.
+     * En un UPDATE se respeta un 3 que venga del VSIAF.
+     */
+    private static final short API_ACTIVO = 1;
+
     /** Arma el mapa campo→valor (crudo) de OFICINA para encolar la orden al worker VFPOLEDB. */
     private Map<String, Object> construirCamposOficina(Oficina o, String ent, String uni, String usr) {
         String[] campos = { "ENTIDAD", "UNIDAD", "CODOFIC", "NOMOFIC", "FEULT", "USUAR", "API_ESTADO" };
@@ -398,7 +409,7 @@ public class OficinaDbfWriterService {
             case "NOMOFIC" -> o.getNombre();
             case "FEULT" -> java.sql.Date.valueOf(LocalDate.now());
             case "USUAR" -> usr;
-            case "API_ESTADO" -> o.getApiEstado() != null ? o.getApiEstado() : 1;
+            case "API_ESTADO" -> (o.getApiEstado() == null || o.getApiEstado() == 0) ? API_ACTIVO : o.getApiEstado();
             default -> null; 
         };
     }

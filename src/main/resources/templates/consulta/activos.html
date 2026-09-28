@@ -113,6 +113,8 @@
             border-radius: 4px; font-size: .75rem; font-weight: 600;
         }
         .resp-accordion .grupo-item.active .grupo-count { background: #1a56a0; color: #fff; }
+        .resp-accordion .grupo-todos { border-bottom: 1px dashed #d8dee9; margin-bottom: .25rem; }
+        .resp-accordion .grupo-todos .grupo-name { font-weight: 600; color: #1a56a0; }
         .resp-accordion .accordion-collapse { transition: all .3s ease; }
 
         /* Bloqueo buttons */
@@ -450,26 +452,39 @@
                         $('#btnCambiarResponsable').toggle(
                             $('#layout-menu .menu-item[data-url="' + URL_ASIGNAR + '"]').length > 0);
 
-                        // Llenar desglose
+                        // Llenar desglose. El primer ítem, "Todos los grupos", quita el filtro:
+                        // sin él, una vez elegido un grupo no había forma de volver a ver todo
+                        // (salvo Limpiar, que además borraba el responsable).
                         $listaGrupos.empty();
                         var desglose = data.desglosePorGrupo || [];
                         if (desglose.length) {
+                            var todos = $('<div class="grupo-item grupo-todos"></div>');
+                            todos.append($('<span class="grupo-name"></span>')
+                                .html('<i class="ti ti-list-check me-1"></i>Todos los grupos'));
+                            todos.append('<span class="grupo-count">' + total + '</span>');
+                            todos.on('click', function () { quitarFiltroGrupo(); });
+                            $listaGrupos.append(todos);
+
                             desglose.forEach(function (g) {
                                 var item = $('<div class="grupo-item"></div>');
                                 item.data('grupo-id', g.idGrupoContable);
                                 item.data('grupo-nombre', g.grupoContable || 'Sin grupo');
                                 item.append($('<span class="grupo-name"></span>').text(g.grupoContable || 'Sin grupo'));
                                 item.append('<span class="grupo-count">' + (g.cantidad || 0) + '</span>');
-                                // Click handler para filtrar la tabla
+                                // Click: filtra por ese grupo; otro click sobre el mismo lo quita.
                                 item.on('click', function () {
+                                    if ($(this).hasClass('active')) { quitarFiltroGrupo(); return; }
                                     var grupoId = $(this).data('grupo-id');
                                     filtrarPorGrupoContable(grupoId);
-                                    // Marcar activo visualmente
                                     $listaGrupos.find('.grupo-item').removeClass('active');
                                     $(this).addClass('active');
                                 });
+                                if (currentGrupoFilter != null && String(g.idGrupoContable) === String(currentGrupoFilter)) {
+                                    item.addClass('active');
+                                }
                                 $listaGrupos.append(item);
                             });
+                            if (currentGrupoFilter == null) todos.addClass('active');
                         } else {
                             $listaGrupos.html('<div class="text-muted text-center py-2 small">Sin desglose disponible</div>');
                         }
@@ -482,6 +497,13 @@
 
             function filtrarPorGrupoContable(grupoId) {
                 currentGrupoFilter = grupoId;
+                tabla.ajax.reload();
+            }
+
+            function quitarFiltroGrupo() {
+                currentGrupoFilter = null;
+                $listaGrupos.find('.grupo-item').removeClass('active');
+                $listaGrupos.find('.grupo-todos').addClass('active');
                 tabla.ajax.reload();
             }
 
@@ -640,6 +662,8 @@
             // Cuando cambia el responsable en el filtro, cargar tarjeta
             $resp.on('change', function () {
                 var id = $(this).val();
+                // El grupo elegido era del desglose del responsable anterior.
+                if (Number(id) !== currentResponsableId) currentGrupoFilter = null;
                 loadResponsableCard(id ? Number(id) : null);
             });
 

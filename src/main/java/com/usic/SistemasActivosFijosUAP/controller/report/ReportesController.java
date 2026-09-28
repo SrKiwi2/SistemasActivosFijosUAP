@@ -102,6 +102,8 @@ public class ReportesController {
                         || !a.getResponsable().getIdResponsable().equals(resp.getIdResponsable());
                 if (cambia) a.exigirNoBloqueado("reasignar en el acta");
             }
+            // Un acta de asignación nunca es a nombre de la oficina de faltantes.
+            com.usic.SistemasActivosFijosUAP.model.service.control.ReglasCustodia.exigirDestinoValido(oficinaDestino, resp);
  
             int anio = LocalDate.now().getYear();
             ConfiguracionGestion config = configuracionGestionService.findByGestion(anio)

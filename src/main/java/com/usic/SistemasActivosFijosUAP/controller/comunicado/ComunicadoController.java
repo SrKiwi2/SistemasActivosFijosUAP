@@ -126,6 +126,7 @@ public class ComunicadoController {
             .map(o -> {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", o.getIdOficina());
+                m.put("codigo", o.getCodOfi());
                 m.put("nombre", o.getNombre());
                 return m;
             })

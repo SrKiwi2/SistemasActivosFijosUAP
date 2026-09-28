@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title th:text="${acta != null} ? 'Acta ' + ${acta.numero} + ' · Verificación' : 'Verificación de acta'">Verificación de acta</title>
+    <style>
+        :root {
+            --fondo: #f3f5f9; --tarjeta: #ffffff; --texto: #1f2a37; --suave: #5f6b7a; --borde: #e3e7ee;
+            --azul: #213480; --ok: #13795b; --ok-f: #e3f5ee; --mal: #b0202d; --mal-f: #fbe7e9;
+            --aviso: #8a5a00; --aviso-f: #fff4dc;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--fondo); color: var(--texto);
+               font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+        main { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
+        header { text-align: center; margin-bottom: 18px; }
+        header .inst { font-size: .78rem; letter-spacing: .06em; color: var(--suave); text-transform: uppercase; }
+        header h1 { margin: 4px 0 0; font-size: 1.35rem; color: var(--azul); }
+        .tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px;
+                   padding: 16px; margin-bottom: 14px; }
+        .estado { display: flex; gap: 12px; align-items: flex-start; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+        .estado b { display: block; font-size: 1.05rem; }
+        .estado.ok { background: var(--ok-f); color: var(--ok); }
+        .estado.mal { background: var(--mal-f); color: var(--mal); }
+        .estado.aviso { background: var(--aviso-f); color: var(--aviso); }
+        .estado .ico { font-size: 1.6rem; line-height: 1; }
+        dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
+        dt { color: var(--suave); font-size: .82rem; }
+        dd { margin: 0; font-weight: 600; word-break: break-word; }
+        h2 { font-size: .95rem; margin: 0 0 10px; }
+        .predio { font-weight: 700; color: #fff; background: #58658c; border-radius: 6px; padding: 5px 10px; margin: 12px 0 6px; font-size: .86rem; }
+        .oficina { font-weight: 600; background: #eceff4; border-radius: 6px; padding: 4px 10px; margin: 8px 0 4px; font-size: .84rem; }
+        ul.bienes { list-style: none; margin: 0; padding: 0; }
+        ul.bienes li { display: flex; gap: 10px; padding: 6px 4px; border-bottom: 1px solid var(--borde); font-size: .88rem; }
+        ul.bienes li:last-child { border-bottom: none; }
+        .cod { font-family: ui-monospace, "JetBrains Mono", Consolas, monospace; font-weight: 700; color: var(--azul); white-space: nowrap; }
+        .total { text-align: right; font-weight: 700; margin-top: 10px; }
+        .huella { font-family: ui-monospace, Consolas, monospace; letter-spacing: .04em; }
+        footer { text-align: center; color: var(--suave); font-size: .78rem; margin-top: 18px; }
+        @media (max-width: 480px) { dl { grid-template-columns: 1fr; gap: 2px; } dd { margin-bottom: 8px; } }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <div class="inst">Universidad Amazónica de Pando · Sección de Activos Fijos</div>
+        <h1 th:text="${acta != null and acta.esRegularizacion()} ? 'Verificación de acta de regularización de faltantes'
+                                                                  : 'Verificación de acta de faltantes'">Verificación de acta de faltantes</h1>
+    </header>
+
+    <!-- Token que no corresponde a ninguna acta -->
+    <div th:if="${acta == null}" class="estado mal">
+        <div class="ico">✕</div>
+        <div><b>Acta no encontrada</b>
+            Este código no corresponde a ninguna acta emitida por el SCIAF. Si el papel dice lo
+            contrario, el documento no es auténtico o el código está dañado.</div>
+    </div>
+
+    <th:block th:if="${acta != null}">
+
+        <div th:if="${!acta.integro}" class="estado mal">
+            <div class="ico">!</div>
+            <div><b>El registro de esta acta fue alterado</b>
+                El contenido guardado no coincide con su huella. Consulte a la Sección de Activos Fijos.</div>
+        </div>
+
+        <div th:if="${acta.integro and acta.estado == 'VIGENTE'}" class="estado ok">
+            <div class="ico">✓</div>
+            <div><b>Acta auténtica y vigente</b>
+                Emitida por el SCIAF. Compare los datos de abajo con el papel: deben coincidir.</div>
+        </div>
+        <div th:if="${acta.integro and acta.estado == 'RESUELTA'}" class="estado ok">
+            <div class="ico">✓</div>
+            <div><b>Acta auténtica · faltantes resueltos</b>
+                Todos los bienes de esta acta ya fueron aclarados.</div>
+        </div>
+        <div th:if="${acta.integro and acta.estado == 'ANULADA'}" class="estado aviso">
+            <div class="ico">⚠</div>
+            <div><b>Acta anulada</b>
+                <span th:text="'Anulada el ' + ${#temporals.format(acta.fechaAnulacion, 'dd/MM/yyyy HH:mm')}
+                               + (${acta.motivoAnulacion} != null ? ': ' + ${acta.motivoAnulacion} : '.')"></span>
+                El papel ya no tiene validez.</div>
+        </div>
+
+        <section class="tarjeta">
+            <dl>
+                <dt>N° de acta</dt>        <dd th:text="${acta.numero}"></dd>
+                <dt>Responsable</dt>       <dd th:text="${acta.personaNombre}"></dd>
+                <dt>C.I.</dt>              <dd th:text="${ciOculto} ?: '—'"></dd>
+                <dt>Cargo</dt>             <dd th:text="${acta.personaCargo} ?: '—'"></dd>
+                <dt>Fecha de emisión</dt>  <dd th:text="${#temporals.format(acta.fechaEmision, 'dd/MM/yyyy HH:mm')}"></dd>
+                <dt>Documento</dt>         <dd th:text="${acta.documentoRespaldo} ?: '—'"></dd>
+                <dt>Bienes</dt>            <dd th:text="${acta.totalBienes}"></dd>
+                <dt>Huella</dt>            <dd class="huella" th:text="${acta.huella()}"></dd>
+            </dl>
+        </section>
+
+        <section class="tarjeta">
+            <h2 th:text="${acta.esRegularizacion()} ? 'Faltantes regularizados (ya estaban en la oficina de faltantes)'
+                                                    : 'Bienes registrados como faltantes'">Bienes registrados como faltantes</h2>
+            <th:block th:each="p : ${acta.predios}">
+                <div class="predio" th:text="'Predio ' + ${p.unidad} + ' — ' + ${p.nombre}"></div>
+                <th:block th:each="o : ${p.oficinas}">
+                    <div class="oficina"
+                         th:text="'Oficina de origen: ' + (${o.codOfi} != null ? ${o.codOfi} + ' — ' : '') + ${o.nombre}"></div>
+                    <ul class="bienes">
+                        <li th:each="b : ${o.bienes}">
+                            <span class="cod" th:text="${b.codigo}"></span>
+                            <span th:text="${b.descripcion}"></span>
+                        </li>
+                    </ul>
+                </th:block>
+            </th:block>
+            <div class="total" th:text="'Total: ' + ${acta.totalBienes} + ' bien(es)'"></div>
+        </section>
+    </th:block>
+
+    <footer>SCIAF · Sistema de Control Interno de Activos Fijos · UAP</footer>
+</main>
+</body>
+</html>

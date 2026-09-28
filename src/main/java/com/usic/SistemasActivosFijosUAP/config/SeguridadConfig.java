@@ -35,6 +35,8 @@ public class SeguridadConfig {
                 /* seguimiento público de hojas de ruta (sin login) */
                 "/seguimiento-hr/**",
                 "/seguimiento-activo/**",
+                /* verificación pública del acta de faltantes (el QR del papel) */
+                "/verificar/**",
                 "/pdfs/**",
                 "/vista/**",
                 "/api/**",

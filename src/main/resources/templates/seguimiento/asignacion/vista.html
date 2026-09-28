@@ -830,7 +830,7 @@
                                         </button>
                                     </div>
                                     <div class="info-card-body">
-                                        <div class="info-row"><span class="lbl">N° Asignación</span><span class="val" id="d-numero" style="color: white;">—</span></div>
+                                        <div class="info-row"><span class="lbl">N° Asignación</span><span class="val text-primary" id="d-numero">—</span></div>
                                         <div class="info-row"><span class="lbl">Código Documento</span><span class="val" id="d-codigo-doc">—</span></div>
                                         <div class="info-row"><span class="lbl">Código Completo</span><span class="val" id="d-codigo-completo">—</span></div>
                                         <div class="info-row"><span class="lbl">Fecha Asignación</span><span class="val" id="d-fecha">—</span></div>
@@ -1238,9 +1238,9 @@
         $('#d-estado').html(renderBadgeEstado(data.estado));
         $('#d-doc-referencia').text(data.docRef || '—');
         $('#fila-resp-origen').toggleClass('d-none', !data.respOrigen);
-        $('#d-resp-origen').text(data.respOrigen || '—');
-        $('#d-resp-destino').text(data.respDestino || '—');
-        $('#d-oficina-destino').text(data.oficina || '—');
+        $('#d-resp-origen').text(conCod(data.respOrigenCod, data.respOrigen));
+        $('#d-resp-destino').text(conCod(data.respDestinoCod, data.respDestino));
+        $('#d-oficina-destino').text(conCod(data.oficinaCod, data.oficina));
 
         // Observación
         if (data.observacion && data.observacion.trim() !== '') {
@@ -1454,9 +1454,9 @@
                         <td class="text-center text-muted small">${i + 1}</td>
                         <td><code class="small fw-semibold text-primary">${escHtml(d.codigo)}</code></td>
                         <td class="descripcion-clamp" style="font-size:0.82rem" title="${escHtml(d.descripcion)}">${escHtml(d.descripcion)}</td>
-                        <td class="small text-truncate" style="max-width:160px">${escHtml(d.responsable)}</td>
+                        <td class="small text-truncate" style="max-width:160px">${escHtml(conCod(d.responsableCod, d.responsable))}</td>
                         <td class="small text-truncate" style="max-width:160px">
-                            ${escHtml(d.oficina)}
+                            ${escHtml(conCod(d.oficinaCod, d.oficina))}
                             <div class="text-muted" style="font-size:0.7rem">${escHtml(d.predio)}</div>
                         </td>
                         <td class="text-end small">${costoCell}</td>
@@ -1568,7 +1568,7 @@
 
         $('#sep-oficina').html('<option value="">— Mantener la del acta original —</option>' +
             (oficinas || []).map(o => `<option value="${o.idOficina ?? o.id}">${escHtml(
-                (o.codOfi != null ? o.codOfi + ' — ' : '') + (o.nombre ?? ''))}</option>`).join(''));
+                ((o.codigo ?? o.codOfi) != null ? (o.codigo ?? o.codOfi) + ' — ' : '') + (o.nombre ?? ''))}</option>`).join(''));
 
         $('#sep-responsable').html('<option value="">— Mantener el del acta original —</option>');
     }
@@ -1675,7 +1675,8 @@
 
         const oficinas = await getJson(`/api/buscar_oficinas?predioId=${idPredio}`);
         $('#cab-oficina').html((oficinas || []).map(o =>
-            `<option value="${o.idOficina ?? o.id}">${escHtml(o.nombre)}</option>`).join(''));
+            `<option value="${o.idOficina ?? o.id}">${escHtml(
+                ((o.codigo ?? o.codOfi) != null ? (o.codigo ?? o.codOfi) + ' — ' : '') + (o.nombre ?? ''))}</option>`).join(''));
         $('#cab-oficina').val(_cabeceraActual.idOficinaDestino ?? '');
 
         await cargarResponsablesCabecera($('#cab-oficina').val(), _cabeceraActual.idResponsable);
@@ -2095,6 +2096,13 @@
             });
     }
 
+    /* "45 — ALMACÉN": el código delante del nombre, que es como se lo busca en el VSIAF. */
+    function conCod(cod, nombre) {
+        const n = (nombre == null || nombre === '') ? '—' : String(nombre);
+        if (cod == null || cod === '' || n === '—') return n;
+        return cod + ' — ' + n;
+    }
+
     function escHtml(s) {
         if (s == null) return '—';
         return String(s)
@@ -2230,8 +2238,8 @@
             ${fila('Código', `<code class="fw-semibold text-primary">${escHtml(d.codigo)}</code>`)}
             ${fila('Descripción', escHtml(d.descripcion))}
             ${fila('Grupo contable', escHtml(d.grupoContable))}
-            ${fila('Responsable', escHtml(d.responsable))}
-            ${fila('Oficina', escHtml(d.oficina))}
+            ${fila('Responsable', escHtml(conCod(d.responsableCod, d.responsable)))}
+            ${fila('Oficina', escHtml(conCod(d.oficinaCod, d.oficina)))}
             ${fila('Predio', escHtml(d.predio))}
             ${fila('Estado físico', escHtml(d.estadoActivo))}
             ${fila('Fecha adquisición', fechaTexto)}

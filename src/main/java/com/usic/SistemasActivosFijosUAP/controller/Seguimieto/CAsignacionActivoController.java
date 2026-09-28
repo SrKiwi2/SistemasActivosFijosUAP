@@ -858,6 +858,9 @@ public class CAsignacionActivoController {
                 }
                 map.put("oficina", oficinaNombre);
                 map.put("predio",  predioNombre);
+                // El código aparte (no pegado al nombre): la pantalla lo muestra delante.
+                map.put("oficinaCod", activo != null && activo.getOficina() != null
+                        ? activo.getOficina().getCodOfi() : null);
 
                 // Fecha de adquisición
                 map.put("fechaAdquisicion",
@@ -871,6 +874,8 @@ public class CAsignacionActivoController {
                         && activo.getResponsable().getPersona() != null
                         ? activo.getResponsable().getPersona().getNombreCompleto()
                         : "—");
+                map.put("responsableCod", activo != null && activo.getResponsable() != null
+                        ? activo.getResponsable().getCodigoFuncionario() : null);
 
                 // Grupo contable
                 map.put("grupoContable",

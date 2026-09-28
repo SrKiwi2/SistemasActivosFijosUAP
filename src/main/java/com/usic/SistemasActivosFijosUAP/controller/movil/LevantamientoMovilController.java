@@ -61,7 +61,9 @@ public class LevantamientoMovilController {
     @GetMapping("/oficinas")
     public ResponseEntity<List<TileOficinaDTO>> oficinas(@RequestParam Long idPredio) {
         permisos.exigir(PermisosMovil.INVENTARIO);
-        return ResponseEntity.ok(servicio.mapaOficinas(idPredio));
+        // La oficina de faltantes no se recorre: sus bienes ya son faltantes registrados.
+        return ResponseEntity.ok(servicio.mapaOficinas(idPredio).stream()
+                .filter(o -> !o.esCustodia()).toList());
     }
 
     /**

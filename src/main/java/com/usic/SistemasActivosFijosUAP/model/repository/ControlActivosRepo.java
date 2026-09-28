@@ -192,12 +192,13 @@ public class ControlActivosRepo {
                 enCurso,
                 ult == null ? null : ult.toLocalDateTime(),
                 rs.getObject("ultimo_encontrados", Integer.class),
-                rs.getObject("ultimo_esperados", Integer.class));
+                rs.getObject("ultimo_esperados", Integer.class),
+                rs.getBoolean("es_custodia"));
     };
 
     public List<TileOficinaDTO> tilesOficina(Long idPredio) {
         String sql = """
-            select o.id_oficina, o.cod_ofi, o.nombre,
+            select o.id_oficina, o.cod_ofi, o.nombre, o.es_custodia,
                    p.id_predio, p.descrip as predio,
               (select count(*) from responsable r
                  where r.id_oficina = o.id_oficina and r._estado = ?)                   as responsables,
@@ -477,7 +478,16 @@ public class ControlActivosRepo {
                 doc == null ? null : doc.toLocalDate(),
                 rs.getObject("id_responsable_custodia", Long.class),
                 env == null ? null : env.toLocalDateTime(),
-                rs.getString("usuario_envio_custodia"));
+                rs.getString("usuario_envio_custodia"),
+                rs.getObject("id_persona", Long.class),
+                rs.getString("ci"),
+                rs.getObject("cod_ofi", Short.class),
+                rs.getString("unidad"),
+                rs.getObject("id_acta", Long.class),
+                rs.getString("numero_acta"),
+                rs.getString("estado_envio"),
+                rs.getString("mensaje_envio"),
+                rs.getBoolean("origen_en_custodia"));
     };
 
     /**
@@ -499,15 +509,19 @@ public class ControlActivosRepo {
                    p.id_predio, p.descrip as predio,
                    i.id_inventario, i.numero_inventario,
                    h.origen, h.documento_respaldo, h.fecha_documento,
-                   h.id_responsable_custodia, h.fecha_envio_custodia, h.usuario_envio_custodia
+                   h.id_responsable_custodia, h.fecha_envio_custodia, h.usuario_envio_custodia,
+                   pe.id_persona, pe.ci, o.cod_ofi, p.unidad,
+                   h.id_acta, af.numero as numero_acta, h.estado_envio, h.mensaje_envio,
+                   o.es_custodia as origen_en_custodia
             from hallazgo_inventario h
-            left join inventario i   on i.id_inventario  = h.id_inventario
-            join oficina o           on o.id_oficina     = %s
-            join predio p            on p.id_predio      = o.id_predio
-            left join activo a       on a.id_activo      = h.id_activo
-            left join responsable r  on r.id_responsable = h.id_responsable
-            left join persona pe     on pe.id_persona    = r.id_persona
-            where 1 = 1
+            left join inventario i     on i.id_inventario  = h.id_inventario
+            join oficina o             on o.id_oficina     = %s
+            join predio p              on p.id_predio      = o.id_predio
+            left join activo a         on a.id_activo      = h.id_activo
+            left join responsable r    on r.id_responsable = h.id_responsable
+            left join persona pe       on pe.id_persona    = r.id_persona
+            left join acta_faltante af on af.id_acta       = h.id_acta
+            where coalesce(h.estado_hallazgo, '') <> 'ANULADO'
             """.formatted(OFICINA_HALLAZGO));
 
         List<Object> args = new ArrayList<>();
@@ -515,10 +529,19 @@ public class ControlActivosRepo {
         if (idOficina != null)      { sql.append(" and o.id_oficina = ?");     args.add(idOficina); }
         if (idResponsable != null)  { sql.append(" and r.id_responsable = ?"); args.add(idResponsable); }
         if (tipoHallazgo != null)   { sql.append(" and h.tipo_hallazgo = ?");  args.add(tipoHallazgo); }
-        if (estadoHallazgo != null) { sql.append(" and h.estado_hallazgo = ?");args.add(estadoHallazgo); }
+        if ("PENDIENTES".equals(estadoHallazgo)) {
+            // Abiertos y en custodia: lo que sigue sin aclarar.
+            sql.append(" and h.estado_hallazgo in (?, ?)");
+            args.add(ABIERTO);
+            args.add(EN_CUSTODIA);
+        } else if (estadoHallazgo != null) {
+            sql.append(" and h.estado_hallazgo = ?");
+            args.add(estadoHallazgo);
+        }
 
-        sql.append(" order by (h.estado_hallazgo = 'ABIERTO') desc,"
-                 + " (h.estado_hallazgo = 'EN_CUSTODIA') desc, responsable, codigo");
+        // Persona → predio → oficina: es el orden en que la pantalla agrupa.
+        sql.append(" order by responsable, pe.id_persona, p.descrip, o.cod_ofi,"
+                 + " (h.estado_hallazgo = 'RESUELTO'), codigo");
 
         return jdbc.query(sql.toString(), MAPPER_FALTANTE, args.toArray());
     }

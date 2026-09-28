@@ -88,7 +88,8 @@
                 <label class="form-label">Seleccione la oficina / sección</label>
                 <select name="idOficina" class="form-select select2">
                     <option value="">— Seleccione —</option>
-                    <option th:each="o : ${oficinas}" th:value="${o.id}" th:text="${o.nombre}"></option>
+                    <option th:each="o : ${oficinas}" th:value="${o.id}"
+                            th:text="${(o.codigo != null ? o.codigo + ' — ' : '') + o.nombre}"></option>
                 </select>
                 <small class="text-muted">Llega a los usuarios responsables de esa oficina.</small>
             </div>

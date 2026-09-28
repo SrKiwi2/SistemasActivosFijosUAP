@@ -87,6 +87,22 @@ public interface IOficinaDao extends JpaRepository<Oficina, Long> {
     @Query("select count(r) from Responsable r where r.oficina.idOficina = :idOficina and r.estado = 'ACTIVO'")
     long contarResponsablesVigentes(@Param("idOficina") Long idOficina);
 
+    /** Oficina de faltantes vigente del predio (a lo sumo una: índice uk_oficina_custodia_predio). */
+    @Query("select o from Oficina o where o.predio.idPredio = :idPredio and o.esCustodia = true and o.estado = 'ACTIVO'")
+    List<Oficina> custodiasDelPredio(@Param("idPredio") Long idPredio);
+
+    /**
+     * Oficinas vigentes del predio que se llaman "FALTANTES…" pero todavía no están marcadas:
+     * las que alguien creó a mano en el VSIAF. Se adoptan antes de crear otra.
+     */
+    @Query("""
+            select o from Oficina o
+            where o.predio.idPredio = :idPredio and o.esCustodia = false and o.estado = 'ACTIVO'
+              and upper(trim(o.nombre)) like 'FALTANTES%'
+            order by o.codOfi
+            """)
+    List<Oficina> candidatasCustodia(@Param("idPredio") Long idPredio);
+
     /** Activos (no eliminados) ubicados en la oficina; mismo motivo que los responsables. */
     @Query("select count(a) from Activo a where a.oficina.idOficina = :idOficina and (a.estado is null or a.estado <> 'ELIMINADO')")
     long contarActivos(@Param("idOficina") Long idOficina);

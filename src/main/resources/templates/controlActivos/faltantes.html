@@ -1,9 +1,14 @@
 <!-- =====================================================================
      CONTROL DE ACTIVOS POR RESPONSABLE · Faltantes  ·  Fragmento SPA
-     Datos: GET  /administracion/control-activos/faltantes
-     Acción: POST /administracion/control-activos/hallazgos/{id}/resolver|reabrir
-     Agrupado por responsable: el recorrido es por oficina, pero la
-     responsabilidad es de una persona.
+     Datos:   GET  /administracion/control-activos/faltantes
+              GET  /administracion/control-activos/custodia/{personas|actas}
+     Acciones: POST /administracion/control-activos/hallazgos/{id}/reabrir
+               POST /administracion/control-activos/custodia/actas (registro + acta)
+               POST /administracion/control-activos/custodia/hallazgos/{id}/resolver
+     Reportes: GET  /administracion/control-activos/custodia/reportes/{predio/{id}|consolidado}
+               GET  /administracion/control-activos/custodia/conciliacion
+     Agrupado por PERSONA → predio → oficina de origen: una persona es responsable
+     en varias oficinas y predios, y el faltante es de ella.
 ====================================================================== -->
 
 <style>
@@ -13,6 +18,7 @@
         gap:8px; cursor:pointer; padding:12px 16px; border-left:5px solid #e0384a; border-radius:12px 12px 0 0;
     }
     #cf-wrap .cf-grupo-head.todo-resuelto { border-left-color:#21a366; }
+    #cf-wrap .cf-grupo-head.en-custodia   { border-left-color:#7e57c2; }
     #cf-wrap .cf-nom { font-weight:600; font-size:.95rem; }
     #cf-wrap .cf-sub { font-size:.75rem; color:#8592a3; }
     #cf-wrap .cf-cod { font-family:'JetBrains Mono', monospace; font-weight:600; color:#1a56a0; font-size:.83rem; }
@@ -23,7 +29,23 @@
     #cf-wrap .badge-OBSERVADO     { background:#fff3cd; color:#8a6d00; }
     #cf-wrap .badge-SOBRANTE      { background:#cfe2ff; color:#1a56a0; }
     #cf-wrap .badge-SIN_CODIFICAR { background:#e9ecef; color:#5b6573; }
+    #cf-wrap .est-abierto  { background:#fdeaec; color:#a3232f; }
+    #cf-wrap .est-custodia { background:#efe7fb; color:#5b3a9c; }
+    #cf-wrap .est-camino   { background:#fff4dc; color:#8a5a00; }
+    #cf-wrap .est-error    { background:#e0384a; color:#fff; }
+    #cf-wrap .est-ok       { background:#d4f4e2; color:#0f6b40; }
+    #cf-wrap .est-gris     { background:#e9ecef; color:#5b6573; }
     #cf-wrap .cf-resuelto td { opacity:.6; }
+    #cf-wrap .cf-fila-predio td  { background:#58658c; color:#fff; font-weight:600; font-size:.8rem; padding:5px 12px; }
+    #cf-wrap .cf-fila-oficina td { background:#f1f3f7; font-weight:600; font-size:.8rem; padding:5px 12px; }
+    #cf-reg .cf-persona-item { cursor:pointer; }
+    #cf-reg .cf-persona-item:hover { background:#f5f5ff; }
+    #cf-reg .cf-bienes { max-height:48vh; overflow:auto; border:1px solid #e7e9ee; border-radius:8px; }
+    #cf-reg .cf-bienes table td { font-size:.82rem; vertical-align:middle; }
+    #cf-reg .cf-fila-predio td  { background:#58658c; color:#fff; font-weight:600; font-size:.78rem; position:sticky; top:0; }
+    #cf-reg .cf-fila-oficina td { background:#f1f3f7; font-weight:600; font-size:.78rem; }
+    #cf-reg .cf-cod { font-family:'JetBrains Mono', monospace; font-weight:600; color:#1a56a0; font-size:.8rem; }
+    #cf-reg tr.no-sel td { opacity:.55; }
 </style>
 
 <div id="cf-wrap">
@@ -33,12 +55,26 @@
             <h4 class="py-2 mb-1">
                 <span class="text-muted fw-light">Seguimiento y Consultas /</span> FALTANTES
             </h4>
-            <p class="text-muted mb-2" style="font-size:.9rem; max-width:820px;">
-                Resultado de los levantamientos, agrupado por <b>responsable</b>. Un faltante nace
-                <b>ABIERTO</b> y se cierra diciendo qué pasó: apareció, se justificó o se derivó a baja.
+            <p class="text-muted mb-2" style="font-size:.9rem; max-width:860px;">
+                Agrupado por <b>persona</b>, luego por predio y oficina de donde falta el bien. Al
+                <b>registrar</b> los faltantes se emite el <b>acta</b> para firmar y los bienes pasan a la
+                oficina de faltantes de su predio. Al <b>resolver</b>, si el bien apareció vuelve a su
+                responsable; si se justificó o va a baja, queda en custodia pendiente de baja.
             </p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-sm btn-danger" id="cf-btn-registrar">
+                <i class="ti ti-file-alert me-1"></i> Registrar faltantes
+            </button>
+            <div class="btn-group">
+                <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="ti ti-report me-1"></i> Reportes
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#" id="cf-rep-predio"><i class="ti ti-building-warehouse me-1"></i> Custodia por predio…</a></li>
+                    <li><a class="dropdown-item" href="#" id="cf-rep-consolidado"><i class="ti ti-users me-1"></i> Consolidado por persona…</a></li>
+                </ul>
+            </div>
             <button type="button" class="btn btn-sm btn-outline-secondary" id="cf-btn-refrescar">
                 <i class="ti ti-refresh me-1"></i> Refrescar
             </button>
@@ -51,69 +87,174 @@
     <!-- Resumen -->
     <div class="row g-3 mb-3">
         <div class="col-6 col-md-3"><div class="card cf-card shadow-sm"><div class="card-body py-3">
-            <div class="num text-danger" id="cf-n-abiertos">—</div><div class="lbl">Faltantes abiertos</div></div></div></div>
+            <div class="num text-danger" id="cf-n-abiertos">—</div><div class="lbl">Abiertos</div></div></div></div>
         <div class="col-6 col-md-3"><div class="card cf-card shadow-sm"><div class="card-body py-3">
-            <div class="num" style="color:#8a6d00" id="cf-n-observados">—</div><div class="lbl">Con novedad</div></div></div></div>
+            <div class="num" style="color:#5b3a9c" id="cf-n-custodia">—</div><div class="lbl">En custodia</div></div></div></div>
         <div class="col-6 col-md-3"><div class="card cf-card shadow-sm"><div class="card-body py-3">
             <div class="num text-success" id="cf-n-resueltos">—</div><div class="lbl">Resueltos</div></div></div></div>
         <div class="col-6 col-md-3"><div class="card cf-card shadow-sm"><div class="card-body py-3">
-            <div class="num text-dark" id="cf-n-resp">—</div><div class="lbl">Responsables afectados</div></div></div></div>
+            <div class="num text-dark" id="cf-n-personas">—</div><div class="lbl">Personas afectadas</div></div></div></div>
     </div>
 
-    <!-- Filtros -->
-    <div class="card shadow-sm mb-3"><div class="card-body py-3">
-        <div class="row g-2 align-items-end">
-            <div class="col-md-3">
-                <label class="form-label mb-1" style="font-size:.78rem;">Predio</label>
-                <select class="form-select form-select-sm" id="cf-f-predio"><option value="">Todos</option></select>
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#cf-tab-faltantes" type="button">
+            <i class="ti ti-list-details me-1"></i> Faltantes</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cf-tab-actas" type="button" id="cf-tab-actas-btn">
+            <i class="ti ti-file-certificate me-1"></i> Actas de faltantes</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cf-tab-conc" type="button" id="cf-tab-conc-btn">
+            <i class="ti ti-scale me-1"></i> Conciliación <span class="badge bg-danger ms-1 d-none" id="cf-conc-badge"></span></button></li>
+    </ul>
+
+    <div class="tab-content p-0">
+        <!-- ── Faltantes ─────────────────────────────────────────────── -->
+        <div class="tab-pane fade show active" id="cf-tab-faltantes">
+            <div class="card shadow-sm mb-3"><div class="card-body py-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label mb-1" style="font-size:.78rem;">Predio</label>
+                        <select class="form-select form-select-sm" id="cf-f-predio"><option value="">Todos</option></select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label mb-1" style="font-size:.78rem;">Oficina de origen</label>
+                        <select class="form-select form-select-sm" id="cf-f-oficina"><option value="">Todas</option></select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label mb-1" style="font-size:.78rem;">Tipo</label>
+                        <select class="form-select form-select-sm" id="cf-f-tipo">
+                            <option value="">Todos</option>
+                            <option value="FALTANTE" selected>Faltante</option>
+                            <option value="OBSERVADO">Con novedad</option>
+                            <option value="SOBRANTE">Sobrante</option>
+                            <option value="SIN_CODIFICAR">Sin codificar</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label mb-1" style="font-size:.78rem;">Estado</label>
+                        <select class="form-select form-select-sm" id="cf-f-estado">
+                            <option value="PENDIENTES" selected>Pendientes</option>
+                            <option value="ABIERTO">Abiertos</option>
+                            <option value="EN_CUSTODIA">En custodia</option>
+                            <option value="RESUELTO">Resueltos</option>
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-sm btn-primary w-100" id="cf-btn-filtrar">
+                            <i class="ti ti-filter me-1"></i> Filtrar
+                        </button>
+                    </div>
+                </div>
+            </div></div>
+
+            <div id="cf-loading" class="text-center py-5" style="display:none;">
+                <div class="spinner-border text-primary" role="status"></div>
             </div>
-            <div class="col-md-3">
-                <label class="form-label mb-1" style="font-size:.78rem;">Oficina</label>
-                <select class="form-select form-select-sm" id="cf-f-oficina"><option value="">Todas</option></select>
+            <div id="cf-vacio" class="text-center text-muted py-5" style="display:none;">
+                <div style="font-size:40px;">✅</div>
+                <h6 class="mt-2">Sin hallazgos con estos filtros</h6>
+                <p class="mb-0" style="font-size:.86rem;">No hay nada pendiente de revisar en este alcance.</p>
             </div>
-            <div class="col-md-2">
-                <label class="form-label mb-1" style="font-size:.78rem;">Tipo</label>
-                <select class="form-select form-select-sm" id="cf-f-tipo">
-                    <option value="">Todos</option>
-                    <option value="FALTANTE" selected>Faltante</option>
-                    <option value="OBSERVADO">Con novedad</option>
-                    <option value="SOBRANTE">Sobrante</option>
-                    <option value="SIN_CODIFICAR">Sin codificar</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label mb-1" style="font-size:.78rem;">Estado</label>
-                <select class="form-select form-select-sm" id="cf-f-estado">
-                    <option value="ABIERTO" selected>Abiertos</option>
-                    <option value="EN_CUSTODIA">En custodia</option>
-                    <option value="RESUELTO">Resueltos</option>
-                    <option value="">Todos</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <button class="btn btn-sm btn-primary w-100" id="cf-btn-filtrar">
-                    <i class="ti ti-filter me-1"></i> Filtrar
-                </button>
+            <div id="cf-grupos"></div>
+        </div>
+
+        <!-- ── Actas ─────────────────────────────────────────────────── -->
+        <div class="tab-pane fade" id="cf-tab-actas">
+            <div class="card shadow-sm"><div class="card-body">
+                <div class="d-flex gap-2 mb-2 flex-wrap">
+                    <input type="text" class="form-control form-control-sm" id="cf-actas-filtro" style="max-width:320px;"
+                           placeholder="Filtrar por N°, persona o C.I.">
+                    <span class="text-muted align-self-center" style="font-size:.8rem;" id="cf-actas-conteo"></span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead><tr>
+                            <th>N° de acta</th><th>Fecha</th><th>Persona</th><th class="text-center">Bienes</th>
+                            <th>Estado</th><th>Traslado a custodia</th><th class="text-end">Acciones</th>
+                        </tr></thead>
+                        <tbody id="cf-actas-cuerpo"></tbody>
+                    </table>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- ── Conciliación ──────────────────────────────────────────── -->
+        <div class="tab-pane fade" id="cf-tab-conc">
+            <p class="text-muted mb-3" style="font-size:.86rem; max-width:860px;">
+                Lo que no cierra entre los faltantes y dónde está cada bien. Se recalcula al abrir la pestaña.
+            </p>
+            <div id="cf-conc-cuerpo"></div>
+        </div>
+    </div>
+
+    <!-- ── Registro de faltantes ─────────────────────────────────────── -->
+    <div class="modal fade" id="cf-reg" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="ti ti-file-alert me-1 text-danger"></i> Registrar faltantes</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Paso 1: persona -->
+                    <div id="cf-reg-paso1">
+                        <label class="form-label mb-1">Persona responsable</label>
+                        <input type="text" class="form-control" id="cf-reg-buscar" autocomplete="off"
+                               placeholder="Nombre y apellidos, o C.I. (mínimo 2 caracteres)">
+                        <div class="list-group mt-2" id="cf-reg-personas"></div>
+                    </div>
+
+                    <!-- Paso 2: bienes -->
+                    <div id="cf-reg-paso2" style="display:none;">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                            <div>
+                                <div class="fw-semibold" id="cf-reg-persona-nombre"></div>
+                                <div class="text-muted" style="font-size:.8rem;" id="cf-reg-persona-sub"></div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="cf-reg-cambiar">
+                                <i class="ti ti-arrow-back-up me-1"></i> Otra persona
+                            </button>
+                        </div>
+                        <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
+                            <input type="text" class="form-control form-control-sm" id="cf-reg-filtro" style="max-width:300px;"
+                                   placeholder="Filtrar por código o descripción">
+                            <span class="badge bg-danger" id="cf-reg-conteo">0 seleccionados</span>
+                        </div>
+                        <div class="cf-bienes mb-3">
+                            <table class="table table-sm mb-0"><tbody id="cf-reg-bienes"></tbody></table>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-5">
+                                <label class="form-label mb-1" style="font-size:.8rem;">Documento de respaldo</label>
+                                <input type="text" class="form-control form-control-sm" id="cf-reg-doc" maxlength="120"
+                                       placeholder="Informe, nota o memorándum (opcional)">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label mb-1" style="font-size:.8rem;">Fecha del documento</label>
+                                <input type="date" class="form-control form-control-sm" id="cf-reg-fecha-doc">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label mb-1" style="font-size:.8rem;">Observación</label>
+                                <input type="text" class="form-control form-control-sm" id="cf-reg-obs" maxlength="500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="cf-reg-guardar" disabled>
+                        <i class="ti ti-file-certificate me-1"></i> Registrar y emitir acta
+                    </button>
+                </div>
             </div>
         </div>
-    </div></div>
-
-    <div id="cf-loading" class="text-center py-5" style="display:none;">
-        <div class="spinner-border text-primary" role="status"></div>
     </div>
-
-    <div id="cf-vacio" class="text-center text-muted py-5" style="display:none;">
-        <div style="font-size:40px;">✅</div>
-        <h6 class="mt-2">Sin hallazgos con estos filtros</h6>
-        <p class="mb-0" style="font-size:.86rem;">No hay nada pendiente de revisar en este alcance.</p>
-    </div>
-
-    <div id="cf-grupos"></div>
 
     <script th:inline="none">
     (function () {
         var BASE = '/administracion/control-activos';
+        var CUS = BASE + '/custodia';
         var datos = [];
+        var actas = [];
 
         function esc(s) {
             return (s == null ? '' : String(s))
@@ -124,8 +265,19 @@
             var d = new Date(s);
             return isNaN(d) ? '—' : d.toLocaleDateString('es-BO');
         }
+        function fmtFechaHora(s) {
+            if (!s) return '—';
+            var d = new Date(s);
+            return isNaN(d) ? '—' : d.toLocaleDateString('es-BO') + ' ' +
+                d.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' });
+        }
         function aviso(t, m, i) { if (window.Swal) Swal.fire(t, m, i || 'info'); else alert(m); }
         function errorDe(xhr, d) { return (xhr && xhr.responseJSON && xhr.responseJSON.message) || d; }
+        function confirmar(o) {
+            return window.sciafConfirmar ? window.sciafConfirmar(o)
+                : Promise.resolve(window.confirm(o.titulo + '\n\n' + String(o.texto || '').replace(/<[^>]*>/g, '')));
+        }
+        function pdfActa(idActa) { return CUS + '/actas/' + idActa + '/pdf'; }
 
         // ── Filtros de ubicación ─────────────────────────────────────────
         $.get(BASE + '/mapa/predios').done(function (ps) {
@@ -139,13 +291,13 @@
             var $of = $('#cf-f-oficina').html('<option value="">Todas</option>');
             if (!id) return;
             $.get(BASE + '/mapa/predios/' + id + '/oficinas').done(function (os) {
-                $of.append(os.map(function (o) {
+                $of.append(os.filter(function (o) { return !o.esCustodia; }).map(function (o) {
                     return '<option value="' + o.idOficina + '">' + esc(o.codOfi) + ' · ' + esc(o.nombre) + '</option>';
                 }).join(''));
             });
         });
 
-        // ── Carga ────────────────────────────────────────────────────────
+        // ── Faltantes ────────────────────────────────────────────────────
         function cargar() {
             $('#cf-loading').show(); $('#cf-vacio').hide(); $('#cf-grupos').empty();
             $.get(BASE + '/faltantes', {
@@ -159,123 +311,693 @@
             .always(function () { $('#cf-loading').hide(); });
         }
 
+        /** Estado del faltante, incluido el paso del traslado a la custodia. */
+        function estadoDe(h) {
+            if (h.estadoHallazgo === 'RESUELTO') return '<span class="badge est-ok">Resuelto</span>';
+            if (h.estadoHallazgo === 'EN_CUSTODIA') return '<span class="badge est-custodia">En custodia</span>';
+            var msg = h.mensajeEnvio ? ' title="' + esc(h.mensajeEnvio) + '"' : '';
+            switch (h.estadoEnvio) {
+                case 'ESPERANDO_ALTA': return '<span class="badge est-camino"' + msg + '>Preparando custodia</span>';
+                case 'ENVIADO':        return '<span class="badge est-camino"' + msg + '>Trasladando en VSIAF</span>';
+                case 'ERROR':          return '<span class="badge est-error"' + msg + '>Error de traslado <i class="ti ti-info-circle"></i></span>';
+            }
+            return '<span class="badge est-abierto">Abierto · sin registrar</span>';
+        }
+
         function pintar() {
-            var abiertos = 0, observados = 0, resueltos = 0;
-            var porResp = {};
+            var abiertos = 0, custodia = 0, resueltos = 0;
+            var personas = {}, orden = [];
 
             datos.forEach(function (h) {
                 if (h.estadoHallazgo === 'RESUELTO') resueltos++;
-                else if (h.tipoHallazgo === 'OBSERVADO') observados++;
+                else if (h.estadoHallazgo === 'EN_CUSTODIA') custodia++;
                 else abiertos++;
 
-                // Los hallazgos sin responsable (un código leído que no existe en el
-                // sistema) se agrupan aparte en vez de descartarse.
-                var k = h.idResponsable || 'sin';
-                (porResp[k] = porResp[k] || {
-                    nombre: h.responsable || 'Sin responsable asignado',
-                    codigo: h.codigoFuncionario, oficina: h.oficina, predio: h.predio, filas: []
-                }).filas.push(h);
+                // Sin persona (un código leído que no existe en el sistema) se agrupa aparte.
+                var k = h.idPersona ? 'p' + h.idPersona : (h.idResponsable ? 'r' + h.idResponsable : 'sin');
+                if (!personas[k]) {
+                    personas[k] = { idPersona: h.idPersona, nombre: h.responsable || 'Sin responsable asignado',
+                                    ci: h.ci, filas: [] };
+                    orden.push(k);
+                }
+                personas[k].filas.push(h);
             });
 
             $('#cf-n-abiertos').text(abiertos);
-            $('#cf-n-observados').text(observados);
+            $('#cf-n-custodia').text(custodia);
             $('#cf-n-resueltos').text(resueltos);
-            $('#cf-n-resp').text(Object.keys(porResp).length);
+            $('#cf-n-personas').text(orden.filter(function (k) {
+                return personas[k].filas.some(function (f) { return f.estadoHallazgo !== 'RESUELTO'; });
+            }).length);
 
             if (!datos.length) { $('#cf-vacio').show(); return; }
 
-            var html = Object.keys(porResp).map(function (k, i) {
-                var g = porResp[k];
+            var html = orden.map(function (k, i) {
+                var g = personas[k];
                 var pendientes = g.filas.filter(function (f) { return f.estadoHallazgo !== 'RESUELTO'; }).length;
+                var sinRegistrar = g.filas.filter(function (f) {
+                    return f.estadoHallazgo === 'ABIERTO' && !f.estadoEnvio && f.tipoHallazgo === 'FALTANTE';
+                }).length;
+                var enCustodia = g.filas.filter(function (f) { return f.estadoHallazgo === 'EN_CUSTODIA'; }).length;
+                var predios = {}, oficinas = {};
+                g.filas.forEach(function (f) { predios[f.idPredio] = 1; oficinas[f.idOficina] = 1; });
                 var id = 'cf-g-' + i;
 
-                var filas = g.filas.map(function (h) {
-                    var resuelto = h.estadoHallazgo === 'RESUELTO';
-                    var acciones = resuelto
-                        ? '<button class="btn btn-sm btn-outline-secondary cf-reabrir" data-id="' + h.idHallazgo +
-                          '" title="Reabrir"><i class="ti ti-rotate"></i></button>'
-                        : '<button class="btn btn-sm btn-outline-success cf-resolver" data-id="' + h.idHallazgo +
-                          '"><i class="ti ti-check me-1"></i>Resolver</button>';
-                    var detalleRes = resuelto
-                        ? '<div style="font-size:.74rem;" class="text-success"><i class="ti ti-circle-check"></i> ' +
-                          esc(h.tipoResolucion) + ' — ' + esc(h.accionCorrectiva) +
-                          ' <span class="text-muted">(' + esc(h.usuarioRevisor || '—') + ', ' + fmtFecha(h.fechaResolucion) + ')</span></div>'
-                        : '';
-                    return '<tr class="' + (resuelto ? 'cf-resuelto' : '') + '">' +
-                           '<td><span class="cf-cod">' + esc(h.codigo || '—') + '</span></td>' +
-                           '<td>' + esc(h.descripcion || '—') + detalleRes + '</td>' +
-                           '<td><span class="badge badge-' + h.tipoHallazgo + '">' + esc(h.tipoHallazgo) + '</span></td>' +
-                           '<td style="font-size:.78rem;">' + esc(h.oficina) + '</td>' +
-                           '<td style="font-size:.78rem;">' + esc(h.numeroInventario || 'Registro directo') + '<br>' +
-                             '<span class="text-muted">' + fmtFecha(h.fechaDeteccion) + '</span></td>' +
-                           '<td class="text-end">' + acciones + '</td></tr>';
-                }).join('');
+                var filas = '', predioAct = null, oficinaAct = null;
+                g.filas.forEach(function (h) {
+                    if (h.idPredio !== predioAct) {
+                        predioAct = h.idPredio; oficinaAct = null;
+                        var nP = g.filas.filter(function (f) { return f.idPredio === h.idPredio; }).length;
+                        filas += '<tr class="cf-fila-predio"><td colspan="6"><i class="ti ti-building me-1"></i>Predio ' +
+                                 esc(h.unidad) + ' — ' + esc(h.predio) + ' · ' + nP + '</td></tr>';
+                    }
+                    if (h.idOficina !== oficinaAct) {
+                        oficinaAct = h.idOficina;
+                        var nO = g.filas.filter(function (f) { return f.idOficina === h.idOficina; }).length;
+                        filas += '<tr class="cf-fila-oficina"><td colspan="6"><i class="ti ti-door me-1"></i>' +
+                                 (h.origenNoRegistrado
+                                    ? 'Oficina de origen no registrada <span class="fw-normal text-muted">(ya estaban en ' +
+                                      esc(h.oficina) + ')</span>'
+                                    : 'Oficina ' + esc(h.codOfi) + ' — ' + esc(h.oficina)) +
+                                 ' · ' + nO + '</td></tr>';
+                    }
+                    filas += filaHallazgo(h);
+                });
+
+                var cabClase = pendientes === 0 ? 'todo-resuelto' : (enCustodia === pendientes ? 'en-custodia' : '');
+                var botonRegistrar = (g.idPersona && sinRegistrar > 0)
+                    ? '<button class="btn btn-sm btn-danger cf-registrar-persona" data-id="' + g.idPersona +
+                      '" data-nombre="' + esc(g.nombre) + '" data-ci="' + esc(g.ci || '') + '">' +
+                      '<i class="ti ti-file-alert me-1"></i>Registrar ' + sinRegistrar + '</button>' : '';
 
                 return '<div class="card cf-grupo shadow-sm">' +
-                    '<div class="cf-grupo-head ' + (pendientes === 0 ? 'todo-resuelto' : '') +
-                        '" data-bs-toggle="collapse" data-bs-target="#' + id + '">' +
+                    '<div class="cf-grupo-head ' + cabClase + '" data-bs-toggle="collapse" data-bs-target="#' + id + '">' +
                         '<div><div class="cf-nom">' + esc(g.nombre) + '</div>' +
-                        '<div class="cf-sub">' + esc(g.codigo || 's/c') + ' · ' + esc(g.oficina) +
-                        ' · ' + esc(g.predio) + '</div></div>' +
-                        '<div class="text-end">' +
+                        '<div class="cf-sub">C.I. ' + esc(g.ci || 's/d') + ' · ' + Object.keys(predios).length +
+                        ' predio(s) · ' + Object.keys(oficinas).length + ' oficina(s)</div></div>' +
+                        '<div class="d-flex gap-2 align-items-center flex-wrap">' +
                             (pendientes > 0
                                 ? '<span class="badge bg-danger">' + pendientes + ' pendiente(s)</span>'
                                 : '<span class="badge bg-success">Todo resuelto</span>') +
+                            (enCustodia > 0 ? '<span class="badge est-custodia">' + enCustodia + ' en custodia</span>' : '') +
                             ' <span class="badge bg-label-secondary">' + g.filas.length + ' total</span>' +
+                            botonRegistrar +
                         '</div>' +
                     '</div>' +
                     '<div class="collapse show" id="' + id + '"><div class="table-responsive">' +
                     '<table class="table table-hover mb-0"><thead><tr>' +
                         '<th>Código</th><th>Descripción</th><th>Tipo</th>' +
-                        '<th>Oficina</th><th>Levantamiento</th><th></th>' +
+                        '<th>Estado</th><th>Acta / origen</th><th></th>' +
                     '</tr></thead><tbody>' + filas + '</tbody></table></div></div></div>';
             }).join('');
 
             $('#cf-grupos').html(html);
         }
 
-        // ── Resolución ───────────────────────────────────────────────────
-        $(document).on('click', '#cf-wrap .cf-resolver', function () {
-            var id = $(this).data('id');
-            if (!window.Swal) {
-                var a = prompt('Acción correctiva:');
-                if (a) resolver(id, 'JUSTIFICADO', a);
-                return;
+        function filaHallazgo(h) {
+            var resuelto = h.estadoHallazgo === 'RESUELTO';
+            var acciones;
+            if (resuelto) {
+                // Resuelto dentro de un acta: no se reabre (si vuelve a faltar, va en un acta nueva).
+                acciones = h.idActa ? '' : '<button class="btn btn-sm btn-outline-secondary cf-reabrir" data-id="' +
+                           h.idHallazgo + '" title="Reabrir"><i class="ti ti-rotate"></i></button>';
+            } else if (h.estadoEnvio === 'ENVIADO') {
+                acciones = '<span class="text-muted" style="font-size:.75rem;">en traslado…</span>';
+            } else {
+                acciones = '<button class="btn btn-sm btn-outline-success cf-resolver" data-id="' + h.idHallazgo +
+                           '"><i class="ti ti-check me-1"></i>Resolver</button>';
             }
-            Swal.fire({
-                title: 'Resolver hallazgo',
-                html:
-                    '<select id="sw-tipo" class="form-select mb-2">' +
-                      '<option value="APARECIO">Apareció</option>' +
-                      '<option value="JUSTIFICADO">Justificado</option>' +
-                      '<option value="DERIVADO_BAJA">Derivado a baja</option>' +
-                    '</select>' +
-                    '<textarea id="sw-accion" class="form-control" rows="3" ' +
-                    'placeholder="¿Qué se hizo o qué se constató?"></textarea>',
-                showCancelButton: true, confirmButtonText: 'Resolver', cancelButtonText: 'Cancelar',
-                preConfirm: function () {
-                    var accion = document.getElementById('sw-accion').value.trim();
-                    if (!accion) { Swal.showValidationMessage('Describa la acción correctiva'); return false; }
-                    return { tipo: document.getElementById('sw-tipo').value, accion: accion };
-                }
-            }).then(function (r) { if (r.isConfirmed) resolver(id, r.value.tipo, r.value.accion); });
-        });
-
-        function resolver(id, tipo, accion) {
-            $.ajax({
-                url: BASE + '/hallazgos/' + id + '/resolver', type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ tipoResolucion: tipo, accionCorrectiva: accion })
-            })
-            .done(function () { cargar(); })
-            .fail(function (xhr) { aviso('No se pudo resolver', errorDe(xhr, 'Error al resolver.'), 'error'); });
+            var detalleRes = resuelto
+                ? '<div style="font-size:.74rem;" class="text-success"><i class="ti ti-circle-check"></i> ' +
+                  esc(h.tipoResolucion) + ' — ' + esc(h.accionCorrectiva) +
+                  ' <span class="text-muted">(' + esc(h.usuarioRevisor || '—') + ', ' + fmtFecha(h.fechaResolucion) + ')</span></div>'
+                : '';
+            var puerta = h.origen === 'HISTORICO' ? 'Regularización' : (h.numeroInventario || 'Registro directo');
+            var origen = h.numeroActa
+                ? '<a href="' + pdfActa(h.idActa) + '" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i> ' +
+                  esc(h.numeroActa) + '</a><br><span class="text-muted">' + esc(puerta) + '</span>'
+                : esc(h.numeroInventario || 'Registro directo') + '<br><span class="text-muted">' + fmtFecha(h.fechaDeteccion) + '</span>';
+            return '<tr class="' + (resuelto ? 'cf-resuelto' : '') + '">' +
+                   '<td><span class="cf-cod">' + esc(h.codigo || '—') + '</span></td>' +
+                   '<td>' + esc(h.descripcion || '—') + detalleRes + '</td>' +
+                   '<td><span class="badge badge-' + h.tipoHallazgo + '">' + esc(h.tipoHallazgo) + '</span></td>' +
+                   '<td>' + estadoDe(h) + '</td>' +
+                   '<td style="font-size:.78rem;">' + origen + '</td>' +
+                   '<td class="text-end">' + acciones + '</td></tr>';
         }
 
-        $(document).on('click', '#cf-wrap .cf-reabrir', function () {
+        // ── Resolución ───────────────────────────────────────────────────
+        // El servidor dice qué se puede hacer según dónde esté el bien (en custodia, camino a
+        // ella o sin acta); el diálogo solo ofrece eso.
+        var NOMBRE_TIPO = { APARECIO: 'Apareció', JUSTIFICADO: 'Justificado', DERIVADO_BAJA: 'Derivado a baja' };
+
+        $(document).off('click.cf').on('click.cf', '#cf-wrap .cf-resolver', function () {
             var id = $(this).data('id');
-            $.ajax({ url: BASE + '/hallazgos/' + id + '/reabrir', type: 'POST' })
-            .done(function () { cargar(); })
-            .fail(function (xhr) { aviso('No se pudo reabrir', errorDe(xhr, 'Error al reabrir.'), 'error'); });
+            if (!window.Swal) { aviso('Resolver', 'Se necesita SweetAlert para resolver.', 'error'); return; }
+            $.get(CUS + '/hallazgos/' + id + '/situacion').done(function (s) {
+                if (!s.tiposPermitidos || !s.tiposPermitidos.length) {
+                    aviso('Todavía no', s.aviso || 'Este faltante no se puede resolver ahora.', 'info');
+                    return;
+                }
+                dialogoResolver(s);
+            }).fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudo leer el faltante.'), 'error'); });
+        });
+
+        function dialogoResolver(s) {
+            var devuelve = s.enCustodia;   // "Apareció" con el bien en custodia = vuelve a alguien
+            Swal.fire({
+                title: 'Resolver faltante',
+                width: 640,
+                html:
+                    '<div class="text-start" style="font-size:.88rem;">' +
+                    '<div class="mb-2"><span class="cf-cod">' + esc(s.codigo) + '</span> ' + esc(s.descripcion || '') +
+                    (s.numeroActa ? '<br><span class="text-muted">Acta ' + esc(s.numeroActa) + '</span>' : '') + '</div>' +
+                    (s.aviso ? '<div class="alert alert-warning py-2 mb-2" style="font-size:.82rem;">' + esc(s.aviso) + '</div>' : '') +
+                    '<label class="form-label mb-1">¿Qué pasó?</label>' +
+                    '<select id="sw-tipo" class="form-select mb-2">' + s.tiposPermitidos.map(function (t) {
+                        return '<option value="' + t + '">' + NOMBRE_TIPO[t] + '</option>';
+                    }).join('') + '</select>' +
+                    '<div id="sw-bloque-destino" class="mb-2" style="display:none;">' +
+                      '<label class="form-label mb-1">El bien vuelve a</label>' +
+                      '<input id="sw-destino-q" class="form-control form-control-sm mb-1" placeholder="Buscar persona u oficina del mismo predio">' +
+                      '<select id="sw-destino" class="form-select form-select-sm" size="5"></select>' +
+                    '</div>' +
+                    '<div id="sw-bloque-doc" class="mb-2" style="display:none;">' +
+                      '<label class="form-label mb-1">Documento de respaldo <span class="text-danger">*</span></label>' +
+                      '<input id="sw-doc" class="form-control" maxlength="120" placeholder="Informe, denuncia, resolución…">' +
+                      '<div class="text-muted mt-1" style="font-size:.78rem;">El bien se queda en la oficina de faltantes, pendiente de baja.</div>' +
+                    '</div>' +
+                    '<label class="form-label mb-1">Qué se hizo o qué se constató <span class="text-danger">*</span></label>' +
+                    '<textarea id="sw-accion" class="form-control" rows="3" maxlength="2000"></textarea>' +
+                    '</div>',
+                showCancelButton: true, confirmButtonText: 'Resolver', cancelButtonText: 'Cancelar', focusCancel: true,
+                didOpen: function () {
+                    var t = null;
+                    function cargarDestinos() {
+                        $.get(CUS + '/hallazgos/' + s.idHallazgo + '/destinos', { q: $('#sw-destino-q').val() || '' })
+                        .done(function (ds) {
+                            $('#sw-destino').html(ds.map(function (d, i) {
+                                return '<option value="' + d.idResponsable + '"' + (i === 0 ? ' selected' : '') + '>' +
+                                    esc(d.codigoFuncionario || 'S/C') + ' — ' + esc(d.nombre) + ' · Of. ' + esc(d.codOfi) + ' ' + esc(d.oficina) +
+                                    (d.original ? ' (quien lo tenía)' : '') + '</option>';
+                            }).join('') || '<option value="">Nadie coincide</option>');
+                        });
+                    }
+                    function segunTipo() {
+                        var tipo = $('#sw-tipo').val();
+                        $('#sw-bloque-destino').toggle(tipo === 'APARECIO' && devuelve);
+                        $('#sw-bloque-doc').toggle(tipo !== 'APARECIO' && s.conActa);
+                    }
+                    $('#sw-tipo').on('change', segunTipo);
+                    $('#sw-destino-q').on('input', function () { clearTimeout(t); t = setTimeout(cargarDestinos, 300); });
+                    segunTipo();
+                    if (devuelve) cargarDestinos();
+                },
+                preConfirm: function () {
+                    var tipo = $('#sw-tipo').val();
+                    var accion = ($('#sw-accion').val() || '').trim();
+                    var doc = ($('#sw-doc').val() || '').trim();
+                    var destino = $('#sw-destino').val();
+                    if (!accion) { Swal.showValidationMessage('Describa qué se hizo o qué se constató'); return false; }
+                    if (tipo !== 'APARECIO' && s.conActa && !doc) { Swal.showValidationMessage('Indique el documento de respaldo'); return false; }
+                    if (tipo === 'APARECIO' && devuelve && !destino) { Swal.showValidationMessage('Elija a quién vuelve el bien'); return false; }
+                    return { tipoResolucion: tipo, accionCorrectiva: accion, documento: doc || null,
+                             idResponsableDestino: (tipo === 'APARECIO' && devuelve) ? Number(destino) : null,
+                             destinoTexto: $('#sw-destino option:selected').text() };
+                }
+            }).then(function (r) {
+                if (!r.isConfirmed) return;
+                var v = r.value;
+                var texto = v.idResponsableDestino
+                    ? 'El bien sale de la oficina de faltantes y vuelve a <b>' + esc(v.destinoTexto) + '</b>. Se envía al VSIAF.'
+                    : 'El faltante queda como <b>' + NOMBRE_TIPO[v.tipoResolucion] + '</b>.';
+                confirmar({ titulo: '¿Resolver el faltante?', texto: texto, aceptar: 'Resolver', peligrosa: !!v.idResponsableDestino })
+                .then(function (si) {
+                    if (!si) return;
+                    delete v.destinoTexto;
+                    $.ajax({ url: CUS + '/hallazgos/' + s.idHallazgo + '/resolver', type: 'POST',
+                             contentType: 'application/json', data: JSON.stringify(v) })
+                    .done(function (res) { aviso('Listo', res.message, 'success'); cargar(); })
+                    .fail(function (xhr) { aviso('No se pudo resolver', errorDe(xhr, 'Error al resolver.'), 'error'); });
+                });
+            });
+        }
+
+        // ── Reportes ─────────────────────────────────────────────────────
+        $('#cf-rep-predio').on('click', function (e) {
+            e.preventDefault();
+            $.get(CUS + '/predios').done(function (ps) {
+                if (!ps.length) { aviso('Sin custodias', 'Ningún predio tiene oficina de faltantes todavía.', 'info'); return; }
+                Swal.fire({
+                    title: 'Custodia por predio',
+                    html: '<select id="sw-rep-predio" class="form-select">' + ps.map(function (p) {
+                              return '<option value="' + p.idPredio + '">' + esc(p.unidad) + ' — ' + esc(p.predio) +
+                                     ' (' + p.bienes + ' bien(es))</option>';
+                          }).join('') + '</select>',
+                    showDenyButton: true, showCancelButton: true,
+                    confirmButtonText: '<i class="ti ti-file-type-pdf"></i> PDF',
+                    denyButtonText: '<i class="ti ti-file-spreadsheet"></i> Excel', cancelButtonText: 'Cancelar',
+                    preConfirm: function () { return $('#sw-rep-predio').val(); },
+                    preDeny: function () { return $('#sw-rep-predio').val(); }
+                }).then(function (r) {
+                    if (r.isDismissed) return;
+                    window.open(CUS + '/reportes/predio/' + r.value + '?formato=' + (r.isDenied ? 'xlsx' : 'pdf'), '_blank');
+                });
+            });
+        });
+
+        $('#cf-rep-consolidado').on('click', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Consolidado por persona',
+                html: '<div class="form-check text-start d-inline-block"><input class="form-check-input" type="checkbox" id="sw-rep-pend" checked>' +
+                      '<label class="form-check-label" for="sw-rep-pend">Solo personas con faltantes sin aclarar</label></div>',
+                showDenyButton: true, showCancelButton: true,
+                confirmButtonText: '<i class="ti ti-file-type-pdf"></i> PDF',
+                denyButtonText: '<i class="ti ti-file-spreadsheet"></i> Excel', cancelButtonText: 'Cancelar',
+                preConfirm: function () { return document.getElementById('sw-rep-pend').checked; },
+                preDeny: function () { return document.getElementById('sw-rep-pend').checked; }
+            }).then(function (r) {
+                if (r.isDismissed) return;
+                window.open(CUS + '/reportes/consolidado?soloPendientes=' + r.value + '&formato=' +
+                            (r.isDenied ? 'xlsx' : 'pdf'), '_blank');
+            });
+        });
+
+        // ── Conciliación ─────────────────────────────────────────────────
+        var historicos = [];
+
+        function cargarConciliacion() {
+            $('#cf-conc-cuerpo').html('<div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>');
+            $.when($.get(CUS + '/conciliacion'), $.get(CUS + '/historicos')).done(function (r1, r2) {
+                var c = r1[0];
+                historicos = r2[0] || [];
+                var total = c.fueraDeCustodia.length + c.sinRegistro.length + c.trasladosTrabados.length;
+                $('#cf-conc-badge').text(total).toggleClass('d-none', total === 0);
+                if (!total) {
+                    $('#cf-conc-cuerpo').html('<div class="text-center text-muted py-5"><div style="font-size:40px;">✅</div>' +
+                        '<h6 class="mt-2">Todo cierra</h6></div>');
+                    return;
+                }
+                $('#cf-conc-cuerpo').html(
+                    seccionConc('Faltantes en custodia cuyo bien está en otra oficina', 'danger', c.fueraDeCustodia,
+                        'El faltante dice que el bien está en custodia, pero la sincronización lo trae en otra oficina: ' +
+                        'alguien lo movió en el VSIAF. Revíselo y resuélvalo.') +
+                    seccionConc('Traslados con error o detenidos', 'warning', c.trasladosTrabados,
+                        'Reintente desde la pestaña Actas; si sigue, revise el worker del VSIAF.') +
+                    seccionHistoricos(historicos, c.sinRegistro.length));
+            }).fail(function (xhr) {
+                $('#cf-conc-cuerpo').html('<div class="text-danger p-3">' + esc(errorDe(xhr, 'No se pudo calcular la conciliación.')) + '</div>');
+            });
+        }
+
+        function seccionConc(titulo, color, lista, ayuda) {
+            if (!lista.length) return '';
+            return '<div class="card shadow-sm mb-3"><div class="card-header py-2 d-flex justify-content-between align-items-center">' +
+                '<b>' + esc(titulo) + '</b><span class="badge bg-' + color + '">' + lista.length + '</span></div>' +
+                '<div class="card-body py-2"><p class="text-muted mb-2" style="font-size:.8rem;">' + esc(ayuda) + '</p>' +
+                '<div class="table-responsive" style="max-height:360px; overflow:auto;"><table class="table table-sm mb-0"><thead><tr>' +
+                '<th>Código</th><th>Descripción</th><th>Persona</th><th>Dónde está</th><th>Acta</th><th>Detalle</th></tr></thead><tbody>' +
+                lista.map(function (a) {
+                    return '<tr><td><span class="cf-cod">' + esc(a.codigo) + '</span></td><td>' + esc(a.descripcion) + '</td>' +
+                        '<td>' + esc(a.persona || '—') + '</td><td style="font-size:.78rem;">' + esc(a.unidad) + ' · ' + esc(a.oficinaActual) + '</td>' +
+                        '<td>' + (a.idActa ? '<a href="' + pdfActa(a.idActa) + '" target="_blank" rel="noopener">' + esc(a.numeroActa) + '</a>' : '—') + '</td>' +
+                        '<td style="font-size:.78rem;">' + esc(a.detalle) + '</td></tr>';
+                }).join('') + '</tbody></table></div></div></div>';
+        }
+
+        /** Históricos: ya están en una oficina de faltantes (así en el VSIAF) pero sin acta en el SCIAF. */
+        function seccionHistoricos(grupos, total) {
+            if (!total) return '';
+            return '<div class="card shadow-sm mb-3"><div class="card-header py-2 d-flex justify-content-between align-items-center">' +
+                '<b>Bienes en la oficina de faltantes sin acta (históricos)</b><span class="badge bg-secondary">' + total + '</span></div>' +
+                '<div class="card-body py-2"><p class="text-muted mb-2" style="font-size:.8rem;">Ya son faltantes en el VSIAF (están en la ' +
+                'oficina de faltantes) pero no tienen acta en el SCIAF. <b>Regularizar</b> los registra como faltantes en custodia de la ' +
+                'persona que figura ahí, con su acta de regularización. <b>No mueve nada ni toca el VSIAF.</b></p>' +
+                grupos.map(function (g, i) {
+                    return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 border rounded p-2 mb-2">' +
+                        '<div><b>' + esc(g.persona || 'Sin persona') + '</b> <span class="text-muted" style="font-size:.8rem;">C.I. ' +
+                        esc(g.ci || 's/d') + ' · ' + esc(g.unidad) + ' · Of. ' + esc(g.codOfi) + ' ' + esc(g.oficina) + '</span>' +
+                        '<div style="font-size:.78rem;" class="text-muted">' + g.bienes.length + ' bien(es) · ' +
+                        g.bienes.filter(function (b) { return b.oficinaOrigen; }).length + ' con oficina de origen en el historial</div></div>' +
+                        '<button class="btn btn-sm btn-outline-primary cf-regularizar" data-i="' + i + '">' +
+                        '<i class="ti ti-file-certificate me-1"></i>Regularizar</button></div>';
+                }).join('') + '</div></div>';
+        }
+
+        $(document).on('click.cf', '#cf-wrap .cf-regularizar', function () {
+            var g = historicos[$(this).data('i')];
+            if (!g || !window.Swal) return;
+            Swal.fire({
+                title: 'Regularizar faltantes de ' + g.persona,
+                width: 820,
+                html:
+                    '<div class="text-start" style="font-size:.85rem;">' +
+                    '<div class="alert alert-info py-2 mb-2" style="font-size:.8rem;">Se registran como faltantes <b>en custodia</b> de ' +
+                    esc(g.persona) + ' y se emite el acta de regularización. Los bienes <b>no se mueven</b> y <b>no se envía nada al VSIAF</b>.</div>' +
+                    '<div style="max-height:40vh; overflow:auto;" class="border rounded mb-2"><table class="table table-sm mb-0">' +
+                    '<thead><tr><th><input type="checkbox" class="form-check-input" id="sw-reg-todos" checked></th>' +
+                    '<th>Código</th><th>Descripción</th><th>Oficina de origen</th></tr></thead><tbody>' +
+                    g.bienes.map(function (b) {
+                        return '<tr><td><input type="checkbox" class="form-check-input sw-reg-bien" value="' + b.idActivo + '" checked></td>' +
+                            '<td><span class="cf-cod">' + esc(b.codigo) + '</span></td><td>' + esc(b.descripcion) + '</td>' +
+                            '<td style="font-size:.78rem;">' + (b.oficinaOrigen ? esc(b.codOfiOrigen) + ' — ' + esc(b.oficinaOrigen)
+                                : '<span class="text-muted">No registrada</span>') + '</td></tr>';
+                    }).join('') + '</tbody></table></div>' +
+                    '<div class="row g-2"><div class="col-md-6"><input id="sw-reg-doc" class="form-control form-control-sm" maxlength="120" ' +
+                    'placeholder="Documento de respaldo (opcional)"></div><div class="col-md-6"><input id="sw-reg-obs" ' +
+                    'class="form-control form-control-sm" maxlength="500" placeholder="Observación (opcional)"></div></div></div>',
+                showCancelButton: true, confirmButtonText: 'Regularizar y emitir acta', cancelButtonText: 'Cancelar', focusCancel: true,
+                didOpen: function () {
+                    $('#sw-reg-todos').on('change', function () { $('.sw-reg-bien').prop('checked', this.checked); });
+                },
+                preConfirm: function () {
+                    var ids = $('.sw-reg-bien:checked').map(function () { return Number(this.value); }).get();
+                    if (!ids.length) { Swal.showValidationMessage('Seleccione al menos un bien'); return false; }
+                    return { idResponsableCustodia: g.idResponsableCustodia, idsActivos: ids,
+                             documentoRespaldo: $('#sw-reg-doc').val() || null, observacion: $('#sw-reg-obs').val() || null };
+                }
+            }).then(function (r) {
+                if (!r.isConfirmed) return;
+                confirmar({ titulo: '¿Regularizar ' + r.value.idsActivos.length + ' faltante(s) de ' + esc(g.persona) + '?',
+                            texto: 'Se emite el acta de regularización. No se mueve ningún bien ni se envía nada al VSIAF.',
+                            aceptar: 'Regularizar' })
+                .then(function (si) {
+                    if (!si) return;
+                    $.ajax({ url: CUS + '/regularizar', type: 'POST', contentType: 'application/json', data: JSON.stringify(r.value) })
+                    .done(function (res) {
+                        cargar(); cargarConciliacion();
+                        Swal.fire({ title: 'Acta ' + res.numero, icon: 'success', html: esc(res.message),
+                                    showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir acta para imprimir',
+                                    cancelButtonText: 'Cerrar' })
+                        .then(function (x) { if (x.isConfirmed) window.open(pdfActa(res.idActa), '_blank'); });
+                    })
+                    .fail(function (xhr) {
+                        aviso('No se regularizó', '<div style="text-align:left; white-space:pre-line;">' +
+                              esc(errorDe(xhr, 'Error al regularizar.')) + '</div>', 'error');
+                    });
+                });
+            });
+        });
+
+        $('#cf-tab-conc-btn').on('shown.bs.tab', cargarConciliacion);
+
+        $(document).on('click.cf', '#cf-wrap .cf-reabrir', function () {
+            var id = $(this).data('id');
+            confirmar({ titulo: '¿Reabrir el hallazgo?', texto: 'Vuelve a quedar pendiente.', aceptar: 'Reabrir' })
+            .then(function (si) {
+                if (!si) return;
+                $.ajax({ url: BASE + '/hallazgos/' + id + '/reabrir', type: 'POST' })
+                .done(function () { cargar(); })
+                .fail(function (xhr) { aviso('No se pudo reabrir', errorDe(xhr, 'Error al reabrir.'), 'error'); });
+            });
+        });
+
+        // ── Actas ────────────────────────────────────────────────────────
+        function cargarActas() {
+            $.get(CUS + '/actas').done(function (res) { actas = res || []; pintarActas(); })
+            .fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudieron cargar las actas.'), 'error'); });
+        }
+
+        function pintarActas() {
+            var q = ($('#cf-actas-filtro').val() || '').trim().toLowerCase();
+            var lista = actas.filter(function (a) {
+                return !q || (a.numero || '').toLowerCase().indexOf(q) !== -1 ||
+                       (a.personaNombre || '').toLowerCase().indexOf(q) !== -1 ||
+                       (a.personaCi || '').toLowerCase().indexOf(q) !== -1;
+            });
+            $('#cf-actas-conteo').text(lista.length + ' acta(s)');
+            if (!lista.length) {
+                $('#cf-actas-cuerpo').html('<tr><td colspan="7" class="text-center text-muted py-4">Sin actas.</td></tr>');
+                return;
+            }
+            $('#cf-actas-cuerpo').html(lista.map(function (a) {
+                var resuelta = a.estadoActa === 'VIGENTE' && a.totalBienes > 0 && a.resueltos === a.totalBienes;
+                var estado = a.estadoActa === 'ANULADA' ? '<span class="badge est-gris">Anulada</span>'
+                           : resuelta ? '<span class="badge est-ok">Resuelta</span>'
+                           : '<span class="badge bg-label-primary">Vigente</span>';
+                var avance = a.estadoActa === 'ANULADA' ? '—' : [
+                    a.enCustodia ? '<span class="badge est-custodia">' + a.enCustodia + ' en custodia</span>' : '',
+                    a.enviados   ? '<span class="badge est-camino">' + a.enviados + ' trasladando</span>' : '',
+                    a.esperando  ? '<span class="badge est-camino">' + a.esperando + ' preparando</span>' : '',
+                    a.conError   ? '<span class="badge est-error">' + a.conError + ' con error</span>' : '',
+                    a.resueltos  ? '<span class="badge est-ok">' + a.resueltos + ' resueltos</span>' : ''
+                ].filter(Boolean).join(' ') || '—';
+                var acciones = '<a class="btn btn-sm btn-outline-primary" href="' + pdfActa(a.idActa) +
+                               '" target="_blank" rel="noopener" title="Descargar / imprimir"><i class="ti ti-printer"></i></a>';
+                if (a.conError > 0 && a.estadoActa === 'VIGENTE') {
+                    acciones += ' <button class="btn btn-sm btn-outline-warning cf-acta-reintentar" data-id="' + a.idActa +
+                                '" data-numero="' + esc(a.numero) + '" title="Reintentar el traslado"><i class="ti ti-reload"></i></button>';
+                }
+                // Una regularización no movió nada: se anula mientras no haya resueltos.
+                var esReg = (a.numero || '').indexOf('AR-') === 0;
+                if (a.estadoActa === 'VIGENTE' && !a.resueltos && (esReg || (!a.enCustodia && !a.enviados))) {
+                    acciones += ' <button class="btn btn-sm btn-outline-danger cf-acta-anular" data-id="' + a.idActa +
+                                '" data-numero="' + esc(a.numero) + '" title="Anular"><i class="ti ti-ban"></i></button>';
+                }
+                return '<tr>' +
+                    '<td><span class="cf-cod">' + esc(a.numero) + '</span>' +
+                    (esReg ? '<br><span class="badge bg-label-info" style="font-size:.68rem;">Regularización</span>' : '') + '</td>' +
+                    '<td style="font-size:.8rem;">' + fmtFechaHora(a.fechaEmision) + '<br><span class="text-muted">' + esc(a.usuarioEmision || '') + '</span></td>' +
+                    '<td>' + esc(a.personaNombre) + '<br><span class="text-muted" style="font-size:.78rem;">C.I. ' + esc(a.personaCi || 's/d') + '</span></td>' +
+                    '<td class="text-center">' + a.totalBienes + '</td>' +
+                    '<td>' + estado + '</td>' +
+                    '<td>' + avance + '</td>' +
+                    '<td class="text-end text-nowrap">' + acciones + '</td></tr>';
+            }).join(''));
+        }
+
+        $('#cf-actas-filtro').on('input', pintarActas);
+        $('#cf-tab-actas-btn').on('shown.bs.tab', cargarActas);
+
+        $(document).on('click.cf', '#cf-wrap .cf-acta-reintentar', function () {
+            var id = $(this).data('id'), numero = $(this).data('numero');
+            confirmar({ titulo: '¿Reintentar el traslado?', aceptar: 'Reintentar',
+                        texto: 'Se vuelven a enviar al VSIAF los bienes con error del acta <b>' + esc(numero) + '</b>.' })
+            .then(function (si) {
+                if (!si) return;
+                $.post(CUS + '/actas/' + id + '/reintentar')
+                .done(function (r) { aviso('Listo', r.message, 'success'); cargarActas(); cargar(); })
+                .fail(function (xhr) { aviso('No se pudo reintentar', errorDe(xhr, 'Error al reintentar.'), 'error'); });
+            });
+        });
+
+        $(document).on('click.cf', '#cf-wrap .cf-acta-anular', function () {
+            var id = $(this).data('id'), numero = $(this).data('numero');
+            if (!window.Swal) { aviso('Anular', 'Se necesita SweetAlert para anular.', 'error'); return; }
+            Swal.fire({
+                title: 'Anular el acta ' + numero,
+                html: '<p class="mb-2" style="font-size:.9rem;">El acta queda como <b>ANULADA</b> (no se borra: la verificación '
+                    + 'por QR lo mostrará). Sus faltantes vuelven a quedar sin registrar.</p>'
+                    + '<textarea id="sw-motivo" class="form-control" rows="3" placeholder="Motivo de la anulación"></textarea>',
+                icon: 'warning', showCancelButton: true, focusCancel: true,
+                confirmButtonText: 'Anular acta', cancelButtonText: 'Cancelar',
+                customClass: { confirmButton: 'btn btn-danger', cancelButton: 'btn btn-label-secondary ms-2' },
+                buttonsStyling: false,
+                preConfirm: function () {
+                    var m = document.getElementById('sw-motivo').value.trim();
+                    if (!m) { Swal.showValidationMessage('Indique el motivo'); return false; }
+                    return m;
+                }
+            }).then(function (r) {
+                if (!r.isConfirmed) return;
+                $.ajax({ url: CUS + '/actas/' + id + '/anular', type: 'POST', contentType: 'application/json',
+                         data: JSON.stringify({ motivo: r.value }) })
+                .done(function () { aviso('Acta anulada', 'El acta ' + numero + ' quedó anulada.', 'success'); cargarActas(); cargar(); })
+                .fail(function (xhr) { aviso('No se pudo anular', errorDe(xhr, 'Error al anular.'), 'error'); });
+            });
+        });
+
+        // ── Registro de faltantes ───────────────────────────────────────
+        var reg = { persona: null, bienes: [], sel: {} };
+        var tBuscar = null;
+
+        function modalRegistro() {
+            return bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-reg'));
+        }
+
+        function abrirRegistro(persona) {
+            reg = { persona: null, bienes: [], sel: {} };
+            $('#cf-reg-buscar').val(''); $('#cf-reg-personas').empty();
+            $('#cf-reg-doc, #cf-reg-fecha-doc, #cf-reg-obs, #cf-reg-filtro').val('');
+            $('#cf-reg-paso2').hide(); $('#cf-reg-paso1').show();
+            actualizarConteo();
+            modalRegistro().show();
+            if (persona) elegirPersona(persona, true);
+            else setTimeout(function () { $('#cf-reg-buscar').trigger('focus'); }, 300);
+        }
+
+        $('#cf-btn-registrar').on('click', function () { abrirRegistro(null); });
+        $(document).on('click.cf', '#cf-wrap .cf-registrar-persona', function (e) {
+            e.stopPropagation();   // que no colapse la tarjeta
+            var $b = $(this);
+            abrirRegistro({ idPersona: $b.data('id'), nombre: $b.data('nombre'), ci: $b.data('ci') });
+        });
+
+        $('#cf-reg-buscar').on('input', function () {
+            var q = $(this).val().trim();
+            clearTimeout(tBuscar);
+            if (q.length < 2) { $('#cf-reg-personas').empty(); return; }
+            tBuscar = setTimeout(function () {
+                $.get(CUS + '/personas', { q: q }).done(function (ps) {
+                    if (!ps.length) {
+                        $('#cf-reg-personas').html('<div class="text-muted p-2" style="font-size:.85rem;">Nadie con bienes a cargo coincide.</div>');
+                        return;
+                    }
+                    $('#cf-reg-personas').html(ps.map(function (p, i) {
+                        return '<div class="list-group-item cf-persona-item" data-i="' + i + '">' +
+                            '<div class="d-flex justify-content-between"><b>' + esc(p.nombre) + '</b>' +
+                            (p.faltantesPendientes ? '<span class="badge bg-danger">' + p.faltantesPendientes + ' faltante(s)</span>' : '') +
+                            '</div><div class="text-muted" style="font-size:.78rem;">C.I. ' + esc(p.ci || 's/d') + ' · ' +
+                            p.bienes + ' bien(es) en ' + p.oficinas + ' oficina(s) de ' + p.predios + ' predio(s)</div></div>';
+                    }).join(''));
+                    $('#cf-reg-personas .cf-persona-item').on('click', function () { elegirPersona(ps[$(this).data('i')], false); });
+                });
+            }, 300);
+        });
+
+        $('#cf-reg-cambiar').on('click', function () {
+            reg = { persona: null, bienes: [], sel: {} };
+            actualizarConteo();
+            $('#cf-reg-paso2').hide(); $('#cf-reg-paso1').show();
+            $('#cf-reg-buscar').trigger('focus');
+        });
+
+        /**
+         * @param preseleccionar true cuando se abre desde la tarjeta de una persona: se tildan
+         *        los faltantes que dejó un levantamiento y todavía no están en un acta.
+         */
+        function elegirPersona(p, preseleccionar) {
+            reg.persona = p;
+            $('#cf-reg-persona-nombre').text(p.nombre);
+            $('#cf-reg-persona-sub').text('C.I. ' + (p.ci || 's/d'));
+            $('#cf-reg-paso1').hide(); $('#cf-reg-paso2').show();
+            $('#cf-reg-bienes').html('<tr><td class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></td></tr>');
+            $.get(CUS + '/personas/' + p.idPersona + '/bienes').done(function (bs) {
+                reg.bienes = bs || [];
+                reg.sel = {};
+                if (preseleccionar) {
+                    reg.bienes.forEach(function (b) {
+                        if (b.seleccionable && b.idHallazgo && b.estadoHallazgo === 'ABIERTO') reg.sel[b.idActivo] = true;
+                    });
+                }
+                pintarBienes();
+            }).fail(function (xhr) {
+                $('#cf-reg-bienes').html('<tr><td class="text-danger p-3">' + esc(errorDe(xhr, 'No se pudieron cargar los bienes.')) + '</td></tr>');
+            });
+        }
+
+        function pintarBienes() {
+            var q = ($('#cf-reg-filtro').val() || '').trim().toLowerCase();
+            var lista = reg.bienes.filter(function (b) {
+                return !q || (b.codigo || '').toLowerCase().indexOf(q) !== -1 || (b.descripcion || '').toLowerCase().indexOf(q) !== -1;
+            });
+            if (!lista.length) {
+                $('#cf-reg-bienes').html('<tr><td class="text-center text-muted py-4">' +
+                    (reg.bienes.length ? 'Ningún bien coincide con el filtro.' : 'Esta persona no tiene bienes a cargo fuera de la custodia.') +
+                    '</td></tr>');
+                actualizarConteo();
+                return;
+            }
+            var html = '', predio = null, oficina = null;
+            lista.forEach(function (b) {
+                if (b.idPredio !== predio) {
+                    predio = b.idPredio; oficina = null;
+                    html += '<tr class="cf-fila-predio"><td colspan="4"><i class="ti ti-building me-1"></i>Predio ' +
+                            esc(b.unidad) + ' — ' + esc(b.predio) + '</td></tr>';
+                }
+                if (b.idOficina !== oficina) {
+                    oficina = b.idOficina;
+                    html += '<tr class="cf-fila-oficina"><td style="width:34px;"><input type="checkbox" class="form-check-input cf-sel-oficina" data-of="' +
+                            b.idOficina + '" title="Todos los de esta oficina"></td><td colspan="3">Oficina ' + esc(b.codOfi) + ' — ' +
+                            esc(b.oficina) + ' <span class="text-muted fw-normal">(' + esc(b.cargo || 's/cargo') + ')</span></td></tr>';
+                }
+                var marca = '';
+                if (b.bloqueado) marca = '<span class="badge est-gris">Bloqueado</span>';
+                else if (b.numeroActa) marca = '<span class="badge est-camino">En acta ' + esc(b.numeroActa) + '</span>';
+                else if (b.idHallazgo) marca = '<span class="badge est-abierto">Faltante ' + esc(b.numeroInventario || '') + '</span>';
+                html += '<tr class="' + (b.seleccionable ? '' : 'no-sel') + '">' +
+                    '<td><input type="checkbox" class="form-check-input cf-sel-bien" data-id="' + b.idActivo + '" data-of="' + b.idOficina + '"' +
+                    (b.seleccionable ? '' : ' disabled') + (reg.sel[b.idActivo] ? ' checked' : '') + '></td>' +
+                    '<td><span class="cf-cod">' + esc(b.codigo) + '</span></td>' +
+                    '<td>' + esc(b.descripcion) + '</td><td class="text-end">' + marca + '</td></tr>';
+            });
+            $('#cf-reg-bienes').html(html);
+            actualizarConteo();
+        }
+
+        $('#cf-reg-filtro').on('input', pintarBienes);
+
+        $('#cf-reg').on('change', '.cf-sel-bien', function () {
+            var id = $(this).data('id');
+            if (this.checked) reg.sel[id] = true; else delete reg.sel[id];
+            actualizarConteo();
+        });
+        $('#cf-reg').on('change', '.cf-sel-oficina', function () {
+            var of = $(this).data('of'), marcar = this.checked;
+            $('#cf-reg .cf-sel-bien[data-of="' + of + '"]:not(:disabled)').each(function () {
+                this.checked = marcar;
+                var id = $(this).data('id');
+                if (marcar) reg.sel[id] = true; else delete reg.sel[id];
+            });
+            actualizarConteo();
+        });
+
+        function seleccionados() {
+            return reg.bienes.filter(function (b) { return reg.sel[b.idActivo]; });
+        }
+
+        function actualizarConteo() {
+            var n = seleccionados().length;
+            $('#cf-reg-conteo').text(n + ' seleccionado(s)');
+            $('#cf-reg-guardar').prop('disabled', n === 0);
+        }
+
+        $('#cf-reg-guardar').on('click', function () {
+            var sel = seleccionados();
+            if (!sel.length || !reg.persona) return;
+            var predios = {};
+            sel.forEach(function (b) { predios[b.unidad] = (predios[b.unidad] || 0) + 1; });
+            var resumen = Object.keys(predios).map(function (u) { return '<b>' + esc(u) + '</b>: ' + predios[u]; }).join(' · ');
+
+            confirmar({
+                titulo: '¿Registrar ' + sel.length + ' faltante(s) de ' + esc(reg.persona.nombre) + '?',
+                texto: 'Se emite el <b>acta de faltantes</b> y los bienes se trasladan a la oficina de faltantes de su predio ' +
+                       '(si el predio no tiene, se crea). El traslado se envía al <b>VSIAF</b>.<br><br>' + resumen,
+                aceptar: 'Registrar y emitir acta',
+                peligrosa: true
+            }).then(function (si) {
+                if (!si) return;
+                var $b = $('#cf-reg-guardar').prop('disabled', true);
+                $.ajax({
+                    url: CUS + '/actas', type: 'POST', contentType: 'application/json',
+                    data: JSON.stringify({
+                        idPersona: reg.persona.idPersona,
+                        idsActivos: sel.map(function (b) { return b.idActivo; }),
+                        documentoRespaldo: $('#cf-reg-doc').val() || null,
+                        fechaDocumento: $('#cf-reg-fecha-doc').val() || null,
+                        observacion: $('#cf-reg-obs').val() || null
+                    })
+                })
+                .done(function (r) {
+                    modalRegistro().hide();
+                    cargar();
+                    if (window.Swal) {
+                        Swal.fire({
+                            title: 'Acta ' + r.numero, icon: 'success', html: esc(r.message),
+                            showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir acta para imprimir',
+                            cancelButtonText: 'Cerrar'
+                        }).then(function (x) { if (x.isConfirmed) window.open(pdfActa(r.idActa), '_blank'); });
+                    } else {
+                        window.open(pdfActa(r.idActa), '_blank');
+                    }
+                })
+                .fail(function (xhr) {
+                    aviso('No se registró', '<div style="text-align:left; white-space:pre-line;">' +
+                          esc(errorDe(xhr, 'Error al registrar.')) + '</div>', 'error');
+                })
+                .always(function () { $b.prop('disabled', seleccionados().length === 0); });
+            });
         });
 
         // ── Exportar ─────────────────────────────────────────────────────
@@ -293,11 +1015,12 @@
             withXLSX(function () {
                 var hoja = datos.map(function (h) {
                     return {
-                        'Responsable': h.responsable, 'Cód. funcionario': h.codigoFuncionario,
-                        'Predio': h.predio, 'Oficina': h.oficina,
+                        'Persona': h.responsable, 'C.I.': h.ci, 'Cód. funcionario': h.codigoFuncionario,
+                        'Unidad': h.unidad, 'Predio': h.predio, 'Cód. oficina': h.codOfi, 'Oficina de origen': h.oficina,
                         'Código activo': h.codigo, 'Descripción': h.descripcion,
-                        'Tipo': h.tipoHallazgo, 'Estado': h.estadoHallazgo,
-                        'Levantamiento': h.numeroInventario, 'Detectado': fmtFecha(h.fechaDeteccion),
+                        'Tipo': h.tipoHallazgo, 'Estado': h.estadoHallazgo, 'Traslado': h.estadoEnvio,
+                        'Acta': h.numeroActa, 'Levantamiento': h.numeroInventario, 'Detectado': fmtFecha(h.fechaDeteccion),
+                        'Documento': h.documentoRespaldo, 'Enviado a custodia': fmtFecha(h.fechaEnvioCustodia),
                         'Resolución': h.tipoResolucion, 'Acción correctiva': h.accionCorrectiva,
                         'Revisor': h.usuarioRevisor, 'Resuelto': fmtFecha(h.fechaResolucion)
                     };
@@ -308,9 +1031,32 @@
             });
         });
 
-        $('#cf-btn-filtrar, #cf-btn-refrescar').on('click', cargar);
+        $('#cf-btn-filtrar').on('click', cargar);
+        $('#cf-btn-refrescar').on('click', function () {
+            cargar();
+            if ($('#cf-tab-actas').hasClass('active')) cargarActas();
+            if ($('#cf-tab-conc').hasClass('active')) cargarConciliacion();
+        });
+
+        // ── Tiempo real: el traslado a custodia avanza solo ──────────────
+        (function sse() {
+            if (!window.EventSource) return;
+            var es = new EventSource('/api/eventos/stream');
+            var espera = null;
+            es.addEventListener('faltantes-custodia', function () {
+                // Si el fragmento ya no está en pantalla, se corta la conexión.
+                if (!document.getElementById('cf-wrap')) { es.close(); return; }
+                clearTimeout(espera);
+                espera = setTimeout(function () {
+                    cargar();
+                    if ($('#cf-tab-actas').hasClass('active')) cargarActas();
+                }, 800);
+            });
+            $(window).on('beforeunload', function () { es.close(); });
+        })();
 
         cargar();
+        cargarConciliacion();   // para que el contador de la pestaña avise sin tener que abrirla
     })();
     </script>
 </div>

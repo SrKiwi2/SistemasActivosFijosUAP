@@ -235,10 +235,39 @@ public class Activo extends AuditoriaConfig{
      * @throws IllegalStateException si el bien está bloqueado
      */
     public void exigirNoBloqueado(String accion) {
+        String motivo = motivoInmovilizado(accion);
+        if (motivo != null) throw new IllegalStateException(motivo);
+    }
+
+    /**
+     * El bien está en la oficina de faltantes de su predio (custodia de faltantes). Se
+     * deduce de la oficina/responsable y no del hallazgo, así también cubre lo que llegue
+     * del VSIAF por la sincronización.
+     */
+    public boolean enCustodia() {
+        return (oficina != null && oficina.isEsCustodia())
+            || (responsable != null && responsable.isEsCustodia());
+    }
+
+    /** Bloqueado o en custodia: no cambia de oficina ni de responsable por los caminos normales. */
+    public boolean inmovilizado() {
+        return Boolean.TRUE.equals(bloqueado) || enCustodia();
+    }
+
+    /**
+     * Por qué el bien no puede moverse; null si puede. Un bien en custodia sale de ahí solo
+     * resolviendo su faltante (Control de Activos → Faltantes).
+     */
+    public String motivoInmovilizado(String accion) {
         if (Boolean.TRUE.equals(bloqueado)) {
-            throw new IllegalStateException("El activo " + getCodigo() + " está bloqueado: no se puede "
-                    + accion + ". Un administrador debe desbloquearlo primero.");
+            return "El activo " + getCodigo() + " está bloqueado: no se puede "
+                    + accion + ". Un administrador debe desbloquearlo primero.";
         }
+        if (enCustodia()) {
+            return "El activo " + getCodigo() + " está en la oficina de faltantes: no se puede " + accion
+                    + ". Sale de ahí resolviendo su faltante (Control de Activos → Faltantes).";
+        }
+        return null;
     }
     
     // 👇 3. AGREGAR EL MÉTODO CALCULAR HASH

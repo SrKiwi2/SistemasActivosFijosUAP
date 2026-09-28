@@ -218,6 +218,9 @@
                     th:data-resp-destino="${asig.responsable != null and asig.responsable.persona != null ?
                         (asig.responsable.persona.nombre + ' ' + asig.responsable.persona.paterno) : ''}"
                     th:data-oficina="${asig.oficinaDestino != null ? asig.oficinaDestino.nombre : ''}"
+                    th:data-oficina-cod="${asig.oficinaDestino != null ? asig.oficinaDestino.codOfi : ''}"
+                    th:data-resp-origen-cod="${asig.responsableOrigen != null ? asig.responsableOrigen.codigoFuncionario : ''}"
+                    th:data-resp-destino-cod="${asig.responsable != null ? asig.responsable.codigoFuncionario : ''}"
                     th:data-doc-ref="${asig.documentoReferencia}"
                     th:data-observacion="${asig.observacion}"
                     th:data-fecha-reg="${asig.registro}"
@@ -266,7 +269,8 @@
                     <td>
                         <span th:if="${asig.responsable != null and asig.responsable.persona != null}"
                               class="small d-inline-block text-truncate" style="max-width:200px"
-                              th:text="${asig.responsable.persona.paterno + ' ' + (asig.responsable.persona.materno ?: '')
+                              th:text="${(asig.responsable.codigoFuncionario != null ? asig.responsable.codigoFuncionario + ' — ' : '')
+                                        + asig.responsable.persona.paterno + ' ' + (asig.responsable.persona.materno ?: '')
                                         + ', ' + asig.responsable.persona.nombre}">—</span>
                         <span th:unless="${asig.responsable != null and asig.responsable.persona != null}"
                               class="text-muted small fst-italic">sin responsable</span>
