@@ -31,9 +31,18 @@ public class ControlActivosRepo {
 
     private final JdbcTemplate jdbc;
 
-    private static final String ACTIVO   = "ACTIVO";
-    private static final String ABIERTO  = "ABIERTO";
-    private static final String FALTANTE = "FALTANTE";
+    private static final String ACTIVO      = "ACTIVO";
+    private static final String ABIERTO     = "ABIERTO";
+    private static final String EN_CUSTODIA = "EN_CUSTODIA";
+    private static final String FALTANTE    = "FALTANTE";
+
+    /**
+     * Oficina a la que pertenece un hallazgo. Un faltante directo no tiene
+     * levantamiento, así que la oficina sale de {@code id_oficina_origen}; los
+     * hallazgos anteriores a esa columna la toman del levantamiento. Exige
+     * {@code left join inventario i} en la consulta que lo use.
+     */
+    private static final String OFICINA_HALLAZGO = "coalesce(h.id_oficina_origen, i.id_oficina)";
 
     // ── Nivel 1: predios ─────────────────────────────────────────────────────
 
@@ -61,10 +70,10 @@ public class ControlActivosRepo {
                  join oficina o on o.id_oficina = a.id_oficina
                  where o.id_predio = p.id_predio and a._estado = ?)                     as activos,
               (select count(*) from hallazgo_inventario h
-                 join inventario i on i.id_inventario = h.id_inventario
-                 join oficina o    on o.id_oficina    = i.id_oficina
+                 left join inventario i on i.id_inventario = h.id_inventario
+                 join oficina o on o.id_oficina = %s
                  where o.id_predio = p.id_predio
-                   and h.estado_hallazgo = ? and h.tipo_hallazgo = ?)                   as faltantes,
+                   and h.estado_hallazgo in (?, ?) and h.tipo_hallazgo = ?)             as faltantes,
               (select count(*) from inventario i
                  join oficina o on o.id_oficina = i.id_oficina
                  where o.id_predio = p.id_predio and i.estado_levantamiento = ?)        as en_curso,
@@ -74,9 +83,9 @@ public class ControlActivosRepo {
             from predio p
             where p._estado = ?
             order by p.descrip
-            """;
+            """.formatted(OFICINA_HALLAZGO);
         return jdbc.query(sql, MAPPER_PREDIO,
-                ACTIVO, ACTIVO, ACTIVO, ABIERTO, FALTANTE, "EN_EJECUCION", ACTIVO);
+                ACTIVO, ACTIVO, ACTIVO, ABIERTO, EN_CUSTODIA, FALTANTE, "EN_EJECUCION", ACTIVO);
     }
 
     // ── Nivel 2: oficinas de un predio ───────────────────────────────────────
@@ -113,9 +122,9 @@ public class ControlActivosRepo {
               (select count(*) from activo a
                  where a.id_oficina = o.id_oficina and a._estado = ?)                   as activos,
               (select count(*) from hallazgo_inventario h
-                 join inventario i on i.id_inventario = h.id_inventario
-                 where i.id_oficina = o.id_oficina
-                   and h.estado_hallazgo = ? and h.tipo_hallazgo = ?)                   as faltantes,
+                 left join inventario i on i.id_inventario = h.id_inventario
+                 where %s = o.id_oficina
+                   and h.estado_hallazgo in (?, ?) and h.tipo_hallazgo = ?)             as faltantes,
               (select count(*) from inventario i
                  where i.id_oficina = o.id_oficina)                                     as levantamientos,
               (select i.id_inventario from inventario i
@@ -134,9 +143,9 @@ public class ControlActivosRepo {
             ) u on true
             where o.id_predio = ? and o._estado = ?
             order by o.cod_ofi
-            """;
+            """.formatted(OFICINA_HALLAZGO);
         return jdbc.query(sql, MAPPER_OFICINA,
-                ACTIVO, ACTIVO, ABIERTO, FALTANTE, "EN_EJECUCION", idPredio, ACTIVO);
+                ACTIVO, ACTIVO, ABIERTO, EN_CUSTODIA, FALTANTE, "EN_EJECUCION", idPredio, ACTIVO);
     }
 
     // ── Nivel 3: responsables de una oficina ─────────────────────────────────
@@ -169,7 +178,7 @@ public class ControlActivosRepo {
                  where a.id_responsable = r.id_responsable and a._estado = ?)           as activos,
               (select count(*) from hallazgo_inventario h
                  where h.id_responsable = r.id_responsable
-                   and h.estado_hallazgo = ? and h.tipo_hallazgo = ?)                   as faltantes,
+                   and h.estado_hallazgo in (?, ?) and h.tipo_hallazgo = ?)             as faltantes,
               (select count(*) from hallazgo_inventario h
                  where h.id_responsable = r.id_responsable
                    and h.estado_hallazgo = ? and h.tipo_hallazgo = 'OBSERVADO')         as observados
@@ -181,7 +190,7 @@ public class ControlActivosRepo {
             order by (r._estado = ?) desc, nombre
             """;
         return jdbc.query(sql, MAPPER_RESPONSABLE,
-                ACTIVO, ABIERTO, FALTANTE, ABIERTO, idOficina, ACTIVO);
+                ACTIVO, ABIERTO, EN_CUSTODIA, FALTANTE, ABIERTO, idOficina, ACTIVO);
     }
 
     // ── Nivel 4: activos de un responsable ───────────────────────────────────
@@ -202,7 +211,7 @@ public class ControlActivosRepo {
                    ea.nombre as estado_activo, ax.nombre as auxiliar,
                    exists (select 1 from hallazgo_inventario h
                              where h.id_activo = a.id_activo
-                               and h.estado_hallazgo = ? and h.tipo_hallazgo = ?)       as faltante_abierto,
+                               and h.estado_hallazgo in (?, ?) and h.tipo_hallazgo = ?) as faltante_abierto,
                    exists (select 1 from hallazgo_inventario h
                              where h.id_activo = a.id_activo
                                and h.estado_hallazgo = ? and h.tipo_hallazgo = 'OBSERVADO') as observado_abierto
@@ -213,7 +222,7 @@ public class ControlActivosRepo {
             order by a.codigo
             """;
         return jdbc.query(sql, MAPPER_ACTIVO,
-                ABIERTO, FALTANTE, ABIERTO, idResponsable, ACTIVO);
+                ABIERTO, EN_CUSTODIA, FALTANTE, ABIERTO, idResponsable, ACTIVO);
     }
 
     // ── Vista Faltantes ──────────────────────────────────────────────────────
@@ -221,6 +230,8 @@ public class ControlActivosRepo {
     private static final RowMapper<FaltanteDTO> MAPPER_FALTANTE = (rs, n) -> {
         Timestamp det = rs.getTimestamp("fecha_deteccion");
         Timestamp res = rs.getTimestamp("fecha_resolucion");
+        Timestamp env = rs.getTimestamp("fecha_envio_custodia");
+        java.sql.Date doc = rs.getDate("fecha_documento");
         return new FaltanteDTO(
                 rs.getLong("id_hallazgo"),
                 rs.getString("tipo_hallazgo"),
@@ -235,14 +246,22 @@ public class ControlActivosRepo {
                 rs.getString("oficina"),
                 rs.getLong("id_predio"),
                 rs.getString("predio"),
-                rs.getLong("id_inventario"),
+                // getObject y no getLong: un faltante directo no tiene levantamiento
+                // y getLong convertiría el null en un 0 que parece un id real.
+                rs.getObject("id_inventario", Long.class),
                 rs.getString("numero_inventario"),
                 det == null ? null : det.toLocalDateTime(),
                 rs.getString("descripcion_discrepancia"),
                 rs.getString("tipo_resolucion"),
                 rs.getString("accion_correctiva"),
                 res == null ? null : res.toLocalDateTime(),
-                rs.getString("usuario_revisor"));
+                rs.getString("usuario_revisor"),
+                rs.getString("origen"),
+                rs.getString("documento_respaldo"),
+                doc == null ? null : doc.toLocalDate(),
+                rs.getObject("id_responsable_custodia", Long.class),
+                env == null ? null : env.toLocalDateTime(),
+                rs.getString("usuario_envio_custodia"));
     };
 
     /**
@@ -262,16 +281,18 @@ public class ControlActivosRepo {
                    trim(concat_ws(' ', pe.nombre, pe.paterno, pe.materno)) as responsable,
                    o.id_oficina, o.nombre as oficina,
                    p.id_predio, p.descrip as predio,
-                   i.id_inventario, i.numero_inventario
+                   i.id_inventario, i.numero_inventario,
+                   h.origen, h.documento_respaldo, h.fecha_documento,
+                   h.id_responsable_custodia, h.fecha_envio_custodia, h.usuario_envio_custodia
             from hallazgo_inventario h
-            join inventario i        on i.id_inventario  = h.id_inventario
-            join oficina o           on o.id_oficina     = i.id_oficina
+            left join inventario i   on i.id_inventario  = h.id_inventario
+            join oficina o           on o.id_oficina     = %s
             join predio p            on p.id_predio      = o.id_predio
             left join activo a       on a.id_activo      = h.id_activo
             left join responsable r  on r.id_responsable = h.id_responsable
             left join persona pe     on pe.id_persona    = r.id_persona
             where 1 = 1
-            """);
+            """.formatted(OFICINA_HALLAZGO));
 
         List<Object> args = new ArrayList<>();
         if (idPredio != null)       { sql.append(" and p.id_predio = ?");      args.add(idPredio); }
@@ -280,7 +301,8 @@ public class ControlActivosRepo {
         if (tipoHallazgo != null)   { sql.append(" and h.tipo_hallazgo = ?");  args.add(tipoHallazgo); }
         if (estadoHallazgo != null) { sql.append(" and h.estado_hallazgo = ?");args.add(estadoHallazgo); }
 
-        sql.append(" order by (h.estado_hallazgo = 'ABIERTO') desc, responsable, codigo");
+        sql.append(" order by (h.estado_hallazgo = 'ABIERTO') desc,"
+                 + " (h.estado_hallazgo = 'EN_CUSTODIA') desc, responsable, codigo");
 
         return jdbc.query(sql.toString(), MAPPER_FALTANTE, args.toArray());
     }

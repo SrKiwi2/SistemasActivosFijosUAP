@@ -83,6 +83,12 @@ public class Responsable extends AuditoriaConfig {
     @Column(name = "pendiente_dbf", columnDefinition = "boolean default false", nullable = false)
     private boolean pendienteDbf = false;
 
+    /** true = responsable genérico de custodia de faltantes del predio. Un activo a su
+     *  cargo está bloqueado: no se asigna, transfiere ni traslada hasta resolver el
+     *  hallazgo. La sync desde el DBF no la toca. */
+    @Column(name = "es_custodia", columnDefinition = "boolean default false", nullable = false)
+    private boolean esCustodia = false;
+
     public String calcularHash() {
         String datos = String.join("|",
             oficina != null && oficina.getIdOficina() != null 

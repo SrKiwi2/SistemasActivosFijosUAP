@@ -75,8 +75,15 @@ public class ControlActivosService {
     public static final String TIPO_OBSERVADO     = "OBSERVADO";
     public static final String TIPO_SIN_CODIFICAR = "SIN_CODIFICAR";
 
-    public static final String ABIERTO  = "ABIERTO";
-    public static final String RESUELTO = "RESUELTO";
+    public static final String ABIERTO     = "ABIERTO";
+    /** Faltante ya transferido al responsable de custodia del predio en el VSIAF. */
+    public static final String EN_CUSTODIA = "EN_CUSTODIA";
+    public static final String RESUELTO    = "RESUELTO";
+    /** Estados en los que un faltante sigue sin aclarar. */
+    public static final List<String> PENDIENTES = List.of(ABIERTO, EN_CUSTODIA);
+
+    public static final String ORIGEN_LEVANTAMIENTO = "LEVANTAMIENTO";
+    public static final String ORIGEN_DIRECTO       = "DIRECTO";
 
     private static final String AUDIT_ACTIVO = "ACTIVO";
     private static final List<String> ROLES_AVISO = List.of("ADMINISTRADOR", "SUPER USUARIO");
@@ -405,6 +412,8 @@ public class ControlActivosService {
 
         HallazgoInventario h = new HallazgoInventario();
         h.setInventario(inv);
+        h.setOrigen(ORIGEN_LEVANTAMIENTO);
+        h.setOficinaOrigen(inv.getOficina());
         h.setTipoHallazgo(tipo);
         h.setEstadoHallazgo(ABIERTO);
         h.setCodigoFisico(codigo);
@@ -459,9 +468,15 @@ public class ControlActivosService {
                         inv.getIdInventario(), idActivo, tipo).isPresent()) {
             return false;
         }
+        if (idActivo != null && TIPO_FALTANTE.equals(tipo) && hallazgoDao
+                .existsByActivoIdActivoAndTipoHallazgoAndEstadoHallazgoIn(idActivo, tipo, PENDIENTES)) {
+            return false;
+        }
 
         HallazgoInventario h = new HallazgoInventario();
         h.setInventario(inv);
+        h.setOrigen(ORIGEN_LEVANTAMIENTO);
+        h.setOficinaOrigen(inv.getOficina());
         h.setActivo(d.getActivo());
         h.setResponsable(d.getResponsable());
         h.setTipoHallazgo(tipo);
@@ -492,7 +507,7 @@ public class ControlActivosService {
     private void recalcularFaltantes(Inventario inv) {
         if (inv == null) return;
         long abiertos = hallazgoDao.findByInventarioIdInventario(inv.getIdInventario()).stream()
-                .filter(x -> ABIERTO.equals(x.getEstadoHallazgo()))
+                .filter(x -> PENDIENTES.contains(x.getEstadoHallazgo()))
                 .filter(x -> TIPO_FALTANTE.equals(x.getTipoHallazgo()))
                 .count();
         inv.setTotalFaltantes((int) abiertos);

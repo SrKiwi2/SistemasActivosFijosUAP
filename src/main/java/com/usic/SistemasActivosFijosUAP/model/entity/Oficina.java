@@ -77,6 +77,12 @@ public class Oficina extends AuditoriaConfig {
     @Column(name = "pendiente_dbf", columnDefinition = "boolean default false", nullable = false)
     private boolean pendienteDbf = false;
 
+    /** true = oficina de custodia de faltantes del predio (una por predio). En el VSIAF
+     *  solo sirve para separar los bienes faltantes; de quién es cada uno se sabe por
+     *  el hallazgo en el SCIAF. La sync desde el DBF no la toca. */
+    @Column(name = "es_custodia", columnDefinition = "boolean default false", nullable = false)
+    private boolean esCustodia = false;
+
     public String calcularHash() {
         String datos = String.join("|",
             predio != null && predio.getIdPredio() != null 

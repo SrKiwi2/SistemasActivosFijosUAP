@@ -21,6 +21,14 @@ public interface IHallazgoInventarioDao extends JpaRepository<HallazgoInventario
     Optional<HallazgoInventario> findByInventarioIdInventarioAndActivoIdActivoAndTipoHallazgo(
             Long idInventario, Long idActivo, String tipoHallazgo);
 
+    /**
+     * Un bien tiene a lo sumo un faltante pendiente (ABIERTO o EN_CUSTODIA). Si un
+     * segundo levantamiento lo vuelve a extrañar, o se lo registra directo, el
+     * hallazgo que ya existe es el que manda.
+     */
+    boolean existsByActivoIdActivoAndTipoHallazgoAndEstadoHallazgoIn(
+            Long idActivo, String tipoHallazgo, List<String> estados);
+
     @Query("""
            select h from HallazgoInventario h
            left join fetch h.activo

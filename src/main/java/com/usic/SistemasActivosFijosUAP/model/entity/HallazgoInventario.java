@@ -1,5 +1,6 @@
 package com.usic.SistemasActivosFijosUAP.model.entity;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.usic.SistemasActivosFijosUAP.config.AuditoriaConfig;
@@ -27,7 +28,8 @@ import lombok.Setter;
         @Index(name = "idx_hall_tipo", columnList = "tipo_hallazgo"),
         @Index(name = "idx_hall_estado", columnList = "_estado"),
         @Index(name = "idx_hall_responsable", columnList = "id_responsable"),
-        @Index(name = "idx_hall_estado_hall", columnList = "estado_hallazgo")
+        @Index(name = "idx_hall_estado_hall", columnList = "estado_hallazgo"),
+        @Index(name = "idx_hall_oficina_origen", columnList = "id_oficina_origen")
     }
 )
 @Setter @Getter
@@ -39,8 +41,9 @@ public class HallazgoInventario extends AuditoriaConfig {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idHallazgo;
     
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_inventario", nullable = false)
+    /** Levantamiento que lo detectó. Vacío si el faltante se registró directo. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_inventario")
     private Inventario inventario;
     
     // FALTANTE: activo en BD pero no encontrado en físico
@@ -94,7 +97,7 @@ public class HallazgoInventario extends AuditoriaConfig {
     @JoinColumn(name = "id_responsable")
     private Responsable responsable;
 
-    /** ABIERTO | RESUELTO */
+    /** ABIERTO | EN_CUSTODIA | RESUELTO */
     @Size(max = 20)
     @Column(name = "estado_hallazgo", length = 20)
     private String estadoHallazgo;
@@ -103,4 +106,40 @@ public class HallazgoInventario extends AuditoriaConfig {
     @Size(max = 30)
     @Column(name = "tipo_resolucion", length = 30)
     private String tipoResolucion;
+
+    // ── Custodia de faltantes ────────────────────────────────────────────────
+
+    /** LEVANTAMIENTO | DIRECTO — por qué puerta entró el hallazgo. */
+    @Size(max = 15)
+    @Column(name = "origen", length = 15)
+    private String origen;
+
+    /**
+     * Oficina donde debía estar el bien. Se fija al detectar el hallazgo porque
+     * después el activo pasa a la custodia y su oficina actual ya no lo dice; y
+     * un faltante directo no tiene levantamiento del cual sacarla.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_oficina_origen")
+    private Oficina oficinaOrigen;
+
+    /** Nota, informe o memorándum que respalda el faltante (sobre todo el directo). */
+    @Size(max = 120)
+    @Column(name = "documento_respaldo", length = 120)
+    private String documentoRespaldo;
+
+    @Column(name = "fecha_documento")
+    private LocalDate fechaDocumento;
+
+    /** Responsable de custodia del predio al que se transfirió el bien en el VSIAF. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_responsable_custodia")
+    private Responsable responsableCustodia;
+
+    @Column(name = "fecha_envio_custodia")
+    private LocalDateTime fechaEnvioCustodia;
+
+    @Size(max = 60)
+    @Column(name = "usuario_envio_custodia", length = 60)
+    private String usuarioEnvioCustodia;
 }

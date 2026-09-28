@@ -85,6 +85,7 @@
                 <label class="form-label mb-1" style="font-size:.78rem;">Estado</label>
                 <select class="form-select form-select-sm" id="cf-f-estado">
                     <option value="ABIERTO" selected>Abiertos</option>
+                    <option value="EN_CUSTODIA">En custodia</option>
                     <option value="RESUELTO">Resueltos</option>
                     <option value="">Todos</option>
                 </select>
@@ -205,7 +206,7 @@
                            '<td>' + esc(h.descripcion || '—') + detalleRes + '</td>' +
                            '<td><span class="badge badge-' + h.tipoHallazgo + '">' + esc(h.tipoHallazgo) + '</span></td>' +
                            '<td style="font-size:.78rem;">' + esc(h.oficina) + '</td>' +
-                           '<td style="font-size:.78rem;">' + esc(h.numeroInventario) + '<br>' +
+                           '<td style="font-size:.78rem;">' + esc(h.numeroInventario || 'Registro directo') + '<br>' +
                              '<span class="text-muted">' + fmtFecha(h.fechaDeteccion) + '</span></td>' +
                            '<td class="text-end">' + acciones + '</td></tr>';
                 }).join('');
