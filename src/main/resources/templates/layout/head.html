@@ -100,6 +100,14 @@
                     manejarCambioDbf(data);
                 });
 
+                // El worker resolvió órdenes de la cola del VSIAF: los módulos que muestran
+                // "En cola" (Oficinas, Responsables) escuchan esto para refrescar su estado.
+                eventSource.addEventListener('cola-vsiaf', function (e) {
+                    let data = {};
+                    try { data = JSON.parse(e.data); } catch (err) { /* sin datos */ }
+                    $(document).trigger('sciaf:cola-vsiaf', [data]);
+                });
+
                 eventSource.addEventListener('sync-progreso', function (e) {
                     const data = JSON.parse(e.data);
                     if (data.tabla !== 'activo') return;

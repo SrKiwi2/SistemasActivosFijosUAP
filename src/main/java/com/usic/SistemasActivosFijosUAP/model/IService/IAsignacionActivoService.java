@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 
 import com.usic.SistemasActivosFijosUAP.model.dto.FiltrosAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResumenAsignacionDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.RubroAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResumenListadoAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
@@ -26,6 +27,9 @@ public interface IAsignacionActivoService extends IServiceGenerico<AsignacionAct
 
     Optional<AsignacionActivo> findByIdConDetalles(@Param("id") Long id);
 
+    /** Actas por lista de ids, con detalles/responsable/oficina ya cargados — para el reporte Excel. */
+    List<AsignacionActivo> findAllByIdInConDetalles(List<Long> ids);
+
     /**
      * Página del listado de Movimientos, ya filtrada y ordenada.
      *
@@ -37,6 +41,13 @@ public interface IAsignacionActivoService extends IServiceGenerico<AsignacionAct
      */
     Page<AsignacionActivo> buscarConFiltros(FiltrosAsignacionDTO filtros, String orden,
                                             boolean descendente, Pageable pagina);
+
+    /**
+     * Todas las actas que cumplen el filtro (sin paginar), con sus detalles/responsable/
+     * oficina ya cargados — lo que necesita el reporte Excel, filtrado por "general" (sin
+     * filtros) o por "rango" (con ellos). Mismo orden que {@link #buscarConFiltros}.
+     */
+    List<AsignacionActivo> buscarConFiltrosConDetalles(FiltrosAsignacionDTO filtros, String orden, boolean descendente);
 
     /** Totales de las tarjetas, calculados sobre el conjunto filtrado completo. */
     ResumenListadoAsignacionDTO resumenListado(FiltrosAsignacionDTO filtros);
@@ -52,5 +63,11 @@ public interface IAsignacionActivoService extends IServiceGenerico<AsignacionAct
 
     /** Totales por asignación (costo y avance hacia el VSIAF), indexados por id. */
     Map<Long, ResumenAsignacionDTO> resumenPorAsignacion(List<Long> ids);
+
+    /**
+     * Grupo contable y auxiliar de los bienes de cada acta, indexados por id.
+     * Cada acta trae varias líneas si mezcla rubros, ordenadas por cantidad.
+     */
+    Map<Long, List<RubroAsignacionDTO>> rubrosPorAsignacion(List<Long> ids);
 
 }

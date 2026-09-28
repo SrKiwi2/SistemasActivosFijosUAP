@@ -1722,10 +1722,13 @@
 
             const resp2Nombre = $('#aa-resp2 option:selected').attr('data-nombre') || '—';
 
-            if (!confirm(
-                `¿Confirma la reasignación de ${S.activos.length} activo(s) de\n` +
-                `"${S.resp1Nombre}" → "${resp2Nombre}"?`
-            )) return;
+            const seguir = await sciafConfirmar({
+                titulo: `¿Reasignar ${S.activos.length} activo(s)?`,
+                texto: `Pasan de <b>${S.resp1Nombre}</b><br>a <b>${resp2Nombre}</b>.`
+                     + `<br><br>Los códigos de los activos no cambian.`,
+                aceptar: 'Sí, reasignar'
+            });
+            if (!seguir) return;
 
             const btn = document.getElementById('aa-btn-go');
             btn.disabled = true;
@@ -1831,6 +1834,12 @@
             // Inicializar Select2 en cargo
             aaIniciarCargoSelect2();
 
+            // El nombre completo viaja al VSIAF en un solo campo de 35 caracteres.
+            if (window.sciafContador) {
+                window._aaContadorNombre = sciafContador.combinado(
+                    ['#aa-nr-nombre', '#aa-nr-paterno', '#aa-nr-materno'], 35);
+            }
+
             // Eventos CI → auto-llenado (registrar solo una vez)
             const ciInput = document.getElementById('aa-nr-ci');
             ciInput.onblur = async function () {
@@ -1905,6 +1914,9 @@
         };
 
         window.aaGuardarNuevoResp = async function () {
+            if (window._aaContadorNombre && window._aaContadorNombre.excede()) {
+                aaToast('w', 'Nombre demasiado largo', window._aaContadorNombre.mensaje()); return;
+            }
             const ci       = document.getElementById('aa-nr-ci').value.trim();
             const nombre   = document.getElementById('aa-nr-nombre').value.trim();
             const paterno  = document.getElementById('aa-nr-paterno').value.trim();
@@ -1948,7 +1960,14 @@
                 if (r.status === 409) {
                     aaOverlayOff();
                     const conflicto = await r.json();
-                    if (!confirm(`Persona similar encontrada:\n${conflicto.msg}\n\n¿Crear de todas formas?`)) return;
+                    const forzar = await sciafConfirmar({
+                        titulo: 'Ya existe una persona parecida',
+                        texto: `${conflicto.msg}<br><br>Si es la misma persona, cancele y búsquela por C.I. `
+                             + `en vez de crearla otra vez.`,
+                        aceptar: 'Es otra persona, crearla',
+                        peligrosa: true
+                    });
+                    if (!forzar) return;
 
                     aaOverlay('Registrando (forzado)…');
                     fd.append('forzarCreacion', 'true');
@@ -2020,8 +2039,45 @@
         }
 
         /* ────────── BOOT ────────── */
+        /**
+         * Llegada desde Consulta de Activos ("Cambiar de responsable"): allá se deja el
+         * responsable en sessionStorage y acá se posiciona la pantalla en su predio, su
+         * oficina y en él como origen, para no tener que volver a buscarlo a mano.
+         */
+        async function aaPrepararDesdeConsulta() {
+            let id = null;
+            try {
+                id = sessionStorage.getItem('sciaf.asignar.responsable');
+                sessionStorage.removeItem('sciaf.asignar.responsable');
+            } catch (e) { return; }
+            if (!id) return;
+
+            try {
+                const r = await fetch(`/api/responsables/${id}/ubicacion`);
+                if (!r.ok) return;
+                const u = await r.json();
+                if (!u.idPredio || !u.idOficina) return;
+
+                const esperar = ms => new Promise(res => setTimeout(res, ms));
+                $('#aa-predio').val(String(u.idPredio)).trigger('change.select2');
+                await window.aaPredioChange();
+                await esperar(150);
+                $('#aa-oficina').val(String(u.idOficina)).trigger('change.select2');
+                await window.aaOficinaChange();
+                await esperar(150);
+                $('#aa-resp1').val(String(u.idResponsable)).trigger('change.select2').trigger('change.aa');
+                aaToast('i', 'Responsable cargado',
+                    `${u.nombre} — ${u.oficina}. Elija el responsable destino.`);
+            } catch (e) { /* si algo falla, la pantalla queda para usarse a mano */ }
+        }
+
+        // Con las pestañas, la pantalla puede estar ya abierta: en ese caso no vuelve a
+        // arrancar, así que Consulta avisa con este evento para que se posicione igual.
+        $(document).off('sciaf:asignar-responsable.aa')
+                   .on('sciaf:asignar-responsable.aa', function () { aaPrepararDesdeConsulta(); });
+
         (function boot() {
-            if (typeof $ !== 'undefined' && $.fn?.select2) window.aaInitSelect2();
+            if (typeof $ !== 'undefined' && $.fn?.select2) { window.aaInitSelect2(); aaPrepararDesdeConsulta(); }
             else setTimeout(boot, 80);
         })();
 

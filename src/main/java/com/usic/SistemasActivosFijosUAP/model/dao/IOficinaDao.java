@@ -78,4 +78,16 @@ public interface IOficinaDao extends JpaRepository<Oficina, Long> {
     List<Oficina> findByPredioIdPredio(Long idPredio);
 
     Optional<Oficina> findByCodOfiAndPredio(Short codOfi, Predio predio);
+
+    /**
+     * Responsables vigentes de la oficina. En el VSIAF cada fila de RESP.DBF apunta a la
+     * oficina por ENTIDAD+UNIDAD+CODOFIC: si hay responsables, esa clave ya no se puede
+     * cambiar sin dejarlos apuntando a nada.
+     */
+    @Query("select count(r) from Responsable r where r.oficina.idOficina = :idOficina and r.estado = 'ACTIVO'")
+    long contarResponsablesVigentes(@Param("idOficina") Long idOficina);
+
+    /** Activos (no eliminados) ubicados en la oficina; mismo motivo que los responsables. */
+    @Query("select count(a) from Activo a where a.oficina.idOficina = :idOficina and (a.estado is null or a.estado <> 'ELIMINADO')")
+    long contarActivos(@Param("idOficina") Long idOficina);
 }

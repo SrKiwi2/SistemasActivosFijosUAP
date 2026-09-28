@@ -1,13 +1,15 @@
 <div class="card">
-    <div class="card-header d-flex justify-content-lg-between">
-        <h5>Registro Usuario</h5>
-        <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
+    <!-- Encabezado responsivo: apilado en móvil, distribuido en PC -->
+    <div class="card-header d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
+        <h5 class="m-0">Registro Usuario</h5>
+        <button type="button" class="btn btn-primary text-nowrap" onclick="cargarFormulario()" data-bs-toggle="modal"
             data-bs-target="#modalFormularioUsuario">
             <i class="fa-solid fa-user-plus"></i> Agregar Usuario
         </button>
     </div>
     <div class="card-datatable table-responsive pt-0">
-        <table class="datatables-basic table table-hover" id="data-table">
+        <!-- style="width:100%" es obligatorio para que scrollX de DataTables funcione bien -->
+        <table class="datatables-basic table table-hover" id="data-table" style="width:100%">
             <thead>
                 <tr>
                     <th>#</th>
@@ -20,26 +22,34 @@
             </thead>
             <tbody class="animate__animated animate__bounceInDown">
                 <tr th:each="usu, index: ${listaUsuarios}">
-                    <th th:text="${index.index+1}"></th>
-                    <th th:text="${usu.persona.nombreCompleto}"></th>
-                    <th th:text="${usu.usuario}"></th>
-                    <th th:text="${usu.password}"></th>
-                    <th th:text="${usu.rol.nombre}"></th>
-                    <th>
-                        <button type="button" class="btn btn-sm btn-primary"
-                            th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
-                            data-bs-toggle="modal" data-bs-target="#modalFormularioUsuario">
-                            <i class="fa-solid fa-pen-to-square"></i> Editar
-                        </button>
-                        <button type="button" class="btn btn-sm btn-info"
-                            th:onclick="cargarPermisos([[${id_encryptado[__${index.index}__]}]])"
-                            data-bs-toggle="modal" data-bs-target="#modalPermisosUsuario">
-                            <i class="fa-solid fa-list-check"></i> Permisos
-                        </button>
-                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${usu.usuario}]],[[${id_encryptado[__${index.index}__]}]])">
-                            <i class="fa-solid fa-trash"></i> Eliminar
-                        </button>
-                    </th>
+                    <!-- CORRECCIÓN: Se cambian los <th> por <td> en el cuerpo de la tabla -->
+                    <td th:text="${index.index+1}"></td>
+                    <td th:text="${usu.persona.nombreCompleto}"></td>
+                    <td th:text="${usu.usuario}"></td>
+                    <td class="text-break" style="min-width: 150px; max-width: 250px;" th:text="${usu.password}"></td>
+                    <td th:text="${usu.rol.nombre}"></td>
+                    <td>
+                        <!-- Contenedor Flex para que los botones mantengan su espacio -->
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-primary text-nowrap"
+                                th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
+                                data-bs-toggle="modal" data-bs-target="#modalFormularioUsuario">
+                                <i class="fa-solid fa-pen-to-square"></i> 
+                                <span class="d-none d-md-inline">Editar</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-info text-nowrap"
+                                th:onclick="cargarPermisos([[${id_encryptado[__${index.index}__]}]])"
+                                data-bs-toggle="modal" data-bs-target="#modalPermisosUsuario">
+                                <i class="fa-solid fa-list-check"></i> 
+                                <span class="d-none d-md-inline">Permisos</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger text-nowrap" 
+                                th:onclick="eliminar([[${usu.usuario}]],[[${id_encryptado[__${index.index}__]}]])">
+                                <i class="fa-solid fa-trash"></i> 
+                                <span class="d-none d-md-inline">Eliminar</span>
+                            </button>
+                        </div>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -48,6 +58,8 @@
 
 <script>
     $('#data-table').DataTable({
+        scrollX: true,       // Habilita el scroll horizontal
+        autoWidth: false,    // Previene anchos forzados incorrectos
         language: {
             "sProcessing": "Procesando...",
             "sLengthMenu": "Mostrar _MENU_ registros",

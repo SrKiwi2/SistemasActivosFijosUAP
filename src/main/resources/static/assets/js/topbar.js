@@ -33,10 +33,31 @@
     const toastTitulo    = document.getElementById('toast-titulo');
     const toastMensaje   = document.getElementById('toast-mensaje');
 
+    /**
+     * Actividad y autorizaciones (avisos-sciaf.js): se reemiten como eventos del
+     * documento para no abrir otro EventSource.
+     */
+    function reemitirAvisos(sse) {
+        ['actividad', 'autorizacion'].forEach(nombre => {
+            sse.addEventListener(nombre, e => {
+                try {
+                    document.dispatchEvent(new CustomEvent('sciaf:' + nombre, { detail: JSON.parse(e.data) }));
+                } catch (err) {}
+            });
+        });
+    }
+
     // Verificar que el DOM de notificaciones existe
     // (la campana solo aparece para roles autorizados)
     if (!badge || !listaEl) {
         console.debug('[Notif] Campana no presente en esta vista.');
+        // Sin campana igual hace falta el SSE por usuario: a quien pidió una autorización
+        // le llega por acá la respuesta del revisor.
+        (function conectarSoloAvisos() {
+            const sse = new EventSource(API.sseUsuario);
+            reemitirAvisos(sse);
+            sse.onerror = () => { sse.close(); setTimeout(conectarSoloAvisos, 5000); };
+        })();
         return;
     }
 
@@ -364,6 +385,7 @@
     // ════════════════════════════════════════════════════════════════
     function conectarSseUsuario() {
         const sse = new EventSource(API.sseUsuario);
+        reemitirAvisos(sse);
 
         sse.addEventListener('notificacion', e => {
             try {

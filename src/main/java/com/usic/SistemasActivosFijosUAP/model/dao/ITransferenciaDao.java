@@ -24,6 +24,13 @@ public interface ITransferenciaDao extends JpaRepository<Transferencia, Long>{
     /* CONFGURACION TRANSFERENCIA NUEVA */
 
     Optional<Transferencia> findByNumeroTransferencia(String numero);
+
+    /**
+     * Número que el trigger de la base puso al insertar. La entidad en memoria no lo tiene
+     * (Hibernate no relee la fila), así que se consulta después de guardar.
+     */
+    @Query("select t.numeroTransferencia from Transferencia t where t.idTransferencia = :id")
+    String numeroDe(@Param("id") Long id);
  
     List<Transferencia> findAllByOrderByFechaTransferenciaDesc();
  

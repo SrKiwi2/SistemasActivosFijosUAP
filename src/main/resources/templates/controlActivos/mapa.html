@@ -61,7 +61,8 @@
                 <span class="text-muted fw-light">Seguimiento y Consultas /</span> MAPA DE CONTROL
             </h4>
             <p class="text-muted mb-2" style="font-size:.9rem; max-width:820px;">
-                Recorré <b>predio → oficina → responsable → activos</b>. El color del cuadro dice qué tan
+                Buscá un bien por <b>código o descripción</b> y te decimos dónde está, o recorré
+                <b>municipio → predio → oficina → responsable → activos</b>. El color del cuadro dice qué tan
                 controlada está la ubicación; la <b>vigencia</b> del responsable va como etiqueta aparte.
                 Desde una oficina se abre el <b>levantamiento</b>: se marca lo que se encuentra y al cerrar,
                 lo que quedó sin revisar pasa a <b>faltante</b>.
@@ -74,6 +75,15 @@
             </div>
         </div>
         <div class="d-flex gap-2">
+            <!-- Informes de contexto: se habilitan según dónde estés parado en el mapa -->
+            <button type="button" class="btn btn-sm btn-outline-primary d-none" id="ca-btn-resumen"
+                    title="Resumen de control de todas las oficinas de este predio">
+                <i class="ti ti-report-analytics me-1"></i> Resumen del predio
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger" id="ca-btn-faltantes"
+                    title="Informe de faltantes y observaciones del alcance actual">
+                <i class="ti ti-alert-triangle me-1"></i> Informe de faltantes
+            </button>
             <button type="button" class="btn btn-sm btn-outline-secondary" id="ca-btn-refrescar">
                 <i class="ti ti-refresh me-1"></i> Refrescar
             </button>
@@ -83,12 +93,60 @@
         </div>
     </div>
 
+    <!-- Buscador: la vía principal. Con 31.000 bienes y predios de 385 oficinas,
+         recorrer el árbol sirve para explorar, no para encontrar algo puntual. -->
+    <div class="card shadow-sm mb-3" id="ca-buscador">
+        <div class="card-body py-3">
+            <div class="input-group">
+                <span class="input-group-text bg-white"><i class="ti ti-search"></i></span>
+                <input type="text" class="form-control form-control-lg border-start-0" id="ca-q"
+                       placeholder="Buscar por código o descripción — ej.: 01-01-08-00003, impresora, pupitre"
+                       autocomplete="off">
+                <button class="btn btn-outline-secondary d-none" type="button" id="ca-q-limpiar"
+                        title="Limpiar y volver al mapa">
+                    <i class="ti ti-x"></i>
+                </button>
+            </div>
+            <div class="form-text mt-2" id="ca-q-hint">
+                Escribí al menos 2 caracteres. Cada resultado muestra dónde está el bien.
+            </div>
+        </div>
+    </div>
+
     <!-- Migas -->
-    <nav class="mb-3">
+    <nav class="mb-3" id="ca-migas-wrap">
         <ol class="breadcrumb mb-0" id="ca-migas">
-            <li class="breadcrumb-item"><span class="ca-crumb" data-nivel="predios">Predios</span></li>
+            <li class="breadcrumb-item"><span class="ca-crumb" data-nivel="municipios">Municipios</span></li>
         </ol>
     </nav>
+
+    <!-- Filtro del nivel oficinas: aparece solo ahí, donde un predio puede tener 385 -->
+    <div class="mb-3 d-none" id="ca-filtro-oficinas">
+        <div class="input-group input-group-sm" style="max-width:420px;">
+            <span class="input-group-text"><i class="ti ti-filter"></i></span>
+            <input type="text" class="form-control" id="ca-of-filtro"
+                   placeholder="Filtrar oficinas por nombre o número…" autocomplete="off">
+            <span class="input-group-text text-muted" id="ca-of-conteo">—</span>
+        </div>
+    </div>
+
+    <!-- Resultados del buscador -->
+    <div id="ca-busqueda" style="display:none;"></div>
+
+    <!-- Barra de selección: aparece sola cuando hay bienes tildados -->
+    <div class="d-none" id="ca-barra-sel"
+         style="position:sticky; bottom:1rem; z-index:10;">
+        <div class="alert alert-primary d-flex align-items-center gap-3 py-2 mb-0 shadow">
+            <i class="ti ti-checkbox fs-5"></i>
+            <span><strong id="ca-sel-n">0</strong> bien(es) seleccionado(s)</span>
+            <button type="button" class="btn btn-sm btn-primary ms-auto" id="ca-btn-informe">
+                <i class="ti ti-file-text me-1"></i> Informe de verificación (Word)
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="ca-sel-limpiar">
+                Quitar selección
+            </button>
+        </div>
+    </div>
 
     <div id="ca-loading" class="text-center py-5" style="display:none;">
         <div class="spinner-border text-primary" role="status"></div>
@@ -100,8 +158,15 @@
         <p class="mt-2 mb-0" id="ca-vacio-txt">No hay nada que mostrar en este nivel.</p>
     </div>
 
-    <!-- Cuadrícula de tiles (niveles 1 a 3) -->
+    <!-- Cuadrícula de tiles (niveles 0 a 3) -->
     <div class="row g-3" id="ca-tiles"></div>
+
+    <div class="text-center mt-3 d-none" id="ca-mas-wrap">
+        <button type="button" class="btn btn-outline-primary" id="ca-mas">
+            <i class="ti ti-chevron-down me-1"></i> Mostrar más
+            <span class="text-muted ms-1" id="ca-mas-restantes"></span>
+        </button>
+    </div>
 
     <!-- Nivel 4: activos del responsable -->
     <div id="ca-activos" style="display:none;">
@@ -110,16 +175,29 @@
                 <div>
                     <h6 class="mb-0" id="ca-act-nombre">—</h6>
                     <small class="text-muted" id="ca-act-sub">—</small>
+                    <small class="d-block text-muted d-none" id="ca-act-hint" style="font-size:.75rem;">
+                        <i class="ti ti-info-circle"></i>
+                        Para marcar faltantes u observaciones, abrí el levantamiento de la oficina.
+                    </small>
                 </div>
-                <button type="button" class="btn btn-sm btn-primary" id="ca-btn-levantar-of">
-                    <i class="ti ti-clipboard-check me-1"></i> Levantar esta oficina
-                </button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-dark" id="ca-btn-acta"
+                            title="Acta de responsabilidad con membrete y firmas, de todos sus bienes">
+                        <i class="ti ti-file-certificate me-1"></i> Acta de responsabilidad
+                    </button>
+                    <button type="button" class="btn btn-sm btn-primary" id="ca-btn-levantar-of">
+                        <i class="ti ti-clipboard-check me-1"></i> Levantar esta oficina
+                    </button>
+                </div>
             </div>
             <div class="table-responsive">
                 <table class="table table-hover mb-0" id="ca-tabla-activos">
                     <thead>
                         <tr>
-                            <th style="width:40px;">#</th>
+                            <th style="width:40px;">
+                                <input type="checkbox" class="form-check-input" id="ca-chk-todos-act"
+                                       title="Seleccionar todos">
+                            </th>
                             <th>Código</th>
                             <th>Descripción</th>
                             <th>Auxiliar</th>
@@ -198,7 +276,13 @@
         var BASE = '/administracion/control-activos';
 
         // Nivel actual del mapa y lo que hace falta para volver atrás.
-        var ctx = { nivel: 'predios', predio: null, oficina: null, responsable: null };
+        var ctx = { nivel: 'municipios', municipio: null, predio: null, oficina: null, responsable: null };
+
+        // Nivel oficinas: se pintan de a tandas. Campus Las Palmas tiene 385 oficinas y
+        // volcarlas todas de golpe da una pantalla que no se puede recorrer.
+        var TANDA_OFICINAS = 60;
+        var oficinasCargadas = [];   // lo que trajo el server para el predio actual
+        var oficinasMostradas = 0;
         var levActual = null;   // levantamiento abierto en el modal
         var modalLev = null;
 
@@ -227,7 +311,11 @@
 
         // ── Migas ────────────────────────────────────────────────────────
         function migas() {
-            var h = '<li class="breadcrumb-item"><span class="ca-crumb" data-nivel="predios">Predios</span></li>';
+            var h = '<li class="breadcrumb-item"><span class="ca-crumb" data-nivel="municipios">Municipios</span></li>';
+            if (ctx.municipio) {
+                h += '<li class="breadcrumb-item"><span class="ca-crumb" data-nivel="predios">' +
+                     esc(ctx.municipio.nombre) + '</span></li>';
+            }
             if (ctx.predio) {
                 h += '<li class="breadcrumb-item"><span class="ca-crumb" data-nivel="oficinas">' +
                      esc(ctx.predio.nombre) + '</span></li>';
@@ -240,11 +328,17 @@
                 h += '<li class="breadcrumb-item active">' + esc(ctx.responsable.nombre) + '</li>';
             }
             $('#ca-migas').html(h);
+            // migas() la llaman todos los niveles, así que es el único lugar donde hace
+            // falta enganchar la visibilidad de los botones de informe.
+            refrescarBotonesInforme();
         }
 
         $(document).on('click', '#ca-wrap .ca-crumb', function () {
             var n = $(this).data('nivel');
-            if (n === 'predios') { ctx.predio = ctx.oficina = ctx.responsable = null; verPredios(); }
+            if (n === 'municipios') {
+                ctx.municipio = ctx.predio = ctx.oficina = ctx.responsable = null; verMunicipios();
+            }
+            else if (n === 'predios') { ctx.predio = ctx.oficina = ctx.responsable = null; verPredios(); }
             else if (n === 'oficinas') { ctx.oficina = ctx.responsable = null; verOficinas(ctx.predio.id); }
             else if (n === 'responsables') { ctx.responsable = null; verResponsables(ctx.oficina.id); }
         });
@@ -256,9 +350,41 @@
                    (bandera || '') + cuerpo + '</div></div>';
         }
 
+        function verMunicipios() {
+            ctx.nivel = 'municipios'; migas(); $activos.hide(); filtroOficinas(false); ocultarMas();
+            pedir({ url: BASE + '/mapa/municipios', type: 'GET' })
+            .done(function (data) {
+                if (!data.length) return vaciar('No hay municipios con predios activos.');
+                $tiles.html(data.map(function (m) {
+                    // Los predios sin municipio se navegan por bandera, no por id: el id
+                    // viene nulo justamente porque no tienen a quién apuntar.
+                    var datos = 'data-t="municipio" data-nombre="' + esc(m.nombre) + '"' +
+                                (m.sinMunicipio ? ' data-sin="1"' : ' data-id="' + m.idMunicipio + '"');
+                    var bandera = m.sinMunicipio
+                        ? '<span class="ca-flag ca-flag-anom" title="Estos predios no tienen municipio cargado">SIN MUNICIPIO</span>'
+                        : '';
+                    return tile(m.estadoControl, datos,
+                        '<div><div class="ca-sub">' + esc(m.codigo || 'Municipio') + '</div>' +
+                        '<div class="ca-nom">' + esc(m.nombre) + '</div></div>' +
+                        '<div class="ca-mets">' +
+                            '<b>' + num(m.predios) + '</b> predios · <b>' + num(m.oficinas) + '</b> ofic.<br>' +
+                            '<b>' + num(m.activos) + '</b> activos' +
+                            (m.faltantesAbiertos > 0
+                                ? ' · <span class="text-danger fw-bold">' + num(m.faltantesAbiertos) + ' faltan</span>'
+                                : '') +
+                        '</div>', bandera);
+                }).join('')).show();
+            })
+            .fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudo cargar el mapa.'), 'error'); });
+        }
+
         function verPredios() {
-            ctx.nivel = 'predios'; migas(); $activos.hide();
-            pedir({ url: BASE + '/mapa/predios', type: 'GET' })
+            ctx.nivel = 'predios'; migas(); $activos.hide(); filtroOficinas(false); ocultarMas();
+            var url = BASE + '/mapa/predios';
+            if (ctx.municipio) {
+                url += ctx.municipio.sin ? '?sinMunicipio=true' : '?idMunicipio=' + ctx.municipio.id;
+            }
+            pedir({ url: url, type: 'GET' })
             .done(function (data) {
                 if (!data.length) return vaciar('No hay predios activos registrados.');
                 $tiles.html(data.map(function (p) {
@@ -282,8 +408,67 @@
             ctx.nivel = 'oficinas'; migas(); $activos.hide();
             pedir({ url: BASE + '/mapa/predios/' + idPredio + '/oficinas', type: 'GET' })
             .done(function (data) {
-                if (!data.length) return vaciar('Este predio no tiene oficinas activas.');
-                $tiles.html(data.map(function (o) {
+                if (!data.length) { filtroOficinas(false); return vaciar('Este predio no tiene oficinas activas.'); }
+                oficinasCargadas = data;
+                $('#ca-of-filtro').val('');
+                filtroOficinas(true);
+                pintarOficinas();
+            })
+            .fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudieron cargar las oficinas.'), 'error'); });
+        }
+
+        /** Muestra u oculta la barra de filtro propia del nivel oficinas. */
+        function filtroOficinas(visible) {
+            $('#ca-filtro-oficinas').toggleClass('d-none', !visible);
+        }
+
+        function ocultarMas() { $('#ca-mas-wrap').addClass('d-none'); }
+
+        /** Oficinas que pasan el filtro escrito (nombre o número). */
+        function oficinasFiltradas() {
+            var q = ($('#ca-of-filtro').val() || '').trim().toLowerCase();
+            if (!q) return oficinasCargadas;
+            return oficinasCargadas.filter(function (o) {
+                return (o.nombre || '').toLowerCase().indexOf(q) !== -1 ||
+                       String(o.codOfi || '').toLowerCase().indexOf(q) !== -1;
+            });
+        }
+
+        /**
+         * Pinta la tanda siguiente de oficinas.
+         * @param acumular true para agregar debajo de lo ya pintado ("Mostrar más"),
+         *                 false para empezar de cero (entrar al nivel o cambiar el filtro)
+         */
+        function pintarOficinas(acumular) {
+            var lista = oficinasFiltradas();
+            if (!acumular) oficinasMostradas = 0;
+
+            var hasta = Math.min(oficinasMostradas + TANDA_OFICINAS, lista.length);
+            var html = lista.slice(oficinasMostradas, hasta).map(tileOficina).join('');
+            oficinasMostradas = hasta;
+
+            if (acumular) $tiles.append(html);
+            else $tiles.html(html);
+
+            if (!lista.length) {
+                $tiles.hide(); ocultarMas();
+                $('#ca-vacio-txt').text('Ninguna oficina coincide con el filtro.'); $vacio.show();
+            } else {
+                $vacio.hide(); $tiles.show();
+            }
+
+            var restantes = lista.length - oficinasMostradas;
+            $('#ca-mas-wrap').toggleClass('d-none', restantes <= 0);
+            $('#ca-mas-restantes').text(restantes > 0 ? '(' + num(restantes) + ' más)' : '');
+            $('#ca-of-conteo').text(lista.length === oficinasCargadas.length
+                ? num(lista.length)
+                : num(lista.length) + ' de ' + num(oficinasCargadas.length));
+        }
+
+        $('#ca-of-filtro').on('input', function () { pintarOficinas(false); });
+        $('#ca-mas').on('click', function () { pintarOficinas(true); });
+
+        function tileOficina(o) {
                     var barra = (o.idLevantamientoEnCurso)
                         ? '<div class="ca-bar"><span style="width:' + o.porcentajeAvance + '%"></span></div>'
                         : '';
@@ -303,13 +488,10 @@
                                     : '')) +
                             barra +
                         '</div>', bandera);
-                }).join('')).show();
-            })
-            .fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudieron cargar las oficinas.'), 'error'); });
         }
 
         function verResponsables(idOficina) {
-            ctx.nivel = 'responsables'; migas(); $activos.hide();
+            ctx.nivel = 'responsables'; migas(); $activos.hide(); filtroOficinas(false); ocultarMas();
             pedir({ url: BASE + '/mapa/oficinas/' + idOficina + '/responsables', type: 'GET' })
             .done(function (data) {
                 if (!data.length) return vaciar('Esta oficina no tiene responsables registrados.');
@@ -337,7 +519,7 @@
         }
 
         function verActivos(idResponsable) {
-            ctx.nivel = 'activos'; migas(); $tiles.hide().empty();
+            ctx.nivel = 'activos'; migas(); $tiles.hide().empty(); filtroOficinas(false); ocultarMas();
             pedir({ url: BASE + '/responsables/' + idResponsable + '/activos', type: 'GET' })
             .done(function (data) {
                 $('#ca-act-nombre').text(ctx.responsable.nombre);
@@ -345,12 +527,22 @@
                     (ctx.oficina ? ctx.oficina.nombre + ' · ' : '') +
                     data.length + ' activo(s) a su nombre');
 
+                // Marcar faltantes/observaciones se hace SIEMPRE dentro del levantamiento
+                // de una oficina, nunca suelto desde acá: el levantamiento es por oficina
+                // y al cerrarlo lo no revisado pasa a faltante, así que marcar por fuera
+                // dejaría hallazgos sin la sesión que los explica. Si no hay oficina en
+                // contexto el botón se esconde en vez de quedar inerte.
+                $('#ca-btn-levantar-of').toggleClass('d-none', !ctx.oficina);
+                $('#ca-act-hint').toggleClass('d-none', !ctx.oficina);
+
                 $('#ca-tabla-activos tbody').html(data.length ? data.map(function (a, i) {
                     var ctrl = a.faltanteAbierto
                         ? '<span class="badge bg-label-danger">FALTANTE</span>'
                         : (a.observadoAbierto ? '<span class="badge bg-label-warning">OBSERVADO</span>'
                                               : '<span class="badge bg-label-secondary">—</span>');
-                    return '<tr><td>' + (i + 1) + '</td>' +
+                    return '<tr><td>' +
+                           '<input type="checkbox" class="form-check-input ca-chk" value="' + a.idActivo + '"' +
+                             (seleccion.has(String(a.idActivo)) ? ' checked' : '') + '></td>' +
                            '<td><span class="ca-cod">' + esc(a.codigo) + '</span></td>' +
                            '<td>' + esc(a.descripcion) + '</td>' +
                            '<td>' + esc(a.auxiliar || '—') + '</td>' +
@@ -370,7 +562,12 @@
         // ── Navegación ───────────────────────────────────────────────────
         $(document).on('click', '#ca-wrap .ca-tile', function () {
             var $t = $(this), id = $t.data('id'), nombre = $t.data('nombre'), tipo = $t.data('t');
-            if (tipo === 'predio')      { ctx.predio = { id: id, nombre: nombre }; verOficinas(id); }
+            if (tipo === 'municipio')   {
+                ctx.municipio = { id: id, nombre: nombre, sin: $t.data('sin') === 1 };
+                ctx.predio = ctx.oficina = ctx.responsable = null;
+                verPredios();
+            }
+            else if (tipo === 'predio') { ctx.predio = { id: id, nombre: nombre }; verOficinas(id); }
             else if (tipo === 'oficina'){ ctx.oficina = { id: id, nombre: nombre, lev: $t.data('lev') }; verResponsables(id); }
             else                        { ctx.responsable = { id: id, nombre: nombre }; verActivos(id); }
         });
@@ -378,7 +575,8 @@
         $('#ca-btn-refrescar').on('click', function () { recargarNivel(); });
 
         function recargarNivel() {
-            if (ctx.nivel === 'predios')           verPredios();
+            if (ctx.nivel === 'municipios')        verMunicipios();
+            else if (ctx.nivel === 'predios')      verPredios();
             else if (ctx.nivel === 'oficinas')     verOficinas(ctx.predio.id);
             else if (ctx.nivel === 'responsables') verResponsables(ctx.oficina.id);
             else if (ctx.nivel === 'activos')      verActivos(ctx.responsable.id);
@@ -551,7 +749,8 @@
                     if (levActual && d.idInventario === levActual.idInventario) recargarLevantamiento();
 
                     // Y repintar el nivel del mapa al que le toca.
-                    if (ctx.nivel === 'predios') verPredios();
+                    if (ctx.nivel === 'municipios') verMunicipios();
+                    else if (ctx.nivel === 'predios') verPredios();
                     else if (ctx.nivel === 'oficinas' && ctx.predio && d.idPredio === ctx.predio.id) verOficinas(ctx.predio.id);
                     else if (ctx.nivel === 'responsables' && ctx.oficina && d.idOficina === ctx.oficina.id) verResponsables(ctx.oficina.id);
                 });
@@ -560,7 +759,253 @@
             $(window).on('beforeunload', function () { es.close(); });
         })();
 
-        verPredios();
+        // ── Selección para informes ──────────────────────────────────────
+        // Sobrevive a cambiar de nivel o de búsqueda a propósito: se puede juntar
+        // bienes de varias oficinas y recién al final sacar un informe con todos.
+        var seleccion = new Set();
+
+        function refrescarBarraSel() {
+            $('#ca-sel-n').text(num(seleccion.size));
+            $('#ca-barra-sel').toggleClass('d-none', seleccion.size === 0);
+        }
+
+        $(document).on('change', '#ca-wrap .ca-chk', function () {
+            var id = String($(this).val());
+            if (this.checked) seleccion.add(id); else seleccion.delete(id);
+            refrescarBarraSel();
+        });
+
+        // "Seleccionar todo" alcanza solo a lo que está a la vista, que es lo que el
+        // usuario puede comprobar; tildar a ciegas 852 resultados no sería honesto.
+        $(document).on('change', '#ca-chk-todos-busq, #ca-chk-todos-act', function () {
+            var marcar = this.checked;
+            $(this).closest('table').find('.ca-chk').each(function () {
+                this.checked = marcar;
+                var id = String($(this).val());
+                if (marcar) seleccion.add(id); else seleccion.delete(id);
+            });
+            refrescarBarraSel();
+        });
+
+        $('#ca-sel-limpiar').on('click', function () {
+            seleccion.clear();
+            $('#ca-wrap .ca-chk, #ca-chk-todos-busq, #ca-chk-todos-act').prop('checked', false);
+            refrescarBarraSel();
+        });
+
+        $('#ca-btn-informe').on('click', function () {
+            if (!seleccion.size) return;
+            var $btn = $(this).prop('disabled', true);
+
+            // Descarga por fetch y no por navegación: el endpoint es POST (la lista de
+            // ids puede ser larga) y así se puede mostrar el error si algo falla, en vez
+            // de dejar al usuario en una pantalla en blanco.
+            fetch(BASE + '/informe/verificacion', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idsActivos: Array.from(seleccion).map(Number) })
+            })
+            .then(function (r) {
+                if (!r.ok) return r.json().then(function (j) { throw new Error(j.message || 'No se pudo generar.'); });
+                return r.blob();
+            })
+            .then(function (blob) {
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'verificacion_bienes.docx';
+                document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(url);
+            })
+            .catch(function (e) { aviso('No se pudo generar', e.message, 'error'); })
+            .finally(function () { $btn.prop('disabled', false); });
+        });
+
+        // ── Informes de contexto ─────────────────────────────────────────
+        // Van con el alcance donde estás parado: lo que se imprime es lo que se ve.
+
+        /** Descarga un .docx de una URL GET, mostrando el error si el server lo rechaza. */
+        function descargarWord(url, nombre, $btn) {
+            if ($btn) $btn.prop('disabled', true);
+            fetch(url)
+                .then(function (r) {
+                    if (!r.ok) return r.json().then(function (j) {
+                        throw new Error(j.message || 'No se pudo generar el informe.');
+                    });
+                    return r.blob();
+                })
+                .then(function (blob) {
+                    var u = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = u; a.download = nombre;
+                    document.body.appendChild(a); a.click(); a.remove();
+                    URL.revokeObjectURL(u);
+                })
+                .catch(function (e) { aviso('No se pudo generar', e.message, 'warning'); })
+                .finally(function () { if ($btn) $btn.prop('disabled', false); });
+        }
+
+        /** El botón de resumen solo tiene sentido con un predio elegido. */
+        function refrescarBotonesInforme() {
+            $('#ca-btn-resumen').toggleClass('d-none', !ctx.predio);
+        }
+
+        $('#ca-btn-acta').on('click', function () {
+            if (!ctx.responsable) return;
+            descargarWord(BASE + '/informe/acta?idResponsable=' + ctx.responsable.id,
+                          'acta_responsabilidad.docx', $(this));
+        });
+
+        $('#ca-btn-resumen').on('click', function () {
+            if (!ctx.predio) return;
+            descargarWord(BASE + '/informe/resumen?idPredio=' + ctx.predio.id,
+                          'resumen_control.docx', $(this));
+        });
+
+        $('#ca-btn-faltantes').on('click', function () {
+            // Se manda el alcance del nivel actual; sin nada elegido, son todos los predios.
+            var p = [];
+            if (ctx.responsable) p.push('idResponsable=' + ctx.responsable.id);
+            else if (ctx.oficina) p.push('idOficina=' + ctx.oficina.id);
+            else if (ctx.predio)  p.push('idPredio=' + ctx.predio.id);
+            descargarWord(BASE + '/informe/faltantes' + (p.length ? '?' + p.join('&') : ''),
+                          'faltantes.docx', $(this));
+        });
+
+        // ── Buscador ─────────────────────────────────────────────────────
+        var $busq = $('#ca-busqueda'), tmrBusq = null, ultimaBusq = '';
+
+        /** Vuelve del modo búsqueda al mapa, sin perder dónde estabas parado. */
+        function salirDeBusqueda() {
+            ultimaBusq = '';
+            $busq.hide().empty();
+            $('#ca-q-limpiar').addClass('d-none');
+            $('#ca-q-hint').text('Escribí al menos 2 caracteres. Cada resultado muestra dónde está el bien.');
+            $('#ca-migas-wrap').show();
+            recargarNivel();
+        }
+
+        $('#ca-q').on('input', function () {
+            var q = $(this).val().trim();
+            $('#ca-q-limpiar').toggleClass('d-none', q.length === 0);
+            clearTimeout(tmrBusq);
+            if (q.length === 0) { salirDeBusqueda(); return; }
+            if (q.length < 2) {
+                $('#ca-q-hint').text('Escribí al menos 2 caracteres.');
+                return;
+            }
+            tmrBusq = setTimeout(function () { buscar(q); }, 300);
+        });
+
+        $('#ca-q-limpiar').on('click', function () {
+            $('#ca-q').val('').focus();
+            salirDeBusqueda();
+        });
+
+        function buscar(q) {
+            ultimaBusq = q;
+            $tiles.hide(); $activos.hide(); $vacio.hide();
+            filtroOficinas(false); ocultarMas();
+            $('#ca-migas-wrap').hide();
+            $busq.show().html('<div class="text-center py-4 text-muted">' +
+                '<div class="spinner-border spinner-border-sm me-2"></div>Buscando…</div>');
+
+            $.get(BASE + '/buscar', { q: q })
+            .done(function (r) {
+                // Llegó tarde: el usuario ya siguió escribiendo y hay otra búsqueda en curso.
+                if (q !== ultimaBusq) return;
+                pintarBusqueda(r, q);
+            })
+            .fail(function (xhr) {
+                if (q !== ultimaBusq) return;
+                $busq.html('<div class="alert alert-danger mb-0">' +
+                    esc(errorDe(xhr, 'No se pudo buscar.')) + '</div>');
+            });
+        }
+
+        function pintarBusqueda(r, q) {
+            var filas = (r && r.resultados) || [];
+            if (!filas.length) {
+                $busq.html('<div class="text-center text-muted py-5">' +
+                    '<div style="font-size:40px;">🔍</div>' +
+                    '<p class="mt-2 mb-0">Ningún activo coincide con <b>' + esc(q) + '</b>.</p></div>');
+                $('#ca-q-hint').text('Sin resultados.');
+                return;
+            }
+
+            $('#ca-q-hint').html(r.truncado
+                ? 'Mostrando <b>' + num(filas.length) + '</b> de <b>' + num(r.total) +
+                  '</b> — afiná la búsqueda para ver el resto.'
+                : '<b>' + num(r.total) + '</b> resultado(s).');
+
+            var html = '<div class="card shadow-sm"><div class="table-responsive">' +
+                '<table class="table table-hover mb-0"><thead><tr>' +
+                '<th style="width:36px;"><input type="checkbox" class="form-check-input" id="ca-chk-todos-busq" ' +
+                    'title="Seleccionar todo lo que se ve"></th>' +
+                '<th>Código</th><th>Descripción</th><th>Ubicación</th><th>Estado</th><th>Control</th>' +
+                '</tr></thead><tbody>';
+
+            filas.forEach(function (a) {
+                var control = a.faltanteAbierto
+                    ? '<span class="badge bg-label-danger">FALTANTE</span>'
+                    : (a.observadoAbierto ? '<span class="badge bg-label-warning">OBSERVADO</span>'
+                                          : '<span class="text-muted">—</span>');
+                // La ubicación es clickeable: encontrar el bien y poder saltar a su
+                // oficina es la mitad del trabajo de este buscador.
+                var ruta = [a.municipio, a.predio, a.oficina, a.responsable]
+                    .map(function (x, i) {
+                        var faltaTxt = ['(sin municipio)', '(sin predio)', '(sin oficina)', '(sin responsable)'][i];
+                        return x ? esc(x) : '<span class="text-danger">' + faltaTxt + '</span>';
+                    }).join(' <span class="text-muted">›</span> ');
+
+                html += '<tr>' +
+                    '<td><input type="checkbox" class="form-check-input ca-chk" value="' + a.idActivo + '"' +
+                        (seleccion.has(String(a.idActivo)) ? ' checked' : '') + '></td>' +
+                    '<td><span class="fw-semibold" style="font-family:JetBrains Mono,monospace;">' +
+                        esc(a.codigo) + '</span></td>' +
+                    '<td style="max-width:320px;">' + esc(a.descripcion || '') + '</td>' +
+                    '<td style="font-size:.82rem;">' + ruta +
+                        (a.idResponsable
+                            // Se arrastra TODA la ruta, no solo el responsable: sin la
+                            // oficina no se puede levantar ni marcar nada al llegar, que
+                            // es justo lo que se viene a hacer después de encontrar el bien.
+                            ? '<br><a href="#" class="ca-ir" data-resp="' + a.idResponsable +
+                              '" data-nombre="' + esc(a.responsable || '') +
+                              '" data-ofi="' + (a.idOficina || '') + '" data-ofi-nom="' + esc(a.oficina || '') +
+                              '" data-pred="' + (a.idPredio || '') + '" data-pred-nom="' + esc(a.predio || '') +
+                              '" data-mun="' + (a.idMunicipio || '') + '" data-mun-nom="' + esc(a.municipio || '') +
+                              '" style="font-size:.78rem;"><i class="ti ti-map-pin"></i> ver todo lo de este responsable</a>'
+                            : '') +
+                    '</td>' +
+                    '<td>' + esc(a.estadoActivo || '—') + '</td>' +
+                    '<td>' + control + '</td>' +
+                    '</tr>';
+            });
+
+            $busq.html(html + '</tbody></table></div></div>');
+        }
+
+        /** Saltar desde un resultado al nivel de activos de ese responsable. */
+        $(document).on('click', '#ca-wrap .ca-ir', function (e) {
+            e.preventDefault();
+            var $a = $(this);
+            $('#ca-q').val(''); $('#ca-q-limpiar').addClass('d-none');
+            ultimaBusq = '';
+            $busq.hide().empty();
+            $('#ca-migas-wrap').show();
+
+            // Se reconstruye el contexto completo con lo que traía el resultado, así el
+            // usuario cae parado en el mismo lugar que si hubiera bajado por el mapa:
+            // migas navegables y la oficina lista para levantar.
+            // camelCase y no 'mun-nom': jQuery normaliza data-mun-nom a .data('munNom').
+            ctx.municipio = $a.data('mun')  ? { id: $a.data('mun'),  nombre: $a.data('munNom'),  sin: false } : null;
+            ctx.predio    = $a.data('pred') ? { id: $a.data('pred'), nombre: $a.data('predNom') } : null;
+            ctx.oficina   = $a.data('ofi')  ? { id: $a.data('ofi'),  nombre: $a.data('ofiNom'), lev: '' } : null;
+            ctx.responsable = { id: $a.data('resp'), nombre: $a.data('nombre') };
+            verActivos(ctx.responsable.id);
+        });
+
+        verMunicipios();
     })();
     </script>
 </div>

@@ -65,7 +65,8 @@ public class PerfilService {
             rd.setNombre(r.getPersona() != null ? r.getPersona().getNombreCompleto() : "-");
             rd.setCodigoFuncionario(r.getCodigoFuncionario());
             rd.setCargo(r.getCargo() != null ? r.getCargo().getNombre() : "—");
-            rd.setOficina(r.getOficina() != null ? r.getOficina().getNombre() : "—");
+            rd.setOficina(r.getOficina() != null
+                    ? com.usic.SistemasActivosFijosUAP.controller.activo.ActivosController.etiquetaOficina(r.getOficina()) : "—");
             rlist.add(rd);
         }
         dto.setResponsables(rlist);

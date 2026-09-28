@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,14 +14,19 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableActivoGrupoDTO;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IHistorialBloqueoActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActivoDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IHistorialBloqueoActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.HistorialBloqueoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -78,7 +84,7 @@ public class ActivoServiceImpl implements IActivoService{
     @Transactional(readOnly = true)
     public Page<Activo> buscarConFiltros(String searchValue, String codigo, String responsableId,
                                         String oficinaId, String predioId, String usuario,
-                                        String fecha, Pageable pageable) {
+                                        String fecha, String grupoId, Pageable pageable) {
         Specification<Activo> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -103,6 +109,13 @@ public class ActivoServiceImpl implements IActivoService{
             if (predioId != null && !predioId.isBlank()) {
                 predicates.add(cb.equal(
                         root.get("oficina").get("predio").get("idPredio"), Long.valueOf(predioId)));
+            }
+
+            // Lo usa la tarjeta del responsable en Consulta de Activos: al tocar un grupo
+            // contable del desglose, la tabla queda con los bienes de ese grupo.
+            if (grupoId != null && !grupoId.isBlank()) {
+                predicates.add(cb.equal(
+                        root.get("grupoContable").get("idGrupoContable"), Long.valueOf(grupoId)));
             }
 
             if (usuario != null && !usuario.isBlank()) {
@@ -197,6 +210,17 @@ public class ActivoServiceImpl implements IActivoService{
     }
 
     @Override
+    public List<Activo> findByResponsableIdResponsableAndEstado(Long idResponsable, String estado) {
+        return dao.findByResponsableIdResponsableAndEstado(idResponsable, estado);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ResponsableActivoGrupoDTO> conteoPorGrupoContableDeResponsable(Long idResponsable) {
+        return dao.conteoPorGrupoContableDeResponsable(idResponsable);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<Activo> findAllForSync() {
         // Projection ligera: solo trae campos de hash y clave, no lazy associations
@@ -206,5 +230,74 @@ public class ActivoServiceImpl implements IActivoService{
             .setHint("jakarta.persistence.fetchgraph", 
                     entityManager.getEntityGraph("activo.syncGraph")) // ver abajo
             .getResultList();
+    }
+
+    @Autowired
+    private IHistorialBloqueoActivoDao historialBloqueoDao;
+
+    @Override
+    @Transactional
+    public void bloquearActivosDeResponsable(Long idResponsable, Usuario usuario, String observacion) {
+        Responsable responsable = responsableService.findById(idResponsable);
+        if (responsable == null) return;
+
+        List<Activo> activos = dao.findByResponsableIdResponsableAndEstado(idResponsable, Activo.ESTADO_ACTIVO);
+        LocalDateTime ahora = LocalDateTime.now();
+        String usuarioNombre = usuario != null ? usuario.getUsuario() : "SISTEMA";
+
+        for (Activo a : activos) {
+            a.setBloqueado(true);
+            a.setBloqueadoPor(usuario != null ? usuario.getIdUsuario() : null);
+            a.setBloqueadoFecha(ahora);
+            dao.save(a);
+
+            HistorialBloqueoActivo hist = new HistorialBloqueoActivo();
+            hist.setActivo(a);
+            hist.setResponsable(responsable);
+            hist.setAccion("BLOQUEO");
+            hist.setUsuario(usuarioNombre);
+            hist.setFecha(ahora);
+            hist.setObservacion(observacion);
+            historialBloqueoDao.save(hist);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void desbloquearActivosDeResponsable(Long idResponsable, Usuario usuario, String observacion) {
+        Responsable responsable = responsableService.findById(idResponsable);
+        if (responsable == null) return;
+
+        List<Activo> activos = dao.findByResponsableIdResponsableAndEstado(idResponsable, Activo.ESTADO_ACTIVO);
+        LocalDateTime ahora = LocalDateTime.now();
+        String usuarioNombre = usuario != null ? usuario.getUsuario() : "SISTEMA";
+
+        for (Activo a : activos) {
+            a.setBloqueado(false);
+            a.setBloqueadoPor(null);
+            a.setBloqueadoFecha(null);
+            dao.save(a);
+
+            HistorialBloqueoActivo hist = new HistorialBloqueoActivo();
+            hist.setActivo(a);
+            hist.setResponsable(responsable);
+            hist.setAccion("DESBLOQUEO");
+            hist.setUsuario(usuarioNombre);
+            hist.setFecha(ahora);
+            hist.setObservacion(observacion);
+            historialBloqueoDao.save(hist);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<HistorialBloqueoActivo> obtenerHistorialBloqueoPorResponsable(Long idResponsable) {
+        return historialBloqueoDao.findByResponsableIdResponsable(idResponsable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<HistorialBloqueoActivo> obtenerHistorialBloqueoPorActivo(Long idActivo) {
+        return historialBloqueoDao.findByActivoIdActivo(idActivo);
     }
 }

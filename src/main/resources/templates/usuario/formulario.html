@@ -9,7 +9,8 @@
     
     <div class="modal-body">
         <div class="row">
-            <div class="col-12 col-md-6">
+            <!-- Se añade mb-3 para separación vertical en móviles -->
+            <div class="col-12 col-md-6 mb-3">
                 <label class="form-label" for="usuario">Nombre de Usuario</label>
                 <input type="text" 
                        id="usuario" 
@@ -21,7 +22,7 @@
                 <div class="valid-feedback">Correcto!</div>
                 <div class="invalid-feedback">Por favor Introduzca un Nombre.</div>
             </div>
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-md-6 mb-3">
                 <label class="form-label" for="password">Contraseña</label>
                 <input type="password" 
                        id="password" 
@@ -34,7 +35,7 @@
             </div>
         </div>
         <div class="row">
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-md-6 mb-3">
                 <label for="select2Basic" class="form-label">Persona</label>
                 <select id="select2Basic" 
                         name="persona.idPersona"
@@ -51,7 +52,7 @@
                 <div class="valid-feedback">Correcto!</div>
                 <div class="invalid-feedback">Debe seleccionar a una persona.</div>
             </div>
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-md-6 mb-3">
                 <label for="select2Primary" class="form-label">Roles</label>
                 <div class="select2-primary">
                     <select id="select2Primary" 
@@ -72,11 +73,10 @@
         </div>
     </div>
     <div class="modal-footer">
-        <div class="row">
-            <div class="col-12">
-                <a type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</a>
-                <button type="submit" class="btn btn-success" th:text="${edit}? 'Guardar Cambios': 'Guardar Registro'"></button>
-            </div>
+        <!-- Flexbox para alinear botones a la derecha y evitar desbordes -->
+        <div class="d-flex justify-content-end gap-2 w-100">
+            <a type="button" class="btn btn-secondary text-white" data-bs-dismiss="modal">Cancelar</a>
+            <button type="submit" class="btn btn-success" th:text="${edit}? 'Guardar Cambios': 'Guardar Registro'"></button>
         </div>
     </div>
 </form>

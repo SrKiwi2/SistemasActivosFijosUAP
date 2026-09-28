@@ -3,8 +3,10 @@ package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -18,6 +20,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IAsignacionActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.FiltrosAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResumenAsignacionDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.RubroAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResumenListadoAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
@@ -77,6 +80,21 @@ public class AsignacionActivoServiceImpl implements IAsignacionActivoService {
     }
 
     @Override
+    public Map<Long, List<RubroAsignacionDTO>> rubrosPorAsignacion(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return Map.of();
+
+        // LinkedHashMap y groupingBy con lista: la consulta ya viene ordenada por
+        // cantidad descendente y ese orden es el que se muestra, así que no se puede
+        // usar un Map que lo pierda.
+        Map<Long, List<RubroAsignacionDTO>> porActa = new LinkedHashMap<>();
+        for (Object[] fila : dao.rubrosPorAsignacion(ids)) {
+            porActa.computeIfAbsent(RubroAsignacionDTO.idAsignacionDe(fila), k -> new ArrayList<>())
+                   .add(RubroAsignacionDTO.desdeFila(fila));
+        }
+        return porActa;
+    }
+
+    @Override
     public Optional<AsignacionActivo> findByActivo(Activo activo) {
         // La consulta puede traer más de una: si así fuera, la vigente es la más
         // reciente. Antes esto reventaba con NonUniqueResultException en vez de elegir.
@@ -94,6 +112,11 @@ public class AsignacionActivoServiceImpl implements IAsignacionActivoService {
     @Override
     public Optional<AsignacionActivo> findByIdConDetalles(Long id) {
         return dao.findByIdConDetalles(id);
+    }
+
+    @Override
+    public List<AsignacionActivo> findAllByIdInConDetalles(List<Long> ids) {
+        return dao.findAllByIdInConDetalles(ids);
     }
 
     @Override
@@ -119,6 +142,22 @@ public class AsignacionActivoServiceImpl implements IAsignacionActivoService {
     public Page<AsignacionActivo> buscarConFiltros(FiltrosAsignacionDTO filtros, String orden,
                                                    boolean descendente, Pageable pagina) {
         return dao.findAll(especificacion(filtros, orden, descendente), pagina);
+    }
+
+    @Override
+    public List<AsignacionActivo> buscarConFiltrosConDetalles(FiltrosAsignacionDTO filtros, String orden,
+                                                               boolean descendente) {
+        List<AsignacionActivo> resumen = dao.findAll(
+                especificacion(filtros, orden, descendente), Pageable.unpaged()).getContent();
+
+        List<Long> ids = resumen.stream().map(AsignacionActivo::getIdAsignacionActivo).toList();
+        if (ids.isEmpty()) return List.of();
+
+        // El fetch join de findAllByIdInConDetalles no respeta el orden de :ids — se
+        // reordena según el orden que ya resolvió la especificación de arriba.
+        Map<Long, AsignacionActivo> porId = dao.findAllByIdInConDetalles(ids).stream()
+                .collect(Collectors.toMap(AsignacionActivo::getIdAsignacionActivo, a -> a));
+        return ids.stream().map(porId::get).filter(Objects::nonNull).toList();
     }
 
     @Override
@@ -170,8 +209,49 @@ public class AsignacionActivoServiceImpl implements IAsignacionActivoService {
                         LocalDate.of(f.gestion(), 1, 1).atStartOfDay(),
                         LocalDate.of(f.gestion(), 12, 31).atTime(LocalTime.MAX)));
             }
+            if (f.mes() != null) {
+                if (f.gestion() != null) {
+                    // Con año y mes se sabe el rango exacto, así que se filtra por rango
+                    // y el índice de fecha_asignacion sigue sirviendo, igual que arriba.
+                    LocalDate inicio = LocalDate.of(f.gestion(), f.mes(), 1);
+                    ps.add(cb.between(root.get("fechaAsignacion"),
+                            inicio.atStartOfDay(),
+                            inicio.withDayOfMonth(inicio.lengthOfMonth()).atTime(LocalTime.MAX)));
+                } else {
+                    // Sin año: "todos los marzos". Acá no queda otra que extraer el mes,
+                    // y el índice no aplica; es el precio de una consulta que cruza años.
+                    //
+                    // date_part y no month(): month() no existe en PostgreSQL —
+                    // cb.function() la emite tal cual y la consulta revienta con
+                    // "function month(timestamp) does not exist". date_part es específica
+                    // de PostgreSQL, que es el único motor que usa este sistema, y
+                    // devuelve double, así que la comparación va contra un double.
+                    ps.add(cb.equal(
+                            cb.function("date_part", Double.class,
+                                        cb.literal("month"), root.get("fechaAsignacion")),
+                            f.mes().doubleValue()));
+                }
+            }
             if (f.idResponsable() != null) {
                 ps.add(cb.equal(root.get("responsable").get("idResponsable"), f.idResponsable()));
+            }
+            if (f.idGrupoContable() != null) {
+                // El grupo contable es del bien, no del acta: se pide que el acta tenga
+                // AL MENOS uno de ese grupo. Va por EXISTS y no por join para no
+                // multiplicar el acta por cada bien que cumpla.
+                ps.add(existeDetalle(root, query, cb,
+                        (d, c) -> c.equal(d.get("activo").get("grupoContable").get("idGrupoContable"),
+                                          f.idGrupoContable())));
+            }
+            if (f.oficina() != null) {
+                ps.add(cb.like(cb.lower(root.get("oficinaDestino").get("nombre")),
+                        "%" + f.oficina().toLowerCase() + "%"));
+            }
+            if (f.idUsuarioRegistro() != null) {
+                ps.add(cb.equal(root.get("registroIdUsuario"), f.idUsuarioRegistro()));
+            }
+            if (f.comprobante() != null) {
+                ps.add(cb.equal(root.get("comprobante"), f.comprobante()));
             }
 
             Predicate sincronizacion = predicadoSincronizacion(f.sincronizacion(), root, query, cb);

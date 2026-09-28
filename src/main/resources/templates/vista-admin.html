@@ -234,7 +234,7 @@
                         <td th:text="${activo.descripcion}"
                             th:attr="data-bs-toggle='tooltip', title=${activo.descripcion}" class="text-truncate"
                             style="max-width: 200px;"></td>
-                        <td th:text="${activo.oficina.nombre}"
+                        <td th:text="${(activo.oficina.codOfi != null ? activo.oficina.codOfi + ' — ' : '') + activo.oficina.nombre}"
                             th:attr="data-bs-toggle='tooltip', title=${activo.oficina.nombre}" class="text-truncate"
                             style="max-width: 120px;"></td>
                         <td th:text="${activo.grupoContable.nombre}"

@@ -67,6 +67,27 @@ public class AsignacionActivo extends AuditoriaConfig{
     @Column(name = "observacion", columnDefinition = "text")
     private String observacion;
 
+    /** N° de hoja de ruta / ARD con el que ingresó el trámite, para el reporte de actas. */
+    @Column(name = "hoja_ruta", length = 50)
+    private String hojaRuta;
+
+    /** N° de certificación presupuestaria asociado al acta, para el reporte de actas. */
+    @Column(name = "certificacion", length = 50)
+    private String certificacion;
+
+    /*
+     * "Sistematizado por" NO es un campo propio: es quien registró el acta en el
+     * sistema, es decir `registroIdUsuario` (heredado de AuditoriaConfig). Pedirlo
+     * como texto libre habría sido guardar el mismo dato dos veces, con el riesgo de
+     * que quedaran desincronizados. El nombre para mostrar se resuelve en el
+     * controlador (ver ReportesController.resolverNombresUsuarios /
+     * CAsignacionActivoController) a partir de ese id.
+     */
+
+    /** Si el acta tiene comprobante de respaldo. Null = todavía no se registró el dato. */
+    @Column(name = "comprobante")
+    private Boolean comprobante;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_responsable")
     private Responsable responsable;

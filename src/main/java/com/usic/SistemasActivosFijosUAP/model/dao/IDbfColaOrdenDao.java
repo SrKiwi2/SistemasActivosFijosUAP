@@ -39,6 +39,35 @@ public interface IDbfColaOrdenDao extends JpaRepository<DbfColaOrden, Long> {
         """)
     List<Object[]> resumenPorActivo(@Param("ids") List<Long> ids);
 
+    /**
+     * Órdenes en un estado dado posteriores a la última ya avisada.
+     * <p>
+     * Lo usa el aviso automático para no repetir la misma alerta en cada pasada: solo
+     * mira lo que apareció después de lo último que notificó.
+     */
+    List<DbfColaOrden> findByEstadoAndIdOrdenGreaterThanOrderByIdOrdenAsc(
+            String estado, Long idOrden, Pageable pageable);
+
+    /** La orden más reciente en un estado dado. */
+    java.util.Optional<DbfColaOrden> findFirstByEstadoOrderByIdOrdenDesc(String estado);
+
     /** Órdenes de un activo, de la más reciente a la más vieja. */
     List<DbfColaOrden> findByIdActivoOrderByIdOrdenDesc(Long idActivo);
+
+    /** Rechazos de ACTUAL con activo conocido, los más viejos primero — candidatos a reintento. */
+    List<DbfColaOrden> findByEstadoAndTablaOrderByIdOrdenAsc(String estado, String tabla, Pageable pageable);
+
+    /** ¿Hay una orden más nueva para este activo? Si sí, esta ya quedó superada. */
+    boolean existsByIdActivoAndIdOrdenGreaterThan(Long idActivo, Long idOrden);
+
+    /**
+     * Órdenes de una tabla de apoyo (OFICINA, RESP) para un conjunto de registros del
+     * SCIAF, de la más reciente a la más vieja. La primera de cada registro es la que
+     * dice si su último cambio llegó al VSIAF.
+     */
+    List<DbfColaOrden> findByTablaAndIdRegistroInAndEstadoNotOrderByIdOrdenDesc(
+            String tabla, java.util.Collection<Long> idsRegistro, String estadoExcluido);
+
+    /** La orden más reciente de un activo, para anotarle el contador de reintentos. */
+    java.util.Optional<DbfColaOrden> findFirstByIdActivoOrderByIdOrdenDesc(Long idActivo);
 }

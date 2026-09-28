@@ -42,6 +42,14 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         "opcion_rol", "opcion_persona", "opcion_usuario", "opcion_responsable"
     );
 
+    /**
+     * Transferencia interna y externa se unificaron en {@code opcion_transferencia}: quien
+     * tuviera cualquiera de las dos sigue entrando, sin volver a asignarle permisos.
+     */
+    private static final Set<String> CODIGOS_TRANSFERENCIA_VIEJOS = Set.of(
+        "opcion_trInterna", "opcion_trExterna"
+    );
+
     /** Opciones de "Seguimiento y Consultas" + "Reportes" que ve APOYO. */
     private static final Set<String> CODIGOS_CONSULTA = Set.of(
         "opcion_aan", "opcion_ta", "opcion_ActivoIngreso", "opcion_ba",
@@ -60,6 +68,14 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
     private static final Set<String> CODIGOS_MOVIL_APOYO = Set.of(
         "MOV_ACCESO", "MOV_ESCANER", "MOV_BUSQUEDA",
         "MOV_INFORME", "MOV_INVENTARIO", "MOV_ASIGNACIONES"
+    );
+
+    /**
+     * Supervisión (Monitoreo de actividad y Autorizaciones): la ven siempre ADMINISTRADOR
+     * y SUPER USUARIO, aunque el SUPER USUARIO tenga permisos asignados a mano.
+     */
+    private static final Set<String> CODIGOS_SUPERVISION = Set.of(
+        "opcion_actividad", "opcion_autorizaciones"
     );
 
     /** Opciones que ve RESPONSABLE por defecto (módulo de comunicados). */
@@ -153,6 +169,7 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
                         .collect(Collectors.toCollection(HashSet::new));
 
             case "APOYO":
+                // (Supervisión queda fuera a propósito: es solo para ADMINISTRADOR / SUPER USUARIO.)
                 // Consulta/seguimiento/reportes de la web + lo que le corresponde
                 // en la app móvil.
                 return todos.stream()
@@ -193,6 +210,10 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         if (usuario != null && usuario.getIdUsuario() != null) {
             Set<String> asignados = codigosPorUsuario(usuario.getIdUsuario());
             if (!asignados.isEmpty()) {
+                if ("SUPER USUARIO".equals(rol)) asignados.addAll(CODIGOS_SUPERVISION);
+                if (asignados.stream().anyMatch(CODIGOS_TRANSFERENCIA_VIEJOS::contains)) {
+                    asignados.add("opcion_transferencia");
+                }
                 return asignados;
             }
         }

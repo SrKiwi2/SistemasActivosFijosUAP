@@ -206,9 +206,40 @@ public class Activo extends AuditoriaConfig{
     public static final String SINC_EN_COLA = "EN_COLA";
     public static final String SINC_CONFIRMADO = "CONFIRMADO";
     public static final String SINC_ERROR = "ERROR";
+
+    /**
+     * Valor de {@code _estado} de un bien vigente: el único que se puede mover, asignar o
+     * transferir, porque es el único que existe en el VSIAF. Un PENDIENTE está esperando
+     * aprobación y todavía no se subió; un CANCELADO está dado de baja.
+     */
+    public static final String ESTADO_ACTIVO = "ACTIVO";
     
     @Column(name = "hash_datos", length = 32)
     private String hashDatos;
+
+    @Column(name = "bloqueado", columnDefinition = "boolean default false", nullable = false)
+    private Boolean bloqueado = false;
+
+    @Column(name = "bloqueado_por")
+    private Long bloqueadoPor;
+
+    @Column(name = "bloqueado_fecha")
+    private LocalDateTime bloqueadoFecha;
+
+    /**
+     * Regla única del bloqueo: un bien bloqueado no cambia de responsable ni de oficina
+     * por ningún camino (asignación, transferencia interna/externa, Londra, edición de
+     * actas, edición del activo). La llaman todos esos flujos antes de mover el bien.
+     *
+     * @param accion lo que se intentaba hacer, para el mensaje ("transferir", "reasignar"…)
+     * @throws IllegalStateException si el bien está bloqueado
+     */
+    public void exigirNoBloqueado(String accion) {
+        if (Boolean.TRUE.equals(bloqueado)) {
+            throw new IllegalStateException("El activo " + getCodigo() + " está bloqueado: no se puede "
+                    + accion + ". Un administrador debe desbloquearlo primero.");
+        }
+    }
     
     // 👇 3. AGREGAR EL MÉTODO CALCULAR HASH
     public String calcularHash() {

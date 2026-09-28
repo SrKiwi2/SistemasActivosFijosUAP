@@ -1,13 +1,16 @@
 <div class="card">
-    <div class="card-header d-flex justify-content-lg-between">
-        <h5>Registro Usuario</h5>
-        <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
+    <!-- Encabezado responsivo: apila los elementos en móviles y los alinea en PC -->
+    <div class="card-header d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
+        <h5 class="m-0">Registro Usuario</h5>
+        <button type="button" class="btn btn-primary text-nowrap" onclick="cargarFormulario()" data-bs-toggle="modal"
             data-bs-target="#modalFormularioRol">
             <i class="fa-solid fa-user-plus"></i> Agregar Rol
         </button>
     </div>
+    
     <div class="card-datatable table-responsive pt-0">
-        <table class="datatables-basic table table-hover" id="data-table">
+        <!-- Se añade style="width:100%" necesario para DataTables responsivo -->
+        <table class="datatables-basic table table-hover" id="data-table" style="width:100%">
             <thead>
                 <tr>
                     <th>#</th>
@@ -17,18 +20,26 @@
             </thead>
             <tbody class="animate__animated animate__bounceInDown">
                 <tr th:each="rol, index: ${listaRoles}">
-                    <th th:text="${index.index+1}"></th>
-                    <th th:text="${rol.nombre}"></th>
-                    <th>
-                        <button type="button" class="btn btn-sm btn-primary"
-                            th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
-                            data-bs-toggle="modal" data-bs-target="#modalFormularioRol">
-                            <i class="fa-solid fa-pen-to-square"></i> Editar
-                        </button>
-                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${rol.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
-                            <i class="fa-solid fa-trash"></i> Eliminar
-                        </button>
-                    </th>
+                    <!-- CORRECCIÓN SEMÁNTICA: Usar <td> en lugar de <th> dentro del tbody -->
+                    <td th:text="${index.index+1}"></td>
+                    <td th:text="${rol.nombre}"></td>
+                    <td>
+                        <!-- Contenedor flex con gap para evitar que los botones se encimen -->
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-primary text-nowrap"
+                                th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
+                                data-bs-toggle="modal" data-bs-target="#modalFormularioRol">
+                                <i class="fa-solid fa-pen-to-square"></i> 
+                                <!-- Oculta el texto en pantallas extra pequeñas, dejando solo el icono -->
+                                <span class="d-none d-sm-inline">Editar</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger text-nowrap" 
+                                th:onclick="eliminar([[${rol.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
+                                <i class="fa-solid fa-trash"></i> 
+                                <span class="d-none d-sm-inline">Eliminar</span>
+                            </button>
+                        </div>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -37,6 +48,8 @@
 
 <script>
     $('#data-table').DataTable({
+        scrollX: true,       // Activa el scroll horizontal interno si las columnas superan el ancho
+        autoWidth: false,    // Evita que DataTables asigne anchos fijos que rompen el diseño móvil
         language: {
             "sProcessing": "Procesando...",
             "sLengthMenu": "Mostrar _MENU_ registros",

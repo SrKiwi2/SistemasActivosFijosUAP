@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -35,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
+import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.ActualDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.AuxiliarDbfWriterService;
@@ -63,7 +65,6 @@ import com.usic.SistemasActivosFijosUAP.model.dto.DetalleActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.DetalleRegistroItem;
 import com.usic.SistemasActivosFijosUAP.model.dto.EditarActivoPendienteRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.EditarLoteRequest;
-import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.model.dto.RegistroHuecoRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.RegistroHuecosLoteRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.RegistroMasivoRequest;
@@ -80,6 +81,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
+import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaDetalle;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
 import com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncService;
@@ -124,6 +126,7 @@ public class ActivosController {
 
     private final PasswordEncoder passwordEncoder;
     private final IHistorialActivoDao historialActivoDao;
+    private final com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService actividadService;
 
     /**
      * Código del permiso (opcion_menu oculto) que habilita el cambio urgente del
@@ -131,6 +134,12 @@ public class ActivosController {
      * pantalla de permisos por usuario. Ver {@code OpcionMenuSeeder.PERMISOS}.
      */
     private static final String PERMISO_EDITAR_CODIGO = "opcion_activo_editar_codigo";
+
+    /** Habilita el botón/acción "Editar activo" (modificar-activo) en el formulario. */
+    private static final String PERMISO_EDITAR_ACTIVO = "opcion_activo_editar";
+
+    /** Habilita el botón/acción "Desaprobar activo" (baja-activo) en el formulario. */
+    private static final String PERMISO_DESAPROBAR_ACTIVO = "opcion_activo_desaprobar";
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -169,11 +178,12 @@ public class ActivosController {
         String predioId = params.get("predio");
         String usuario = params.get("usuario");
         String fecha = params.get("fecha");
+        String grupoId = params.get("grupo");
 
         PageRequest pageRequest = PageRequest.of(start / length, length);
 
         Page<Activo> pagina = activoService.buscarConFiltros(
-                searchValue, codigo, responsableId, oficinaId, predioId, usuario, fecha, pageRequest);
+                searchValue, codigo, responsableId, oficinaId, predioId, usuario, fecha, grupoId, pageRequest);
 
         List<ActivoDTO> activosDTO = pagina.getContent().stream().map(activo -> {
             ActivoDTO dto = new ActivoDTO();
@@ -183,11 +193,11 @@ public class ActivosController {
             dto.setResponsable(activo.getResponsable().getPersona().getNombre() + " "
                     + activo.getResponsable().getPersona().getPaterno() + " "
                     + activo.getResponsable().getPersona().getMaterno());
-            dto.setOficina(activo.getOficina().getNombre());
+            dto.setOficina(etiquetaOficina(activo.getOficina()));
             dto.setCosto(activo.getCosto());
             dto.setVidaUtil(activo.getVidaUtil());
             dto.setFechaAdquisicion(activo.getFechaAdquisicion().toString());
-            dto.setEstado(activo.getEstadoActivo().getNombre());
+            dto.setEstado(activo.getEstadoActivo() != null ? activo.getEstadoActivo().getNombre() : "Sin estado");
 
             try {
                 String idEncriptado = Encriptar.encrypt(activo.getIdActivo().toString());
@@ -215,8 +225,10 @@ public class ActivosController {
         model.addAttribute("responsables", responsableService.listarResponsables());
         model.addAttribute("financiadores", organismoFinancieroService.findAll());
         model.addAttribute("auxiliares", auxiliarService.findAll());
-        // Habilita (o no) el botón de "modificar código urgente" según el permiso del usuario.
+        // Habilita (o no) los botones/acciones protegidas del formulario según el permiso del usuario.
         model.addAttribute("puedeEditarCodigo", tienePermisoEditarCodigo(request));
+        model.addAttribute("puedeEditarActivo", tienePermisoEditarActivo(request));
+        model.addAttribute("puedeDesaprobarActivo", tienePermisoDesaprobarActivo(request));
         return "activo/formulario";
     }
 
@@ -227,10 +239,28 @@ public class ActivosController {
      * se les debe otorgar explícitamente {@link #PERMISO_EDITAR_CODIGO}.
      */
     private boolean tienePermisoEditarCodigo(HttpServletRequest request) {
+        return tienePermiso(request, PERMISO_EDITAR_CODIGO);
+    }
+
+    /** ¿El usuario en sesión puede editar (modificar-activo) un activo ya registrado? */
+    private boolean tienePermisoEditarActivo(HttpServletRequest request) {
+        return tienePermiso(request, PERMISO_EDITAR_ACTIVO);
+    }
+
+    /** ¿El usuario en sesión puede desaprobar (baja-activo) un activo en el VSIAF? */
+    private boolean tienePermisoDesaprobarActivo(HttpServletRequest request) {
+        return tienePermiso(request, PERMISO_DESAPROBAR_ACTIVO);
+    }
+
+    /**
+     * Chequeo genérico de un permiso puro contra {@code session.opciones} (los
+     * permisos efectivos calculados al login, ver módulo de usuario → permisos).
+     */
+    private boolean tienePermiso(HttpServletRequest request, String codigoPermiso) {
         if (request == null || request.getSession(false) == null) return false;
         Object opciones = request.getSession().getAttribute("opciones");
         if (opciones instanceof Set<?> set) {
-            return set.contains(PERMISO_EDITAR_CODIGO);
+            return set.contains(codigoPermiso);
         }
         return false;
     }
@@ -350,6 +380,12 @@ public class ActivosController {
             Map<String, Object> ok = new LinkedHashMap<>();
             ok.put("ok", true);
             ok.put("msg", String.format("Se registraron %d activos correctamente...", cantidad));
+            actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ACTIVO, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_REGISTRO,
+                    rangoCodigos(codigosGenerados),
+                    String.format("Registró %d activo(s) pendiente(s) de aprobación: %s", codigosGenerados.size(),
+                            rangoCodigos(codigosGenerados)),
+                    codigosGenerados.size(), codigosGenerados.size() == 1 && !activosGuardados.isEmpty()
+                            ? activosGuardados.get(0).getIdActivo() : null);
             ok.put("idsParaReporte", idsReporte);
 
             return ResponseEntity.ok(ok);
@@ -359,6 +395,14 @@ public class ActivosController {
             log.error("Error en registro masivo", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
         }
+    }
+
+    /** "01-02-001, 01-02-002" o "01-02-001 … 01-02-120 (120)" para la bitácora de actividad. */
+    private static String rangoCodigos(List<String> codigos) {
+        List<String> c = codigos.stream().filter(java.util.Objects::nonNull).toList();
+        if (c.isEmpty()) return "";
+        if (c.size() <= 3) return String.join(", ", c);
+        return c.get(0) + " … " + c.get(c.size() - 1) + " (" + c.size() + ")";
     }
 
     private String incrementarCodigoString(String codigoBase, int incremento) {
@@ -680,6 +724,25 @@ public class ActivosController {
         return actualDbfWriterService.esModoCola() ? "EN_COLA" : "OK";
     }
 
+    /**
+     * Deja anotado en el activo que el envío al VSIAF no salió, con el motivo.
+     * <p>
+     * Fuera de {@code @Transactional} el {@code save} explícito es lo que hace que la
+     * marca sobreviva: si no, el activo queda con el cambio en la base y sin rastro de
+     * que el VSIAF nunca lo recibió.
+     */
+    private void marcarErrorDeEnvio(Activo a, String motivo) {
+        try {
+            a.setSincVsiaf(Activo.SINC_ERROR);
+            a.setSincVsiafMensaje(motivo);
+            a.setSincVsiafFecha(LocalDateTime.now());
+            activoService.save(a);
+        } catch (Exception e) {
+            log.warn("No se pudo marcar el error de sincronización del activo {}: {}",
+                    a.getCodigo(), e.getMessage());
+        }
+    }
+
     /** Frase para el usuario, acorde a si la escritura ya ocurrió o está en camino. */
     private String detalleEnvio() {
         return actualDbfWriterService.esModoCola()
@@ -705,6 +768,12 @@ public class ActivosController {
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = usuario.getUsuario();
 
+        if (!tienePermisoEditarActivo(request)) {
+            log.warn("[EDITAR-ACTIVO] Usuario '{}' intentó editar un activo sin permiso.", usuarioNombre);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("ok", false,
+                    "msg", "No tiene autorización para editar activos. Solicite a un administrador que lo habilite."));
+        }
+
         try {
 
             Activo activoOriginal = activoService.findById(activoForm.getIdActivo());
@@ -718,7 +787,12 @@ public class ActivosController {
             boolean estabaActivo = "ACTIVO".equalsIgnoreCase(activoOriginal.getEstado());
 
             activoOriginal.setCodigo(activoForm.getCodigo());
-            activoOriginal.setCodigoSec(activoForm.getCodigoSec());
+            // El formulario no tiene campo para codigoSec (código secundario que viene del
+            // VSIAF). Copiarlo tal cual del form manda null y borra el que ya tenía, en la
+            // base y —vía la orden UPDATE— en ACTUAL.DBF.
+            if (activoForm.getCodigoSec() != null) {
+                activoOriginal.setCodigoSec(activoForm.getCodigoSec());
+            }
             activoOriginal.setDescripcion(activoForm.getDescripcion());
             activoOriginal.setCosto(activoForm.getCosto());
             activoOriginal.setVidaUtil(activoForm.getVidaUtil());
@@ -731,6 +805,19 @@ public class ActivosController {
                 activoOriginal.setGrupoContable(grupoCompleto);
             } else {
                 activoOriginal.setGrupoContable(null);
+            }
+
+            // Un bien bloqueado no cambia de oficina ni de responsable (el resto sí se edita).
+            if (Boolean.TRUE.equals(activoOriginal.getBloqueado())) {
+                Long ofiNueva = activoForm.getOficina() != null ? activoForm.getOficina().getIdOficina() : null;
+                Long respNuevo = activoForm.getResponsable() != null ? activoForm.getResponsable().getIdResponsable() : null;
+                Long ofiActual = activoOriginal.getOficina() != null ? activoOriginal.getOficina().getIdOficina() : null;
+                Long respActual = activoOriginal.getResponsable() != null ? activoOriginal.getResponsable().getIdResponsable() : null;
+                if (!java.util.Objects.equals(ofiNueva, ofiActual) || !java.util.Objects.equals(respNuevo, respActual)) {
+                    return ResponseEntity.badRequest().body(Map.of("ok", false, "msg",
+                            "El activo " + activoOriginal.getCodigo() + " está bloqueado: no se puede cambiar su oficina "
+                            + "ni su responsable. Un administrador debe desbloquearlo primero."));
+                }
             }
 
             if (activoForm.getOficina() != null && activoForm.getOficina().getIdOficina() != null) {
@@ -788,6 +875,9 @@ public class ActivosController {
             activoOriginal.setApiEstado(Short.valueOf("3"));
             activoService.save(activoOriginal);
             log.info("Activo {} actualizado en BD.", activoOriginal.getCodigo());
+            actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ACTIVO, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_MODIFICACION,
+                    activoOriginal.getCodigo(), "Modificó el activo " + activoOriginal.getCodigo(),
+                    activoOriginal.getIdActivo());
 
             if (estabaActivo) {
                 try {
@@ -795,11 +885,19 @@ public class ActivosController {
                     if (activoOriginal.getOficina() == null || 
                         activoOriginal.getOficina().getPredio() == null ||
                         activoOriginal.getOficina().getPredio().getEntidad() == null) {
-                        return ResponseEntity.ok(Map.of("ok", true, "msg", "Actualizado en BD. No se sincronizó DBF por falta de datos de Oficina."));
+                        marcarErrorDeEnvio(activoOriginal,
+                                "Al activo le faltan datos de oficina, predio o entidad: no se pudo armar el envío al VSIAF.");
+                        return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "ERROR",
+                                "msg", "Guardado en la base, pero NO se envió al VSIAF: al activo le faltan datos de "
+                                     + "oficina, predio o entidad. El VSIAF quedó con la información anterior."));
                     }
 
                     String entidadCode = activoOriginal.getOficina().getPredio().getEntidad().getEntidadCodigo();
                     String unidadCode = activoOriginal.getOficina().getPredio().getUnidad();
+
+                    // Si la modificación cambió el auxiliar, el nuevo puede no existir todavía
+                    // en AUXILIAR.DBF: mandarlo primero evita un CODAUX huérfano en el VSIAF.
+                    String fallaAux = sincronizarAuxiliarDelActivo(activoOriginal, usuarioNombre);
 
                     actualDbfWriterService.actualizarDesdeActivo(
                         codigoOriginal,
@@ -809,15 +907,31 @@ public class ActivosController {
                         usuarioNombre
                     );
 
-                    return ResponseEntity.ok(Map.of("ok", true, "msg", "Activo actualizado correctamente en BD y DBF"));
+                    // Encolar no es haber escrito: en modo cola la orden la aplica el worker
+                    // VFPOLEDB y recién ahí el DBF cambia. La marca deja el activo visible
+                    // como EN_COLA hasta que ColaConfirmacionScheduler lea la respuesta.
+                    marcarEnvioAlVsiaf(activoOriginal);
+                    activoService.save(activoOriginal);
+
+                    if (fallaAux != null) {
+                        return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "PARCIAL",
+                                "msg", "Cambios enviados al VSIAF, pero el auxiliar NO se pudo enviar ("
+                                     + fallaAux + "): en el VSIAF el activo va a verse sin auxiliar."));
+                    }
+                    return ResponseEntity.ok(Map.of("ok", true, "vsiaf", estadoEnvio(),
+                            "msg", "Cambios guardados en la base. " + detalleEnvio()));
 
                 } catch (Exception e) {
                     log.error("Error sync DBF al modificar: {}", e.getMessage());
-                    return ResponseEntity.ok(Map.of("ok", true, "msg", "Guardado en BD, pero falló DBF: " + e.getMessage()));
+                    marcarErrorDeEnvio(activoOriginal, "No se pudo dejar la orden para el VSIAF: " + e.getMessage());
+                    return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "ERROR",
+                            "msg", "Guardado en la base, pero FALLÓ el envío al VSIAF: " + e.getMessage()
+                                 + ". Los dos sistemas quedaron distintos: revisá la cola o usá Conciliación."));
                 }
             }
 
-            return ResponseEntity.ok(Map.of("ok", true, "msg", "Modificación guardada (Estado: Pendiente)"));
+            return ResponseEntity.ok(Map.of("ok", true, "vsiaf", "NO_APLICA",
+                    "msg", "Modificación guardada. El activo sigue PENDIENTE, así que no se envió nada al VSIAF."));
 
         } catch (Exception e) {
             log.error("Error fatal modificando activo", e);
@@ -951,6 +1065,54 @@ public class ActivosController {
     }
 
     /** Registra el cambio de código en {@code historial_activo} sin romper el flujo principal. */
+    /**
+     * Deja el cambio de custodio en {@code historial_activo}. La oficina va igual en el
+     * "antes" y el "después" a propósito: esta pantalla no la mueve, y dejarla vacía haría
+     * ver el evento como un traslado que no ocurrió.
+     *
+     * <p>No rompe el flujo si falla: los activos ya están guardados y la orden al VSIAF ya
+     * fue encolada; quedarse sin la fila de historial es molesto, perder la reasignación no.
+     */
+    private void registrarHistorialAsignacion(Activo activo, Responsable respAnterior,
+                                              Responsable respNuevo, Oficina oficina,
+                                              Usuario usuario, String usuNombre, Long usuId) {
+        try {
+            HistorialActivo h = new HistorialActivo();
+            h.setActivo(activo);
+            h.setCodigoActivo(activo.getCodigo());
+            h.setTipoEvento("ASIGNACION");
+            h.setFechaEvento(LocalDateTime.now());
+            h.setIdUsuario(usuId);
+            h.setNombreUsuario(usuNombre);
+            String antes = nombreDe(respAnterior);
+            String despues = nombreDe(respNuevo);
+            h.setDescripcionEvento(String.format(
+                    "Cambio de responsable dentro de la misma oficina: '%s' → '%s'.",
+                    antes != null ? antes : "sin responsable",
+                    despues != null ? despues : "sin responsable"));
+
+            if (oficina != null) {
+                h.setOficinaAnterior(oficina);
+                h.setOficinaNueva(oficina);
+                h.setNombreOficinaAnterior(oficina.getNombre());
+                h.setNombreOficinaNueva(oficina.getNombre());
+            }
+            if (respAnterior != null) {
+                h.setResponsableAnterior(respAnterior);
+                h.setNombreRespAnterior(nombreDe(respAnterior));
+            }
+            if (respNuevo != null) {
+                h.setResponsableNuevo(respNuevo);
+                h.setNombreRespNuevo(nombreDe(respNuevo));
+            }
+
+            historialActivoDao.save(h);
+        } catch (Exception e) {
+            log.warn("[ASIGNACION] No se pudo registrar el historial del activo {}: {}",
+                    activo.getCodigo(), e.getMessage());
+        }
+    }
+
     private void registrarHistorialCambioCodigo(Activo activo, String codigoAnterior, String codigoNuevo,
                                                 String motivo, Usuario usuario) {
         try {
@@ -990,19 +1152,28 @@ public class ActivosController {
         public String       institucionDestino; // solo para EXTERNA
     }
 
-    private Auxiliar resolverAuxiliarDestino(
+    /**
+     * Qué pasó con el auxiliar de un activo que cambia de predio: en el VSIAF el auxiliar
+     * es propio de cada unidad, así que al mover el bien hay que ubicar (o crear) el
+     * equivalente en el predio destino. Se devuelve el detalle para poder avisárselo al
+     * usuario en la pantalla: es un dato que el sistema crea solo y conviene que lo revise.
+     */
+    public record AuxiliarResuelto(Auxiliar auxiliar, boolean creado, boolean vsiafOk, String mensaje) {}
+
+    private AuxiliarResuelto resolverAuxiliarDestino(
         Auxiliar auxOrigen,
         Predio predioDestino,
         String usuNombre) {
  
-        if (auxOrigen == null) return null;
+        if (auxOrigen == null) return new AuxiliarResuelto(null, false, true, "El activo no tiene auxiliar.");
         if (predioDestino == null) {
             log.warn("[AUX] resolverAuxiliarDestino: predioDestino es null, sin cambio.");
-            return auxOrigen;
+            return new AuxiliarResuelto(auxOrigen, false, true, "Sin predio destino: se mantiene el auxiliar.");
         }
         if (auxOrigen.getGrupoContable() == null) {
             log.warn("[AUX] El auxiliar '{}' no tiene grupoContable asignado.", auxOrigen.getNombre());
-            return null;
+            return new AuxiliarResuelto(null, false, false,
+                    "El auxiliar '" + auxOrigen.getNombre() + "' no tiene grupo contable: el activo quedará sin auxiliar en el VSIAF.");
         }
     
         Long idPredioDest = predioDestino.getIdPredio();
@@ -1025,7 +1196,8 @@ public class ActivosController {
             Auxiliar encontrado = auxExistente.get();
             log.info("[AUX] Auxiliar ya existe en destino: '{}' CodAux={} (ID={})",
                 nombreAux, encontrado.getCodAux(), encontrado.getIdAuxiliar());
-            return encontrado;
+            return new AuxiliarResuelto(encontrado, false, true,
+                    "Ya existía en el predio destino (código " + encontrado.getCodAux() + ").");
         }
     
         // 2. No existe → crear en BD con el siguiente codAux correlativo
@@ -1054,6 +1226,8 @@ public class ActivosController {
             nuevoAux.getIdAuxiliar(), nombreAux, nextCod);
 
         // 3. Sincronizar con auxiliar.DBF por la misma vía que el resto (cola → worker VFPOLEDB)
+        boolean vsiafOk = true;
+        String detalleVsiaf = "";
         try {
             auxiliarDbfWriterService.asegurarEnVsiaf(nuevoAux, usuNombre);
             log.info("[AUX-DBF] Auxiliar '{}' enviado al VSIAF (unidad='{}')",
@@ -1061,9 +1235,102 @@ public class ActivosController {
         } catch (Exception e) {
             // No revertir: el auxiliar ya está en BD, el DBF se puede re-sincronizar después
             log.error("[AUX-DBF] Auxiliar creado en BD pero NO enviado al VSIAF: {}", e.getMessage());
+            vsiafOk = false;
+            detalleVsiaf = " NO se pudo enviar al VSIAF: " + e.getMessage();
         }
 
-        return nuevoAux;
+        return new AuxiliarResuelto(nuevoAux, true, vsiafOk,
+                "Se creó en el predio destino con código " + nextCod + "." + detalleVsiaf);
+    }
+
+    /**
+     * Qué va a pasar si se confirma la transferencia, sin tocar nada: si es interna o
+     * externa (externa = cambia de predio), y qué auxiliar va a usar cada activo en el
+     * predio destino, avisando cuáles se van a crear. Es lo que la pantalla muestra como
+     * observación antes de confirmar: el auxiliar lo crea el sistema solo y el usuario
+     * necesita verlo.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/transferencia-masiva/previsualizar")
+    @ResponseBody
+    public ResponseEntity<?> previsualizarTransferencia(@RequestBody TransferenciaMasivaRequest payload) {
+        try {
+            Oficina ofDestino = oficinaService.findById(payload.idOficina);
+            if (ofDestino == null || ofDestino.getPredio() == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Oficina destino no válida."));
+            }
+            Predio predioDestino = ofDestino.getPredio();
+
+            List<Map<String, Object>> activos = new ArrayList<>();
+            List<String> bloqueados = new ArrayList<>();
+            List<String> noEncontrados = new ArrayList<>();
+            Map<String, Map<String, Object>> auxiliaresPorCrear = new LinkedHashMap<>();
+            boolean algunCambioDePredio = false;
+
+            for (String codigo : (payload.codigos == null ? List.<String>of() : payload.codigos)) {
+                Optional<Activo> opt = activoService.findByCodigo(codigo);
+                if (opt.isEmpty()) { noEncontrados.add(codigo); continue; }
+                Activo a = opt.get();
+                if (Boolean.TRUE.equals(a.getBloqueado())) { bloqueados.add(codigo); continue; }
+
+                Predio predioActual = (a.getOficina() != null) ? a.getOficina().getPredio() : null;
+                boolean cambiaPredio = predioActual == null
+                        || !predioDestino.getIdPredio().equals(predioActual.getIdPredio());
+                if (cambiaPredio) algunCambioDePredio = true;
+
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("codigo", a.getCodigo());
+                m.put("descripcion", a.getDescripcion());
+                m.put("predioOrigen", predioActual != null ? predioActual.getUnidad() : null);
+                m.put("oficinaOrigen", a.getOficina() != null ? etiquetaOficina(a.getOficina()) : null);
+                m.put("cambiaPredio", cambiaPredio);
+                m.put("auxiliar", a.getAuxiliar() != null ? a.getAuxiliar().getNombre() : null);
+
+                if (cambiaPredio && a.getAuxiliar() != null && a.getAuxiliar().getGrupoContable() != null) {
+                    String nombreAux = a.getAuxiliar().getNombre().trim().toUpperCase();
+                    if (nombreAux.length() > 60) nombreAux = nombreAux.substring(0, 60);
+                    Long idGrupo = a.getAuxiliar().getGrupoContable().getIdGrupoContable();
+                    Optional<Auxiliar> existente = auxiliarService
+                            .findByPredioIdPredioAndGrupoContableIdGrupoContableAndNombreIgnoreCase(
+                                    predioDestino.getIdPredio(), idGrupo, nombreAux);
+                    m.put("auxiliarDestinoExiste", existente.isPresent());
+                    m.put("auxiliarDestino", nombreAux);
+                    m.put("codAuxDestino", existente.map(Auxiliar::getCodAux).orElse(null));
+                    if (existente.isEmpty()) {
+                        auxiliaresPorCrear.putIfAbsent(nombreAux + "|" + idGrupo, Map.of(
+                                "nombre", nombreAux,
+                                "grupoContable", a.getAuxiliar().getGrupoContable().getNombre(),
+                                "predio", predioDestino.getUnidad()));
+                    }
+                } else if (cambiaPredio && a.getAuxiliar() == null) {
+                    m.put("sinAuxiliar", true);
+                }
+                activos.add(m);
+            }
+
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("ok", true);
+            res.put("tipo", algunCambioDePredio ? "EXTERNA" : "INTERNA");
+            res.put("predioDestino", predioDestino.getUnidad());
+            res.put("oficinaDestino", etiquetaOficina(ofDestino));
+            res.put("activos", activos);
+            res.put("bloqueados", bloqueados);
+            res.put("noEncontrados", noEncontrados);
+            res.put("auxiliaresPorCrear", new ArrayList<>(auxiliaresPorCrear.values()));
+            return ResponseEntity.ok(res);
+
+        } catch (Exception e) {
+            log.error("Error previsualizando transferencia", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+
+    /** "5 — SISTEMAS (CAUN)": el código de oficina siempre acompaña al nombre. */
+    public static String etiquetaOficina(Oficina o) {
+        if (o == null) return null;
+        String unidad = (o.getPredio() != null && o.getPredio().getUnidad() != null)
+                ? " (" + o.getPredio().getUnidad() + ")" : "";
+        return o.getCodOfi() + " — " + (o.getNombre() != null ? o.getNombre() : "") + unidad;
     }
 
     @PostMapping("/transferencia-masiva")
@@ -1101,43 +1368,70 @@ public class ActivosController {
     
             // 1. Buscar activos y capturar estado ANTES del cambio
             List<TransferenciaService.ActivoConOrigen> acos = new ArrayList<>();
+            List<String> activosBloqueados = new ArrayList<>();
             for (String codigo : payload.codigos) {
-                activoService.findByCodigo(codigo).ifPresent(a ->
-                    acos.add(new TransferenciaService.ActivoConOrigen(a))
-                );
+                Optional<Activo> optActivo = activoService.findByCodigo(codigo);
+                if (optActivo.isPresent()) {
+                    Activo a = optActivo.get();
+                    if (Boolean.TRUE.equals(a.getBloqueado())) {
+                        activosBloqueados.add(codigo);
+                    } else {
+                        acos.add(new TransferenciaService.ActivoConOrigen(a));
+                    }
+                }
+            }
+    
+            if (!activosBloqueados.isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg", 
+                        "Los siguientes activos están bloqueados y no se pueden transferir: " + String.join(", ", activosBloqueados)));
             }
     
             if (acos.isEmpty()) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados."));
+                    .body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados o todos están bloqueados."));
             }
 
-            Map<Long, Auxiliar> cacheAuxiliaresDestino = new HashMap<>();
-    
+            Map<Long, AuxiliarResuelto> cacheAuxiliaresDestino = new HashMap<>();
+            List<Map<String, Object>> avisosAuxiliar = new ArrayList<>();
+            Long idPredioDestino = ofDestino.getPredio() != null ? ofDestino.getPredio().getIdPredio() : null;
+            boolean algunCambioDePredio = false;
+
             // 2. Modificar los activos en memoria (DESPUÉS de capturar el origen)
             LocalDate hoy = LocalDate.now();
             for (TransferenciaService.ActivoConOrigen ac : acos) {
                 Activo a = ac.activo;
-                if ("EXTERNA".equalsIgnoreCase(tipo)) {
- 
-                    // Paso A: Resolver el auxiliar del predio destino PRIMERO
+
+                // Interna o externa se decide por activo: externa = cambia de predio, que es
+                // lo que obliga a reubicar el auxiliar (en el VSIAF el auxiliar es por unidad).
+                Long idPredioActual = (a.getOficina() != null && a.getOficina().getPredio() != null)
+                        ? a.getOficina().getPredio().getIdPredio() : null;
+                boolean cambiaPredio = idPredioDestino != null && !idPredioDestino.equals(idPredioActual);
+
+                if (cambiaPredio) {
+                    algunCambioDePredio = true;
                     if (a.getAuxiliar() != null) {
-                        Long idAuxOriginal = a.getAuxiliar().getIdAuxiliar();
-                        Auxiliar auxDestino = cacheAuxiliaresDestino.computeIfAbsent(
-                            idAuxOriginal,
-                            id -> resolverAuxiliarDestino(
-                                a.getAuxiliar(),
-                                ofDestino.getPredio(),
-                                usuNombre
-                            )
+                        Auxiliar auxOrigen = a.getAuxiliar();
+                        AuxiliarResuelto res = cacheAuxiliaresDestino.computeIfAbsent(
+                            auxOrigen.getIdAuxiliar(),
+                            id -> resolverAuxiliarDestino(auxOrigen, ofDestino.getPredio(), usuNombre)
                         );
-                        // Asigna el auxiliar correcto ANTES de modificar otros campos
-                        a.setAuxiliar(auxDestino);
-            
-                        log.info("[TRANSF-EXT] Activo '{}': CODAUX {} → {}",
-                            a.getCodigo(),
-                            ac.activo.getAuxiliar() != null ? ac.activo.getAuxiliar().getCodAux() : "null",
-                            auxDestino != null ? auxDestino.getCodAux() : "null");
+                        if (res.auxiliar() != null) a.setAuxiliar(res.auxiliar());
+
+                        Map<String, Object> aviso = new LinkedHashMap<>();
+                        aviso.put("codigo", a.getCodigo());
+                        aviso.put("auxiliarOrigen", auxOrigen.getNombre());
+                        aviso.put("codAuxOrigen", auxOrigen.getCodAux());
+                        aviso.put("auxiliarDestino", res.auxiliar() != null ? res.auxiliar().getNombre() : null);
+                        aviso.put("codAuxDestino", res.auxiliar() != null ? res.auxiliar().getCodAux() : null);
+                        aviso.put("creado", res.creado());
+                        aviso.put("vsiafOk", res.vsiafOk());
+                        aviso.put("mensaje", res.mensaje());
+                        avisosAuxiliar.add(aviso);
+
+                        log.info("[TRANSF-EXT] Activo '{}': CODAUX {} → {} ({})",
+                            a.getCodigo(), auxOrigen.getCodAux(),
+                            res.auxiliar() != null ? res.auxiliar().getCodAux() : "null", res.mensaje());
                     }
                 }
                 a.setOficina(ofDestino);
@@ -1155,24 +1449,26 @@ public class ActivosController {
             for (TransferenciaService.ActivoConOrigen ac : acos) {
                 activoService.save(ac.activo);
             }
-            log.info("Transferidos {} activos → Oficina ID: {}", acos.size(), payload.idOficina);
+            // El tipo real lo manda el movimiento, no la pantalla: así una sola vista sirve
+            // para las dos y no se puede registrar una externa como interna (que era lo que
+            // dejaba el auxiliar del predio viejo en el VSIAF).
+            tipo = algunCambioDePredio ? "EXTERNA" : "INTERNA";
+            log.info("Transferidos {} activos ({}) → Oficina ID: {}", acos.size(), tipo, payload.idOficina);
+            List<String> codigosTransf = acos.stream().map(x -> x.activo.getCodigo()).toList();
+            actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_TRANSFERENCIA, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_MOVIMIENTO,
+                    rangoCodigos(codigosTransf), String.format("Transferencia %s de %d activo(s) a %s — %s: %s",
+                            tipo.toLowerCase(), codigosTransf.size(),
+                            com.usic.SistemasActivosFijosUAP.model.service.supervision.OficinaGestionService.referencia(ofDestino),
+                            respDestino.getPersona() != null ? respDestino.getPersona().getNombreCompleto() : "",
+                            rangoCodigos(codigosTransf)), codigosTransf.size(), null);
     
             // 4. Registrar transferencia + historial automáticamente
             Transferencia trf = transferenciaService.registrarTransferencia(
-                acos, tipo, ofDestino, respDestino, usuId, usuNombre
+                acos, tipo, ofDestino, respDestino, usuId, usuNombre,
+                payload.documentoReferencia, payload.observacion, payload.institucionDestino
             );
-            // Campos adicionales opcionales
-            String numeroTrf = "S/N";
-            if (trf != null) {
-                if (payload.observacion != null)        trf.setObservacion(payload.observacion);
-                if (payload.documentoReferencia != null) trf.setDocumentoReferencia(payload.documentoReferencia);
-                if (payload.institucionDestino != null)  trf.setInstitucionDestino(payload.institucionDestino);
-                transferenciaDao.save(trf); // update con los campos extra
-                
-                if (trf.getNumeroTransferencia() != null) {
-                    numeroTrf = trf.getNumeroTransferencia();
-                }
-            }
+            String numeroTrf = (trf != null && trf.getNumeroTransferencia() != null)
+                    ? trf.getNumeroTransferencia() : "S/N";
 
             log.info("[DBF-DIAG] tipo={} | entidad='{}' | unidad='{}' | activos={}",
                 tipo, "entidadCode", "unidadCode", acos.size());
@@ -1206,8 +1502,10 @@ public class ActivosController {
                         Short estadoActual = respDestino.getApiEstado();
                         if (estadoActual == null || estadoActual == 1) {
                             respDestino.setApiEstado(Short.valueOf("0"));
-                            responsableService.save(respDestino);
                         }
+                        // Ya salió al VSIAF (o ya estaba): deja de figurar como pendiente en Responsables.
+                        respDestino.setPendienteDbf(false);
+                        responsableService.save(respDestino);
                     }
                 }
             } catch (Exception e) {
@@ -1229,21 +1527,26 @@ public class ActivosController {
                     ac.activo.getOficina() != null ? ac.activo.getOficina().getNombre() : "NULL"));
 
                 actualDbfWriterService.actualizarLoteTransferencias(activos, entidadCode, unidadCode, usuNombre);
-    
-                return ResponseEntity.ok(Map.of(
-                    "ok",  true,
-                    "msg", String.format("Se transfirieron %d activos (BD + DBF). Ref: %s",
-                                        acos.size(), numeroTrf),
-                    "numeroTransferencia", numeroTrf
-                ));
+
+                Map<String, Object> ok = new LinkedHashMap<>();
+                ok.put("ok", true);
+                ok.put("tipo", tipo);
+                ok.put("msg", String.format("Se transfirieron %d activo(s) — transferencia %s. Ref: %s",
+                                    acos.size(), tipo.toLowerCase(), numeroTrf));
+                ok.put("numeroTransferencia", numeroTrf);
+                ok.put("auxiliares", avisosAuxiliar);
+                return ResponseEntity.ok(ok);
             } catch (Exception e) {
                 log.error("Error sincronizando lote DBF: {}", e.getMessage());
-                return ResponseEntity.ok(Map.of(
-                    "ok",  true,
-                    "msg", String.format("Guardado en BD (%d activos). DBF falló: %s. Ref: %s",
-                                        acos.size(), e.getMessage() != null ? e.getMessage() : "Desconocido", numeroTrf),
-                    "numeroTransferencia", numeroTrf
-                ));
+                Map<String, Object> parcial = new LinkedHashMap<>();
+                parcial.put("ok", true);
+                parcial.put("tipo", tipo);
+                parcial.put("vsiafOk", false);
+                parcial.put("msg", String.format("Guardado en el SCIAF (%d activos), pero NO se envió al VSIAF: %s. Ref: %s",
+                                    acos.size(), e.getMessage() != null ? e.getMessage() : "Desconocido", numeroTrf));
+                parcial.put("numeroTransferencia", numeroTrf);
+                parcial.put("auxiliares", avisosAuxiliar);
+                return ResponseEntity.ok(parcial);
             }
     
         } catch (Exception e) {
@@ -1268,8 +1571,8 @@ public class ActivosController {
                 m.put("tipo",            t.getTipo());
                 m.put("fecha",           t.getFechaTransferencia().toString());
                 m.put("estadoProceso",   t.getEstadoProceso());
-                m.put("ofDestino",       t.getOficinaDestino() != null ? t.getOficinaDestino().getNombre() : null);
-                m.put("ofOrigen",        t.getOficinaOrigen()  != null ? t.getOficinaOrigen().getNombre()  : null);
+                m.put("ofDestino",       etiquetaOficina(t.getOficinaDestino()));
+                m.put("ofOrigen",        etiquetaOficina(t.getOficinaOrigen()));
                 m.put("respDestino",     t.getResponsableDestino() != null ? t.getResponsableDestino().getPersona().getNombreCompleto() : null);
                 m.put("cantidadActivos", t.getDetalles().size());
                 m.put("usuario",         t.getRegistro() != null ? t.getRegistro().toString() : null);
@@ -1281,7 +1584,163 @@ public class ActivosController {
         }
     }
 
-    public class AsignacionMasivaRequest {
+    @ValidarUsuarioAutenticado
+    @GetMapping("/transferencias/historial/vista")
+    public String vistaHistorialTransferencias() {
+        return "activo/transferenciaHistorial";
+    }
+
+    @GetMapping("/transferencias/historial")
+    @ResponseBody
+    public ResponseEntity<?> historialTransferenciasConSync(
+            @RequestParam(required = false) String tipo,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        try {
+            List<Transferencia> lista = transferenciaDao.buscarFiltrado(tipo, desde, hasta);
+            List<Map<String, Object>> result = lista.stream().map(t -> {
+                Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("id", t.getIdTransferencia());
+                m.put("numero", t.getNumeroTransferencia());
+                m.put("tipo", t.getTipo());
+                m.put("fecha", t.getFechaTransferencia().toString());
+                m.put("estadoProceso", t.getEstadoProceso());
+                m.put("ofDestino", etiquetaOficina(t.getOficinaDestino()));
+                m.put("ofOrigen", etiquetaOficina(t.getOficinaOrigen()));
+                m.put("respDestino", t.getResponsableDestino() != null ? t.getResponsableDestino().getPersona().getNombreCompleto() : null);
+                m.put("documentoReferencia", t.getDocumentoReferencia());
+                m.put("observacion", t.getObservacion());
+                m.put("institucionDestino", t.getInstitucionDestino());
+
+                List<Map<String, Object>> activos = t.getDetalles().stream().map(d -> {
+                    Activo a = d.getActivo();
+                    Map<String, Object> am = new java.util.LinkedHashMap<>();
+                    am.put("idActivo", a.getIdActivo());
+                    am.put("codigo", a.getCodigo());
+                    am.put("descripcion", a.getDescripcion());
+                    am.put("sincVsiaf", a.getSincVsiaf());
+                    am.put("sincVsiafMensaje", a.getSincVsiafMensaje());
+                    am.put("sincVsiafFecha", a.getSincVsiafFecha() != null ? a.getSincVsiafFecha().toString() : null);
+                    am.put("oficinaAnterior", etiquetaOficina(d.getOficinaAnterior()));
+                    am.put("responsableAnterior", d.getResponsableAnterior() != null ? d.getResponsableAnterior().getPersona().getNombreCompleto() : null);
+                    am.put("oficinaDestino", etiquetaOficina(d.getOficinaDestino()));
+                    am.put("responsableDestino", d.getResponsableDestino() != null ? d.getResponsableDestino().getPersona().getNombreCompleto() : null);
+                    return am;
+                }).toList();
+                m.put("activos", activos);
+
+                long confirmados = activos.stream().filter(x -> Activo.SINC_CONFIRMADO.equals(x.get("sincVsiaf"))).count();
+                long enCola = activos.stream().filter(x -> Activo.SINC_EN_COLA.equals(x.get("sincVsiaf"))).count();
+                long errores = activos.stream().filter(x -> Activo.SINC_ERROR.equals(x.get("sincVsiaf"))).count();
+                long nunca = activos.stream().filter(x -> x.get("sincVsiaf") == null).count();
+
+                m.put("resumenSync", Map.of(
+                        "confirmados", confirmados,
+                        "enCola", enCola,
+                        "errores", errores,
+                        "nuncaEnviados", nunca,
+                        "total", activos.size()
+                ));
+
+                return m;
+            }).toList();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Error en historialTransferenciasConSync", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", e.getMessage()));
+        }
+    }
+
+    public record ReintentarSyncRequest(Long transferenciaId, List<Long> activosIds) {}
+
+    @PostMapping("/transferencias/reintentar-sync")
+    @ResponseBody
+    public ResponseEntity<?> reintentarSincronizacion(
+            HttpServletRequest request,
+            @RequestBody ReintentarSyncRequest payload) {
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        String usuNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
+
+        try {
+            Transferencia trf = transferenciaDao.findById(payload.transferenciaId).orElse(null);
+            if (trf == null) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Transferencia no encontrada"));
+            }
+
+            List<Activo> activosAReintentar = new ArrayList<>();
+            if (payload.activosIds != null && !payload.activosIds.isEmpty()) {
+                for (Long idActivo : payload.activosIds) {
+                    Activo a = activoService.findById(idActivo);
+                    if (a != null) activosAReintentar.add(a);
+                }
+            } else {
+                for (TransferenciaDetalle d : trf.getDetalles()) {
+                    Activo a = d.getActivo();
+                    if (Activo.SINC_ERROR.equals(a.getSincVsiaf()) || a.getSincVsiaf() == null) {
+                        activosAReintentar.add(a);
+                    }
+                }
+            }
+
+            if (activosAReintentar.isEmpty()) {
+                return ResponseEntity.ok(Map.of("ok", true, "msg", "No hay activos para reintentar (todos ya están CONFIRMADO o EN_COLA)"));
+            }
+
+            Oficina ofDestino = trf.getOficinaDestino();
+            String entidadCode = "";
+            String unidadCode = "";
+            if (ofDestino != null && ofDestino.getPredio() != null) {
+                unidadCode = ofDestino.getPredio().getUnidad() != null ? ofDestino.getPredio().getUnidad() : "";
+                if (ofDestino.getPredio().getEntidad() != null) {
+                    entidadCode = ofDestino.getPredio().getEntidad().getEntidadCodigo() != null
+                            ? ofDestino.getPredio().getEntidad().getEntidadCodigo() : "";
+                }
+            }
+
+            int reintentados = 0;
+            for (Activo a : activosAReintentar) {
+                try {
+                    a.setSincVsiaf(Activo.SINC_EN_COLA);
+                    a.setSincVsiafMensaje(null);
+                    activoService.save(a);
+
+                    if (actualDbfWriterService.esModoCola()) {
+                        actualDbfWriterService.actualizarDesdeActivo(a.getCodigo(), a, entidadCode, unidadCode, usuNombre);
+                    } else {
+                        actualDbfWriterService.actualizarDesdeActivo(a.getCodigo(), a, entidadCode, unidadCode, usuNombre);
+                        a.setSincVsiaf(Activo.SINC_CONFIRMADO);
+                        activoService.save(a);
+                    }
+                    reintentados++;
+                } catch (Exception ex) {
+                    a.setSincVsiaf(Activo.SINC_ERROR);
+                    a.setSincVsiafMensaje(ex.getMessage());
+                    a.setSincVsiafFecha(LocalDateTime.now());
+                    activoService.save(a);
+                    log.warn("[REINTENTO] Falló sync para activo {}: {}", a.getCodigo(), ex.getMessage());
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "ok", true,
+                    "msg", String.format("Reintentados %d de %d activos. Los resultados se confirmarán en segundos.", reintentados, activosAReintentar.size()),
+                    "reintentados", reintentados,
+                    "total", activosAReintentar.size()
+            ));
+
+        } catch (Exception e) {
+            log.error("Error reintentando sincronización", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", e.getMessage()));
+        }
+    }
+
+    /**
+     * static a propósito: Jackson no puede instanciar una clase interna no estática
+     * ("non-static inner classes can only be instantiated using default, no-argument
+     * constructor"), así que sin esto toda llamada a /asignacion-masiva moría con un 500
+     * antes de entrar al método.
+     */
+    public static class AsignacionMasivaRequest {
         public Long    idOficina;
         public Long    idResponsableOrigen;
         public Long    idResponsableDestino;
@@ -1314,31 +1773,80 @@ public class ActivosController {
                 return ResponseEntity.badRequest()
                     .body(Map.of("ok", false, "msg", "El responsable destino no pertenece a la oficina indicada."));
             }
-    
+
+            // Reasignar a la misma persona no cambia nada, pero sí encolaría órdenes al
+            // VSIAF y ensuciaría el historial con un movimiento que no ocurrió.
+            if (respDestino.getIdResponsable().equals(payload.idResponsableOrigen)) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg",
+                        "El responsable origen y el destino son el mismo."));
+            }
+
             // 2. Buscar activos del responsable origen
             List<Activo> activos = new ArrayList<>();
+            List<String> activosBloqueados = new ArrayList<>();
             for (String codigo : payload.codigos) {
-                activoService.findByCodigo(codigo).ifPresent(activos::add);
+                Optional<Activo> optActivo = activoService.findByCodigo(codigo);
+                if (optActivo.isPresent()) {
+                    Activo a = optActivo.get();
+                    if (Boolean.TRUE.equals(a.getBloqueado())) {
+                        activosBloqueados.add(codigo);
+                    } else {
+                        activos.add(a);
+                    }
+                }
             }
-    
+
+            if (!activosBloqueados.isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg",
+                        "Los siguientes activos están bloqueados y no se pueden reasignar: " + String.join(", ", activosBloqueados)));
+            }
+
             if (activos.isEmpty()) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados."));
+                    .body(Map.of("ok", false, "msg", "No se encontraron los activos proporcionados o todos están bloqueados."));
             }
-    
+
             // Verificación extra: todos los activos deben pertenecer al resp origen
             // (evitar manipulación de payload)
             activos.removeIf(a ->
                 a.getResponsable() == null ||
                 !a.getResponsable().getIdResponsable().equals(payload.idResponsableOrigen)
             );
-    
+
             if (activos.isEmpty()) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("ok", false, "msg",
                         "Ninguno de los activos pertenece al responsable origen indicado."));
             }
-    
+
+            // Solo se reasigna lo que está vigente. La pantalla ya no ofrece los PENDIENTE
+            // ni los CANCELADO, pero el payload puede venir de una lista vieja: mover un
+            // bien que no está en el VSIAF encolaría un UPDATE contra un registro que allá
+            // no existe, y los dos sistemas quedarían diciendo cosas distintas.
+            List<String> noVigentes = activos.stream()
+                .filter(a -> !Activo.ESTADO_ACTIVO.equals(a.getEstado()))
+                .map(Activo::getCodigo)
+                .toList();
+
+            if (!noVigentes.isEmpty()) {
+                activos.removeIf(a -> !Activo.ESTADO_ACTIVO.equals(a.getEstado()));
+                log.warn("[ASIGNACION] {} activo(s) omitidos por no estar en estado ACTIVO: {}",
+                    noVigentes.size(), noVigentes);
+            }
+
+            if (activos.isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("ok", false, "msg",
+                        "Ninguno de los activos seleccionados está en estado ACTIVO. "
+                        + "Los bienes pendientes de aprobación o dados de baja no se pueden reasignar."));
+            }
+
+            // Se guarda antes de mutar: después del bucle todos apuntan al destino y ya no
+            // se sabría de quién venían para dejarlo en el historial.
+            Responsable respOrigen = responsableService.findById(payload.idResponsableOrigen);
+
             // 3. Modificar en memoria — SOLO el responsable cambia (oficina permanece igual)
             LocalDate hoy = LocalDate.now();
             for (Activo a : activos) {
@@ -1351,13 +1859,26 @@ public class ActivosController {
                 if (usuario != null) a.setModificacionIdUsuario(usuId);
                 a.setModificacion(new java.util.Date());
             }
-    
+
             // 4. Guardar en BD
             for (Activo a : activos) {
                 activoService.save(a);
             }
             log.info("[ASIGNACION] {} activos reasignados → Resp ID: {} | Usuario: {}",
                 activos.size(), payload.idResponsableDestino, usuNombre);
+
+            // Rastro en el historial del bien: un cambio de custodio es de las cosas que
+            // después hay que poder reconstruir, y hasta ahora esta pantalla no dejaba nada.
+            for (Activo a : activos) {
+                registrarHistorialAsignacion(a, respOrigen, respDestino, oficina, usuario, usuNombre, usuId);
+            }
+            List<String> codigosAsig = activos.stream().map(Activo::getCodigo).toList();
+            actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ASIGNACION, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_MOVIMIENTO,
+                    rangoCodigos(codigosAsig), String.format("Reasignó %d activo(s) de %s a %s: %s",
+                            codigosAsig.size(),
+                            respOrigen != null && respOrigen.getPersona() != null ? respOrigen.getPersona().getNombreCompleto() : "—",
+                            respDestino.getPersona() != null ? respDestino.getPersona().getNombreCompleto() : "—",
+                            rangoCodigos(codigosAsig)), codigosAsig.size(), null);
 
             // ── Sincronizar Responsable destino si es nuevo (apiEstado == 1) ──────────────
             try {
@@ -1393,8 +1914,10 @@ public class ActivosController {
                         Short estadoActual = respDestino.getApiEstado();
                         if (estadoActual == null || estadoActual == 1) {
                             respDestino.setApiEstado(Short.valueOf("0"));
-                            responsableService.save(respDestino);
                         }
+                        // Ya salió al VSIAF (o ya estaba): deja de figurar como pendiente en Responsables.
+                        respDestino.setPendienteDbf(false);
+                        responsableService.save(respDestino);
                     }
                 }
             } catch (Exception e) {
@@ -1447,12 +1970,18 @@ public class ActivosController {
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
 
+        if (!tienePermisoDesaprobarActivo(request)) {
+            log.warn("[DESAPROBAR-ACTIVO] Usuario '{}' intentó desaprobar un activo sin permiso.", usuarioNombre);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("ok", false,
+                    "msg", "No tiene autorización para desaprobar activos. Solicite a un administrador que lo habilite."));
+        }
+
         try {
             Activo activo = activoService.findById(idActivo);
             if (activo == null) {
                 return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Activo no encontrado"));
             }
-            
+
             if (!"ACTIVO".equalsIgnoreCase(activo.getEstado())) {
                 return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Solo se puede dar de baja activos que estén en estado ACTIVO."));
             }
@@ -1489,13 +2018,64 @@ public class ActivosController {
         }
     }
 
+    /**
+     * Datos de reporte (hoja de ruta, certificación, comprobante, observación y N° de
+     * documento) del acta a la que ya pertenece un activo pendiente, si tiene una.
+     * <p>
+     * El modal "Asignar documento" de Pendientes limpiaba estos campos cada vez que se
+     * abría, sin importar si el grupo seleccionado ya tenía un acta con estos datos
+     * cargados. Reabrirlo para corregir solo el N° de documento —sin tocar el resto—
+     * y confirmar terminaba borrando la hoja de ruta, certificación, comprobante y
+     * observación que ya se habían cargado. Este endpoint deja precargar el modal con
+     * lo que ya existe, para que "confirmar" no sea "borrar sin querer".
+     */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/api/datos-reporte-pendiente")
+    @ResponseBody
+    public ResponseEntity<?> datosReportePendiente(@RequestParam("id") String idEnc) {
+        try {
+            Long id = Long.parseLong(Encriptar.decrypt(idEnc));
+            Activo activo = activoService.findById(id);
+
+            Map<String, Object> body = new LinkedHashMap<>();
+            Optional<AsignacionActivo> actaOpt = activo != null
+                    ? asignacionActivoService.findByActivo(activo) : Optional.empty();
+
+            if (actaOpt.isEmpty()) {
+                body.put("existeActa", false);
+                return ResponseEntity.ok(body);
+            }
+
+            AsignacionActivo a = actaOpt.get();
+            body.put("existeActa", true);
+            body.put("nroDoc", a.getCodigoDocumento());
+            body.put("hojaRuta", a.getHojaRuta());
+            body.put("certificacion", a.getCertificacion());
+            body.put("comprobante", a.getComprobante());
+            body.put("observacion", a.getObservacion());
+            return ResponseEntity.ok(body);
+
+        } catch (Exception e) {
+            log.error("Error en datosReportePendiente", e);
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+
     @ValidarUsuarioAutenticado
     @PostMapping("/asignar-gestion-masiva")
     @ResponseBody
     public ResponseEntity<?> asignarGestionMasiva(
             @RequestParam("ids")      List<String> idsEnc,
             @RequestParam("idConfig") Long idConfig,
-            @RequestParam("nroDoc")   String nroDoc) {
+            @RequestParam("nroDoc")   String nroDoc,
+            @RequestParam(value = "hojaRuta", required = false) String hojaRuta,
+            @RequestParam(value = "certificacion", required = false) String certificacion,
+            @RequestParam(value = "comprobante", required = false) Boolean comprobante,
+            @RequestParam(value = "observacion", required = false) String observacion,
+            HttpServletRequest request) {
+
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        Long usuId = (usuario != null) ? usuario.getIdUsuario() : null;
 
         try {
             ConfiguracionGestion config = configuracionGestionService.findById(idConfig);
@@ -1550,7 +2130,9 @@ public class ActivosController {
                     .findByActivo(activos.get(0))
                     .orElse(null);
 
-            if (asignacion == null) {
+            boolean actaNueva = (asignacion == null);
+
+            if (actaNueva) {
                 Activo referencia = activos.get(0);
                 asignacion = new AsignacionActivo();
                 asignacion.setFechaAsignacion(LocalDateTime.now());
@@ -1562,6 +2144,7 @@ public class ActivosController {
                 asignacion.setOficinaDestino(referencia.getOficina());
                 asignacion.setTipoAsignacion("NUEVA");
                 asignacion.setEstadoAsignacion("ACTIVA");
+                asignacion.setRegistroIdUsuario(usuId);
                 asignacion = asignacionActivoService.save(asignacion);
 
                 for (Activo a : activos) {
@@ -1572,12 +2155,21 @@ public class ActivosController {
                     det.setEstadoDetalle(DetalleAsignacionActivo.VIGENTE);
                     detalleAsignacionActivoService.save(det);
                 }
+            } else {
+                // No es una acta nueva: esto es una corrección/actualización de una que
+                // ya existía, así que lo que corresponde es dejar quién la modificó, no
+                // quién la registró (eso no cambia).
+                asignacion.setModificacionIdUsuario(usuId);
             }
 
             // Deja documento, código canónico y número de acta coherentes de una sola vez.
             // Se aplica también cuando el acta ya existía: si se corrige el número de
             // documento, el número del acta tiene que corregirse con él.
             asignacion.asignarDocumento(config.getGestion(), prefijo, nro);
+            asignacion.setHojaRuta(textoOVacio(hojaRuta));
+            asignacion.setCertificacion(textoOVacio(certificacion));
+            asignacion.setComprobante(comprobante);
+            asignacion.setObservacion(textoOVacio(observacion));
             asignacionActivoService.save(asignacion);
 
             String idEnc = Encriptar.encrypt(String.valueOf(asignacion.getIdAsignacionActivo()));
@@ -1595,6 +2187,13 @@ public class ActivosController {
             return ResponseEntity.badRequest()
                 .body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
         }
+    }
+
+    /** Recorta y convierte a null lo que llega en blanco desde un input opcional del modal de documento. */
+    private String textoOVacio(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 
     @ValidarUsuarioAutenticado
@@ -1622,7 +2221,7 @@ public class ActivosController {
             data.put("codGrp",  parts.length > 2 ? parts[2] : "");
             data.put("municipio", ref.getOficina().getPredio().getMunicipio().getNombre());
             data.put("predio", ref.getOficina().getPredio().getDescrip());
-            data.put("oficina", ref.getOficina().getNombre());
+            data.put("oficina", etiquetaOficina(ref.getOficina()));
             data.put("responsable", ref.getResponsable().getPersona().getNombreCompleto());
             data.put("grupo", ref.getGrupoContable().getNombre());
             data.put("idPredio", ref.getOficina().getPredio().getIdPredio());
@@ -1652,6 +2251,7 @@ public class ActivosController {
         Boolean incluyeAcc     = body.get("incluyeAccesorio") instanceof Boolean && (Boolean) body.get("incluyeAccesorio");
         Long idGrupoContable   = toLong(body.get("idGrupoContable"));
         Long idAuxiliar        = toLong(body.get("idAuxiliar"));
+        String codigoLibreRaw  = (String) body.get("codigo");
         List<Map<String, Object>> detallesRaw = (List<Map<String, Object>>) body.get("detalles");
 
         String codigoRef = null;
@@ -1700,6 +2300,31 @@ public class ActivosController {
         String codPred = parts.length > 1 ? parts[1] : "";
         String codGrp = String.format("%02d", grupo.getCodDbf());
 
+        // Código libre (hueco) elegido a mano en vez del correlativo automático: solo
+        // tiene sentido para UN activo a la vez (no hay forma de que el usuario elija N
+        // huecos puntuales desde este modal).
+        String codigoManual = (codigoLibreRaw != null && !codigoLibreRaw.isBlank())
+                ? codigoLibreRaw.trim().toUpperCase() : null;
+        if (codigoManual != null) {
+            if (cantidad != 1) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "Un código libre solo se puede asignar a un activo a la vez (cantidad = 1)."));
+            }
+            if (!codigoManual.matches("^[^-]+-[^-]+-[0-9]+-[0-9]+$")) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Código con formato inválido."));
+            }
+            String prefijoEsperado = codMun + "-" + codPred + "-" + codGrp;
+            String prefijoCodigo = codigoManual.substring(0, codigoManual.lastIndexOf('-'));
+            if (!prefijoEsperado.equals(prefijoCodigo)) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "El código no corresponde al predio/grupo de esta asignación (esperado " + prefijoEsperado + ")."));
+            }
+            if (activoService.findByCodigo(codigoManual).isPresent()) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "El código " + codigoManual + " ya fue tomado. Elige otro."));
+            }
+        }
+
         OrganismoFinanciero orgFin = idOrgFin != null ? organismoFinancieroService.findById(idOrgFin) : null;
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
@@ -1727,7 +2352,9 @@ public class ActivosController {
 
         for (int i = 0; i < total; i++) {
             DetalleActivoDTO det = detalles.get(i);
-            String nuevoCodigo = funciones.generarCodigoPorCodes(codMun, codPred, codGrp);
+            String nuevoCodigo = (codigoManual != null)
+                    ? codigoManual
+                    : funciones.generarCodigoPorCodes(codMun, codPred, codGrp);
 
             Activo a = new Activo();
             a.setCodigo(nuevoCodigo);
@@ -1751,7 +2378,12 @@ public class ActivosController {
             a.setUsuario(usuarioNombre);
             a.setFecMod(LocalDate.now());
             a.setFechaUlt(LocalDate.now());
-            activoService.save(a);
+            try {
+                activoService.save(a);
+            } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "El código " + nuevoCodigo + " acaba de ser tomado por otro registro. Intenta de nuevo."));
+            }
 
             DetalleAsignacionActivo detalleAsig = new DetalleAsignacionActivo();
             detalleAsig.setAsignacionActivo(asig);
@@ -2156,11 +2788,15 @@ public class ActivosController {
 
     @ValidarUsuarioAutenticado
     @PostMapping("/eliminar/{id_activo}")
-    public ResponseEntity<String> eliminar(Model model, @PathVariable("id_activo") String idActivo) throws Exception {
+    public ResponseEntity<String> eliminar(Model model, HttpServletRequest request,
+            @PathVariable("id_activo") String idActivo) throws Exception {
         Long id = Long.parseLong(Encriptar.decrypt(idActivo));
         Activo activo = activoService.findById(id);
         activo.setEstado("ELIMINADO");
         activoService.save(activo);
+        actividadService.registrar((Usuario) request.getSession().getAttribute("usuario"),
+                com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ACTIVO, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_ELIMINACION, activo.getCodigo(),
+                "Eliminó el activo " + activo.getCodigo(), activo.getIdActivo());
         return ResponseEntity.ok("Registro Eliminado");
     }
 
@@ -2207,25 +2843,38 @@ public class ActivosController {
             dto.setEncryptedAsignacionId(
                 Encriptar.encrypt(String.valueOf(asig.getIdAsignacionActivo())));
 
+            // Se listan TODOS los activos vigentes del acta (pendientes y ya
+            // sincronizados), no solo los PENDIENTE: antes, un acta con 250 bienes de
+            // los que ya se habían sincronizado 230 solo mostraba 20 filas, aunque el
+            // badge de cabecera ("250 Activos") contara el total. La plantilla ya
+            // soportaba filas no-PENDIENTE (checkbox y botones deshabilitados, chip de
+            // estado propio) — solo faltaba dejarlas entrar aquí.
             List<ActivoPendienteItemDTO> items = new ArrayList<>();
+            long totalPendientes = 0;
             for (DetalleAsignacionActivo det : asig.getDetalles()) {
-                if (!"PENDIENTE".equalsIgnoreCase(det.getActivo().getEstado())) continue;
+                Activo act = det.getActivo();
+                if ("CANCELADO".equalsIgnoreCase(act.getEstado())) continue;
                 ActivoPendienteItemDTO item = new ActivoPendienteItemDTO();
-                item.setActivo(det.getActivo());
+                item.setActivo(act);
                 item.setEncryptedActivoId(
-                    Encriptar.encrypt(String.valueOf(det.getActivo().getIdActivo())));
+                    Encriptar.encrypt(String.valueOf(act.getIdActivo())));
                 item.setCodigoSnapshot(det.getCodigoActivoSnapshot());
-                List<String> faltantes = camposFaltantesVsiaf(det.getActivo());
+                List<String> faltantes = camposFaltantesVsiaf(act);
                 item.setFaltantes(faltantes);
                 item.setCompleto(faltantes.isEmpty());
                 items.add(item);
+                if ("PENDIENTE".equalsIgnoreCase(act.getEstado())) totalPendientes++;
             }
+            // Pendientes primero: con actas grandes, lo accionable debe verse sin
+            // desplazarse entre cientos de filas ya sincronizadas.
+            items.sort(Comparator.comparing(
+                i -> !"PENDIENTE".equalsIgnoreCase(i.getActivo().getEstado())));
 
             dto.setItems(items);
             dto.setTotalActivos((int) asig.getDetalles().stream()
                 .filter(d -> !"CANCELADO".equalsIgnoreCase(d.getActivo().getEstado()))
                 .count());
-            dto.setTotalPendientes(items.size());
+            dto.setTotalPendientes(totalPendientes);
             dto.setTotalSincronizados(
                 asig.getDetalles().stream()
                     .filter(d -> "ACTIVO".equalsIgnoreCase(d.getActivo().getEstado()))
@@ -2406,6 +3055,7 @@ public class ActivosController {
             if (oficina.getCodOfi() != null) {
                 oficina.setApiEstado(Short.valueOf("1"));
                 oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
+                oficina.setPendienteDbf(false);   // viajó con el activo: ya no está pendiente en Oficinas
                 oficinaService.save(oficina);
             }
 
@@ -2414,6 +3064,7 @@ public class ActivosController {
                     && !resp.getCodigoFuncionario().replaceAll("\\D+", "").isEmpty()) {
                 resp.setApiEstado(Short.valueOf("1"));
                 respDbfWriterService.insertarDesdeResponsable(resp, entidadCode, unidadCode, usuarioNombre);
+                resp.setPendienteDbf(false);      // viajó con el activo: ya no está pendiente en Responsables
                 responsableService.save(resp);
             }
 
@@ -2428,6 +3079,8 @@ public class ActivosController {
             activoService.save(a);
 
             notificarCambioPendientes("aprobacion");
+            actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ACTIVO, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_APROBACION,
+                    a.getCodigo(), "Aprobó el activo " + a.getCodigo() + " y lo envió al VSIAF", a.getIdActivo());
             if (fallaAux != null) {
                 return Map.of("ok", true, "id", id, "vsiaf", "PARCIAL",
                     "message", "Activo aprobado, pero su auxiliar NO se pudo enviar al VSIAF (" + fallaAux
@@ -2453,6 +3106,7 @@ public class ActivosController {
         int exitos = 0;
         int errores = 0;
         List<String> detallesError = new ArrayList<>();
+        List<String> aprobados = new ArrayList<>();
     
         for (String idEnc : idsEnc) {
             try {
@@ -2493,6 +3147,7 @@ public class ActivosController {
                 if (codOfic != null) {
                     oficina.setApiEstado(Short.valueOf("1"));
                     oficinaDbfWriterService.insertarDesdeOficina(oficina, entidadCode, unidadCode, usuarioNombre);
+                    oficina.setPendienteDbf(false);
                     oficinaService.save(oficina);
                 }
 
@@ -2502,6 +3157,7 @@ public class ActivosController {
                         && !resp.getCodigoFuncionario().replaceAll("\\D+", "").isEmpty()) {
                     resp.setApiEstado(Short.valueOf("1"));
                     respDbfWriterService.insertarDesdeResponsable(resp, entidadCode, unidadCode, usuarioNombre);
+                    resp.setPendienteDbf(false);
                     responsableService.save(resp);
                 }
 
@@ -2523,6 +3179,7 @@ public class ActivosController {
                 marcarEnvioAlVsiaf(a);
                 activoService.save(a);
                 exitos++;
+                aprobados.add(a.getCodigo());
     
             } catch (Exception e) {
                 log.error("[APROBAR] Error procesando id {}: {}", idEnc, e.getMessage());
@@ -2540,7 +3197,12 @@ public class ActivosController {
         result.put("msg", String.format("Proceso finalizado. Éxitos: %d | Errores: %d. %s",
                 exitos, errores, exitos > 0 ? detalleEnvio() : ""));
 
-        if (exitos > 0) notificarCambioPendientes("aprobacion-masiva");
+        if (exitos > 0) {
+            notificarCambioPendientes("aprobacion-masiva");
+            actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ACTIVO, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_APROBACION,
+                    rangoCodigos(aprobados), String.format("Aprobó %d activo(s) y los envió al VSIAF: %s",
+                            aprobados.size(), rangoCodigos(aprobados)), aprobados.size(), null);
+        }
         return ResponseEntity.ok(result);
     }
 

@@ -32,18 +32,22 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
-import com.usic.SistemasActivosFijosUAP.controller.formularios.PdfAsignacionActivoCompleto;
+import com.usic.SistemasActivosFijosUAP.controller.formularios.WordAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAsignacionActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IConfiguracionGestionService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IAsignacionMovimientoDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.FiltrosAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResumenAsignacionDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.RubroAsignacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.ExcelAsignacionReportService;
 import com.usic.SistemasActivosFijosUAP.model.service.asignacion.AsignacionEdicionService;
+import com.usic.SistemasActivosFijosUAP.model.service.asignacion.EdicionCabeceraActaDTO;
 import com.usic.SistemasActivosFijosUAP.model.service.asignacion.ResultadoOperacionActa;
 import com.usic.SistemasActivosFijosUAP.model.service.asignacion.SeparacionActaDTO;
 import com.usic.SistemasActivosFijosUAP.model.service.asignacion.TrasladoActaDTO;
@@ -63,21 +67,72 @@ public class CAsignacionActivoController {
     private final IAsignacionActivoService asignacionActivoService;
     private final IUsuarioService usuarioService;
     private final IConfiguracionGestionService configuracionGestionService;
-    private final PdfAsignacionActivoCompleto pdfAsignacionActivoCompleto;
+    private final WordAsignacionActivoService wordAsignacionActivoService;
     private final AsignacionEdicionService asignacionEdicionService;
     private final IAsignacionMovimientoDao asignacionMovimientoDao;
+    private final IGrupoContableService grupoContableService;
+    private final ExcelAsignacionReportService excelAsignacionReportService;
 
     /** Tamaños de página permitidos. Un valor libre por parámetro sería un pedido de "traeme todo". */
     private static final List<Integer> TAMANOS_PAGINA = List.of(10, 25, 50, 100);
     private static final int TAMANO_POR_DEFECTO = 25;
+
+    private static final String XLSX_MIME =
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
     public String vista_activos_nuevos(Model model) {
         // El combo de gestión se llena con los años que realmente tienen actas.
         model.addAttribute("gestiones", asignacionActivoService.gestionesConActas());
+        model.addAttribute("gruposContables", grupoContableService.listarGruposContables());
         model.addAttribute("tamanosPagina", TAMANOS_PAGINA);
         return "/seguimiento/asignacion/vista";
+    }
+
+    /**
+     * Reporte Excel de las actas que cumplen el filtro actual del listado — el mismo
+     * {@link FiltrosAsignacionDTO} que arma la tabla, sin paginar: el reporte trae todo
+     * lo que el filtro deja pasar, no solo la página visible.
+     */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/exportar-excel")
+    public ResponseEntity<byte[]> exportarExcel(
+            @RequestParam(required = false) String tipo,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) String buscar,
+            @RequestParam(required = false) String desde,
+            @RequestParam(required = false) String hasta,
+            @RequestParam(required = false) String sincronizacion,
+            @RequestParam(required = false) Integer gestion,
+            @RequestParam(required = false) Long idResponsable,
+            @RequestParam(required = false) Boolean soloConError,
+            @RequestParam(required = false) String orden,
+            @RequestParam(defaultValue = "true") boolean desc) {
+
+        try {
+            FiltrosAsignacionDTO filtros = FiltrosAsignacionDTO.normalizar(
+                    tipo, estado, buscar, desde, hasta, sincronizacion, gestion, idResponsable, soloConError);
+
+            List<AsignacionActivo> completas = asignacionActivoService
+                    .buscarConFiltrosConDetalles(filtros, orden, desc);
+            if (completas.isEmpty()) {
+                return ResponseEntity.noContent().build();
+            }
+
+            byte[] xlsx = excelAsignacionReportService.generar(completas, resolverNombresUsuarios(completas));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(XLSX_MIME));
+            headers.setContentDisposition(ContentDisposition.attachment()
+                    .filename("asignaciones_" + LocalDate.now() + ".xlsx")
+                    .build());
+            return new ResponseEntity<>(xlsx, headers, HttpStatus.OK);
+
+        } catch (Exception e) {
+            log.error("[EXPORTAR-EXCEL] Error generando el reporte: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @ValidarUsuarioAutenticado
@@ -92,6 +147,8 @@ public class CAsignacionActivoController {
         @RequestParam(required = false) Integer gestion,
         @RequestParam(required = false) Long idResponsable,
         @RequestParam(required = false) Boolean soloConError,
+        @RequestParam(required = false) Integer mes,
+        @RequestParam(required = false) Long idGrupoContable,
         @RequestParam(required = false) String orden,
         @RequestParam(defaultValue = "true") boolean desc,
         @RequestParam(defaultValue = "0") int pagina,
@@ -99,7 +156,8 @@ public class CAsignacionActivoController {
         Model model) {
 
         FiltrosAsignacionDTO filtros = FiltrosAsignacionDTO.normalizar(
-                tipo, estado, buscar, desde, hasta, sincronizacion, gestion, idResponsable, soloConError);
+                tipo, estado, buscar, desde, hasta, sincronizacion, gestion, idResponsable, soloConError,
+                null, null, null, mes, idGrupoContable);
 
         if (!TAMANOS_PAGINA.contains(tamano)) tamano = TAMANO_POR_DEFECTO;
         if (pagina < 0) pagina = 0;
@@ -161,14 +219,31 @@ public class CAsignacionActivoController {
 
         // 5. Totales por asignación (costo y avance hacia el VSIAF) de LA PÁGINA, en una
         //    sola consulta agregada. Antes se pedían los de todas las actas del filtro.
-        Map<Long, ResumenAsignacionDTO> resumenes = asignacionActivoService.resumenPorAsignacion(
-            asignaciones.stream().map(AsignacionActivo::getIdAsignacionActivo).toList());
+        List<Long> idsPagina = asignaciones.stream().map(AsignacionActivo::getIdAsignacionActivo).toList();
+        Map<Long, ResumenAsignacionDTO> resumenes = asignacionActivoService.resumenPorAsignacion(idsPagina);
+
+        // 5b. Grupo contable y auxiliar de cada acta, también en una sola consulta
+        //     agregada sobre los ids de la página, por el mismo motivo.
+        Map<Long, List<RubroAsignacionDTO>> rubros = asignacionActivoService.rubrosPorAsignacion(idsPagina);
 
         // 6. Enviar los datos a la vista
         model.addAttribute("asignaciones", asignaciones);
         model.addAttribute("mapaUsuarios", mapaUsuarios);
         model.addAttribute("carpetasPorGestion", carpetasPorGestion);
         model.addAttribute("resumenes", resumenes);
+        model.addAttribute("rubros", rubros);
+
+        // Cuántas actas de cada mes hay EN ESTA PÁGINA, para el separador del listado.
+        // Es el conteo de lo que se ve, no el del mes entero: con paginación, decir
+        // "34 actas" arriba de 8 filas visibles sería mentir.
+        Map<String, Long> actasPorMes = asignaciones.stream()
+                .filter(a -> a.getFechaAsignacion() != null)
+                .collect(Collectors.groupingBy(
+                        // Mismo formato que arma la plantilla con #temporals.format(...,'yyyy-MM'):
+                        // si las dos claves no coinciden exactamente, el separador queda sin conteo.
+                        a -> a.getFechaAsignacion().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM")),
+                        LinkedHashMap::new, Collectors.counting()));
+        model.addAttribute("actasPorMes", actasPorMes);
 
         // 7. Paginación, orden y tarjetas. Las tarjetas se calculan sobre el conjunto
         //    filtrado completo: contarlas en el navegador daría los totales de la página.
@@ -274,6 +349,239 @@ public class CAsignacionActivoController {
             log.error("[TRASLADAR] Error moviendo bienes al acta {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("ok", false, "msg", "No se pudieron mover los bienes: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Cambia el responsable y/o la oficina de la cabecera de un acta ya emitida.
+     * <p>
+     * No mueve bienes ni crea un acta nueva: es la corrección directa del papel. Si el
+     * pedido marca {@code propagarABienes}, el cambio también se aplica a los bienes
+     * vigentes del acta.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping(value = "/asignaciones/{id}/editar-cabecera", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<?> editarCabecera(@PathVariable Long id,
+                                            @RequestBody EdicionCabeceraRequest req,
+                                            HttpServletRequest httpReq) {
+        Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "msg", "Sesión expirada. Volvé a iniciar sesión."));
+        }
+
+        try {
+            EdicionCabeceraActaDTO solicitud = new EdicionCabeceraActaDTO(
+                    id, req.getIdResponsableDestino(), req.getIdOficinaDestino(),
+                    req.isPropagarABienes(), req.getMotivo());
+
+            ResultadoOperacionActa resultado = asignacionEdicionService.editarCabecera(solicitud, usuario);
+
+            String msg = "Cabecera actualizada."
+                    + (req.isPropagarABienes()
+                        ? " Se aplicó a " + resultado.getBienesMovidos() + " bien(es)."
+                        : "");
+            if (resultado.tieneAvisos()) {
+                msg += " Revisá " + resultado.getAvisos().size()
+                     + (resultado.getAvisos().size() == 1 ? " advertencia." : " advertencias.");
+            }
+
+            Map<String, Object> cuerpo = new LinkedHashMap<>();
+            cuerpo.put("ok", true);
+            cuerpo.put("msg", msg);
+            cuerpo.put("bienesActualizados", resultado.getBienesMovidos());
+            cuerpo.put("vsiaf", resultado.getResultadoVsiaf());
+            cuerpo.put("avisos", resultado.getAvisos());
+            return ResponseEntity.ok(cuerpo);
+
+        } catch (SecurityException sinPermiso) {
+            log.warn("[EDITAR-CABECERA] '{}' intentó editar la cabecera del acta {} sin permiso.", usuario.getUsuario(), id);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("ok", false, "msg", sinPermiso.getMessage()));
+        } catch (IllegalArgumentException datoInvalido) {
+            return ResponseEntity.ok(Map.of("ok", false, "msg", datoInvalido.getMessage()));
+        } catch (Exception e) {
+            log.error("[EDITAR-CABECERA] Error editando la cabecera del acta {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("ok", false, "msg", "No se pudo editar la cabecera: " + e.getMessage()));
+        }
+    }
+
+    /** Cuerpo del pedido de edición de cabecera. */
+    @lombok.Getter @lombok.Setter
+    public static class EdicionCabeceraRequest {
+        private Long idResponsableDestino;
+        private Long idOficinaDestino;
+        private boolean propagarABienes;
+        private String motivo;
+    }
+
+    /**
+     * Carga o corrige los datos administrativos del acta (hoja de ruta, certificación,
+     * si tiene comprobante y la observación) para el reporte Excel.
+     * <p>
+     * A propósito NO toca bienes, VSIAF ni historial: es la única forma de completar
+     * estos datos en actas que ya se subieron al VSIAF, donde el modal de Pendientes
+     * ("Documento de Gestión") ya no aparece porque los activos dejaron de estar
+     * PENDIENTE. Por eso no pasa por {@link AsignacionEdicionService}: no es una
+     * operación estructural, es paperwork. Sí deja rastro de auditoría como cualquier
+     * otra edición del acta: {@code modificacionIdUsuario} (quién) se fija acá;
+     * {@code modificacion} (cuándo) lo sella solo {@code AuditoriaConfig.alModificar()}
+     * al hacer UPDATE.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping(value = "/asignaciones/{id}/editar-reporte", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<?> editarDatosReporte(@PathVariable Long id,
+                                                @RequestBody EdicionReporteRequest req,
+                                                HttpServletRequest httpReq) {
+        Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "msg", "Sesión expirada. Volvé a iniciar sesión."));
+        }
+        try {
+            AsignacionActivo asignacion = asignacionActivoService.findById(id);
+            if (asignacion == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("ok", false, "msg", "Acta no encontrada."));
+            }
+
+            asignacion.setHojaRuta(limpiar(req.getHojaRuta()));
+            asignacion.setCertificacion(limpiar(req.getCertificacion()));
+            asignacion.setComprobante(req.getComprobante());
+            asignacion.setObservacion(limpiar(req.getObservacion()));
+            asignacion.setModificacionIdUsuario(usuario.getIdUsuario());
+            asignacionActivoService.save(asignacion);
+
+            return ResponseEntity.ok(Map.of("ok", true, "msg", "Datos del reporte actualizados."));
+
+        } catch (Exception e) {
+            log.error("[EDITAR-REPORTE] Error editando datos de reporte del acta {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("ok", false, "msg", "No se pudo guardar: " + e.getMessage()));
+        }
+    }
+
+    private String limpiar(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
+    }
+
+    /**
+     * "Sistematizado por" para el reporte Excel: quien registró el acta
+     * ({@code registroIdUsuario}), no un dato propio del acta — ver la nota en
+     * {@code AsignacionActivo}.
+     */
+    private String resolverNombreUsuario(Long idUsuario) {
+        if (idUsuario == null) return null;
+        return usuarioService.findByIdUsuario(idUsuario)
+                .map(u -> u.getPersona() != null ? u.getPersona().getNombreCompleto() : u.getUsuario())
+                .orElse(null);
+    }
+
+    /** Igual que {@link #resolverNombreUsuario}, pero resolviendo varias actas de una sola consulta. */
+    private Map<Long, String> resolverNombresUsuarios(List<AsignacionActivo> actas) {
+        Set<Long> ids = actas.stream()
+                .map(AsignacionActivo::getRegistroIdUsuario)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (ids.isEmpty()) return Map.of();
+        return usuarioService.findAllByIdUsuarioIn(ids).stream()
+                .collect(Collectors.toMap(Usuario::getIdUsuario,
+                        u -> u.getPersona() != null ? u.getPersona().getNombreCompleto() : u.getUsuario()));
+    }
+
+    /** Cuerpo del pedido de edición de datos de reporte. */
+    @lombok.Getter @lombok.Setter
+    public static class EdicionReporteRequest {
+        private String hojaRuta;
+        private String certificacion;
+        private Boolean comprobante;
+        private String observacion;
+    }
+
+    /**
+     * Reintento manual de la sincronización con el VSIAF, por fila o por lote desde el
+     * modal — para cuando un bien quedó en {@code ERROR} y ya se corrigió la causa, o el
+     * sync automático no lo va a volver a tocar solo. Ver
+     * {@link AsignacionEdicionService#subirAlVsiaf} para el detalle de qué se descarta y
+     * por qué.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping(value = "/asignaciones/{id}/subir-vsiaf", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<?> subirAlVsiaf(@PathVariable Long id,
+                                          @RequestBody SubirVsiafRequest req,
+                                          HttpServletRequest httpReq) {
+        Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "msg", "Sesión expirada. Volvé a iniciar sesión."));
+        }
+        try {
+            ResultadoOperacionActa resultado = asignacionEdicionService.subirAlVsiaf(req.getIdsActivos(), usuario);
+
+            String msg = resultado.getBienesMovidos() + (resultado.getBienesMovidos() == 1
+                    ? " bien enviado al VSIAF." : " bienes enviados al VSIAF.");
+            if (resultado.tieneAvisos()) {
+                msg += " Revisá " + resultado.getAvisos().size()
+                     + (resultado.getAvisos().size() == 1 ? " advertencia." : " advertencias.");
+            }
+
+            Map<String, Object> cuerpo = new LinkedHashMap<>();
+            cuerpo.put("ok", true);
+            cuerpo.put("msg", msg);
+            cuerpo.put("bienesEnviados", resultado.getBienesMovidos());
+            cuerpo.put("vsiaf", resultado.getResultadoVsiaf());
+            cuerpo.put("avisos", resultado.getAvisos());
+            return ResponseEntity.ok(cuerpo);
+
+        } catch (SecurityException sinPermiso) {
+            log.warn("[SUBIR-VSIAF] '{}' intentó subir al VSIAF desde el acta {} sin permiso.", usuario.getUsuario(), id);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("ok", false, "msg", sinPermiso.getMessage()));
+        } catch (IllegalArgumentException datoInvalido) {
+            return ResponseEntity.ok(Map.of("ok", false, "msg", datoInvalido.getMessage()));
+        } catch (Exception e) {
+            log.error("[SUBIR-VSIAF] Error subiendo bienes del acta {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("ok", false, "msg", "No se pudo subir al VSIAF: " + e.getMessage()));
+        }
+    }
+
+    /** Cuerpo del pedido de subida manual al VSIAF. */
+    @lombok.Getter @lombok.Setter
+    public static class SubirVsiafRequest {
+        private List<Long> idsActivos;
+    }
+
+    /**
+     * Consigue —o crea, la primera vez en la gestión— el acta de regularización, para
+     * usarla como destino en el modal de Trasladar cuando no hay una acta clara.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/acta-regularizacion")
+    @ResponseBody
+    public ResponseEntity<?> actaRegularizacion(HttpServletRequest httpReq) {
+        Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "msg", "Sesión expirada. Volvé a iniciar sesión."));
+        }
+        try {
+            AsignacionActivo acta = asignacionEdicionService.obtenerOCrearActaRegularizacion(usuario);
+            return ResponseEntity.ok(Map.of("ok", true, "id", acta.getIdAsignacionActivo(),
+                    "numero", acta.getNumeroAsignacion()));
+        } catch (SecurityException sinPermiso) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("ok", false, "msg", sinPermiso.getMessage()));
+        } catch (Exception e) {
+            log.error("[REGULARIZACION] Error consiguiendo el acta: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("ok", false, "msg", "No se pudo obtener el acta de regularización: " + e.getMessage()));
         }
     }
 
@@ -406,16 +714,17 @@ public class CAsignacionActivoController {
     }
 
     /**
-     * Acta del documento en PDF.
+     * Acta del documento, en Word (.docx) — editable, y con el membrete institucional
+     * como imagen de fondo detrás del texto (se repite en cada página).
      * <p>
-     * La tabla y el modal ya apuntaban a esta ruta, pero el endpoint no existía: el
-     * único {@code /asignaciones/{id}/pdf} del proyecto vive en {@code SeguimientoController},
-     * bajo otro prefijo y sobre la entidad {@code Asignacion}, que es otra cosa. El botón
-     * de descarga de este módulo devolvía 404.
+     * Reusa {@link WordAsignacionActivoService}, el mismo generador que ya usa
+     * {@code ReportesController} para las actas que salen de Pendientes; ese generador
+     * es también el que arma la nota de traslado al pie, cuando el acta tiene
+     * movimientos que contar.
      */
     @ValidarUsuarioAutenticado
-    @GetMapping("/asignaciones/{id}/pdf")
-    public ResponseEntity<byte[]> actaPdf(@PathVariable Long id) {
+    @GetMapping("/asignaciones/{id}/word")
+    public ResponseEntity<byte[]> actaWord(@PathVariable Long id) {
         try {
             AsignacionActivo asignacion = asignacionActivoService.findByIdConDetalles(id).orElse(null);
             if (asignacion == null) return ResponseEntity.notFound().build();
@@ -436,18 +745,26 @@ public class CAsignacionActivoController {
                         return c;
                     });
 
-            byte[] pdf = pdfAsignacionActivoCompleto.generarActaAsignacion(asignacion, config);
+            String nombreUsuario = null;
+            if (asignacion.getRegistroIdUsuario() != null) {
+                nombreUsuario = usuarioService.findByIdUsuario(asignacion.getRegistroIdUsuario())
+                        .map(u -> u.getPersona() != null ? u.getPersona().getNombreCompleto() : null)
+                        .orElse(null);
+            }
+
+            byte[] docx = wordAsignacionActivoService.generarActaAsignacion(asignacion, config, nombreUsuario);
 
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDisposition(ContentDisposition.inline()
+            headers.setContentType(MediaType.parseMediaType(
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+            headers.setContentDisposition(ContentDisposition.attachment()
                     .filename("acta_" + (asignacion.getNumeroAsignacion() != null
-                            ? asignacion.getNumeroAsignacion() : id) + ".pdf")
+                            ? asignacion.getNumeroAsignacion() : id) + ".docx")
                     .build());
-            return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
+            return new ResponseEntity<>(docx, headers, HttpStatus.OK);
 
         } catch (Exception e) {
-            log.error("[ASIGNACION-PDF] No se pudo generar el acta {}: {}", id, e.getMessage(), e);
+            log.error("[ASIGNACION-WORD] No se pudo generar el acta {}: {}", id, e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -485,6 +802,7 @@ public class CAsignacionActivoController {
         }
     }
 
+    @ValidarUsuarioAutenticado
     @GetMapping("/asignaciones/{id}/detalles-json")
     @ResponseBody
     public ResponseEntity<?> obtenerDetallesAsignacionJson(@PathVariable Long id, HttpServletRequest httpReq) {
@@ -628,11 +946,33 @@ public class CAsignacionActivoController {
                 && usuario.getRol().getNombre() != null
                 && ROLES_EDICION.contains(usuario.getRol().getNombre().trim().toUpperCase());
 
+            // Ids planos de la cabecera, para precargar el modal de "Editar cabecera"
+            // sin pedir otro endpoint: esta ruta ya se llama cada vez que se abre el
+            // detalle del acta.
+            Map<String, Object> cabecera = new LinkedHashMap<>();
+            cabecera.put("idResponsable", asig.getResponsable() != null
+                    ? asig.getResponsable().getIdResponsable() : null);
+            cabecera.put("idOficinaDestino", asig.getOficinaDestino() != null
+                    ? asig.getOficinaDestino().getIdOficina() : null);
+            cabecera.put("idPredioOficina", asig.getOficinaDestino() != null
+                    && asig.getOficinaDestino().getPredio() != null
+                    ? asig.getOficinaDestino().getPredio().getIdPredio() : null);
+
+            // Datos del reporte Excel — para precargar el modal "Editar datos del
+            // reporte" sin pedir otro endpoint. Suelen faltar en actas viejas o ya
+            // subidas al VSIAF, donde el modal de Pendientes ya no aparece.
+            cabecera.put("hojaRuta", asig.getHojaRuta());
+            cabecera.put("certificacion", asig.getCertificacion());
+            cabecera.put("sistematizadoPor", resolverNombreUsuario(asig.getRegistroIdUsuario()));
+            cabecera.put("comprobante", asig.getComprobante());
+            cabecera.put("observacion", asig.getObservacion());
+
             return ResponseEntity.ok(Map.of(
                 "ok", true,
                 "puedeEditar", puedeEditar,
                 "detalles", listaDetalles,
-                "resumen", resumen));
+                "resumen", resumen,
+                "cabecera", cabecera));
 
         } catch (Exception e) {
             log.error("[ASIGNACION-DETALLE] Error cargando detalles id={}: {}", id, e.getMessage());

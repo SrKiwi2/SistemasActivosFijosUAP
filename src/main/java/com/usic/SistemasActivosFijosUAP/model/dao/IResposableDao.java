@@ -66,7 +66,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
             p.paterno                 as paterno,
             p.materno                 as materno,
             p.ci                      as ci,
-            (o.cod_ofi)::text         as oficina,
+            concat(pr.unidad, ' — ', o.cod_ofi, ' | ', o.nombre) as oficina,
             c.nombre                  as cargo,
             o.cod_ofi                 as codOfi,
             e.entidad_codigo          as entidadCodigo,
@@ -90,6 +90,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
                 p.materno                 ILIKE CONCAT('%', :q, '%') OR
                 p.ci                      ILIKE CONCAT('%', :q, '%') OR
                 CAST(o.cod_ofi AS TEXT)   ILIKE CONCAT('%', :q, '%') OR
+                o.nombre                  ILIKE CONCAT('%', :q, '%') OR
                 c.nombre                  ILIKE CONCAT('%', :q, '%')
             )
         ORDER BY r.id_responsable DESC
@@ -112,6 +113,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
                 p.materno                 ILIKE CONCAT('%', :q, '%') OR
                 p.ci                      ILIKE CONCAT('%', :q, '%') OR
                 (o.cod_ofi)::text         ILIKE CONCAT('%', :q, '%') OR
+                o.nombre                  ILIKE CONCAT('%', :q, '%') OR
                 c.nombre                  ILIKE CONCAT('%', :q, '%')
             )
         """,
@@ -169,6 +171,32 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
            "       LOWER(COALESCE(p.ci, '')) LIKE LOWER(CONCAT('%', :q, '%')))")
     Page<RespOption> searchGlobal(@Param("q") String q, Pageable pageable);
 
+    /**
+     * Igual que {@link #searchByOficina}, pero con el código de funcionario como
+     * prefijo de la etiqueta en vez del CI — para selects donde interesa el mismo
+     * formato "código - nombre" que ya se usa en Transferencias.
+     */
+    @Query("SELECT new com.usic.SistemasActivosFijosUAP.model.dto.RespOption(" +
+           "r.idResponsable, " +
+           "CONCAT(COALESCE(r.codigoFuncionario, 'S/C'), ' - ', p.nombre, ' ', p.paterno, ' ', COALESCE(p.materno, ''))" +
+           ") " +
+           "FROM Responsable r JOIN r.persona p " +
+           "WHERE r.oficina.idOficina = :oficinaId " +
+           "AND (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "     LOWER(p.paterno) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "     LOWER(COALESCE(r.codigoFuncionario, '')) LIKE LOWER(CONCAT('%', :q, '%')))")
+    Page<RespOption> searchByOficinaConCodigo(@Param("oficinaId") Long oficinaId, @Param("q") String q, Pageable pageable);
+
+    @Query("SELECT new com.usic.SistemasActivosFijosUAP.model.dto.RespOption(" +
+           "r.idResponsable, " +
+           "CONCAT(COALESCE(r.codigoFuncionario, 'S/C'), ' - ', p.nombre, ' ', p.paterno, ' ', COALESCE(p.materno, ''))" +
+           ") " +
+           "FROM Responsable r JOIN r.persona p " +
+           "WHERE (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "       LOWER(p.paterno) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "       LOWER(COALESCE(r.codigoFuncionario, '')) LIKE LOWER(CONCAT('%', :q, '%')))")
+    Page<RespOption> searchGlobalConCodigo(@Param("q") String q, Pageable pageable);
+
     List<Responsable> findByOficinaIdOficina(Long idOficina);
 
     boolean existsByOficinaIdOficinaAndPersonaIdPersona(Long idOficina, Long idPersona);
@@ -178,4 +206,12 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
     boolean existsByPersonaCi(String ci);
 
     Optional<Responsable> findByOficinaAndPersonaCi(Oficina oficina, String ci);
+
+    /**
+     * Activos (no eliminados) a cargo del responsable. En ACTUAL.DBF el activo apunta al
+     * responsable por CODOFIC+CODRESP: con bienes asignados, esa clave no se puede cambiar
+     * sin dejarlos huérfanos en el VSIAF.
+     */
+    @Query("select count(a) from Activo a where a.responsable.idResponsable = :idResponsable and (a.estado is null or a.estado <> 'ELIMINADO')")
+    long contarActivosAsignados(@Param("idResponsable") Long idResponsable);
 }

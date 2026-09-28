@@ -39,6 +39,17 @@ public class DbfColaService {
     @Value("${legacy.dbf.path:/mnt/dbfwin}")
     private String dbfPath;
 
+    /**
+     * Dónde viven {@code _cola}, {@code _hechos} y {@code _errores}.
+     * <p>
+     * Por omisión, junto a los DBF. Se separa cuando la carpeta de los DBF está bajo una
+     * rutina de respaldo que no debe ver archivos de trabajo: apuntando esta propiedad a
+     * otro montaje, el share del VSIAF queda con los DBF y nada más. Si se cambia acá,
+     * hay que arrancar el worker con {@code -Cola} en la ruta equivalente de la VM.
+     */
+    @Value("${legacy.dbf.cola.path:${legacy.dbf.path:/mnt/dbfwin}}")
+    private String colaPath;
+
     private final DbfColaRegistroService registroService;
 
     private final ObjectMapper mapper = new ObjectMapper();
@@ -101,8 +112,15 @@ public class DbfColaService {
      */
     private String escribirOrden(String tabla, Map<String, Object> orden) {
         try {
-            Path cola = Path.of(dbfPath, "_cola");
+            verificarMontaje();
+
+            Path cola = Path.of(colaPath, "_cola");
             Files.createDirectories(cola);
+            // Las carpetas de resultado se crean acá aunque las escriba el worker: si le
+            // faltan, su Move-Item falla DESPUÉS de haber aplicado el SQL, el archivo se
+            // queda en _cola y la misma orden se vuelve a ejecutar en bucle contra el DBF.
+            Files.createDirectories(Path.of(colaPath, "_hechos"));
+            Files.createDirectories(Path.of(colaPath, "_errores"));
 
             String nombre = tabla + "_" + System.currentTimeMillis() + "_"
                     + UUID.randomUUID().toString().substring(0, 8);
@@ -122,6 +140,33 @@ public class DbfColaService {
         } catch (Exception e) {
             log.error("No se pudo encolar la orden para {}: {}", tabla, e.getMessage(), e);
             throw new RuntimeException("Error encolando orden DBF: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Se asegura de que {@code legacy.dbf.path} sea de verdad el share del VSIAF antes de
+     * dejar la orden.
+     * <p>
+     * Si el montaje CIFS se cae, {@code /mnt/dbfwin} sigue existiendo como carpeta local
+     * vacía: {@code createDirectories} crea un {@code _cola/} en el disco del servidor, la
+     * orden se escribe sin error y el sistema informa que el cambio salió, pero el worker
+     * de la VM Windows nunca va a ver ese archivo. La presencia de ACTUAL.DBF es la prueba
+     * barata de que la carpeta es la real y no un punto de montaje vacío.
+     */
+    private void verificarMontaje() {
+        Path base = Path.of(dbfPath);
+        if (!Files.isDirectory(base)) {
+            throw new IllegalStateException("La carpeta del VSIAF (" + dbfPath
+                    + ") no está disponible: el montaje está caído.");
+        }
+        if (!Files.isRegularFile(base.resolve("ACTUAL.DBF"))) {
+            throw new IllegalStateException("En " + dbfPath + " no está ACTUAL.DBF: el montaje del "
+                    + "VSIAF no está activo. La orden no se encola para no dejarla en una carpeta "
+                    + "que el worker no lee.");
+        }
+        if (!colaPath.equals(dbfPath) && !Files.isDirectory(Path.of(colaPath))) {
+            throw new IllegalStateException("La carpeta de cola (" + colaPath
+                    + ") no está disponible: revisá ese montaje.");
         }
     }
 

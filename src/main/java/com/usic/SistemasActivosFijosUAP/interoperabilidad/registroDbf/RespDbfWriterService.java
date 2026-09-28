@@ -181,7 +181,7 @@ public class RespDbfWriterService {
         // ── Modo COLA: dejar la orden para el worker VFPOLEDB (mantiene el índice .CDX) ──
         if ("cola".equalsIgnoreCase(writeMode)) {
             colaService.encolarInsert("RESP", construirCamposResp(resp, entidadCode, unidadCode, usuario),
-                    ReferenciaOrdenDbf.deApoyo("CODRESP=" + resp.getCodigoFuncionario(), usuario));
+                    ReferenciaOrdenDbf.deApoyo(resp.getIdResponsable(), "CODRESP=" + resp.getCodigoFuncionario(), usuario));
             log.info("📤 Responsable CODRESP={} encolado para VSIAF (modo cola)", resp.getCodigoFuncionario());
             return;
         }
@@ -259,7 +259,7 @@ public class RespDbfWriterService {
             clave.put("CODOFIC", codOficOriginal);
             clave.put("CODRESP", codRespOriginal);
             colaService.encolarUpdate("RESP", clave, construirCamposResp(resp, entidadCode, unidadCode, usuario),
-                    ReferenciaOrdenDbf.deApoyo("CODRESP=" + codRespOriginal, usuario));
+                    ReferenciaOrdenDbf.deApoyo(resp.getIdResponsable(), "CODRESP=" + codRespOriginal, usuario));
             log.info("📤 Responsable CODRESP={} encolado para UPDATE en VSIAF (modo cola)", codRespOriginal);
             return;
         }
@@ -366,11 +366,16 @@ public class RespDbfWriterService {
     private Map<String, Object> construirCamposResp(Responsable resp, String ent, String uni, String usr) {
         String[] campos = {
             "ENTIDAD", "UNIDAD", "CODOFIC", "CODRESP", "NOMRESP", "CARGO",
-            "OBSERV", "CI", "FEULT", "USUAR", "COD_EXP", "API_ESTADO"
+            "CI", "FEULT", "USUAR", "COD_EXP", "API_ESTADO"
         };
         Map<String, Object> m = new LinkedHashMap<>();
         for (String c : campos) {
             m.put(c, obtenerValorCampo(c, resp, ent, uni, usr));
+        }
+        // Igual que en OFICINA: un OBSERV vacío en un UPDATE borraba la observación que el
+        // responsable tuviera en el VSIAF. Solo viaja si hay texto.
+        if (resp.getObserv() != null && !resp.getObserv().isBlank()) {
+            m.put("OBSERV", resp.getObserv().trim());
         }
         return m;
     }

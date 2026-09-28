@@ -44,6 +44,7 @@ public class OpcionMenuSeeder {
     private static final String[][] GRUPOS = {
         { "grp_usuarios",      "sec_admin",       "Usuarios y Accesos",       "ti ti-users-group",            "purple" },
         { "grp_comunicacion",  "sec_admin",       "Comunicación",             "ti ti-mail",                   "cyan" },
+        { "grp_supervision",   "sec_admin",       "Supervisión",              "ti ti-eye-check",              "red" },
         { "grp_contable",      "sec_catalogos",   "Clasificación Contable",   "ti ti-adjustments-horizontal", "teal" },
         { "grp_geo",           "sec_catalogos",   "Ámbito Geográfico",        "ti ti-map-2",                  "blue" },
         { "grp_adminactivos",  "sec_operaciones", "Administración de Activos", "ti ti-packages",              "green" },
@@ -69,6 +70,10 @@ public class OpcionMenuSeeder {
 
         { "opcion_comunicados",    "grp_comunicacion", "Comunicados",                  "ti ti-send",             "cyan",   "/administracion/comunicados/vista",                  "/administracion/comunicados",           "" },
 
+        // Solo ADMINISTRADOR / SUPER USUARIO (los controladores lo vuelven a revisar por rol).
+        { "opcion_actividad",      "grp_supervision",  "Monitoreo de actividad",       "ti ti-activity",         "red",    "/administracion/actividad/vista",                    "/administracion/actividad",             "" },
+        { "opcion_autorizaciones", "grp_supervision",  "Autorizaciones",               "ti ti-shield-check",     "amber",  "/administracion/autorizaciones/vista",               "/administracion/autorizaciones",        "" },
+
         { "opcion_contable",       "grp_contable",     "Grupo Contable",               "ti ti-category-2",       "teal",   "/administracion/grupoc/vista",                       "/administracion/grupoc",                "" },
         { "opcion_auxiliar",       "grp_contable",     "Auxiliar",                     "ti ti-folders",          "blue",   "/administracion/auxiliar/vista",                     "/administracion/auxiliar",              "" },
         { "opcion_of",             "grp_contable",     "Organismo Financiador",        "ti ti-building-bank",    "amber",  "/administracion/organismo/vista",                    "/administracion/organismo",             "" },
@@ -83,6 +88,9 @@ public class OpcionMenuSeeder {
         { "opcion_activo",         "grp_adminactivos", "Registro Activos",             "ti ti-clipboard-list",   "green",  "/administracion/activo/vista",                       "/administracion/activo",                "" },
         { "opcion_activop",        "grp_adminactivos", "Registro Activos Pendientes",  "ti ti-clock-exclamation","amber",  "/administracion/activo/vistap",                      "/administracion/activo/vistap",         "PEND." },
 
+        { "opcion_transferencia",  "grp_transfer",     "Transferencia de Activos",     "ti ti-arrows-exchange",  "green",  "/administracion/trasnferencia/transferencia",        "/administracion/trasnferencia/transferencia", "" },
+        // Interna y externa se unificaron en la opción de arriba; estos dos quedan ocultos
+        // (ver OCULTOS) para no romper los permisos ya asignados a los usuarios.
         { "opcion_trInterna",      "grp_transfer",     "Transferencia interna",        "ti ti-building",         "green",  "/administracion/trasnferencia/trasnferenciaInterna", "/administracion/trasnferencia/trasnferenciaInterna", "" },
         { "opcion_trExterna",      "grp_transfer",     "Transferencia externa",        "ti ti-truck-delivery",   "amber",  "/administracion/trasnferencia/trasnferenciaExterna", "/administracion/trasnferencia/trasnferenciaExterna", "" },
         { "opcion_trLondra",       "grp_transfer",     "Transferencia Londra",         "ti ti-truck-delivery",   "amber",  "/administracion/transferenciasLondra/vista",         "/administracion/transferenciasLondra",  "" },
@@ -103,8 +111,10 @@ public class OpcionMenuSeeder {
         { "opcion_ba",             "grp_movimientos",  "Bajas",                        "ti ti-trash",            "red",    "/administracion/baja/modulo",                        "/administracion/baja/modulo",           "" },
 
         { "opcion_historialA",     "grp_historial",    "Historial Activo",             "ti ti-timeline",         "blue",   "/administracion/historial/vista",                    "/administracion/historial",             "" },
+        { "opcion_trHistorial",    "grp_historial",    "Historial de Transferencias",  "ti ti-refresh-dot",      "amber",  "/administracion/activo/transferencias/historial/vista", "/administracion/activo/transferencias/historial", "" },
 
         { "opcion_consulta_activo","grp_consulta",     "Buscar / Filtrar Activos",     "ti ti-search",           "blue",   "/administracion/consulta/activos/vista",             "/administracion/consulta",              "" },
+        { "opcion_reporte_asignaciones", "grp_consulta", "Reporte de Asignaciones (Excel)", "ti ti-file-spreadsheet", "green", "/reportes/asignaciones/vista",              "/reportes/asignaciones",                "" },
         { "opcion_conciliacion",   "grp_conciliacion", "BD ↔ VSIAF (divergencias)",    "ti ti-arrows-diff",      "blue",   "/administracion/conciliacion/vista",                 "/administracion/conciliacion",          "" },
         { "opcion_correlativo",    "grp_conciliacion", "Revisión de correlativos",     "ti ti-list-numbers",     "teal",   "/administracion/correlativo/vista",                  "/administracion/correlativo",           "" },
     };
@@ -120,6 +130,8 @@ public class OpcionMenuSeeder {
      */
     private static final String[][] PERMISOS = {
         { "opcion_activo_editar_codigo", "grp_adminactivos", "Editar código de activo (urgente)", "ti ti-barcode-off", "red" },
+        { "opcion_activo_editar",        "grp_adminactivos", "Editar activo",                     "ti ti-pencil",      "amber" },
+        { "opcion_activo_desaprobar",    "grp_adminactivos", "Desaprobar activo (VSIAF)",          "ti ti-arrow-down-circle", "red" },
 
         // Cerrar un faltante es la acción sensible del módulo de control: da por
         // zanjado un bien que no apareció. Mirar el mapa no la requiere.
@@ -137,6 +149,14 @@ public class OpcionMenuSeeder {
         { "MOV_ASIGNACIONES_SUBIR", "grp_movil", "Móvil · Subir asignaciones al VSIAF", "ti ti-cloud-upload",   "red"   },
         { "MOV_NOTIFICACIONES",     "grp_movil", "Móvil · Notificaciones del sistema", "ti ti-bell",            "amber" },
     };
+
+    /**
+     * Ítems que existen pero ya no se muestran en el sidebar: su pantalla se unificó con
+     * otra. Se conservan porque hay usuarios con ese permiso asignado.
+     */
+    private static final java.util.Set<String> OCULTOS = java.util.Set.of(
+        "opcion_trInterna", "opcion_trExterna"
+    );
 
     @Bean
     ApplicationRunner initOpcionesMenu(IOpcionMenuDao dao) {
@@ -209,6 +229,7 @@ public class OpcionMenuSeeder {
                 o.setOrden(i + 1);
                 o.setSeccion(descSeccion.get(seccionDeGrupo.get(it[1])));
                 o.setGrupo(descGrupo.get(it[1]));
+                if (OCULTOS.contains(it[0])) o.setVisible(false);
                 dao.save(o);
                 total++;
             }

@@ -123,11 +123,11 @@ public class SeguimientoController {
         
         // 2) Unidades (desde los responsables y sus oficinas; fallback a "—")
         String unidadOrigen  = (t.getResponsableOrigen()  != null && t.getResponsableOrigen().getOficina()  != null)
-                ? nvl(t.getResponsableOrigen().getOficina().getNombre())
+                ? nvl(com.usic.SistemasActivosFijosUAP.controller.activo.ActivosController.etiquetaOficina(t.getResponsableOrigen().getOficina()))
                 : "—";
 
         String unidadDestino = (t.getResponsableDestino() != null && t.getResponsableDestino().getOficina() != null)
-                ? nvl(t.getResponsableDestino().getOficina().getNombre())
+                ? nvl(com.usic.SistemasActivosFijosUAP.controller.activo.ActivosController.etiquetaOficina(t.getResponsableDestino().getOficina()))
                 : "—";
         
         // 3) Fechas formateadas
@@ -156,7 +156,7 @@ public class SeguimientoController {
                 String ua = d.getUbicacionActual();
                 if (ua == null || ua.isBlank()) {
                     ua = (t.getResponsableDestino() != null && t.getResponsableDestino().getOficina() != null)
-                            ? t.getResponsableDestino().getOficina().getNombre()
+                            ? com.usic.SistemasActivosFijosUAP.controller.activo.ActivosController.etiquetaOficina(t.getResponsableDestino().getOficina())
                             : null;
                 }
                 dto.setUbicacionActual(nvl(ua));

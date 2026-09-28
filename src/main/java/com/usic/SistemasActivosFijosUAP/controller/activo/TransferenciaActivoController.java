@@ -20,19 +20,29 @@ public class TransferenciaActivoController {
     
     private final IPredioServicio predioServicio;
 
+    /**
+     * Vista única de transferencias (interna + externa). El tipo lo decide el movimiento:
+     * si el predio destino es distinto al del activo es externa, y ahí hay que reubicar su
+     * auxiliar. Tenerlas separadas dejaba registrar una externa por la pantalla interna
+     * (sin tocar el auxiliar) y obligaba a mantener dos pantallas casi iguales.
+     */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/transferencia")
+    public String transferencia(Model model) {
+        model.addAttribute("predios", predioServicio.listarPredios());
+        return "activo/transferencia";
+    }
+
+    /** Rutas anteriores: quedan apuntando a la vista unificada (enlaces y permisos viejos). */
     @ValidarUsuarioAutenticado
     @GetMapping("/trasnferenciaInterna")
     public String trasnferenciaInterna(Model model) {
-        List<Predio> listarDePredio = predioServicio.listarPredios();
-        model.addAttribute("predios", listarDePredio);
-        return "activo/transferenciaInterna";
+        return transferencia(model);
     }
 
     @ValidarUsuarioAutenticado
     @GetMapping("/trasnferenciaExterna")
     public String transferenciaExterna(Model model) {
-        List<Predio> listarDePredio = predioServicio.listarPredios();
-        model.addAttribute("predios", listarDePredio);
-        return "activo/transferenciaExterna";
+        return transferencia(model);
     }
 }

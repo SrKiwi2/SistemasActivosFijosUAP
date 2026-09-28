@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -32,6 +33,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IOrganismoFinancieroServi
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IHistorialBloqueoActivoService;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoConsultaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoResponsableDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.AuxOption;
@@ -39,10 +41,13 @@ import com.usic.SistemasActivosFijosUAP.model.dto.GrupoMetaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.OficinaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.RespOption;
 import com.usic.SistemasActivosFijosUAP.model.dto.ResponsableDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableActivoGrupoDTO;
+import com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableCardDataDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
+import com.usic.SistemasActivosFijosUAP.model.entity.HistorialBloqueoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
@@ -69,6 +74,7 @@ public class CatalogoRestController {
     private final ICargoService cargoService;
     /** Alta de auxiliares: el mismo servicio que usa el ABM del módulo Auxiliar. */
     private final AuxiliarRegistroService auxiliarRegistroService;
+    private final IHistorialBloqueoActivoService historialBloqueoService;
 
     public CatalogoRestController(IResponsableService responsableService,
         IOficinaService oficinaService,
@@ -80,7 +86,8 @@ public class CatalogoRestController {
         IMunicipioService municipioService,
         IOrganismoFinancieroService organismoFinancieroService,
         ICargoService cargoService,
-        AuxiliarRegistroService auxiliarRegistroService) {
+        AuxiliarRegistroService auxiliarRegistroService,
+        IHistorialBloqueoActivoService historialBloqueoService) {
         this.auxiliarRegistroService = auxiliarRegistroService;
         this.responsableService = responsableService;
         this.oficinaService = oficinaService;
@@ -92,6 +99,7 @@ public class CatalogoRestController {
         this.municipioService = municipioService;
         this.organismoFinancieroService = organismoFinancieroService;
         this.cargoService = cargoService;
+        this.historialBloqueoService = historialBloqueoService;
     }
 
     @GetMapping("/responsables")
@@ -140,6 +148,51 @@ public class CatalogoRestController {
         return datos;
     }
 
+    @GetMapping("/responsables/card")
+    @Transactional(readOnly = true)
+    public ResponseEntity<ResponsableCardDataDTO> obtenerCardResponsable(@RequestParam Long idResponsable) {
+        Responsable responsable = responsableService.findById(idResponsable);
+        if (responsable == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Bloque A: Información del Responsable
+        String nombreCompleto = "";
+        String ci = "";
+        String cargo = "";
+        if (responsable.getPersona() != null) {
+            nombreCompleto = responsable.getPersona().getNombreCompleto();
+            ci = responsable.getPersona().getCi();
+        }
+        if (responsable.getCargo() != null) {
+            cargo = responsable.getCargo().getNombre();
+        }
+
+        // Bloque B: Datos de la Ubicación
+        String oficinaNumero = "";
+        String oficinaNombre = "";
+        String predio = "";
+        if (responsable.getOficina() != null) {
+            oficinaNumero = String.valueOf(responsable.getOficina().getCodOfi());
+            oficinaNombre = responsable.getOficina().getNombre();
+            if (responsable.getOficina().getPredio() != null) {
+                predio = responsable.getOficina().getPredio().getDescrip();
+            }
+        }
+
+        // Bloque C: Resumen de Activos
+        List<ResponsableActivoGrupoDTO> desglose = activoService.conteoPorGrupoContableDeResponsable(idResponsable);
+        Long totalActivos = desglose.stream().mapToLong(ResponsableActivoGrupoDTO::getCantidad).sum();
+
+        ResponsableCardDataDTO dto = new ResponsableCardDataDTO(
+            nombreCompleto, ci, cargo,
+            oficinaNumero, oficinaNombre, predio,
+            totalActivos, desglose
+        );
+
+        return ResponseEntity.ok(dto);
+    }
+
     @GetMapping("/buscar-activo")
     public ResponseEntity<ActivoConsultaDTO> obtenerPorCodigo(@RequestParam String codigo) {
         return activoService.findByCodigo(codigo)
@@ -150,7 +203,8 @@ public class CatalogoRestController {
 
                 if (a.getOficina() != null) {
                     oficinaId = a.getOficina().getIdOficina();
-                    oficinaNombre = a.getOficina().getNombre();
+                    // Siempre código + nombre: hay oficinas homónimas en distintos predios.
+                    oficinaNombre = com.usic.SistemasActivosFijosUAP.controller.activo.ActivosController.etiquetaOficina(a.getOficina());
                 }
 
                 return ResponseEntity.ok(
@@ -170,7 +224,7 @@ public class CatalogoRestController {
     public ResponseEntity<ActivoResponsableDTO> obtenerConResponsable(@RequestParam String codigo) {
         return activoService.findByCodigo(codigo)
             .map(a -> {
-                String oficinaNombre = a.getOficina() != null ? a.getOficina().getNombre() : null;
+                String oficinaNombre = com.usic.SistemasActivosFijosUAP.controller.activo.ActivosController.etiquetaOficina(a.getOficina());
                 String responsableNombre = a.getResponsable() != null
                         ? a.getResponsable().getPersona().getNombreCompleto()
                         : "Sin responsable asignado";
@@ -223,7 +277,39 @@ public class CatalogoRestController {
         Map<String, Object> resp = new HashMap<>();
         resp.put("results", result.getContent());
         resp.put("pagination", Map.of("more", result.hasNext()));
-        
+
+        return resp;
+    }
+
+    /**
+     * Igual que {@code /buscar_responsable}, pero con el código de funcionario como
+     * prefijo de la etiqueta ("COD - Nombre") en vez del CI. Pensado para selects tipo
+     * Select2 donde se quiere el mismo formato "código - nombre" que Oficina.
+     */
+    @GetMapping("/responsables/buscar")
+    public Map<String, Object> buscarResponsableConCodigo(
+            @RequestParam(name = "q", required = false, defaultValue = "") String q,
+            @RequestParam(name = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(name = "oficinaId", required = false) Long oficinaId
+    ) {
+        int pageIndex = Math.max(0, page - 1);
+        int pageSize = 20;
+        PageRequest pageRequest = PageRequest.of(pageIndex, pageSize);
+
+        Page<RespOption> result;
+
+        if (oficinaId != null && oficinaId > 0) {
+            result = responsableService.searchByOficinaConCodigo(oficinaId, q, pageRequest);
+        } else if (oficinaId != null && oficinaId == -1) {
+            result = Page.empty();
+        } else {
+            result = responsableService.searchGlobalConCodigo(q, pageRequest);
+        }
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("results", result.getContent());
+        resp.put("pagination", Map.of("more", result.hasNext()));
+
         return resp;
     }
 
@@ -444,6 +530,8 @@ public class CatalogoRestController {
                 map.put("idOficina", o.getIdOficina());
                 map.put("codOfi", o.getCodOfi() != null ? o.getCodOfi() : "");
                 map.put("nombre", o.getNombre());
+                map.put("etiqueta", com.usic.SistemasActivosFijosUAP.controller.activo.ActivosController
+                        .etiquetaOficina(o));
                 return map;
             })
             .toList();
@@ -463,6 +551,61 @@ public class CatalogoRestController {
             .toList();
     }
 
+    /**
+     * Datos del activo que necesitan las pantallas de movimiento: además de lo suyo, la
+     * oficina con su CÓDIGO (no solo el nombre: dos oficinas pueden llamarse igual), el
+     * predio —que es lo que decide si la transferencia es interna o externa— y el auxiliar,
+     * que en una externa hay que reubicar en el predio destino.
+     */
+    private Map<String, Object> datosActivoParaMovimiento(Activo a) {
+        Map<String, Object> map = new java.util.LinkedHashMap<>();
+        map.put("idActivo", a.getIdActivo());
+        map.put("codigo", a.getCodigo());
+        map.put("descripcion", a.getDescripcion());
+        map.put("estado", a.getEstado());
+        map.put("bloqueado", Boolean.TRUE.equals(a.getBloqueado()));
+
+        if (a.getGrupoContable() != null) {
+            map.put("grupoContable", Map.of(
+                "idGrupoContable", a.getGrupoContable().getIdGrupoContable(),
+                "nombre", a.getGrupoContable().getNombre() != null ? a.getGrupoContable().getNombre() : ""));
+        }
+        if (a.getOficina() != null) {
+            Map<String, Object> ofi = new java.util.LinkedHashMap<>();
+            ofi.put("idOficina", a.getOficina().getIdOficina());
+            ofi.put("codOfi", a.getOficina().getCodOfi());
+            ofi.put("nombre", a.getOficina().getNombre());
+            ofi.put("etiqueta", com.usic.SistemasActivosFijosUAP.controller.activo.ActivosController
+                    .etiquetaOficina(a.getOficina()));
+            map.put("oficina", ofi);
+
+            if (a.getOficina().getPredio() != null) {
+                map.put("predio", Map.of(
+                    "idPredio", a.getOficina().getPredio().getIdPredio(),
+                    "unidad", a.getOficina().getPredio().getUnidad() != null ? a.getOficina().getPredio().getUnidad() : "",
+                    "descrip", a.getOficina().getPredio().getDescrip() != null ? a.getOficina().getPredio().getDescrip() : ""));
+            }
+        }
+        if (a.getResponsable() != null && a.getResponsable().getPersona() != null) {
+            map.put("responsable", Map.of(
+                "idResponsable", a.getResponsable().getIdResponsable(),
+                "codigoFuncionario", a.getResponsable().getCodigoFuncionario() != null ? a.getResponsable().getCodigoFuncionario() : "",
+                "nombre", a.getResponsable().getPersona().getNombreCompleto()));
+        }
+        if (a.getAuxiliar() != null) {
+            map.put("auxiliar", Map.of(
+                "idAuxiliar", a.getAuxiliar().getIdAuxiliar(),
+                "codAux", a.getAuxiliar().getCodAux() != null ? a.getAuxiliar().getCodAux() : "",
+                "nombre", a.getAuxiliar().getNombre() != null ? a.getAuxiliar().getNombre() : ""));
+        }
+        if (a.getEstadoActivo() != null) {
+            map.put("estadoActivo", Map.of(
+                "idEstadoActivo", a.getEstadoActivo().getIdEstadoActivo(),
+                "nombre", a.getEstadoActivo().getNombre()));
+        }
+        return map;
+    }
+
     @PostMapping("/activos/por-codigos")
     public ResponseEntity<List<Map<String, Object>>> buscarActivosPorCodigosMasivo(@RequestBody Map<String, List<String>> payload) {
         List<String> codigos = payload.get("codigos");
@@ -476,40 +619,7 @@ public class CatalogoRestController {
             // Buscamos cada activo. (Si tu IActivoService tiene un método findByCodigoIn(List<String>), 
             // sería más óptimo, pero iterar sobre findByCodigo funciona bien para lotes pequeños/medianos).
             activoService.findByCodigo(cod).ifPresentOrElse(
-                a -> {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("idActivo", a.getIdActivo());
-                    map.put("codigo", a.getCodigo());
-                    map.put("descripcion", a.getDescripcion());
-                    
-                    // Extraer relaciones de forma segura
-                    if (a.getGrupoContable() != null) {
-                        map.put("grupoContable", Map.of(
-                            "idGrupoContable", a.getGrupoContable().getIdGrupoContable(),
-                            "nombre", a.getGrupoContable().getNombre() != null ? a.getGrupoContable().getNombre() : ""
-                        ));
-                    }
-                    if (a.getOficina() != null) {
-                        map.put("oficina", Map.of(
-                            "idOficina", a.getOficina().getIdOficina(),
-                            "nombre", a.getOficina().getNombre()
-                        ));
-                    }
-                    if (a.getResponsable() != null && a.getResponsable().getPersona() != null) {
-                        map.put("responsable", Map.of(
-                            "idResponsable", a.getResponsable().getIdResponsable(),
-                            "nombre", a.getResponsable().getPersona().getNombreCompleto()
-                        ));
-                    }
-                    if (a.getEstadoActivo() != null) {
-                        map.put("estadoActivo", Map.of(
-                            "idEstadoActivo", a.getEstadoActivo().getIdEstadoActivo(),
-                            "nombre", a.getEstadoActivo().getNombre()
-                        ));
-                    }
-                    
-                    resultados.add(map);
-                },
+                a -> resultados.add(datosActivoParaMovimiento(a)),
                 () -> {
                     // Si no se encuentra, devolvemos un objeto indicando el código que falló (como lo espera tu JS)
                     Map<String, Object> errorMap = new HashMap<>();
@@ -525,33 +635,45 @@ public class CatalogoRestController {
     @GetMapping("/activos/por-codigo")
     public ResponseEntity<Map<String, Object>> buscarActivoPorCodigoTF(@RequestParam String codigo) {
         return activoService.findByCodigo(codigo)
-            .map(a -> {
-                Map<String, Object> map = new HashMap<>();
-                map.put("idActivo", a.getIdActivo());
-                map.put("codigo", a.getCodigo());
-                map.put("descripcion", a.getDescripcion());
-                
-                // Extraer relaciones de forma segura para la tabla
-                if (a.getGrupoContable() != null) {
-                    map.put("grupoContable", Map.of("nombre", a.getGrupoContable().getNombre()));
-                }
-                if (a.getOficina() != null) {
-                    map.put("oficina", Map.of("nombre", a.getOficina().getNombre()));
-                }
-                if (a.getResponsable() != null && a.getResponsable().getPersona() != null) {
-                    map.put("responsable", Map.of("nombre", a.getResponsable().getPersona().getNombreCompleto()));
-                }
-                
-                return ResponseEntity.ok(map);
-            })
+            .map(a -> ResponseEntity.ok(datosActivoParaMovimiento(a)))
             .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Dónde está un responsable (predio y oficina) para poder abrir otra pantalla ya
+     * posicionada en él: lo usa el atajo "Cambiar de responsable" de Consulta de Activos,
+     * que lleva a Asignar Activos con ese responsable como origen.
+     */
+    @GetMapping("/responsables/{id}/ubicacion")
+    public ResponseEntity<?> ubicacionResponsable(@PathVariable("id") Long idResponsable) {
+        Responsable r = responsableService.findById(idResponsable);
+        if (r == null || r.getOficina() == null) {
+            return ResponseEntity.notFound().build();
+        }
+        Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("idResponsable", r.getIdResponsable());
+        m.put("nombre", r.getPersona() != null ? r.getPersona().getNombreCompleto() : "");
+        m.put("idOficina", r.getOficina().getIdOficina());
+        m.put("oficina", com.usic.SistemasActivosFijosUAP.controller.activo.ActivosController
+                .etiquetaOficina(r.getOficina()));
+        if (r.getOficina().getPredio() != null) {
+            m.put("idPredio", r.getOficina().getPredio().getIdPredio());
+            m.put("predio", r.getOficina().getPredio().getUnidad());
+        }
+        return ResponseEntity.ok(m);
     }
 
     @GetMapping("/activos/por-responsable")
     @ResponseBody
     public ResponseEntity<?> activosPorResponsable(@RequestParam Long responsableId) {
         try {
-            List<Activo> activos = activoService.findByResponsableIdResponsable(responsableId);
+            // Solo los ACTIVO: los PENDIENTE todavía no están aprobados y no existen en el
+            // VSIAF, y los CANCELADO están dados de baja. Reasignar cualquiera de los dos
+            // encolaría un UPDATE contra un registro que no está en ACTUAL.DBF. Es además
+            // el mismo criterio que usan Consulta de Activos y el Mapa de Control, que
+            // antes daban un número distinto para el mismo responsable.
+            List<Activo> activos = activoService.findByResponsableIdResponsableAndEstado(
+                    responsableId, Activo.ESTADO_ACTIVO);
             // Proyección ligera — no devolver campos innecesarios
             List<Map<String, Object>> resultado = activos.stream().map(a -> {
                 Map<String, Object> m = new java.util.LinkedHashMap<>();
@@ -727,5 +849,136 @@ public class CatalogoRestController {
         public String ci;
         public String codigoFuncionario;
         public Long   idCargo;
+    }
+
+    // ─── BLOQUEO DE ACTIVOS ─────────────────────────────────────────────────────
+
+    /**
+     * Bloquear/desbloquear es de administración: congela los bienes de un responsable
+     * para cualquier movimiento. El chequeo va acá porque /api/** es permitAll().
+     */
+    private static final Set<String> ROLES_BLOQUEO = Set.of("ADMINISTRADOR", "SUPER USUARIO");
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService actividadService;
+
+    private void registrarBloqueo(Usuario usuario, Long idResponsable, boolean bloquear, String observacion) {
+        Responsable r = responsableService.findById(idResponsable);
+        String nombre = (r != null && r.getPersona() != null) ? r.getPersona().getNombreCompleto() : ("#" + idResponsable);
+        String ref = (r != null ? r.getCodigoFuncionario() + " " : "") + nombre;
+        actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_BLOQUEO,
+                bloquear ? com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_BLOQUEO : com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_DESBLOQUEO, ref,
+                (bloquear ? "Bloqueó" : "Desbloqueó") + " los activos del responsable " + nombre
+                + (observacion != null && !observacion.isBlank() ? ". Observación: " + observacion : ""),
+                idResponsable);
+    }
+
+    public static boolean puedeBloquear(Usuario usuario) {
+        return usuario != null && usuario.getRol() != null && usuario.getRol().getNombre() != null
+                && ROLES_BLOQUEO.contains(usuario.getRol().getNombre().trim().toUpperCase());
+    }
+
+    @PostMapping("/activos/bloquear-por-responsable")
+    @ResponseBody
+    public ResponseEntity<?> bloquearActivosPorResponsable(
+            HttpServletRequest request,
+            @RequestBody BloqueoResponsableRequest payload) {
+
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(401).body(Map.of("ok", false, "msg", "Sesión expirada"));
+        }
+        if (!puedeBloquear(usuario)) {
+            return ResponseEntity.status(403).body(Map.of("ok", false,
+                    "msg", "Solo un ADMINISTRADOR o SUPER USUARIO puede bloquear o desbloquear activos."));
+        }
+
+        try {
+            activoService.bloquearActivosDeResponsable(payload.idResponsable, usuario, payload.observacion);
+            registrarBloqueo(usuario, payload.idResponsable, true, payload.observacion);
+            return ResponseEntity.ok(Map.of("ok", true, "msg", "Activos bloqueados correctamente"));
+        } catch (Exception e) {
+            log.error("[BLOQUEO] Error bloqueando activos: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/activos/desbloquear-por-responsable")
+    @ResponseBody
+    public ResponseEntity<?> desbloquearActivosPorResponsable(
+            HttpServletRequest request,
+            @RequestBody BloqueoResponsableRequest payload) {
+
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        if (usuario == null) {
+            return ResponseEntity.status(401).body(Map.of("ok", false, "msg", "Sesión expirada"));
+        }
+        if (!puedeBloquear(usuario)) {
+            return ResponseEntity.status(403).body(Map.of("ok", false,
+                    "msg", "Solo un ADMINISTRADOR o SUPER USUARIO puede bloquear o desbloquear activos."));
+        }
+
+        try {
+            activoService.desbloquearActivosDeResponsable(payload.idResponsable, usuario, payload.observacion);
+            registrarBloqueo(usuario, payload.idResponsable, false, payload.observacion);
+            return ResponseEntity.ok(Map.of("ok", true, "msg", "Activos desbloqueados correctamente"));
+        } catch (Exception e) {
+            log.error("[DESBLOQUEO] Error desbloqueando activos: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/activos/historial-bloqueo/responsable")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> historialBloqueoPorResponsable(
+            @RequestParam Long idResponsable) {
+        try {
+            List<HistorialBloqueoActivo> historial = activoService.obtenerHistorialBloqueoPorResponsable(idResponsable);
+            List<Map<String, Object>> result = historial.stream().map(h -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("idHistorial", h.getIdHistorialBloqueo());
+                m.put("activoCodigo", h.getActivo() != null ? h.getActivo().getCodigo() : null);
+                m.put("activoDescripcion", h.getActivo() != null ? h.getActivo().getDescripcion() : null);
+                m.put("responsable", h.getResponsable() != null ? h.getResponsable().getPersona().getNombreCompleto() : null);
+                m.put("accion", h.getAccion());
+                m.put("usuario", h.getUsuario());
+                m.put("fecha", h.getFecha() != null ? h.getFecha().toString() : null);
+                m.put("observacion", h.getObservacion());
+                return m;
+            }).toList();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("[HIST-BLOQ] Error: {}", e.getMessage());
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @GetMapping("/activos/historial-bloqueo/activo")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> historialBloqueoPorActivo(
+            @RequestParam Long idActivo) {
+        try {
+            List<HistorialBloqueoActivo> historial = activoService.obtenerHistorialBloqueoPorActivo(idActivo);
+            List<Map<String, Object>> result = historial.stream().map(h -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("idHistorial", h.getIdHistorialBloqueo());
+                m.put("activoCodigo", h.getActivo() != null ? h.getActivo().getCodigo() : null);
+                m.put("responsable", h.getResponsable() != null ? h.getResponsable().getPersona().getNombreCompleto() : null);
+                m.put("accion", h.getAccion());
+                m.put("usuario", h.getUsuario());
+                m.put("fecha", h.getFecha() != null ? h.getFecha().toString() : null);
+                m.put("observacion", h.getObservacion());
+                return m;
+            }).toList();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("[HIST-BLOQ] Error: {}", e.getMessage());
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    public static class BloqueoResponsableRequest {
+        public Long idResponsable;
+        public String observacion;
     }
 }

@@ -1,11 +1,15 @@
 package com.usic.SistemasActivosFijosUAP.controller.control;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -20,6 +24,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.AbrirLevantamientoRequest;
+import com.usic.SistemasActivosFijosUAP.model.dto.control.ActivoUbicacionDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.CerrarLevantamientoRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.MarcaRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.MarcasLoteRequest;
@@ -29,6 +34,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.InventarioDetalle;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ControlActivosService;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ReglaNegocioException;
+import com.usic.SistemasActivosFijosUAP.model.service.control.WordControlActivosService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -51,9 +57,13 @@ import lombok.extern.slf4j.Slf4j;
 public class ControlActivosController {
 
     private final ControlActivosService servicio;
+    private final WordControlActivosService wordServicio;
 
     /** Capacidad para cerrar hallazgos. Sin ella se puede mirar, no resolver. */
     private static final String PERMISO_RESOLVER = "opcion_control_resolver";
+
+    private static final String DOCX_MIME =
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
     // ── Vistas ───────────────────────────────────────────────────────────────
 
@@ -71,11 +81,155 @@ public class ControlActivosController {
 
     // ── Mapa ─────────────────────────────────────────────────────────────────
 
+    /**
+     * Buscador de activos por código o descripción; cada resultado trae su ubicación
+     * completa (municipio › predio › oficina › responsable).
+     */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/buscar")
+    @ResponseBody
+    public ResponseEntity<?> buscar(@RequestParam(required = false) String q) {
+        return ResponseEntity.ok(servicio.buscar(q));
+    }
+
+    /**
+     * Informe en Word de los bienes seleccionados.
+     *
+     * <p>Recibe ids y relee de la base: lo que se firma tiene que decir lo que la base
+     * dice hoy, no lo que la pantalla del usuario tenía cargado.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/informe/verificacion")
+    public ResponseEntity<?> informeVerificacion(@RequestBody InformeRequest req,
+                                                 HttpServletRequest http) {
+        try {
+            List<ActivoUbicacionDTO> activos = servicio.activosParaInforme(req.idsActivos());
+            byte[] docx = wordServicio.informeVerificacion(activos, nombreUsuario(http));
+            return archivoWord(docx, "verificacion_bienes_" + LocalDate.now() + ".docx");
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("[INFORME-VERIFICACION] No se pudo generar: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("ok", false, "message", "No se pudo generar el informe."));
+        }
+    }
+
+    /** Cuerpo del pedido de informe: los ids de los bienes tildados en pantalla. */
+    public record InformeRequest(List<Long> idsActivos) { }
+
+    /**
+     * Informe de faltantes en Word, con los mismos filtros que la pantalla de Faltantes:
+     * lo que se imprime es exactamente lo que se está viendo.
+     */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/informe/faltantes")
+    public ResponseEntity<?> informeFaltantes(@RequestParam(required = false) Long idPredio,
+                                              @RequestParam(required = false) Long idOficina,
+                                              @RequestParam(required = false) Long idResponsable,
+                                              @RequestParam(required = false) String tipo,
+                                              @RequestParam(required = false) String estado,
+                                              HttpServletRequest http) {
+        try {
+            var faltantes = servicio.faltantes(idPredio, idOficina, idResponsable,
+                    vacioANull(tipo), vacioANull(estado));
+            if (faltantes.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("ok", false, "message", "No hay hallazgos que informar con ese filtro."));
+            }
+            byte[] docx = wordServicio.informeFaltantes(faltantes, alcance(idPredio, idOficina, idResponsable),
+                    nombreUsuario(http));
+            return archivoWord(docx, "faltantes_" + LocalDate.now() + ".docx");
+
+        } catch (Exception e) {
+            log.error("[INFORME-FALTANTES] No se pudo generar: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("ok", false, "message", "No se pudo generar el informe."));
+        }
+    }
+
+    /** Acta de responsabilidad, con membrete y firmas, de todos los bienes de un responsable. */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/informe/acta")
+    public ResponseEntity<?> informeActa(@RequestParam Long idResponsable, HttpServletRequest http) {
+        try {
+            var resp = servicio.responsable(idResponsable);
+            if (resp == null) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("ok", false, "message", "No se encontró ese responsable."));
+            }
+            var bienes = servicio.bienesParaActa(idResponsable);
+            byte[] docx = wordServicio.actaPorResponsable(resp, bienes, nombreUsuario(http));
+            return archivoWord(docx, "acta_responsabilidad_" + LocalDate.now() + ".docx");
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("[INFORME-ACTA] No se pudo generar: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("ok", false, "message", "No se pudo generar el acta."));
+        }
+    }
+
+    /** Resumen de control por oficina de un predio. */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/informe/resumen")
+    public ResponseEntity<?> informeResumen(@RequestParam Long idPredio, HttpServletRequest http) {
+        try {
+            var oficinas = servicio.mapaOficinas(idPredio);
+            if (oficinas.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("ok", false, "message", "Este predio no tiene oficinas activas."));
+            }
+            String predio = oficinas.get(0).predio();
+            byte[] docx = wordServicio.resumenPorOficina(
+                    predio == null ? "Predio" : predio, oficinas, nombreUsuario(http));
+            return archivoWord(docx, "resumen_control_" + LocalDate.now() + ".docx");
+
+        } catch (Exception e) {
+            log.error("[INFORME-RESUMEN] No se pudo generar: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("ok", false, "message", "No se pudo generar el informe."));
+        }
+    }
+
+    /** Descripción en texto de sobre qué habla el informe, para que el papel no sea ambiguo. */
+    private String alcance(Long idPredio, Long idOficina, Long idResponsable) {
+        if (idResponsable != null) return "Filtrado por responsable";
+        if (idOficina != null)     return "Filtrado por oficina";
+        if (idPredio != null)      return "Filtrado por predio";
+        return "Todos los predios";
+    }
+
+    private ResponseEntity<byte[]> archivoWord(byte[] docx, String nombre) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(DOCX_MIME));
+        headers.setContentDisposition(ContentDisposition.attachment().filename(nombre).build());
+        return new ResponseEntity<>(docx, headers, HttpStatus.OK);
+    }
+
+    @ValidarUsuarioAutenticado
+    @GetMapping("/mapa/municipios")
+    @ResponseBody
+    public ResponseEntity<?> municipios() {
+        return ResponseEntity.ok(servicio.mapaMunicipios());
+    }
+
+    /**
+     * Predios del mapa. Sin parámetros trae todos (el nivel 1 clásico); con
+     * {@code idMunicipio} o con {@code sinMunicipio=true} trae los de un municipio o
+     * los que no tienen municipio cargado, que es a donde lleva el nivel 0.
+     */
     @ValidarUsuarioAutenticado
     @GetMapping("/mapa/predios")
     @ResponseBody
-    public ResponseEntity<?> predios() {
-        return ResponseEntity.ok(servicio.mapaPredios());
+    public ResponseEntity<?> predios(@RequestParam(required = false) Long idMunicipio,
+                                     @RequestParam(defaultValue = "false") boolean sinMunicipio) {
+        if (idMunicipio == null && !sinMunicipio) {
+            return ResponseEntity.ok(servicio.mapaPredios());
+        }
+        return ResponseEntity.ok(servicio.mapaPredios(idMunicipio, sinMunicipio));
     }
 
     @ValidarUsuarioAutenticado

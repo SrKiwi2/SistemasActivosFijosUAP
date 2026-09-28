@@ -10,10 +10,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 
+import com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableActivoGrupoDTO;
 import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.HistorialBloqueoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
+import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
 @Service
 public interface IActivoService extends IServiceGenerico<Activo, Long>{
@@ -24,7 +28,7 @@ public interface IActivoService extends IServiceGenerico<Activo, Long>{
     Page<Activo> buscarPorNombreOCodigo(@Param("filtro") String filtro, Pageable pageable);
     Page<Activo> buscarConFiltros(String searchValue, String codigo, String responsableId,
                               String oficinaId, String predioId, String usuario,
-                              String fecha, Pageable pageable);
+                              String fecha, String grupoId, Pageable pageable);
     List<Activo> obtenerActivosDelResponsable(Persona persona);
     Optional<Activo> findByCodigo(String codigo);
 
@@ -41,7 +45,16 @@ public interface IActivoService extends IServiceGenerico<Activo, Long>{
 
     List<Activo> findByResponsableIdResponsable(Long idResponsable);
 
+    List<Activo> findByResponsableIdResponsableAndEstado(Long idResponsable, String estado);
+
+    List<ResponsableActivoGrupoDTO> conteoPorGrupoContableDeResponsable(Long idResponsable);
+
     @EntityGraph(value = "activo.syncGraph", type = EntityGraph.EntityGraphType.FETCH)
     @Query("SELECT a FROM Activo a WHERE a.estado <> 'ELIMINADO'")
     List<Activo> findAllForSync();
+
+    void bloquearActivosDeResponsable(Long idResponsable, Usuario usuario, String observacion);
+    void desbloquearActivosDeResponsable(Long idResponsable, Usuario usuario, String observacion);
+    List<HistorialBloqueoActivo> obtenerHistorialBloqueoPorResponsable(Long idResponsable);
+    List<HistorialBloqueoActivo> obtenerHistorialBloqueoPorActivo(Long idActivo);
 }

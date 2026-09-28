@@ -16,25 +16,27 @@
             </div>
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label" for="modalEditUserFirstName">Nombre</label>
-                <input type="text" th:field="${persona.nombre}" class="form-control" placeholder="Introduzca un nombre"
-                    required />
+                <input type="text" th:field="${persona.nombre}" class="form-control" id="perNombre"
+                    placeholder="Introduzca un nombre" required />
                 <div class="valid-feedback">Correcto!</div>
                 <div class="invalid-feedback">Porfavor Introduzca un Nombre.</div>
             </div>
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label" for="modalEditUserLastName">Paterno</label>
-                <input type="text" th:field="${persona.paterno}" class="form-control"
+                <input type="text" th:field="${persona.paterno}" class="form-control" id="perPaterno"
                     placeholder="Introduzca un apellido" />
                 <div class="valid-feedback">Correcto!</div>
                 <div class="invalid-feedback">Porfavor Introduzca su primer apellido.</div>
             </div>
             <div class="col-12 col-md-4 mb-2">
                 <label class="form-label" for="modalEditUserLastName">Materno</label>
-                <input type="text" th:field="${persona.materno}" class="form-control"
+                <input type="text" th:field="${persona.materno}" class="form-control" id="perMaterno"
                     placeholder="Introduzca un apellido" />
                 <div class="valid-feedback">Correcto!</div>
                 <div class="invalid-feedback">Porfavor Introduzca su segundo apellido.</div>
             </div>
+            <!-- Si esta persona llega a ser responsable, el VSIAF solo guarda 35 caracteres -->
+            <div class="col-12" id="perContadorNombre"></div>
         </div>
     </div>
     <div class="modal-footer">
@@ -50,4 +52,13 @@
 
 <script>
     manejarEnvioFormulario('#formularioPersona');
+
+    /* Aviso, no bloqueo: no toda persona termina siendo responsable, pero si lo es, el
+       nombre completo viaja al VSIAF en un solo campo de 35 caracteres. */
+    if (window.sciafContador) {
+        sciafContador.combinado(['#perNombre', '#perPaterno', '#perMaterno'], 35, {
+            etiqueta: 'Nombre completo (si llega a ser responsable, el VSIAF admite 35)',
+            contenedor: '#perContadorNombre'
+        });
+    }
 </script>

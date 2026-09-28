@@ -16,6 +16,7 @@ import org.springframework.data.repository.query.Param;
 import com.usic.SistemasActivosFijosUAP.model.dto.CorrelativoActivoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.hardware.ActivoMantenimientoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.DivergenciaActivoDto;
+import com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableActivoGrupoDTO;
 import com.usic.SistemasActivosFijosUAP.model.endpoint.OficinaConteo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
@@ -45,6 +46,26 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
     Page<Activo> buscarPorNombreOCodigo(@Param("filtro") String filtro, Pageable pageable);
 
     List<Activo> findByResponsableIdResponsable(Long idResponsable);
+
+    /**
+     * Los bienes de un responsable en un estado concreto. Para la pantalla de asignación
+     * hace falta quedarse solo con los ACTIVO: un PENDIENTE todavía no está aprobado ni
+     * existe en el VSIAF, así que reasignarlo dejaría la base y el legacy distintos.
+     */
+    List<Activo> findByResponsableIdResponsableAndEstado(Long idResponsable, String estado);
+
+    @Query("""
+        SELECT new com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableActivoGrupoDTO(
+            gc.idGrupoContable, gc.nombre, count(a))
+        FROM Activo a
+        JOIN a.responsable r
+        JOIN a.grupoContable gc
+        WHERE r.idResponsable = :idResponsable
+          AND a.estado = 'ACTIVO'
+        GROUP BY gc.idGrupoContable, gc.nombre
+        ORDER BY count(a) DESC
+        """)
+    List<ResponsableActivoGrupoDTO> conteoPorGrupoContableDeResponsable(@Param("idResponsable") Long idResponsable);
 
     @Query("""
         select a.oficina as oficina, count(a) as total

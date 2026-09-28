@@ -17,7 +17,7 @@
         <h4 class="fw-bold py-1 mb-0">
             <span class="text-muted fw-light">Administración /</span> Responsables
         </h4>
-        <div class="d-flex align-items-center gap-2">
+        <div class="d-flex align-items-center gap-2" th:if="${esAdmin}">
             <span class="badge bg-label-primary" id="ultimaSync"
                   data-bs-toggle="tooltip" title="Última sincronización con DBF">
                 <i class="fa-solid fa-clock me-1"></i>
@@ -46,7 +46,12 @@
                     </select>
                 </div>
                 <div class="col-md-8 col-lg-9 text-md-end mt-3 mt-md-0">
-                    <div class="btn-group me-2" role="group">
+                    <small th:unless="${esAdmin}" class="text-muted me-2">
+                        <i class="fa-solid fa-circle-info me-1"></i>
+                        Lo que registre o modifique se envía solo al VSIAF.
+                    </small>
+                    <!-- Sincronización manual con el DBF: solo administradores -->
+                    <div class="btn-group me-2" role="group" th:if="${esAdmin}">
                         <button id="btnSyncResp" class="btn btn-outline-secondary btn-sm"
                                 title="Sincronización rápida">
                             <i class="fa-solid fa-rotate me-1"></i> Sync
@@ -77,6 +82,8 @@
                         <th style="width:110px">C.I.</th>
                         <th>Oficina</th>
                         <th>Cargo</th>
+                        <th style="width:110px">VSIAF</th>
+                        <th th:if="${esAdmin}">Registro / Modificación</th>
                         <th class="text-center" style="width:110px">Acciones</th>
                     </tr>
                 </thead>
@@ -104,6 +111,11 @@
 <script th:inline="javascript">
 (function () {   /* ← IIFE: evita conflictos al recargar la vista */
 
+    const ES_ADMIN = /*[[${esAdmin == true}]]*/ false;
+
+    /** Escapa texto que viene de la base antes de meterlo en HTML. */
+    function esc(v) { return $('<div>').text(v == null ? '' : String(v)).html(); }
+
     /* ── Init ───────────────────────────────────────────── */
     $(document).ready(function () {
 
@@ -122,12 +134,28 @@
             if ($.fn.DataTable.isDataTable('#data-table')) $('#data-table').DataTable().ajax.reload(null, false);
         });
 
+        // Una solicitud de autorización se resolvió (o llegó una nueva): refrescar la tabla.
+        if (window.sciafEscuchar) window.sciafEscuchar('autorizacion', 'responsable', function (d) {
+            if (!$('#data-table').length || (d && d.modulo && d.modulo !== 'RESPONSABLE')) return;
+            if (!$('.modal.show').length) $('#data-table').DataTable().ajax.reload(null, false);
+        });
+
+        // El worker resolvió órdenes de la cola: si hay responsables "En cola", refrescar su estado.
+        $(document).off('sciaf:cola-vsiaf.responsable').on('sciaf:cola-vsiaf.responsable', function () {
+            if (!$('#data-table').length) { $(document).off('sciaf:cola-vsiaf.responsable'); return; }
+            if (!$('#data-table [data-estado-vsiaf="EN_COLA"]').length) return;
+            if ($('.modal.show').length) return;
+            $('#data-table').DataTable().ajax.reload(null, false);
+        });
+
         $('#filtroOficina').on('change', function () {
             $('#data-table').DataTable().ajax.reload();
         });
 
-        $(document).on('click', '#btnSyncResp',    () => sincronizar(false));
-        $(document).on('click', '#btnSyncCompleto', function () {
+        // Handlers delegados con namespace + off: la vista se puede recargar sin duplicarlos.
+        $(document).off('.respMod');
+        $(document).on('click.respMod', '#btnSyncResp',    () => sincronizar(false));
+        $(document).on('click.respMod', '#btnSyncCompleto', function () {
             Swal.fire({
                 title: '¿Sincronización Completa?',
                 text: 'Se revisarán todos los registros. Puede tardar unos segundos.',
@@ -137,43 +165,51 @@
             }).then(r => { if (r.isConfirmed) sincronizar(true); });
         });
 
-        $(document).on('click', '.btn-subir-dbf', function () {
+        $(document).on('click.respMod', '.btn-subir-dbf', function () {
             const idEnc = $(this).data('id');
             Swal.fire({
-                title: 'Subir a DBF',
-                text: 'Este registro existe en BD pero falta en el DBF. ¿Registrar ahora?',
+                title: 'Enviar al VSIAF',
+                text: 'Este responsable está en el SCIAF pero no llegó al VSIAF. ¿Enviarlo ahora?',
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonText: 'Sí, subir',
+                confirmButtonText: 'Sí, enviar',
+                cancelButtonText: 'Cancelar',
                 confirmButtonColor: '#ffc107'
             }).then(res => {
                 if (!res.isConfirmed) return;
-                showGlobalLoader({ texto: 'Escribiendo en DBF…' });
+                showGlobalLoader({ texto: 'Enviando al VSIAF…' });
                 $.post('/administracion/responsable/subir-dbf/' + idEnc, function (resp) {
                     hideGlobalLoader();
-                    Swal.fire(resp.ok ? 'Éxito' : 'Error', resp.msg, resp.ok ? 'success' : 'error');
-                    if (resp.ok) $('#data-table').DataTable().ajax.reload(null, false);
-                }).fail(() => { hideGlobalLoader(); Swal.fire('Error', 'Fallo de conexión', 'error'); });
+                    Swal.fire(resp.ok ? 'Enviado' : 'Atención', resp.msg, resp.ok ? 'success' : 'warning');
+                    $('#data-table').DataTable().ajax.reload(null, false);
+                }).fail(xhr => { hideGlobalLoader(); Swal.fire('Error', xhr.responseJSON?.msg || 'Fallo de conexión', 'error'); });
             });
         });
 
-        $(document).on('click', '.btn-eliminar-responsable', function () {
+        $(document).on('click.respMod', '.btn-eliminar-responsable', function () {
             const idEnc = $(this).data('id');
+            // ADMINISTRADOR / SUPER USUARIO elimina directo; el resto envía una solicitud con motivo.
             Swal.fire({
-                title: '¿Eliminar responsable?',
-                text: 'Esta acción no se puede deshacer.',
+                title: ES_ADMIN ? '¿Eliminar responsable?' : 'Solicitar eliminación',
+                text: ES_ADMIN ? 'Se da de baja en el SCIAF (en el VSIAF la fila sigue existiendo).'
+                               : 'Eliminar un responsable requiere autorización. Indique el motivo.',
+                input: ES_ADMIN ? undefined : 'textarea',
+                inputPlaceholder: 'Motivo (obligatorio)',
+                inputValidator: ES_ADMIN ? undefined : (v => !(v || '').trim() ? 'Indique el motivo' : undefined),
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonText: 'Sí, eliminar',
+                confirmButtonText: ES_ADMIN ? 'Sí, eliminar' : 'Enviar solicitud',
+                cancelButtonText: 'Cancelar',
                 confirmButtonColor: '#dc3545'
             }).then(res => {
                 if (!res.isConfirmed) return;
-                showGlobalLoader({ texto: 'Eliminando…' });
-                $.post('/administracion/responsable/eliminar/' + idEnc, function (resp) {
+                showGlobalLoader({ texto: ES_ADMIN ? 'Eliminando…' : 'Enviando solicitud…' });
+                $.post('/administracion/responsable/eliminar/' + idEnc, ES_ADMIN ? {} : { motivo: res.value }, function (resp) {
                     hideGlobalLoader();
-                    Swal.fire(resp.ok ? 'Eliminado' : 'Error', resp.msg, resp.ok ? 'success' : 'error');
+                    Swal.fire(resp.solicitud ? 'Solicitud enviada' : (resp.ok ? 'Eliminado' : 'Error'), resp.msg,
+                              resp.solicitud ? 'info' : (resp.ok ? 'success' : 'error'));
                     if (resp.ok) $('#data-table').DataTable().ajax.reload(null, false);
-                }).fail(() => { hideGlobalLoader(); Swal.fire('Error', 'Fallo de conexión', 'error'); });
+                }).fail(xhr => { hideGlobalLoader(); Swal.fire('No se eliminó', xhr.responseJSON?.msg || 'Fallo de conexión', 'error'); });
             });
         });
     });
@@ -219,50 +255,78 @@
                 },
                 {
                     data: 'codFun', width: '80px',
-                    render: d => `<span class="badge bg-label-primary fw-bold">${d || '—'}</span>`
+                    render: d => `<span class="badge bg-label-primary fw-bold">${esc(d) || '—'}</span>`
                 },
                 {
                     data: null,
                     render: (d, t, row) =>
                         `<div class="lh-sm">
-                            <div class="fw-semibold text-dark">${row.paterno || ''} ${row.materno || ''}</div>
-                            <small class="text-muted">${row.nombre || ''}</small>
+                            <div class="fw-semibold text-dark">${esc(row.paterno)} ${esc(row.materno)}</div>
+                            <small class="text-muted">${esc(row.nombre)}</small>
                          </div>`
                 },
-                { data: 'ci', width: '110px' },
+                { data: 'ci', width: '110px', render: d => esc(d) },
                 {
                     data: 'oficina',
-                    render: d => `<span class="small text-muted">${d || '—'}</span>`
+                    render: d => `<span class="small text-muted">${esc(d) || '—'}</span>`
                 },
                 {
                     data: 'cargo',
-                    render: d => `<span class="fw-semibold text-primary small">${d || '—'}</span>`
+                    render: d => `<span class="fw-semibold text-primary small">${esc(d) || '—'}</span>`
                 },
+                {
+                    // Estado real del envío al VSIAF (cola del worker)
+                    data: 'estadoVsiaf', orderable: false, searchable: false,
+                    render: (d, t, row) => {
+                        const cfg = {
+                            VSIAF:     ['bg-label-success', 'fa-check'],
+                            EN_COLA:   ['bg-label-info',    'fa-hourglass-half'],
+                            ERROR:     ['bg-label-danger',  'fa-triangle-exclamation'],
+                            PENDIENTE: ['bg-label-warning', 'fa-cloud-arrow-up']
+                        }[d] || ['bg-label-secondary', 'fa-question'];
+                        return `<span class="badge ${cfg[0]}" data-estado-vsiaf="${esc(d)}"
+                                      data-bs-toggle="tooltip" title="${esc(row.estadoDetalle)}">
+                                    <i class="fa-solid ${cfg[1]} me-1"></i>${esc(row.estadoTexto)}
+                                </span>` + (row.solicitudPendiente
+                                ? `<span class="badge bg-label-warning mt-1 d-inline-block" title="Hay una solicitud de autorización pendiente">
+                                       <i class="fa-solid fa-shield-halved me-1"></i>Autorización pendiente</span>` : '');
+                    }
+                },
+                // Auditoría: quién registró y quién modificó (solo administradores)
+                ...(ES_ADMIN ? [{
+                    data: null, orderable: false, searchable: false,
+                    render: (d, t, row) => {
+                        const reg = (row.registradoPor || row.fechaRegistro)
+                            ? `<div><span class="text-muted">Reg.:</span> <span class="fw-semibold">${esc(row.registradoPor || 'VSIAF / sistema')}</span>
+                                   <span class="text-muted">${esc(row.fechaRegistro)}</span></div>` : '';
+                        const mod = row.modificadoPor
+                            ? `<div><span class="text-muted">Mod.:</span> <span class="fw-semibold">${esc(row.modificadoPor)}</span>
+                                   <span class="text-muted">${esc(row.fechaModificacion)}</span></div>` : '';
+                        return `<div class="small lh-sm">${reg}${mod}</div>`;
+                    }
+                }] : []),
                 {
                     data: 'idResponsable', orderable: false, searchable: false,
                     className: 'text-center', width: '110px',
                     render: (data, type, row) => {
-                        const sincBadge = row.existeEnDbf === false
+                        const reenviar = (row.estadoVsiaf === 'PENDIENTE' || row.estadoVsiaf === 'ERROR')
                             ? `<button class="btn btn-icon btn-sm btn-warning btn-subir-dbf"
                                        data-id="${row.idEnc}"
-                                       data-bs-toggle="tooltip" title="No está en DBF — click para subir">
+                                       data-bs-toggle="tooltip" title="Enviar / reenviar al VSIAF">
                                    <i class="fa-solid fa-cloud-arrow-up"></i>
-                               </button>`
-                            : `<span class="btn btn-icon btn-sm btn-label-success pe-none"
-                                     data-bs-toggle="tooltip" title="Sincronizado con DBF">
-                                   <i class="fa-solid fa-check"></i>
-                               </span>`;
+                               </button>` : '';
+                        const eliminar = `<button class="btn btn-icon btn-sm btn-outline-danger btn-eliminar-responsable"
+                                       data-id="${row.idEnc}" title="${ES_ADMIN ? 'Eliminar' : 'Solicitar eliminación (requiere autorización)'}">
+                                   <i class="fa-solid fa-trash"></i>
+                               </button>`;
                         return `<div class="d-inline-flex gap-1">
                             <button class="btn btn-icon btn-sm btn-outline-primary"
                                     onclick="editarResponsable('${row.idEnc}')"
                                     title="Editar">
                                 <i class="fa-solid fa-pen"></i>
                             </button>
-                            <button class="btn btn-icon btn-sm btn-outline-danger btn-eliminar-responsable"
-                                    data-id="${row.idEnc}" title="Eliminar">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
-                            ${sincBadge}
+                            ${eliminar}
+                            ${reenviar}
                         </div>`;
                     }
                 }

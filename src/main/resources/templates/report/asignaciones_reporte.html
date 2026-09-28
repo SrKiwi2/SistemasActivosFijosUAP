@@ -1,0 +1,414 @@
+<!-- /report/asignaciones_reporte.html -->
+
+<style>
+    #rep-wrap table td, #rep-wrap table th { vertical-align: middle; }
+    #rep-wrap table th { white-space: nowrap; }
+    #rep-wrap .badge { font-size: .72rem; }
+    #rep-wrap .btn i.bx { vertical-align: middle; line-height: 1; }
+</style>
+
+<div id="rep-wrap">
+
+    <h4 class="py-3 mb-1">
+        <span class="text-muted fw-light">Reportes /</span> Reporte de Asignaciones
+    </h4>
+    <p class="text-muted mb-3" style="font-size:.88rem; max-width:900px;">
+        Listado de actas para exportar a Excel — una sola, el conjunto filtrado ("por rango") o todas
+        ("general", sin filtros). Los campos <b>Hoja de Ruta, Certificación</b> y <b>Comprobante</b> se
+        completan acá con el botón <i class="bx bx-edit"></i> de cada fila — sirve también para actas que
+        ya existían antes de este módulo o que ya se subieron al VSIAF. <b>Sistematizado por</b> no se
+        pide: es quien registró el acta en el sistema.
+    </p>
+
+    <!-- Panel de filtros -->
+    <div class="card mb-3 border-0 shadow-sm">
+        <div class="card-body py-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-4">
+                    <label class="form-label mb-1 small fw-semibold text-muted">BUSCAR</label>
+                    <input type="text" id="rf-buscar" class="form-control form-control-sm"
+                           placeholder="N° de acta, preventivo, responsable o código de bien">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1 small fw-semibold text-muted">DESDE</label>
+                    <input type="date" id="rf-desde" class="form-control form-control-sm">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1 small fw-semibold text-muted">HASTA</label>
+                    <input type="date" id="rf-hasta" class="form-control form-control-sm">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1 small fw-semibold text-muted">GESTIÓN</label>
+                    <select id="rf-gestion" class="form-select form-select-sm">
+                        <option value="">Todas</option>
+                        <option th:each="g : ${gestiones}" th:value="${g}" th:text="${g}">2026</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1 small fw-semibold text-muted">COMPROBANTE</label>
+                    <select id="rf-comprobante" class="form-select form-select-sm">
+                        <option value="">Todas</option>
+                        <option value="true">Con comprobante</option>
+                        <option value="false">Sin comprobante</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row g-2 align-items-end mt-1">
+                <div class="col-6 col-md-3">
+                    <label class="form-label mb-1 small fw-semibold text-muted">RESPONSABLE</label>
+                    <select id="rf-responsable" class="form-select form-select-sm" style="width:100%"></select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1 small fw-semibold text-muted">OFICINA</label>
+                    <input type="text" id="rf-oficina" class="form-control form-control-sm" placeholder="Nombre de la oficina">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1 small fw-semibold text-muted">USUARIO REGISTRADOR</label>
+                    <select id="rf-usuario" class="form-select form-select-sm">
+                        <option value="">Todos</option>
+                        <option th:each="u : ${usuarios}" th:value="${u.idUsuario}" th:text="${u.usuario}">usuario</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1 small fw-semibold text-muted">TIPO</label>
+                    <select id="rf-tipo" class="form-select form-select-sm">
+                        <option value="">Todos</option>
+                        <option value="NUEVA">Nueva</option>
+                        <option value="REASIGNACION">Reasignación</option>
+                        <option value="DEVOLUCION">Devolución</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3 d-flex justify-content-end gap-2">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="repLimpiarFiltros()">
+                        <i class="bx bx-x me-1"></i>Limpiar
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="repCargar()">
+                        <i class="bx bx-refresh me-1"></i>Actualizar
+                    </button>
+                </div>
+            </div>
+
+            <div class="row g-2 align-items-center mt-1">
+                <div class="col-12 col-md-4">
+                    <label class="form-label mb-1 small fw-semibold text-muted">SINCRONIZACIÓN VSIAF</label>
+                    <select id="rf-sinc" class="form-select form-select-sm">
+                        <option value="TODAS">Todas (subidas y pendientes)</option>
+                        <option value="SUBIDAS">Subidas (al menos un bien)</option>
+                        <option value="COMPLETAS">Solo completas</option>
+                        <option value="PARCIALES">Solo parciales</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-8 d-flex justify-content-end">
+                    <button class="btn btn-sm btn-success" onclick="repExportarTodo()"
+                            title="Sin filtros exporta todas las actas; con filtros, solo las que cumplen el filtro (por rango)">
+                        <i class="bx bx-file-blank me-1"></i>Exportar Excel (lo filtrado)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="repTablaWrap"></div>
+    <div id="repPaginacion" class="d-flex justify-content-between align-items-center mt-2"></div>
+
+    <!-- ======================= MODAL EDITAR DATOS DE REPORTE ======================= -->
+    <div class="modal fade" id="modalRepEditar" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+
+                <div class="modal-header bg-primary text-white py-3">
+                    <h5 class="modal-title mb-0 fw-bold"><i class="bx bx-spreadsheet me-2"></i>Datos de reporte del acta</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                    <p class="text-muted mb-4" style="font-size:.9rem">
+                        "Sistematizado por" no se pide acá: es quien registró el acta en el sistema
+                        y ya se muestra solo en la tabla.
+                    </p>
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Hoja de Ruta / ARD</label>
+                            <input type="text" id="rep-edit-hoja-ruta" class="form-control form-control-lg" placeholder="Ej: 90">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Certificación</label>
+                            <input type="text" id="rep-edit-certificacion" class="form-control form-control-lg" placeholder="Ej: 6">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold d-block">Comprobante</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="rep-edit-comprobante" id="rep-edit-comprobante-si" value="true">
+                                <label class="btn btn-outline-success" for="rep-edit-comprobante-si"><i class="bx bx-check me-1"></i>SI</label>
+                                <input type="radio" class="btn-check" name="rep-edit-comprobante" id="rep-edit-comprobante-no" value="false">
+                                <label class="btn btn-outline-danger" for="rep-edit-comprobante-no"><i class="bx bx-x me-1"></i>NO</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Observación</label>
+                            <textarea id="rep-edit-observacion" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer py-3">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-rep-confirmar">
+                        <i class="bx bx-save me-1"></i>Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    /*
+        var, no const/let: esta página se re-carga por AJAX cada vez que se hace clic
+        en su ítem del menú ($(...).html() vuelve a ejecutar el <script> en el mismo
+        scope global — el documento nunca se recarga). Con const/let, la segunda
+        entrada tira "Identifier ya declarado" al llegar acá y aborta todo el script
+        sin que se llame a repCargar() al final — la tabla se queda vacía y sin
+        ningún error visible en pantalla. Ver el mismo comentario, más detallado, en
+        seguimiento/asignacion/vista.html (mismo bug, encontrado ahí primero).
+    */
+    var repEstado = { pagina: 0, tamano: 25, orden: 'fecha', desc: true };
+    var repFilasPorId = {};
+    var _repEditandoIdPlano = null;
+
+    function repEsc(s) {
+        if (s === null || s === undefined) return '';
+        return String(s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    function repFormatearFecha(iso) {
+        if (!iso) return '';
+        const [y, m, d] = iso.split('-');
+        return `${d}/${m}/${y}`;
+    }
+
+    function repObtenerFiltros() {
+        return {
+            buscar: $('#rf-buscar').val() || '',
+            desde: $('#rf-desde').val() || '',
+            hasta: $('#rf-hasta').val() || '',
+            gestion: $('#rf-gestion').val() || '',
+            tipo: $('#rf-tipo').val() || '',
+            estado: $('#rf-estado').val() || '',
+            sincronizacion: $('#rf-sinc').val() || '',
+            oficina: $('#rf-oficina').val() || '',
+            idResponsable: $('#rf-responsable').val() || '',
+            idUsuarioRegistro: $('#rf-usuario').val() || '',
+            comprobante: $('#rf-comprobante').val() || ''
+        };
+    }
+
+    function repCargar(reiniciarPagina) {
+        if (reiniciarPagina) repEstado.pagina = 0;
+        const params = Object.assign({}, repObtenerFiltros(), {
+            orden: repEstado.orden, desc: repEstado.desc,
+            pagina: repEstado.pagina, tamano: repEstado.tamano
+        });
+
+        $('#repTablaWrap').html(
+            '<div class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-2"></div>Cargando…</div>'
+        );
+
+        $.get('/reportes/asignaciones/datos', params)
+            .done(function (resp) {
+                if (!resp || !resp.ok) { repError(resp && resp.msg); return; }
+                repPintarTabla(resp.filas || []);
+                repPintarPaginacion(resp);
+            })
+            .fail(function () { repError('No se pudo cargar el reporte.'); });
+    }
+
+    function repError(msg) {
+        $('#repTablaWrap').html(`<div class="alert alert-danger m-0">${repEsc(msg) || 'Ocurrió un error al cargar el reporte.'}</div>`);
+        $('#repPaginacion').html('');
+    }
+
+    function repPintarTabla(filas) {
+        repFilasPorId = {};
+        if (!filas.length) {
+            $('#repTablaWrap').html('<div class="alert alert-light border text-muted text-center m-0">No hay actas con ese filtro.</div>');
+            return;
+        }
+
+        let numero = repEstado.pagina * repEstado.tamano + 1;
+        let html = `
+        <div class="table-responsive">
+        <table class="table table-sm table-bordered mb-0" style="font-size:.8rem">
+        <thead class="table-light">
+        <tr class="text-center">
+            <th>N°</th><th>Fecha</th><th>Hoja de Ruta / ARD</th><th>Certificación</th><th>PREV.</th>
+            <th>Sistematizado por</th><th>Comprobante</th><th>Ubicación</th><th>Nombre completo</th>
+            <th>C.I.</th><th>Cargo</th><th>Código</th><th>Descripción del activo</th><th>Obs.</th><th>Acciones</th>
+        </tr>
+        </thead><tbody>`;
+
+        filas.forEach(f => {
+            repFilasPorId[f.idPlano] = f;
+            const detalles = (f.detalles && f.detalles.length) ? f.detalles : [{ codigo: '', descripcion: '' }];
+            const nFilas = detalles.length;
+            const comprobanteHtml = f.comprobante === true ? '<span class="badge bg-success">SI</span>'
+                : f.comprobante === false ? '<span class="badge bg-danger">NO</span>'
+                : '<span class="text-muted">—</span>';
+
+            detalles.forEach((d, i) => {
+                html += '<tr>';
+                if (i === 0) {
+                    html += `
+                    <td rowspan="${nFilas}" class="text-center">${numero}</td>
+                    <td rowspan="${nFilas}" class="text-center text-nowrap">${repFormatearFecha(f.fecha) || '—'}</td>
+                    <td rowspan="${nFilas}" class="text-center">${repEsc(f.hojaRuta) || '—'}</td>
+                    <td rowspan="${nFilas}" class="text-center">${repEsc(f.certificacion) || '—'}</td>
+                    <td rowspan="${nFilas}" class="text-center fw-semibold">${repEsc(f.prev) || '—'}</td>
+                    <td rowspan="${nFilas}">${repEsc(f.sistematizadoPor) || '—'}</td>
+                    <td rowspan="${nFilas}" class="text-center">${comprobanteHtml}</td>
+                    <td rowspan="${nFilas}">${repEsc(f.oficina) || '—'}</td>
+                    <td rowspan="${nFilas}">${repEsc(f.nombreCompleto) || '—'}</td>
+                    <td rowspan="${nFilas}" class="text-center">${repEsc(f.ci) || '—'}</td>
+                    <td rowspan="${nFilas}">${repEsc(f.cargo) || '—'}</td>`;
+                }
+                html += `
+                    <td class="text-center text-nowrap">${repEsc(d.codigo) || '—'}</td>
+                    <td>${repEsc(d.descripcion) || '—'}</td>`;
+                if (i === 0) {
+                    html += `
+                    <td rowspan="${nFilas}" style="max-width:200px">${f.observacion ? repEsc(f.observacion) : '<span class="text-muted">—</span>'}</td>
+                    <td rowspan="${nFilas}" class="text-center text-nowrap">
+                        <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1 mb-1"
+                                title="Editar datos de reporte" onclick="repAbrirEditar(${f.idPlano})">
+                            <i class="bx bx-edit"></i>
+                        </button>
+                        <a class="btn btn-sm btn-outline-success py-0 px-1" title="Descargar Excel de esta acta"
+                           href="/reportes/asignaciones/${f.id}/exportar">
+                            <i class="bx bx-download"></i>
+                        </a>
+                    </td>`;
+                }
+                html += '</tr>';
+            });
+            numero++;
+        });
+
+        html += '</tbody></table></div>';
+        $('#repTablaWrap').html(html);
+    }
+
+    function repPintarPaginacion(resp) {
+        const totalPaginas = resp.totalPaginas || 0;
+        const paginaActual = resp.pagina || 0;
+        const totalElementos = resp.totalElementos || 0;
+
+        if (totalPaginas <= 1) {
+            $('#repPaginacion').html(`<span class="text-muted small">${totalElementos} acta(s)</span><span></span>`);
+            return;
+        }
+
+        const inicio = Math.max(0, Math.min(paginaActual - 2, totalPaginas - 5));
+        const fin = Math.min(totalPaginas - 1, inicio + 4);
+        let botones = '';
+        for (let i = inicio; i <= fin; i++) {
+            botones += `<button class="btn btn-sm ${i === paginaActual ? 'btn-primary' : 'btn-outline-secondary'} me-1" onclick="repIrAPagina(${i})">${i + 1}</button>`;
+        }
+
+        $('#repPaginacion').html(`
+            <span class="text-muted small">${totalElementos} acta(s) · página ${paginaActual + 1} de ${totalPaginas}</span>
+            <div>${botones}</div>
+        `);
+    }
+
+    function repIrAPagina(n) {
+        repEstado.pagina = n;
+        repCargar();
+    }
+
+    function repLimpiarFiltros() {
+        $('#rf-buscar, #rf-desde, #rf-hasta, #rf-oficina').val('');
+        $('#rf-gestion, #rf-tipo, #rf-estado, #rf-usuario, #rf-comprobante').val('');
+        $('#rf-sinc').val('TODAS');
+        $('#rf-responsable').val(null).trigger('change');
+        repCargar(true);
+    }
+
+    function repExportarTodo() {
+        window.location.href = '/reportes/asignaciones/exportar?' + $.param(repObtenerFiltros());
+    }
+
+    function repAbrirEditar(idPlano) {
+        const f = repFilasPorId[idPlano];
+        if (!f) return;
+        _repEditandoIdPlano = idPlano;
+        $('#rep-edit-hoja-ruta').val(f.hojaRuta || '');
+        $('#rep-edit-certificacion').val(f.certificacion || '');
+        $('#rep-edit-observacion').val(f.observacion || '');
+        $('input[name="rep-edit-comprobante"]').prop('checked', false);
+        if (f.comprobante === true)  $('#rep-edit-comprobante-si').prop('checked', true);
+        if (f.comprobante === false) $('#rep-edit-comprobante-no').prop('checked', true);
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalRepEditar')).show();
+    }
+
+    $(document).off('click.repConfirmar').on('click.repConfirmar', '#btn-rep-confirmar', function () {
+        if (!_repEditandoIdPlano) return;
+        const $btn = $(this).prop('disabled', true);
+        const comprobanteVal = $('input[name="rep-edit-comprobante"]:checked').val();
+
+        $.ajax({
+            url: `/administracion/asignacion/asignaciones/${_repEditandoIdPlano}/editar-reporte`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                hojaRuta: $('#rep-edit-hoja-ruta').val().trim(),
+                certificacion: $('#rep-edit-certificacion').val().trim(),
+                comprobante: comprobanteVal === undefined ? null : (comprobanteVal === 'true'),
+                observacion: $('#rep-edit-observacion').val().trim()
+            })
+        }).done(function (j) {
+            if (!j.ok) { Swal.fire('Error', j.msg || 'No se pudo guardar.', 'error'); return; }
+            bootstrap.Modal.getInstance(document.getElementById('modalRepEditar')).hide();
+            repCargar();
+        }).fail(function (xhr) {
+            Swal.fire('Error', xhr.responseJSON?.msg || 'No se pudo guardar.', 'error');
+        }).always(function () {
+            $btn.prop('disabled', false);
+        });
+    });
+
+    $(function () {
+        $('#rf-responsable').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            allowClear: true,
+            placeholder: 'Todos',
+            ajax: {
+                url: '/api/buscar_responsable',
+                dataType: 'json',
+                delay: 250,
+                data: params => ({ q: params.term || '', page: params.page || 1 }),
+                processResults: data => ({
+                    results: data.results,
+                    pagination: { more: data.pagination.more }
+                })
+            }
+        });
+
+        $('#rf-buscar').on('input', function () {
+            clearTimeout(window._repBuscarTimer);
+            window._repBuscarTimer = setTimeout(() => repCargar(true), 350);
+        });
+
+        ['#rf-desde', '#rf-hasta', '#rf-gestion', '#rf-tipo', '#rf-estado', '#rf-sinc',
+         '#rf-oficina', '#rf-usuario', '#rf-comprobante'].forEach(sel => {
+            $(sel).on('change', () => repCargar(true));
+        });
+        $('#rf-responsable').on('change', () => repCargar(true));
+
+        repCargar(true);
+    });
+</script>

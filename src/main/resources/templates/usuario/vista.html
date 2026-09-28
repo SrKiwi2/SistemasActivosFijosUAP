@@ -1,5 +1,6 @@
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Usuario</h4>
-<div id="tablaRegistro"></div>
+<!-- Se añade w-100 para que ocupe todo el ancho -->
+<div id="tablaRegistro" class="w-100"></div>
 
 <div class="modal fade" id="modalFormularioUsuario" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -16,7 +17,6 @@
 <script>
     $(document).ready(function () {
         cargarTabla();
-
     });
 
     function cargarTabla() {
@@ -41,6 +41,7 @@
             }
         });
     }
+    
     function cargarFormulario() {
         cargarFormularioAlert("/administracion/usuario/formulario", "#contenidoModalUsuario", "#formularioUsuario");
     }

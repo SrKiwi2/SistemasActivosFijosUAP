@@ -56,6 +56,18 @@
         white-space: nowrap;
     }
 
+    /* Chips de códigos del modal "Editar activos pendientes" (#editPendCodigoChips).
+       Con selecciones grandes (una asignación de 250 activos, por ejemplo) los chips
+       en flex-wrap sin tope hacían crecer el header del modal sin límite, dejando
+       casi sin alto al formulario de abajo aunque el modal fuera scrollable — el
+       body se veía recortado o casi vacío. Con tope + scroll propio, el header queda
+       de alto fijo y el body recupera el espacio. */
+    #editPendCodigoChips {
+        max-height: 4.6rem;
+        overflow-y: auto;
+        align-content: flex-start;
+    }
+
     @media (max-width: 992px) {
         .modal-agregar .batch-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
@@ -833,6 +845,34 @@
                     </div>
                 </div>
 
+                <!-- Datos del acta para el reporte (hoja de ruta, certificación y si tiene comprobante).
+                     "Sistematizado por" no se pide acá: es quien registra el acta, o sea vos —
+                     ya queda guardado solo como registroIdUsuario. -->
+                <div class="row g-2 mb-3">
+                    <div class="col-4">
+                        <label class="form-label small fw-bold text-dark">HOJA DE RUTA / ARD</label>
+                        <input type="text" id="txtHojaRuta" class="form-control form-control-sm" placeholder="Ej: 90">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small fw-bold text-dark">CERTIFICACIÓN</label>
+                        <input type="text" id="txtCertificacion" class="form-control form-control-sm" placeholder="Ej: 6">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small fw-bold text-dark d-block">COMPROBANTE</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="rbComprobante" id="rbComprobanteSi" value="true">
+                            <label class="btn btn-outline-success btn-sm" for="rbComprobanteSi">SI</label>
+                            <input type="radio" class="btn-check" name="rbComprobante" id="rbComprobanteNo" value="false">
+                            <label class="btn btn-outline-danger btn-sm" for="rbComprobanteNo">NO</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold text-dark">OBSERVACIÓN</label>
+                        <textarea id="txtObservacionActa" class="form-control form-control-sm" rows="2"
+                            placeholder="Ej: el activo llegó en la gestión 2025 pero se canceló el 2026"></textarea>
+                    </div>
+                </div>
+
                 <!-- Vista previa de cómo quedará la descripción -->
                 <div id="previewDesc" style="display:none; background:#fffdf0; border:1px dashed #ffc107;
                             border-radius:8px; padding:0.75rem 1rem; font-size:0.82rem;">
@@ -1070,6 +1110,21 @@
                                 onclick="window.toggleCodigoPreview(this)" title="Expandir / colapsar">
                             <i class="fa-solid fa-chevron-down"></i>
                         </button>
+                    </div>
+                </div>
+
+                <!-- Código libre (opcional): en vez del siguiente correlativo automático,
+                     elegir un hueco puntual de la serie mun-pred-grupo de esta asignación. -->
+                <div class="mb-2">
+                    <div class="form-check form-switch">
+                        <input type="checkbox" class="form-check-input" id="agregarUsarCodigoLibre">
+                        <label class="form-check-label small fw-bold" for="agregarUsarCodigoLibre">
+                            Asignar un código libre (en vez del correlativo automático)
+                        </label>
+                    </div>
+                    <div id="wrapAgregarCodigoLibre" class="d-none mt-1">
+                        <select id="agregarCodigoLibre" class="form-select form-select-sm"></select>
+                        <div id="agregarCodigoLibreHint" class="form-text" style="font-size:0.68rem;"></div>
                     </div>
                 </div>
 
@@ -1722,12 +1777,40 @@
             }
 
             $('#txtNroDoc').val('');
+            $('#txtHojaRuta, #txtCertificacion, #txtObservacionActa').val('');
+            $('input[name="rbComprobante"]').prop('checked', false);
             $('#previewDesc').hide();
             $('#infoConfigSeleccionada').addClass('d-none');
 
             new bootstrap.Tab(document.querySelector('#tab-elegir')).show();
             cargarComboConfiguraciones();
+            precargarDatosReporteSiExisteActa(ids);
             $('#modalAsignarGestion').modal('show');
+        }
+
+        /**
+         * Si los activos seleccionados ya pertenecen a un acta (ej.: se reabre el modal
+         * solo para corregir el N° de documento), precarga sus datos de reporte —
+         * si no, confirmar sin tocar esos campos los deja en blanco y se pierde lo que
+         * ya se había cargado antes.
+         */
+        function precargarDatosReporteSiExisteActa(ids) {
+            if (!ids || ids.length === 0) return;
+            $.get('/administracion/activo/api/datos-reporte-pendiente', { id: ids[0] })
+                .done(function (data) {
+                    if (!data || !data.existeActa) return;
+                    // Puede tardar más que el usuario en abrir el modal — no pisar lo
+                    // que ya haya empezado a escribir si cambió de selección mientras tanto.
+                    if (ids !== _pendingIds) return;
+
+                    if (data.nroDoc) $('#txtNroDoc').val(data.nroDoc);
+                    if (data.hojaRuta) $('#txtHojaRuta').val(data.hojaRuta);
+                    if (data.certificacion) $('#txtCertificacion').val(data.certificacion);
+                    if (data.observacion) $('#txtObservacionActa').val(data.observacion);
+                    if (data.comprobante === true)  $('#rbComprobanteSi').prop('checked', true);
+                    if (data.comprobante === false) $('#rbComprobanteNo').prop('checked', true);
+                    actualizarPreview();
+                });
         }
 
         function cargarComboConfiguraciones() {
@@ -1914,6 +1997,11 @@
             _pendingIds.forEach(id => params.append('ids', id));  // un append por ID
             params.append('idConfig', idConfig);
             params.append('nroDoc', nro);
+            params.append('hojaRuta', $('#txtHojaRuta').val().trim());
+            params.append('certificacion', $('#txtCertificacion').val().trim());
+            const comprobante = $('input[name="rbComprobante"]:checked').val();
+            if (comprobante !== undefined) params.append('comprobante', comprobante);
+            params.append('observacion', $('#txtObservacionActa').val().trim());
 
             fetch('/administracion/activo/asignar-gestion-masiva', {
                 method: 'POST',
@@ -2998,10 +3086,17 @@
             $('#detBadgeAgregar').text('0');
             $('#agregarIdAsigEnc').val(idAsigEnc);
             $('#agregarDesc, #agregarCosto, #agregarFecha').val('');
-            $('#agregarCantidad').val(1);
+            $('#agregarCantidad').val(1).prop('disabled', false);
             $('#agregarVidaUtil').val(0).prop('disabled', true);
             $('#agregarAccesorio').prop('checked', false);
             $('#modalAgregarActivo .txt-codigo-preview').val('').attr('placeholder', 'Cargando...');
+
+            // Reset del picker de código libre
+            $('#agregarUsarCodigoLibre').prop('checked', false);
+            $('#wrapAgregarCodigoLibre').addClass('d-none');
+            if ($('#agregarCodigoLibre').data('select2')) $('#agregarCodigoLibre').select2('destroy');
+            $('#agregarCodigoLibre').empty();
+            $('#agregarCodigoLibreHint').text('');
 
             // Destroy existing Select2, reset selects (keep Thymeleaf options)
             if ($('#agregarGrupo').data('select2')) $('#agregarGrupo').select2('destroy');
@@ -3101,7 +3196,7 @@
                     var codGrp = String(codDbf).padStart(2, '0');
                     $('#agregarCodGrp').val(codGrp);
                 }
-                recalcularCodigosAgregar();
+                actualizarPreviewCodigoAgregar();
             } else {
                 $vida.val(0);
                 $('#agregarCodGrp').val('');
@@ -3109,6 +3204,9 @@
                 if ($aux.data('select2')) $aux.select2('destroy');
                 $aux.empty().append('<option value="">—</option>').prop('disabled', true);
                 $('#agregarBtnNuevoAuxiliar').prop('disabled', true);
+                if ($('#agregarCodigoLibre').data('select2')) $('#agregarCodigoLibre').select2('destroy');
+                $('#agregarCodigoLibre').empty();
+                $('#agregarCodigoLibreHint').text('Selecciona el Grupo/Clasificación primero.');
             }
         });
 
@@ -3161,6 +3259,83 @@
 
         $('#agregarCantidad').on('input change', function () {
             recalcularCodigosAgregar();
+        });
+
+        // ── Código libre: elegir un hueco puntual en vez del correlativo automático ──
+        function actualizarPreviewCodigoAgregar() {
+            if ($('#agregarUsarCodigoLibre').is(':checked')) {
+                cargarCodigosLibresAgregar();
+            } else {
+                recalcularCodigosAgregar();
+            }
+        }
+
+        async function cargarCodigosLibresAgregar() {
+            const codMun = $('#agregarCodMun').val();
+            const codPred = $('#agregarCodPred').val();
+            const codGrp = $('#agregarCodGrp').val();
+            const $preview = $('#modalAgregarActivo .txt-codigo-preview');
+            const $sel = $('#agregarCodigoLibre');
+            const $hint = $('#agregarCodigoLibreHint');
+
+            if ($sel.data('select2')) $sel.select2('destroy');
+            $sel.empty();
+            $preview.val('');
+
+            // Ojo: se consulta por los CÓDIGOS mun-pred-grupo (los mismos que valida el
+            // backend al guardar), no por el id de predio físico actual de la oficina —
+            // si el activo de referencia de esta asignación fue transferido, su predio
+            // físico hoy puede no ser el mismo que el codificado en su propio código.
+            if (!codMun || !codPred || !codGrp) {
+                $hint.text('Selecciona el Grupo/Clasificación primero.');
+                $preview.attr('placeholder', 'Seleccione Grupo...');
+                return;
+            }
+
+            $preview.attr('placeholder', 'Cargando códigos libres...');
+            $hint.text('Cargando...');
+            try {
+                const r = await $.get('/administracion/correlativo/datos-por-codes', { mun: codMun, pred: codPred, grp: codGrp });
+                if (!r.ok) {
+                    $hint.text(r.message || 'No se pudo calcular la lista de códigos libres.');
+                    $preview.attr('placeholder', 'Sin datos');
+                    return;
+                }
+                const huecos = Array.isArray(r.huecos) ? r.huecos : [];
+                let opts = huecos.map(function (n) {
+                    const cod = r.prefijo + '-' + String(n).padStart(5, '0');
+                    return '<option value="' + cod + '">' + cod + ' — libre (hueco en la serie)</option>';
+                }).join('');
+                if (r.siguienteCodigoReal) {
+                    opts += '<option value="' + r.siguienteCodigoReal + '">' + r.siguienteCodigoReal + ' — siguiente correlativo (nuevo)</option>';
+                }
+                $sel.html('<option value="">Seleccione un código libre...</option>' + opts);
+                initSelect2Agregar($sel);
+                $hint.text(huecos.length + ' código(s) libres para el prefijo ' + r.prefijo + '.');
+                $preview.attr('placeholder', 'Elige un código de la lista de arriba');
+            } catch (e) {
+                $hint.text('Error al calcular códigos libres.');
+                $preview.attr('placeholder', 'Error');
+            }
+        }
+
+        $('#modalAgregarActivo').on('change', '#agregarCodigoLibre', function () {
+            $('#modalAgregarActivo .txt-codigo-preview').val($(this).val() || '');
+        });
+
+        $('#modalAgregarActivo').on('change', '#agregarUsarCodigoLibre', function () {
+            const activo = $(this).is(':checked');
+            $('#wrapAgregarCodigoLibre').toggleClass('d-none', !activo);
+            $('#agregarCantidad').prop('disabled', activo);
+            if (activo) {
+                $('#agregarCantidad').val(1);
+                cargarCodigosLibresAgregar();
+            } else {
+                if ($('#agregarCodigoLibre').data('select2')) $('#agregarCodigoLibre').select2('destroy');
+                $('#agregarCodigoLibre').empty();
+                $('#agregarCodigoLibreHint').text('');
+                recalcularCodigosAgregar();
+            }
         });
 
         // ── Detalle modal ──
@@ -3234,6 +3409,12 @@
                 Swal.fire('Validación', 'Debe seleccionar un Grupo / Clasificación.', 'warning'); return;
             }
 
+            const usaCodigoLibre = $('#agregarUsarCodigoLibre').is(':checked');
+            const codigoLibre = usaCodigoLibre ? ($('#agregarCodigoLibre').val() || '') : '';
+            if (usaCodigoLibre && !codigoLibre) {
+                Swal.fire('Validación', 'Elige un código libre de la lista.', 'warning'); return;
+            }
+
             if ($('#detBadgeAgregar').text() !== '0') {
                 // Data already synced on hidden.bs.modal
             } else {
@@ -3261,6 +3442,7 @@
                 idAuxiliar: $('#agregarAuxiliar').val() || null,
                 cantidad: cant,
                 incluyeAccesorio: $('#agregarAccesorio').is(':checked'),
+                codigo: usaCodigoLibre ? codigoLibre : null,
                 detalles: detalles
             };
 
@@ -3296,6 +3478,7 @@
         $('#modalAgregarActivo').on('hidden.bs.modal', function () {
             if ($('#agregarGrupo').data('select2')) $('#agregarGrupo').select2('destroy');
             if ($('#agregarAuxiliar').data('select2')) $('#agregarAuxiliar').select2('destroy');
+            if ($('#agregarCodigoLibre').data('select2')) $('#agregarCodigoLibre').select2('destroy');
             // El scroll lo restaura sanearScrollModales (handler global en ready).
         });
 

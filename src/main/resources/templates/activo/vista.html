@@ -60,7 +60,49 @@
     $(document).ready(function () {
         cargarTabla();
         cargarFormulario();
+        registrarEnPestanas();
     });
+
+    /**
+     * El formulario de registro arranca cerrado (hay que pulsar "Registrar") y las filas
+     * del lote se crean a mano, así que el guardado genérico de campos no alcanza: acá se
+     * le dice al gestor de pestañas cómo dejar la pantalla lista antes de reponer los datos.
+     */
+    function registrarEnPestanas() {
+        if (!window.sciafModulo || !window.sciafPestanas) return;
+        window.sciafPestanas.moduloActivo('activo-registro');
+
+        const esperarA = (sel, ms) => new Promise(resolve => {
+            const t0 = Date.now();
+            (function ver() {
+                if ($(sel).length) return resolve(true);
+                if (Date.now() - t0 > (ms || 5000)) return resolve(false);
+                setTimeout(ver, 100);
+            })();
+        });
+        const pausa = ms => new Promise(r => setTimeout(r, ms));
+
+        window.sciafModulo.registrar('activo-registro', {
+            guardar: function () {
+                // Se toma como abierto si la sección se ve o si ya hay lotes cargados:
+                // ante la duda conviene reabrir el formulario y no perder lo escrito.
+                const filas = $('#batchTrack .batch-slide').length;
+                const abierto = $('#sectionBatch').is(':visible') || filas > 0;
+                return { abierto: abierto, filas: filas };
+            },
+            antes: async function (d) {
+                if (!d || !d.abierto) return;
+                if (!await esperarA('#btnRegistrar')) return;
+                $('#btnRegistrar').trigger('click');          // abre el formulario de alta
+                await pausa(350);
+                for (let i = 1; i < (d.filas || 1); i++) {    // vuelve a crear las filas del lote
+                    $('#btnAddRow').trigger('click');
+                    await pausa(200);
+                }
+                await pausa(250);
+            }
+        });
+    }
 
     function cargarTabla() {
         showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });

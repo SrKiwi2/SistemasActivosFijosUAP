@@ -45,6 +45,30 @@ public class ActualDbfWriterService {
     @Autowired
     private DbfColaService colaService;
 
+    /**
+     * Campos que una modificación desde el SCIAF puede escribir en ACTUAL.DBF.
+     * <p>
+     * El resto de las columnas de la tabla las administra el VSIAF y no tienen origen en
+     * el formulario: DEPACU y los {@code *_ANT} los calcula la depreciación, OBSERV y las
+     * banderas se cargan allá, CODESTADO es el estado físico del bien. Mandarlas en el
+     * UPDATE las sobrescribía con ceros y textos vacíos —el valor "por defecto" que usa el
+     * alta— cada vez que alguien corregía una descripción. En un INSERT sí van todas: ahí
+     * la fila no existe y hay que darle un valor inicial a cada columna.
+     * <p>
+     * Mismo criterio que {@link #actualizarLoteTransferencias}, que ya escribe sólo las
+     * columnas que la transferencia cambia.
+     */
+    private static final List<String> CAMPOS_MODIFICABLES = List.of(
+        "ENTIDAD", "UNIDAD", "CODIGO", "CODIGOSEC", "DESCRIP",
+        "CODCONT", "CODAUX", "CODOFIC", "CODRESP",
+        "VIDAUTIL", "COSTO", "DIA", "MES", "ANO", "ORG_FIN",
+        "USU_MOD", "FEC_MOD", "FEULT", "API_ESTADO"
+    );
+
+    private static boolean esModificable(String campo) {
+        return campo != null && CAMPOS_MODIFICABLES.contains(campo.toUpperCase().trim());
+    }
+
     private static class CampoDbf {
         String name;
         char type;
@@ -257,7 +281,11 @@ public class ActualDbfWriterService {
         if ("cola".equalsIgnoreCase(writeMode)) {
             Map<String, Object> clave = new LinkedHashMap<>();
             clave.put("CODIGO", codigoOriginal);
-            colaService.encolarUpdate("ACTUAL", clave, construirCamposActivo(a, entidadCode, unidadCode, usuario),
+            Map<String, Object> set = new LinkedHashMap<>();
+            for (String campo : CAMPOS_MODIFICABLES) {
+                set.put(campo, obtenerValorCampo(campo, a, entidadCode, unidadCode, usuario));
+            }
+            colaService.encolarUpdate("ACTUAL", clave, set,
                     ReferenciaOrdenDbf.deActivo(a.getIdActivo(), codigoOriginal, usuario));
             log.info("📤 Activo {} encolado para UPDATE en VSIAF (modo cola)", codigoOriginal);
             return;
@@ -323,6 +351,14 @@ public class ActualDbfWriterService {
                     
                     if (field.type == 'M') {
                         // Saltamos campo Memo, NO LO TOCAMOS
+                        currentOffset += field.length;
+                        continue;
+                    }
+
+                    // Las columnas que administra el VSIAF se dejan como están: pisarlas con
+                    // el valor por defecto del alta borraba depreciación, observaciones y
+                    // banderas en cada corrección.
+                    if (!esModificable(field.name)) {
                         currentOffset += field.length;
                         continue;
                     }

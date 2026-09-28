@@ -207,6 +207,61 @@ public class CorrelativoController {
     }
 
     /**
+     * Variante de {@link #datos(Long, Long)} que recibe el prefijo directamente por
+     * CÓDIGOS (municipio-predio-grupo) en vez de ids de predio/grupo.
+     *
+     * Necesaria porque el predio FÍSICO actual de un activo (su oficina→predio) puede
+     * no coincidir con el predio codificado en su propio código si fue transferido —
+     * el código es inmutable (ver comentario en {@link #datos}). Cuando el prefijo se
+     * arma a partir del código de un activo de referencia (p. ej. para agregar otro
+     * activo a la misma serie), hay que consultar los huecos con esos MISMOS códigos,
+     * no con el id de predio de su ubicación física actual, o la lista de huecos no
+     * coincidiría con el prefijo que realmente valida el backend al guardar.
+     */
+    @ValidarUsuarioAutenticado
+    @GetMapping(value = "/datos-por-codes", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> datosPorCodes(
+            @RequestParam String mun,
+            @RequestParam String pred,
+            @RequestParam String grp) {
+        try {
+            String prefijo = String.join("-", mun, pred, grp);
+            List<CorrelativoActivoDTO> registros = activoDao.listarPorPrefijoCodigo(prefijo);
+
+            long maxCorrelativo = 0;
+            java.util.Set<Long> usados = new java.util.HashSet<>();
+            for (CorrelativoActivoDTO r : registros) {
+                Long correlativo = extraerCorrelativo(r.getCodigo());
+                if (correlativo != null) {
+                    usados.add(correlativo);
+                    if (correlativo > maxCorrelativo) maxCorrelativo = correlativo;
+                }
+            }
+
+            List<Long> huecos = new ArrayList<>();
+            for (long n = 1; n <= maxCorrelativo; n++) {
+                if (!usados.contains(n)) huecos.add(n);
+            }
+            String siguienteCodigoReal = String.format("%s-%05d", prefijo, maxCorrelativo + 1);
+
+            Map<String, Object> resp = new LinkedHashMap<>();
+            resp.put("ok", true);
+            resp.put("prefijo", prefijo);
+            resp.put("totalRegistros", registros.size());
+            resp.put("huecos", huecos);
+            resp.put("siguienteCodigoReal", siguienteCodigoReal);
+            return ResponseEntity.ok(resp);
+
+        } catch (Exception e) {
+            log.error("Error en revisión de correlativos por códigos ({}-{}-{}): {}", mun, pred, grp, e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "ok", false, "message", "No se pudo calcular la revisión: " + e.getMessage()));
+        }
+    }
+
+    /**
      * Chequeo GLOBAL de códigos duplicados (no debería existir ninguno: el código
      * es único). Sirve además como verificación previa a aplicar el índice único.
      * GET /administracion/correlativo/duplicados
