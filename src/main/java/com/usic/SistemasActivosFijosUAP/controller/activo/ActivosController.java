@@ -2125,7 +2125,7 @@ public class ActivosController {
             // busca y se compara— y los paréntesis se agregan solo donde son parte de la
             // presentación: el prefijo de la descripción del activo y el encabezado del
             // acta. Antes se guardaba con paréntesis por acá y sin ellos desde Reportes.
-            String codigoCompleto = (prefijo + " " + nro).trim();
+            String codigoCompleto = AsignacionActivo.componerCodigo(prefijo, nro);
             String etiquetaDoc    = "(" + codigoCompleto + ")";
 
             List<Activo> activos = new ArrayList<>();
@@ -2158,7 +2158,7 @@ public class ActivosController {
 
             for (Activo a : activos) {
                 if (!a.getDescripcion().startsWith(etiquetaDoc)) {
-                    String nueva = etiquetaDoc + " " + a.getDescripcion();
+                    String nueva = etiquetaDoc + " " + quitarEtiquetaDocumento(a.getDescripcion(), prefijo);
                     if (nueva.length() > 1024) nueva = nueva.substring(0, 1024);
                     a.setDescripcion(nueva);
                     a.setFecMod(LocalDate.now());
@@ -2227,6 +2227,20 @@ public class ActivosController {
             return ResponseEntity.badRequest()
                 .body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
         }
+    }
+
+    /**
+     * Saca de la descripción la etiqueta de documento que ya tuviera al principio
+     * ({@code "(PREV: 24874) "} o {@code "(PREV:123) "}), para que al corregir el número
+     * no queden dos etiquetas encadenadas.
+     */
+    private String quitarEtiquetaDocumento(String descripcion, String prefijo) {
+        if (descripcion == null || prefijo == null || prefijo.isEmpty()) return descripcion;
+        String d = descripcion.trim();
+        if (!d.regionMatches(true, 0, "(" + prefijo, 0, prefijo.length() + 1)) return descripcion;
+        int cierre = d.indexOf(')');
+        if (cierre <= 0 || cierre > 40) return descripcion;
+        return d.substring(cierre + 1).trim();
     }
 
     /** Recorta y convierte a null lo que llega en blanco desde un input opcional del modal de documento. */

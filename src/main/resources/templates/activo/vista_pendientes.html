@@ -1910,7 +1910,7 @@
             $('#btnConfirmarAsignacion').prop('disabled', !ok);
 
             if (ok) {
-                const etiqueta = `(${(cfg.prefijoDocumento || '').trim()} ${nro})`;
+                const etiqueta = `(${(cfg.prefijoDocumento || '').trim()}${nro})`;
                 $('#previewPrefijoBadge').text(etiqueta);
                 $('#previewDesc').fadeIn(150);
             } else {

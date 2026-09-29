@@ -155,10 +155,20 @@ public class AsignacionActivo extends AuditoriaConfig{
         String etiqueta = prefijo != null ? prefijo.trim() : "";
 
         this.codigoDocumento = numero.isEmpty() ? null : numero;
-        this.codigoCompleto  = (etiqueta + " " + numero).trim();
+        this.codigoCompleto  = componerCodigo(etiqueta, numero);
         if (this.codigoCompleto.isEmpty()) this.codigoCompleto = null;
 
         this.numeroAsignacion = construirNumeroAsignacion(gestion, numero);
+    }
+
+    /**
+     * Tipo de documento y número pegados, sin espacio: {@code PREV:24874}. Es el formato
+     * que se pidió para la descripción del activo y el que se guarda como código.
+     */
+    public static String componerCodigo(String prefijo, String nro) {
+        String p = prefijo != null ? prefijo.trim() : "";
+        String n = nro != null ? nro.trim() : "";
+        return (p + n).trim();
     }
 
     /** {@code ASG-2026-272}, o null mientras el acta no tenga número de documento. */
