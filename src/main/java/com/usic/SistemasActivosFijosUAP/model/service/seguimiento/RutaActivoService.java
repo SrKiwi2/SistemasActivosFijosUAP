@@ -184,6 +184,15 @@ public class RutaActivoService {
                 TransferenciaDetalle.class).setParameter("id", id).getResultList();
         Map<Long, String> usuarios = nombresUsuarios(lista.stream()
                 .map(d -> d.getTransferencia().getRegistroIdUsuario()).filter(Objects::nonNull).toList());
+        // Respaldo de "quién la hizo": las transferencias viejas no tienen el usuario en la
+        // auditoría, pero historial_activo sí lo guardó junto a la transferencia.
+        Map<Long, String> autoresHistorial = new HashMap<>();
+        for (Object[] f : em.createQuery(
+                "select h.transferencia.idTransferencia, h.nombreUsuario from HistorialActivo h "
+                        + "where h.activo.idActivo = :id and h.transferencia is not null and h.nombreUsuario is not null",
+                Object[].class).setParameter("id", id).getResultList()) {
+            autoresHistorial.putIfAbsent((Long) f[0], (String) f[1]);
+        }
 
         for (TransferenciaDetalle d : lista) {
             Transferencia t = d.getTransferencia();
@@ -205,7 +214,7 @@ public class RutaActivoService {
             e.documentoRef = t.getDocumentoReferencia();
             e.enlace = "/seguimiento-activo/transferencia/" + t.getIdTransferencia() + "/pdf";
             e.estado = t.getEstadoProceso();
-            e.usuario = usuarios.get(t.getRegistroIdUsuario());
+            e.usuario = primero(usuarios.get(t.getRegistroIdUsuario()), autoresHistorial.get(t.getIdTransferencia()));
             e.detalle = primero(d.getObservacionDetalle(), t.getObservacion());
             if (externa && t.getInstitucionDestino() != null) {
                 e.detalle = "Institución destino: " + t.getInstitucionDestino() + (e.detalle != null ? ". " + e.detalle : "");
@@ -412,7 +421,7 @@ public class RutaActivoService {
             if (!e.mueve || e.ofDestino == null) {
                 if (e.verifica && actual != null && mismaOficina(actual.oficina, e.ofDestino)) actual.verificaciones++;
                 if (e.respDestino != null && actual != null && mismaOficina(actual.oficina, e.ofDestino)) {
-                    actual.agregarResponsable(e.respDestino);
+                    actual.agregarResponsable(e.respDestino, e.fecha);
                 }
                 continue;
             }
@@ -420,24 +429,30 @@ public class RutaActivoService {
                 // Primera oficina conocida: de dónde salió en el primer movimiento.
                 if (e.ofOrigen != null && !mismaOficina(e.ofOrigen, e.ofDestino)) {
                     Estancia previa = new Estancia(e.ofOrigen, inicio, true);
-                    if (e.respOrigen != null) previa.agregarResponsable(e.respOrigen);
+                    if (e.respOrigen != null) previa.agregarResponsable(e.respOrigen, null);
                     previa.hasta = e.fecha;
                     lista.add(previa);
                 }
                 actual = new Estancia(e.ofDestino, e.fecha, false);
                 actual.via = e;
-                if (e.respDestino != null) actual.agregarResponsable(e.respDestino);
+                if (e.respDestino != null) actual.agregarResponsable(e.respDestino, e.fecha);
                 lista.add(actual);
                 continue;
             }
             if (mismaOficina(actual.oficina, e.ofDestino)) {
-                if (e.respDestino != null) actual.agregarResponsable(e.respDestino);
+                // Cambio de responsable dentro de la misma oficina.
+                if (e.respOrigen != null) actual.agregarResponsable(e.respOrigen, null);
+                if (e.respDestino != null) actual.agregarResponsable(e.respDestino, e.fecha);
                 continue;
+            }
+            // Sale de la oficina: quien lo entregó también lo tuvo en esta estancia.
+            if (e.respOrigen != null && (e.ofOrigen == null || mismaOficina(actual.oficina, e.ofOrigen))) {
+                actual.agregarResponsable(e.respOrigen, null);
             }
             actual.hasta = e.fecha;
             actual = new Estancia(e.ofDestino, e.fecha, false);
             actual.via = e;
-            if (e.respDestino != null) actual.agregarResponsable(e.respDestino);
+            if (e.respDestino != null) actual.agregarResponsable(e.respDestino, e.fecha);
             lista.add(actual);
         }
 
@@ -587,11 +602,14 @@ public class RutaActivoService {
         };
     }
 
+    /** id → "Nombre Apellido (usuario)": el login solo no le dice nada a quien lee el reporte. */
     private Map<Long, String> nombresUsuarios(List<Long> ids) {
         if (ids.isEmpty()) return Map.of();
         Map<Long, String> m = new HashMap<>();
         for (Usuario u : usuarioDao.findAllByIdUsuarioIn(new HashSet<>(ids))) {
-            m.put(u.getIdUsuario(), u.getUsuario());
+            String nombre = u.getPersona() != null ? u.getPersona().getNombreCompleto() : null;
+            m.put(u.getIdUsuario(), nombre != null && !nombre.isBlank()
+                    ? nombre.trim() + " (" + u.getUsuario() + ")" : u.getUsuario());
         }
         return m;
     }
@@ -682,8 +700,24 @@ public class RutaActivoService {
         }
 
         void agregarResponsable(Map<String, Object> r) {
+            agregarResponsable(r, null);
+        }
+
+        /**
+         * Responsable que tuvo el bien en esta oficina. {@code desde}: cuándo se le
+         * entregó (si se sabe). Uno solo por persona, en el orden en que aparecieron.
+         */
+        void agregarResponsable(Map<String, Object> r, LocalDateTime cuando) {
             if (r == null) return;
-            responsables.putIfAbsent(String.valueOf(r.get("clave")), r);
+            String clave = String.valueOf(r.get("clave"));
+            Map<String, Object> ya = responsables.get(clave);
+            if (ya == null) {
+                Map<String, Object> copia = new LinkedHashMap<>(r);
+                if (cuando != null) copia.put("desde", cuando.toString());
+                responsables.put(clave, copia);
+            } else if (cuando != null && ya.get("desde") == null) {
+                ya.put("desde", cuando.toString());
+            }
         }
 
         Map<String, Object> aMapa() {
@@ -704,6 +738,8 @@ public class RutaActivoService {
                 v.put("documento", via.documento);
                 v.put("enlace", via.enlace);
                 v.put("motivoFaltante", via.motivoFaltante);
+                v.put("usuario", via.usuario);
+                v.put("fecha", via.fecha != null ? via.fecha.toString() : null);
                 m.put("via", v);
             }
             return m;

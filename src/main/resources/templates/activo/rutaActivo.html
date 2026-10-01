@@ -54,12 +54,54 @@
     #ruta-activo .ra-filtro.off { opacity: .4; text-decoration: line-through; }
     #ruta-activo .ra-estancias td { vertical-align: top; font-size: .86rem; }
 
+    /* Resumen en palabras */
+    #ruta-activo .ra-resumen { background: rgba(26,86,160,.06); border: 1px solid rgba(26,86,160,.18); border-radius: 10px;
+        padding: .8rem 1rem; font-size: .95rem; color: var(--ra-texto); line-height: 1.55; }
+
+    /* Recorrido vertical: una tarjeta por oficina */
+    #ruta-activo .ra-pasos { position: relative; padding-left: 2.6rem; }
+    #ruta-activo .ra-pasos::before { content: ''; position: absolute; left: 1.05rem; top: .5rem; bottom: .5rem; width: 3px;
+        background: var(--ra-borde); border-radius: 3px; }
+    #ruta-activo .ra-est { position: relative; margin-bottom: 1rem; border: 1px solid var(--ra-borde); border-radius: 12px;
+        background: var(--bs-body-bg, #fff); }
+    #ruta-activo .ra-est .num { position: absolute; left: -2.6rem; top: .7rem; width: 2.15rem; height: 2.15rem; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; background: var(--ra-azul);
+        box-shadow: 0 0 0 4px var(--bs-body-bg, #fff); }
+    #ruta-activo .ra-est.actual { border: 2px solid var(--ra-verde); }
+    #ruta-activo .ra-est.actual .num { background: var(--ra-verde); }
+    #ruta-activo .ra-est.custodia { border-color: #fca5a5; background: rgba(220,38,38,.04); }
+    #ruta-activo .ra-est.custodia .num { background: var(--ra-rojo); }
+    #ruta-activo .ra-est.vsiaf { border-style: dashed; }
+    #ruta-activo .ra-est-cab { padding: .75rem 1rem; display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: flex-start;
+        justify-content: space-between; border-bottom: 1px solid var(--ra-borde); }
+    #ruta-activo .ra-est-of { font-weight: 800; font-size: 1.02rem; color: var(--ra-texto); }
+    #ruta-activo .ra-est-cuerpo { padding: .75rem 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; }
+    @media (max-width: 767px) { #ruta-activo .ra-est-cuerpo { grid-template-columns: 1fr; } }
+    #ruta-activo .ra-etq { font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ra-gris); margin-bottom: .3rem; }
+    #ruta-activo .ra-resp { display: flex; gap: .55rem; align-items: flex-start; padding: .35rem 0; border-bottom: 1px dashed var(--ra-borde); }
+    #ruta-activo .ra-resp:last-child { border-bottom: none; }
+    #ruta-activo .ra-resp .ini { width: 30px; height: 30px; border-radius: 50%; background: rgba(26,86,160,.12); color: var(--ra-azul);
+        display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: .8rem; flex-shrink: 0; }
+    #ruta-activo .ra-cod { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; background: var(--ra-suave);
+        border: 1px solid var(--ra-borde); border-radius: 5px; padding: 0 .3rem; }
+
+    /* Historia: antes / después */
+    #ruta-activo .ra-ad { display: grid; grid-template-columns: 1fr auto 1fr; gap: .4rem; align-items: stretch; margin-top: .45rem; }
+    @media (max-width: 575px) { #ruta-activo .ra-ad { grid-template-columns: 1fr; } #ruta-activo .ra-ad .fl { display: none; } }
+    #ruta-activo .ra-ad .lado { background: var(--ra-suave); border: 1px solid var(--ra-borde); border-radius: 8px; padding: .4rem .55rem; font-size: .84rem; }
+    #ruta-activo .ra-ad .lado.despues { border-color: rgba(21,128,61,.35); background: rgba(21,128,61,.05); }
+    #ruta-activo .ra-ad .fl { align-self: center; color: var(--ra-gris); font-size: 1.2rem; }
+    #ruta-activo .ra-quien { font-size: .8rem; margin-top: .4rem; color: var(--ra-texto); }
+
     @media print {
         #layout-menu, .layout-navbar, .content-footer, #ruta-activo .ra-buscador, #ruta-activo .no-imprimir,
         .sciaf-tabs, #sciaf-tabs { display: none !important; }
         .layout-page { padding: 0 !important; }
         #ruta-activo .ra-camino { flex-wrap: wrap; overflow: visible; }
-        #ruta-activo .card { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; }
+        #ruta-activo .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+        /* Al imprimir salen las dos pestañas, una después de la otra. */
+        #ruta-activo .tab-pane { display: block !important; opacity: 1 !important; margin-bottom: 1rem; }
+        #ruta-activo .ra-est, #ruta-activo .ra-ev { break-inside: avoid; }
     }
 </style>
 
@@ -242,6 +284,9 @@
           </div>
         </div></div>`;
 
+        // En palabras: lo que cualquiera quiere saber de un vistazo.
+        html += `<div class="ra-resumen mb-3"><i class="ti ti-info-circle text-primary me-1"></i>${resumenEnPalabras()}</div>`;
+
         // KPIs
         html += `<div class="row g-2 mb-3">
           ${kpi(r.oficinas, 'Oficinas', 'ti-building')}${kpi(r.predios, 'Predios', 'ti-map-2')}
@@ -250,32 +295,31 @@
           ${kpi(r.levantamientos, 'Levantamientos', 'ti-scan')}
         </div>`;
 
-        // Recorrido
-        html += `<div class="card border-0 shadow-sm mb-3"><div class="card-body">
-          <h6 class="mb-3"><i class="ti ti-route"></i> Recorrido por oficinas <small class="text-muted fw-normal">(de la más antigua a la actual)</small></h6>
-          <div class="ra-camino">${camino()}</div>
-          ${datos.estancias.some(e => e.cambioVsiaf) ? `<div class="small text-muted"><i class="ti ti-info-circle"></i>
-            La última oficina no salió de un movimiento del SCIAF: el cambio se hizo directamente en el VSIAF (fecha aproximada).</div>` : ''}
-        </div></div>`;
-
-        // Línea de tiempo + estancias
-        html += `<div class="row g-3">
-          <div class="col-12 col-xl-7">
-            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+        // Dos pestañas: el recorrido por oficinas (lo principal) y la historia detallada.
+        html += `<div class="card border-0 shadow-sm mb-3">
+          <div class="card-header bg-transparent pb-0 no-imprimir">
+            <ul class="nav nav-tabs card-header-tabs" role="tablist">
+              <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#ra-tab-recorrido" type="button">
+                <i class="ti ti-route me-1"></i> Por qué oficinas pasó <span class="badge bg-label-primary ms-1">${datos.estancias.length}</span></button></li>
+              <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ra-tab-historia" type="button">
+                <i class="ti ti-timeline me-1"></i> Historia completa <span class="badge bg-label-primary ms-1">${datos.eventos.length}</span></button></li>
+            </ul>
+          </div>
+          <div class="card-body tab-content">
+            <div class="tab-pane fade show active" id="ra-tab-recorrido">
+              <p class="small text-muted mb-3">De la primera oficina (arriba) a la actual (abajo). En cada una: cuánto tiempo estuvo,
+                quiénes fueron sus responsables y cómo llegó ahí.</p>
+              <div class="ra-pasos">${pasos()}</div>
+              ${datos.estancias.some(e => e.cambioVsiaf) ? `<div class="small text-muted"><i class="ti ti-info-circle"></i>
+                La última oficina no salió de un movimiento del SCIAF: el cambio se hizo directamente en el VSIAF (fecha aproximada).</div>` : ''}
+            </div>
+            <div class="tab-pane fade" id="ra-tab-historia">
               <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                <h6 class="mb-0"><i class="ti ti-timeline"></i> Historia completa <small class="text-muted fw-normal">(más reciente primero)</small></h6>
+                <span class="small text-muted">Todo lo que se registró de este activo, lo más reciente primero. Clic en un tipo para mostrarlo u ocultarlo.</span>
                 <div class="d-flex flex-wrap gap-1 no-imprimir" id="ra-filtros">${filtros()}</div>
               </div>
               <div class="ra-tl" id="ra-tl"></div>
-            </div></div>
-          </div>
-          <div class="col-12 col-xl-5">
-            <div class="card border-0 shadow-sm h-100"><div class="card-body">
-              <h6 class="mb-3"><i class="ti ti-building"></i> Tiempo en cada oficina</h6>
-              <div class="table-responsive"><table class="table table-sm ra-estancias mb-0">
-                <thead><tr><th>#</th><th>Oficina</th><th>Desde / hasta</th><th class="text-end">Tiempo</th></tr></thead>
-                <tbody>${tablaEstancias()}</tbody></table></div>
-            </div></div>
+            </div>
           </div>
         </div>`;
 
@@ -300,42 +344,90 @@
             <small><i class="ti ${ico}"></i> ${esc(txt)}</small></div></div>`;
     }
 
-    function camino() {
+    /** Una frase con lo esencial, para quien no quiere leer tablas. */
+    function resumenEnPalabras() {
+        const a = datos.activo, r = datos.resumen, est = datos.estancias;
+        const hoy = est.find(e => e.actual) || est[est.length - 1];
+        const of = a.oficina ? `<strong>${esc(textoOficina(a.oficina))}</strong>${a.oficina.predio ? ' (' + esc(a.oficina.predio) + ')' : ''}` : 'una oficina sin registrar';
+        const resp = a.responsable ? `<strong>${esc(a.responsable.nombre || '')}</strong>${a.responsable.codigo ? ' (cód. ' + esc(a.responsable.codigo) + ')' : ''}` : 'sin responsable';
+        let t = `Hoy está en ${of}, a cargo de ${resp}`;
+        if (hoy && hoy.dias != null) t += `, desde hace ${esc(duracion(hoy.dias))}`;
+        t += '. ';
+        if (est.length <= 1) {
+            t += 'No tiene movimientos registrados entre oficinas: siempre estuvo en la misma.';
+        } else {
+            t += `En total pasó por <strong>${r.oficinas} oficina(s)</strong>${r.predios > 1 ? ' de ' + r.predios + ' predios' : ''}
+                  y tuvo <strong>${r.responsables} responsable(s)</strong>. `;
+            if (r.transferencias) t += `Se movió con ${r.transferencias} transferencia(s)`;
+            if (r.asignaciones) t += `${r.transferencias ? ' y ' : 'Tiene '}${r.asignaciones} acta(s) de asignación`;
+            if (r.transferencias || r.asignaciones) t += '. ';
+        }
+        if (r.faltantes) t += ` <span class="text-danger fw-semibold">Fue registrado como faltante ${r.faltantes} vez/veces.</span>`;
+        return t;
+    }
+
+    function letraInicial(nombre) {
+        return (nombre || '?').trim().charAt(0).toUpperCase();
+    }
+
+    /** Un responsable: nombre completo, su código (codresp), cargo y desde cuándo. */
+    function filaResponsable(r) {
+        const extra = [r.cargo, r.ci ? 'C.I. ' + r.ci : null].filter(Boolean).join(' · ');
+        return `<div class="ra-resp">
+            <span class="ini">${esc(letraInicial(r.nombre))}</span>
+            <div>
+              <div class="fw-semibold">${esc(r.nombre || 'Sin nombre')} ${r.codigo ? `<span class="ra-cod" title="Código de responsable (CODRESP)">cód. ${esc(r.codigo)}</span>` : ''}</div>
+              ${extra ? `<div class="small text-muted">${esc(extra)}</div>` : ''}
+              ${r.desde ? `<div class="small text-muted"><i class="ti ti-calendar"></i> lo recibió el ${esc(fecha(r.desde, true))}</div>` : ''}
+            </div></div>`;
+    }
+
+    /** Recorrido vertical: una tarjeta por oficina, de la más antigua a la actual. */
+    function pasos() {
         const est = datos.estancias;
         if (!est.length) return '<span class="text-muted">Sin datos de ubicación.</span>';
         return est.map((e, i) => {
             const o = e.oficina || {};
-            const clases = ['ra-paso', e.actual ? 'actual' : '', o.custodia ? 'custodia' : '', e.cambioVsiaf ? 'vsiaf' : ''].join(' ');
-            const desde = e.desde ? fecha(e.desde, true) + (e.desdeAproximado ? ' (aprox.)' : '') : '¿?';
-            const hasta = e.actual ? 'hoy' : (e.hasta ? fecha(e.hasta, true) : '¿?');
-            const resp = (e.responsables || []).map(r => r.nombre).filter(Boolean);
-            return (i ? '<i class="ti ti-arrow-narrow-right ra-flecha"></i>' : '') + `
-              <div class="${clases}" title="${esc(resp.join(', '))}">
-                <span class="n">${i + 1}${e.actual ? ' · HOY' : ''}${o.custodia ? ' · FALTANTES' : ''}</span>
-                <div class="of">${esc(textoOficina(o))}</div>
-                <div class="pr">${esc(o.predio || '')}</div>
-                <div class="fe">${esc(desde)} → ${esc(hasta)}</div>
-                <div class="fe"><i class="ti ti-clock"></i> ${esc(duracion(e.dias))}${resp.length ? ' · ' + resp.length + ' resp.' : ''}</div>
-                ${e.cambioVsiaf ? '<div class="fe text-warning"><i class="ti ti-alert-circle"></i> cambio en el VSIAF</div>' : ''}
-              </div>`;
-        }).join('');
-    }
-
-    function tablaEstancias() {
-        return datos.estancias.slice().reverse().map((e, iRev) => {
-            const i = datos.estancias.length - iRev;
-            const o = e.oficina || {};
-            const resp = (e.responsables || []).map(r => esc(textoResp(r))).join('<br>');
-            const via = e.via ? `<div class="text-muted small">vía ${esc(e.via.titulo)}${e.via.documento ? ' · ' + esc(e.via.documento) : ''}</div>` : '';
-            return `<tr class="${e.actual ? 'table-success' : ''} ${o.custodia ? 'table-danger' : ''}">
-              <td class="text-muted">${i}</td>
-              <td><div class="fw-semibold">${esc(textoOficina(o))}</div>
-                  <div class="small text-muted">${esc(o.predio || '')}</div>
-                  ${resp ? `<div class="small mt-1">${resp}</div>` : ''}${via}
-                  ${e.verificaciones ? `<span class="badge bg-label-success mt-1"><i class="ti ti-scan"></i> visto en ${e.verificaciones} levantamiento(s)</span>` : ''}</td>
-              <td class="small text-nowrap">${e.desde ? esc(fecha(e.desde, true)) + (e.desdeAproximado ? ' <span class="text-muted">(aprox.)</span>' : '') : '¿?'}<br>
-                  ${e.actual ? '<span class="badge bg-success">hasta hoy</span>' : (e.hasta ? esc(fecha(e.hasta, true)) : '¿?')}</td>
-              <td class="text-end small text-nowrap">${esc(duracion(e.dias))}</td></tr>`;
+            const clases = ['ra-est', e.actual ? 'actual' : '', o.custodia ? 'custodia' : '', e.cambioVsiaf ? 'vsiaf' : ''].join(' ');
+            const desde = e.desde ? fecha(e.desde, true) + (e.desdeAproximado ? ' (aprox.)' : '') : 'fecha desconocida';
+            const hasta = e.actual ? 'hoy' : (e.hasta ? fecha(e.hasta, true) : 'fecha desconocida');
+            const resps = e.responsables || [];
+            const v = e.via;
+            const llegada = v
+                ? `<div>${v.motivoFaltante === 'FALTANTE' ? '<span class="badge bg-danger me-1">FALTANTE</span>' : ''}<strong>${esc(v.titulo)}</strong></div>
+                   ${v.documento ? `<div class="small"><i class="ti ti-file-text"></i> ${v.enlace
+                        ? `<a href="${esc(v.enlace)}" target="_blank" title="Descargar el documento">${esc(v.documento)}</a>` : esc(v.documento)}</div>` : ''}
+                   <div class="small text-muted"><i class="ti ti-calendar"></i> ${esc(fecha(v.fecha, false))}</div>
+                   <div class="ra-quien"><i class="ti ti-user-edit"></i> Registrado por: <strong>${esc(v.usuario || 'no quedó registrado')}</strong></div>`
+                : (e.cambioVsiaf
+                    ? '<div class="small text-warning"><i class="ti ti-alert-circle"></i> Cambio hecho directamente en el VSIAF: no hay documento en el SCIAF.</div>'
+                    : `<div class="small text-muted">${i === 0 ? 'Primera ubicación conocida del activo.' : 'Sin documento registrado.'}</div>`);
+            return `<div class="${clases}">
+              <span class="num">${i + 1}</span>
+              <div class="ra-est-cab">
+                <div>
+                  <div class="ra-est-of">${esc(textoOficina(o))}</div>
+                  <div class="small text-muted">${esc([o.predio, o.predioNombre && o.predioNombre !== o.predio ? o.predioNombre : null].filter(Boolean).join(' — '))}</div>
+                  ${e.actual ? '<span class="badge bg-success mt-1"><i class="ti ti-map-pin"></i> AQUÍ ESTÁ HOY</span>' : ''}
+                  ${o.custodia ? '<span class="badge bg-danger mt-1 ms-1"><i class="ti ti-alert-triangle"></i> OFICINA DE FALTANTES</span>' : ''}
+                </div>
+                <div class="text-end">
+                  <div class="small"><i class="ti ti-calendar"></i> ${esc(desde)} → ${esc(hasta)}</div>
+                  <div class="fw-semibold"><i class="ti ti-clock"></i> ${esc(duracion(e.dias))}</div>
+                  ${e.verificaciones ? `<span class="badge bg-label-success mt-1"><i class="ti ti-scan"></i> visto en ${e.verificaciones} levantamiento(s)</span>` : ''}
+                </div>
+              </div>
+              <div class="ra-est-cuerpo">
+                <div>
+                  <div class="ra-etq"><i class="ti ti-users"></i> ${resps.length === 1 ? 'Responsable' : 'Responsables (' + resps.length + ')'} en esta oficina</div>
+                  ${resps.length ? resps.map(filaResponsable).join('') : '<div class="small text-muted">No quedó registrado.</div>'}
+                </div>
+                <div>
+                  <div class="ra-etq"><i class="ti ti-login"></i> Cómo llegó a esta oficina</div>
+                  ${llegada}
+                </div>
+              </div>
+            </div>`;
         }).join('');
     }
 
@@ -358,20 +450,34 @@
             const bg = colores[e.color] || colores.secondary;
             const desde = e.ofOrigen || e.respOrigen;
             const hacia = e.ofDestino || e.respDestino;
+            // Antes / Después con etiquetas: oficina y responsable (nombre + código).
+            const lado = (o, r, titulo, cls) => `<div class="lado ${cls}">
+                  <div class="ra-etq mb-1">${titulo}</div>
+                  ${o ? `<div><i class="ti ti-building"></i> ${esc(textoOficina(o))}${o.predio ? ' <small class="text-muted">(' + esc(o.predio) + ')</small>' : ''}</div>` : ''}
+                  ${r ? `<div><i class="ti ti-user"></i> ${esc(r.nombre || '')}${r.codigo ? ` <span class="ra-cod">cód. ${esc(r.codigo)}</span>` : ''}</div>` : ''}
+                  ${!o && !r ? '<div class="text-muted">—</div>' : ''}
+                </div>`;
             let mov = '';
-            if (desde || hacia) {
-                const lado = (o, r) => `<span class="lado">${o ? '<i class="ti ti-building"></i> ' + esc(textoOficina(o)) : ''}${o && o.predio ? ' <small class="text-muted">(' + esc(o.predio) + ')</small>' : ''}${r ? (o ? '<br>' : '') + '<i class="ti ti-user"></i> ' + esc(textoResp(r)) : ''}</span>`;
-                mov = `<div class="mov">${desde ? lado(e.ofOrigen, e.respOrigen) : ''}
-                        ${desde && hacia ? '<i class="ti ti-arrow-right text-muted"></i>' : ''}
-                        ${hacia ? lado(e.ofDestino, e.respDestino) : ''}</div>`;
+            if (desde && hacia) {
+                mov = `<div class="ra-ad">${lado(e.ofOrigen, e.respOrigen, 'Antes', '')}
+                        <i class="ti ti-arrow-right fl"></i>${lado(e.ofDestino, e.respDestino, 'Después', 'despues')}</div>`;
+            } else if (hacia) {
+                mov = `<div class="ra-ad" style="grid-template-columns:1fr">${lado(e.ofDestino, e.respDestino,
+                        e.tipo === 'LEVANTAMIENTO' ? 'Dónde se lo vio' : 'Quedó en', 'despues')}</div>`;
+            } else if (desde) {
+                mov = `<div class="ra-ad" style="grid-template-columns:1fr">${lado(e.ofOrigen, e.respOrigen,
+                        e.tipo === 'FALTANTE' ? 'Faltó de' : 'Responsable', '')}</div>`;
             }
             const meta = [
-                e.documento ? '<i class="ti ti-file-text"></i> ' + (e.enlace
+                e.documento ? '<i class="ti ti-file-text"></i> Documento: ' + (e.enlace
                     ? `<a href="${esc(e.enlace)}" target="_blank">${esc(e.documento)}</a>` : esc(e.documento)) : '',
                 e.documentoRef ? 'Ref.: ' + esc(e.documentoRef) : '',
-                e.estado ? '<span class="badge bg-label-secondary">' + esc(e.estado) + '</span>' : '',
-                e.usuario ? '<i class="ti ti-user-cog"></i> ' + esc(e.usuario) : ''
+                e.estado ? 'Estado: <span class="badge bg-label-secondary">' + esc(e.estado) + '</span>' : ''
             ].filter(Boolean).join(' · ');
+            const quien = e.usuario
+                ? `<div class="ra-quien"><i class="ti ti-user-edit"></i> Registrado por: <strong>${esc(e.usuario)}</strong></div>`
+                : (['ADQUISICION', 'REGISTRO'].includes(e.tipo) ? ''
+                    : '<div class="ra-quien text-muted"><i class="ti ti-user-edit"></i> Registrado por: no quedó registrado</div>');
             const esFaltante = !!e.motivoFaltante;
             return `<div class="ra-ev ${esFaltante ? 'faltante' : ''}">
                 <span class="pt" style="background:${bg}"><i class="${esc(e.icono || 'ti ti-point')}"></i></span>
@@ -381,6 +487,7 @@
                     <span class="fecha"><i class="ti ti-calendar"></i> ${esc(fecha(e.fecha, e.soloDia))}</span>
                   </div>
                   ${mov}
+                  ${quien}
                   ${meta ? `<div class="meta">${meta}</div>` : ''}
                   ${e.detalle ? `<div class="meta" style="white-space:pre-line">${esc(e.detalle)}</div>` : ''}
                 </div></div>`;

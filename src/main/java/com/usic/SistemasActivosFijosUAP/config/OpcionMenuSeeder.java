@@ -15,6 +15,7 @@ import com.usic.SistemasActivosFijosUAP.model.dao.IUsuarioDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.HistorialPermisoUsuario;
 import com.usic.SistemasActivosFijosUAP.model.entity.OpcionMenu;
 import com.usic.SistemasActivosFijosUAP.model.service.seguridad.AuditoriaPermisosService;
+import com.usic.SistemasActivosFijosUAP.model.service.seguridad.SesionPermisosService;
 
 /**
  * Siembra el catálogo {@code opcion_menu} como árbol SECCION → GRUPO → ITEM.
@@ -171,7 +172,8 @@ public class OpcionMenuSeeder {
     );
 
     @Bean
-    ApplicationRunner initOpcionesMenu(IOpcionMenuDao dao, IUsuarioDao usuarioDao, AuditoriaPermisosService auditoria) {
+    ApplicationRunner initOpcionesMenu(IOpcionMenuDao dao, IUsuarioDao usuarioDao, AuditoriaPermisosService auditoria,
+            SesionPermisosService sesionPermisos) {
         return args -> {
             // Mapas auxiliares para denormalizar seccion/grupo en los ITEM
             // (lo usa la pantalla de asignación de permisos).
@@ -258,6 +260,12 @@ public class OpcionMenuSeeder {
 
             logger.info("Catálogo opcion_menu: {} nodo(s) nuevo(s){}; lo existente se administra desde Gestión de Menú.",
                     creados, retirados > 0 ? ", " + retirados + " opción(es) vieja(s) retirada(s)" : "");
+
+            // El servidor web ya atiende peticiones ANTES de que corra este runner: si había
+            // navegadores abiertos (el SSE se reconecta solo), su primera petición dejó el
+            // menú en caché sin las opciones recién creadas, y nunca aparecían. Se limpia la
+            // caché y se avisa a las sesiones abiertas para que recarguen su menú.
+            sesionPermisos.menuCambio("El menú del sistema se actualizó");
         };
     }
 

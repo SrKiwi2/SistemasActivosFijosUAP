@@ -29,6 +29,26 @@
   (`fec_mod`).
 - Atajo desde el detalle de un activo en Seguimiento → Transferencias.
 
+### 2.b Ajustes del 01-oct (tarde)
+
+- La ruta muestra **quién registró** cada movimiento (nombre y usuario; si la transferencia
+  no tiene autor en la auditoría, se toma de `historial_activo`), y en cada oficina **todos
+  sus responsables** con código (codresp), cargo y desde cuándo, incluido quien lo entregó al
+  salir. Pantalla en dos pestañas ("Por qué oficinas pasó" / "Historia completa"), resumen en
+  palabras y "Antes / Después" en cada movimiento.
+
+### Trabajo a medias y sesión (01-oct, tarde)
+
+- **Registro de Activos, Detalle Individual:** cambiar la Cantidad borraba todo el detalle
+  (el manejador corría con cada tecla) y al guardar con otra cantidad se descartaba. Ahora se
+  conserva y se ajusta el largo; el modal guarda mientras se escribe, no se cierra con Esc ni
+  clic afuera, acepta pegar columnas desde Excel y los detalles entran al respaldo de pestañas.
+- **Asignar Activos:** se repone predio → oficina → responsables en orden (módulo
+  `asignar-activos` en las pestañas) en vez del guardado genérico.
+- **Sesión:** `sciaf-sesion.js` detecta cuando un pedido vuelve con la página de ingreso o 401
+  y explica que no se perdió nada: se ingresa en otra pestaña y se repite la acción. Con el
+  aviso de presencia cada 30 s la sesión no vence mientras la página está abierta.
+
 ## 3. Usuarios
 
 - `GestionUsuariosService` concentra las reglas: solo ADMINISTRADOR toca/crea ADMINISTRADOR;

@@ -1116,7 +1116,7 @@
                     <span class="aa-dot" style="background:var(--accent)"></span>
                     Unidad administrativa
                 </span>
-                <select id="aa-predio" class="aa-sel">
+                <select id="aa-predio" class="aa-sel" data-sciaf-no-guardar>
                     <option value="">— Seleccione —</option>
                     <th:block th:each="p : ${predios}">
                         <option th:value="${p.idPredio}" th:text="${p.descrip} + ' — ' + ${p.codigo}"></option>
@@ -1130,7 +1130,7 @@
                     <span class="aa-dot" style="background:var(--amber)"></span>
                     Oficina
                 </span>
-                <select id="aa-oficina" class="aa-sel" disabled>
+                <select id="aa-oficina" class="aa-sel" data-sciaf-no-guardar disabled>
                     <option value="">— Seleccione predio —</option>
                 </select>
             </div>
@@ -1144,7 +1144,7 @@
                         style="font-size:9px;color:var(--txt-muted);font-weight:400;text-transform:none;letter-spacing:0">(titular
                         actual)</span>
                 </span>
-                <select id="aa-resp1" class="aa-sel" disabled>
+                <select id="aa-resp1" class="aa-sel" data-sciaf-no-guardar disabled>
                     <option value="">— Seleccione oficina —</option>
                 </select>
             </div>
@@ -1163,7 +1163,7 @@
                         style="font-size:9px;color:var(--txt-muted);font-weight:400;text-transform:none;letter-spacing:0">(misma
                         oficina)</span>
                 </span>
-                <select id="aa-resp2" class="aa-sel" disabled>
+                <select id="aa-resp2" class="aa-sel" data-sciaf-no-guardar disabled>
                     <option value="">— Seleccione responsable —</option>
                 </select>
             </div>
@@ -1746,6 +1746,12 @@
                         codigos: S.activos.map(a => a.codigo)
                     })
                 });
+                // Sesión vencida: la respuesta es la página de ingreso, no JSON. Se avisa
+                // claro y la pantalla queda como está para reintentar.
+                if (window.sciafSesion && window.sciafSesion.perdida(res)) {
+                    window.sciafSesion.avisar('No se reasignó nada todavía: la selección sigue en pantalla.');
+                    return;
+                }
                 const data = await res.json();
                 if (data.ok) {
                     aaToast('s', '¡Asignación exitosa!', data.msg || `${S.activos.length} activo(s) reasignados.`);
@@ -2076,8 +2082,48 @@
         $(document).off('sciaf:asignar-responsable.aa')
                    .on('sciaf:asignar-responsable.aa', function () { aaPrepararDesdeConsulta(); });
 
+        /**
+         * Respaldo de lo que se estaba haciendo (pestañas): predio, oficina, responsable
+         * origen y destino. El guardado genérico ponía los cuatro desplegables a la vez,
+         * pero cada uno vacía y vuelve a pedir al servidor al de abajo, así que tras un rato
+         * (o al volver a entrar) la pantalla quedaba a medias. Acá se reponen en orden,
+         * esperando cada carga, igual que cuando se llega desde Consulta de Activos.
+         */
+        function aaRegistrarRespaldo() {
+            if (!window.sciafModulo || !window.sciafPestanas) return;
+            window.sciafPestanas.moduloActivo('asignar-activos');
+            window.sciafModulo.registrar('asignar-activos', {
+                guardar: function () {
+                    return {
+                        predio: $('#aa-predio').val() || null,
+                        oficina: $('#aa-oficina').val() || null,
+                        resp1: $('#aa-resp1').val() || null,
+                        resp2: $('#aa-resp2').val() || null
+                    };
+                },
+                antes: async function (d) {
+                    if (!d || !d.predio) return;
+                    const esperar = ms => new Promise(res => setTimeout(res, ms));
+                    $('#aa-predio').val(String(d.predio)).trigger('change.select2');
+                    await window.aaPredioChange();
+                    if (!d.oficina) return;
+                    await esperar(120);
+                    $('#aa-oficina').val(String(d.oficina)).trigger('change.select2');
+                    await window.aaOficinaChange();
+                    if (!d.resp1) return;
+                    await esperar(120);
+                    $('#aa-resp1').val(String(d.resp1)).trigger('change.select2');
+                    await window.aaResp1Change();
+                    if (!d.resp2 || !$('#aa-resp2 option[value="' + d.resp2 + '"]').length) return;
+                    $('#aa-resp2').val(String(d.resp2)).trigger('change.select2');
+                    window.aaResp2Change();
+                    aaToast('i', 'Trabajo recuperado', 'Se repuso la asignación que había dejado a medias. Revísela antes de asignar.');
+                }
+            });
+        }
+
         (function boot() {
-            if (typeof $ !== 'undefined' && $.fn?.select2) { window.aaInitSelect2(); aaPrepararDesdeConsulta(); }
+            if (typeof $ !== 'undefined' && $.fn?.select2) { window.aaInitSelect2(); aaRegistrarRespaldo(); aaPrepararDesdeConsulta(); }
             else setTimeout(boot, 80);
         })();
 

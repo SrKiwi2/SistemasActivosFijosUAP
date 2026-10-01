@@ -1503,7 +1503,10 @@
     </div>
 </template>
 
+<!-- Fijo (sin cerrar con Esc ni con clic afuera): con 50 cámaras cargadas, un clic fuera
+     del cuadro cerraba la ventana. Además lo escrito se guarda solo mientras se escribe. -->
 <div class="modal fade" id="modalDetalleActivos" tabindex="-1"
+     data-bs-backdrop="static" data-bs-keyboard="false"
      aria-labelledby="lblModalDetalle" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content border-0" style="border-radius:0.75rem; overflow:hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.18);">
@@ -1543,6 +1546,12 @@
                 <div style="font-size:0.68rem; color:#64748b; margin-top:0.3rem; padding-left:1.5rem;">
                     <i class="fa-solid fa-circle-info me-1 text-primary"></i>
                     El botón <strong>↓</strong> al final de cada fila copia descripción, marca, modelo y color a las filas de abajo. La columna <strong>N° Serie</strong> tiene su propio botón <strong>↓</strong> (ámbar) para copiar la serie de forma independiente. Al guardar, la descripción final se arma en este orden: descripción + <code>COLOR</code> + <code>M:</code>(marca) + <code>MOD:</code>(modelo) + <code>N/S:</code>(serie).
+                </div>
+                <div style="font-size:0.68rem; color:#15803d; margin-top:0.2rem; padding-left:1.5rem;">
+                    <i class="fa-solid fa-paste me-1"></i>
+                    <strong>Pegar desde Excel:</strong> copie una columna (por ejemplo las series) y péguela en la primera
+                    celda: se reparte hacia abajo, una por fila. También se pueden pegar varias columnas seguidas
+                    (Descripción, Serie, Marca, Modelo, Color).
                 </div>
             </div>
 
@@ -1589,13 +1598,15 @@
                 <div style="font-size:0.72rem; color:#64748b;">
                     <span class="badge bg-warning text-dark me-1" style="font-size:0.65rem;">★</span>
                     El N° Serie es individual para cada activo
+                    <span id="detalleAutoguardado" class="ms-2 text-success" style="display:none;">
+                        <i class="fa-solid fa-circle-check"></i> Guardado mientras escribe</span>
                 </div>
                 <div class="d-flex gap-2">
                     <button type="button" class="btn btn-outline-secondary btn-sm"
-                            data-bs-dismiss="modal">Cancelar</button>
+                            data-bs-dismiss="modal" title="Lo escrito ya quedó guardado">Cerrar</button>
                     <button type="button" id="btnGuardarDetalle"
                             class="btn btn-success btn-sm px-3 fw-bold">
-                        <i class="fa-solid fa-floppy-disk me-1"></i> Guardar Detalles
+                        <i class="fa-solid fa-floppy-disk me-1"></i> Listo
                     </button>
                 </div>
             </div>
@@ -2849,15 +2860,12 @@
                 openDetalleModal($slide);
             });
 
+            // Cambiar la cantidad NO borra los detalles. Antes, al tipear (borrar el "0" de
+            // 20 para poner 21 pasaba por "2") se eliminaban todas las marcas/series cargadas.
+            // Ahora solo se avisa en el botón; al abrir el detalle o al guardar se agregan o
+            // recortan filas conservando lo escrito.
             $root.on('change input', '.txt-cant', function () {
-                const $slide  = $(this).closest('.batch-slide');
-                const nuevaCant = parseInt($(this).val()) || 1;
-                const prevDet  = $slide.data('assetDetails');
-
-                if (prevDet && prevDet.length !== nuevaCant) {
-                    $slide.removeData('assetDetails');
-                    _actualizarBtnDetallar($slide);
-                }
+                _actualizarBtnDetallar($(this).closest('.batch-slide'));
             });
 
             _bindDetalleModalEvents();
@@ -2921,6 +2929,7 @@
 
             const items = [];
             const resumenLotes = [];
+            const recortes = [];   // lotes con detalles cargados que sobran por bajar la cantidad
             let error = false;
 
             $root.find('#batchTrack .batch-slide').each(function (idx) {
@@ -2929,17 +2938,12 @@
                 const cantidadAsignada = parseInt($r.find('.txt-cant').val()) || 1;
                 const descGeneral = $r.find('.txt-desc').val();
 
-                let detallesGuardados = $r.data('assetDetails');
-
-                if (!detallesGuardados || detallesGuardados.length !== cantidadAsignada) {
-                    detallesGuardados = Array.from({ length: cantidadAsignada }, () => ({
-                        descripcion: descGeneral,
-                        serie: '',
-                        marca: '',
-                        modelo: '',
-                        color: ''
-                    }));
-                }
+                // Antes, si la cantidad no coincidía con los detalles se descartaban TODOS y se
+                // guardaba solo la descripción general. Ahora se conservan y se ajusta el largo.
+                const previos = $r.data('assetDetails');
+                const sobrantes = Array.isArray(previos) ? previos.slice(cantidadAsignada).filter(_detalleTieneDatos) : [];
+                if (sobrantes.length) recortes.push({ lote: idx + 1, cantidad: sobrantes.length });
+                const detallesGuardados = _ajustarDetalles(previos, cantidadAsignada, descGeneral);
 
                 const item = {
                     idMunicipio:    $r.find('.sel-mun').val(),
@@ -3007,6 +3011,18 @@
                 return;
             }
 
+            // Se bajó la cantidad de un lote que ya tenía detalles cargados: se avisa qué se
+            // deja afuera en vez de descartarlo en silencio.
+            if (recortes.length) {
+                const seguir = await sciafConfirmar({
+                    titulo: 'Hay detalles que no se van a usar',
+                    texto: recortes.map(r => `Lote ${r.lote}: ${r.cantidad} fila(s) con marca/serie quedan fuera porque la cantidad es menor.`).join('<br>')
+                         + '<br><br>Si fue un error, revise la cantidad antes de guardar.',
+                    aceptar: 'Guardar igual', peligrosa: true
+                });
+                if (!seguir) return;
+            }
+
             // Todo completo → confirmación con resumen
             const { isConfirmed } = await Swal.fire({
                 icon: 'question',
@@ -3033,6 +3049,13 @@
                 const r = await fetch('/administracion/activo/registrar-masivo', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                 });
+                // Sesión vencida: el servidor responde con la página de ingreso, no con JSON.
+                // Antes salía "Unexpected token <" y el usuario creía que había perdido todo.
+                if (window.sciafSesion && window.sciafSesion.perdida(r)) {
+                    hideGlobalLoader();
+                    window.sciafSesion.avisar('No se registró nada todavía y lo que cargó sigue en pantalla.');
+                    return;
+                }
                 const res = await r.json();
                 hideGlobalLoader();
                 if (res.ok) {
@@ -3549,26 +3572,72 @@
 
             $('#detalleBaseDesc').val(descBase);
 
-            let detalles = $slide.data('assetDetails');
-            if (!detalles || detalles.length !== cantidad) {
-                const prev = Array.isArray(detalles) ? detalles : [];
-                detalles = Array.from({ length: cantidad }, (_, i) => prev[i] || {
-                    descripcion: descBase,
-                    serie: '',
-                    marca: prev[0]?.marca || '',
-                    modelo: prev[0]?.modelo || '',
-                    color: prev[0]?.color || ''
-                });
-            }
+            // Lo ya cargado se conserva aunque la cantidad haya cambiado: se agregan o
+            // recortan filas al final. Los detalles quedan en el lote desde ya.
+            const detalles = _ajustarDetalles($slide.data('assetDetails'), cantidad, descBase);
+            $slide.data('assetDetails', detalles);
 
             const codigos = _generarCodigosArray(preview, cantidad);
 
             _renderDetalleRows(detalles, codigos);
+            $('#detalleAutoguardado').hide();
 
             if (!_modalDetalleBS) {
                 _modalDetalleBS = new bootstrap.Modal(document.getElementById('modalDetalleActivos'));
             }
             _modalDetalleBS.show();
+        }
+
+        /**
+         * Detalles con el largo pedido, sin perder lo escrito: las filas que faltan se
+         * agregan heredando marca/modelo/color de la primera; si sobran, se cortan al final.
+         */
+        function _ajustarDetalles(detalles, cantidad, descBase) {
+            const prev = Array.isArray(detalles) ? detalles : [];
+            return Array.from({ length: cantidad }, (_, i) => prev[i] ? Object.assign({}, prev[i]) : {
+                descripcion: descBase || prev[0]?.descripcion || '',
+                serie: '',
+                marca: prev[0]?.marca || '',
+                modelo: prev[0]?.modelo || '',
+                color: prev[0]?.color || ''
+            });
+        }
+
+        function _detalleTieneDatos(d) {
+            return !!(d && (d.serie || d.marca || d.modelo || d.color));
+        }
+
+        /** Guarda en el lote lo que hay en la tabla del detalle (se llama al escribir). */
+        let _autoguardadoTimer = null;
+        function _autoguardarDetalle() {
+            if (!_$currentDetalleSlide) return;
+            clearTimeout(_autoguardadoTimer);
+            _autoguardadoTimer = setTimeout(() => {
+                if (!_$currentDetalleSlide) return;
+                _$currentDetalleSlide.data('assetDetails', _collectDetalleData());
+                _actualizarBtnDetallar(_$currentDetalleSlide);
+                $('#detalleAutoguardado').show();
+            }, 250);
+        }
+
+        /** Para el respaldo de las pestañas: los detalles de cada lote (null si no tiene). */
+        function exportarDetalles() {
+            if (!$root) return [];
+            return $root.find('#batchTrack .batch-slide').map(function () {
+                const d = $(this).data('assetDetails');
+                return [Array.isArray(d) && d.length ? d : null];
+            }).get();
+        }
+
+        /** Repone los detalles respaldados en los lotes ya recreados. */
+        function importarDetalles(lista) {
+            if (!$root || !Array.isArray(lista)) return;
+            $root.find('#batchTrack .batch-slide').each(function (i) {
+                if (Array.isArray(lista[i]) && lista[i].length) {
+                    $(this).data('assetDetails', lista[i]);
+                    _actualizarBtnDetallar($(this));
+                }
+            });
         }
 
         function _generarCodigosArray(preview, cantidad) {
@@ -3592,11 +3661,13 @@
         }
 
         function _renderDetalleRows(detalles, codigos) {
-            const $tbody = $('#detalleTableBody').empty();
+            // Una sola escritura del HTML: con cientos de activos, crear fila por fila con
+            // jQuery congelaba el navegador unos segundos al abrir la ventana.
+            const filas = [];
 
             detalles.forEach((d, i) => {
                 const isLast = i === detalles.length - 1;
-                const $tr = $(`
+                filas.push(`
                     <tr data-row-idx="${i}" style="vertical-align:middle;">
                         <td class="text-center" style="background:var(--af-surface); padding:0.35rem 0.4rem;">
                             <span class="badge bg-primary rounded-pill" style="font-size:0.65rem;">${i + 1}</span>
@@ -3650,8 +3721,8 @@
                         </td>
                     </tr>
                 `);
-                $tbody.append($tr);
             });
+            document.getElementById('detalleTableBody').innerHTML = filas.join('');
         }
 
         function _escHtml(str) {
@@ -3680,10 +3751,14 @@
             const detalles = $slide.data('assetDetails');
             const $btn = $slide.find('.btn-detallar');
             const $badge = $btn.find('.det-badge');
+            const cantidad = parseInt($slide.find('.txt-cant').val()) || 1;
 
             if (detalles && detalles.length > 0) {
                 $btn.addClass('has-data');
-                $badge.text(detalles.length);
+                // Si la cantidad cambió, el botón lo muestra (se ajusta al abrir o al guardar).
+                $badge.text(detalles.length === cantidad ? detalles.length : detalles.length + '→' + cantidad);
+                $btn.attr('title', detalles.length === cantidad ? 'Detalle individual cargado'
+                    : `Tiene ${detalles.length} detalles cargados y la cantidad es ${cantidad}: se conservan, solo se agregan o quitan filas al final`);
             } else {
                 $btn.removeClass('has-data');
                 $badge.text('0');
@@ -3691,8 +3766,44 @@
         }
 
         function _bindDetalleModalEvents() {
+            // Se enganchan una sola vez aunque el formulario se recargue (antes cada recarga
+            // sumaba otro manejador y "copiar hacia abajo" corría varias veces).
+            $(document).off('.detalleAF');
 
-            $(document).on('click', '#tblDetalleActivos .btn-copy-down', function () {
+            // Todo lo que se escribe queda guardado en el lote al instante.
+            $(document).on('input.detalleAF change.detalleAF', '#detalleTableBody input', _autoguardarDetalle);
+
+            // Pegar desde Excel: varias líneas se reparten hacia abajo desde la celda donde
+            // se pega; varias columnas (separadas por tabulador) siguen el orden de la tabla.
+            $(document).on('paste.detalleAF', '#detalleTableBody input', function (e) {
+                const texto = (e.originalEvent.clipboardData || window.clipboardData)?.getData('text') || '';
+                if (!/[\n\t]/.test(texto.trim())) return;          // un solo valor: pegado normal
+                e.preventDefault();
+                const columnas = ['det-desc', 'det-serie', 'det-marca', 'det-modelo', 'det-color'];
+                const colInicio = columnas.findIndex(c => this.classList.contains(c));
+                const $filas = $('#detalleTableBody tr');
+                const filaInicio = $filas.index($(this).closest('tr'));
+                const lineas = texto.replace(/\r/g, '').replace(/\n$/, '').split('\n');
+                let aplicadas = 0;
+                lineas.forEach((linea, li) => {
+                    const $tr = $filas.eq(filaInicio + li);
+                    if (!$tr.length) return;
+                    linea.split('\t').forEach((valor, ci) => {
+                        const col = columnas[colInicio + ci];
+                        if (col) $tr.find('.' + col).val(valor.trim());
+                    });
+                    $tr.addClass('row-flash');
+                    setTimeout(() => $tr.removeClass('row-flash'), 700);
+                    aplicadas++;
+                });
+                _autoguardarDetalle();
+                if (lineas.length > aplicadas) {
+                    Swal.fire({ toast: true, position: 'bottom-end', icon: 'warning', timer: 4000, showConfirmButton: false,
+                        title: `Se pegaron ${aplicadas} de ${lineas.length} filas: no hay más activos en el lote.` });
+                }
+            });
+
+            $(document).on('click.detalleAF', '#tblDetalleActivos .btn-copy-down', function () {
                 const rowIdx = parseInt($(this).data('row'));
                 const $rows  = $('#detalleTableBody tr');
                 const $src   = $rows.eq(rowIdx);
@@ -3715,9 +3826,10 @@
                     $tr.addClass('row-flash');
                     setTimeout(() => $tr.removeClass('row-flash'), 700);
                 });
+                _autoguardarDetalle();
             });
 
-            $(document).on('click', '#tblDetalleActivos .btn-copy-serie', function () {
+            $(document).on('click.detalleAF', '#tblDetalleActivos .btn-copy-serie', function () {
                 const rowIdx = parseInt($(this).data('row'));
                 const $rows  = $('#detalleTableBody tr');
                 const serie  = $rows.eq(rowIdx).find('.det-serie').val();
@@ -3732,9 +3844,10 @@
                     $tr.addClass('row-flash');
                     setTimeout(() => $tr.removeClass('row-flash'), 700);
                 });
+                _autoguardarDetalle();
             });
 
-            $(document).on('click', '#btnAplicarBaseDesc', function () {
+            $(document).on('click.detalleAF', '#btnAplicarBaseDesc', function () {
                 const base = $('#detalleBaseDesc').val().trim();
                 if (!base) return;
                 $('#detalleTableBody tr .det-desc').val(base);
@@ -3744,21 +3857,25 @@
                     $tr.addClass('row-flash');
                     setTimeout(() => $tr.removeClass('row-flash'), 700);
                 });
+                _autoguardarDetalle();
             });
 
-            $(document).on('click', '#btnGuardarDetalle', function () {
+            $(document).on('click.detalleAF', '#btnGuardarDetalle', async function () {
                 if (!_$currentDetalleSlide) return;
 
                 const detalles = _collectDetalleData();
                 const sinDesc = detalles.filter(d => !d.descripcion);
 
                 if (sinDesc.length > 0) {
-                    const confirmacion = confirm(
-                        `${sinDesc.length} activo(s) no tienen descripción.\n¿Guardar de todas formas?`
-                    );
-                    if (!confirmacion) return;
+                    const seguir = await sciafConfirmar({
+                        titulo: `${sinDesc.length} activo(s) no tienen descripción`,
+                        texto: '¿Cerrar el detalle igual? Lo escrito queda guardado y se puede completar después.',
+                        aceptar: 'Sí, cerrar'
+                    });
+                    if (!seguir) return;
                 }
 
+                clearTimeout(_autoguardadoTimer);
                 _$currentDetalleSlide.data('assetDetails', detalles);
 
                 if (detalles[0]?.descripcion) {
@@ -3787,7 +3904,9 @@
             init,
             destroy,
             cargarParaEdicion,
-            ejecutarBaja
+            ejecutarBaja,
+            exportarDetalles,
+            importarDetalles
         };
 
     })();

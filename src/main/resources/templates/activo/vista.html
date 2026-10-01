@@ -88,7 +88,15 @@
                 // ante la duda conviene reabrir el formulario y no perder lo escrito.
                 const filas = $('#batchTrack .batch-slide').length;
                 const abierto = $('#sectionBatch').is(':visible') || filas > 0;
-                return { abierto: abierto, filas: filas };
+                // El detalle individual (series, marcas, modelos) no vive en campos sino en
+                // cada lote: sin esto se perdía al cerrar el navegador o vencer la sesión.
+                const detalles = window.ActivoForm?.exportarDetalles ? window.ActivoForm.exportarDetalles() : [];
+                return { abierto: abierto, filas: filas, detalles: detalles };
+            },
+            despues: async function (d) {
+                if (d && Array.isArray(d.detalles) && window.ActivoForm?.importarDetalles) {
+                    window.ActivoForm.importarDetalles(d.detalles);
+                }
             },
             antes: async function (d) {
                 if (!d || !d.abierto) return;

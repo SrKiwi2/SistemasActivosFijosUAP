@@ -70,8 +70,13 @@
             keepalive: true,
             cache: 'no-store'
         }).then(r => {
-            // Sesión cerrada: no seguir avisando (el resto de la página ya lo maneja).
-            if (r.status === 401) detenido = true;
+            // Sesión perdida: se avisa ya, antes de que el usuario pulse Guardar y se entere
+            // recién ahí. Se sigue avisando: si vuelve a ingresar (en otra pestaña), esta
+            // pestaña retoma sola.
+            if (r.status === 401) {
+                ultimoEnviado = '';
+                if (window.sciafSesion) window.sciafSesion.avisar('Se detectó que su sesión ya no está activa.');
+            }
         }).catch(() => { /* sin red: el próximo latido reintenta */ });
     }
 
