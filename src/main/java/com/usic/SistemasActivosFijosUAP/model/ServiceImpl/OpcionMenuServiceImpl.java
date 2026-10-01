@@ -98,7 +98,7 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
      * y SUPER USUARIO, aunque el SUPER USUARIO tenga permisos asignados a mano.
      */
     private static final Set<String> CODIGOS_SUPERVISION = Set.of(
-        "opcion_actividad", "opcion_autorizaciones"
+        "opcion_actividad", "opcion_autorizaciones", "opcion_conectados"
     );
 
     /** Opciones que ve RESPONSABLE por defecto (módulo de comunicados). */

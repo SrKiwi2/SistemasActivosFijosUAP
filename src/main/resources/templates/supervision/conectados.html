@@ -1,0 +1,217 @@
+<!-- supervision/conectados.html — Quién está conectado y qué pantalla está mirando -->
+<h4 class="py-3 mb-3"><span class="text-muted fw-light">Supervisión /</span> Usuarios conectados</h4>
+
+<style>
+    #conectados .cx-stat b { font-size: 1.5rem; line-height: 1.1; display: block; }
+    #conectados .cx-card { border: 1px solid rgba(0,0,0,.08); border-radius: 12px; height: 100%; transition: box-shadow .15s; }
+    #conectados .cx-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.07); }
+    #conectados .cx-card.ausente { opacity: .75; }
+    #conectados .cx-avatar {
+        width: 42px; height: 42px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+        font-weight: 700; background: rgba(26,86,160,.12); color: #1a56a0; position: relative; flex-shrink: 0;
+    }
+    #conectados .cx-punto { position: absolute; right: -1px; bottom: -1px; width: 12px; height: 12px; border-radius: 50%;
+        border: 2px solid var(--bs-body-bg, #fff); }
+    #conectados .cx-punto.en-linea { background: #22c55e; }
+    #conectados .cx-punto.ausente { background: #f59e0b; }
+    #conectados .cx-vista {
+        background: rgba(26,86,160,.06); border: 1px solid rgba(26,86,160,.15); border-radius: 9px;
+        padding: .5rem .7rem; display: flex; gap: .55rem; align-items: center;
+    }
+    #conectados .cx-vista i { font-size: 1.3rem; color: #1a56a0; }
+    #conectados .cx-chip { cursor: pointer; }
+    #conectados .cx-chip.activo { background: #1a56a0 !important; color: #fff !important; }
+    #conectados .cx-recorrido { font-size: .8rem; border-left: 2px dashed rgba(26,86,160,.25); padding-left: .7rem; margin-left: .3rem; }
+    html[data-theme="dark"] #conectados .cx-card { border-color: rgba(255,255,255,.1); }
+</style>
+
+<div id="conectados">
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 cx-stat">
+            <b class="text-success" id="cxUsuarios">—</b><small class="text-muted"><i class="ti ti-users"></i> Usuarios conectados</small></div></div></div>
+        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 cx-stat">
+            <b id="cxSesiones">—</b><small class="text-muted"><i class="ti ti-device-desktop"></i> Sesiones abiertas</small></div></div></div>
+        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 cx-stat">
+            <b class="text-warning" id="cxAusentes">—</b><small class="text-muted"><i class="ti ti-zzz"></i> Ausentes</small></div></div></div>
+        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 cx-stat">
+            <b id="cxVistas">—</b><small class="text-muted"><i class="ti ti-layout"></i> Pantallas en uso</small></div></div></div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-3">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <div class="input-group input-group-sm" style="max-width: 280px;">
+                    <span class="input-group-text"><i class="ti ti-search"></i></span>
+                    <input type="text" class="form-control" id="cxBuscar" placeholder="Buscar usuario, rol, pantalla, IP...">
+                </div>
+                <div class="form-check form-switch ms-2 mb-0">
+                    <input class="form-check-input" type="checkbox" id="cxAuto" checked>
+                    <label class="form-check-label small" for="cxAuto">Actualizar cada 5 s</label>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="cxRefrescar"><i class="ti ti-refresh"></i></button>
+                <small class="text-muted ms-auto" id="cxHora"></small>
+            </div>
+            <div class="mt-3">
+                <div class="small text-muted text-uppercase fw-semibold mb-1" style="font-size:.7rem; letter-spacing:.06em;">
+                    Pantallas en uso <span class="fw-normal text-lowercase">(clic para filtrar)</span></div>
+                <div id="cxChips" class="d-flex flex-wrap gap-1"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3" id="cxLista"></div>
+
+    <div class="small text-muted mt-3">
+        <i class="ti ti-info-circle"></i> Cada navegador avisa al cambiar de pantalla y cada 30 s. <strong>Ausente</strong>:
+        la pestaña del navegador está en segundo plano o no usa teclado ni mouse hace más de 5 minutos. Si un navegador
+        se cierra de golpe, deja de figurar en menos de 2 minutos.
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    const raiz = document.getElementById('conectados');
+    let datos = [];
+    let filtroVista = '';
+    const abiertos = new Set();   // tarjetas con el recorrido desplegado
+
+    function esc(t) { const d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
+    function hace(seg) {
+        if (seg == null) return '—';
+        if (seg < 60) return seg + ' s';
+        const m = Math.floor(seg / 60);
+        if (m < 60) return m + ' min';
+        const h = Math.floor(m / 60);
+        return h + ' h ' + (m % 60) + ' min';
+    }
+
+    function cargar() {
+        if (!document.body.contains(raiz)) return;          // la pestaña no está al frente
+        fetch('/administracion/conectados/datos', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
+            .then(r => r.ok ? r.json() : Promise.reject(r.status))
+            .then(r => {
+                datos = r.sesiones || [];
+                document.getElementById('cxHora').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-BO');
+                pintar();
+            })
+            .catch(st => {
+                document.getElementById('cxLista').innerHTML = `<div class="col-12"><div class="alert alert-warning">
+                    ${st === 403 ? 'No tiene permiso para ver esta pantalla.' : 'No se pudo consultar quién está conectado.'}</div></div>`;
+            });
+    }
+
+    function pintar() {
+        const usuarios = new Set(datos.map(s => s.idUsuario));
+        document.getElementById('cxUsuarios').textContent = usuarios.size;
+        document.getElementById('cxSesiones').textContent = datos.length;
+        document.getElementById('cxAusentes').textContent = datos.filter(s => s.estado === 2).length;
+
+        // Pantallas en uso: cuántas sesiones hay en cada una.
+        const porVista = {};
+        datos.forEach(s => { const k = s.vista || '—'; porVista[k] = (porVista[k] || 0) + 1; });
+        const vistas = Object.entries(porVista).sort((a, b) => b[1] - a[1]);
+        document.getElementById('cxVistas').textContent = vistas.length;
+        if (filtroVista && !porVista[filtroVista]) filtroVista = '';
+        document.getElementById('cxChips').innerHTML = vistas.length
+            ? vistas.map(([v, n]) => `<span class="badge bg-label-primary cx-chip ${v === filtroVista ? 'activo' : ''}"
+                data-vista="${esc(v)}">${esc(v)} <strong>${n}</strong></span>`).join('')
+            : '<span class="text-muted small">Nadie conectado.</span>';
+
+        const q = (document.getElementById('cxBuscar').value || '').toLowerCase().trim();
+        const lista = datos.filter(s => (!filtroVista || s.vista === filtroVista)
+            && (!q || [s.nombre, s.usuario, s.rol, s.vista, s.ip, s.navegador].join(' ').toLowerCase().includes(q)));
+
+        document.getElementById('cxLista').innerHTML = lista.length ? lista.map(tarjeta).join('')
+            : '<div class="col-12"><div class="text-muted py-4 text-center">No hay sesiones que coincidan.</div></div>';
+    }
+
+    function tarjeta(s) {
+        const ausente = s.estado === 2;
+        const motivo = ausente
+            ? (s.inactivoSeg != null && s.inactivoSeg >= 300 ? 'Ausente · sin actividad hace ' + hace(s.inactivoSeg)
+                                                           : 'Ausente · pestaña en segundo plano')
+            : 'En línea';
+        const inicial = (s.nombre || s.usuario || '?').trim().charAt(0).toUpperCase();
+        const pest = (s.pestanas || []).map(p => `<span class="badge bg-label-secondary me-1 mb-1">${esc(p)}</span>`).join('');
+        const rec = (s.recorrido || []).map((p, i) => `<div class="d-flex justify-content-between gap-2 ${i === 0 ? 'fw-semibold' : 'text-muted'}">
+                <span class="text-truncate">${esc(p.titulo || p.url)}</span><span class="text-nowrap">hace ${hace(p.haceSeg)}</span></div>`).join('');
+        const abierto = abiertos.has(s.id);
+        return `<div class="col-12 col-md-6 col-xxl-4">
+          <div class="card cx-card shadow-none ${ausente ? 'ausente' : ''}"><div class="card-body">
+            <div class="d-flex gap-3 align-items-center mb-3">
+              <span class="cx-avatar">${esc(inicial)}<span class="cx-punto ${ausente ? 'ausente' : 'en-linea'}"></span></span>
+              <div class="flex-grow-1" style="min-width:0">
+                <div class="fw-semibold text-truncate">${esc(s.nombre)} ${s.esYo ? '<span class="badge bg-label-primary">usted</span>' : ''}</div>
+                <div class="small text-muted"><code>${esc(s.usuario)}</code> · <span class="badge bg-label-info">${esc(s.rol || '—')}</span></div>
+              </div>
+            </div>
+            <div class="small mb-1 ${ausente ? 'text-warning' : 'text-success'}"><i class="ti ti-point-filled"></i> ${esc(motivo)}</div>
+            <div class="cx-vista mb-2">
+              <i class="${esc(s.icono || 'ti ti-layout')}"></i>
+              <div style="min-width:0">
+                <div class="small text-muted">Está viendo</div>
+                <div class="fw-semibold text-truncate">${esc(s.vista || '—')}</div>
+                <div class="small text-muted">hace ${hace(s.enVistaSeg)} en esta pantalla</div>
+              </div>
+            </div>
+            ${pest ? `<div class="small text-muted mb-1">Pestañas abiertas (${s.pestanas.length})</div><div class="mb-2">${pest}</div>` : ''}
+            <div class="small text-muted">
+              <i class="ti ti-world"></i> ${esc(s.ip || '—')} · ${esc(s.navegador || '')}<br>
+              <i class="ti ti-clock"></i> Sesión iniciada hace ${hace(s.conectadoSeg)} · último aviso hace ${hace(s.ultimoAvisoSeg)}
+            </div>
+            <div class="collapse ${abierto ? 'show' : ''} mt-2" id="cxRec-${esc(s.id)}">
+              <div class="small text-muted mb-1">Recorrido reciente</div>
+              <div class="cx-recorrido">${rec || '<span class="text-muted">Sin movimientos.</span>'}</div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-recorrido="${esc(s.id)}">
+                <i class="ti ti-route me-1"></i>${abierto ? 'Ocultar recorrido' : 'Recorrido'}</button>
+              ${s.esYo ? '' : `<button type="button" class="btn btn-sm btn-outline-danger ms-auto" data-cerrar="${esc(s.id)}"
+                data-nombre="${esc(s.usuario)}"><i class="ti ti-logout me-1"></i>Cerrar sesión</button>`}
+            </div>
+          </div></div></div>`;
+    }
+
+    raiz.addEventListener('click', function (e) {
+        const chip = e.target.closest('.cx-chip');
+        if (chip) { filtroVista = filtroVista === chip.dataset.vista ? '' : chip.dataset.vista; pintar(); return; }
+
+        const rec = e.target.closest('[data-recorrido]');
+        if (rec) {
+            const id = rec.dataset.recorrido;
+            if (abiertos.has(id)) abiertos.delete(id); else abiertos.add(id);
+            pintar();
+            return;
+        }
+
+        const cerrar = e.target.closest('[data-cerrar]');
+        if (cerrar) {
+            sciafConfirmar({
+                titulo: '¿Cerrar la sesión de «' + cerrar.dataset.nombre + '»?',
+                texto: 'Se cierran todas sus sesiones abiertas y vuelve a la pantalla de ingreso. Puede volver a ingresar.',
+                aceptar: 'Sí, cerrar sesión', peligrosa: true
+            }).then(si => {
+                if (!si) return;
+                $.post('/administracion/conectados/cerrar/' + encodeURIComponent(cerrar.dataset.cerrar), function (r) {
+                    Swal.fire({ toast: true, position: 'top-end', icon: r.ok ? 'success' : 'warning', title: r.msg,
+                        showConfirmButton: false, timer: 3500 });
+                    setTimeout(cargar, 800);
+                }, 'json').fail(() => Swal.fire('Error', 'No se pudo cerrar la sesión.', 'error'));
+            });
+        }
+    });
+
+    document.getElementById('cxBuscar').addEventListener('input', pintar);
+    document.getElementById('cxRefrescar').addEventListener('click', cargar);
+
+    // Un solo temporizador aunque la pantalla se vuelva a abrir.
+    clearInterval(window._cxTimer);
+    window._cxTimer = setInterval(function () {
+        const auto = document.getElementById('cxAuto');
+        if (auto && auto.checked) cargar();
+    }, 5000);
+    cargar();
+})();
+</script>

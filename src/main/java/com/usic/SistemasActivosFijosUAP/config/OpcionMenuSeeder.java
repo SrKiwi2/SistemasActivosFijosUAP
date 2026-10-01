@@ -83,6 +83,7 @@ public class OpcionMenuSeeder {
         // Solo ADMINISTRADOR / SUPER USUARIO (los controladores lo vuelven a revisar por rol).
         { "opcion_actividad",      "grp_supervision",  "Monitoreo de actividad",       "ti ti-activity",         "red",    "/administracion/actividad/vista",                    "/administracion/actividad",             "" },
         { "opcion_autorizaciones", "grp_supervision",  "Autorizaciones",               "ti ti-shield-check",     "amber",  "/administracion/autorizaciones/vista",               "/administracion/autorizaciones",        "" },
+        { "opcion_conectados",     "grp_supervision",  "Usuarios conectados",          "ti ti-users",            "green",  "/administracion/conectados/vista",                   "/administracion/conectados",            "" },
 
         { "opcion_contable",       "grp_contable",     "Grupo Contable",               "ti ti-category-2",       "teal",   "/administracion/grupoc/vista",                       "/administracion/grupoc",                "" },
         { "opcion_auxiliar",       "grp_contable",     "Auxiliar",                     "ti ti-folders",          "blue",   "/administracion/auxiliar/vista",                     "/administracion/auxiliar",              "" },

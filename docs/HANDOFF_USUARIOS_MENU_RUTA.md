@@ -63,6 +63,19 @@
   (`t | t`). La auditoría va en la misma transacción que el cambio: sin la tabla, guardar
   permisos y activar/desactivar fallan. La app solo tiene SELECT/INSERT sobre ella.
 
+### 3.c Usuarios conectados (Supervisión)
+
+- Menú Supervisión → **Usuarios conectados** (`opcion_conectados`,
+  `/administracion/conectados/vista`); solo ADMINISTRADOR / SUPER USUARIO. Lo crea el seeder.
+- Cada navegador con sesión manda `POST /api/presencia` (`sciaf-presencia.js`) al cambiar de
+  pantalla, cada 30 s y al pasar a segundo plano: pantalla actual, pestañas abiertas,
+  segundos sin teclado/mouse. `PresenciaService` lo guarda **en memoria** (no toca la base;
+  un reinicio lo vacía hasta el próximo aviso). Ausente = pestaña en segundo plano o 5 min sin
+  actividad. Sale de la lista al cerrar sesión (`PresenciaSesionListener`) o 100 s sin avisos.
+- La pantalla se refresca cada 5 s: tarjetas por sesión (pantalla actual y desde cuándo,
+  pestañas, IP/navegador, recorrido reciente), filtro por pantalla, y "Cerrar sesión"
+  (mismas reglas que en Usuarios).
+
 ## 4. Permisos en vivo
 
 - `SesionPermisosService` + `SesionPermisosInterceptor`: cada sesión guarda la versión de
