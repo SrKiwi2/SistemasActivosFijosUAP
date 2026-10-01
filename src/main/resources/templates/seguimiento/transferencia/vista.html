@@ -27,6 +27,9 @@
                 <div>
                     <div class="fs-5 fw-bold lh-1" id="stat-internas">—</div>
                     <small class="text-muted">Internas</small>
+                    <small class="d-block text-danger fw-semibold" id="stat-faltantes" style="display:none !important">
+                        <i class="bx bx-error-circle"></i> <span>0</span> por faltante
+                    </small>
                 </div>
             </div>
         </div>
@@ -60,7 +63,7 @@
     <div class="card-body py-3">
         <div class="row g-2 align-items-end">
 
-            <div class="col-12 col-md-3">
+            <div class="col-12 col-md-2">
                 <label class="form-label mb-1 small fw-semibold text-muted">BUSCAR</label>
                 <div class="input-group input-group-sm">
                     <span class="input-group-text"><i class="bx bx-search"></i></span>
@@ -75,6 +78,17 @@
                     <option value="">Todos</option>
                     <option value="INTERNA">Interna</option>
                     <option value="EXTERNA">Externa</option>
+                </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-1 small fw-semibold text-muted">MOTIVO</label>
+                <select id="filtro-motivo" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="NORMAL">Transferencia normal</option>
+                    <option value="FALTANTES">Faltantes (ida y vuelta)</option>
+                    <option value="FALTANTE">Envío a faltantes</option>
+                    <option value="DEVOLUCION_FALTANTE">Faltante devuelto</option>
                 </select>
             </div>
 
@@ -94,7 +108,7 @@
                 <input type="date" id="filtro-desde" class="form-control form-control-sm">
             </div>
 
-            <div class="col-6 col-md-2">
+            <div class="col-6 col-md-1">
                 <label class="form-label mb-1 small fw-semibold text-muted">HASTA</label>
                 <input type="date" id="filtro-hasta" class="form-control form-control-sm">
             </div>
@@ -250,6 +264,15 @@
             </div>
 
             <div class="modal-body p-0">
+                <!-- Aviso de faltante: lo primero que se ve al abrir una transferencia de este tipo -->
+                <div id="trf-aviso-faltante" class="d-none mx-4 mt-3 mb-0 p-3 rounded-3 d-flex align-items-start gap-3"
+                     style="background:#fef2f2; border:1px solid #fca5a5; border-left:5px solid #dc2626;">
+                    <i class="bx bx-error-circle fs-3" style="color:#dc2626"></i>
+                    <div>
+                        <div class="fw-bold" style="color:#991b1b" id="trf-aviso-faltante-titulo">TRANSFERENCIA POR FALTANTE</div>
+                        <div class="small" style="color:#7f1d1d" id="trf-aviso-faltante-texto"></div>
+                    </div>
+                </div>
                 <ul class="nav nav-tabs nav-tabs-bordered px-4 pt-3" id="trfModalTabs">
                     <li class="nav-item">
                         <a class="nav-link active d-flex align-items-center gap-1" data-bs-toggle="tab"
@@ -476,27 +499,30 @@
 
     function obtenerFiltros() {
         return {
-            tipo: $('#filtro-tipo').val(), estado: $('#filtro-estado').val(),
+            tipo: $('#filtro-tipo').val(), estado: $('#filtro-estado').val(), motivo: $('#filtro-motivo').val(),
             buscar: $('#filtro-buscar').val(), desde: $('#filtro-desde').val(), hasta: $('#filtro-hasta').val()
         };
     }
     function aplicarFiltros() { cargarTabla(); }
     function limpiarFiltros() {
-        $('#filtro-tipo, #filtro-estado').val('');
+        $('#filtro-tipo, #filtro-estado, #filtro-motivo').val('');
         $('#filtro-buscar, #filtro-desde, #filtro-hasta').val('');
         cargarTabla();
     }
 
     function calcularEstadisticas() {
         const filas = $('.trf-row');
-        let total = filas.length, internas = 0, externas = 0, completadas = 0;
+        let total = filas.length, internas = 0, externas = 0, completadas = 0, faltantes = 0;
         filas.each(function () {
             if ($(this).data('tipo') === 'INTERNA') internas++;
             if ($(this).data('tipo') === 'EXTERNA') externas++;
             if ($(this).data('estado') === 'COMPLETADA') completadas++;
+            if ($(this).data('motivo')) faltantes++;
         });
         $('#stat-total').text(total);
         $('#stat-internas').text(internas);
+        $('#stat-faltantes span').text(faltantes);
+        $('#stat-faltantes').attr('style', faltantes ? '' : 'display:none !important');
         $('#stat-externas').text(externas);
         $('#stat-completadas').text(completadas);
     }
@@ -510,10 +536,32 @@
         $('#trf-modal-numero').text(data.numero || '—');
         $('#trf-modal-fecha').text(data.fecha || '—');
         $('#trf-modal-badge-tipo').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresTipo[data.tipo] || 'bg-secondary')).text(data.tipo || '—');
+
+        // Faltantes: cabecera roja y aviso arriba de todo, para que no pase por una transferencia común.
+        const motivo = data.motivo || '';
+        $('#modalDetalleTransferencia .modal-header')
+            .toggleClass('bg-primary', !motivo)
+            .toggleClass('bg-danger', !!motivo);
+        if (motivo === 'FALTANTE') {
+            $('#trf-aviso-faltante-titulo').text('TRANSFERENCIA POR FALTANTE');
+            $('#trf-aviso-faltante-texto').text('No es una transferencia normal: los bienes no se encontraron y se enviaron '
+                + 'a la oficina de faltantes del predio, a nombre de la misma persona. '
+                + (data.docRef ? 'Documento: ' + data.docRef + '.' : ''));
+            $('#trf-aviso-faltante').removeClass('d-none');
+        } else if (motivo === 'DEVOLUCION_FALTANTE') {
+            $('#trf-aviso-faltante-titulo').text('DEVOLUCIÓN DE UN FALTANTE');
+            $('#trf-aviso-faltante-texto').text('El bien había sido registrado como faltante, apareció y salió de la oficina '
+                + 'de faltantes hacia el responsable indicado. ' + (data.docRef ? 'Documento: ' + data.docRef + '.' : ''));
+            $('#trf-aviso-faltante').removeClass('d-none');
+        } else {
+            $('#trf-aviso-faltante').addClass('d-none');
+        }
         $('#trf-modal-badge-estado').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresEstado[data.estado] || 'bg-secondary')).text(data.estado || '—');
 
         $('#trf-d-numero').text(data.numero || '—');
-        $('#trf-d-tipo').html(`<span class="badge ${coloresTipo[data.tipo] || 'bg-secondary'}">${data.tipo || '—'}</span>`);
+        $('#trf-d-tipo').html(`<span class="badge ${coloresTipo[data.tipo] || 'bg-secondary'}">${data.tipo || '—'}</span>`
+            + (motivo === 'FALTANTE' ? ' <span class="badge bg-danger"><i class="bx bx-error-circle"></i> FALTANTE</span>' : '')
+            + (motivo === 'DEVOLUCION_FALTANTE' ? ' <span class="badge bg-white text-danger border border-danger"><i class="bx bx-undo"></i> FALTANTE DEVUELTO</span>' : ''));
         $('#trf-d-estado').html(`<span class="badge ${coloresEstado[data.estado] || 'bg-secondary'}">${data.estado || '—'}</span>`);
         $('#trf-d-fecha').text(data.fecha || '—');
         $('#trf-d-fecha-recepcion').text(data.fechaRecepcion || '—');
@@ -729,7 +777,18 @@
             </dl>
         </div>`;
 
-        return `<div class="row g-4 py-2 px-1">${movimiento}${ficha}</div>`;
+        // Atajo al Seguimiento de Activo, solo si el usuario lo tiene en su menú.
+        const codigo = act.codigo || d.codigoActivo;
+        const hayRuta = codigo && $('#layout-menu .menu-item[data-url="/administracion/ruta-activo/vista"]').length;
+        const ruta = hayRuta ? `<div class="col-12 text-end">
+            <button type="button" class="btn btn-sm btn-outline-danger"
+                    onclick="bootstrap.Modal.getInstance(document.getElementById('modalTrfDetalleActivo'))?.hide();
+                             bootstrap.Modal.getInstance(document.getElementById('modalDetalleTransferencia'))?.hide();
+                             window.cargarContenido('/administracion/ruta-activo/vista?codigo=${encodeURIComponent(codigo)}')">
+                <i class="ti ti-route me-1"></i> Ver todas las oficinas por las que pasó
+            </button></div>` : '';
+
+        return `<div class="row g-4 py-2 px-1">${movimiento}${ficha}${ruta}</div>`;
     }
 
     /* Ficha del activo en un modal interno, igual que en Asignación. */

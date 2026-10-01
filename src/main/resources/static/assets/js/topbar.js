@@ -38,7 +38,9 @@
      * documento para no abrir otro EventSource.
      */
     function reemitirAvisos(sse) {
-        ['actividad', 'autorizacion'].forEach(nombre => {
+        // 'permisos' y 'menu': el administrador cambió los permisos de este usuario o el
+        // catálogo del menú; sciaf-menu-vivo.js actualiza el menú sin recargar.
+        ['actividad', 'autorizacion', 'permisos', 'menu'].forEach(nombre => {
             sse.addEventListener(nombre, e => {
                 try {
                     document.dispatchEvent(new CustomEvent('sciaf:' + nombre, { detail: JSON.parse(e.data) }));

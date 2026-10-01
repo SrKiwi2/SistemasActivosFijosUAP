@@ -287,6 +287,47 @@
             color: #1a56a0 !important;
         }
 
+        /* Colores que el catálogo ya usaba en grupos y no tenían estilo (salían grises). */
+        .sm-gi.gi-cyan {
+            background: rgba(0, 180, 230, 0.12);
+            color: #009fc4 !important;
+        }
+
+        .sm-gi.gi-red {
+            background: rgba(185, 28, 28, 0.12);
+            color: #b91c1c !important;
+        }
+
+        .sm-gi.gi-amber {
+            background: rgba(180, 110, 0, 0.12);
+            color: #9a6400 !important;
+        }
+
+        /* Módulo bloqueado por el administrador */
+        #layout-menu .menu-item.menu-bloqueado > .menu-link {
+            opacity: .55;
+        }
+
+        #layout-menu .menu-item.menu-bloqueado:not([data-url]) > .menu-link {
+            cursor: not-allowed !important;
+        }
+
+        #layout-menu .sm-candado {
+            margin-left: auto;
+            font-size: .95rem;
+            color: #b91c1c;
+        }
+
+        /* Destello breve al aparecer una opción nueva en el menú (cambio en vivo). */
+        #layout-menu .menu-item.menu-nuevo > .menu-link {
+            animation: smNuevo 2.4s ease-out 1;
+        }
+
+        @keyframes smNuevo {
+            0%, 30% { background: rgba(80, 180, 40, 0.22); }
+            100% { background: transparent; }
+        }
+
         html[data-theme="dark"] .sm-gi.gi-green {
             color: #71dd37 !important;
             background: rgba(113, 221, 55, 0.12);
@@ -440,7 +481,17 @@
         paso 3). El diseño (clases sm-gi/gi-*, sm-si/si-*, badges) es idéntico.
         ════════════════════════════════════════════════════════════════════
     -->
+    <!--
+        Los <li> van en un fragmento aparte (menuItems) para que el navegador pueda pedir
+        solo el menú (/adm/menu/items) y reemplazarlo en vivo cuando el administrador
+        cambia permisos o el catálogo (sciaf-menu-vivo.js). Se reemplaza el CONTENIDO del
+        <ul>, no el <ul>: así no se pierde el scroll ni los manejadores del tema.
+
+        Módulo bloqueado: se muestra con candado y sin data-url (no navega). El
+        ADMINISTRADOR lo sigue viendo navegable, con el candado como aviso.
+    -->
     <ul class="menu-inner py-1">
+        <th:block th:fragment="menuItems" th:with="esAdmin=${session.nombre_rol == 'ADMINISTRADOR'}">
 
         <th:block th:each="seccion : ${menuArbol}">
 
@@ -448,7 +499,7 @@
                 <span class="menu-header-text" th:text="${seccion.descripcion}"></span>
             </li>
 
-            <li class="menu-item" th:each="grupo : ${seccion.hijos}">
+            <li class="menu-item" th:each="grupo : ${seccion.hijos}" th:attr="data-codigo=${grupo.codigo}">
                 <a href="#" class="menu-link menu-toggle">
                     <span class="sm-gi menu-icon" th:classappend="${'gi-' + grupo.colorClase}">
                         <i th:class="${grupo.icono}"></i>
@@ -457,7 +508,11 @@
                 </a>
                 <ul class="menu-sub">
                     <li class="menu-item" th:each="item : ${grupo.hijos}" th:id="${item.codigo}"
-                        th:attr="data-url=${item.url}">
+                        th:classappend="${item.bloqueado} ? 'menu-bloqueado'"
+                        th:attr="data-url=${item.bloqueado and !esAdmin ? null : item.url},
+                                 data-ruta=${item.url},
+                                 data-bloqueado=${item.bloqueado ? 'true' : null},
+                                 title=${item.bloqueado ? 'Bloqueado temporalmente por el administrador' : null}">
                         <a class="menu-link">
                             <span class="sm-si" th:classappend="${'si-' + item.colorClase}">
                                 <i th:class="${item.icono}"></i>
@@ -465,6 +520,7 @@
                             <div th:text="${item.descripcion}"></div>
                             <span th:if="${item.badge != null and !item.badge.isEmpty()}"
                                   class="sm-badge sm-bd-warn" th:text="${item.badge}"></span>
+                            <i th:if="${item.bloqueado}" class="ti ti-lock sm-candado"></i>
                         </a>
                     </li>
                 </ul>
@@ -472,5 +528,6 @@
 
         </th:block>
 
+        </th:block>
     </ul>
 </aside>

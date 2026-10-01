@@ -1,53 +1,190 @@
+<style>
+    .usr-avatar {
+        width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: .85rem; background: rgba(26,86,160,.12); color: #1a56a0; flex-shrink: 0; position: relative;
+    }
+    .usr-avatar .usr-punto {
+        position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%;
+        border: 2px solid var(--bs-body-bg, #fff); background: #9ca3af;
+    }
+    .usr-avatar .usr-punto.on { background: #22c55e; }
+    .usr-stat { cursor: pointer; transition: transform .12s, box-shadow .12s; }
+    .usr-stat:hover { transform: translateY(-2px); }
+    .usr-stat.activo { box-shadow: 0 0 0 2px #1a56a0 inset; }
+    #data-table td { vertical-align: middle; }
+    .usr-inactivo td { opacity: .65; }
+    /* Menú ⋮ llevado a <body>: por encima de la tabla y de las tarjetas. */
+    .usr-menu-flotante { z-index: 1085; min-width: 230px; }
+</style>
+
+<!-- Resumen: cada tarjeta filtra la tabla -->
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg">
+        <div class="card border-0 shadow-sm usr-stat h-100" data-filtro="">
+            <div class="card-body py-3 d-flex align-items-center gap-3">
+                <span class="avatar avatar-sm bg-label-primary rounded d-flex align-items-center justify-content-center"><i class="ti ti-users"></i></span>
+                <div><div class="fs-5 fw-bold lh-1" th:text="${total}">0</div><small class="text-muted">Usuarios</small></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg">
+        <div class="card border-0 shadow-sm usr-stat h-100" data-filtro="conectado">
+            <div class="card-body py-3 d-flex align-items-center gap-3">
+                <span class="avatar avatar-sm bg-label-success rounded d-flex align-items-center justify-content-center"><i class="ti ti-plug-connected"></i></span>
+                <div><div class="fs-5 fw-bold lh-1 text-success" th:text="${conectados}">0</div><small class="text-muted">Conectados ahora</small></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg">
+        <div class="card border-0 shadow-sm usr-stat h-100" data-filtro="ACTIVO">
+            <div class="card-body py-3 d-flex align-items-center gap-3">
+                <span class="avatar avatar-sm bg-label-info rounded d-flex align-items-center justify-content-center"><i class="ti ti-user-check"></i></span>
+                <div><div class="fs-5 fw-bold lh-1" th:text="${activos}">0</div><small class="text-muted">Activos</small></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg">
+        <div class="card border-0 shadow-sm usr-stat h-100" data-filtro="INACTIVO">
+            <div class="card-body py-3 d-flex align-items-center gap-3">
+                <span class="avatar avatar-sm bg-label-secondary rounded d-flex align-items-center justify-content-center"><i class="ti ti-user-off"></i></span>
+                <div><div class="fs-5 fw-bold lh-1" th:text="${inactivos}">0</div><small class="text-muted">Inactivos</small></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg">
+        <div class="card border-0 shadow-sm usr-stat h-100" data-filtro="fallidos">
+            <div class="card-body py-3 d-flex align-items-center gap-3">
+                <span class="avatar avatar-sm bg-label-danger rounded d-flex align-items-center justify-content-center"><i class="ti ti-alert-triangle"></i></span>
+                <div><div class="fs-5 fw-bold lh-1 text-danger" th:text="${conFallidos}">0</div>
+                    <small class="text-muted">Con 3+ intentos fallidos (7 días)</small></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card">
     <!-- Encabezado responsivo: apilado en móvil, distribuido en PC -->
-    <div class="card-header d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
-        <h5 class="m-0">Registro Usuario</h5>
-        <button type="button" class="btn btn-primary text-nowrap" onclick="cargarFormulario()" data-bs-toggle="modal"
-            data-bs-target="#modalFormularioUsuario">
-            <i class="fa-solid fa-user-plus"></i> Agregar Usuario
-        </button>
+    <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+        <div>
+            <h5 class="m-0">Registro de Usuarios</h5>
+            <small class="text-muted">Los cambios de permisos, rol o estado se aplican al instante a quien esté conectado.</small>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <select class="form-select form-select-sm" id="usrFiltroRol" style="width:auto">
+                <option value="">Todos los roles</option>
+                <option th:each="r : ${roles}" th:value="${r.nombre}" th:text="${r.nombre}"></option>
+            </select>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="usrCargarTabla()" title="Actualizar">
+                <i class="ti ti-refresh"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-primary text-nowrap" onclick="usrFormulario()" data-bs-toggle="modal"
+                data-bs-target="#modalFormularioUsuario">
+                <i class="ti ti-user-plus me-1"></i> Agregar Usuario
+            </button>
+        </div>
     </div>
     <div class="card-datatable table-responsive pt-0">
         <!-- style="width:100%" es obligatorio para que scrollX de DataTables funcione bien -->
         <table class="datatables-basic table table-hover" id="data-table" style="width:100%">
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>NOMBRE COMPLETO</th>
+                    <th>PERSONA</th>
                     <th>USUARIO</th>
-                    <th>CONTRASEÑA</th>
                     <th>ROL</th>
-                    <th>OPCIONES</th>
+                    <th>ESTADO</th>
+                    <th>ÚLTIMO INGRESO</th>
+                    <th>PERMISOS</th>
+                    <th class="text-end">OPCIONES</th>
                 </tr>
             </thead>
-            <tbody class="animate__animated animate__bounceInDown">
-                <tr th:each="usu, index: ${listaUsuarios}">
-                    <!-- CORRECCIÓN: Se cambian los <th> por <td> en el cuerpo de la tabla -->
-                    <td th:text="${index.index+1}"></td>
-                    <td th:text="${usu.persona.nombreCompleto}"></td>
-                    <td th:text="${usu.usuario}"></td>
-                    <td class="text-break" style="min-width: 150px; max-width: 250px;" th:text="${usu.password}"></td>
-                    <td th:text="${usu.rol.nombre}"></td>
+            <tbody>
+                <tr th:each="f : ${filas}" th:classappend="${f.estado != 'ACTIVO'} ? 'usr-inactivo'"
+                    th:attr="data-estado=${f.estado}, data-conectado=${f.conectado}, data-fallidos=${f.fallidosRecientes}, data-rol=${f.rol}">
                     <td>
-                        <!-- Contenedor Flex para que los botones mantengan su espacio -->
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-sm btn-primary text-nowrap"
-                                th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="usr-avatar"
+                                  th:text="${#strings.length(f.nombreCompleto) > 0 ? #strings.toUpperCase(#strings.substring(f.nombreCompleto,0,1)) : '?'}">
+                                ?</span>
+                            <div class="d-flex flex-column">
+                                <span class="fw-semibold" th:text="${f.nombreCompleto}"></span>
+                                <small class="text-muted" th:text="${f.ci != null ? 'C.I. ' + f.ci : ''}"></small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <code th:text="${f.usuario}"></code>
+                        <span class="badge bg-label-primary ms-1" th:if="${f.esYo}">usted</span>
+                    </td>
+                    <td><span class="badge"
+                              th:classappend="${f.rol == 'ADMINISTRADOR'} ? 'bg-danger' : (${f.rol == 'SUPER USUARIO'} ? 'bg-warning text-dark' : 'bg-label-info')"
+                              th:text="${f.rol}"></span></td>
+                    <td>
+                        <span class="badge bg-label-success" th:if="${f.estado == 'ACTIVO'}">Activo</span>
+                        <span class="badge bg-danger" th:if="${f.estado != 'ACTIVO'}"
+                              title="Desactivado: no puede ingresar ni tiene permisos de menú">
+                            <i class="ti ti-user-off"></i> Desactivado · sin acceso</span>
+                        <div class="small text-muted mt-1" th:if="${f.estado != 'ACTIVO' and f.respaldo != null}">
+                            <i class="ti ti-archive"></i>
+                            <span th:text="${f.respaldo > 0 ? 'Respaldo: ' + f.respaldo + ' permiso(s)' : 'Respaldo: plantilla del rol'}"></span>
+                        </div>
+                        <span class="badge bg-success ms-1" th:if="${f.conectado}" title="Tiene el sistema abierto ahora">
+                            <i class="ti ti-point-filled"></i> en línea</span>
+                    </td>
+                    <td th:attr="data-order=${f.ultimoIngreso != null ? #temporals.format(f.ultimoIngreso, 'yyyyMMddHHmm') : '0'}">
+                        <span th:if="${f.ultimoIngreso != null}" class="small"
+                              th:text="${#temporals.format(f.ultimoIngreso, 'dd/MM/yyyy HH:mm')}"></span>
+                        <span th:if="${f.ultimoIngreso == null}" class="small text-muted">sin registro</span>
+                        <div th:if="${f.fallidosRecientes > 0}" class="small"
+                             th:classappend="${f.fallidosRecientes >= 3} ? 'text-danger fw-semibold' : 'text-warning'"
+                             th:text="${f.fallidosRecientes} + ' intento(s) fallido(s) en 7 días'"></div>
+                    </td>
+                    <td>
+                        <span th:if="${f.estado != 'ACTIVO'}" class="small text-danger">Ninguno</span>
+                        <span th:if="${f.estado == 'ACTIVO' and f.permisosPropios == 0}" class="small text-muted"
+                              title="No tiene permisos propios: ve lo que define su rol">Plantilla del rol</span>
+                        <span th:if="${f.permisosPropios > 0}" class="badge bg-label-primary"
+                              th:text="${f.permisosPropios} + ' propios'"></span>
+                    </td>
+                    <td class="text-end">
+                        <div class="d-inline-flex gap-1">
+                            <button type="button" class="btn btn-sm btn-icon btn-outline-primary" title="Editar datos y rol"
+                                th:onclick="usrFormularioEdit([[${f.idCifrado}]])"
                                 data-bs-toggle="modal" data-bs-target="#modalFormularioUsuario">
-                                <i class="fa-solid fa-pen-to-square"></i> 
-                                <span class="d-none d-md-inline">Editar</span>
+                                <i class="ti ti-pencil"></i>
                             </button>
-                            <button type="button" class="btn btn-sm btn-info text-nowrap"
-                                th:onclick="cargarPermisos([[${id_encryptado[__${index.index}__]}]])"
+                            <button type="button" class="btn btn-sm btn-icon btn-outline-info" title="Permisos de menú"
+                                th:onclick="cargarPermisos([[${f.idCifrado}]])"
                                 data-bs-toggle="modal" data-bs-target="#modalPermisosUsuario">
-                                <i class="fa-solid fa-list-check"></i> 
-                                <span class="d-none d-md-inline">Permisos</span>
+                                <i class="ti ti-list-check"></i>
                             </button>
-                            <button type="button" class="btn btn-sm btn-danger text-nowrap" 
-                                th:onclick="eliminar([[${usu.usuario}]],[[${id_encryptado[__${index.index}__]}]])">
-                                <i class="fa-solid fa-trash"></i> 
-                                <span class="d-none d-md-inline">Eliminar</span>
-                            </button>
+                            <div class="dropdown">
+                                <button type="button" class="btn btn-sm btn-icon btn-outline-secondary" data-bs-toggle="dropdown"
+                                        title="Más acciones"><i class="ti ti-dots-vertical"></i></button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="javascript:void(0)"
+                                           th:onclick="restablecerContrasena([[${f.idCifrado}]], [[${f.usuario}]])">
+                                        <i class="ti ti-key me-2"></i>Restablecer contraseña</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0)"
+                                           th:onclick="verAccesos([[${f.idCifrado}]], [[${f.nombreCompleto}]])">
+                                        <i class="ti ti-login me-2"></i>Historial de accesos</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0)"
+                                           th:onclick="verHistorialPermisos([[${f.idCifrado}]], [[${f.usuario}]])">
+                                        <i class="ti ti-history me-2"></i>Historial de permisos</a></li>
+                                    <li th:if="${f.conectado and !f.esYo}"><a class="dropdown-item" href="javascript:void(0)"
+                                           th:onclick="cerrarSesionesUsuario([[${f.idCifrado}]], [[${f.usuario}]])">
+                                        <i class="ti ti-logout me-2"></i>Cerrar sus sesiones</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li th:if="${f.estado == 'ACTIVO' and !f.esYo}"><a class="dropdown-item text-warning" href="javascript:void(0)"
+                                           th:onclick="cambiarEstadoUsuario([[${f.idCifrado}]], [[${f.usuario}]], false)">
+                                        <i class="ti ti-user-off me-2"></i>Desactivar</a></li>
+                                    <li th:if="${f.estado != 'ACTIVO'}"><a class="dropdown-item text-success" href="javascript:void(0)"
+                                           th:onclick="cambiarEstadoUsuario([[${f.idCifrado}]], [[${f.usuario}]], true)">
+                                        <i class="ti ti-user-check me-2"></i>Activar</a></li>
+                                    <li th:if="${!f.esYo}"><a class="dropdown-item text-danger" href="javascript:void(0)"
+                                           th:onclick="usrEliminar([[${f.usuario}]], [[${f.idCifrado}]])">
+                                        <i class="ti ti-trash me-2"></i>Eliminar</a></li>
+                                </ul>
+                            </div>
                         </div>
                     </td>
                 </tr>
@@ -57,31 +194,83 @@
 </div>
 
 <script>
-    $('#data-table').DataTable({
-        scrollX: true,       // Habilita el scroll horizontal
-        autoWidth: false,    // Previene anchos forzados incorrectos
-        language: {
-            "sProcessing": "Procesando...",
-            "sLengthMenu": "Mostrar _MENU_ registros",
-            "sZeroRecords": "No se encontraron resultados",
-            "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
-            "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
-            "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
-            "sInfoPostFix": "",
-            "sSearch": "Buscar:",
-            "sUrl": "",
-            "sInfoThousands": ",",
-            "sLoadingRecords": "Cargando...",
-            "oPaginate": {
-                "sFirst": "Primero",
-                "sLast": "Último",
-                "sNext": "Siguiente",
-                "sPrevious": "Anterior"
-            },
-            "oAria": {
-                "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
-                "sSortDescending": ": Activar para ordenar la columna de manera descendente"
-            }
+    (function () {
+        // Filtros propios (tarjetas y rol). Se registran una sola vez: la tabla se recarga
+        // por AJAX y cada carga sumaba otro filtro idéntico.
+        window._usrFiltro = window._usrFiltro || { tarjeta: '', rol: '' };
+        if (!window._usrFiltroRegistrado) {
+            window._usrFiltroRegistrado = true;
+            $.fn.dataTable.ext.search.push(function (settings, data, index) {
+                if (settings.nTable.id !== 'data-table' || !document.getElementById('usrFiltroRol')) return true;
+                const tr = settings.aoData[index].nTr;
+                const f = window._usrFiltro;
+                if (f.rol && tr.dataset.rol !== f.rol) return false;
+                if (f.tarjeta === 'conectado') return tr.dataset.conectado === 'true';
+                if (f.tarjeta === 'ACTIVO') return tr.dataset.estado === 'ACTIVO';
+                if (f.tarjeta === 'INACTIVO') return tr.dataset.estado !== 'ACTIVO';
+                if (f.tarjeta === 'fallidos') return Number(tr.dataset.fallidos || 0) >= 3;
+                return true;
+            });
         }
-    });
+        window._usrFiltro = { tarjeta: '', rol: '' };
+
+        // Menú ⋮ de cada fila: la tabla vive dentro de contenedores con scroll (DataTables
+        // scrollX + table-responsive) que recortaban el desplegable, y había que desplazarse
+        // dentro de la fila para verlo. Con la estrategia "fixed" de Popper se posiciona
+        // respecto de la ventana y se dibuja por encima de la tabla. Se crea antes de
+        // DataTables para alcanzar también las filas de las otras páginas.
+        //
+        // Además, al abrirse el menú se lleva a <body>: así ningún contenedor de la página
+        // (overflow, transform del tema o de las pestañas) lo puede recortar. Bootstrap ya
+        // guardó la referencia al menú, y Popper lo ubica junto al botón esté donde esté.
+        // Los que quedaron de una carga anterior de la tabla se limpian antes.
+        document.querySelectorAll('body > .usr-menu-flotante').forEach(function (m) { m.remove(); });
+        document.querySelectorAll('#data-table [data-bs-toggle="dropdown"]').forEach(function (b) {
+            const menu = b.parentElement.querySelector('.dropdown-menu');
+            bootstrap.Dropdown.getOrCreateInstance(b, {
+                popperConfig: function (cfg) { return Object.assign({}, cfg, { strategy: 'fixed' }); }
+            });
+            if (!menu) return;
+            menu.classList.add('usr-menu-flotante');
+            b.addEventListener('show.bs.dropdown', function () {
+                if (menu.parentElement !== document.body) document.body.appendChild(menu);
+            });
+        });
+        // Al desplazar la página o la tabla, el menú abierto se cierra (no queda flotando suelto).
+        $('#tablaRegistro .dataTables_scrollBody, .layout-page').off('scroll.usrMenu').on('scroll.usrMenu', function () {
+            document.querySelectorAll('#data-table [data-bs-toggle="dropdown"][aria-expanded="true"]')
+                .forEach(function (b) { bootstrap.Dropdown.getInstance(b)?.hide(); });
+        });
+
+        const tabla = $('#data-table').DataTable({
+            scrollX: true,
+            autoWidth: false,
+            order: [],
+            pageLength: 25,
+            columnDefs: [{ orderable: false, targets: [6] }],
+            language: {
+                "sProcessing": "Procesando...",
+                "sLengthMenu": "Mostrar _MENU_ registros",
+                "sZeroRecords": "No se encontraron resultados",
+                "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
+                "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
+                "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
+                "sSearch": "Buscar:",
+                "sLoadingRecords": "Cargando...",
+                "oPaginate": { "sFirst": "Primero", "sLast": "Último", "sNext": "Siguiente", "sPrevious": "Anterior" }
+            }
+        });
+
+        $('.usr-stat').on('click', function () {
+            const f = $(this).data('filtro') || '';
+            window._usrFiltro.tarjeta = (window._usrFiltro.tarjeta === f) ? '' : f;
+            $('.usr-stat').removeClass('activo');
+            if (window._usrFiltro.tarjeta) $(this).addClass('activo');
+            tabla.draw();
+        });
+        $('#usrFiltroRol').on('change', function () {
+            window._usrFiltro.rol = this.value;
+            tabla.draw();
+        });
+    })();
 </script>

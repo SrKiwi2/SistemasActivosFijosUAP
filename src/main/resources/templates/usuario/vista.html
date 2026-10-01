@@ -1,4 +1,4 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Usuario</h4>
+<h4 class="py-3 mb-3"><span class="text-muted fw-light">Usuarios y Accesos /</span> Usuarios</h4>
 <!-- Se añade w-100 para que ocupe todo el ancho -->
 <div id="tablaRegistro" class="w-100"></div>
 
@@ -9,19 +9,53 @@
 </div>
 
 <div class="modal fade" id="modalPermisosUsuario" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content" id="contenidoModalPermisos"></div>
+    </div>
+</div>
+
+<!-- Historial de accesos de un usuario -->
+<div class="modal fade" id="modalAccesosUsuario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="ti ti-history me-1"></i> Historial de accesos
+                    <span class="text-muted fw-light" id="accesosNombre"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="accesosCuerpo"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Auditoría de permisos de un usuario -->
+<div class="modal fade" id="modalHistorialPermisos" tabindex="-1" aria-hidden="true" style="z-index: 1100;">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="ti ti-history me-1"></i> Historial de permisos
+                    <span class="text-muted fw-light" id="hpNombre"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="hpCuerpo"></div>
+        </div>
     </div>
 </div>
 
 <script>
     $(document).ready(function () {
-        cargarTabla();
+        usrCargarTabla();
     });
 
-    function cargarTabla() {
+    /*
+     * Nombres propios (usr*): con varias pestañas abiertas, cada módulo define su
+     * cargarTabla / cargarFormulario / eliminar globales y gana el último que se cargó. Así
+     * los botones de esta tabla terminaban recargando o abriendo cosas de OTRO módulo (por
+     * eso la tabla de usuarios no se actualizaba después de guardar).
+     */
+    window.usrCargarTabla = function () {
         showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
-        
+
         $.ajax({
             type: 'POST',
             url: "/administracion/usuario/tabla-registros",
@@ -32,7 +66,7 @@
             $("#tablaRegistro").html(`
                 <div class="alert alert-danger m-3">
                 Ocurrió un error al cargar la tabla.
-                <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
+                <button class="btn btn-sm btn-outline-danger ms-2" onclick="usrCargarTabla()">Reintentar</button>
                 </div>
             `);
             },
@@ -40,21 +74,272 @@
             hideGlobalLoader();
             }
         });
-    }
-    
-    function cargarFormulario() {
+    };
+
+    // manejarEnvioFormulario (fragment.js) recarga con el cargarTabla global: mientras el
+    // formulario de usuario está abierto, ese nombre apunta a esta tabla.
+    function usrApuntarRecarga() { window.cargarTabla = window.usrCargarTabla; }
+
+    window.usrFormulario = function () {
+        usrApuntarRecarga();
         cargarFormularioAlert("/administracion/usuario/formulario", "#contenidoModalUsuario", "#formularioUsuario");
-    }
+    };
 
-    function cargarFormularioEdit(id) {
+    window.usrFormularioEdit = function (id) {
+        usrApuntarRecarga();
         cargarFormularioEditAlert(id, "/administracion/usuario/formulario-edit", "#contenidoModalUsuario", "#formularioUsuario");
-    }
+    };
 
-    function cargarPermisos(id) {
+    window.cargarPermisos = function (id) {
+        usrApuntarRecarga();
         cargarFormularioEditAlert(id, "/administracion/usuario/permisos", "#contenidoModalPermisos", "#formularioPermisos");
+    };
+
+    function usrEscapar(t) {
+        return $('<div>').text(t == null ? '' : t).html();
     }
 
-    function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/usuario/eliminar",cargarTabla);
+    /** POST con confirmación y mensaje del servidor (las reglas las explica él). */
+    function usrAccion(url, datos, confirmacion, alTerminar) {
+        // alTerminar(r) recibe la respuesta del servidor si todo salió bien.
+        sciafConfirmar(confirmacion).then(function (si) {
+            if (!si) return;
+            $.ajax({
+                url: "/adm/cargar-datos", method: "GET",
+                success: function () {
+                    $.ajax({
+                        type: 'POST', url: url, data: datos || {}, dataType: 'json',
+                        success: function (r) {
+                            if (r.ok) {
+                                usrCargarTabla();
+                                if (alTerminar) alTerminar(r);
+                                else Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: r.msg,
+                                    showConfirmButton: false, timer: 4000 });
+                            } else {
+                                Swal.fire('No se pudo', r.msg || 'Ocurrió un error.', 'warning');
+                            }
+                        },
+                        error: function (xhr) {
+                            Swal.fire('Error', (xhr.responseJSON && xhr.responseJSON.msg) || 'No se pudo completar la acción.', 'error');
+                        }
+                    });
+                }
+            });
+        });
+    }
+
+    /**
+     * Desactivar: respalda y quita sus permisos. Activar: muestra el respaldo y deja elegir
+     * si se restauran (por defecto sí) o si vuelve solo con la plantilla de su rol.
+     */
+    function cambiarEstadoUsuario(id, usuario, activar) {
+        const url = '/administracion/usuario/estado/' + encodeURIComponent(id);
+        if (!activar) {
+            usrAccion(url, { activo: false }, {
+                titulo: '¿Desactivar a «' + usuario + '»?',
+                texto: 'No podrá ingresar, y si está conectado su sesión se cierra en este momento.<br><br>'
+                     + 'Se le quitan todos sus permisos de menú y se guarda un <strong>respaldo</strong> '
+                     + 'para restaurarlos si se lo vuelve a activar. Queda registrado en su historial.',
+                aceptar: 'Sí, desactivar', peligrosa: true
+            }, r => Swal.fire('Usuario desactivado', r.msg, 'success'));
+            return;
+        }
+        $.getJSON('/administracion/usuario/respaldo/' + encodeURIComponent(id)).always(function (r) {
+            const hay = r && r.ok && r.hay && r.cantidad > 0;
+            const lista = hay ? r.nombres.slice(0, 12).map(n => '• ' + usrEscapar(n)).join('<br>')
+                              + (r.nombres.length > 12 ? '<br>… y ' + (r.nombres.length - 12) + ' más' : '') : '';
+            Swal.fire({
+                title: '¿Activar a «' + usuario + '»?',
+                html: '<div class="text-start">Podrá volver a ingresar al sistema.<br><br>'
+                    + (hay
+                        ? `<div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="acRestaurar" checked>
+                             <label class="form-check-label" for="acRestaurar">Restaurar sus <strong>${r.cantidad}</strong>
+                             permiso(s) del respaldo</label></div>
+                           <div class="small text-muted border rounded p-2" style="max-height:180px;overflow:auto">${lista}</div>
+                           <div class="small text-muted mt-2">Si no los restaura, verá el menú de su rol (${usrEscapar(r.rol)}).</div>`
+                        : `<div class="small text-muted">No tiene permisos propios en el respaldo: verá el menú de su rol
+                           ${r && r.rol ? '(' + usrEscapar(r.rol) + ')' : ''}.</div>`)
+                    + '</div>',
+                icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, activar', cancelButtonText: 'Cancelar',
+                reverseButtons: true,
+                preConfirm: () => ({ restaurar: hay ? document.getElementById('acRestaurar').checked : true })
+            }).then(res => {
+                if (!res.isConfirmed) return;
+                $.ajax({
+                    type: 'POST', url: url, data: { activo: true, restaurar: res.value.restaurar }, dataType: 'json',
+                    success: function (x) {
+                        if (!x.ok) { Swal.fire('No se pudo', x.msg, 'warning'); return; }
+                        usrCargarTabla();
+                        Swal.fire('Usuario activado', x.msg, 'success');
+                    },
+                    error: function (xhr) {
+                        Swal.fire('Error', (xhr.responseJSON && xhr.responseJSON.msg) || 'No se pudo activar.', 'error');
+                    }
+                });
+            });
+        });
+    }
+
+    /** Auditoría: qué se le agregó/quitó, quién, cuándo, desde qué IP y pantalla. */
+    function verHistorialPermisos(id, usuario) {
+        const ACCIONES = {
+            ASIGNACION: ['Permisos modificados', 'primary', 'ti-list-check'],
+            PLANTILLA_ROL: ['Vuelve a la plantilla del rol', 'info', 'ti-wand'],
+            SIN_ACCESO: ['Sin acceso (se quitaron todos)', 'danger', 'ti-user-off'],
+            DESACTIVAR: ['Desactivado', 'danger', 'ti-user-off'],
+            ACTIVAR: ['Activado', 'success', 'ti-user-check'],
+            CAMBIO_ROL: ['Cambio de rol', 'warning', 'ti-shield'],
+            ELIMINAR: ['Usuario eliminado', 'dark', 'ti-trash'],
+            QUITADO_POR_MENU: ['Quitado al eliminar la opción del menú', 'secondary', 'ti-menu-2'],
+            MIGRACION: ['Ajuste automático del sistema', 'secondary', 'ti-settings']
+        };
+        $('#hpNombre').text('— ' + usuario);
+        $('#hpCuerpo').html('<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</div>');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHistorialPermisos')).show();
+        $.getJSON('/administracion/usuario/historial-permisos/' + encodeURIComponent(id), function (r) {
+            if (!r.ok) { $('#hpCuerpo').html('<div class="alert alert-warning">' + usrEscapar(r.msg) + '</div>'); return; }
+            if (!r.historial.length) {
+                $('#hpCuerpo').html('<div class="text-muted">Todavía no hay cambios registrados para este usuario '
+                    + '(el registro empezó con esta versión).</div>');
+                return;
+            }
+            const chips = (l, cls) => l.map(o => `<span class="badge ${cls} me-1 mb-1" title="${usrEscapar(o.codigo)}">${usrEscapar(o.nombre)}</span>`).join('');
+            $('#hpCuerpo').html(r.historial.map(h => {
+                const a = ACCIONES[h.accion] || [h.accion, 'secondary', 'ti-point'];
+                const f = h.fecha ? new Date(h.fecha).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+                return `<div class="border rounded-3 p-3 mb-2">
+                    <div class="d-flex flex-wrap justify-content-between gap-2">
+                      <span class="fw-semibold"><span class="badge bg-${a[1]} me-1"><i class="ti ${a[2]}"></i></span>${usrEscapar(a[0])}</span>
+                      <span class="small text-muted"><i class="ti ti-calendar"></i> ${f}</span>
+                    </div>
+                    <div class="small text-muted mt-1">
+                      <i class="ti ti-user-cog"></i> ${usrEscapar(h.actor || '—')}${h.rolActor ? ' (' + usrEscapar(h.rolActor) + ')' : ''}
+                      ${h.ip ? ' · <i class="ti ti-world"></i> ' + usrEscapar(h.ip) : ''}
+                      ${h.origen ? ' · <i class="ti ti-map-pin"></i> ' + usrEscapar(h.origen) : ''}
+                      · ${h.cantidadAntes ?? 0} → ${h.cantidadDespues ?? 0} permiso(s)
+                    </div>
+                    ${h.agregados.length ? '<div class="mt-2"><small class="text-success fw-semibold">Agregados:</small><br>' + chips(h.agregados, 'bg-label-success') + '</div>' : ''}
+                    ${h.quitados.length ? '<div class="mt-2"><small class="text-danger fw-semibold">Quitados:</small><br>' + chips(h.quitados, 'bg-label-danger') + '</div>' : ''}
+                    ${h.respaldo && h.respaldo.length ? '<div class="mt-2 small text-muted"><i class="ti ti-archive"></i> Respaldo guardado: ' + h.respaldo.length + ' permiso(s)</div>' : ''}
+                    ${h.detalle ? '<div class="mt-1 small">' + usrEscapar(h.detalle) + '</div>' : ''}
+                  </div>`;
+            }).join(''));
+        }).fail(() => $('#hpCuerpo').html('<div class="alert alert-danger">No se pudo cargar el historial.</div>'));
+    }
+
+    function cerrarSesionesUsuario(id, usuario) {
+        usrAccion('/administracion/usuario/cerrar-sesiones/' + encodeURIComponent(id), {}, {
+            titulo: '¿Cerrar las sesiones de «' + usuario + '»?',
+            texto: 'Lo que tenga abierto vuelve a la pantalla de inicio de sesión. Puede volver a ingresar.',
+            aceptar: 'Sí, cerrar sesiones', peligrosa: true
+        });
+    }
+
+    /** Restablecer: el sistema genera una contraseña o el administrador escribe una. */
+    function restablecerContrasena(id, usuario) {
+        Swal.fire({
+            title: 'Restablecer contraseña',
+            html: `<div class="text-start">
+                <p class="mb-2">Usuario: <strong>${usrEscapar(usuario)}</strong></p>
+                <div class="form-check mb-1">
+                  <input class="form-check-input" type="radio" name="rcModo" id="rcGenerar" value="generar" checked>
+                  <label class="form-check-label" for="rcGenerar">Generar una contraseña segura</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="radio" name="rcModo" id="rcEscribir" value="escribir">
+                  <label class="form-check-label" for="rcEscribir">Escribir una</label>
+                </div>
+                <input type="text" id="rcNueva" class="form-control mb-2" placeholder="Mínimo 8 caracteres, con letras y números" disabled autocomplete="off">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="rcCerrar" checked>
+                  <label class="form-check-label" for="rcCerrar">Cerrar sus sesiones abiertas</label>
+                </div></div>`,
+            showCancelButton: true, confirmButtonText: 'Restablecer', cancelButtonText: 'Cancelar', reverseButtons: true,
+            didOpen: () => {
+                document.querySelectorAll('input[name="rcModo"]').forEach(r => r.addEventListener('change', () => {
+                    const escribir = document.getElementById('rcEscribir').checked;
+                    const i = document.getElementById('rcNueva');
+                    i.disabled = !escribir; if (escribir) i.focus();
+                }));
+            },
+            preConfirm: () => {
+                const escribir = document.getElementById('rcEscribir').checked;
+                const nueva = document.getElementById('rcNueva').value;
+                if (escribir && (nueva.length < 8 || !/[A-Za-z]/.test(nueva) || !/\d/.test(nueva))) {
+                    Swal.showValidationMessage('Mínimo 8 caracteres, con letras y números.');
+                    return false;
+                }
+                return { nueva: escribir ? nueva : '', cerrarSesiones: document.getElementById('rcCerrar').checked };
+            }
+        }).then(res => {
+            if (!res.isConfirmed) return;
+            $.ajax({
+                type: 'POST', url: '/administracion/usuario/restablecer-contrasena/' + encodeURIComponent(id),
+                data: res.value, dataType: 'json',
+                success: function (r) {
+                    if (!r.ok) { Swal.fire('No se pudo', r.msg, 'warning'); return; }
+                    Swal.fire({
+                        icon: 'success', title: 'Contraseña restablecida',
+                        html: `Entréguele esta contraseña a <strong>${usrEscapar(usuario)}</strong>. No se vuelve a mostrar:
+                               <div class="d-flex gap-2 justify-content-center align-items-center mt-3">
+                                 <code class="fs-4 px-3 py-2 border rounded" id="rcClave">${usrEscapar(r.contrasena)}</code>
+                                 <button type="button" class="btn btn-outline-primary btn-sm" id="rcCopiar"><i class="ti ti-copy"></i> Copiar</button>
+                               </div>
+                               <small class="text-muted d-block mt-2">Puede cambiarla él mismo desde su avatar → «Cambiar mi contraseña».</small>`,
+                        didOpen: () => document.getElementById('rcCopiar').addEventListener('click', () => {
+                            navigator.clipboard && navigator.clipboard.writeText(r.contrasena);
+                            document.getElementById('rcCopiar').innerHTML = '<i class="ti ti-check"></i> Copiada';
+                        })
+                    });
+                },
+                error: function (xhr) {
+                    Swal.fire('Error', (xhr.responseJSON && xhr.responseJSON.msg) || 'No se pudo restablecer.', 'error');
+                }
+            });
+        });
+    }
+
+    function verAccesos(id, nombre) {
+        $('#accesosNombre').text('— ' + nombre);
+        $('#accesosCuerpo').html('<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando...</div>');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAccesosUsuario')).show();
+        $.getJSON('/administracion/usuario/accesos/' + encodeURIComponent(id), function (r) {
+            if (!r.ok) { $('#accesosCuerpo').html('<div class="alert alert-warning">' + usrEscapar(r.msg) + '</div>'); return; }
+            const motivos = { LOGIN_OK: 'Ingreso correcto', CREDENCIALES_INVALIDAS: 'Contraseña incorrecta', USUARIO_INACTIVO: 'Usuario inactivo' };
+            let html = `<p class="mb-3">${r.conectado
+                ? '<span class="badge bg-success"><i class="ti ti-point-filled"></i> Conectado ahora</span>'
+                : '<span class="badge bg-label-secondary">Desconectado</span>'}</p>`;
+            if (!r.accesos.length) {
+                html += '<div class="text-muted">Sin intentos de ingreso registrados todavía (el registro empezó con esta versión).</div>';
+            } else {
+                html += `<div class="table-responsive"><table class="table table-sm align-middle">
+                  <thead><tr><th>Fecha</th><th>Resultado</th><th>IP</th><th>Navegador</th></tr></thead><tbody>`;
+                r.accesos.forEach(a => {
+                    const f = a.fecha ? new Date(a.fecha).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+                    html += `<tr><td class="text-nowrap">${f}</td>
+                      <td>${a.exito ? '<span class="badge bg-label-success">' : '<span class="badge bg-label-danger">'}${usrEscapar(motivos[a.motivo] || a.motivo)}</span></td>
+                      <td><code>${usrEscapar(a.ip || '—')}</code></td><td class="small">${usrEscapar(a.navegador || '—')}</td></tr>`;
+                });
+                html += '</tbody></table></div>';
+            }
+            $('#accesosCuerpo').html(html);
+        }).fail(() => $('#accesosCuerpo').html('<div class="alert alert-danger">No se pudo cargar el historial.</div>'));
+    }
+
+    window.usrEliminar = function (nombre, id) {
+        sciafConfirmarEliminar('al usuario «' + nombre + '»', 'Ya no podrá ingresar y sus sesiones abiertas se cierran.')
+            .then(function (si) {
+                if (!si) return;
+                $.ajax({
+                    type: 'POST', url: '/administracion/usuario/eliminar/' + encodeURIComponent(id),
+                    success: function (msg) {
+                        usrCargarTabla();
+                        Swal.fire('Eliminado', msg, 'success');
+                    },
+                    error: function (xhr) {
+                        Swal.fire('No se pudo eliminar', xhr.responseText || 'Ocurrió un error.', 'warning');
+                    }
+                });
+            });
     }
 </script>

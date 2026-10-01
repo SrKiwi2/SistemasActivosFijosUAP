@@ -889,8 +889,13 @@ input[type="date"].hx-input-sm { width: 132px; }
             }
         }
 
-        const nroTrf = e.nroTrf
-            ? `<span class="hx-ev-nro">${hx(e.nroTrf)}</span>` : '';
+        const nroTrf = (e.nroTrf
+            ? `<span class="hx-ev-nro">${hx(e.nroTrf)}</span>` : '')
+            // Transferencia del ciclo de faltantes: en rojo, para no leerla como un movimiento normal.
+            + (e.motivoFaltante === 'FALTANTE'
+                ? ' <span class="badge bg-danger" title="Envío a la oficina de faltantes del predio">⚠ FALTANTE</span>' : '')
+            + (e.motivoFaltante === 'DEVOLUCION_FALTANTE'
+                ? ' <span class="badge bg-white text-danger border border-danger" title="El faltante apareció y salió de la custodia">↩ FALTANTE DEVUELTO</span>' : '');
 
         return `
         <div class="hx-event" style="animation-delay:${Math.min(idx*.03,.3)}s">

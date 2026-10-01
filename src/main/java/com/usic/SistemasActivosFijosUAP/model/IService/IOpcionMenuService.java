@@ -57,11 +57,39 @@ public interface IOpcionMenuService extends IServiceGenerico<OpcionMenu, Long> {
 
     void moverAbajo(Long idOpcion);
 
-    /** Alterna el flag visible de un nodo. */
+    /** Alterna el flag visible de un nodo (falla si es protegido y se quiere ocultar). */
     void alternarVisible(Long idOpcion);
 
-    /** Elimina un nodo (falla si tiene hijos; desvincula usuarios si es ITEM). */
+    /**
+     * Bloquea o desbloquea un nodo: sigue en el menú pero nadie salvo ADMINISTRADOR
+     * puede entrar. Bloquear un grupo o una sección bloquea todo lo que contiene.
+     */
+    void bloquear(Long idOpcion, boolean bloquear);
+
+    /**
+     * Borrado lógico (estado ELIMINADO): falla si tiene hijos vigentes o es protegido;
+     * quita los permisos asignados a usuarios.
+     */
     void eliminarNodo(Long idOpcion);
+
+    /** Vuelve a poner en el menú un nodo eliminado (su padre tiene que estar vigente). */
+    void restaurarNodo(Long idOpcion);
+
+    /** Nodos eliminados, el más reciente primero (papelera de la gestión de menú). */
+    List<OpcionMenu> listarEliminados();
+
+    /**
+     * Pone a los nodos {@code idsEnOrden} como hijos de {@code idPadre} (null = raíz),
+     * en ese orden. Es lo que usa el arrastrar y soltar de la gestión de menú: sirve para
+     * reordenar y también para mover un ítem a otro grupo o un grupo a otra sección.
+     */
+    void reordenar(Long idPadre, List<Long> idsEnOrden);
+
+    /** Códigos de ítems bloqueados, por sí mismos o por su grupo/sección. */
+    Set<String> codigosBloqueados();
+
+    /** Árbol para la pantalla de permisos por usuario (vigentes, visibles u ocultos). */
+    List<MenuNodoDto> obtenerArbolPermisos();
 
     /** Códigos asignados explícitamente al usuario (tabla usuario_opcion). */
     Set<String> codigosPorUsuario(Long idUsuario);

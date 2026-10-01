@@ -164,6 +164,10 @@ input[type="date"].trh-input-sm { width: 132px; }
 }
 .trh-card-tipo[data-t="INTERNA"] { background: var(--trh-accent-lt); color: var(--trh-accent); }
 .trh-card-tipo[data-t="EXTERNA"] { background: var(--trh-amber-lt); color: var(--trh-amber); }
+/* Ciclo de faltantes: rojo, para que no se lea como una transferencia normal. */
+.trh-card-tipo[data-t="FALTANTE"] { background: #dc2626; color: #fff; }
+.trh-card-tipo[data-t="DEVOLUCION_FALTANTE"] { background: #fff; color: #b91c1c; border: 1px solid #fca5a5; }
+.trh-card.trh-faltante .trh-card-head { box-shadow: inset 4px 0 0 #dc2626; background: #fef2f2; }
 .trh-card-flow { font-size: 11.5px; color: var(--trh-txt-sub); flex: 1; min-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trh-card-fecha { font-family: var(--trh-font-mono); font-size: 10px; color: var(--trh-txt-muted); white-space: nowrap; }
 .trh-card-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
@@ -393,10 +397,12 @@ input[type="date"].trh-input-sm { width: 132px; }
         const hayFallidos = r.errores > 0 || r.nuncaEnviados > 0;
 
         return `
-        <div class="trh-card" data-trf="${t.id}">
+        <div class="trh-card ${t.motivo === 'FALTANTE' ? 'trh-faltante' : ''}" data-trf="${t.id}">
             <div class="trh-card-head" onclick="trhToggle(this,'${bodyId}')">
                 <span class="trh-card-nro">${trh(t.numero)}</span>
                 <span class="trh-card-tipo" data-t="${trh(t.tipo)}">${trh(t.tipo || '—')}</span>
+                ${t.motivo === 'FALTANTE' ? '<span class="trh-card-tipo" data-t="FALTANTE" title="Envío a la oficina de faltantes del predio">⚠ Faltante</span>' : ''}
+                ${t.motivo === 'DEVOLUCION_FALTANTE' ? '<span class="trh-card-tipo" data-t="DEVOLUCION_FALTANTE" title="El faltante apareció y salió de la custodia">↩ Faltante devuelto</span>' : ''}
                 <span class="trh-card-flow" title="${trh(flujo)}">${flujo}</span>
                 <span class="trh-card-fecha">${trhFecha(t.fecha)}</span>
                 <div class="trh-card-badges">${badges}</div>

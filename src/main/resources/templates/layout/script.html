@@ -49,6 +49,8 @@
     <script src="/assets/js/topbar.js"></script>
     <script src="/assets/js/estado-conexiones.js"></script>
     <script src="/assets/js/sciaf-catalogos.js"></script>
+    <script src="/assets/js/sciaf-menu-vivo.js"></script>
+    <script src="/assets/js/sciaf-mi-cuenta.js"></script>
 
     <script>
         $.ajaxSetup({
@@ -66,13 +68,28 @@
             // (renderizado dinámicamente desde la tabla opcion_menu). Ya no se
             // mantiene un diccionario hardcodeado: agregar una opción no requiere
             // tocar este JS.
-            $(".menu-item").click(function (e) {
+            // Delegado en #layout-menu (no en cada .menu-item): el menú se reemplaza en
+            // vivo cuando cambian los permisos, y los ítems nuevos tienen que responder.
+            $("#layout-menu").on("click", ".menu-item", function (e) {
+                // Un módulo bloqueado no navega: se avisa por qué.
+                if ($(this).is("[data-bloqueado]:not([data-url])")) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (window.Swal) {
+                        Swal.fire({ toast: true, position: 'top-end', icon: 'info', timer: 3500,
+                            showConfirmButton: false,
+                            title: 'Módulo bloqueado temporalmente por el administrador' });
+                    }
+                    return;
+                }
+
                 const url = $(this).attr("data-url");
 
                 // Grupos / encabezados no tienen data-url: solo despliegan submenú.
                 if (!url) {
                     return;
                 }
+                e.stopPropagation(); // el <li> del grupo no tiene que volver a procesar el clic
 
                 e.preventDefault();
 

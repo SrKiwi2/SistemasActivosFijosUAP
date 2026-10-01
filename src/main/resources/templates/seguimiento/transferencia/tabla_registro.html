@@ -25,6 +25,7 @@
             <span><span class="badge bg-warning me-1">●</span>En proceso</span>
             <span><span class="badge bg-secondary me-1">●</span>Pendiente</span>
             <span><span class="badge bg-danger me-1">●</span>Anulada</span>
+            <span class="ms-2 ps-2 border-start"><span class="badge bg-danger me-1"><i class="bx bx-error-circle"></i></span>Por faltante</span>
         </div>
     </div>
 
@@ -63,9 +64,12 @@
 
                 <tr th:id="'trf-row-' + ${trf.idTransferencia}"
                     class="trf-row"
+                    th:with="motivo=${trf.motivoFaltante}"
+                    th:classappend="${motivo == 'FALTANTE'} ? 'trf-faltante' : (${motivo == 'DEVOLUCION_FALTANTE'} ? 'trf-devolucion' : '')"
                     th:data-id="${trf.idTransferencia}"
                     th:data-numero="${trf.numeroTransferencia}"
                     th:data-tipo="${trf.tipo}"
+                    th:data-motivo="${motivo}"
                     th:data-estado="${trf.estadoProceso}"
                     th:data-fecha="${trf.fechaTransferencia}"
                     th:data-fecha-recepcion="${trf.fechaRecepcion}"
@@ -113,11 +117,20 @@
                              th:text="'recibido ' + ${#temporals.format(trf.fechaRecepcion, 'dd/MM/yyyy')}">—</div>
                     </td>
 
-                    <!-- Tipo -->
+                    <!-- Tipo (y, si corresponde, el motivo de faltante: va en rojo para que
+                         nadie la confunda con una transferencia común) -->
                     <td class="text-center">
                         <span class="badge"
                               th:classappend="${trf.tipo == 'INTERNA'} ? 'bg-info' : 'bg-warning text-dark'"
                               th:text="${trf.tipo ?: '—'}">—</span>
+                        <span th:if="${motivo == 'FALTANTE'}" class="badge bg-danger d-block mt-1 badge-faltante"
+                              title="El bien se envió a la oficina de faltantes del predio por un acta de faltantes">
+                            <i class="bx bx-error-circle"></i> FALTANTE
+                        </span>
+                        <span th:if="${motivo == 'DEVOLUCION_FALTANTE'}" class="badge badge-devolucion d-block mt-1"
+                              title="El faltante apareció y el bien salió de la custodia de faltantes">
+                            <i class="bx bx-undo"></i> FALTANTE DEVUELTO
+                        </span>
                     </td>
 
                     <!-- Responsable origen → destino -->
@@ -213,6 +226,28 @@
     .tabla-transferencias tbody tr.trf-row:hover {
         background-color: rgba(var(--bs-primary-rgb), .05);
     }
+
+    /* Transferencias del ciclo de faltantes: franja roja a la izquierda y fondo
+       rosado, para distinguirlas de un movimiento normal de un vistazo. */
+    .tabla-transferencias tbody tr.trf-faltante > td {
+        background-color: #fef2f2;
+    }
+    .tabla-transferencias tbody tr.trf-faltante > td:first-child {
+        box-shadow: inset 4px 0 0 #dc2626;
+    }
+    .tabla-transferencias tbody tr.trf-faltante:hover > td {
+        background-color: #fee2e2;
+    }
+    .tabla-transferencias tbody tr.trf-devolucion > td:first-child {
+        box-shadow: inset 4px 0 0 #f87171;
+    }
+    .tabla-transferencias .badge-faltante { letter-spacing: .04em; }
+    .tabla-transferencias .badge-devolucion {
+        background: #fff; color: #b91c1c; border: 1px solid #fca5a5; letter-spacing: .03em;
+    }
+    html[data-theme="dark"] .tabla-transferencias tbody tr.trf-faltante > td { background-color: rgba(220, 38, 38, .12); }
+    html[data-theme="dark"] .tabla-transferencias tbody tr.trf-faltante:hover > td { background-color: rgba(220, 38, 38, .2); }
+    html[data-theme="dark"] .tabla-transferencias .badge-devolucion { background: transparent; color: #fca5a5; }
 </style>
 
 <script>

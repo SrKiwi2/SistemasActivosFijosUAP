@@ -27,5 +27,20 @@ public class MenuNodoDto {
     private Integer orden;
     private Boolean visible;
 
+    /** ACTIVO / BLOQUEADO (los eliminados no llegan al árbol). */
+    private String estado;
+    /** Bloqueado por sí mismo o porque su grupo/sección está bloqueado. */
+    private boolean bloqueado;
+    /** No se puede ocultar, bloquear ni eliminar (dejaría al administrador sin acceso). */
+    private boolean protegido;
+    /** Ítem sin URL: es un permiso puro (capacidad), no una pantalla. */
+    private boolean permisoPuro;
+
+    // Solo para la pantalla de gestión:
+    /** Usuarios con este ítem asignado explícitamente. */
+    private long usuariosAsignados;
+    /** La URL apunta a una ruta que existe en el sistema (null = no se revisó). */
+    private Boolean urlExiste;
+
     private List<MenuNodoDto> hijos = new ArrayList<>();
 }

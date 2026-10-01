@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Entorno local (activa el perfil dev; no debe llegar a producción) ###
+.env

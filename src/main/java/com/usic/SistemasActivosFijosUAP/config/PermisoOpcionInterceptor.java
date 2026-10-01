@@ -177,14 +177,37 @@ public class PermisoOpcionInterceptor implements HandlerInterceptor {
             return true; // Sin info de permisos en sesión → no bloquear (auth se valida aparte).
         }
 
+        // ADMINISTRADOR entra siempre, también a lo bloqueado: es quien lo prueba antes
+        // de volver a habilitarlo.
+        HttpSession session = request.getSession(false);
+        if (session != null && "ADMINISTRADOR".equals(session.getAttribute("nombre_rol"))) {
+            return true;
+        }
+
+        // Un módulo bloqueado (o dentro de un grupo/sección bloqueada) no habilita nada,
+        // ni por sí mismo ni por sus rutas extra.
+        Set<String> bloqueados = opcionMenuService.codigosBloqueados();
+        boolean algunaBloqueada = false;
+
         for (OpcionMenu opcion : coincidencias) {
+            if (bloqueados.contains(opcion.getCodigo())) {
+                algunaBloqueada = true;
+                continue;
+            }
             if (opciones.contains(opcion.getCodigo())) {
                 return true; // Tiene al menos uno de los permisos requeridos.
             }
         }
 
-        if (habilitadaPorRutaExtra(uri, opciones)) {
+        if (habilitadaPorRutaExtra(uri, opciones, bloqueados)) {
             return true; // Tiene el permiso de una pantalla que usa este endpoint compartido.
+        }
+
+        if (algunaBloqueada) {
+            logger.info("Acceso a módulo bloqueado: {}", uri);
+            response.sendError(HttpServletResponse.SC_FORBIDDEN,
+                    "Este módulo está bloqueado temporalmente por el administrador.");
+            return false;
         }
 
         logger.warn("Acceso denegado por permiso de menú: {}", uri);
@@ -197,8 +220,11 @@ public class PermisoOpcionInterceptor implements HandlerInterceptor {
      * ¿Alguna de las opciones que tiene el usuario declara esta URL como ruta extra?
      * Se usa como segunda vuelta, después de la coincidencia normal del catálogo.
      */
-    private boolean habilitadaPorRutaExtra(String uri, Set<String> opciones) {
+    private boolean habilitadaPorRutaExtra(String uri, Set<String> opciones, Set<String> bloqueados) {
         for (String codigo : opciones) {
+            if (bloqueados.contains(codigo)) {
+                continue;
+            }
             Set<String> extras = RUTAS_EXTRA_POR_OPCION.get(codigo);
             if (extras == null) {
                 continue;

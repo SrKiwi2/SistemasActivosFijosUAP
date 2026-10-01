@@ -1,4 +1,38 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Administración del Sistema /</span> Gestión de Menú</h4>
+<h4 class="py-3 mb-2"><span class="text-muted fw-light">Administración del Sistema /</span> Gestión de Menú</h4>
+
+<!-- Qué hace cada acción: es lo primero que alguien se pregunta en esta pantalla. -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-3">
+        <div class="row g-3 small">
+            <div class="col-12 col-md-6 col-xl-3 d-flex gap-2">
+                <i class="ti ti-arrows-move fs-4 text-primary"></i>
+                <div><strong>Ordenar y mover:</strong> arrastre desde <i class="ti ti-grip-vertical"></i>.
+                    Un ítem se puede soltar en otro grupo y un grupo en otra sección. Se guarda al pulsar
+                    <em>Guardar orden</em>.</div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3 d-flex gap-2">
+                <i class="ti ti-eye-off fs-4 text-secondary"></i>
+                <div><strong>Ocultar:</strong> sale del menú, pero quien tiene el permiso sigue pudiendo usar
+                    la pantalla (por ejemplo, desde otro módulo).</div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3 d-flex gap-2">
+                <i class="ti ti-lock fs-4 text-danger"></i>
+                <div><strong>Bloquear:</strong> sigue en el menú con un candado y <u>nadie</u> puede entrar,
+                    salvo ADMINISTRADOR. Para mantenimiento. En un grupo, bloquea todo lo que tiene.</div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3 d-flex gap-2">
+                <i class="ti ti-trash fs-4 text-danger"></i>
+                <div><strong>Eliminar:</strong> desaparece del menú y de los permisos de los usuarios.
+                    Queda en la <em>papelera</em> y se puede restaurar.</div>
+            </div>
+        </div>
+        <div class="small text-muted mt-2">
+            <i class="ti ti-bolt text-warning"></i> Los cambios se aplican al instante: el menú de cada usuario
+            conectado se actualiza solo, sin cerrar sesión.
+        </div>
+    </div>
+</div>
+
 <div id="tablaRegistro"></div>
 
 <div class="modal fade" id="modalFormularioMenu" tabindex="-1" aria-hidden="true">
@@ -8,12 +42,25 @@
 </div>
 
 <script>
+    (function () {
+        // SortableJS está en vendor pero no lo carga el layout: se trae solo acá.
+        if (!window.Sortable && !document.getElementById('sortablejs-lib')) {
+            const s = document.createElement('script');
+            s.id = 'sortablejs-lib';
+            s.src = '/assets/vendor/libs/sortablejs/sortable.js';
+            s.onload = () => { if (typeof window.menuGestionActivarArrastre === 'function') window.menuGestionActivarArrastre(); };
+            document.head.appendChild(s);
+        }
+    })();
+
     $(document).ready(function () {
         cargarTabla();
     });
 
-    function cargarTabla() {
-        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
+    function cargarTabla(silencioso) {
+        if (!silencioso) {
+            showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
+        }
         $.ajax({
             type: 'POST',
             url: "/administracion/menu/tabla",
@@ -24,78 +71,106 @@
                 $("#tablaRegistro").html(`
                     <div class="alert alert-danger m-3">
                     Ocurrió un error al cargar el menú.
-                    <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
+                    <button class="btn btn-sm btn-outline-danger ms-2" onclick="cargarTabla()">Reintentar</button>
                     </div>`);
             },
             complete: function () {
-                hideGlobalLoader();
+                if (!silencioso) hideGlobalLoader();
             }
         });
     }
 
-    function cargarFormulario() {
-        cargarFormularioAlert("/administracion/menu/formulario", "#contenidoModalMenu", "#formularioMenu");
+    /**
+     * Otro administrador cambió el menú (llega por SSE, ver sciaf-menu-vivo.js): se
+     * redibuja, salvo que acá haya un orden sin guardar, que no se quiere perder.
+     */
+    window.menuGestionRecargar = function () {
+        if (!document.getElementById('menu-arbol')) return;
+        if (window.menuGestionHayPendientes && window.menuGestionHayPendientes()) return;
+        cargarTabla(true);
+    };
+
+    function cargarFormulario(tipo, idPadre) {
+        $.ajax({
+            url: "/adm/cargar-datos", method: "GET",
+            success: function () {
+                $.post("/administracion/menu/formulario", { tipo: tipo || 'ITEM', idPadre: idPadre || '' }, function (html) {
+                    $("#contenidoModalMenu").html(html);
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFormularioMenu')).show();
+                });
+            }
+        });
     }
 
     function cargarFormularioEdit(id) {
         cargarFormularioEditAlert(id, "/administracion/menu/formulario-edit", "#contenidoModalMenu", "#formularioMenu");
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFormularioMenu')).show();
     }
 
-    function accionMenu(url, okMsg) {
-        $.ajax({
-            url: "/adm/cargar-datos",
-            method: "GET",
-            success: function () {
-                $.ajax({
-                    type: 'POST',
-                    url: url,
-                    dataType: 'json',
-                    success: function (resp) {
-                        cargarTabla();
-                        if (!resp.ok) {
-                            Swal.fire('Atención', resp.msg || 'No se pudo completar la acción.', 'warning');
+    /** POST de una acción puntual, con confirmación (toda escritura pregunta antes). */
+    function accionMenu(url, confirmacion) {
+        sciafConfirmar(confirmacion).then(function (si) {
+            if (!si) return;
+            $.ajax({
+                url: "/adm/cargar-datos", method: "GET",
+                success: function () {
+                    $.ajax({
+                        type: 'POST', url: url, dataType: 'json',
+                        success: function (resp) {
+                            cargarTabla(true);
+                            if (resp.ok) {
+                                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: resp.msg,
+                                    showConfirmButton: false, timer: 3500 });
+                            } else {
+                                Swal.fire('Atención', resp.msg || 'No se pudo completar la acción.', 'warning');
+                            }
+                        },
+                        error: function (xhr) {
+                            const msg = xhr.responseJSON && xhr.responseJSON.msg;
+                            Swal.fire('Error', msg || 'No se pudo completar la acción.', 'error');
                         }
-                    },
-                    error: function () {
-                        Swal.fire('Error', 'No se pudo completar la acción.', 'error');
-                    }
-                });
-            }
+                    });
+                }
+            });
         });
     }
 
-    function subirOpcion(id) { accionMenu("/administracion/menu/subir/" + id); }
-    function bajarOpcion(id) { accionMenu("/administracion/menu/bajar/" + id); }
-    function toggleOpcion(id) { accionMenu("/administracion/menu/toggle/" + id); }
+    function toggleOpcion(id, nombre, visible) {
+        accionMenu("/administracion/menu/toggle/" + id, {
+            titulo: visible ? '¿Ocultar «' + nombre + '» del menú?' : '¿Mostrar «' + nombre + '» en el menú?',
+            texto: visible ? 'Deja de aparecer en el menú de todos. Los permisos asignados se conservan.'
+                           : 'Vuelve a aparecer en el menú de quienes tengan el permiso.',
+            aceptar: visible ? 'Sí, ocultar' : 'Sí, mostrar'
+        });
+    }
 
-    function eliminarOpcion(nombre, id) {
-        Swal.fire({
-            title: 'Eliminar opción',
-            text: '¿Eliminar "' + nombre + '"?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            reverseButtons: true
-        }).then((result) => {
-            if (result.isConfirmed) {
-                $.ajax({
-                    type: 'POST',
-                    url: "/administracion/menu/eliminar/" + id,
-                    dataType: 'json',
-                    success: function (resp) {
-                        cargarTabla();
-                        if (resp.ok) {
-                            Swal.fire('Eliminada!', resp.msg, 'success');
-                        } else {
-                            Swal.fire('No se puede eliminar', resp.msg, 'warning');
-                        }
-                    },
-                    error: function () {
-                        Swal.fire('Error', 'No se pudo eliminar.', 'error');
-                    }
-                });
-            }
+    function bloquearOpcion(id, nombre, bloquear) {
+        accionMenu("/administracion/menu/bloquear/" + id + "?bloquear=" + bloquear, {
+            titulo: bloquear ? '¿Bloquear «' + nombre + '»?' : '¿Desbloquear «' + nombre + '»?',
+            texto: bloquear
+                ? 'Nadie podrá entrar (salvo ADMINISTRADOR) hasta que lo desbloquee. Quien lo tenga abierto verá que se cerró.'
+                : 'Quienes tengan el permiso podrán volver a usarlo de inmediato.',
+            aceptar: bloquear ? 'Sí, bloquear' : 'Sí, desbloquear',
+            peligrosa: bloquear
+        });
+    }
+
+    function eliminarOpcion(id, nombre, usuarios) {
+        accionMenu("/administracion/menu/eliminar/" + id, {
+            titulo: '¿Eliminar «' + nombre + '»?',
+            texto: 'Sale del menú y de la pantalla de permisos.'
+                + (usuarios > 0 ? '<br><strong>' + usuarios + ' usuario(s)</strong> la tienen asignada y la perderán.' : '')
+                + '<br><br>Queda en la papelera y se puede restaurar.',
+            aceptar: 'Sí, eliminar',
+            peligrosa: true
+        });
+    }
+
+    function restaurarOpcion(id, nombre) {
+        accionMenu("/administracion/menu/restaurar/" + id, {
+            titulo: '¿Restaurar «' + nombre + '»?',
+            texto: 'Vuelve al menú en su lugar original. Los permisos que tenía no vuelven: hay que asignarla de nuevo.',
+            aceptar: 'Sí, restaurar'
         });
     }
 </script>

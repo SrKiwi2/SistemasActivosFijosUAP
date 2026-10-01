@@ -41,6 +41,8 @@ public class ActividadService {
     public static final String MOD_TRANSFERENCIA = "TRANSFERENCIA";
     public static final String MOD_BLOQUEO = "BLOQUEO";
     public static final String MOD_AUTORIZACION = "AUTORIZACION";
+    public static final String MOD_USUARIO = "USUARIO";
+    public static final String MOD_MENU = "MENU";
 
     public static final String ACC_REGISTRO = "REGISTRO";
     public static final String ACC_MODIFICACION = "MODIFICACION";

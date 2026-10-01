@@ -39,6 +39,23 @@ public interface IOpcionMenuDao extends JpaRepository<OpcionMenu, Long> {
     @Query(value = "DELETE FROM usuario_opcion WHERE id_opcion = :idOpcion", nativeQuery = true)
     void desvincularDeUsuarios(@Param("idOpcion") Long idOpcion);
 
+    /** [id_opcion, cantidad de usuarios] con esa opción asignada explícitamente. */
+    @Query(value = "SELECT id_opcion, count(*) FROM usuario_opcion GROUP BY id_opcion", nativeQuery = true)
+    List<Object[]> contarUsuariosPorOpcion();
+
+    /** ¿Alguien tiene asignada la opción? (migraciones del seeder). */
+    @Query(value = "SELECT id_usuario FROM usuario_opcion WHERE id_opcion = :idOpcion", nativeQuery = true)
+    List<Long> usuariosConOpcion(@Param("idOpcion") Long idOpcion);
+
+    /** Asigna una opción a un usuario si no la tenía (migraciones del seeder). */
+    @Modifying
+    @Transactional
+    @Query(value = "INSERT INTO usuario_opcion (id_usuario, id_opcion) "
+            + "SELECT :idUsuario, :idOpcion WHERE NOT EXISTS ("
+            + "  SELECT 1 FROM usuario_opcion WHERE id_usuario = :idUsuario AND id_opcion = :idOpcion)",
+            nativeQuery = true)
+    void asignarSiFalta(@Param("idUsuario") Long idUsuario, @Param("idOpcion") Long idOpcion);
+
     /** Códigos de las opciones asignadas explícitamente a un usuario. */
     @Query("SELECT o.codigo FROM Usuario u JOIN u.opciones o WHERE u.idUsuario = :idUsuario")
     List<String> findCodigosByUsuario(@Param("idUsuario") Long idUsuario);

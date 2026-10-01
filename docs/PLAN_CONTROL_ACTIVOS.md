@@ -392,20 +392,27 @@ cliente — el servidor lo ignora sin error.
 
 ## Anexo · Custodia de faltantes (sep-2026)
 
-Replica en el SCIAF la práctica del VSIAF: los faltantes se transfieren a una oficina y un
-responsable de custodia, que quedan vacíos cuando todo se aclara. Así un bien perdido no
-figura como disponible y no se le entrega a nadie.
+Replica en el SCIAF la práctica del VSIAF: en cada predio hay una oficina de faltantes, y
+dentro se da de alta a la misma persona que tiene el faltante para transferirle esos bienes.
+Así un bien perdido no figura como disponible y no se le entrega a nadie. Estado y detalle
+en [`HANDOFF_CUSTODIA_FALTANTES.md`](HANDOFF_CUSTODIA_FALTANTES.md).
 
 **Decisiones:**
 
-- **Una custodia genérica por predio** (oficina + responsable `CUSTODIA DE FALTANTES`). El
-  envío es una transferencia interna: no cambia CODAUX. En el VSIAF la custodia solo
-  *separa*; de quién es cada faltante se sabe en el SCIAF (`hallazgo_inventario.id_responsable`).
+- **Una oficina de faltantes por predio**, con **un responsable por persona** (mismo
+  `id_persona`, CI y cargo reales). Se reutilizan las que ya existen (CULP 372, CUSP 194,
+  POST 42). En los demás predios se crea sola la primera vez, con código correlativo y
+  nombre `FALTANTES <UNIDAD>`. El responsable de custodia también se crea al primer uso.
+- El envío es una **transferencia interna**: no cambia CODAUX. De quién es cada faltante y
+  de qué oficina salió se ve en el SCIAF, agrupado por **persona → predio → oficina de origen**.
 - **El envío a custodia es manual:** lo confirma un administrador. Nunca es automático al
   cerrar un levantamiento.
 - **Hay dos puertas de entrada:** el cierre del levantamiento y el registro **directo** (se
   seleccionan bienes del responsable, con documento de respaldo). Un faltante directo no
   tiene levantamiento.
+- **Al registrar se emite el acta de faltantes**, una por persona, con firmas (la persona a
+  la izquierda, Activos Fijos a la derecha) y un QR que verifica el original en
+  `https://sciaf.uap.edu.bo`.
 - **Un bien en custodia no se asigna, transfiere, traslada ni separa.** El bloqueo se deduce
   de `responsable.es_custodia` del bien, así que también cubre lo que venga del VSIAF por sync.
 
@@ -415,13 +422,13 @@ Pendiente = `ABIERTO` o `EN_CUSTODIA`, y un bien tiene a lo sumo un faltante pen
 
 | Fase | Estado | Contenido |
 |---|---|---|
-| 1 · Datos | ✅ | `es_custodia` en oficina/responsable; `origen`, `id_oficina_origen`, documento de respaldo y datos de envío en el hallazgo; `id_inventario` admite vacío. Script `scripts/sql/custodia_faltantes_fase1.sql` |
-| 2 · Custodias | — | Alta de la custodia por predio (por la cola) |
-| 3 · Registro directo + envío | — | Casillas en la vista del responsable, envío con confirmación de la cola, constancia PDF |
-| 4 · Bloqueos | — | Asignación, transferencia masiva, traslado/separación; no abrir levantamiento en la oficina de custodia |
-| 5 · Resolución | — | Resolver saca el bien de la custodia |
-| 6 · Conciliación | — | Alerta si un bien EN_CUSTODIA ya no está a cargo de la custodia |
+| 1 · Datos | ✅ código · ⚠ base a medias | `es_custodia` en oficina/responsable; `origen`, `id_oficina_origen`, documento de respaldo y datos de envío en el hallazgo. En `bd_a3` falta quitar el NOT NULL de `id_inventario` y crear `uk_hall_faltante_pendiente`; se hace en el script de la fase 2 |
+| 2 · Custodias | ✅ | `CustodiaFaltantesService` (oficina y responsable al primer uso, por la cola); `scripts/sql/custodia_faltantes_fase2.sql` aplicado |
+| 3 · Registro + envío + acta | 🟡 código listo, script aplicado | `ActaFaltanteService`, `EnvioCustodiaService`, `PdfActaFaltanteService`, verificación pública, vista Faltantes por persona |
+| 4 · Bloqueos | 🟡 código listo | `Activo.enCustodia/motivoInmovilizado` (salida) y `ReglasCustodia` (entrada) en edición, transferencia, asignación, altas, actas, Londra; sin levantamiento en la oficina de faltantes |
+| 5 · Resolución | 🟡 código listo | `ResolucionFaltanteService`: si apareció vuelve a un responsable del mismo predio; justificado/baja queda en custodia pendiente de baja |
+| 6 · Conciliación + reportes | 🟡 código listo | Custodia por predio y consolidado por persona (PDF/Excel); conciliación en tres listas |
 
 **Pendiente a propósito:** que un responsable con faltantes no reciba bienes nuevos (en
-consulta con los encargados), migrar los faltantes históricos, la nota en `OBSERV` (campo
-MEMO) y las bajas.
+consulta con los encargados), regularizar los 62 bienes históricos de las 3 oficinas de
+faltantes, la nota en `OBSERV` (campo MEMO) y las bajas.

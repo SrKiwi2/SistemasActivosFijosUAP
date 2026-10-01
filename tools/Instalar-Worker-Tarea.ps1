@@ -22,13 +22,22 @@
     USO (en la VM del VSIAF, PowerShell elevado):
       .\Instalar-Worker-Tarea.ps1 -Carpeta "C:\vsiaf\vsiaf_red\dbfs" -Worker "C:\vsiaf\Worker-Vsiaf.ps1"
 
+    USO separando _cola/_hechos/_errores/worker.log de la carpeta de los DBF
+    (recomendado: esa carpeta la ve un respaldo que no debe encontrar archivos
+    de trabajo). -Cola tiene que coincidir con legacy.dbf.cola.path del SCIAF:
+      .\Instalar-Worker-Tarea.ps1 -Carpeta "C:\vsiaf\vsiaf_red\dbfs" -Cola "C:\vsiaf\vsiaf_red\cola_worker" -Worker "C:\vsiaf\Worker-Vsiaf.ps1"
+
     Para QUITAR la tarea:
       Unregister-ScheduledTask -TaskName "Worker-Vsiaf" -Confirm:$false
 #>
 param(
-    # Carpeta local que contiene (o contendra) la subcarpeta _cola. Es la misma
-    # que el SCIAF ve como /mnt/dbfwin. AJUSTAR a la ruta real de esta VM.
+    # Carpeta local que contiene (o contendra) los DBF. Es la misma que el
+    # SCIAF ve como /mnt/dbfwin. AJUSTAR a la ruta real de esta VM.
     [string]$Carpeta  = "C:\vsiaf\vsiaf_red\dbfs",
+    # Carpeta donde el worker deja _cola, _hechos, _errores y worker.log. Vacio
+    # (por omision) = la misma que -Carpeta, junto a los DBF. Si se indica,
+    # tiene que ser la MISMA ruta que legacy.dbf.cola.path en el SCIAF.
+    [string]$Cola     = "",
     # Ruta del Worker-Vsiaf.ps1 ya copiado en esta VM.
     [string]$Worker   = "C:\vsiaf\Worker-Vsiaf.ps1",
     [string]$TaskName = "Worker-Vsiaf"
@@ -52,7 +61,11 @@ if (-not (Test-Path $Worker)) {
 }
 if (-not (Test-Path $Carpeta)) {
     Write-Host ("AVISO: la carpeta {0} no existe todavia." -f $Carpeta) -ForegroundColor Yellow
-    Write-Host "Confirma que es la carpeta donde el SCIAF deja _cola (la que monta como /mnt/dbfwin)." -ForegroundColor Yellow
+    Write-Host "Confirma que es la carpeta de los DBF (la que monta como /mnt/dbfwin)." -ForegroundColor Yellow
+}
+if (-not [string]::IsNullOrWhiteSpace($Cola) -and -not (Test-Path $Cola)) {
+    Write-Host ("La carpeta de cola {0} no existe, se crea ahora." -f $Cola) -ForegroundColor Yellow
+    New-Item -ItemType Directory -Force -Path $Cola | Out-Null
 }
 
 $ps32 = "C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe"
@@ -62,7 +75,11 @@ if (-not (Test-Path $ps32)) {
 }
 
 # --- Definir la tarea -----------------------------------------------------
-$argumento = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -Carpeta "{1}" -Loop' -f $Worker, $Carpeta
+if ([string]::IsNullOrWhiteSpace($Cola)) {
+    $argumento = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -Carpeta "{1}" -Loop' -f $Worker, $Carpeta
+} else {
+    $argumento = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -Carpeta "{1}" -Cola "{2}" -Loop' -f $Worker, $Carpeta, $Cola
+}
 
 $action = New-ScheduledTaskAction -Execute $ps32 -Argument $argumento
 
@@ -89,9 +106,10 @@ $info = Get-ScheduledTask -TaskName $TaskName | Get-ScheduledTaskInfo
 Write-Host ("Estado: {0} | Ultimo resultado: {1}" -f `
     (Get-ScheduledTask -TaskName $TaskName).State, $info.LastTaskResult) -ForegroundColor Cyan
 
+$carpetaLog = if ([string]::IsNullOrWhiteSpace($Cola)) { $Carpeta } else { $Cola }
 Write-Host ""
 Write-Host "Listo. Comprobaciones utiles:" -ForegroundColor Green
-Write-Host ("  - Log del worker:   {0}" -f (Join-Path $Carpeta 'worker.log'))
+Write-Host ("  - Log del worker:   {0}" -f (Join-Path $carpetaLog 'worker.log'))
 Write-Host  "  - Ver la tarea:     Get-ScheduledTask -TaskName '$TaskName' | Get-ScheduledTaskInfo"
 Write-Host  "  - Reiniciarla:      Restart-ScheduledTask -TaskName '$TaskName'"
 Write-Host  "  - Quitarla:         Unregister-ScheduledTask -TaskName '$TaskName' -Confirm:`$false"

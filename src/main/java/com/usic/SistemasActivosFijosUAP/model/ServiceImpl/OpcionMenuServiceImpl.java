@@ -3,8 +3,11 @@ package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -14,9 +17,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IOpcionMenuService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IOpcionMenuDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IUsuarioDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.MenuNodoDto;
+import com.usic.SistemasActivosFijosUAP.model.entity.HistorialPermisoUsuario;
 import com.usic.SistemasActivosFijosUAP.model.entity.OpcionMenu;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.seguridad.AuditoriaPermisosService;
 
 @Service
 public class OpcionMenuServiceImpl implements IOpcionMenuService {
@@ -25,21 +31,38 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
     public static final String TIPO_GRUPO = "GRUPO";
     public static final String TIPO_ITEM = "ITEM";
 
+    /**
+     * Opciones que no se pueden ocultar, bloquear ni eliminar (ni sus grupos y secciones):
+     * sin ellas el administrador se queda sin forma de deshacer el cambio desde la web.
+     */
+    public static final Set<String> CODIGOS_PROTEGIDOS = Set.of(
+        "opcion_menu_admin", "opcion_usuario"
+    );
+
     @Autowired
     private IOpcionMenuDao opcionMenuDao;
+
+    @Autowired
+    private IUsuarioDao usuarioDao;
+
+    @Autowired
+    private AuditoriaPermisosService auditoriaPermisos;
 
     /** Caché en memoria del árbol visible (estático; se invalida con limpiarCacheMenu). */
     private volatile List<MenuNodoDto> arbolCache;
 
-    /** Caché de los ítems hoja (la usa el interceptor en cada request). */
+    /** Caché de los ítems hoja vigentes (la usa el interceptor en cada request). */
     private volatile List<OpcionMenu> itemsCache;
+
+    /** Caché de los códigos de ítem bloqueados (propio o heredado del grupo/sección). */
+    private volatile Set<String> bloqueadosCache;
 
     /**
      * Opciones del bloque "Administración del Sistema". SUPER USUARIO ve todo lo
      * de activos pero NO estas (mismo criterio que el sidebar actual).
      */
     private static final Set<String> CODIGOS_ADMIN_SISTEMA = Set.of(
-        "opcion_rol", "opcion_persona", "opcion_usuario", "opcion_responsable"
+        "opcion_rol", "opcion_persona", "opcion_usuario", "opcion_responsable", "opcion_menu_admin"
     );
 
     /**
@@ -53,7 +76,7 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
     /** Opciones de "Seguimiento y Consultas" + "Reportes" que ve APOYO. */
     private static final Set<String> CODIGOS_CONSULTA = Set.of(
         "opcion_aan", "opcion_ta", "opcion_ActivoIngreso", "opcion_ba",
-        "opcion_historialA", "opcion_consulta_activo"
+        "opcion_historialA", "opcion_consulta_activo", "opcion_ruta_activo"
     );
 
     /**
@@ -124,20 +147,55 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
     public List<OpcionMenu> listarItems() {
         List<OpcionMenu> local = itemsCache;
         if (local == null) {
-            local = opcionMenuDao.findByTipoOrderByOrdenAsc(TIPO_ITEM);
+            local = opcionMenuDao.findByTipoOrderByOrdenAsc(TIPO_ITEM).stream()
+                    .filter(o -> !o.eliminado())
+                    .toList();
             itemsCache = local;
         }
         return local;
     }
 
     @Override
+    public Set<String> codigosBloqueados() {
+        Set<String> local = bloqueadosCache;
+        if (local == null) {
+            Set<String> s = new HashSet<>();
+            for (OpcionMenu o : opcionMenuDao.findAll()) {
+                if (TIPO_ITEM.equals(o.getTipo()) && !o.eliminado() && bloqueadoEfectivo(o)) {
+                    s.add(o.getCodigo());
+                }
+            }
+            local = Set.copyOf(s);
+            bloqueadosCache = local;
+        }
+        return local;
+    }
+
+    /** El nodo o alguno de sus ancestros está bloqueado. */
+    private boolean bloqueadoEfectivo(OpcionMenu o) {
+        for (OpcionMenu n = o; n != null; n = n.getPadre()) {
+            if (n.bloqueado()) return true;
+        }
+        return false;
+    }
+
+    @Override
     public List<OpcionMenu> listarSecciones() {
-        return opcionMenuDao.findByTipoOrderByOrdenAsc(TIPO_SECCION);
+        return opcionMenuDao.findByTipoOrderByOrdenAsc(TIPO_SECCION).stream().filter(o -> !o.eliminado()).toList();
     }
 
     @Override
     public List<OpcionMenu> listarGrupos() {
-        return opcionMenuDao.findByTipoOrderByOrdenAsc(TIPO_GRUPO);
+        return opcionMenuDao.findByTipoOrderByOrdenAsc(TIPO_GRUPO).stream().filter(o -> !o.eliminado()).toList();
+    }
+
+    @Override
+    public List<OpcionMenu> listarEliminados() {
+        return opcionMenuDao.findAll().stream()
+                .filter(OpcionMenu::eliminado)
+                .sorted(Comparator.comparing(o -> o.getModificacion() == null ? new java.util.Date(0) : o.getModificacion(),
+                        Comparator.reverseOrder()))
+                .toList();
     }
 
     @Override
@@ -145,7 +203,7 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         if (codigos == null || codigos.isEmpty()) {
             return List.of();
         }
-        return opcionMenuDao.findByCodigoIn(codigos);
+        return opcionMenuDao.findByCodigoIn(codigos).stream().filter(o -> !o.eliminado()).toList();
     }
 
     @Override
@@ -269,6 +327,16 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
     @Override
     public List<MenuNodoDto> obtenerArbolAdmin() {
         // Pantalla de gestión: incluye también los nodos ocultos (visible=false).
+        List<MenuNodoDto> arbol = construirArbol(true);
+        Map<Long, Long> conteo = usuariosPorOpcion();
+        recorrer(arbol, n -> n.setUsuariosAsignados(conteo.getOrDefault(n.getIdOpcion(), 0L)));
+        return arbol;
+    }
+
+    @Override
+    public List<MenuNodoDto> obtenerArbolPermisos() {
+        // Pantalla de permisos por usuario: todo lo vigente, visible u oculto (los
+        // permisos puros son ítems ocultos), sin los eliminados.
         return construirArbol(true);
     }
 
@@ -276,6 +344,7 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
     public void limpiarCacheMenu() {
         arbolCache = null;
         itemsCache = null;
+        bloqueadosCache = null;
     }
 
     private List<MenuNodoDto> obtenerArbolCompleto() {
@@ -290,22 +359,42 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
     /** Arma el árbol SECCION → GRUPO → ITEM; {@code incluirOcultos} para gestión. */
     private List<MenuNodoDto> construirArbol(boolean incluirOcultos) {
         List<OpcionMenu> todas = opcionMenuDao.findAll().stream()
+                .filter(o -> !o.eliminado())
                 .filter(o -> incluirOcultos || !Boolean.FALSE.equals(o.getVisible()))
                 .toList();
+        Set<Long> protegidos = idsProtegidos(todas);
 
         List<MenuNodoDto> secciones = new ArrayList<>();
         for (OpcionMenu seccion : ordenar(filtrarPorTipo(todas, TIPO_SECCION))) {
-            MenuNodoDto seccionDto = aDto(seccion);
+            MenuNodoDto seccionDto = aDto(seccion, false, protegidos);
             for (OpcionMenu grupo : ordenar(hijosDe(todas, seccion, TIPO_GRUPO))) {
-                MenuNodoDto grupoDto = aDto(grupo);
+                MenuNodoDto grupoDto = aDto(grupo, seccionDto.isBloqueado(), protegidos);
                 for (OpcionMenu item : ordenar(hijosDe(todas, grupo, TIPO_ITEM))) {
-                    grupoDto.getHijos().add(aDto(item));
+                    grupoDto.getHijos().add(aDto(item, grupoDto.isBloqueado(), protegidos));
                 }
                 seccionDto.getHijos().add(grupoDto);
             }
             secciones.add(seccionDto);
         }
         return secciones;
+    }
+
+    /** Los ítems protegidos y todos sus ancestros. */
+    private Set<Long> idsProtegidos(List<OpcionMenu> todas) {
+        Set<Long> ids = new HashSet<>();
+        for (OpcionMenu o : todas) {
+            if (CODIGOS_PROTEGIDOS.contains(o.getCodigo())) {
+                for (OpcionMenu n = o; n != null; n = n.getPadre()) {
+                    ids.add(n.getIdOpcion());
+                }
+            }
+        }
+        return ids;
+    }
+
+    private boolean esProtegido(OpcionMenu nodo) {
+        return idsProtegidos(opcionMenuDao.findAll().stream().filter(o -> !o.eliminado()).toList())
+                .contains(nodo.getIdOpcion());
     }
 
     private List<OpcionMenu> filtrarPorTipo(List<OpcionMenu> todas, String tipo) {
@@ -324,7 +413,7 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         return nodos;
     }
 
-    private MenuNodoDto aDto(OpcionMenu o) {
+    private MenuNodoDto aDto(OpcionMenu o, boolean padreBloqueado, Set<Long> protegidos) {
         MenuNodoDto dto = new MenuNodoDto();
         dto.setIdOpcion(o.getIdOpcion());
         dto.setCodigo(o.getCodigo());
@@ -337,6 +426,10 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         dto.setRutaBase(o.getRutaBase());
         dto.setOrden(o.getOrden());
         dto.setVisible(!Boolean.FALSE.equals(o.getVisible()));
+        dto.setEstado(o.bloqueado() ? OpcionMenu.ESTADO_BLOQUEADO : OpcionMenu.ESTADO_ACTIVO);
+        dto.setBloqueado(padreBloqueado || o.bloqueado());
+        dto.setProtegido(protegidos.contains(o.getIdOpcion()));
+        dto.setPermisoPuro(TIPO_ITEM.equals(o.getTipo()) && (o.getUrl() == null || o.getUrl().isBlank()));
         return dto;
     }
 
@@ -353,7 +446,26 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         dto.setRutaBase(o.getRutaBase());
         dto.setOrden(o.getOrden());
         dto.setVisible(o.getVisible());
+        dto.setEstado(o.getEstado());
+        dto.setBloqueado(o.isBloqueado());
+        dto.setProtegido(o.isProtegido());
+        dto.setPermisoPuro(o.isPermisoPuro());
         return dto;
+    }
+
+    private void recorrer(List<MenuNodoDto> nodos, java.util.function.Consumer<MenuNodoDto> f) {
+        for (MenuNodoDto n : nodos) {
+            f.accept(n);
+            recorrer(n.getHijos(), f);
+        }
+    }
+
+    private Map<Long, Long> usuariosPorOpcion() {
+        Map<Long, Long> m = new HashMap<>();
+        for (Object[] f : opcionMenuDao.contarUsuariosPorOpcion()) {
+            m.put(((Number) f[0]).longValue(), ((Number) f[1]).longValue());
+        }
+        return m;
     }
 
     // ── CRUD de gestión ─────────────────────────────────────────────────────
@@ -366,6 +478,8 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         if (nodo.getVisible() == null) {
             nodo.setVisible(true);
         }
+
+        Long idPadreAnterior = (nodo.getPadre() != null) ? nodo.getPadre().getIdOpcion() : null;
 
         // Resolver padre y mantener columnas denormalizadas según el tipo.
         if (TIPO_SECCION.equals(tipo)) {
@@ -396,21 +510,45 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
             }
         }
 
-        // Nuevo: asignar el orden al final de sus hermanos.
-        if (nodo.getIdOpcion() == null) {
+        // Nuevo, o movido a otro padre: va al final de sus nuevos hermanos.
+        if (nodo.getIdOpcion() == null || !Objects.equals(idPadreAnterior, idPadre)) {
             nodo.setOrden(siguienteOrden(idPadre, tipo));
         }
 
         OpcionMenu guardado = opcionMenuDao.save(nodo);
+        actualizarDescendientes(guardado);
         limpiarCacheMenu();
         return guardado;
+    }
+
+    /**
+     * Las columnas {@code seccion}/{@code grupo} de los hijos repiten el nombre del padre:
+     * al renombrar o mover un grupo o una sección hay que reescribirlas, si no la pantalla
+     * de permisos seguía mostrando el nombre viejo.
+     */
+    private void actualizarDescendientes(OpcionMenu nodo) {
+        if (TIPO_SECCION.equals(nodo.getTipo())) {
+            for (OpcionMenu grupo : opcionMenuDao.findByPadre_IdOpcionAndTipoOrderByOrdenAsc(nodo.getIdOpcion(), TIPO_GRUPO)) {
+                grupo.setSeccion(nodo.getDescripcion());
+                opcionMenuDao.save(grupo);
+                actualizarDescendientes(grupo);
+            }
+        } else if (TIPO_GRUPO.equals(nodo.getTipo())) {
+            String seccion = nodo.getPadre() != null ? nodo.getPadre().getDescripcion() : null;
+            for (OpcionMenu item : opcionMenuDao.findByPadre_IdOpcionAndTipoOrderByOrdenAsc(nodo.getIdOpcion(), TIPO_ITEM)) {
+                item.setGrupo(nodo.getDescripcion());
+                item.setSeccion(seccion);
+                opcionMenuDao.save(item);
+            }
+        }
     }
 
     private int siguienteOrden(Long idPadre, String tipo) {
         List<OpcionMenu> hermanos = hermanos(idPadre, tipo);
         int max = 0;
         for (OpcionMenu h : hermanos) {
-            if (h.getOrden() != null && h.getOrden() > max) {
+            // Los permisos puros van al final (orden 900+): no cuentan para el siguiente.
+            if (h.getOrden() != null && h.getOrden() > max && h.getOrden() < 900) {
                 max = h.getOrden();
             }
         }
@@ -441,7 +579,8 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
             return;
         }
         Long idPadre = (nodo.getPadre() != null) ? nodo.getPadre().getIdOpcion() : null;
-        List<OpcionMenu> hermanos = hermanos(idPadre, nodo.getTipo());
+        List<OpcionMenu> hermanos = hermanos(idPadre, nodo.getTipo()).stream()
+                .filter(o -> !o.eliminado()).toList();
 
         int pos = -1;
         for (int i = 0; i < hermanos.size(); i++) {
@@ -466,12 +605,80 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
 
     @Override
     @Transactional
+    public void reordenar(Long idPadre, List<Long> idsEnOrden) {
+        if (idsEnOrden == null || idsEnOrden.isEmpty()) {
+            return;
+        }
+        OpcionMenu padre = (idPadre != null) ? findById(idPadre) : null;
+        if (idPadre != null && (padre == null || padre.eliminado())) {
+            throw new IllegalStateException("El destino ya no existe.");
+        }
+        String tipoHijo = padre == null ? TIPO_SECCION
+                : TIPO_SECCION.equals(padre.getTipo()) ? TIPO_GRUPO
+                : TIPO_GRUPO.equals(padre.getTipo()) ? TIPO_ITEM
+                : null;
+        if (tipoHijo == null) {
+            throw new IllegalStateException("Un ítem no puede contener otras opciones.");
+        }
+
+        int orden = 1;
+        for (Long id : idsEnOrden) {
+            OpcionMenu n = findById(id);
+            if (n == null || n.eliminado()) continue;
+            if (!tipoHijo.equals(n.getTipo())) {
+                throw new IllegalStateException("«" + n.getDescripcion() + "» es " + n.getTipo().toLowerCase()
+                        + " y no puede ir ahí: " + (padre == null ? "en la raíz solo van secciones."
+                        : "dentro de " + padre.getTipo().toLowerCase() + " solo van " + tipoHijo.toLowerCase() + "s."));
+            }
+            boolean cambiaPadre = !Objects.equals(n.getPadre() != null ? n.getPadre().getIdOpcion() : null, idPadre);
+            if (cambiaPadre) {
+                n.setPadre(padre);
+                if (TIPO_GRUPO.equals(tipoHijo)) {
+                    n.setSeccion(padre.getDescripcion());
+                } else if (TIPO_ITEM.equals(tipoHijo)) {
+                    n.setGrupo(padre.getDescripcion());
+                    n.setSeccion(padre.getPadre() != null ? padre.getPadre().getDescripcion() : null);
+                }
+            }
+            // Los permisos puros conservan su lugar al final del grupo.
+            boolean permisoPuro = TIPO_ITEM.equals(n.getTipo()) && (n.getUrl() == null || n.getUrl().isBlank())
+                    && n.getOrden() != null && n.getOrden() >= 900;
+            if (!permisoPuro) n.setOrden(orden++);
+            opcionMenuDao.save(n);
+            if (cambiaPadre) actualizarDescendientes(n);
+        }
+        limpiarCacheMenu();
+    }
+
+    @Override
+    @Transactional
     public void alternarVisible(Long idOpcion) {
         OpcionMenu nodo = findById(idOpcion);
         if (nodo == null) {
             return;
         }
-        nodo.setVisible(Boolean.FALSE.equals(nodo.getVisible()));
+        boolean ocultar = !Boolean.FALSE.equals(nodo.getVisible());
+        if (ocultar && esProtegido(nodo)) {
+            throw new IllegalStateException("«" + nodo.getDescripcion() + "» no se puede ocultar: "
+                    + "contiene Gestión de Menú o Usuarios, y sin eso no se podría deshacer el cambio.");
+        }
+        nodo.setVisible(!ocultar);
+        opcionMenuDao.save(nodo);
+        limpiarCacheMenu();
+    }
+
+    @Override
+    @Transactional
+    public void bloquear(Long idOpcion, boolean bloquear) {
+        OpcionMenu nodo = findById(idOpcion);
+        if (nodo == null || nodo.eliminado()) {
+            throw new IllegalStateException("La opción no existe.");
+        }
+        if (bloquear && esProtegido(nodo)) {
+            throw new IllegalStateException("«" + nodo.getDescripcion() + "» no se puede bloquear: "
+                    + "contiene Gestión de Menú o Usuarios.");
+        }
+        nodo.setEstado(bloquear ? OpcionMenu.ESTADO_BLOQUEADO : OpcionMenu.ESTADO_ACTIVO);
         opcionMenuDao.save(nodo);
         limpiarCacheMenu();
     }
@@ -480,15 +687,58 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
     @Transactional
     public void eliminarNodo(Long idOpcion) {
         OpcionMenu nodo = findById(idOpcion);
-        if (nodo == null) {
+        if (nodo == null || nodo.eliminado()) {
             throw new IllegalStateException("La opción no existe.");
         }
-        if (opcionMenuDao.countByPadre_IdOpcion(idOpcion) > 0) {
-            throw new IllegalStateException("No se puede eliminar: tiene elementos hijos. Elimínelos o muévalos primero.");
+        if (esProtegido(nodo)) {
+            throw new IllegalStateException("«" + nodo.getDescripcion() + "» no se puede eliminar: "
+                    + "contiene Gestión de Menú o Usuarios.");
         }
-        // Si es un ítem asignado a usuarios, quitar los enlaces primero.
+        long hijosVigentes = opcionMenuDao.findAll().stream()
+                .filter(o -> o.getPadre() != null && idOpcion.equals(o.getPadre().getIdOpcion()))
+                .filter(o -> !o.eliminado())
+                .count();
+        if (hijosVigentes > 0) {
+            throw new IllegalStateException("No se puede eliminar: tiene " + hijosVigentes
+                    + " opción(es) adentro. Elimínelas o muévalas primero.");
+        }
+        // Borrado lógico: si se borrara la fila, OpcionMenuSeeder la volvería a crear en el
+        // próximo arranque. Se quitan los permisos asignados (ya no hay casilla para ellos),
+        // y a cada usuario que la tenía le queda el registro en su historial de permisos.
+        List<Long> afectados = opcionMenuDao.usuariosConOpcion(idOpcion);
+        if (!afectados.isEmpty()) {
+            for (Usuario u : usuarioDao.findAllByIdUsuarioIn(new HashSet<>(afectados))) {
+                Set<String> antes = codigosPorUsuario(u.getIdUsuario());
+                Set<String> despues = new HashSet<>(antes);
+                despues.remove(nodo.getCodigo());
+                auditoriaPermisos.registrar(u, HistorialPermisoUsuario.QUITADO_POR_MENU,
+                        "Gestión de Menú › Eliminar opción", antes, despues, null,
+                        "Se eliminó «" + nodo.getDescripcion() + "» del menú");
+            }
+        }
         opcionMenuDao.desvincularDeUsuarios(idOpcion);
-        opcionMenuDao.deleteById(idOpcion);
+        nodo.setEstado(OpcionMenu.ESTADO_ELIMINADO);
+        nodo.setVisible(false);
+        opcionMenuDao.save(nodo);
+        limpiarCacheMenu();
+    }
+
+    @Override
+    @Transactional
+    public void restaurarNodo(Long idOpcion) {
+        OpcionMenu nodo = findById(idOpcion);
+        if (nodo == null || !nodo.eliminado()) {
+            throw new IllegalStateException("La opción no está eliminada.");
+        }
+        if (nodo.getPadre() != null && nodo.getPadre().eliminado()) {
+            throw new IllegalStateException("Primero restaure «" + nodo.getPadre().getDescripcion()
+                    + "», que es donde va esta opción.");
+        }
+        nodo.setEstado(OpcionMenu.ESTADO_ACTIVO);
+        nodo.setVisible(true);
+        Long idPadre = nodo.getPadre() != null ? nodo.getPadre().getIdOpcion() : null;
+        nodo.setOrden(siguienteOrden(idPadre, nodo.getTipo()));
+        opcionMenuDao.save(nodo);
         limpiarCacheMenu();
     }
 }

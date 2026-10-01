@@ -123,6 +123,7 @@ Work spans several machines, so in-flight task state lives in `docs/` handoff fi
 - `docs/HANDOFF_CUSTODIA_FALTANTES.md` — custody of missing assets (Control de Activos): decisions, phase status, next steps.
 - `docs/PLAN_CONTROL_ACTIVOS.md` / `docs/HANDOFF_CONTROL_ACTIVOS.md` — Control de Activos module and its mobile contract.
 - `docs/PLAN_APP_MOVIL.md` — mobile app (Vue + Capacitor).
+- `docs/HANDOFF_USUARIOS_MENU_RUTA.md` — faltante transfers marked in red, asset route tracking, user management, live permissions (no re-login), menu management (seeder is now insert-only).
 
 ### Security Configuration
 

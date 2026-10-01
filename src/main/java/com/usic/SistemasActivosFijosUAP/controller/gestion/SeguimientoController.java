@@ -170,7 +170,7 @@ public class SeguimientoController {
             byte[] wordBytes = wordInternoTransferenciaService.wordTransferenciaActivo( usuario_encontrado,
                 unidadOrigen,  t.getResponsableOrigen(),  fechaTransferencia,
                 unidadDestino, t.getResponsableDestino(), fechaRecepcion,
-                activos
+                activos, t.getMotivoFaltante()
             );
 
             HttpHeaders headers = new HttpHeaders();

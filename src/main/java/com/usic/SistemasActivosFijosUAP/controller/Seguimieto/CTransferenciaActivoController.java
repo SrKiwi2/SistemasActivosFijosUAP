@@ -1,5 +1,6 @@
 package com.usic.SistemasActivosFijosUAP.controller.Seguimieto;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
@@ -48,10 +50,28 @@ public class CTransferenciaActivoController {
 
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla_transferencias")
-    public String tabla_activos_trans(Model model) {
+    public String tabla_activos_trans(Model model,
+            @RequestParam(required = false) String tipo,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) String motivo,
+            @RequestParam(required = false) String buscar,
+            @RequestParam(required = false) String desde,
+            @RequestParam(required = false) String hasta) {
+        // La vista siempre mandó estos filtros, pero el controlador los ignoraba y la
+        // tabla mostraba todo igual. Se filtra en memoria: es la misma lista que ya se leía.
+        LocalDate fDesde = fecha(desde);
+        LocalDate fHasta = fecha(hasta);
+        String texto = buscar != null ? buscar.trim().toUpperCase() : "";
+
         // Más reciente primero: el listado venía en el orden que devolvía la base, que
         // no es ninguno en particular, y así el corte por mes de la tabla es coherente.
         List<Transferencia> transferencias = transferenciaService.findAll().stream()
+                .filter(t -> vacio(tipo) || tipo.equals(t.getTipo()))
+                .filter(t -> vacio(estado) || estado.equals(t.getEstadoProceso()))
+                .filter(t -> coincideMotivo(t, motivo))
+                .filter(t -> fDesde == null || (t.getFechaTransferencia() != null && !t.getFechaTransferencia().isBefore(fDesde)))
+                .filter(t -> fHasta == null || (t.getFechaTransferencia() != null && !t.getFechaTransferencia().isAfter(fHasta)))
+                .filter(t -> texto.isEmpty() || textoDe(t).contains(texto))
                 .sorted(Comparator.comparing(Transferencia::getFechaTransferencia,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
@@ -182,6 +202,54 @@ public class CTransferenciaActivoController {
         }
         return usuarioService.findAllByIdUsuarioIn(ids).stream()
                 .collect(Collectors.toMap(Usuario::getIdUsuario, Usuario::getUsuario, (a, b) -> a));
+    }
+
+    /**
+     * "FALTANTES" = ida y vuelta de la custodia; "NORMAL" = el resto; también acepta
+     * un motivo puntual (FALTANTE / DEVOLUCION_FALTANTE).
+     */
+    private boolean coincideMotivo(Transferencia t, String motivo) {
+        if (vacio(motivo)) {
+            return true;
+        }
+        String m = t.getMotivoFaltante();
+        return switch (motivo) {
+            case "FALTANTES" -> m != null;
+            case "NORMAL" -> m == null;
+            default -> motivo.equals(m);
+        };
+    }
+
+    private String textoDe(Transferencia t) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(t.getNumeroTransferencia()).append(' ')
+          .append(t.getDocumentoReferencia()).append(' ')
+          .append(t.getObservacion()).append(' ');
+        for (Responsable r : new Responsable[] { t.getResponsableOrigen(), t.getResponsableDestino() }) {
+            if (r != null) {
+                sb.append(r.getCodigoFuncionario()).append(' ');
+                if (r.getPersona() != null) sb.append(r.getPersona().getNombreCompleto()).append(' ');
+            }
+        }
+        for (Oficina o : new Oficina[] { t.getOficinaOrigen(), t.getOficinaDestino() }) {
+            if (o != null) sb.append(o.getCodOfi()).append(' ').append(o.getNombre()).append(' ');
+        }
+        return sb.toString().toUpperCase();
+    }
+
+    private LocalDate fecha(String valor) {
+        if (vacio(valor)) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(valor.trim());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private boolean vacio(String s) {
+        return s == null || s.isBlank();
     }
 
     private String primero(String preferido, String alternativo) {

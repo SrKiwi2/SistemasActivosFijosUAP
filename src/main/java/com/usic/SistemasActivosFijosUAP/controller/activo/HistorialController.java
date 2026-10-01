@@ -52,6 +52,8 @@ public class HistorialController {
                 m.put("usuario",       h.getNombreUsuario());
                 m.put("nroTrf",        h.getTransferencia() != null
                                     ? h.getTransferencia().getNumeroTransferencia() : null);
+                m.put("motivoFaltante", h.getTransferencia() != null
+                                    ? h.getTransferencia().getMotivoFaltante() : null);
                 return m;
             }).toList();
             return ResponseEntity.ok(result);
@@ -86,6 +88,8 @@ public class HistorialController {
                 m.put("usuario",      h.getNombreUsuario());
                 m.put("nroTrf",       h.getTransferencia() != null
                                     ? h.getTransferencia().getNumeroTransferencia() : null);
+                m.put("motivoFaltante", h.getTransferencia() != null
+                                    ? h.getTransferencia().getMotivoFaltante() : null);
                 return m;
             }).toList();
             return ResponseEntity.ok(result);
@@ -140,6 +144,8 @@ public class HistorialController {
             m.put("usuario",      h.getNombreUsuario());
             m.put("nroTrf",       h.getTransferencia() != null
                                 ? h.getTransferencia().getNumeroTransferencia() : null);
+            m.put("motivoFaltante", h.getTransferencia() != null
+                                ? h.getTransferencia().getMotivoFaltante() : null);
             return m;
         }).toList();
     }

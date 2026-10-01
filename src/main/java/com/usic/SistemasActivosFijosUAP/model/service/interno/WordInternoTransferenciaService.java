@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoTransferenciaDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +52,18 @@ public class WordInternoTransferenciaService {
             Usuario usuario, String unidadOrigen, Responsable responsableOrigen, String fechaTransferencia,
             String unidadDestino, Responsable responsableDestino, String fechaRecepcion,
             List<ActivoTransferenciaDTO> activos) throws Exception {
+        return wordTransferenciaActivo(usuario, unidadOrigen, responsableOrigen, fechaTransferencia,
+                unidadDestino, responsableDestino, fechaRecepcion, activos, null);
+    }
+
+    /**
+     * @param motivoFaltante {@code Transferencia.getMotivoFaltante()}: si no es null, el
+     *        documento lleva debajo del título, en rojo, que es una transferencia por faltante.
+     */
+    public byte[] wordTransferenciaActivo(
+            Usuario usuario, String unidadOrigen, Responsable responsableOrigen, String fechaTransferencia,
+            String unidadDestino, Responsable responsableDestino, String fechaRecepcion,
+            List<ActivoTransferenciaDTO> activos, String motivoFaltante) throws Exception {
 
         try (XWPFDocument doc = new XWPFDocument();
              ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
@@ -59,6 +72,11 @@ public class WordInternoTransferenciaService {
             addCentro(doc, "UNIVERSIDAD AMAZÓNICA DE PANDO", 11, false);
             addCentro(doc, "SECCIÓN DE ACTIVOS FIJOS", 11, false);
             addCentro(doc, "TRANSFERENCIA DE BIENES", 12, true);
+            if (Transferencia.MOTIVO_FALTANTE.equals(motivoFaltante)) {
+                subtituloRojo(doc, "POR FALTANTE — ENVÍO A LA OFICINA DE FALTANTES DEL PREDIO");
+            } else if (Transferencia.MOTIVO_DEVOLUCION_FALTANTE.equals(motivoFaltante)) {
+                subtituloRojo(doc, "DEVOLUCIÓN DE FALTANTE — SALIDA DE LA OFICINA DE FALTANTES");
+            }
 
             espacio(doc);
 
@@ -339,6 +357,18 @@ public class WordInternoTransferenciaService {
         r.setBold(negrita);
         r.setFontFamily("Times New Roman");
         r.setFontSize(size);
+    }
+
+    private void subtituloRojo(XWPFDocument doc, String texto) {
+        XWPFParagraph p = doc.createParagraph();
+        p.setAlignment(ParagraphAlignment.CENTER);
+        p.setSpacingAfter(0);
+        XWPFRun r = p.createRun();
+        r.setText(texto);
+        r.setBold(true);
+        r.setColor("C00000");
+        r.setFontFamily("Times New Roman");
+        r.setFontSize(11);
     }
 
     private void espacio(XWPFDocument doc) {

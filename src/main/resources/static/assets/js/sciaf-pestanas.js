@@ -144,9 +144,13 @@
     async function aplicarCampos($root, campos, opciones) {
         const pasadas = (opciones && opciones.pasadas) || 8;
         const espera = (opciones && opciones.espera) || 400;
+        // Si el usuario cambia de pestaña a mitad de la reposición, #contenido ya es otra
+        // pantalla (con los mismos ids): seguir escribiendo le metería valores ajenos.
+        const vigente = (opciones && opciones.vigente) || (() => true);
         if (!campos || !campos.length) return;
 
         for (let paso = 0; paso < pasadas; paso++) {
+            if (!vigente()) return;
             const vistos = {};
             const porClave = {};
             $root.find('input, select, textarea').each(function () {
@@ -213,8 +217,6 @@
             console.warn('[Pestañas] No se encontró la navegación del layout; se omiten las pestañas.');
             return;
         }
-
-        const cargarOriginal = window.cargarContenido;
 
         /**
          * /adm/inicio NO es un fragmento: devuelve la página de administración entera. Si
@@ -334,15 +336,21 @@
         window.addEventListener('beforeunload', () => { guardarEstado(true); guardarPestanas(true); });
 
         async function reponerEstado(p) {
+            const carga = p.carga;
+            const vigente = () => pestanas[activa] === p && p.carga === carga;
             const estado = await Espacio.leer(claveTab(p.url));
+            if (!vigente()) return;
             if (!estado || !((estado.campos || []).length || estado.modulo)) return;
             restaurando = true;
             try {
                 const api = estado.modulo ? modulos[estado.modulo.clave] : null;
                 // Primero lo que solo sabe la pantalla (abrir el formulario, crear las filas…)
                 if (api && api.antes) { try { await api.antes(estado.modulo.datos); } catch (_) {} }
-                await aplicarCampos($contenido, estado.campos);
+                if (!vigente()) return;
+                await aplicarCampos($contenido, estado.campos, { vigente });
+                if (!vigente()) return;
                 if (api && api.despues) { try { await api.despues(estado.modulo.datos); } catch (_) {} }
+                if (!vigente()) return;
                 restaurarScroll(estado.scroll);
             } finally {
                 restaurando = false;
@@ -404,17 +412,65 @@
                 if (inicioHtml && inicioHtml.trim()) $contenido.html(inicioHtml);
                 else { window.location.href = INICIO; return; }
             } else {
-                cargarOriginal(p.url);
+                cargarEn(p);
             }
             p.cargada = true;
             vigilarContenido(p);
+            const cargaEsperada = p.carga;
             esperarContenido().then(() => {
-                if (pestanas[activa] !== p) return;
+                if (pestanas[activa] !== p || p.carga !== cargaEsperada) return;
                 const t = $contenido.find('h4,h5').first().text().trim();
                 if (t && infoMenu(p.url).titulo === p.url) { p.titulo = t.substring(0, 34); render(); }
                 reponerEstado(p);
             });
             guardarPestanas();
+        }
+
+        /**
+         * Carga la pantalla de UNA pestaña. No se usa el cargador del layout porque ese mete
+         * la respuesta en #contenido cuando llega, sin mirar qué pestaña está al frente: con
+         * varias pestañas abiertas y el servidor lento, la respuesta de la pestaña que se dejó
+         * caía encima de la que el usuario estaba viendo (se veía otra vista, y encima el
+         * autoguardado la registraba como el estado de esta pestaña).
+         * Acá cada carga lleva un número: si al volver la respuesta la pestaña ya no está al
+         * frente o se pidió otra carga después, se descarta y la pestaña se recarga al volver.
+         */
+        let contadorCargas = 0;
+        const peticiones = [];
+
+        function cargarEn(p) {
+            const n = p.carga = ++contadorCargas;
+            const vigente = () => p.carga === n && pestanas[activa] === p;
+            const descartar = () => { if (p.carga === n) { p.cargada = false; p.$dom = null; } };
+            const pedir = opciones => {
+                const xhr = $.ajax(opciones);
+                peticiones.push(xhr);
+                xhr.always(() => { const k = peticiones.indexOf(xhr); if (k >= 0) peticiones.splice(k, 1); });
+                return xhr;
+            };
+            // Lo que quedó en vuelo de otra pestaña ya no se va a mostrar.
+            peticiones.slice().forEach(x => { try { x.abort(); } catch (_) {} });
+
+            pedir({ url: '/adm/cargar-datos', method: 'GET' })
+                .done(() => {
+                    if (!vigente()) { descartar(); return; }
+                    pedir({ url: p.url, method: 'GET' })
+                        .done(data => {
+                            if (!vigente()) { descartar(); return; }
+                            $contenido.html(data);
+                        })
+                        .fail(xhr => { if (xhr.statusText !== 'abort') console.error('Error en la solicitud:', xhr); });
+                })
+                .fail(xhr => {
+                    if (xhr.status === 401 && window.Swal) {
+                        Swal.fire({
+                            title: 'Sesión expirada',
+                            text: 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
+                            icon: 'warning',
+                            confirmButtonText: 'Ir al login'
+                        }).then(r => { if (r.isConfirmed) window.location.href = '/'; });
+                    }
+                });
         }
 
         /**

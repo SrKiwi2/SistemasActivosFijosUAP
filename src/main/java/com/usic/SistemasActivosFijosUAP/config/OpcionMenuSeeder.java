@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.config;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -10,15 +11,24 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.usic.SistemasActivosFijosUAP.model.dao.IOpcionMenuDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IUsuarioDao;
+import com.usic.SistemasActivosFijosUAP.model.entity.HistorialPermisoUsuario;
 import com.usic.SistemasActivosFijosUAP.model.entity.OpcionMenu;
+import com.usic.SistemasActivosFijosUAP.model.service.seguridad.AuditoriaPermisosService;
 
 /**
  * Siembra el catálogo {@code opcion_menu} como árbol SECCION → GRUPO → ITEM.
  *
- * Upsert idempotente por {@code codigo}: en cada arranque crea los nodos nuevos
- * y sincroniza los metadatos de los existentes (preservando idOpcion y los
- * enlaces usuario_opcion). Es la fuente de verdad del menú hasta que exista el
- * CRUD de gestión. Los ITEM conservan su código "opcion_xxx" original.
+ * <p><b>Solo crea lo que falta</b>, por {@code codigo}. Lo que ya existe no se toca:
+ * desde que hay pantalla de Gestión de Menú, el nombre, ícono, color, orden, ubicación,
+ * visibilidad y bloqueo de cada opción los decide el administrador ahí, y antes este
+ * seeder los pisaba en cada reinicio. Tampoco vuelve a crear lo que se eliminó (el
+ * borrado es lógico: la fila queda con estado ELIMINADO).
+ *
+ * <p>Para agregar un módulo nuevo desde el código: sumar su fila a {@link #ITEMS} (o a
+ * {@link #PERMISOS} si es una capacidad sin pantalla). Aparece en el próximo arranque al
+ * final de su grupo, y los usuarios conectados lo ven sin volver a entrar. Para cambiar
+ * uno que ya existe, usar Gestión de Menú.
  */
 @Configuration
 public class OpcionMenuSeeder {
@@ -89,8 +99,8 @@ public class OpcionMenuSeeder {
         { "opcion_activop",        "grp_adminactivos", "Registro Activos Pendientes",  "ti ti-clock-exclamation","amber",  "/administracion/activo/vistap",                      "/administracion/activo/vistap",         "PEND." },
 
         { "opcion_transferencia",  "grp_transfer",     "Transferencia de Activos",     "ti ti-arrows-exchange",  "green",  "/administracion/trasnferencia/transferencia",        "/administracion/trasnferencia/transferencia", "" },
-        // Interna y externa se unificaron en la opción de arriba; estos dos quedan ocultos
-        // (ver OCULTOS) para no romper los permisos ya asignados a los usuarios.
+        // Interna y externa se unificaron en la opción de arriba; estos dos se retiran al
+        // arrancar y sus usuarios pasan a la nueva (ver retirarTransferenciasViejas).
         { "opcion_trInterna",      "grp_transfer",     "Transferencia interna",        "ti ti-building",         "green",  "/administracion/trasnferencia/trasnferenciaInterna", "/administracion/trasnferencia/trasnferenciaInterna", "" },
         { "opcion_trExterna",      "grp_transfer",     "Transferencia externa",        "ti ti-truck-delivery",   "amber",  "/administracion/trasnferencia/trasnferenciaExterna", "/administracion/trasnferencia/trasnferenciaExterna", "" },
         { "opcion_trLondra",       "grp_transfer",     "Transferencia Londra",         "ti ti-truck-delivery",   "amber",  "/administracion/transferenciasLondra/vista",         "/administracion/transferenciasLondra",  "" },
@@ -111,6 +121,7 @@ public class OpcionMenuSeeder {
         { "opcion_ba",             "grp_movimientos",  "Bajas",                        "ti ti-trash",            "red",    "/administracion/baja/modulo",                        "/administracion/baja/modulo",           "" },
 
         { "opcion_historialA",     "grp_historial",    "Historial Activo",             "ti ti-timeline",         "blue",   "/administracion/historial/vista",                    "/administracion/historial",             "" },
+        { "opcion_ruta_activo",    "grp_historial",    "Seguimiento de Activo (ruta)", "ti ti-route",            "red",    "/administracion/ruta-activo/vista",                  "/administracion/ruta-activo",           "" },
         { "opcion_trHistorial",    "grp_historial",    "Historial de Transferencias",  "ti ti-refresh-dot",      "amber",  "/administracion/activo/transferencias/historial/vista", "/administracion/activo/transferencias/historial", "" },
 
         { "opcion_consulta_activo","grp_consulta",     "Buscar / Filtrar Activos",     "ti ti-search",           "blue",   "/administracion/consulta/activos/vista",             "/administracion/consulta",              "" },
@@ -151,15 +162,15 @@ public class OpcionMenuSeeder {
     };
 
     /**
-     * Ítems que existen pero ya no se muestran en el sidebar: su pantalla se unificó con
-     * otra. Se conservan porque hay usuarios con ese permiso asignado.
+     * Ítems cuya pantalla se unificó en "Transferencia de Activos" (opcion_transferencia).
+     * Ver {@link #retirarTransferenciasViejas}.
      */
-    private static final java.util.Set<String> OCULTOS = java.util.Set.of(
+    private static final List<String> RETIRADOS_POR_TRANSFERENCIA = List.of(
         "opcion_trInterna", "opcion_trExterna"
     );
 
     @Bean
-    ApplicationRunner initOpcionesMenu(IOpcionMenuDao dao) {
+    ApplicationRunner initOpcionesMenu(IOpcionMenuDao dao, IUsuarioDao usuarioDao, AuditoriaPermisosService auditoria) {
         return args -> {
             // Mapas auxiliares para denormalizar seccion/grupo en los ITEM
             // (lo usa la pantalla de asignación de permisos).
@@ -174,101 +185,147 @@ public class OpcionMenuSeeder {
                 seccionDeGrupo.put(g[0], g[1]);
             }
 
-            int total = 0;
+            int creados = 0;
 
             // 1) Secciones (padre null)
             for (int i = 0; i < SECCIONES.length; i++) {
                 String[] s = SECCIONES[i];
-                OpcionMenu o = obtener(dao, s[0]);
+                OpcionMenu o = nuevo(dao, s[0]);
+                if (o == null) continue;
                 o.setTipo(TIPO_SECCION);
                 o.setDescripcion(s[1]);
-                o.setOrden(i + 1);
-                o.setPadre(null);
-                o.setSeccion(null);
-                o.setGrupo(null);
-                o.setIcono(null);
-                o.setColorClase(null);
-                o.setUrl(null);
-                o.setRutaBase(null);
-                o.setBadge(null);
+                o.setOrden(siguienteOrden(dao, null, TIPO_SECCION));
                 dao.save(o);
-                total++;
+                creados++;
             }
 
             // 2) Grupos (padre = sección)
-            for (int i = 0; i < GRUPOS.length; i++) {
-                String[] g = GRUPOS[i];
-                OpcionMenu o = obtener(dao, g[0]);
+            for (String[] g : GRUPOS) {
+                OpcionMenu o = nuevo(dao, g[0]);
+                if (o == null) continue;
+                OpcionMenu padre = dao.findByCodigo(g[1]);
                 o.setTipo(TIPO_GRUPO);
-                o.setPadre(dao.findByCodigo(g[1]));
+                o.setPadre(padre);
                 o.setDescripcion(g[2]);
                 o.setIcono(g[3]);
                 o.setColorClase(g[4]);
-                o.setOrden(i + 1);
+                o.setOrden(siguienteOrden(dao, padre, TIPO_GRUPO));
                 o.setSeccion(descSeccion.get(g[1]));
-                o.setGrupo(null);
-                o.setUrl(null);
-                o.setRutaBase(null);
-                o.setBadge(null);
                 dao.save(o);
-                total++;
+                creados++;
             }
 
             // 3) Ítems (padre = grupo)
-            for (int i = 0; i < ITEMS.length; i++) {
-                String[] it = ITEMS[i];
-                OpcionMenu o = obtener(dao, it[0]);
+            for (String[] it : ITEMS) {
+                OpcionMenu o = nuevo(dao, it[0]);
+                if (o == null) continue;
+                OpcionMenu padre = dao.findByCodigo(it[1]);
                 o.setTipo(TIPO_ITEM);
-                o.setPadre(dao.findByCodigo(it[1]));
+                o.setPadre(padre);
                 o.setDescripcion(it[2]);
                 o.setIcono(it[3]);
                 o.setColorClase(it[4]);
                 o.setUrl(it[5]);
                 o.setRutaBase(it[6]);
                 o.setBadge(vacioANulo(it[7]));
-                o.setOrden(i + 1);
+                o.setOrden(siguienteOrden(dao, padre, TIPO_ITEM));
                 o.setSeccion(descSeccion.get(seccionDeGrupo.get(it[1])));
                 o.setGrupo(descGrupo.get(it[1]));
-                if (OCULTOS.contains(it[0])) o.setVisible(false);
                 dao.save(o);
-                total++;
+                creados++;
             }
 
             // 4) Permisos puros (ITEM oculto: asignable en permisos, NO en el sidebar)
             for (int i = 0; i < PERMISOS.length; i++) {
                 String[] p = PERMISOS[i];
-                OpcionMenu o = obtener(dao, p[0]);
+                OpcionMenu o = nuevo(dao, p[0]);
+                if (o == null) continue;
                 o.setTipo(TIPO_ITEM);
                 o.setPadre(dao.findByCodigo(p[1]));
                 o.setDescripcion(p[2]);
                 o.setIcono(p[3]);
                 o.setColorClase(p[4]);
-                o.setUrl(null);
-                o.setRutaBase(null);
-                o.setBadge(null);
                 o.setOrden(900 + i); // al final de sus hermanos del grupo
                 o.setSeccion(descSeccion.get(seccionDeGrupo.get(p[1])));
                 o.setGrupo(descGrupo.get(p[1]));
                 o.setVisible(false); // permiso puro: oculto en el sidebar, asignable en permisos
                 dao.save(o);
-                total++;
+                creados++;
             }
 
-            logger.info("Catálogo opcion_menu sincronizado: {} secciones, {} grupos, {} ítems, {} permisos ({} nodos).",
-                    SECCIONES.length, GRUPOS.length, ITEMS.length, PERMISOS.length, total);
+            int retirados = retirarTransferenciasViejas(dao, usuarioDao, auditoria);
+
+            logger.info("Catálogo opcion_menu: {} nodo(s) nuevo(s){}; lo existente se administra desde Gestión de Menú.",
+                    creados, retirados > 0 ? ", " + retirados + " opción(es) vieja(s) retirada(s)" : "");
         };
     }
 
-    /** Busca el nodo por código o crea uno nuevo ACTIVO; siempre visible. */
-    private OpcionMenu obtener(IOpcionMenuDao dao, String codigo) {
-        OpcionMenu o = dao.findByCodigo(codigo);
-        if (o == null) {
-            o = new OpcionMenu();
-            o.setCodigo(codigo);
-            o.setEstado("ACTIVO");
+    /**
+     * Interna y externa se unificaron en {@code opcion_transferencia}. Quien tenía alguna
+     * de las dos pasa a tener la nueva, y las viejas se eliminan (lógicamente) para que
+     * dejen de aparecer en la pantalla de permisos. Se hace una sola vez: después quedan
+     * en estado ELIMINADO y este paso no las vuelve a tocar.
+     */
+    private int retirarTransferenciasViejas(IOpcionMenuDao dao, IUsuarioDao usuarioDao, AuditoriaPermisosService auditoria) {
+        OpcionMenu nueva = dao.findByCodigo("opcion_transferencia");
+        if (nueva == null || nueva.eliminado()) {
+            return 0;
         }
+        int retirados = 0;
+        for (String codigo : RETIRADOS_POR_TRANSFERENCIA) {
+            OpcionMenu vieja = dao.findByCodigo(codigo);
+            if (vieja == null || vieja.eliminado()) continue;
+            List<Long> usuarios = dao.usuariosConOpcion(vieja.getIdOpcion());
+            for (Long idUsuario : usuarios) {
+                java.util.Set<String> antes = new java.util.TreeSet<>(dao.findCodigosByUsuario(idUsuario));
+                dao.asignarSiFalta(idUsuario, nueva.getIdOpcion());
+                java.util.Set<String> despues = new java.util.TreeSet<>(antes);
+                despues.remove(codigo);
+                despues.add(nueva.getCodigo());
+                usuarioDao.findById(idUsuario).ifPresent(u -> {
+                    try {
+                        auditoria.registrar(u, HistorialPermisoUsuario.MIGRACION, "Sistema (al arrancar)",
+                                antes, despues, null, "Transferencia interna y externa se unificaron en «Transferencia de Activos»");
+                    } catch (Exception e) {
+                        logger.warn("No se pudo auditar la migración del usuario {}: {}", idUsuario, e.getMessage());
+                    }
+                });
+            }
+            dao.desvincularDeUsuarios(vieja.getIdOpcion());
+            vieja.setEstado(OpcionMenu.ESTADO_ELIMINADO);
+            vieja.setVisible(false);
+            dao.save(vieja);
+            logger.info("Opción {} retirada: {} usuario(s) pasan a opcion_transferencia.", codigo, usuarios.size());
+            retirados++;
+        }
+        return retirados;
+    }
+
+    /**
+     * Devuelve un nodo nuevo si el código no existe, o null si ya existe (en cualquier
+     * estado, también ELIMINADO: lo que el administrador borró no se vuelve a crear).
+     */
+    private OpcionMenu nuevo(IOpcionMenuDao dao, String codigo) {
+        if (dao.findByCodigo(codigo) != null) {
+            return null;
+        }
+        OpcionMenu o = new OpcionMenu();
+        o.setCodigo(codigo);
+        o.setEstado(OpcionMenu.ESTADO_ACTIVO);
         o.setVisible(true);
         return o;
+    }
+
+    /** Al final de sus hermanos (sin contar los permisos puros, que van en 900+). */
+    private int siguienteOrden(IOpcionMenuDao dao, OpcionMenu padre, String tipo) {
+        List<OpcionMenu> hermanos = (padre == null)
+                ? dao.findByPadreIsNullAndTipoOrderByOrdenAsc(tipo)
+                : dao.findByPadre_IdOpcionAndTipoOrderByOrdenAsc(padre.getIdOpcion(), tipo);
+        int max = 0;
+        for (OpcionMenu h : hermanos) {
+            if (h.getOrden() != null && h.getOrden() < 900 && h.getOrden() > max) max = h.getOrden();
+        }
+        return max + 1;
     }
 
     private String vacioANulo(String s) {

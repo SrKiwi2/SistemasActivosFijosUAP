@@ -58,8 +58,11 @@ public class SistemasActivosFijosUapApplication {
                     personaService.save(persona);
                 }
 
-                Usuario usuario = usuarioService.buscarUsuarioPorNombre(usuarios[i]);
-                if (usuario == null) {
+                // existsByUsuario mira todos los estados: si el administrador desactivó a
+                // uno de estos dos, buscarlo solo entre los ACTIVOS hacía que cada reinicio
+                // lo volviera a crear con la contraseña por defecto.
+                if (!usuarioService.existsByUsuario(usuarios[i])) {
+                    Usuario usuario;
                     usuario = new Usuario();
                     usuario.setUsuario(usuarios[i]);
                     usuario.setPassword(passwordEncoder.encode(password[i]));

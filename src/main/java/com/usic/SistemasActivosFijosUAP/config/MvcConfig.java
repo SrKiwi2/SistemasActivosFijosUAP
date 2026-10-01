@@ -9,13 +9,29 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class MvcConfig implements WebMvcConfigurer{
 
     private final PermisoOpcionInterceptor permisoOpcionInterceptor;
+    private final SesionPermisosInterceptor sesionPermisosInterceptor;
 
-    public MvcConfig(PermisoOpcionInterceptor permisoOpcionInterceptor) {
+    public MvcConfig(PermisoOpcionInterceptor permisoOpcionInterceptor,
+            SesionPermisosInterceptor sesionPermisosInterceptor) {
         this.permisoOpcionInterceptor = permisoOpcionInterceptor;
+        this.sesionPermisosInterceptor = sesionPermisosInterceptor;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry interceptorRegistry) {
+        // Primero: poner la sesión al día con los permisos vigentes (cambios del
+        // administrador sin cerrar sesión). Los otros dos ya ven los permisos nuevos.
+        interceptorRegistry.addInterceptor(sesionPermisosInterceptor)
+            .excludePathPatterns(
+                "/api/eventos/**",
+                "/api/movil/**",
+                "/assets/**",
+                "/css/**",
+                "/js/**",
+                "/iniciar-sesion/**",
+                "/cerrar_sesion"
+            );
+
         interceptorRegistry.addInterceptor(new UsuarioAutenticadoInterceptor())
             .excludePathPatterns(
                 "/api/eventos/**",

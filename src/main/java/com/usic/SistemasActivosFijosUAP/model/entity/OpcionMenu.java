@@ -81,4 +81,26 @@ public class OpcionMenu extends AuditoriaConfig {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_padre")
     private OpcionMenu padre;
+
+    /*
+     * Estado del nodo (columna _estado heredada de AuditoriaConfig):
+     *   · ACTIVO    → normal.
+     *   · BLOQUEADO → sigue en el menú, pero nadie (salvo ADMINISTRADOR) puede entrar:
+     *                 el módulo está en mantenimiento. Si es un grupo o sección, bloquea
+     *                 todo lo que tiene adentro.
+     *   · ELIMINADO → borrado lógico: desaparece del menú y de los permisos. No se borra
+     *                 la fila para que OpcionMenuSeeder no la vuelva a crear al reiniciar,
+     *                 y para poder restaurarla.
+     */
+    public static final String ESTADO_ACTIVO = "ACTIVO";
+    public static final String ESTADO_BLOQUEADO = "BLOQUEADO";
+    public static final String ESTADO_ELIMINADO = "ELIMINADO";
+
+    public boolean eliminado() {
+        return ESTADO_ELIMINADO.equals(getEstado());
+    }
+
+    public boolean bloqueado() {
+        return ESTADO_BLOQUEADO.equals(getEstado());
+    }
 }

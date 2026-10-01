@@ -1,84 +1,358 @@
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
+<style>
+    #menu-arbol { --mn-borde: rgba(0,0,0,.09); }
+    #menu-arbol .mn-nodo { margin-bottom: .4rem; }
+    #menu-arbol .mn-fila {
+        display: flex; align-items: center; gap: .55rem; flex-wrap: wrap;
+        border: 1px solid var(--mn-borde); border-radius: 9px; padding: .5rem .7rem;
+        background: var(--bs-body-bg, #fff);
+    }
+    #menu-arbol .mn-seccion > .mn-fila { background: rgba(26,86,160,.06); border-color: rgba(26,86,160,.18); }
+    #menu-arbol .mn-hijos { margin-left: 1.6rem; padding: .35rem 0 .1rem .6rem; border-left: 2px dashed rgba(26,86,160,.15); min-height: 14px; }
+    #menu-arbol .mn-colapsado > .mn-hijos { display: none; }
+    #menu-arbol .mn-asa { cursor: grab; color: #94a3b8; font-size: 1.15rem; }
+    #menu-arbol .mn-asa:active { cursor: grabbing; }
+    #menu-arbol .mn-caret { cursor: pointer; color: #64748b; transition: transform .15s; }
+    #menu-arbol .mn-colapsado > .mn-fila .mn-caret { transform: rotate(-90deg); }
+    #menu-arbol .mn-nombre { font-weight: 600; }
+    #menu-arbol .mn-item .mn-nombre { font-weight: 500; }
+    #menu-arbol .mn-meta { font-size: .74rem; color: #64748b; display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; min-width: 0; }
+    #menu-arbol .mn-meta code { font-size: .72rem; }
+    #menu-arbol .mn-url { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #menu-arbol .mn-acciones { margin-left: auto; display: flex; gap: .2rem; flex-wrap: wrap; }
+    #menu-arbol .mn-acciones .btn { padding: .2rem .4rem; line-height: 1; }
+    #menu-arbol .mn-oculto > .mn-fila { opacity: .6; border-style: dashed; }
+    #menu-arbol .mn-bloqueado > .mn-fila { box-shadow: inset 4px 0 0 #dc2626; }
+    #menu-arbol .mn-fantasma > .mn-fila { background: rgba(80,180,40,.15) !important; border-color: #3d9e14; }
+    #menu-arbol .mn-movido > .mn-fila { box-shadow: inset 4px 0 0 #f59e0b; }
+    #menu-arbol .mn-oculta-busqueda { display: none !important; }
+    #menu-arbol mark { padding: 0 .1rem; }
+    .mn-barra-pendiente {
+        position: sticky; top: 70px; z-index: 5;
+        background: #fff7ed; border: 1px solid #fdba74; border-radius: 9px;
+        padding: .55rem .9rem; display: flex; gap: .75rem; align-items: center; flex-wrap: wrap;
+    }
+    html[data-theme="dark"] .mn-barra-pendiente { background: rgba(245,158,11,.12); }
+</style>
+
+<div class="card" id="menu-arbol">
+    <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center">
         <div>
             <h5 class="mb-0">Estructura del Menú</h5>
-            <small class="text-muted">Secciones › Grupos › Ítems. El orden y la visibilidad se reflejan en el sidebar.</small>
+            <small class="text-muted">Secciones › Grupos › Ítems</small>
         </div>
-        <button type="button" class="btn btn-primary" onclick="cargarFormulario()"
-            data-bs-toggle="modal" data-bs-target="#modalFormularioMenu">
-            <i class="fa-solid fa-plus"></i> Agregar opción
-        </button>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <div class="input-group input-group-sm" style="width: 230px;">
+                <span class="input-group-text"><i class="ti ti-search"></i></span>
+                <input type="text" class="form-control" id="mn-buscar" placeholder="Buscar opción, código o URL...">
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="mnColapsarTodo(false)" title="Expandir todo">
+                <i class="ti ti-arrows-vertical"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="mnColapsarTodo(true)" title="Contraer grupos">
+                <i class="ti ti-fold"></i>
+            </button>
+            <div class="btn-group">
+                <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="ti ti-plus me-1"></i> Agregar
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="cargarFormulario('ITEM')">
+                        <i class="ti ti-point me-1"></i> Ítem (pantalla o permiso)</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="cargarFormulario('GRUPO')">
+                        <i class="ti ti-folder me-1"></i> Grupo (desplegable)</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="cargarFormulario('SECCION')">
+                        <i class="ti ti-heading me-1"></i> Sección (encabezado)</a></li>
+                </ul>
+            </div>
+        </div>
     </div>
 
     <div class="card-body">
 
-        <style>
-            .menu-node { border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:.5rem .75rem; margin-bottom:.4rem; display:flex; align-items:center; gap:.6rem; }
-            .menu-node.oculto { opacity:.5; }
-            .menu-node .acciones { margin-left:auto; display:flex; gap:.25rem; flex-wrap:wrap; }
-            .nivel-grupo { margin-left:1.5rem; }
-            .nivel-item  { margin-left:3rem; }
-            .menu-node .ico-prev { width:30px; height:30px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; background:rgba(26,86,160,.1); color:#1a56a0; flex-shrink:0; }
-        </style>
+        <div class="mn-barra-pendiente mb-3 d-none" id="mn-pendiente">
+            <i class="ti ti-alert-circle text-warning fs-4"></i>
+            <span class="flex-grow-1">Movió opciones de lugar. El menú de los usuarios no cambia hasta que guarde.</span>
+            <button type="button" class="btn btn-sm btn-success" onclick="mnGuardarOrden()">
+                <i class="ti ti-device-floppy me-1"></i> Guardar orden
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="mnDescartar()">Descartar</button>
+        </div>
 
         <div th:if="${#lists.isEmpty(arbol)}" class="alert alert-info">
             No hay opciones registradas todavía.
         </div>
 
-        <th:block th:each="seccion : ${arbol}">
+        <!-- Raíz: lista ordenable de secciones -->
+        <div class="mn-lista" data-padre="" data-tipo-hijo="SECCION">
+        <div th:each="seccion : ${arbol}" class="mn-nodo mn-seccion"
+             th:classappend="${(seccion.visible ? '' : ' mn-oculto') + (seccion.bloqueado ? ' mn-bloqueado' : '')}"
+             th:attr="data-id=${seccion.idOpcion}, data-tipo='SECCION', data-buscar=${#strings.toLowerCase(seccion.descripcion + ' ' + seccion.codigo)}">
 
-            <!-- SECCIÓN -->
-            <div class="menu-node" th:classappend="${seccion.visible} ? '' : 'oculto'">
+            <div class="mn-fila">
+                <i class="ti ti-grip-vertical mn-asa" title="Arrastrar para ordenar"></i>
+                <i class="ti ti-chevron-down mn-caret" onclick="mnColapsar(this)"></i>
                 <span class="badge bg-label-secondary">SECCIÓN</span>
-                <strong th:text="${seccion.descripcion}"></strong>
-                <code class="text-muted small" th:text="${seccion.codigo}"></code>
-                <span class="badge bg-label-warning" th:if="${!seccion.visible}">oculto</span>
-                <div class="acciones">
-                    <button class="btn btn-xs btn-icon btn-outline-secondary" title="Subir" th:onclick="'subirOpcion(' + ${seccion.idOpcion} + ')'"><i class="fa-solid fa-arrow-up"></i></button>
-                    <button class="btn btn-xs btn-icon btn-outline-secondary" title="Bajar" th:onclick="'bajarOpcion(' + ${seccion.idOpcion} + ')'"><i class="fa-solid fa-arrow-down"></i></button>
-                    <button class="btn btn-xs btn-icon btn-outline-primary" title="Editar" th:onclick="'cargarFormularioEdit(' + ${seccion.idOpcion} + ')'" data-bs-toggle="modal" data-bs-target="#modalFormularioMenu"><i class="fa-solid fa-pen"></i></button>
-                    <button class="btn btn-xs btn-icon btn-outline-info" title="Mostrar/Ocultar" th:onclick="'toggleOpcion(' + ${seccion.idOpcion} + ')'"><i class="fa-solid fa-eye"></i></button>
-                    <button class="btn btn-xs btn-icon btn-outline-danger" title="Eliminar" th:data-nombre="${seccion.descripcion}" th:data-id="${seccion.idOpcion}" onclick="eliminarOpcion(this.dataset.nombre, this.dataset.id)"><i class="fa-solid fa-trash"></i></button>
-                </div>
+                <span class="mn-nombre text-uppercase" th:text="${seccion.descripcion}"></span>
+                <span class="mn-meta">
+                    <code th:text="${seccion.codigo}"></code>
+                    <span th:replace="~{::estado(${seccion})}"></span>
+                </span>
+                <span th:replace="~{::acciones(${seccion}, 'GRUPO')}"></span>
             </div>
 
-            <!-- GRUPOS -->
-            <th:block th:each="grupo : ${seccion.hijos}">
-                <div class="menu-node nivel-grupo" th:classappend="${grupo.visible} ? '' : 'oculto'">
-                    <span class="ico-prev"><i th:class="${grupo.icono}"></i></span>
-                    <span class="badge bg-label-primary">GRUPO</span>
-                    <strong th:text="${grupo.descripcion}"></strong>
-                    <code class="text-muted small" th:text="${grupo.codigo}"></code>
-                    <span class="badge bg-label-warning" th:if="${!grupo.visible}">oculto</span>
-                    <div class="acciones">
-                        <button class="btn btn-xs btn-icon btn-outline-secondary" title="Subir" th:onclick="'subirOpcion(' + ${grupo.idOpcion} + ')'"><i class="fa-solid fa-arrow-up"></i></button>
-                        <button class="btn btn-xs btn-icon btn-outline-secondary" title="Bajar" th:onclick="'bajarOpcion(' + ${grupo.idOpcion} + ')'"><i class="fa-solid fa-arrow-down"></i></button>
-                        <button class="btn btn-xs btn-icon btn-outline-primary" title="Editar" th:onclick="'cargarFormularioEdit(' + ${grupo.idOpcion} + ')'" data-bs-toggle="modal" data-bs-target="#modalFormularioMenu"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn btn-xs btn-icon btn-outline-info" title="Mostrar/Ocultar" th:onclick="'toggleOpcion(' + ${grupo.idOpcion} + ')'"><i class="fa-solid fa-eye"></i></button>
-                        <button class="btn btn-xs btn-icon btn-outline-danger" title="Eliminar" th:data-nombre="${grupo.descripcion}" th:data-id="${grupo.idOpcion}" onclick="eliminarOpcion(this.dataset.nombre, this.dataset.id)"><i class="fa-solid fa-trash"></i></button>
-                    </div>
+            <!-- Grupos de la sección (se pueden arrastrar a otra sección) -->
+            <div class="mn-hijos mn-lista" th:attr="data-padre=${seccion.idOpcion}" data-tipo-hijo="GRUPO">
+            <div th:each="grupo : ${seccion.hijos}" class="mn-nodo mn-grupo"
+                 th:classappend="${(grupo.visible ? '' : ' mn-oculto') + (grupo.bloqueado ? ' mn-bloqueado' : '')}"
+                 th:attr="data-id=${grupo.idOpcion}, data-tipo='GRUPO', data-buscar=${#strings.toLowerCase(grupo.descripcion + ' ' + grupo.codigo)}">
+
+                <div class="mn-fila">
+                    <i class="ti ti-grip-vertical mn-asa" title="Arrastrar para ordenar o llevar a otra sección"></i>
+                    <i class="ti ti-chevron-down mn-caret" onclick="mnColapsar(this)"></i>
+                    <span class="sm-gi" th:classappend="${'gi-' + grupo.colorClase}" style="width:30px;height:30px;">
+                        <i th:class="${grupo.icono}"></i>
+                    </span>
+                    <span class="mn-nombre" th:text="${grupo.descripcion}"></span>
+                    <span class="badge bg-label-primary" th:text="${#lists.size(grupo.hijos)} + ' ítem(s)'"></span>
+                    <span class="mn-meta">
+                        <code th:text="${grupo.codigo}"></code>
+                        <span th:replace="~{::estado(${grupo})}"></span>
+                    </span>
+                    <span th:replace="~{::acciones(${grupo}, 'ITEM')}"></span>
                 </div>
 
-                <!-- ÍTEMS -->
-                <div class="menu-node nivel-item" th:each="item : ${grupo.hijos}" th:classappend="${item.visible} ? '' : 'oculto'">
-                    <span class="ico-prev"><i th:class="${item.icono}"></i></span>
-                    <span class="badge bg-label-success">ÍTEM</span>
-                    <span th:text="${item.descripcion}"></span>
-                    <span class="badge bg-label-warning" th:if="${item.badge != null}" th:text="${item.badge}"></span>
-                    <code class="text-muted small" th:text="${item.codigo}"></code>
-                    <small class="text-muted" th:if="${item.url != null}" th:text="${item.url}"></small>
-                    <span class="badge bg-label-secondary" th:if="${!item.visible}">oculto</span>
-                    <div class="acciones">
-                        <button class="btn btn-xs btn-icon btn-outline-secondary" title="Subir" th:onclick="'subirOpcion(' + ${item.idOpcion} + ')'"><i class="fa-solid fa-arrow-up"></i></button>
-                        <button class="btn btn-xs btn-icon btn-outline-secondary" title="Bajar" th:onclick="'bajarOpcion(' + ${item.idOpcion} + ')'"><i class="fa-solid fa-arrow-down"></i></button>
-                        <button class="btn btn-xs btn-icon btn-outline-primary" title="Editar" th:onclick="'cargarFormularioEdit(' + ${item.idOpcion} + ')'" data-bs-toggle="modal" data-bs-target="#modalFormularioMenu"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn btn-xs btn-icon btn-outline-info" title="Mostrar/Ocultar" th:onclick="'toggleOpcion(' + ${item.idOpcion} + ')'"><i class="fa-solid fa-eye"></i></button>
-                        <button class="btn btn-xs btn-icon btn-outline-danger" title="Eliminar" th:data-nombre="${item.descripcion}" th:data-id="${item.idOpcion}" onclick="eliminarOpcion(this.dataset.nombre, this.dataset.id)"><i class="fa-solid fa-trash"></i></button>
+                <!-- Ítems del grupo (se pueden arrastrar a otro grupo) -->
+                <div class="mn-hijos mn-lista" th:attr="data-padre=${grupo.idOpcion}" data-tipo-hijo="ITEM">
+                <div th:each="item : ${grupo.hijos}" class="mn-nodo mn-item"
+                     th:classappend="${(item.visible or item.permisoPuro ? '' : ' mn-oculto') + (item.bloqueado ? ' mn-bloqueado' : '')}"
+                     th:attr="data-id=${item.idOpcion}, data-tipo='ITEM', data-buscar=${#strings.toLowerCase(item.descripcion + ' ' + item.codigo + ' ' + (item.url ?: ''))}">
+                    <div class="mn-fila">
+                        <i class="ti ti-grip-vertical mn-asa" title="Arrastrar para ordenar o llevar a otro grupo"></i>
+                        <span class="sm-si" th:classappend="${'si-' + item.colorClase}">
+                            <i th:class="${item.icono}"></i>
+                        </span>
+                        <span class="mn-nombre" th:text="${item.descripcion}"></span>
+                        <span class="badge bg-label-warning" th:if="${item.badge != null}" th:text="${item.badge}"></span>
+                        <span class="mn-meta">
+                            <code th:text="${item.codigo}"></code>
+                            <span class="mn-url" th:if="${item.url != null}" th:text="${item.url}" th:title="${item.url}"></span>
+                            <span class="badge bg-label-info" th:if="${item.permisoPuro}"
+                                  title="No es una pantalla: es una casilla de permiso que habilita una acción">
+                                <i class="ti ti-key"></i> permiso especial</span>
+                            <span class="badge bg-label-danger" th:if="${item.urlExiste != null and !item.urlExiste}"
+                                  title="No hay ninguna pantalla en el sistema con esta URL: el ítem no va a abrir nada">
+                                <i class="ti ti-link-off"></i> URL no encontrada</span>
+                            <span class="badge bg-label-secondary" th:if="${item.usuariosAsignados > 0}"
+                                  th:title="'Asignado explícitamente a ' + ${item.usuariosAsignados} + ' usuario(s); el resto lo recibe por la plantilla de su rol'">
+                                <i class="ti ti-users"></i> <span th:text="${item.usuariosAsignados}"></span></span>
+                            <span th:replace="~{::estado(${item})}"></span>
+                        </span>
+                        <span th:replace="~{::acciones(${item}, null)}"></span>
                     </div>
                 </div>
-            </th:block>
+                </div>
+            </div>
+            </div>
+        </div>
+        </div>
 
-        </th:block>
-
+        <!-- Papelera -->
+        <div class="mt-4" th:if="${!#lists.isEmpty(eliminados)}">
+            <a class="text-muted small text-decoration-none" data-bs-toggle="collapse" href="#mn-papelera">
+                <i class="ti ti-trash me-1"></i> Papelera (<span th:text="${#lists.size(eliminados)}"></span>)
+                <i class="ti ti-chevron-down"></i>
+            </a>
+            <div class="collapse mt-2" id="mn-papelera">
+                <div class="list-group">
+                    <div class="list-group-item d-flex align-items-center gap-2 flex-wrap" th:each="e : ${eliminados}">
+                        <span class="badge bg-label-secondary" th:text="${e.tipo}"></span>
+                        <i th:if="${e.icono != null}" th:class="${e.icono}"></i>
+                        <span th:text="${e.descripcion}"></span>
+                        <code class="small text-muted" th:text="${e.codigo}"></code>
+                        <small class="text-muted" th:if="${e.padre != null}" th:text="'en ' + ${e.padre.descripcion}"></small>
+                        <small class="text-muted" th:if="${e.modificacion != null}"
+                               th:text="'· eliminada ' + ${#dates.format(e.modificacion, 'dd/MM/yyyy HH:mm')}"></small>
+                        <button type="button" class="btn btn-sm btn-outline-success ms-auto"
+                                th:attr="data-id=${e.idOpcion}, data-nombre=${e.descripcion}"
+                                onclick="restaurarOpcion(this.dataset.id, this.dataset.nombre)">
+                            <i class="ti ti-restore me-1"></i> Restaurar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- ── Fragmentos reutilizados arriba ─────────────────────────────────────── -->
+<th:block th:if="false">
+    <span th:fragment="estado(n)" class="d-inline-flex gap-1 flex-wrap">
+        <span class="badge bg-label-dark" th:if="${n.protegido}"
+              title="No se puede ocultar, bloquear ni eliminar: sin esto no se podría administrar el sistema">
+            <i class="ti ti-shield-check"></i> protegido</span>
+        <span class="badge bg-label-secondary" th:if="${!n.visible and !n.permisoPuro}"><i class="ti ti-eye-off"></i> oculto</span>
+        <span class="badge bg-danger" th:if="${n.estado == 'BLOQUEADO'}"><i class="ti ti-lock"></i> bloqueado</span>
+        <span class="badge bg-label-danger" th:if="${n.bloqueado and n.estado != 'BLOQUEADO'}"
+              title="Está dentro de un grupo o sección bloqueada"><i class="ti ti-lock"></i> bloqueado por el grupo</span>
+    </span>
+
+    <span th:fragment="acciones(n, tipoHijo)" class="mn-acciones">
+        <button type="button" class="btn btn-sm btn-outline-secondary mn-subir" title="Subir" onclick="mnMover(this, -1)">
+            <i class="ti ti-arrow-up"></i></button>
+        <button type="button" class="btn btn-sm btn-outline-secondary mn-bajar" title="Bajar" onclick="mnMover(this, 1)">
+            <i class="ti ti-arrow-down"></i></button>
+        <button type="button" class="btn btn-sm btn-outline-primary" th:if="${tipoHijo != null}"
+                th:title="${tipoHijo == 'GRUPO' ? 'Agregar un grupo en esta sección' : 'Agregar un ítem en este grupo'}"
+                th:attr="data-tipo=${tipoHijo}, data-id=${n.idOpcion}"
+                onclick="cargarFormulario(this.dataset.tipo, this.dataset.id)">
+            <i class="ti ti-plus"></i></button>
+        <button type="button" class="btn btn-sm btn-outline-primary" th:if="${n.url != null and n.visible}"
+                title="Abrir la pantalla" th:attr="data-url=${n.url}"
+                onclick="window.cargarContenido && window.cargarContenido(this.dataset.url)">
+            <i class="ti ti-external-link"></i></button>
+        <button type="button" class="btn btn-sm btn-outline-primary" title="Editar (nombre, ícono, color, URL, ubicación)"
+                th:attr="data-id=${n.idOpcion}" onclick="cargarFormularioEdit(this.dataset.id)">
+            <i class="ti ti-pencil"></i></button>
+        <th:block th:unless="${n.permisoPuro}">
+        <button type="button" class="btn btn-sm btn-outline-info" th:disabled="${n.protegido and n.visible}"
+                th:title="${n.visible ? 'Ocultar del menú' : 'Mostrar en el menú'}"
+                th:attr="data-id=${n.idOpcion}, data-nombre=${n.descripcion}, data-visible=${n.visible}"
+                onclick="toggleOpcion(this.dataset.id, this.dataset.nombre, this.dataset.visible === 'true')">
+            <i th:class="${n.visible ? 'ti ti-eye-off' : 'ti ti-eye'}"></i></button>
+        </th:block>
+        <button type="button" class="btn btn-sm" th:disabled="${n.protegido and n.estado != 'BLOQUEADO'}"
+                th:classappend="${n.estado == 'BLOQUEADO' ? 'btn-danger' : 'btn-outline-danger'}"
+                th:title="${n.estado == 'BLOQUEADO' ? 'Desbloquear' : 'Bloquear (mantenimiento)'}"
+                th:attr="data-id=${n.idOpcion}, data-nombre=${n.descripcion}, data-bloquear=${n.estado != 'BLOQUEADO'}"
+                onclick="bloquearOpcion(this.dataset.id, this.dataset.nombre, this.dataset.bloquear === 'true')">
+            <i th:class="${n.estado == 'BLOQUEADO' ? 'ti ti-lock-open' : 'ti ti-lock'}"></i></button>
+        <button type="button" class="btn btn-sm btn-outline-danger" th:disabled="${n.protegido}" title="Eliminar (va a la papelera)"
+                th:attr="data-id=${n.idOpcion}, data-nombre=${n.descripcion}, data-usuarios=${n.usuariosAsignados}"
+                onclick="eliminarOpcion(this.dataset.id, this.dataset.nombre, Number(this.dataset.usuarios || 0))">
+            <i class="ti ti-trash"></i></button>
+    </span>
+</th:block>
+
+<script>
+    (function () {
+        'use strict';
+
+        // Contenedores cuyo orden cambió y todavía no se guardó: idPadre ('' = raíz) → elemento.
+        const pendientes = new Map();
+        const sortables = [];
+
+        window.menuGestionHayPendientes = () => pendientes.size > 0;
+
+        function marcarPendiente(lista) {
+            if (!lista) return;
+            pendientes.set(lista.dataset.padre || '', lista);
+            document.getElementById('mn-pendiente').classList.remove('d-none');
+        }
+
+        /** Arrastrar y soltar (SortableJS). Cada nivel solo acepta su tipo de hijo. */
+        window.menuGestionActivarArrastre = function () {
+            if (!window.Sortable) return;
+            sortables.forEach(s => { try { s.destroy(); } catch (e) {} });
+            sortables.length = 0;
+            document.querySelectorAll('#menu-arbol .mn-lista').forEach(lista => {
+                sortables.push(Sortable.create(lista, {
+                    group: { name: 'mn-' + lista.dataset.tipoHijo, pull: true, put: true },
+                    handle: '.mn-asa',
+                    draggable: '.mn-nodo',
+                    animation: 150,
+                    ghostClass: 'mn-fantasma',
+                    fallbackOnBody: true,
+                    swapThreshold: 0.6,
+                    onEnd: function (ev) {
+                        if (ev.from === ev.to && ev.oldIndex === ev.newIndex) return;
+                        ev.item.classList.add('mn-movido');
+                        marcarPendiente(ev.from);
+                        marcarPendiente(ev.to);
+                        if (ev.to.closest('.mn-colapsado')) ev.to.closest('.mn-colapsado').classList.remove('mn-colapsado');
+                    }
+                }));
+            });
+        };
+        window.menuGestionActivarArrastre();
+
+        /** Flechas: mueven en pantalla igual que arrastrar (se guarda con el mismo botón). */
+        window.mnMover = function (btn, delta) {
+            const nodo = btn.closest('.mn-nodo');
+            const lista = nodo.parentElement;
+            const hermanos = Array.from(lista.children).filter(c => c.classList.contains('mn-nodo'));
+            const i = hermanos.indexOf(nodo);
+            const j = i + delta;
+            if (j < 0 || j >= hermanos.length) return;
+            if (delta < 0) lista.insertBefore(nodo, hermanos[j]); else lista.insertBefore(nodo, hermanos[j].nextSibling);
+            nodo.classList.add('mn-movido');
+            marcarPendiente(lista);
+        };
+
+        window.mnGuardarOrden = function () {
+            if (!pendientes.size) return;
+            sciafConfirmar({
+                titulo: '¿Guardar el nuevo orden del menú?',
+                texto: 'El menú de todos los usuarios conectados se actualiza al instante.',
+                aceptar: 'Sí, guardar'
+            }).then(async function (si) {
+                if (!si) return;
+                try {
+                    for (const [padre, lista] of pendientes) {
+                        const ids = Array.from(lista.children)
+                            .filter(c => c.classList.contains('mn-nodo'))
+                            .map(c => Number(c.dataset.id));
+                        const r = await fetch('/administracion/menu/reordenar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            body: JSON.stringify({ idPadre: padre === '' ? null : Number(padre), ids })
+                        });
+                        const j = await r.json().catch(() => ({}));
+                        if (!r.ok || !j.ok) throw new Error(j.msg || ('Error ' + r.status));
+                    }
+                    pendientes.clear();
+                    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Orden guardado',
+                        showConfirmButton: false, timer: 3000 });
+                } catch (e) {
+                    Swal.fire('No se pudo guardar el orden', e.message, 'warning');
+                } finally {
+                    pendientes.clear();
+                    cargarTabla(true);
+                }
+            });
+        };
+
+        window.mnDescartar = function () {
+            pendientes.clear();
+            cargarTabla(true);
+        };
+
+        window.mnColapsar = function (caret) {
+            caret.closest('.mn-nodo').classList.toggle('mn-colapsado');
+        };
+
+        window.mnColapsarTodo = function (colapsar) {
+            document.querySelectorAll('#menu-arbol .mn-grupo').forEach(n => n.classList.toggle('mn-colapsado', colapsar));
+            document.querySelectorAll('#menu-arbol .mn-seccion').forEach(n => n.classList.remove('mn-colapsado'));
+        };
+
+        /** Filtro: muestra las coincidencias y sus contenedores. */
+        const buscar = document.getElementById('mn-buscar');
+        buscar.addEventListener('input', function () {
+            const q = (window.SciafCatalogos ? SciafCatalogos.normalizarTexto(this.value) : this.value.toLowerCase()).trim();
+            const nodos = document.querySelectorAll('#menu-arbol .mn-nodo');
+            if (!q) { nodos.forEach(n => n.classList.remove('mn-oculta-busqueda')); return; }
+            const norm = t => window.SciafCatalogos ? SciafCatalogos.normalizarTexto(t) : (t || '').toLowerCase();
+            nodos.forEach(n => n.classList.add('mn-oculta-busqueda'));
+            nodos.forEach(n => {
+                if (norm(n.dataset.buscar).includes(q)) {
+                    for (let p = n; p && p.classList; p = p.parentElement) {
+                        if (p.classList.contains('mn-nodo')) { p.classList.remove('mn-oculta-busqueda', 'mn-colapsado'); }
+                        if (p.id === 'menu-arbol') break;
+                    }
+                    // Una sección o grupo que coincide muestra todo su contenido.
+                    n.querySelectorAll('.mn-nodo').forEach(h => h.classList.remove('mn-oculta-busqueda'));
+                }
+            });
+        });
+    })();
+</script>

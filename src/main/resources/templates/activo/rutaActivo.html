@@ -1,0 +1,397 @@
+<!-- activo/rutaActivo.html — Seguimiento de Activo: por dónde pasó un bien -->
+<h4 class="py-3 mb-3"><span class="text-muted fw-light">Historial /</span> Seguimiento de Activo</h4>
+
+<style>
+    #ruta-activo {
+        --ra-borde: #e2e8f0; --ra-suave: #f8fafc; --ra-texto: #1e293b; --ra-gris: #64748b;
+        --ra-azul: #1a56a0; --ra-verde: #15803d; --ra-rojo: #dc2626; --ra-ambar: #b45309;
+    }
+    html[data-theme="dark"] #ruta-activo {
+        --ra-borde: #334155; --ra-suave: rgba(255,255,255,.03); --ra-texto: #e2e8f0; --ra-gris: #94a3b8;
+        --ra-azul: #7ab3f0; --ra-verde: #4ade80; --ra-rojo: #f87171; --ra-ambar: #fbbf24;
+    }
+    #ruta-activo .ra-buscador input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1.15rem; letter-spacing: .04em; }
+    #ruta-activo .ra-codigo { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 800; font-size: 1.45rem; color: var(--ra-azul); }
+    #ruta-activo .ra-dato { font-size: .78rem; color: var(--ra-gris); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+    #ruta-activo .ra-valor { font-size: .98rem; color: var(--ra-texto); font-weight: 600; }
+    #ruta-activo .ra-kpi { border: 1px solid var(--ra-borde); border-radius: 10px; padding: .7rem .9rem; text-align: center; background: var(--ra-suave); height: 100%; }
+    #ruta-activo .ra-kpi b { display: block; font-size: 1.5rem; line-height: 1.1; color: var(--ra-texto); }
+    #ruta-activo .ra-kpi small { color: var(--ra-gris); font-size: .75rem; }
+
+    /* Recorrido: tarjetas de oficina unidas por flechas */
+    #ruta-activo .ra-camino { display: flex; align-items: stretch; gap: .35rem; overflow-x: auto; padding: .25rem .1rem .75rem; }
+    #ruta-activo .ra-paso {
+        flex: 0 0 auto; min-width: 190px; max-width: 240px; border: 1px solid var(--ra-borde); border-radius: 10px;
+        padding: .6rem .75rem; background: var(--bs-body-bg, #fff); position: relative;
+    }
+    #ruta-activo .ra-paso.actual { border: 2px solid var(--ra-verde); box-shadow: 0 0 0 3px rgba(21,128,61,.12); }
+    #ruta-activo .ra-paso.custodia { border-color: var(--ra-rojo); background: rgba(220,38,38,.05); }
+    #ruta-activo .ra-paso.vsiaf { border-style: dashed; }
+    #ruta-activo .ra-paso .n { position: absolute; top: -9px; left: 10px; background: var(--ra-azul); color: #fff; border-radius: 10px; font-size: .68rem; padding: 0 .45rem; font-weight: 700; }
+    #ruta-activo .ra-paso.actual .n { background: var(--ra-verde); }
+    #ruta-activo .ra-paso.custodia .n { background: var(--ra-rojo); }
+    #ruta-activo .ra-paso .of { font-weight: 700; color: var(--ra-texto); font-size: .9rem; line-height: 1.2; }
+    #ruta-activo .ra-paso .pr { font-size: .74rem; color: var(--ra-gris); }
+    #ruta-activo .ra-paso .fe { font-size: .74rem; color: var(--ra-gris); margin-top: .3rem; }
+    #ruta-activo .ra-flecha { flex: 0 0 auto; align-self: center; color: var(--ra-gris); font-size: 1.3rem; }
+
+    /* Línea de tiempo */
+    #ruta-activo .ra-tl { position: relative; padding-left: 1.6rem; }
+    #ruta-activo .ra-tl::before { content: ''; position: absolute; left: .55rem; top: .3rem; bottom: .3rem; width: 2px; background: var(--ra-borde); }
+    #ruta-activo .ra-ev { position: relative; margin-bottom: .9rem; }
+    #ruta-activo .ra-ev .pt {
+        position: absolute; left: -1.6rem; top: .15rem; width: 1.15rem; height: 1.15rem; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; font-size: .7rem; color: #fff;
+    }
+    #ruta-activo .ra-ev .caja { border: 1px solid var(--ra-borde); border-radius: 9px; padding: .55rem .75rem; background: var(--bs-body-bg, #fff); }
+    #ruta-activo .ra-ev.faltante .caja { border-color: #fca5a5; background: rgba(220,38,38,.05); box-shadow: inset 4px 0 0 var(--ra-rojo); }
+    #ruta-activo .ra-ev .tit { font-weight: 700; color: var(--ra-texto); }
+    #ruta-activo .ra-ev .fecha { font-size: .78rem; color: var(--ra-gris); white-space: nowrap; }
+    #ruta-activo .ra-ev .mov { font-size: .85rem; margin-top: .25rem; display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+    #ruta-activo .ra-ev .mov .lado { background: var(--ra-suave); border: 1px solid var(--ra-borde); border-radius: 6px; padding: .1rem .45rem; }
+    #ruta-activo .ra-ev .meta { font-size: .76rem; color: var(--ra-gris); margin-top: .25rem; }
+    #ruta-activo .ra-filtro { cursor: pointer; user-select: none; }
+    #ruta-activo .ra-filtro.off { opacity: .4; text-decoration: line-through; }
+    #ruta-activo .ra-estancias td { vertical-align: top; font-size: .86rem; }
+
+    @media print {
+        #layout-menu, .layout-navbar, .content-footer, #ruta-activo .ra-buscador, #ruta-activo .no-imprimir,
+        .sciaf-tabs, #sciaf-tabs { display: none !important; }
+        .layout-page { padding: 0 !important; }
+        #ruta-activo .ra-camino { flex-wrap: wrap; overflow: visible; }
+        #ruta-activo .card { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; }
+    }
+</style>
+
+<div id="ruta-activo" th:attr="data-codigo-inicial=${codigoInicial}">
+
+    <div class="card border-0 shadow-sm mb-3 ra-buscador">
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-7 col-lg-5">
+                    <label class="form-label fw-semibold" for="ra-codigo">Código del activo</label>
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text"><i class="ti ti-barcode"></i></span>
+                        <input type="text" id="ra-codigo" class="form-control" placeholder="Ej. 01-04-05-00048"
+                               list="ra-sugerencias" autocomplete="off" spellcheck="false">
+                        <button type="button" class="btn btn-primary" id="ra-buscar"><i class="ti ti-route me-1"></i> Ver ruta</button>
+                    </div>
+                    <datalist id="ra-sugerencias"></datalist>
+                </div>
+                <div class="col-12 col-md-5 col-lg-7 small text-muted">
+                    <i class="ti ti-info-circle"></i> Enter para buscar. El código queda escrito: para ver otro, cambie solo los dígitos.
+                    También encuentra el activo por un código anterior si fue corregido.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ra-resultado">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="ti ti-route d-block mb-2" style="font-size: 2.6rem;"></i>
+                Escriba un código para ver todas las oficinas y responsables por los que pasó el activo.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    const raiz = document.getElementById('ruta-activo');
+    const $in = document.getElementById('ra-codigo');
+    const res = document.getElementById('ra-resultado');
+    let datos = null;
+    const tiposOcultos = new Set();
+
+    const TIPOS = {
+        TRANSFERENCIA_INT: 'Transferencias', TRANSFERENCIA_EXT: 'Transferencias', FALTANTE_ENVIO: 'Faltantes',
+        FALTANTE: 'Faltantes', FALTANTE_RESUELTO: 'Faltantes', ASIGNACION: 'Actas', MOVIMIENTO_ACTA: 'Actas',
+        LEVANTAMIENTO: 'Levantamientos', BLOQUEO: 'Bloqueos', DESBLOQUEO: 'Bloqueos',
+        ADQUISICION: 'Alta', REGISTRO: 'Alta'
+    };
+    const categoria = t => TIPOS[t] || 'Correcciones';
+
+    function esc(t) {
+        const d = document.createElement('div');
+        d.textContent = t == null ? '' : String(t);
+        return d.innerHTML;
+    }
+    function fecha(iso, soloDia) {
+        if (!iso) return 'fecha desconocida';
+        const d = new Date(iso);
+        if (isNaN(d)) return iso;
+        return soloDia ? d.toLocaleDateString('es-BO')
+                       : d.toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' });
+    }
+    function duracion(dias) {
+        if (dias == null) return '—';
+        if (dias < 1) return 'menos de un día';
+        if (dias < 60) return dias + ' día' + (dias === 1 ? '' : 's');
+        const anios = Math.floor(dias / 365), meses = Math.floor((dias % 365) / 30);
+        const partes = [];
+        if (anios) partes.push(anios + ' año' + (anios === 1 ? '' : 's'));
+        if (meses) partes.push(meses + ' mes' + (meses === 1 ? '' : 'es'));
+        return partes.join(' ') || dias + ' días';
+    }
+    function textoOficina(o) {
+        if (!o) return '—';
+        return (o.codigo != null ? o.codigo + ' — ' : '') + (o.nombre || '');
+    }
+    function textoResp(r) {
+        if (!r) return '—';
+        return (r.codigo ? r.codigo + ' — ' : '') + (r.nombre || '');
+    }
+
+    // ── Búsqueda ─────────────────────────────────────────────────────────
+    function buscar() {
+        const codigo = $in.value.trim();
+        if (!codigo) { $in.focus(); return; }
+        res.innerHTML = `<div class="card border-0 shadow-sm"><div class="card-body text-center py-5">
+            <div class="spinner-border text-primary"></div><div class="mt-2 text-muted">Reconstruyendo la ruta de ${esc(codigo)}…</div></div></div>`;
+        fetch('/administracion/ruta-activo/datos?codigo=' + encodeURIComponent(codigo),
+              { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => {
+                if (r.status === 401) throw new Error('Su sesión expiró.');
+                if (r.status === 403) throw new Error('No tiene permiso para el seguimiento de activos.');
+                return r.json();
+            })
+            .then(d => {
+                if (!d.ok) {
+                    res.innerHTML = `<div class="alert alert-warning d-flex gap-2 align-items-center">
+                        <i class="ti ti-search-off fs-4"></i><div>${esc(d.msg)}</div></div>`;
+                    return;
+                }
+                datos = d;
+                pintar();
+            })
+            .catch(e => {
+                res.innerHTML = `<div class="alert alert-danger">${esc(e.message || 'No se pudo consultar.')}</div>`;
+            })
+            .finally(() => { $in.focus(); $in.select(); });
+    }
+
+    document.getElementById('ra-buscar').addEventListener('click', buscar);
+    $in.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); buscar(); } });
+
+    let tSug = null;
+    $in.addEventListener('input', function () {
+        clearTimeout(tSug);
+        const q = this.value.trim();
+        if (q.length < 4) return;
+        tSug = setTimeout(() => {
+            fetch('/administracion/ruta-activo/sugerencias?q=' + encodeURIComponent(q),
+                  { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.ok ? r.json() : [])
+                .then(lista => {
+                    document.getElementById('ra-sugerencias').innerHTML = lista
+                        .map(s => `<option value="${esc(s.codigo)}">${esc((s.descripcion || '').substring(0, 70))}</option>`).join('');
+                }).catch(() => {});
+        }, 250);
+    });
+
+    // ── Pintado ──────────────────────────────────────────────────────────
+    function pintar() {
+        const a = datos.activo, r = datos.resumen;
+        const ofHoy = a.oficina, respHoy = a.responsable;
+
+        let html = '';
+        if (datos.codigoCambiado) {
+            html += `<div class="alert alert-warning py-2"><i class="ti ti-barcode"></i>
+                Buscó <strong>${esc(datos.codigoBuscado)}</strong>, que es un código anterior. Hoy el activo es
+                <strong>${esc(a.codigo)}</strong>.</div>`;
+        }
+
+        // Ficha
+        html += `<div class="card border-0 shadow-sm mb-3"><div class="card-body">
+          <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+            <div>
+              <div class="ra-codigo">${esc(a.codigo)}</div>
+              <div class="ra-valor fw-normal">${esc(a.descripcion || '')}</div>
+            </div>
+            <div class="d-flex flex-wrap gap-1 align-items-start no-imprimir">
+              ${a.enCustodia ? '<span class="badge bg-danger"><i class="ti ti-alert-triangle"></i> En oficina de faltantes</span>' : ''}
+              ${a.bloqueado ? '<span class="badge bg-dark"><i class="ti ti-lock"></i> Bloqueado</span>' : ''}
+              ${a.estado ? `<span class="badge bg-label-primary">${esc(a.estado)}</span>` : ''}
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="ti ti-printer"></i> Imprimir</button>
+            </div>
+          </div>
+          <div class="row g-3">
+            <div class="col-12 col-lg-5">
+              <div class="p-3 rounded-3 h-100" style="background: rgba(21,128,61,.07); border: 1px solid rgba(21,128,61,.25);">
+                <div class="ra-dato"><i class="ti ti-map-pin"></i> Dónde está hoy</div>
+                <div class="ra-valor">${esc(textoOficina(ofHoy))}</div>
+                <div class="small text-muted">${esc(ofHoy && ofHoy.predioNombre ? ofHoy.predio + ' — ' + ofHoy.predioNombre : (ofHoy && ofHoy.predio) || '')}</div>
+                <div class="ra-dato mt-2"><i class="ti ti-user"></i> Responsable</div>
+                <div class="ra-valor">${esc(textoResp(respHoy))}</div>
+                <div class="small text-muted">${esc([respHoy && respHoy.cargo, respHoy && respHoy.ci ? 'C.I. ' + respHoy.ci : ''].filter(Boolean).join(' · '))}</div>
+              </div>
+            </div>
+            <div class="col-12 col-lg-7">
+              <div class="row g-2">
+                ${dato('Grupo contable', a.grupoContable)}${dato('Auxiliar', a.auxiliar)}
+                ${dato('Fecha de adquisición', a.fechaAdquisicion ? fecha(a.fechaAdquisicion, true) : null)}
+                ${dato('Costo', a.costo != null ? 'Bs ' + Number(a.costo).toLocaleString('es-BO', { minimumFractionDigits: 2 }) : null)}
+                ${dato('Última modificación en el VSIAF', a.fecModVsiaf ? fecha(a.fecModVsiaf, true) : null)}
+                ${dato('Sincronización VSIAF', a.sincVsiaf)}
+                ${a.observ ? `<div class="col-12"><div class="ra-dato">Observación</div><div class="small">${esc(a.observ)}</div></div>` : ''}
+              </div>
+            </div>
+          </div>
+        </div></div>`;
+
+        // KPIs
+        html += `<div class="row g-2 mb-3">
+          ${kpi(r.oficinas, 'Oficinas', 'ti-building')}${kpi(r.predios, 'Predios', 'ti-map-2')}
+          ${kpi(r.responsables, 'Responsables', 'ti-users')}${kpi(r.transferencias, 'Transferencias', 'ti-arrows-exchange')}
+          ${kpi(r.asignaciones, 'Actas', 'ti-clipboard-check')}${kpi(r.faltantes, 'Faltantes', 'ti-alert-triangle', r.faltantes ? 'text-danger' : '')}
+          ${kpi(r.levantamientos, 'Levantamientos', 'ti-scan')}
+        </div>`;
+
+        // Recorrido
+        html += `<div class="card border-0 shadow-sm mb-3"><div class="card-body">
+          <h6 class="mb-3"><i class="ti ti-route"></i> Recorrido por oficinas <small class="text-muted fw-normal">(de la más antigua a la actual)</small></h6>
+          <div class="ra-camino">${camino()}</div>
+          ${datos.estancias.some(e => e.cambioVsiaf) ? `<div class="small text-muted"><i class="ti ti-info-circle"></i>
+            La última oficina no salió de un movimiento del SCIAF: el cambio se hizo directamente en el VSIAF (fecha aproximada).</div>` : ''}
+        </div></div>`;
+
+        // Línea de tiempo + estancias
+        html += `<div class="row g-3">
+          <div class="col-12 col-xl-7">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <h6 class="mb-0"><i class="ti ti-timeline"></i> Historia completa <small class="text-muted fw-normal">(más reciente primero)</small></h6>
+                <div class="d-flex flex-wrap gap-1 no-imprimir" id="ra-filtros">${filtros()}</div>
+              </div>
+              <div class="ra-tl" id="ra-tl"></div>
+            </div></div>
+          </div>
+          <div class="col-12 col-xl-5">
+            <div class="card border-0 shadow-sm h-100"><div class="card-body">
+              <h6 class="mb-3"><i class="ti ti-building"></i> Tiempo en cada oficina</h6>
+              <div class="table-responsive"><table class="table table-sm ra-estancias mb-0">
+                <thead><tr><th>#</th><th>Oficina</th><th>Desde / hasta</th><th class="text-end">Tiempo</th></tr></thead>
+                <tbody>${tablaEstancias()}</tbody></table></div>
+            </div></div>
+          </div>
+        </div>`;
+
+        res.innerHTML = html;
+        pintarLinea();
+        document.getElementById('ra-filtros').addEventListener('click', e => {
+            const b = e.target.closest('[data-cat]');
+            if (!b) return;
+            const c = b.dataset.cat;
+            if (tiposOcultos.has(c)) tiposOcultos.delete(c); else tiposOcultos.add(c);
+            b.classList.toggle('off', tiposOcultos.has(c));
+            pintarLinea();
+        });
+    }
+
+    function dato(etiqueta, valor) {
+        if (valor == null || valor === '') return '';
+        return `<div class="col-6 col-md-4"><div class="ra-dato">${esc(etiqueta)}</div><div class="small fw-semibold">${esc(valor)}</div></div>`;
+    }
+    function kpi(n, txt, ico, extra) {
+        return `<div class="col-6 col-md-3 col-xl"><div class="ra-kpi"><b class="${extra || ''}">${n ?? 0}</b>
+            <small><i class="ti ${ico}"></i> ${esc(txt)}</small></div></div>`;
+    }
+
+    function camino() {
+        const est = datos.estancias;
+        if (!est.length) return '<span class="text-muted">Sin datos de ubicación.</span>';
+        return est.map((e, i) => {
+            const o = e.oficina || {};
+            const clases = ['ra-paso', e.actual ? 'actual' : '', o.custodia ? 'custodia' : '', e.cambioVsiaf ? 'vsiaf' : ''].join(' ');
+            const desde = e.desde ? fecha(e.desde, true) + (e.desdeAproximado ? ' (aprox.)' : '') : '¿?';
+            const hasta = e.actual ? 'hoy' : (e.hasta ? fecha(e.hasta, true) : '¿?');
+            const resp = (e.responsables || []).map(r => r.nombre).filter(Boolean);
+            return (i ? '<i class="ti ti-arrow-narrow-right ra-flecha"></i>' : '') + `
+              <div class="${clases}" title="${esc(resp.join(', '))}">
+                <span class="n">${i + 1}${e.actual ? ' · HOY' : ''}${o.custodia ? ' · FALTANTES' : ''}</span>
+                <div class="of">${esc(textoOficina(o))}</div>
+                <div class="pr">${esc(o.predio || '')}</div>
+                <div class="fe">${esc(desde)} → ${esc(hasta)}</div>
+                <div class="fe"><i class="ti ti-clock"></i> ${esc(duracion(e.dias))}${resp.length ? ' · ' + resp.length + ' resp.' : ''}</div>
+                ${e.cambioVsiaf ? '<div class="fe text-warning"><i class="ti ti-alert-circle"></i> cambio en el VSIAF</div>' : ''}
+              </div>`;
+        }).join('');
+    }
+
+    function tablaEstancias() {
+        return datos.estancias.slice().reverse().map((e, iRev) => {
+            const i = datos.estancias.length - iRev;
+            const o = e.oficina || {};
+            const resp = (e.responsables || []).map(r => esc(textoResp(r))).join('<br>');
+            const via = e.via ? `<div class="text-muted small">vía ${esc(e.via.titulo)}${e.via.documento ? ' · ' + esc(e.via.documento) : ''}</div>` : '';
+            return `<tr class="${e.actual ? 'table-success' : ''} ${o.custodia ? 'table-danger' : ''}">
+              <td class="text-muted">${i}</td>
+              <td><div class="fw-semibold">${esc(textoOficina(o))}</div>
+                  <div class="small text-muted">${esc(o.predio || '')}</div>
+                  ${resp ? `<div class="small mt-1">${resp}</div>` : ''}${via}
+                  ${e.verificaciones ? `<span class="badge bg-label-success mt-1"><i class="ti ti-scan"></i> visto en ${e.verificaciones} levantamiento(s)</span>` : ''}</td>
+              <td class="small text-nowrap">${e.desde ? esc(fecha(e.desde, true)) + (e.desdeAproximado ? ' <span class="text-muted">(aprox.)</span>' : '') : '¿?'}<br>
+                  ${e.actual ? '<span class="badge bg-success">hasta hoy</span>' : (e.hasta ? esc(fecha(e.hasta, true)) : '¿?')}</td>
+              <td class="text-end small text-nowrap">${esc(duracion(e.dias))}</td></tr>`;
+        }).join('');
+    }
+
+    function filtros() {
+        const cats = [...new Set(datos.eventos.map(e => categoria(e.tipo)))];
+        return cats.map(c => {
+            const n = datos.eventos.filter(e => categoria(e.tipo) === c).length;
+            return `<span class="badge bg-label-primary ra-filtro ${tiposOcultos.has(c) ? 'off' : ''}" data-cat="${esc(c)}"
+                     title="Mostrar u ocultar">${esc(c)} ${n}</span>`;
+        }).join('');
+    }
+
+    function pintarLinea() {
+        const cont = document.getElementById('ra-tl');
+        const evs = datos.eventos.filter(e => !tiposOcultos.has(categoria(e.tipo)));
+        if (!evs.length) { cont.innerHTML = '<div class="text-muted small">No hay eventos para mostrar.</div>'; return; }
+        cont.innerHTML = evs.map(e => {
+            const colores = { danger: '#dc2626', warning: '#d97706', info: '#0891b2', primary: '#1a56a0',
+                              success: '#15803d', dark: '#334155', secondary: '#94a3b8' };
+            const bg = colores[e.color] || colores.secondary;
+            const desde = e.ofOrigen || e.respOrigen;
+            const hacia = e.ofDestino || e.respDestino;
+            let mov = '';
+            if (desde || hacia) {
+                const lado = (o, r) => `<span class="lado">${o ? '<i class="ti ti-building"></i> ' + esc(textoOficina(o)) : ''}${o && o.predio ? ' <small class="text-muted">(' + esc(o.predio) + ')</small>' : ''}${r ? (o ? '<br>' : '') + '<i class="ti ti-user"></i> ' + esc(textoResp(r)) : ''}</span>`;
+                mov = `<div class="mov">${desde ? lado(e.ofOrigen, e.respOrigen) : ''}
+                        ${desde && hacia ? '<i class="ti ti-arrow-right text-muted"></i>' : ''}
+                        ${hacia ? lado(e.ofDestino, e.respDestino) : ''}</div>`;
+            }
+            const meta = [
+                e.documento ? '<i class="ti ti-file-text"></i> ' + (e.enlace
+                    ? `<a href="${esc(e.enlace)}" target="_blank">${esc(e.documento)}</a>` : esc(e.documento)) : '',
+                e.documentoRef ? 'Ref.: ' + esc(e.documentoRef) : '',
+                e.estado ? '<span class="badge bg-label-secondary">' + esc(e.estado) + '</span>' : '',
+                e.usuario ? '<i class="ti ti-user-cog"></i> ' + esc(e.usuario) : ''
+            ].filter(Boolean).join(' · ');
+            const esFaltante = !!e.motivoFaltante;
+            return `<div class="ra-ev ${esFaltante ? 'faltante' : ''}">
+                <span class="pt" style="background:${bg}"><i class="${esc(e.icono || 'ti ti-point')}"></i></span>
+                <div class="caja">
+                  <div class="d-flex justify-content-between gap-2 flex-wrap">
+                    <span class="tit">${esc(e.titulo)}${esFaltante && e.tipo !== 'FALTANTE' ? ' <span class="badge bg-danger">FALTANTE</span>' : ''}</span>
+                    <span class="fecha"><i class="ti ti-calendar"></i> ${esc(fecha(e.fecha, e.soloDia))}</span>
+                  </div>
+                  ${mov}
+                  ${meta ? `<div class="meta">${meta}</div>` : ''}
+                  ${e.detalle ? `<div class="meta" style="white-space:pre-line">${esc(e.detalle)}</div>` : ''}
+                </div></div>`;
+        }).join('');
+    }
+
+    // Abierta desde otro módulo con ?codigo=
+    const inicial = raiz.dataset.codigoInicial;
+    if (inicial) { $in.value = inicial; buscar(); } else { $in.focus(); }
+
+    // Para abrirla con un código desde otras pantallas que ya la tengan cargada.
+    window.rutaActivoBuscar = function (codigo) { $in.value = codigo || ''; buscar(); };
+})();
+</script>

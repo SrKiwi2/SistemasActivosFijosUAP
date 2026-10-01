@@ -1601,6 +1601,7 @@ public class ActivosController {
                 m.put("ofOrigen",        etiquetaOficina(t.getOficinaOrigen()));
                 m.put("respDestino",     t.getResponsableDestino() != null ? t.getResponsableDestino().getPersona().getNombreCompleto() : null);
                 m.put("cantidadActivos", t.getDetalles().size());
+                m.put("motivo",          t.getMotivoFaltante());
                 m.put("usuario",         t.getRegistro() != null ? t.getRegistro().toString() : null);
                 return m;
             }).toList();
@@ -1637,6 +1638,7 @@ public class ActivosController {
                 m.put("documentoReferencia", t.getDocumentoReferencia());
                 m.put("observacion", t.getObservacion());
                 m.put("institucionDestino", t.getInstitucionDestino());
+                m.put("motivo", t.getMotivoFaltante());
 
                 List<Map<String, Object>> activos = t.getDetalles().stream().map(d -> {
                     Activo a = d.getActivo();

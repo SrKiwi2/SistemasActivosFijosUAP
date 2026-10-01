@@ -41,6 +41,47 @@ public interface IUsuarioDao extends JpaRepository <Usuario, Long>{
 
     Optional<Usuario> findByIdUsuario(Long idUsuario);
 
+    /** Usuario con persona y rol ya cargados: va a quedar guardado en la sesión HTTP. */
+    @Query("""
+        select u
+        from Usuario u
+        left join fetch u.persona p
+        left join fetch u.rol r
+        where u.idUsuario = :id
+    """)
+    Optional<Usuario> findByIdConPersonaYRol(@Param("id") Long id);
+
+    /** Todos menos los eliminados, con persona y rol (pantalla de gestión de usuarios). */
+    @Query("""
+        select u
+        from Usuario u
+        left join fetch u.persona p
+        left join fetch u.rol r
+        where u.estado is null or u.estado <> 'ELIMINADO'
+        order by p.paterno, p.nombre
+    """)
+    List<Usuario> listarParaGestion();
+
+    /** ¿Ya existe ese nombre de usuario, en cualquier estado, en otro registro? */
+    @Query("select count(u) > 0 from Usuario u where lower(u.usuario) = lower(:usuario) and (:idExcluir is null or u.idUsuario <> :idExcluir)")
+    boolean existeNombre(@Param("usuario") String usuario, @Param("idExcluir") Long idExcluir);
+
+    /** Inactivos con ese nombre (el login dice "desactivado" si la contraseña coincide con uno). */
+    @Query("select u from Usuario u where lower(u.usuario) = lower(:usuario) and u.estado = 'INACTIVO'")
+    List<Usuario> inactivosPorNombre(@Param("usuario") String usuario);
+
+    /** ¿La persona ya tiene otro usuario vigente? (la relación usuario-persona es uno a uno). */
+    @Query("select count(u) > 0 from Usuario u where u.persona.idPersona = :idPersona and (u.estado is null or u.estado <> 'ELIMINADO') and (:idExcluir is null or u.idUsuario <> :idExcluir)")
+    boolean personaTieneUsuario(@Param("idPersona") Long idPersona, @Param("idExcluir") Long idExcluir);
+
+    /** [id_usuario, cantidad] de permisos de menú asignados a mano. */
+    @Query(value = "SELECT id_usuario, count(*) FROM usuario_opcion GROUP BY id_usuario", nativeQuery = true)
+    List<Object[]> contarPermisosPorUsuario();
+
+    /** Usuarios activos de un rol (para no dejar el sistema sin ADMINISTRADOR). */
+    @Query("select count(u) from Usuario u where upper(u.rol.nombre) = upper(:rol) and u.estado = 'ACTIVO'")
+    long contarActivosPorRol(@Param("rol") String rol);
+
     List<Usuario> findAllByIdUsuarioIn(Set<Long> idUsuario);
 
     // Buscar usuarios activos por nombre de rol

@@ -3,6 +3,31 @@
     <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
 </div>
 
+<style>
+    /* Mismo arreglo que en permisos: el <form> envuelve cuerpo y pie del modal scrollable. */
+    #formularioMenu { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    #formularioMenu > .modal-body { overflow-y: auto; min-height: 0; max-height: calc(100vh - 200px); }
+    #formularioMenu .mn-colores { display: flex; gap: .4rem; flex-wrap: wrap; }
+    #formularioMenu .mn-color input { display: none; }
+    #formularioMenu .mn-color span {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 34px; height: 34px; border-radius: 8px; cursor: pointer; border: 2px solid transparent;
+    }
+    #formularioMenu .mn-color input:checked + span { border-color: #1a56a0; box-shadow: 0 0 0 2px rgba(26,86,160,.25); }
+    #formularioMenu .mn-iconos {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: .3rem;
+        max-height: 190px; overflow-y: auto; border: 1px solid rgba(0,0,0,.08); border-radius: 8px; padding: .4rem;
+    }
+    #formularioMenu .mn-iconos button {
+        border: 1px solid transparent; background: transparent; border-radius: 6px; height: 40px; font-size: 1.25rem;
+    }
+    #formularioMenu .mn-iconos button:hover, #formularioMenu .mn-iconos button.sel { background: rgba(26,86,160,.1); border-color: rgba(26,86,160,.35); }
+    #formularioMenu .mn-preview {
+        border: 1px dashed rgba(26,86,160,.35); border-radius: 10px; padding: .75rem 1rem;
+        display: flex; align-items: center; gap: .75rem; background: rgba(26,86,160,.03);
+    }
+</style>
+
 <form id="formularioMenu" method="post" th:action="@{/administracion/menu/guardar}" novalidate>
 
     <input type="hidden" th:if="${edit}" name="idOpcion" th:value="${nodo.idOpcion}">
@@ -10,32 +35,46 @@
     <div class="modal-body">
         <div class="row g-3">
 
+            <!-- Vista previa: cómo va a quedar en el menú -->
+            <div class="col-12">
+                <div class="mn-preview">
+                    <small class="text-muted text-uppercase fw-bold" style="font-size:.68rem; letter-spacing:.06em;">Vista previa</small>
+                    <span id="mnPrevIcono" class="sm-si"><i></i></span>
+                    <span id="mnPrevTexto" class="fw-medium">—</span>
+                    <span id="mnPrevBadge" class="sm-badge sm-bd-warn d-none"></span>
+                </div>
+            </div>
+
             <div class="col-md-4">
                 <label class="form-label">Tipo</label>
-                <select id="menuTipo" name="tipo" class="form-select" onchange="ajustarMenuForm()" required>
+                <select id="menuTipo" name="tipo" class="form-select" onchange="ajustarMenuForm()" required
+                        th:disabled="${edit}">
                     <option value="SECCION" th:selected="${nodo.tipo == 'SECCION'}">Sección (encabezado)</option>
                     <option value="GRUPO"   th:selected="${nodo.tipo == 'GRUPO'}">Grupo (desplegable)</option>
-                    <option value="ITEM"    th:selected="${nodo.tipo == 'ITEM'}">Ítem (opción navegable)</option>
+                    <option value="ITEM"    th:selected="${nodo.tipo == 'ITEM' or nodo.tipo == null}">Ítem (pantalla o permiso)</option>
                 </select>
+                <!-- Un select deshabilitado no se envía: al editar el tipo va oculto. -->
+                <input type="hidden" name="tipo" th:if="${edit}" th:value="${nodo.tipo}">
             </div>
 
             <div class="col-md-8">
-                <label class="form-label">Descripción (texto visible)</label>
-                <input type="text" name="descripcion" class="form-control" th:value="${nodo.descripcion}"
-                       placeholder="Ej. Usuarios y Accesos" required>
+                <label class="form-label">Nombre visible</label>
+                <input type="text" name="descripcion" id="menuDescripcion" class="form-control" th:value="${nodo.descripcion}"
+                       maxlength="80" placeholder="Ej. Seguimiento de Activo" required>
             </div>
 
             <div class="col-md-6">
-                <label class="form-label">Código (único)</label>
-                <input type="text" name="codigo" class="form-control" th:value="${nodo.codigo}"
-                       placeholder="Ej. opcion_rol / grp_usuarios / sec_admin" required>
-                <small class="text-muted">Para ítems es la llave de permiso (opcion_xxx).</small>
+                <label class="form-label">Código (único, no se cambia después)</label>
+                <input type="text" name="codigo" id="menuCodigo" class="form-control" th:value="${nodo.codigo}"
+                       th:readonly="${edit}" pattern="[A-Za-z0-9_]+"
+                       placeholder="Ej. opcion_mi_modulo" required>
+                <small class="text-muted">Para ítems es la llave del permiso. Se sugiere solo a partir del nombre.</small>
             </div>
 
             <!-- Padre: SECCIÓN para un GRUPO -->
             <div class="col-md-6 campo-padre-seccion">
-                <label class="form-label">Sección padre</label>
-                <select name="idPadre" class="form-select">
+                <label class="form-label">Sección</label>
+                <select name="idPadre" class="form-select" required>
                     <option value="">— Seleccione —</option>
                     <option th:each="s : ${secciones}" th:value="${s.idOpcion}" th:text="${s.descripcion}"
                             th:selected="${idPadreActual != null and idPadreActual == s.idOpcion}"></option>
@@ -44,8 +83,8 @@
 
             <!-- Padre: GRUPO para un ÍTEM -->
             <div class="col-md-6 campo-padre-item">
-                <label class="form-label">Grupo padre</label>
-                <select name="idPadre" class="form-select">
+                <label class="form-label">Grupo</label>
+                <select name="idPadre" class="form-select" required>
                     <option value="">— Seleccione —</option>
                     <option th:each="g : ${grupos}" th:value="${g.idOpcion}"
                             th:text="${(g.seccion != null ? g.seccion + ' › ' : '') + g.descripcion}"
@@ -54,46 +93,55 @@
             </div>
 
             <!-- Visual: GRUPO e ÍTEM -->
-            <div class="col-md-6 campo-visual">
-                <label class="form-label">Ícono (Tabler)</label>
-                <input type="text" name="icono" class="form-control" th:value="${nodo.icono}"
-                       placeholder="Ej. ti ti-users-group">
-                <small class="text-muted">Clase completa, ver tabler-icons.io.</small>
-            </div>
-            <div class="col-md-6 campo-visual">
+            <div class="col-12 campo-visual">
                 <label class="form-label">Color</label>
-                <select name="colorClase" class="form-select">
-                    <option value="">— Predeterminado —</option>
-                    <option value="blue"   th:selected="${nodo.colorClase == 'blue'}">Azul</option>
-                    <option value="green"  th:selected="${nodo.colorClase == 'green'}">Verde</option>
-                    <option value="teal"   th:selected="${nodo.colorClase == 'teal'}">Teal</option>
-                    <option value="orange" th:selected="${nodo.colorClase == 'orange'}">Naranja</option>
-                    <option value="purple" th:selected="${nodo.colorClase == 'purple'}">Morado</option>
-                    <option value="amber"  th:selected="${nodo.colorClase == 'amber'}">Ámbar</option>
-                    <option value="cyan"   th:selected="${nodo.colorClase == 'cyan'}">Cian</option>
-                    <option value="red"    th:selected="${nodo.colorClase == 'red'}">Rojo</option>
-                </select>
+                <div class="mn-colores">
+                    <label class="mn-color" th:each="c : ${ {'blue','green','teal','cyan','purple','orange','amber','red'} }"
+                           th:title="${c}">
+                        <input type="radio" name="colorClase" th:value="${c}" th:checked="${nodo.colorClase == c}">
+                        <span class="sm-si" th:classappend="${'si-' + c}"><i class="ti ti-circle-filled"></i></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="col-12 campo-visual">
+                <label class="form-label">Ícono</label>
+                <div class="input-group mb-2">
+                    <span class="input-group-text"><i id="mnIconoActual" th:class="${nodo.icono ?: 'ti ti-point'}"></i></span>
+                    <input type="text" name="icono" id="menuIcono" class="form-control" th:value="${nodo.icono}"
+                           placeholder="Ej. ti ti-route">
+                    <input type="text" id="mnIconoBuscar" class="form-control" placeholder="Buscar ícono: route, user, file...">
+                </div>
+                <div class="mn-iconos" id="mnIconos"></div>
+                <small class="text-muted">Íconos Tabler instalados en el sistema. Escriba en inglés para buscar (map, user, truck, lock...).</small>
             </div>
 
             <!-- Solo ÍTEM -->
-            <div class="col-md-6 campo-item">
-                <label class="form-label">URL (navegación)</label>
-                <input type="text" name="url" class="form-control" th:value="${nodo.url}"
-                       placeholder="Ej. /administracion/rol/vista">
+            <div class="col-md-8 campo-item">
+                <label class="form-label">URL de la pantalla</label>
+                <input type="text" name="url" id="menuUrl" class="form-control" th:value="${nodo.url}" list="mnRutas"
+                       placeholder="Ej. /administracion/ruta-activo/vista" autocomplete="off">
+                <datalist id="mnRutas"></datalist>
+                <small class="text-muted">Déjela vacía si es un <strong>permiso especial</strong> (habilita una acción, no es una pantalla).</small>
+                <div class="small text-danger mt-1 d-none" id="mnUrlAviso"><i class="ti ti-link-off"></i> No existe ninguna pantalla con esa URL.</div>
             </div>
-            <div class="col-md-6 campo-item">
-                <label class="form-label">rutaBase (bloqueo de acceso)</label>
-                <input type="text" name="rutaBase" class="form-control" th:value="${nodo.rutaBase}"
-                       placeholder="Ej. /administracion/rol">
-            </div>
-            <div class="col-md-6 campo-item">
+            <div class="col-md-4 campo-item">
                 <label class="form-label">Insignia (opcional)</label>
-                <input type="text" name="badge" class="form-control" th:value="${nodo.badge}"
-                       placeholder="Ej. PEND.">
+                <input type="text" name="badge" id="menuBadge" class="form-control" th:value="${nodo.badge}" maxlength="8"
+                       placeholder="Ej. NUEVO">
+            </div>
+            <div class="col-12 campo-item">
+                <a class="small text-decoration-none" data-bs-toggle="collapse" href="#mnAvanzado">
+                    <i class="ti ti-settings"></i> Avanzado: ruta base de permisos</a>
+                <div class="collapse mt-2" id="mnAvanzado">
+                    <input type="text" name="rutaBase" class="form-control" th:value="${nodo.rutaBase}"
+                           placeholder="Se deduce de la URL (sin el /vista final)">
+                    <small class="text-muted">Toda petición que empiece con esta ruta exige tener este permiso.</small>
+                </div>
             </div>
 
-            <div class="col-12">
-                <div class="form-check">
+            <div class="col-12 campo-visible">
+                <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" name="visible" value="true" id="menuVisible"
                            th:checked="${nodo.visible == null or nodo.visible}">
                     <label class="form-check-label" for="menuVisible">Visible en el menú</label>
@@ -105,31 +153,131 @@
 
     <div class="modal-footer">
         <a type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</a>
-        <button type="submit" class="btn btn-success"><i class="fa-solid fa-floppy-disk me-1"></i> Guardar</button>
+        <button type="submit" class="btn btn-success"><i class="ti ti-device-floppy me-1"></i> Guardar</button>
     </div>
 </form>
 
 <script>
-    function ajustarMenuForm() {
-        const tipo = document.getElementById('menuTipo').value;
+    (function () {
+        const form = document.getElementById('formularioMenu');
+        const $ = s => form.querySelector(s);
+        const esNuevo = !form.querySelector('input[name="idOpcion"]');
 
-        const padreSeccion = document.querySelector('#formularioMenu .campo-padre-seccion');
-        const padreItem = document.querySelector('#formularioMenu .campo-padre-item');
-        const visuales = document.querySelectorAll('#formularioMenu .campo-visual');
-        const soloItem = document.querySelectorAll('#formularioMenu .campo-item');
-
-        const mostrar = (el, on) => {
-            el.style.display = on ? '' : 'none';
-            // Los inputs deshabilitados no se envían (clave para idPadre duplicado).
-            el.querySelectorAll('select, input').forEach(c => c.disabled = !on);
+        window.ajustarMenuForm = function () {
+            const tipo = $('#menuTipo').value;
+            const mostrar = (el, on) => {
+                el.style.display = on ? '' : 'none';
+                // Los campos ocultos se deshabilitan: así no se envían (hay dos idPadre) ni
+                // bloquean la validación con su "required".
+                el.querySelectorAll('select, input').forEach(c => c.disabled = !on);
+            };
+            mostrar($('.campo-padre-seccion'), tipo === 'GRUPO');
+            mostrar($('.campo-padre-item'), tipo === 'ITEM');
+            form.querySelectorAll('.campo-visual').forEach(el => mostrar(el, tipo !== 'SECCION'));
+            form.querySelectorAll('.campo-item').forEach(el => mostrar(el, tipo === 'ITEM'));
+            if (tipo === 'ITEM') $('#mnIconoBuscar').disabled = false;
+            ajustarVisible();
+            preview();
         };
 
-        mostrar(padreSeccion, tipo === 'GRUPO');
-        mostrar(padreItem, tipo === 'ITEM');
-        visuales.forEach(el => mostrar(el, tipo === 'GRUPO' || tipo === 'ITEM'));
-        soloItem.forEach(el => mostrar(el, tipo === 'ITEM'));
-    }
+        // Un permiso especial (ítem sin URL) nunca se ve en el menú.
+        function ajustarVisible() {
+            const tipo = $('#menuTipo').value;
+            const sinUrl = tipo === 'ITEM' && !$('#menuUrl').value.trim();
+            const chk = $('#menuVisible');
+            chk.disabled = sinUrl;
+            if (sinUrl) chk.checked = false;
+        }
 
-    ajustarMenuForm();
-    manejarEnvioFormulario('#formularioMenu');
+        function preview() {
+            const tipo = $('#menuTipo').value;
+            const color = (form.querySelector('input[name="colorClase"]:checked') || {}).value || 'blue';
+            const icono = $('#menuIcono').value.trim() || 'ti ti-point';
+            const prev = document.getElementById('mnPrevIcono');
+            prev.className = tipo === 'GRUPO' ? 'sm-gi gi-' + color : 'sm-si si-' + color;
+            prev.style.display = tipo === 'SECCION' ? 'none' : '';
+            prev.querySelector('i').className = icono;
+            document.getElementById('mnIconoActual').className = icono;
+            const txt = $('#menuDescripcion').value.trim() || '—';
+            document.getElementById('mnPrevTexto').textContent = tipo === 'SECCION' ? txt.toUpperCase() : txt;
+            const badge = tipo === 'ITEM' ? ($('#menuBadge').value || '').trim() : '';
+            const b = document.getElementById('mnPrevBadge');
+            b.textContent = badge; b.classList.toggle('d-none', !badge);
+        }
+
+        // Código sugerido a partir del nombre (solo al crear y mientras no lo toquen a mano).
+        let codigoTocado = !esNuevo;
+        $('#menuCodigo').addEventListener('input', () => { codigoTocado = true; });
+        $('#menuDescripcion').addEventListener('input', function () {
+            preview();
+            if (codigoTocado) return;
+            const tipo = $('#menuTipo').value;
+            const pref = tipo === 'SECCION' ? 'sec_' : tipo === 'GRUPO' ? 'grp_' : 'opcion_';
+            const base = this.value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+                .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').substring(0, 40);
+            $('#menuCodigo').value = base ? pref + base : '';
+        });
+        ['#menuIcono', '#menuBadge'].forEach(s => $(s).addEventListener('input', preview));
+        form.querySelectorAll('input[name="colorClase"]').forEach(r => r.addEventListener('change', preview));
+
+        // ── Íconos: se leen de la hoja de estilos de Tabler ya cargada ──────────
+        let todosLosIconos = null;
+        function iconosDisponibles() {
+            if (todosLosIconos) return todosLosIconos;
+            const set = new Set();
+            for (const hoja of Array.from(document.styleSheets)) {
+                let reglas;
+                try { reglas = hoja.cssRules; } catch (e) { continue; }
+                if (!reglas) continue;
+                for (const r of Array.from(reglas)) {
+                    const m = r.selectorText && r.selectorText.match(/^\.ti-([a-z0-9-]+)::?before$/);
+                    if (m) set.add(m[1]);
+                }
+            }
+            todosLosIconos = Array.from(set).sort();
+            return todosLosIconos;
+        }
+        function pintarIconos(q) {
+            const cont = document.getElementById('mnIconos');
+            const lista = iconosDisponibles();
+            const filtro = (q || '').trim().toLowerCase();
+            const sugeridos = ['route', 'map-pin', 'building', 'users', 'user-check', 'file-text', 'clipboard-list',
+                'arrows-exchange', 'packages', 'box', 'search', 'chart-bar', 'report', 'settings', 'lock', 'history',
+                'calendar', 'truck', 'qrcode', 'alert-triangle', 'bell', 'home', 'id-badge-2', 'list-check'];
+            const elegidos = filtro ? lista.filter(n => n.includes(filtro)).slice(0, 120)
+                                    : sugeridos.filter(n => lista.includes(n));
+            const actual = $('#menuIcono').value.trim();
+            cont.innerHTML = elegidos.length
+                ? elegidos.map(n => `<button type="button" title="${n}" data-ic="ti ti-${n}"
+                        class="${actual === 'ti ti-' + n ? 'sel' : ''}"><i class="ti ti-${n}"></i></button>`).join('')
+                : '<div class="text-muted small p-2">Sin coincidencias.</div>';
+        }
+        document.getElementById('mnIconos').addEventListener('click', function (e) {
+            const b = e.target.closest('button[data-ic]');
+            if (!b) return;
+            $('#menuIcono').value = b.dataset.ic;
+            this.querySelectorAll('button').forEach(x => x.classList.toggle('sel', x === b));
+            preview();
+        });
+        $('#mnIconoBuscar').addEventListener('input', function () { pintarIconos(this.value); });
+
+        // ── Rutas existentes (autocompletado y aviso de URL inexistente) ────────
+        let rutas = null;
+        fetch('/administracion/menu/rutas', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.ok ? r.json() : [])
+            .then(lista => {
+                rutas = new Set(lista);
+                document.getElementById('mnRutas').innerHTML = lista.map(u => `<option value="${u}"></option>`).join('');
+                revisarUrl();
+            }).catch(() => {});
+        function revisarUrl() {
+            const u = $('#menuUrl').value.trim();
+            document.getElementById('mnUrlAviso').classList.toggle('d-none', !rutas || !u || rutas.has(u));
+        }
+        $('#menuUrl').addEventListener('input', () => { revisarUrl(); ajustarVisible(); });
+
+        ajustarMenuForm();
+        pintarIconos('');
+        manejarEnvioFormulario('#formularioMenu');
+    })();
 </script>

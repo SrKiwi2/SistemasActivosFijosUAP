@@ -87,4 +87,26 @@ public class Transferencia extends AuditoriaConfig {
         d.setTransferencia(this);
         this.detalles.add(d);
     }
+
+    /** El bien entra a la oficina de faltantes del predio (acta de faltantes). */
+    public static final String MOTIVO_FALTANTE = "FALTANTE";
+    /** El bien sale de la oficina de faltantes porque apareció. */
+    public static final String MOTIVO_DEVOLUCION_FALTANTE = "DEVOLUCION_FALTANTE";
+
+    /**
+     * Transferencia que no es un movimiento normal, sino parte del ciclo de faltantes.
+     *
+     * <p>Se deduce de la oficina de faltantes ({@code es_custodia}) en vez de guardarse en
+     * una columna: así también quedan marcadas las que ya se hicieron, y las del VSIAF
+     * hechas a mano hacia esas oficinas. Devuelve null si es una transferencia común.
+     */
+    public String getMotivoFaltante() {
+        if (oficinaDestino != null && oficinaDestino.isEsCustodia()) {
+            return MOTIVO_FALTANTE;
+        }
+        if (oficinaOrigen != null && oficinaOrigen.isEsCustodia()) {
+            return MOTIVO_DEVOLUCION_FALTANTE;
+        }
+        return null;
+    }
 }
