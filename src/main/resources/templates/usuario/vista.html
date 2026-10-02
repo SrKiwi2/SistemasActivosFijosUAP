@@ -229,10 +229,45 @@
 
     function cerrarSesionesUsuario(id, usuario) {
         usrAccion('/administracion/usuario/cerrar-sesiones/' + encodeURIComponent(id), {}, {
-            titulo: '¿Cerrar las sesiones de «' + usuario + '»?',
-            texto: 'Lo que tenga abierto vuelve a la pantalla de inicio de sesión. Puede volver a ingresar.',
-            aceptar: 'Sí, cerrar sesiones', peligrosa: true
-        });
+            titulo: '¿Cerrar todas las sesiones de «' + usuario + '»?',
+            texto: 'En todos sus equipos (también donde mantiene la sesión iniciada) tendrá que volver a ingresar con su contraseña.',
+            aceptar: 'Sí, cerrar todas', peligrosa: true
+        }, r => verSesionesUsuario(id, usuario, r));
+    }
+
+    /** Sesiones abiertas de un usuario, equipo por equipo. {@code aviso}: resultado de la última acción. */
+    function verSesionesUsuario(id, usuario, aviso) {
+        $.getJSON('/administracion/usuario/sesiones/' + encodeURIComponent(id)).done(function (r) {
+            if (!r.ok) { Swal.fire('Sesiones abiertas', r.msg || 'No se pudo cargar.', 'warning'); return; }
+            Swal.fire({
+                title: 'Sesiones abiertas de «' + usrEscapar(usuario) + '»',
+                width: 680,
+                html: (aviso && aviso.msg
+                        ? '<div class="alert alert-' + (aviso.ok ? 'success' : 'warning') + ' small py-2 text-start">'
+                          + usrEscapar(aviso.msg) + '</div>' : '')
+                    + '<div id="suLista"></div>',
+                showConfirmButton: r.sesiones.length > 0,
+                confirmButtonText: '<i class="ti ti-logout me-1"></i> Cerrar todas',
+                showCancelButton: true,
+                cancelButtonText: 'Listo',
+                reverseButtons: true,
+                buttonsStyling: false,
+                customClass: { confirmButton: 'btn btn-outline-danger', cancelButton: 'btn btn-label-secondary me-2' },
+                didOpen: () => sciafSesiones.render(document.getElementById('suLista'), r.sesiones, function (s) {
+                    sciafConfirmar({
+                        titulo: '¿Cerrar su sesión en ' + s.dispositivo + '?',
+                        texto: 'En ese equipo tendrá que volver a ingresar con su contraseña.',
+                        aceptar: 'Sí, cerrarla', peligrosa: true
+                    }).then(function (si) {
+                        if (!si) { verSesionesUsuario(id, usuario); return; }
+                        $.post('/administracion/usuario/sesiones/' + encodeURIComponent(id) + '/cerrar/'
+                                + encodeURIComponent(s.id))
+                            .done(res => verSesionesUsuario(id, usuario, res))
+                            .fail(() => verSesionesUsuario(id, usuario, { ok: false, msg: 'No se pudo cerrar la sesión.' }));
+                    });
+                })
+            }).then(res => { if (res.isConfirmed) cerrarSesionesUsuario(id, usuario); });
+        }).fail(() => Swal.fire('Sesiones abiertas', 'No se pudo cargar la lista.', 'error'));
     }
 
     /** Restablecer: el sistema genera una contraseña o el administrador escribe una. */

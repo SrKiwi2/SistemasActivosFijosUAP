@@ -58,6 +58,11 @@
                                 </a>
                             </li>
                             <li>
+                                <a class="dropdown-item" href="javascript:void(0);" onclick="sciafMisSesiones()">
+                                    <i class="ti ti-devices me-2"></i> Mis sesiones abiertas
+                                </a>
+                            </li>
+                            <li>
                                 <a class="dropdown-item" href="#" data-bs-toggle="modal"
                                     data-bs-target="#modalConfirmLogout">
                                     <i class="ti ti-logout me-2"></i> Cerrar sesión
@@ -198,6 +203,17 @@
                                     <i class="ti ti-eye-off" id="iconToggle"></i>
                                 </span>
                             </div>
+                        </div>
+
+                        <!-- Mantener la sesión: queda abierta en este equipo hasta 5 días hábiles sin uso -->
+                        <div class="form-check mb-1">
+                            <input class="form-check-input" type="checkbox" name="recordar" value="true" id="recordarSesion" />
+                            <label class="form-check-label small" for="recordarSesion">
+                                Mantener la sesión iniciada en este equipo
+                            </label>
+                        </div>
+                        <div class="small text-muted mb-2 ps-4">
+                            <i class="ti ti-alert-triangle me-1"></i>No lo marque en computadoras compartidas.
                         </div>
 
                         <div class="d-grid mt-4">
@@ -1507,6 +1523,13 @@
         </div>
     </div>
     <div th:replace="~{layout/script_publico :: script_publico}"></div>
+    <!-- Con sesión (inicio del RESPONSABLE): mismo control de sesión que el resto del sistema -->
+    <th:block th:if="${session.usuario != null}">
+        <script src="/assets/js/sciaf-confirmar.js"></script>
+        <script src="/assets/js/sciaf-mi-cuenta.js"></script>
+        <script src="/assets/js/sciaf-sesion.js"></script>
+        <script src="/assets/js/sciaf-inactividad.js"></script>
+    </th:block>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" />
 

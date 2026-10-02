@@ -54,12 +54,14 @@ public class SesionPermisosService {
     private final IUsuarioDao usuarioDao;
     private final IOpcionMenuService opcionMenuService;
     private final SseEmitterRegistry sse;
+    private final SesionControlService sesionControl;
 
     public SesionPermisosService(IUsuarioDao usuarioDao, IOpcionMenuService opcionMenuService,
-            SseEmitterRegistry sse) {
+            SseEmitterRegistry sse, SesionControlService sesionControl) {
         this.usuarioDao = usuarioDao;
         this.opcionMenuService = opcionMenuService;
         this.sse = sse;
+        this.sesionControl = sesionControl;
     }
 
     // ── Avisos de cambio ───────────────────────────────────────────────────
@@ -113,12 +115,26 @@ public class SesionPermisosService {
      *        seguir abierta (cambiar la propia contraseña cierra las OTRAS sesiones).
      */
     public void forzarCierre(Long idUsuario, String mensaje, HttpSession sesionQueSigue) {
-        if (idUsuario == null) return;
+        forzarCierre(idUsuario, mensaje, sesionQueSigue, "CIERRE_FORZADO", null);
+    }
+
+    /**
+     * @param motivo  queda en sesion_usuario.motivo_cierre.
+     * @param actor   quién las cierra (null: el sistema o el administrador sin registrar).
+     * @return cuántas sesiones registradas se cerraron (sin contar las anteriores a este control).
+     */
+    public int forzarCierre(Long idUsuario, String mensaje, HttpSession sesionQueSigue, String motivo, Long actor) {
+        if (idUsuario == null) return 0;
         long ahora = System.currentTimeMillis();
         // La sesión que sigue se marca ya (es la de esta misma petición).
+        Long idQueSigue = null;
         if (sesionQueSigue != null) {
             sesionQueSigue.setAttribute(ATTR_RENOVADA, ahora + 1);
+            if (sesionQueSigue.getAttribute(SesionControlService.ATTR_ID) instanceof Long id) idQueSigue = id;
         }
+        // También en la base: si no, un equipo con "mantener la sesión iniciada" volvería a
+        // entrar solo con su cookie apenas se le corta la sesión.
+        int cerradas = sesionControl.cerrarTodas(idUsuario, idQueSigue, motivo, actor);
         alConfirmar(() -> {
             cierreForzado.put(idUsuario, ahora);
             versionPorUsuario.merge(idUsuario, 1L, Long::sum);
@@ -126,6 +142,7 @@ public class SesionPermisosService {
             // pregunta antes si su sesión sigue viva y solo sale si no (ver sciaf-menu-vivo.js).
             sse.enviarAUsuario(idUsuario, EVENTO_PERMISOS, payload(mensaje, true));
         });
+        return cerradas;
     }
 
     private Map<String, Object> payload(String mensaje, boolean cerrarSesion) {

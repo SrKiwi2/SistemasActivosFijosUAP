@@ -170,9 +170,10 @@
                                     <li><a class="dropdown-item" href="javascript:void(0)"
                                            th:onclick="verHistorialPermisos([[${f.idCifrado}]], [[${f.usuario}]])">
                                         <i class="ti ti-history me-2"></i>Historial de permisos</a></li>
-                                    <li th:if="${f.conectado and !f.esYo}"><a class="dropdown-item" href="javascript:void(0)"
-                                           th:onclick="cerrarSesionesUsuario([[${f.idCifrado}]], [[${f.usuario}]])">
-                                        <i class="ti ti-logout me-2"></i>Cerrar sus sesiones</a></li>
+                                    <!-- Siempre: con "mantener la sesión iniciada" puede tener sesiones aunque no esté conectado ahora -->
+                                    <li th:if="${!f.esYo}"><a class="dropdown-item" href="javascript:void(0)"
+                                           th:onclick="verSesionesUsuario([[${f.idCifrado}]], [[${f.usuario}]])">
+                                        <i class="ti ti-devices me-2"></i>Sesiones abiertas</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li th:if="${f.estado == 'ACTIVO' and !f.esYo}"><a class="dropdown-item text-warning" href="javascript:void(0)"
                                            th:onclick="cambiarEstadoUsuario([[${f.idCifrado}]], [[${f.usuario}]], false)">

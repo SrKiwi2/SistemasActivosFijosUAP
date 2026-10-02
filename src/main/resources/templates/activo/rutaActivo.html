@@ -296,16 +296,14 @@
         </div>`;
 
         // Dos pestañas: el recorrido por oficinas (lo principal) y la historia detallada.
-        html += `<div class="card border-0 shadow-sm mb-3">
-          <div class="card-header bg-transparent pb-0 no-imprimir">
-            <ul class="nav nav-tabs card-header-tabs" role="tablist">
+        html += `<div class="card border-0 shadow-sm mb-3"><div class="card-body">
+            <ul class="nav nav-tabs mb-3 no-imprimir" role="tablist">
               <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#ra-tab-recorrido" type="button">
                 <i class="ti ti-route me-1"></i> Por qué oficinas pasó <span class="badge bg-label-primary ms-1">${datos.estancias.length}</span></button></li>
               <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ra-tab-historia" type="button">
                 <i class="ti ti-timeline me-1"></i> Historia completa <span class="badge bg-label-primary ms-1">${datos.eventos.length}</span></button></li>
             </ul>
-          </div>
-          <div class="card-body tab-content">
+          <div class="tab-content p-0">
             <div class="tab-pane fade show active" id="ra-tab-recorrido">
               <p class="small text-muted mb-3">De la primera oficina (arriba) a la actual (abajo). En cada una: cuánto tiempo estuvo,
                 quiénes fueron sus responsables y cómo llegó ahí.</p>
@@ -321,7 +319,7 @@
               <div class="ra-tl" id="ra-tl"></div>
             </div>
           </div>
-        </div>`;
+        </div></div>`;
 
         res.innerHTML = html;
         pintarLinea();

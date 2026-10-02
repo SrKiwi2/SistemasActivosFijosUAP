@@ -44,6 +44,10 @@
     }
 
     function sesionCerrada(mensaje) {
+        if (window.sciafInactividad && window.sciafInactividad.porInactividad()) {
+            window.sciafInactividad.mostrarCerrada('inactividad');
+            return;
+        }
         const ir = () => { window.location.href = '/'; };
         if (!window.Swal) { ir(); return; }
         Swal.fire({

@@ -22,7 +22,7 @@
 
     // Pedidos que manejan la sesión por su cuenta (el chequeo de fragment.js, el aviso de
     // presencia, el menú en vivo): no deben disparar este aviso.
-    const PROPIOS = ['/adm/cargar-datos', '/api/presencia', '/adm/menu/items', '/api/eventos'];
+    const PROPIOS = ['/adm/cargar-datos', '/api/presencia', '/adm/menu/items', '/api/eventos', '/api/sesion'];
     const RUTAS_INGRESO = ['/', '/login', '/form-login'];
 
     let mostrando = false;
@@ -49,6 +49,11 @@
     }
 
     function avisar(texto) {
+        // Cerrada por inactividad: ese aviso es otro (sciaf-inactividad.js) y tapa la pantalla.
+        if (window.sciafInactividad && window.sciafInactividad.porInactividad()) {
+            window.sciafInactividad.mostrarCerrada('inactividad');
+            return;
+        }
         if (mostrando || Date.now() - ultimo < 8000 || !window.Swal) return;
         mostrando = true;
         ultimo = Date.now();
@@ -99,7 +104,14 @@
             try {
                 const url = typeof recurso === 'string' ? recurso : (recurso && recurso.url) || '';
                 const ruta = new URL(url, window.location.origin).pathname;
-                if (!PROPIOS.some(p => ruta.startsWith(p)) && perdida(r)) avisar();
+                if (!PROPIOS.some(p => ruta.startsWith(p)) && perdida(r)) {
+                    const motivo = r.headers.get('X-Sciaf-Sesion');
+                    if (motivo && window.sciafInactividad) {
+                        window.sciafInactividad.mostrarCerrada(motivo);
+                    } else {
+                        avisar();
+                    }
+                }
             } catch (e) { /* nunca romper el pedido original */ }
             return r;
         };
@@ -113,7 +125,11 @@
             try {
                 const ruta = new URL(ajaxOpts.url, window.location.origin).pathname;
                 if (PROPIOS.some(p => ruta.startsWith(p))) return;
-                if (xhr.status === 401 || (xhr.responseURL && esIngreso(xhr.responseURL) && !esIngreso(ajaxOpts.url))) avisar();
+                if (xhr.status === 401 && xhr.getResponseHeader('X-Sciaf-Sesion') && window.sciafInactividad) {
+                    window.sciafInactividad.mostrarCerrada(xhr.getResponseHeader('X-Sciaf-Sesion'));
+                } else if (xhr.status === 401 || (xhr.responseURL && esIngreso(xhr.responseURL) && !esIngreso(ajaxOpts.url))) {
+                    avisar();
+                }
             } catch (e) { /* nada */ }
         });
     }

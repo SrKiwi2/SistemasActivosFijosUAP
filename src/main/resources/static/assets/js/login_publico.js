@@ -1,4 +1,36 @@
+// Portada restaurada con "Atrás" desde la caché del navegador: se pide de nuevo, así el
+// servidor decide (con sesión abierta lleva a la pantalla de inicio, sin sesión la muestra).
+window.addEventListener('pageshow', function (e) {
+    if (e.persisted) window.location.reload();
+});
+
 $(document).ready(function () {
+
+    // 0. Por qué se llegó acá (lo pone el servidor al cerrar la sesión)
+    (function avisoSesion() {
+        const params = new URLSearchParams(window.location.search);
+        const motivo = params.get('sesion');
+        if (!motivo) return;
+        // Se limpia la URL: recargar o compartirla no debe repetir el aviso.
+        params.delete('sesion');
+        const resto = params.toString();
+        history.replaceState(null, '', window.location.pathname + (resto ? '?' + resto : '') + window.location.hash);
+
+        if (motivo === 'inactividad') {
+            $('<div id="loginInfo" class="alert alert-warning small text-start py-2 px-3 mb-4" style="border-radius: 8px;">' +
+              '<i class="ti ti-clock-exclamation me-2"></i>Su sesión se cerró por inactividad. Vuelva a ingresar para continuar.' +
+              '</div>').insertBefore('#loginAlert');
+            $('#modalLogin').modal('show');
+        } else if (motivo === 'revocada') {
+            $('<div id="loginInfo" class="alert alert-warning small text-start py-2 px-3 mb-4" style="border-radius: 8px;">' +
+              '<i class="ti ti-lock me-2"></i>Su sesión en este equipo se cerró (desde otro equipo o por el administrador). Vuelva a ingresar.' +
+              '</div>').insertBefore('#loginAlert');
+            $('#modalLogin').modal('show');
+        } else if (motivo === 'cerrada' && window.Swal) {
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', timer: 3000,
+                showConfirmButton: false, title: 'Sesión cerrada correctamente' });
+        }
+    })();
 
     // 1. Mostrar/Ocultar Contraseña (Versión única y limpia)
     $("#togglePassword").on("click", function () {
@@ -68,7 +100,9 @@ $(document).ready(function () {
                             Swal.showLoading();
                         }
                     }).then(() => {
-                        window.location.href = destino;
+                        // replace: la portada no queda en el historial, así "Atrás" desde el
+                        // sistema no vuelve a ella con la sesión abierta.
+                        window.location.replace(destino);
                     });
                 } else {
                     // ERROR: Mostrar alerta DENTRO del modal, no con SweetAlert molesto
@@ -89,5 +123,6 @@ $(document).ready(function () {
     $('#modalLogin').on('hidden.bs.modal', function () {
         $("#formularioLogin").removeClass("was-validated")[0].reset();
         $("#loginAlert").hide();
+        $("#loginInfo").remove();
     });
 });

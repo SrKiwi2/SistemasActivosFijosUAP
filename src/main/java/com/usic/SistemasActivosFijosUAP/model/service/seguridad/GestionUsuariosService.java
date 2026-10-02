@@ -32,6 +32,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.HistorialPermisoUsuario;
 import com.usic.SistemasActivosFijosUAP.model.entity.OpcionMenu;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Rol;
+import com.usic.SistemasActivosFijosUAP.model.entity.SesionUsuario;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ReglaNegocioException;
 import com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService;
@@ -76,12 +77,14 @@ public class GestionUsuariosService {
     private final LogAccesoService logAcceso;
     private final SseEmitterRegistry sse;
     private final AuditoriaPermisosService auditoria;
+    private final SesionControlService sesionControl;
 
     public GestionUsuariosService(IUsuarioDao usuarioDao, IPersonaService personaService, IRolService rolService,
             IOpcionMenuService opcionMenuService, PasswordEncoder passwordEncoder,
             SesionPermisosService sesionPermisos, ActividadService actividad, LogAccesoService logAcceso,
-            SseEmitterRegistry sse, AuditoriaPermisosService auditoria) {
+            SseEmitterRegistry sse, AuditoriaPermisosService auditoria, SesionControlService sesionControl) {
         this.auditoria = auditoria;
+        this.sesionControl = sesionControl;
         this.usuarioDao = usuarioDao;
         this.personaService = personaService;
         this.rolService = rolService;
@@ -264,6 +267,10 @@ public class GestionUsuariosService {
                 "Restableció la contraseña de «" + u.getUsuario() + "»" + (cerrarSesiones ? " y cerró sus sesiones" : ""));
         if (cerrarSesiones && !esYo(actor, u)) {
             sesionPermisos.forzarCierre(u.getIdUsuario(), "El administrador cambió su contraseña. Ingrese con la nueva.", null);
+        } else if (!esYo(actor, u)) {
+            // Aunque no se cierren las sesiones abiertas, los equipos con la sesión mantenida
+            // no pueden seguir entrando con la contraseña vieja.
+            sesionControl.cerrarRecordadas(u.getIdUsuario(), null, "CAMBIO_CONTRASENA", actor.getIdUsuario());
         }
         return clave;
     }
@@ -287,6 +294,11 @@ public class GestionUsuariosService {
         if (cerrarOtras) {
             sesionPermisos.forzarCierre(u.getIdUsuario(),
                     "Su contraseña se cambió desde otra sesión. Ingrese con la nueva.", sesion);
+        } else {
+            // Las otras sesiones abiertas siguen, pero los equipos con la sesión mantenida
+            // no pueden seguir entrando con la contraseña vieja.
+            Long idActual = sesion != null && sesion.getAttribute(SesionControlService.ATTR_ID) instanceof Long id ? id : null;
+            sesionControl.cerrarRecordadas(u.getIdUsuario(), idActual, "CAMBIO_CONTRASENA", u.getIdUsuario());
         }
     }
 
@@ -352,6 +364,28 @@ public class GestionUsuariosService {
         if (esYo(actor, u)) throw new ReglaNegocioException("Para cerrar su propia sesión use «Cerrar sesión».");
         sesionPermisos.forzarCierre(u.getIdUsuario(), "El administrador cerró su sesión.", null);
         registrarActividad(actor, ActividadService.ACC_BLOQUEO, u, "Cerró las sesiones abiertas de «" + u.getUsuario() + "»");
+    }
+
+    /** Sesiones abiertas de un usuario, equipo por equipo (Usuarios → Sesiones abiertas). */
+    public List<Map<String, Object>> sesionesDe(Usuario actor, Long idUsuario) {
+        Usuario u = obtener(idUsuario);
+        exigirPuedeTocar(actor, u); // las de un ADMINISTRADOR solo las ve otro ADMINISTRADOR
+        return sesionControl.abiertas(u.getIdUsuario(), null);
+    }
+
+    /** Cierra la sesión de UN equipo de otro usuario. */
+    public void cerrarSesionDe(Usuario actor, Long idUsuario, Long idSesion) {
+        Usuario u = obtener(idUsuario);
+        exigirPuedeTocar(actor, u);
+        if (esYo(actor, u)) throw new ReglaNegocioException("Sus propias sesiones se manejan en «Mis sesiones abiertas».");
+        SesionUsuario s = sesionControl.obtener(idSesion);
+        if (s == null || !u.getIdUsuario().equals(s.getUsuario().getIdUsuario())
+                || !SesionUsuario.ACTIVA.equals(s.getEstado())) {
+            throw new ReglaNegocioException("Esa sesión ya no está abierta.");
+        }
+        sesionControl.cerrarADistancia(idSesion, "CERRADA_POR_ADMIN", actor.getIdUsuario());
+        registrarActividad(actor, ActividadService.ACC_BLOQUEO, u, "Cerró la sesión de «" + u.getUsuario()
+                + "» en " + s.getDispositivo() + (s.getIp() != null ? " (IP " + s.getIp() + ")" : ""));
     }
 
     @Transactional

@@ -11,11 +11,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.usic.SistemasActivosFijosUAP.config.RolesSciaf;
 import com.usic.SistemasActivosFijosUAP.model.IService.IHojaRutaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IMovimientoService;
 import com.usic.SistemasActivosFijosUAP.model.entity.HojaRuta;
 import com.usic.SistemasActivosFijosUAP.model.entity.Movimiento;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -25,8 +28,20 @@ public class PublicoController {
     private final IHojaRutaService hojaRutaService;
     private final IMovimientoService movimientoService;
 
+    /**
+     * Portada pública con el inicio de sesión. Quien ya tiene sesión va a su pantalla de
+     * inicio: antes, al volver con "Atrás" hasta acá, se veía la portada con el usuario
+     * arriba pero sin el sistema, y no quedaba claro si estaba adentro o afuera.
+     */
     @GetMapping(value = "/")
-    public String inicioPublico() {
+    public String inicioPublico(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        // Con usuario Y persona: es lo mismo que exige @ValidarUsuarioAutenticado en la pantalla
+        // de destino. Con uno solo, el destino devolvería acá y quedaría en un bucle.
+        if (session != null && session.getAttribute("usuario") != null
+                && session.getAttribute("persona") != null) {
+            return "redirect:" + RolesSciaf.rutaInicio((String) session.getAttribute("nombre_rol"));
+        }
         return "publico/inicio_publico";
     }
 

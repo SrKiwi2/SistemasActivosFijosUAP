@@ -32,7 +32,7 @@ function cargarFormularioAlert(urlFormulario, idContenedorModal, idFormulario) {
                     confirmButtonText: 'Ir al login'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        window.location.href = '/form-login'; // Redirige a la página de login
+                        window.location.href = '/'; // Redirige a la página de login
                     }
                 });
             }
@@ -74,7 +74,7 @@ function cargarFormularioEditAlert(id, urlFormulario, idContenedorModal, idFormu
                     confirmButtonText: 'Ir al login'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        window.location.href = '/form-login'; // Redirige a la página de login
+                        window.location.href = '/'; // Redirige a la página de login
                     }
                 });
             }
@@ -134,7 +134,7 @@ function eliminarRegistroAlert(nombre, id, urlEliminar, cargarTablaFuncion) {
                     confirmButtonText: 'Ir al login'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        window.location.href = '/form-login';  // Redirige a la página de login
+                        window.location.href = '/';  // Redirige a la página de login
                     }
                 });
             }
@@ -254,7 +254,7 @@ function manejarEnvioFormulario(selectorFormulario) {
                             confirmButtonText: 'Ir al login'
                         }).then((result) => {
                             if (result.isConfirmed) {
-                                window.location.href = '/form-login';
+                                window.location.href = '/';
                             }
                         });
                     }

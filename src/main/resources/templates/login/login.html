@@ -188,7 +188,7 @@
                                     timerInterval = setInterval(() => {
                                         timer.textContent = `${Swal.getTimerLeft()}`;
                                     }, 100);
-                                    window.location.href = '/adm/inicio';
+                                    window.location.replace('/adm/inicio');
                                 },
                                 willClose: () => {
                                     clearInterval(timerInterval);

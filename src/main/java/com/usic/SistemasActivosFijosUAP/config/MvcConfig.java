@@ -10,15 +10,47 @@ public class MvcConfig implements WebMvcConfigurer{
 
     private final PermisoOpcionInterceptor permisoOpcionInterceptor;
     private final SesionPermisosInterceptor sesionPermisosInterceptor;
+    private final SesionInactividadInterceptor sesionInactividadInterceptor;
+    private final SesionControlInterceptor sesionControlInterceptor;
 
     public MvcConfig(PermisoOpcionInterceptor permisoOpcionInterceptor,
-            SesionPermisosInterceptor sesionPermisosInterceptor) {
+            SesionPermisosInterceptor sesionPermisosInterceptor,
+            SesionInactividadInterceptor sesionInactividadInterceptor,
+            SesionControlInterceptor sesionControlInterceptor) {
         this.permisoOpcionInterceptor = permisoOpcionInterceptor;
         this.sesionPermisosInterceptor = sesionPermisosInterceptor;
+        this.sesionInactividadInterceptor = sesionInactividadInterceptor;
+        this.sesionControlInterceptor = sesionControlInterceptor;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry interceptorRegistry) {
+        // Lo primero: cortar sesiones cerradas desde otro equipo y rearmar las recordadas
+        // ("mantener la sesión iniciada") antes de que nadie mire si hay usuario.
+        interceptorRegistry.addInterceptor(sesionControlInterceptor)
+            .excludePathPatterns(
+                "/api/eventos/**",
+                "/api/movil/**",
+                "/assets/**",
+                "/css/**",
+                "/js/**",
+                "/iniciar-sesion/**",
+                "/cerrar_sesion"
+            );
+
+        // Después: una sesión vencida por inactividad no atiende nada más.
+        // El login y el cierre de sesión quedan fuera: manejan la sesión por su cuenta.
+        interceptorRegistry.addInterceptor(sesionInactividadInterceptor)
+            .excludePathPatterns(
+                "/api/eventos/**",
+                "/api/movil/**",
+                "/assets/**",
+                "/css/**",
+                "/js/**",
+                "/iniciar-sesion/**",
+                "/cerrar_sesion"
+            );
+
         // Primero: poner la sesión al día con los permisos vigentes (cambios del
         // administrador sin cerrar sesión). Los otros dos ya ven los permisos nuevos.
         interceptorRegistry.addInterceptor(sesionPermisosInterceptor)

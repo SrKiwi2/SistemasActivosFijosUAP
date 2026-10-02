@@ -195,6 +195,25 @@ public class UsuarioController {
     }
 
     @ValidarUsuarioAutenticado
+    @GetMapping("/sesiones/{id_usuario}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> sesiones(HttpServletRequest request,
+            @PathVariable("id_usuario") String idUsuario) {
+        return ejecutar(request, () -> Map.of("sesiones", gestion.sesionesDe(RolesSciaf.usuarioDe(request), descifrar(idUsuario))));
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/sesiones/{id_usuario}/cerrar/{id_sesion}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> cerrarUnaSesion(HttpServletRequest request,
+            @PathVariable("id_usuario") String idUsuario, @PathVariable("id_sesion") Long idSesion) {
+        return ejecutar(request, () -> {
+            gestion.cerrarSesionDe(RolesSciaf.usuarioDe(request), descifrar(idUsuario), idSesion);
+            return Map.of("msg", "Sesión cerrada en ese equipo");
+        });
+    }
+
+    @ValidarUsuarioAutenticado
     @GetMapping("/accesos/{id_usuario}")
     @ResponseBody
     public ResponseEntity<?> accesos(HttpServletRequest request, @PathVariable("id_usuario") String idUsuario) {

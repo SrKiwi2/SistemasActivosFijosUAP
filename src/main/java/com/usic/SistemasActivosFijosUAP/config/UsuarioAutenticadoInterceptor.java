@@ -37,8 +37,10 @@ public class UsuarioAutenticadoInterceptor implements HandlerInterceptor{
 
                 if (session == null || session.getAttribute("persona") == null) {
                     // Si la respuesta ya salió no hay nada que redirigir: solo se corta.
+                    // Directo al inicio de sesión ("/"). Antes iba a /form-login, que no
+                    // existe: llegaba igual a "/" solo porque Spring Security lo rebotaba.
                     if (!response.isCommitted()) {
-                        response.sendRedirect("/form-login");
+                        response.sendRedirect("/");
                     }
                     return false;
                 }

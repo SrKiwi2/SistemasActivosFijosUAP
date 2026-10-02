@@ -42,4 +42,17 @@ public final class RolesSciaf {
     public static boolean esAdministrativo(HttpServletRequest request) {
         return esAdministrativo(usuarioDe(request));
     }
+
+    /**
+     * Pantalla de inicio de cada rol (la misma a la que lleva el login, ver
+     * login_publico.js). Se usa para no mostrar la portada pública a quien ya ingresó.
+     */
+    public static String rutaInicio(String rol) {
+        String r = rol == null ? "" : rol.trim().toUpperCase();
+        return switch (r) {
+            case "RESPONSABLE" -> "/adm/responsable";
+            case "RECEPCION" -> "/administracion/hoja-ruta/vista";
+            default -> "/adm/inicio";
+        };
+    }
 }

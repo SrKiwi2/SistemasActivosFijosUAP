@@ -11,6 +11,7 @@ import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -44,7 +45,10 @@ public class SseController {
      */
     @GetMapping("/sse/usuario")
     public SseEmitter sseUsuario(HttpServletRequest request) {
-        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        // getSession(false): una reconexión sin sesión NO debe crear una. Si lo hacía, su
+        // cookie nueva podía pisar a la del login que se estaba haciendo en otra pestaña.
+        HttpSession session = request.getSession(false);
+        Usuario usuario = session != null ? (Usuario) session.getAttribute("usuario") : null;
         if (usuario == null) {
             // Si no hay sesión, devolver emitter que se cierra inmediatamente
             SseEmitter empty = new SseEmitter(0L);

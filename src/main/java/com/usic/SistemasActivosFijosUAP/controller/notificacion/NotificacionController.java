@@ -22,6 +22,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Notificacion;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -130,7 +131,9 @@ public class NotificacionController {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     private Usuario getUsuario(HttpServletRequest request) {
-        return (Usuario) request.getSession().getAttribute("usuario");
+        // getSession(false): consultar notificaciones sin sesión no debe crear una.
+        HttpSession session = request.getSession(false);
+        return session != null ? (Usuario) session.getAttribute("usuario") : null;
     }
 
     private static final DateTimeFormatter FMT =

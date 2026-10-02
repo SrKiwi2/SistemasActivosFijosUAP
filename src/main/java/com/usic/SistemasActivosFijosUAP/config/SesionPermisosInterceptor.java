@@ -3,6 +3,7 @@ package com.usic.SistemasActivosFijosUAP.config;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import com.usic.SistemasActivosFijosUAP.model.service.seguridad.SesionControlService;
 import com.usic.SistemasActivosFijosUAP.model.service.seguridad.SesionPermisosService;
 import com.usic.SistemasActivosFijosUAP.model.service.seguridad.SesionPermisosService.Revision;
 
@@ -46,6 +47,12 @@ public class SesionPermisosInterceptor implements HandlerInterceptor {
             return true;
         }
 
+        try {
+            session.setAttribute(SesionControlService.ATTR_MOTIVO,
+                    "CIERRE_FORZADO");
+        } catch (IllegalStateException yaInvalida) {
+            return true;
+        }
         session.invalidate();
         if (response.isCommitted()) {
             return false;
@@ -53,9 +60,10 @@ public class SesionPermisosInterceptor implements HandlerInterceptor {
         boolean ajax = "XMLHttpRequest".equals(request.getHeader("X-Requested-With"))
                 || (request.getHeader("Accept") != null && request.getHeader("Accept").contains("application/json"));
         if (ajax) {
+            response.setHeader(SesionInactividadInterceptor.HEADER_MOTIVO, "revocada");
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Sesión cerrada por el administrador");
         } else {
-            response.sendRedirect("/");
+            response.sendRedirect("/?sesion=revocada");
         }
         return false;
     }
