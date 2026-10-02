@@ -81,6 +81,15 @@ public class ActaFaltante extends AuditoriaConfig {
                 : numero;
     }
 
+    /**
+     * Tipos de notificación en la cadena de reiterativas.
+     */
+    public enum TipoNotificacion {
+        INICIAL,           // Primera notificación de faltantes
+        REITERATIVA_1,     // Primera reiterativa (2da notificación)
+        REITERATIVA_2,     // Segunda reiterativa / Última notificación (3ra notificación)
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_acta")
@@ -145,4 +154,19 @@ public class ActaFaltante extends AuditoriaConfig {
 
     @Column(name = "usuario_anulacion", length = 60)
     private String usuarioAnulacion;
+
+    // ── Reiterativas ───────────────────────────────────────────────────────────
+    
+    /** Tipo de notificación: INICIAL, REITERATIVA_1, REITERATIVA_2. */
+    @Column(name = "tipo_notificacion", length = 20)
+    private String tipoNotificacion;
+
+    /** Acta/notificación anterior en la cadena de reiterativas (null si es la inicial). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_acta_anterior", foreignKey = @ForeignKey(name = "fk_acta_falt_anterior"))
+    private ActaFaltante actaAnterior;
+
+    /** Número de reiterativa: 0=inicial, 1=primera reiterativa, 2=segunda/última. */
+    @Column(name = "numero_reiterativa")
+    private Integer numeroReiterativa;
 }

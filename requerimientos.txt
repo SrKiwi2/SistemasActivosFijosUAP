@@ -1,7 +1,22 @@
-Requerimientos:
-1. Verificar que se registren los responsables y oficinas de manera correcta en el vciaf, ya que en la tarde se registro un resp 8 de predio cusp oficina 95 en teoria se registro en el sciaf... pero no llegó a registrarse en el vsiaf... segun los logs con el worker si se hizo, luego hubo errores... por lo que se precisa analizar que ha ocurrido, esto se hizo desde el modulo responsable, en consideracion se debe de revisar el modulo de oficina igual para un registro adecuado y correcto utilizando las tecnologías y herramientas que usamos al momento de registrar activos o emitir transferencias... el worker. ya que los registro deben de llegar de maner aintegral y rapida en el vsiaf.
-2. Se necesita habilitar la fucionabilidad de bloquear los activos de un responsable, con el objetivo de no realizarse con esos activos de tal responsable : Transferencias y las asignaciones.... que cada usuario que tenga habilitados la vista de consulta de activos pueda bloquear los activos al momento de buscar especificamente un responsable, por ello el boton de bloquear y desbloquear debe de ir en la vista de consulta de activos,, se habilite cuando busquen especificamente un responsable... y tambien añadir un hsitoria donde infomre quien (usuario) y cuando ha bloqueado los activos de tal responsable.
-3. En el modulo de transferencia interna como externa, en el buscador de activos por codigo... que cuando de entender o al boton de buscar no se elimine en el campoel codigo que metí, tiene el objetivo de seguir buscando pero cambiando un digito o algunos, ejemplo: 01-04-05-00048 busco, luego 01-04-08-00049... como vez se ha cambiado un digito, a ves dos o mas... pero la idea es no estar colcoando todo de nuevo con cada busqueda... asi ganamos tiempo... y se busca rapido.
-4. Seguimos en el modulos de transferencia interna y externa... las opciones como informacion en la parte donde estan los campos... los select se vean mas grande, por ejemplo el contado de activos que se estan preparando para hacer transferencias, estas vistas hagamos un poco mas grande el texto como los cionos... pero sin romper los espacios, bordes o responsabilidad...
-5. Revisar el modulo de asignacion "Asignaciones de Activos/Asignar Activos" el cual tenga un buen funcionamiento y utilice las herramientas y configuracion con el workes para actualizar el responsable, ya que en ese modulo es transladar los activos que tiene un responsbale A, a otro responsbale B pero de la misma oficina, por lo que debe de cargarse los activos correspondiente, como los responsable de la oficna en la que se esta trabajando... 
-6. sigamos mejorando la vista de /src/main/resources/templates/consulta/activos.html en el cual la parte de DATOS DEL RESPONSABLE SELECCIONADO se precisa mejorar el muestreo de informacio... ya que tenemos que evitar los click... debe de mostrara la cantidad de activos que tiene (contador) mostrara por grupo contable, y estos sean clickeando y al dar click a cualquiera la tabla se actualiza asicronamente y muestre los activos de ese responsbale de ese grupo contable... obviamente se habilita un boton que muestra todos los activos de manera general del responsabel seleccionado..., tambien que el contenido ifnormativo sea mas grande, mas organizado y bien posicionado que no esten muy apagado al borde.
+Requierimientos en modulo de faltantes:
+- una cosa mas.. una vez generado eso.. que se pueda visualizar e imprimir cuantas veces sea necesario..
+- otra cosa mas.. las reiterativas.. si ya se registro un faltante y se generó la notificación, que haya otra opcion de Generar Reiterativa:
+en este caso sería Notificación Reiterativa de activos fisicos faltantes
+
+y que en la reiterativa mencione al documento al cual se esta reiterando kkk
+ejemplo:
+si la notificacion fue 001/2026
+
+y la reiterativa 020/2026
+
+entonces en la reiterativa debe mencional que antes se habia notificado y que la notificacion fue 001/2026
+
+solo son 3 notificaciones que se debe realizar
+
+y seria la inicial NOTIFICACION DE FALTANTES
+
+luego si no responden a los dias establecidos, llegaria la NOTIFICAION REITERATIVA
+
+y si no responden a esa la ULTIMA NOTIFICACION REITERATIVA
+
+y ahi muere

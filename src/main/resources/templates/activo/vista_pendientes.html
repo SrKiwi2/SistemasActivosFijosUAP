@@ -1808,7 +1808,7 @@
                     // que ya haya empezado a escribir si cambió de selección mientras tanto.
                     if (ids !== _pendingIds) return;
 
-                    if (data.nroDoc) $('#txtNroDoc').val(data.nroDoc);
+                    if (data.nroDoc && data.nroDoc !== 'S/N') $('#txtNroDoc').val(data.nroDoc);
                     if (data.hojaRuta) $('#txtHojaRuta').val(data.hojaRuta);
                     if (data.certificacion) $('#txtCertificacion').val(data.certificacion);
                     if (data.observacion) $('#txtObservacionActa').val(data.observacion);

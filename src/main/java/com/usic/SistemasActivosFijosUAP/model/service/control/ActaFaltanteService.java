@@ -306,6 +306,554 @@ public class ActaFaltanteService {
         });
     }
 
+    // ── Notificar plazo (re-emitir notificación con nuevo plazo) ────────────────
+
+    /**
+     * Actualiza la notificación de un faltante ya registrado con un nuevo plazo.
+     * Modifica el acta existente (mantiene el mismo número correlativo), regenera
+     * el PDF con el nuevo plazo y actualiza los datos del hallazgo.
+     * <b>No toca el VSIAF</b>: el bien ya está en custodia.
+     *
+     * @throws ReglaNegocioException si el faltante no existe, ya está resuelto, o el plazo es inválido
+     */
+    public Registro notificarPlazo(CustodiaDTOs.NotificarPlazoRequest req, Usuario autor) {
+        if (req == null || req.idHallazgo() == null || req.idActa() == null) {
+            throw new ReglaNegocioException("Faltan datos: idHallazgo e idActa son obligatorios.");
+        }
+        if (req.plazoDias() == null || req.plazoDias() < 1 || req.plazoDias() > PLAZO_MAXIMO) {
+            throw new ReglaNegocioException("Escriba el plazo para responder, en días hábiles (de 1 a " + PLAZO_MAXIMO + ").");
+        }
+        return enTransaccion(() -> {
+            HallazgoInventario h = hallazgoDao.findById(req.idHallazgo())
+                    .orElseThrow(() -> new ReglaNegocioException("El faltante no existe."));
+            if (ControlActivosService.RESUELTO.equals(h.getEstadoHallazgo())) {
+                throw new ReglaNegocioException("El faltante ya está resuelto; no se puede actualizar la notificación.");
+            }
+            if (ActaFaltanteService.ANULADO.equals(h.getEstadoHallazgo())) {
+                throw new ReglaNegocioException("El faltante se anuló junto con su acta.");
+            }
+            ActaFaltante acta = h.getActa();
+            if (acta == null || !Objects.equals(acta.getIdActa(), req.idActa())) {
+                throw new ReglaNegocioException("El faltante no pertenece al acta indicada.");
+            }
+            if (ActaFaltante.ANULADA.equals(acta.getEstadoActa())) {
+                throw new ReglaNegocioException("El acta está anulada; no se puede actualizar la notificación.");
+            }
+
+            Persona persona = h.getResponsable() != null ? h.getResponsable().getPersona() : null;
+            if (persona == null) {
+                throw new ReglaNegocioException("El responsable del faltante no tiene persona asociada.");
+            }
+            Activo a = h.getActivo();
+            if (a == null) {
+                throw new ReglaNegocioException("El bien asociado al faltante no existe.");
+            }
+
+            List<Activo> ordenados = List.of(a);
+            LocalDateTime ahora = LocalDateTime.now();
+            Map<String, Object> notificacion = datosNotificacion(req.plazoDias(), ahora, ordenados);
+
+            // Actualizar datos del acta existente (mantiene el mismo número)
+            acta.setDocumentoRespaldo(recortar(vacioANull(req.documentoRespaldo()), 120));
+            acta.setFechaDocumento(req.fechaDocumento());
+            acta.setObservacion(vacioANull(req.observacion()));
+            if (autor != null) acta.setModificacionIdUsuario(autor.getIdUsuario());
+
+            // Regenerar contenido con el nuevo plazo (el número NO cambia)
+            acta.setContenido(contenido(acta, persona, ordenados, ActaFaltante.TIPO_FALTANTES,
+                    Activo::getOficina, notificacion));
+            acta.setHashContenido(sha256(acta.getContenido()));
+            actaDao.save(acta);
+
+            // Actualizar hallazgo con nuevos datos de respaldo (NO cambia estado_envio ni acta)
+            h.setDocumentoRespaldo(acta.getDocumentoRespaldo());
+            h.setFechaDocumento(acta.getFechaDocumento());
+            hallazgoDao.save(h);
+
+            actividadService.registrar(autor, ActividadService.MOD_ACTIVO, ActividadService.ACC_MODIFICACION,
+                    acta.getNumero(), "Actualizó notificación " + acta.getNumero() + " con nuevo plazo de " + req.plazoDias()
+                            + " día(s) hábil(es) para el bien " + a.getCodigo(), 1, acta.getIdActa());
+
+            return new Registro(acta.getIdActa(), acta.getNumero(), 1,
+                    "Notificación " + acta.getNumero() + " actualizada con plazo de " + req.plazoDias()
+                            + " día(s) hábil(es). El bien ya está en custodia (no se envía al VSIAF).");
+        });
+    }
+
+    /**
+     * Vista previa de la notificación con nuevo plazo, sin registrar nada.
+     * Muestra cómo quedaría el acta existente con el nuevo plazo.
+     */
+    public ActaFaltanteDTO notificarPlazoVistaPrevia(CustodiaDTOs.NotificarPlazoRequest req, Usuario autor) {
+        if (req == null || req.idHallazgo() == null || req.idActa() == null) {
+            throw new ReglaNegocioException("Faltan datos: idHallazgo e idActa son obligatorios.");
+        }
+        if (req.plazoDias() == null || req.plazoDias() < 1 || req.plazoDias() > PLAZO_MAXIMO) {
+            throw new ReglaNegocioException("Escriba el plazo para responder, en días hábiles (de 1 a " + PLAZO_MAXIMO + ").");
+        }
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        tx.setReadOnly(true);
+        return tx.execute(estado -> {
+            estado.setRollbackOnly();
+            HallazgoInventario h = hallazgoDao.findById(req.idHallazgo())
+                    .orElseThrow(() -> new ReglaNegocioException("El faltante no existe."));
+            if (ControlActivosService.RESUELTO.equals(h.getEstadoHallazgo())) {
+                throw new ReglaNegocioException("El faltante ya está resuelto.");
+            }
+            if (ActaFaltanteService.ANULADO.equals(h.getEstadoHallazgo())) {
+                throw new ReglaNegocioException("El faltante se anuló junto con su acta.");
+            }
+            ActaFaltante acta = h.getActa();
+            if (acta == null || !Objects.equals(acta.getIdActa(), req.idActa())) {
+                throw new ReglaNegocioException("El faltante no pertenece al acta indicada.");
+            }
+            if (ActaFaltante.ANULADA.equals(acta.getEstadoActa())) {
+                throw new ReglaNegocioException("El acta está anulada.");
+            }
+
+            Persona persona = h.getResponsable() != null ? h.getResponsable().getPersona() : null;
+            if (persona == null) {
+                throw new ReglaNegocioException("El responsable del faltante no tiene persona asociada.");
+            }
+            Activo a = h.getActivo();
+            if (a == null) {
+                throw new ReglaNegocioException("El bien asociado al faltante no existe.");
+            }
+
+            List<Activo> ordenados = List.of(a);
+            LocalDateTime ahora = LocalDateTime.now();
+            Map<String, Object> notificacion = datosNotificacion(req.plazoDias(), ahora, ordenados);
+
+            // Clonar el acta para la vista previa (sin guardar)
+            ActaFaltante actaPrevia = new ActaFaltante();
+            actaPrevia.setIdActa(acta.getIdActa());
+            actaPrevia.setToken(acta.getToken());
+            actaPrevia.setPersona(acta.getPersona());
+            actaPrevia.setPersonaNombre(acta.getPersonaNombre());
+            actaPrevia.setPersonaCi(acta.getPersonaCi());
+            actaPrevia.setPersonaCargo(acta.getPersonaCargo());
+            actaPrevia.setFechaEmision(acta.getFechaEmision());
+            actaPrevia.setUsuarioEmision(acta.getUsuarioEmision());
+            actaPrevia.setDocumentoRespaldo(recortar(vacioANull(req.documentoRespaldo()), 120));
+            actaPrevia.setFechaDocumento(req.fechaDocumento());
+            actaPrevia.setObservacion(vacioANull(req.observacion()));
+            actaPrevia.setTotalBienes(acta.getTotalBienes());
+            actaPrevia.setEstadoActa(acta.getEstadoActa());
+            actaPrevia.setEstado(acta.getEstado());
+            actaPrevia.setRegistroIdUsuario(acta.getRegistroIdUsuario());
+            actaPrevia.setNumero(acta.getNumero()); // Mismo número correlativo
+            actaPrevia.setContenido(contenido(actaPrevia, persona, ordenados, ActaFaltante.TIPO_FALTANTES,
+                    Activo::getOficina, notificacion));
+            actaPrevia.setHashContenido(sha256(actaPrevia.getContenido()));
+            return aDto(actaPrevia, VISTA_PREVIA);
+        });
+    }
+
+    // ── Regenerar notificación (SIN cambiar plazo) ──────────────────────────
+
+    /**
+     * Regenera el PDF de la notificación actualizando solo los campos opcionales
+     * (documento_respaldo, fecha_documento, observacion). <b>NO modifica el plazo</b>.
+     * Queda registrado en auditoría quién hizo el cambio.
+     *
+     * @throws ReglaNegocioException si el faltante no existe, ya está resuelto, o el acta no coincide
+     */
+    public Registro regenerarNotificacion(CustodiaDTOs.RegenerarNotificacionRequest req, Usuario autor) {
+        if (req == null || req.idHallazgo() == null || req.idActa() == null) {
+            throw new ReglaNegocioException("Faltan datos: idHallazgo e idActa son obligatorios.");
+        }
+        return enTransaccion(() -> {
+            HallazgoInventario h = hallazgoDao.findById(req.idHallazgo())
+                    .orElseThrow(() -> new ReglaNegocioException("El faltante no existe."));
+            if (ControlActivosService.RESUELTO.equals(h.getEstadoHallazgo())) {
+                throw new ReglaNegocioException("El faltante ya está resuelto; no se puede regenerar la notificación.");
+            }
+            if (ActaFaltanteService.ANULADO.equals(h.getEstadoHallazgo())) {
+                throw new ReglaNegocioException("El faltante se anuló junto con su acta.");
+            }
+            ActaFaltante acta = h.getActa();
+            if (acta == null || !Objects.equals(acta.getIdActa(), req.idActa())) {
+                throw new ReglaNegocioException("El faltante no pertenece al acta indicada.");
+            }
+            if (ActaFaltante.ANULADA.equals(acta.getEstadoActa())) {
+                throw new ReglaNegocioException("El acta está anulada; no se puede regenerar la notificación.");
+            }
+
+            Persona persona = h.getResponsable() != null ? h.getResponsable().getPersona() : null;
+            if (persona == null) {
+                throw new ReglaNegocioException("El responsable del faltante no tiene persona asociada.");
+            }
+            Activo a = h.getActivo();
+            if (a == null) {
+                throw new ReglaNegocioException("El bien asociado al faltante no existe.");
+            }
+
+            List<Activo> ordenados = List.of(a);
+            
+            // Leer el plazo ACTUAL del acta existente (desde su JSON contenido)
+            Integer plazoActual = extraerPlazoDeContenido(acta.getContenido());
+            if (plazoActual == null) {
+                plazoActual = 0; // Sin plazo
+            }
+
+            // Actualizar datos opcionales del acta (NO cambia el plazo)
+            acta.setDocumentoRespaldo(recortar(vacioANull(req.documentoRespaldo()), 120));
+            acta.setFechaDocumento(req.fechaDocumento());
+            acta.setObservacion(vacioANull(req.observacion()));
+            if (autor != null) acta.setModificacionIdUsuario(autor.getIdUsuario());
+
+            // Regenerar contenido con el MISMO plazo actual
+            Map<String, Object> notificacion = datosNotificacion(plazoActual, acta.getFechaEmision(), ordenados);
+            acta.setContenido(contenido(acta, persona, ordenados, ActaFaltante.TIPO_FALTANTES,
+                    Activo::getOficina, notificacion));
+            acta.setHashContenido(sha256(acta.getContenido()));
+            actaDao.save(acta);
+
+            // Actualizar hallazgo con nuevos datos de respaldo
+            h.setDocumentoRespaldo(acta.getDocumentoRespaldo());
+            h.setFechaDocumento(acta.getFechaDocumento());
+            hallazgoDao.save(h);
+
+            // Auditoría: qué campos cambiaron
+            StringBuilder cambios = new StringBuilder();
+            if (req.documentoRespaldo() != null && !req.documentoRespaldo().isBlank()) cambios.append("documento_respaldo; ");
+            if (req.fechaDocumento() != null) cambios.append("fecha_documento; ");
+            if (req.observacion() != null && !req.observacion().isBlank()) cambios.append("observacion; ");
+            String cambiosStr = cambios.length() > 0 ? cambios.substring(0, cambios.length() - 2) : "ninguno";
+
+            actividadService.registrar(autor, ActividadService.MOD_ACTIVO, ActividadService.ACC_MODIFICACION,
+                    acta.getNumero(), "Regeneró notificación " + acta.getNumero() + " (sin cambiar plazo). " +
+                            "Campos actualizados: " + cambiosStr + ". Por: " + (autor != null ? autor.getUsuario() : "SISTEMA"),
+                    1, acta.getIdActa());
+
+            String msgPlazo = plazoActual > 0 
+                ? "con plazo de " + plazoActual + " día(s) hábil(es)" 
+                : "sin plazo asignado";
+
+            return new Registro(acta.getIdActa(), acta.getNumero(), 1,
+                    "Notificación " + acta.getNumero() + " regenerada " + msgPlazo + 
+                    ". El bien ya está en custodia (no se envía al VSIAF).");
+        });
+    }
+
+    /**
+     * Vista previa de la notificación regenerada (sin guardar).
+     * Muestra cómo quedaría con los nuevos campos opcionales, manteniendo el plazo actual.
+     */
+    public ActaFaltanteDTO regenerarNotificacionVistaPrevia(CustodiaDTOs.RegenerarNotificacionRequest req, Usuario autor) {
+        if (req == null || req.idHallazgo() == null || req.idActa() == null) {
+            throw new ReglaNegocioException("Faltan datos: idHallazgo e idActa son obligatorios.");
+        }
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        tx.setReadOnly(true);
+        return tx.execute(estado -> {
+            estado.setRollbackOnly();
+            HallazgoInventario h = hallazgoDao.findById(req.idHallazgo())
+                    .orElseThrow(() -> new ReglaNegocioException("El faltante no existe."));
+            if (ControlActivosService.RESUELTO.equals(h.getEstadoHallazgo())) {
+                throw new ReglaNegocioException("El faltante ya está resuelto.");
+            }
+            if (ActaFaltanteService.ANULADO.equals(h.getEstadoHallazgo())) {
+                throw new ReglaNegocioException("El faltante se anuló junto con su acta.");
+            }
+            ActaFaltante acta = h.getActa();
+            if (acta == null || !Objects.equals(acta.getIdActa(), req.idActa())) {
+                throw new ReglaNegocioException("El faltante no pertenece al acta indicada.");
+            }
+            if (ActaFaltante.ANULADA.equals(acta.getEstadoActa())) {
+                throw new ReglaNegocioException("El acta está anulada.");
+            }
+
+            Persona persona = h.getResponsable() != null ? h.getResponsable().getPersona() : null;
+            if (persona == null) {
+                throw new ReglaNegocioException("El responsable del faltante no tiene persona asociada.");
+            }
+            Activo a = h.getActivo();
+            if (a == null) {
+                throw new ReglaNegocioException("El bien asociado al faltante no existe.");
+            }
+
+            List<Activo> ordenados = List.of(a);
+            
+            // Leer el plazo ACTUAL del acta existente
+            Integer plazoActual = extraerPlazoDeContenido(acta.getContenido());
+            if (plazoActual == null) {
+                plazoActual = 0;
+            }
+
+            // Clonar acta para vista previa con nuevos datos opcionales
+            ActaFaltante actaPrevia = new ActaFaltante();
+            actaPrevia.setIdActa(acta.getIdActa());
+            actaPrevia.setToken(acta.getToken());
+            actaPrevia.setPersona(acta.getPersona());
+            actaPrevia.setPersonaNombre(acta.getPersonaNombre());
+            actaPrevia.setPersonaCi(acta.getPersonaCi());
+            actaPrevia.setPersonaCargo(acta.getPersonaCargo());
+            actaPrevia.setFechaEmision(acta.getFechaEmision());
+            actaPrevia.setUsuarioEmision(acta.getUsuarioEmision());
+            actaPrevia.setDocumentoRespaldo(recortar(vacioANull(req.documentoRespaldo()), 120));
+            actaPrevia.setFechaDocumento(req.fechaDocumento());
+            actaPrevia.setObservacion(vacioANull(req.observacion()));
+            actaPrevia.setTotalBienes(acta.getTotalBienes());
+            actaPrevia.setEstadoActa(acta.getEstadoActa());
+            actaPrevia.setEstado(acta.getEstado());
+            actaPrevia.setRegistroIdUsuario(acta.getRegistroIdUsuario());
+            actaPrevia.setNumero(acta.getNumero()); // Mismo número
+            actaPrevia.setContenido(contenido(actaPrevia, persona, ordenados, ActaFaltante.TIPO_FALTANTES,
+                    Activo::getOficina, datosNotificacion(plazoActual, acta.getFechaEmision(), ordenados)));
+            actaPrevia.setHashContenido(sha256(actaPrevia.getContenido()));
+            return aDto(actaPrevia, VISTA_PREVIA);
+        });
+    }
+
+    /**
+     * Extrae el plazoDiasHabiles del JSON contenido del acta.
+     */
+    private Integer extraerPlazoDeContenido(String contenido) {
+        if (contenido == null || contenido.isBlank()) return null;
+        try {
+            JsonNode raiz = json.readTree(contenido);
+            JsonNode not = raiz.path("notificacion");
+            if (not.hasNonNull("plazoDiasHabiles")) {
+                return not.path("plazoDiasHabiles").asInt();
+            }
+        } catch (Exception e) {
+            log.warn("[ACTA-FALTANTES] No se pudo extraer plazo del contenido: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    // ── Generar notificación reiterativa ────────────────────────────────────
+
+    /**
+     * Genera una notificación reiterativa para un faltante que ya tiene notificación previa.
+     * Crea una NUEVA acta con correlativo continuo, tipo REITERATIVA_1 o REITERATIVA_2,
+     * que referencia la acta anterior en su contenido.
+     * Máximo 2 reiterativas (total 3 notificaciones: inicial + 2 reiterativas).
+     *
+     * @throws ReglaNegocioException si ya se enviaron 2 reiterativas, o el faltante está resuelto
+     */
+    public Registro generarReiterativa(CustodiaDTOs.GenerarReiterativaRequest req, Usuario autor) {
+        if (req == null || req.idHallazgo() == null || req.idActaAnterior() == null) {
+            throw new ReglaNegocioException("Faltan datos: idHallazgo e idActaAnterior son obligatorios.");
+        }
+        if (req.numeroReiterativa() == null || req.numeroReiterativa() < 1 || req.numeroReiterativa() > 2) {
+            throw new ReglaNegocioException("Número de reiterativa inválido: debe ser 1 (primera) o 2 (última).");
+        }
+        return enTransaccion(() -> {
+            HallazgoInventario h = hallazgoDao.findById(req.idHallazgo())
+                    .orElseThrow(() -> new ReglaNegocioException("El faltante no existe."));
+            if (ControlActivosService.RESUELTO.equals(h.getEstadoHallazgo())) {
+                throw new ReglaNegocioException("El faltante ya está resuelto; no se puede generar reiterativa.");
+            }
+            if (ActaFaltanteService.ANULADO.equals(h.getEstadoHallazgo())) {
+                throw new ReglaNegocioException("El faltante se anuló junto con su acta.");
+            }
+            
+            ActaFaltante actaAnterior = actaDao.findById(req.idActaAnterior())
+                    .orElseThrow(() -> new ReglaNegocioException("La acta anterior no existe."));
+            
+            // Verificar que la acta anterior pertenece a este hallazgo
+            if (h.getActa() == null || !Objects.equals(h.getActa().getIdActa(), req.idActaAnterior())) {
+                throw new ReglaNegocioException("El faltante no pertenece a la acta anterior indicada.");
+            }
+            
+            // Verificar límite de reiterativas
+            int reiterativasPrevias = actaAnterior.getNumeroReiterativa() != null ? actaAnterior.getNumeroReiterativa() : 0;
+            if (reiterativasPrevias >= 2) {
+                throw new ReglaNegocioException("Ya se enviaron 2 reiterativas (máximo permitido). No se pueden generar más notificaciones.");
+            }
+            if (req.numeroReiterativa() != reiterativasPrevias + 1) {
+                throw new ReglaNegocioException("Secuencia inválida: la siguiente reiterativa debe ser la #" + (reiterativasPrevias + 1) + ".");
+            }
+            
+            if (ActaFaltante.ANULADA.equals(actaAnterior.getEstadoActa())) {
+                throw new ReglaNegocioException("La acta anterior está anulada; no se puede generar reiterativa.");
+            }
+
+            Persona persona = h.getResponsable() != null ? h.getResponsable().getPersona() : null;
+            if (persona == null) {
+                throw new ReglaNegocioException("El responsable del faltante no tiene persona asociada.");
+            }
+            Activo a = h.getActivo();
+            if (a == null) {
+                throw new ReglaNegocioException("El bien asociado al faltante no existe.");
+            }
+
+            List<Activo> ordenados = List.of(a);
+            LocalDateTime ahora = LocalDateTime.now();
+            
+            // Leer el plazo de la acta anterior (se mantiene el mismo)
+            Integer plazoActual = extraerPlazoDeContenido(actaAnterior.getContenido());
+            if (plazoActual == null) {
+                plazoActual = 5; // fallback por defecto
+            }
+            
+            Map<String, Object> notificacion = datosNotificacion(plazoActual, ahora, ordenados);
+            
+            // Agregar referencia a la notificación anterior en el JSON
+            notificacion.put("notificacionAnterior", Map.of(
+                "numero", actaAnterior.getNumero(),
+                "numeroImpreso", ActaFaltante.numeroImpreso(actaAnterior.getNumero()),
+                "fechaEmision", actaAnterior.getFechaEmision().toString(),
+                "plazoDias", plazoActual
+            ));
+
+            // Determinar tipo de notificación
+            String tipoNotificacion = req.numeroReiterativa() == 1 
+                ? ActaFaltante.TipoNotificacion.REITERATIVA_1.name() 
+                : ActaFaltante.TipoNotificacion.REITERATIVA_2.name();
+
+            // Turno para el correlativo de la gestión
+            actaDao.turnoNumeracion(TURNO_NUMERACION);
+            String numero = String.format("%s%03d/%d", ActaFaltante.PREFIJO_NOTIFICACION,
+                    actaDao.ultimoCorrelativo(String.valueOf(ahora.getYear())) + 1, ahora.getYear());
+
+            ActaFaltante nuevaActa = new ActaFaltante();
+            nuevaActa.setToken(nuevoToken());
+            nuevaActa.setPersona(persona);
+            nuevaActa.setPersonaNombre(recortar(persona.getNombreCompleto(), 160));
+            nuevaActa.setPersonaCi(recortar(persona.getCi(), 20));
+            nuevaActa.setPersonaCargo(recortar(cargoPrincipal(ordenados), 120));
+            nuevaActa.setFechaEmision(ahora);
+            nuevaActa.setUsuarioEmision(autor != null ? autor.getUsuario() : "SISTEMA");
+            nuevaActa.setDocumentoRespaldo(recortar(vacioANull(req.documentoRespaldo()), 120));
+            nuevaActa.setFechaDocumento(req.fechaDocumento());
+            nuevaActa.setObservacion(vacioANull(req.observacion()));
+            nuevaActa.setTotalBienes(1);
+            nuevaActa.setEstadoActa(ActaFaltante.VIGENTE);
+            nuevaActa.setEstado("ACTIVO");
+            if (autor != null) nuevaActa.setRegistroIdUsuario(autor.getIdUsuario());
+            // Campos de reiterativa
+            nuevaActa.setTipoNotificacion(tipoNotificacion);
+            nuevaActa.setActaAnterior(actaAnterior);
+            nuevaActa.setNumeroReiterativa(req.numeroReiterativa());
+            nuevaActa.setContenido("{}");
+            nuevaActa.setHashContenido("-");
+            actaDao.saveAndFlush(nuevaActa);
+
+            nuevaActa.setNumero(numero);
+            nuevaActa.setContenido(contenido(nuevaActa, persona, ordenados, ActaFaltante.TIPO_FALTANTES,
+                    Activo::getOficina, notificacion));
+            nuevaActa.setHashContenido(sha256(nuevaActa.getContenido()));
+            actaDao.save(nuevaActa);
+
+            // Actualizar hallazgo con la nueva acta (pero NO cambia estado_envio ni reenvía a VSIAF)
+            h.setActa(nuevaActa);
+            h.setDocumentoRespaldo(nuevaActa.getDocumentoRespaldo());
+            h.setFechaDocumento(nuevaActa.getFechaDocumento());
+            hallazgoDao.save(h);
+
+            actividadService.registrar(autor, ActividadService.MOD_ACTIVO, ActividadService.ACC_REGISTRO,
+                    nuevaActa.getNumero(), "Generó notificación reiterativa " + tipoNotificacion + " " + numero + 
+                    " (reitera a " + ActaFaltante.numeroImpreso(actaAnterior.getNumero()) + ") para el bien " + a.getCodigo(), 
+                    1, nuevaActa.getIdActa());
+
+            String label = req.numeroReiterativa() == 1 ? "PRIMERA REITERATIVA" : "ÚLTIMA NOTIFICACIÓN REITERATIVA";
+            
+            return new Registro(nuevaActa.getIdActa(), numero, 1,
+                    label + " " + numero + " generada para " + a.getCodigo() + 
+                    ". Reitera a notificación " + ActaFaltante.numeroImpreso(actaAnterior.getNumero()) + ".");
+        });
+    }
+
+    /**
+     * Vista previa de la notificación reiterativa, sin registrar nada.
+     */
+    public ActaFaltanteDTO generarReiterativaVistaPrevia(CustodiaDTOs.GenerarReiterativaRequest req, Usuario autor) {
+        if (req == null || req.idHallazgo() == null || req.idActaAnterior() == null) {
+            throw new ReglaNegocioException("Faltan datos: idHallazgo e idActaAnterior son obligatorios.");
+        }
+        if (req.numeroReiterativa() == null || req.numeroReiterativa() < 1 || req.numeroReiterativa() > 2) {
+            throw new ReglaNegocioException("Número de reiterativa inválido: debe ser 1 (primera) o 2 (última).");
+        }
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        tx.setReadOnly(true);
+        return tx.execute(estado -> {
+            estado.setRollbackOnly();
+            HallazgoInventario h = hallazgoDao.findById(req.idHallazgo())
+                    .orElseThrow(() -> new ReglaNegocioException("El faltante no existe."));
+            if (ControlActivosService.RESUELTO.equals(h.getEstadoHallazgo())) {
+                throw new ReglaNegocioException("El faltante ya está resuelto.");
+            }
+            if (ActaFaltanteService.ANULADO.equals(h.getEstadoHallazgo())) {
+                throw new ReglaNegocioException("El faltante se anuló junto con su acta.");
+            }
+            
+            ActaFaltante actaAnterior = actaDao.findById(req.idActaAnterior())
+                    .orElseThrow(() -> new ReglaNegocioException("La acta anterior no existe."));
+            
+            if (h.getActa() == null || !Objects.equals(h.getActa().getIdActa(), req.idActaAnterior())) {
+                throw new ReglaNegocioException("El faltante no pertenece a la acta anterior indicada.");
+            }
+            
+            int reiterativasPrevias = actaAnterior.getNumeroReiterativa() != null ? actaAnterior.getNumeroReiterativa() : 0;
+            if (reiterativasPrevias >= 2) {
+                throw new ReglaNegocioException("Ya se enviaron 2 reiterativas (máximo permitido).");
+            }
+            if (req.numeroReiterativa() != reiterativasPrevias + 1) {
+                throw new ReglaNegocioException("Secuencia inválida: la siguiente reiterativa debe ser la #" + (reiterativasPrevias + 1) + ".");
+            }
+            
+            if (ActaFaltante.ANULADA.equals(actaAnterior.getEstadoActa())) {
+                throw new ReglaNegocioException("La acta anterior está anulada.");
+            }
+
+            Persona persona = h.getResponsable() != null ? h.getResponsable().getPersona() : null;
+            if (persona == null) {
+                throw new ReglaNegocioException("El responsable del faltante no tiene persona asociada.");
+            }
+            Activo a = h.getActivo();
+            if (a == null) {
+                throw new ReglaNegocioException("El bien asociado al faltante no existe.");
+            }
+
+            List<Activo> ordenados = List.of(a);
+            LocalDateTime ahora = LocalDateTime.now();
+            
+            Integer plazoActual = extraerPlazoDeContenido(actaAnterior.getContenido());
+            if (plazoActual == null) {
+                plazoActual = 5;
+            }
+            
+            Map<String, Object> notificacion = datosNotificacion(plazoActual, ahora, ordenados);
+            notificacion.put("notificacionAnterior", Map.of(
+                "numero", actaAnterior.getNumero(),
+                "numeroImpreso", ActaFaltante.numeroImpreso(actaAnterior.getNumero()),
+                "fechaEmision", actaAnterior.getFechaEmision().toString(),
+                "plazoDias", plazoActual
+            ));
+
+            String tipoNotificacion = req.numeroReiterativa() == 1 
+                ? ActaFaltante.TipoNotificacion.REITERATIVA_1.name() 
+                : ActaFaltante.TipoNotificacion.REITERATIVA_2.name();
+
+            ActaFaltante actaPrevia = new ActaFaltante();
+            actaPrevia.setToken(nuevoToken());
+            actaPrevia.setPersona(persona);
+            actaPrevia.setPersonaNombre(recortar(persona.getNombreCompleto(), 160));
+            actaPrevia.setPersonaCi(recortar(persona.getCi(), 20));
+            actaPrevia.setPersonaCargo(recortar(cargoPrincipal(ordenados), 120));
+            actaPrevia.setFechaEmision(ahora);
+            actaPrevia.setUsuarioEmision(autor != null ? autor.getUsuario() : "SISTEMA");
+            actaPrevia.setDocumentoRespaldo(recortar(vacioANull(req.documentoRespaldo()), 120));
+            actaPrevia.setFechaDocumento(req.fechaDocumento());
+            actaPrevia.setObservacion(vacioANull(req.observacion()));
+            actaPrevia.setTotalBienes(1);
+            actaPrevia.setEstadoActa(ActaFaltante.VIGENTE);
+            actaPrevia.setEstado("ACTIVO");
+            if (autor != null) actaPrevia.setRegistroIdUsuario(autor.getIdUsuario());
+            actaPrevia.setTipoNotificacion(tipoNotificacion);
+            actaPrevia.setActaAnterior(actaAnterior);
+            actaPrevia.setNumeroReiterativa(req.numeroReiterativa());
+            actaPrevia.setNumero(ActaFaltante.PREFIJO_NOTIFICACION + "___/" + ahora.getYear());
+            actaPrevia.setContenido(contenido(actaPrevia, persona, ordenados, ActaFaltante.TIPO_FALTANTES,
+                    Activo::getOficina, notificacion));
+            actaPrevia.setHashContenido(sha256(actaPrevia.getContenido()));
+            return aDto(actaPrevia, VISTA_PREVIA);
+        });
+    }
+
     /** Por qué este bien no puede ir en un acta de esta persona; null si puede. */
     private String problemaParaRegistrar(Activo a, Persona persona) {
         if (!Activo.ESTADO_ACTIVO.equals(a.getEstado())) return "no está vigente";

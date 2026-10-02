@@ -146,6 +146,35 @@ public final class CustodiaDTOs {
             String     observacion
     ) {}
 
+    /** Pedido para re-emitir la notificación de un faltante con un nuevo plazo. */
+    public record NotificarPlazoRequest(
+            Long           idHallazgo,
+            Long           idActa,
+            Integer        plazoDias,
+            String         documentoRespaldo,
+            java.time.LocalDate fechaDocumento,
+            String         observacion
+    ) {}
+
+    /** Pedido para regenerar la notificación SIN cambiar el plazo (solo campos opcionales). */
+    public record RegenerarNotificacionRequest(
+            Long           idHallazgo,
+            Long           idActa,
+            String         documentoRespaldo,
+            java.time.LocalDate fechaDocumento,
+            String         observacion
+    ) {}
+
+    /** Pedido para generar una notificación reiterativa. */
+    public record GenerarReiterativaRequest(
+            Long           idHallazgo,
+            Long           idActaAnterior,
+            Integer        numeroReiterativa, // 1 = primera reiterativa, 2 = última
+            String         documentoRespaldo,
+            java.time.LocalDate fechaDocumento,
+            String         observacion
+    ) {}
+
     public record Conciliacion(
             List<Alerta> fueraDeCustodia,
             List<Alerta> sinRegistro,

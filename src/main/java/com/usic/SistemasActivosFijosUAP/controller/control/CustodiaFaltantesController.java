@@ -122,7 +122,112 @@ public class CustodiaFaltantesController {
         h.setContentType(MediaType.APPLICATION_PDF);
         h.setCacheControl(CacheControl.noStore());
         h.setContentDisposition(ContentDisposition.inline()
-                .filename("vista_previa_notificacion_faltantes.pdf").build());
+.filename("vista_previa_notificacion_faltantes.pdf").build());
+        return new ResponseEntity<>(pdf, h, HttpStatus.OK);
+    }
+
+    // ── Notificar plazo (re-emitir notificación con nuevo plazo) ────────────
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/actas/notificar-plazo")
+    public ResponseEntity<?> notificarPlazo(@RequestBody CustodiaDTOs.NotificarPlazoRequest req, HttpServletRequest http)
+            throws Exception {
+        exigirPermiso(http);
+        ActaFaltanteService.Registro r = actaService.notificarPlazo(req, usuarioDe(http));
+        Map<String, Object> cuerpo = new LinkedHashMap<>();
+        cuerpo.put("ok", true);
+        cuerpo.put("idActa", r.idActa());
+        cuerpo.put("numero", r.numero());
+        cuerpo.put("total", r.total());
+        cuerpo.put("message", r.mensaje());
+        return ResponseEntity.ok(cuerpo);
+    }
+
+    /**
+     * Vista previa de la notificación con el nuevo plazo, <b>sin registrar nada</b>.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/actas/notificar-plazo/vista-previa")
+    public ResponseEntity<?> notificarPlazoVistaPrevia(@RequestBody CustodiaDTOs.NotificarPlazoRequest req, HttpServletRequest http)
+            throws Exception {
+        exigirPermiso(http);
+        ActaFaltanteDTO acta = actaService.notificarPlazoVistaPrevia(req, usuarioDe(http));
+        byte[] pdf = pdfService.generarVistaPrevia(acta);
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.APPLICATION_PDF);
+        h.setCacheControl(CacheControl.noStore());
+        h.setContentDisposition(ContentDisposition.inline()
+.filename("vista_previa_notificacion_plazo.pdf").build());
+        return new ResponseEntity<>(pdf, h, HttpStatus.OK);
+    }
+
+    // ── Regenerar notificación (SIN cambiar plazo) ────────────────────────
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/actas/regenerar-notificacion")
+    public ResponseEntity<?> regenerarNotificacion(@RequestBody CustodiaDTOs.RegenerarNotificacionRequest req, HttpServletRequest http)
+            throws Exception {
+        exigirPermiso(http);
+        ActaFaltanteService.Registro r = actaService.regenerarNotificacion(req, usuarioDe(http));
+        Map<String, Object> cuerpo = new LinkedHashMap<>();
+        cuerpo.put("ok", true);
+        cuerpo.put("idActa", r.idActa());
+        cuerpo.put("numero", r.numero());
+        cuerpo.put("total", r.total());
+        cuerpo.put("message", r.mensaje());
+        return ResponseEntity.ok(cuerpo);
+    }
+
+    /**
+     * Vista previa de la notificación regenerada, <b>sin registrar nada</b>.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/actas/regenerar-notificacion/vista-previa")
+    public ResponseEntity<?> regenerarNotificacionVistaPrevia(@RequestBody CustodiaDTOs.RegenerarNotificacionRequest req, HttpServletRequest http)
+            throws Exception {
+        exigirPermiso(http);
+        ActaFaltanteDTO acta = actaService.regenerarNotificacionVistaPrevia(req, usuarioDe(http));
+        byte[] pdf = pdfService.generarVistaPrevia(acta);
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.APPLICATION_PDF);
+        h.setCacheControl(CacheControl.noStore());
+        h.setContentDisposition(ContentDisposition.inline()
+                .filename("vista_previa_regenerar_notificacion.pdf").build());
+        return new ResponseEntity<>(pdf, h, HttpStatus.OK);
+    }
+
+    // ── Generar notificación reiterativa ────────────────────────────────────
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/actas/generar-reiterativa")
+    public ResponseEntity<?> generarReiterativa(@RequestBody CustodiaDTOs.GenerarReiterativaRequest req, HttpServletRequest http)
+            throws Exception {
+        exigirPermiso(http);
+        ActaFaltanteService.Registro r = actaService.generarReiterativa(req, usuarioDe(http));
+        Map<String, Object> cuerpo = new LinkedHashMap<>();
+        cuerpo.put("ok", true);
+        cuerpo.put("idActa", r.idActa());
+        cuerpo.put("numero", r.numero());
+        cuerpo.put("total", r.total());
+        cuerpo.put("message", r.mensaje());
+        return ResponseEntity.ok(cuerpo);
+    }
+
+    /**
+     * Vista previa de la notificación reiterativa, <b>sin registrar nada</b>.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/actas/generar-reiterativa/vista-previa")
+    public ResponseEntity<?> generarReiterativaVistaPrevia(@RequestBody CustodiaDTOs.GenerarReiterativaRequest req, HttpServletRequest http)
+            throws Exception {
+        exigirPermiso(http);
+        ActaFaltanteDTO acta = actaService.generarReiterativaVistaPrevia(req, usuarioDe(http));
+        byte[] pdf = pdfService.generarVistaPrevia(acta);
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.APPLICATION_PDF);
+        h.setCacheControl(CacheControl.noStore());
+        h.setContentDisposition(ContentDisposition.inline()
+                .filename("vista_previa_reiterativa.pdf").build());
         return new ResponseEntity<>(pdf, h, HttpStatus.OK);
     }
 

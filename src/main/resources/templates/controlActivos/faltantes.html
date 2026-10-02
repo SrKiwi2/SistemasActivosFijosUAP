@@ -12,10 +12,10 @@
 ====================================================================== -->
 
 <style>
-    #cf-wrap .cf-grupo { border:none; border-radius:12px; margin-bottom:14px; }
+    #cf-wrap .cf-grupo { border:none; border-radius:0px; margin-bottom:14px; }
     #cf-wrap .cf-grupo-head {
         display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
-        gap:8px; cursor:pointer; padding:12px 16px; border-left:5px solid #e0384a; border-radius:12px 12px 0 0;
+        gap:8px; cursor:pointer; padding:12px 16px; border-left:5px solid #e0384a; border-radius:0px;
     }
     #cf-wrap .cf-grupo-head.todo-resuelto { border-left-color:#21a366; }
     #cf-wrap .cf-grupo-head.en-custodia   { border-left-color:#7e57c2; }
@@ -46,6 +46,11 @@
     #cf-reg .cf-fila-oficina td { background:#f1f3f7; font-weight:600; font-size:.78rem; }
     #cf-reg .cf-cod { font-family:'JetBrains Mono', monospace; font-weight:600; color:#1a56a0; font-size:.8rem; }
     #cf-reg tr.no-sel td { opacity:.55; }
+    #cf-wrap .badge-plazo-vencido { background:#f8d7da; color:#a3232f; }
+    #cf-wrap .badge-plazo-alerta { background:#fff3cd; color:#8a6d00; }
+    #cf-wrap .badge-plazo-ok { background:#d4f4e2; color:#0f6b40; }
+    #cf-wrap .badge-plazo-activo { background:#d4f4e2; color:#0f6b40; font-weight:600; }
+    #cf-wrap .badge-plazo-falta { background:#fff3cd; color:#8a6d00; font-weight:600; }
 </style>
 
 <div id="cf-wrap">
@@ -262,10 +267,168 @@
                     </button>
                 </div>
             </div>
+</div>
+</div>
+
+    <!-- ── Notificar plazo (actualizar notificación existente) ──────── -->
+    <div class="modal fade" id="cf-notif-plazo" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title"><i class="ti ti-clock me-1"></i> Actualizar plazo de notificación</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <div class="fw-semibold" id="np-bien-codigo"></div>
+                        <div class="text-muted small" id="np-bien-desc"></div>
+                        <div class="text-muted small" id="np-acta-ref"></div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label mb-1" style="font-size:.8rem;" for="np-plazo">
+                                Nuevo plazo para responder <span class="text-danger">*</span></label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" class="form-control" id="np-plazo" min="1" max="90" step="1"
+                                       inputmode="numeric" placeholder="Ej. 5">
+                                <span class="input-group-text">días hábiles</span>
+                            </div>
+                            <div class="invalid-feedback">Ingrese un plazo entre 1 y 90 días hábiles.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label mb-1" style="font-size:.8rem;">Documento de respaldo</label>
+                            <input type="text" class="form-control form-control-sm" id="np-doc" maxlength="120"
+                                   placeholder="Informe, nota o memorándum (opcional)">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label mb-1" style="font-size:.8rem;">Fecha del documento</label>
+                            <input type="date" class="form-control form-control-sm" id="np-fecha-doc">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label mb-1" style="font-size:.8rem;">Observación</label>
+                            <input type="text" class="form-control form-control-sm" id="np-obs" maxlength="500"
+                                   placeholder="Motivo del nuevo plazo (opcional)">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-outline-primary" id="np-previa" disabled
+                            title="Ver cómo saldrá la notificación con el nuevo plazo. No registra nada.">
+                        <i class="ti ti-eye me-1"></i> Vista previa
+                    </button>
+                    <button type="button" class="btn btn-warning" id="np-guardar" disabled>
+                        <i class="ti ti-file-certificate me-1"></i> Actualizar notificación
+                    </button>
+                </div>
+            </div>
+</div>
+</div>
+
+    <!-- ── Regenerar notificación (SIN cambiar plazo) ───────────────────── -->
+    <div class="modal fade" id="cf-regenerar-notif" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-dark">
+                    <h5 class="modal-title"><i class="ti ti-file-refresh me-1"></i> Regenerar notificación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <div class="fw-semibold" id="rn-bien-codigo"></div>
+                        <div class="text-muted small" id="rn-bien-desc"></div>
+                        <div class="text-muted small" id="rn-acta-ref"></div>
+                        <div class="text-muted small fw-semibold" id="rn-plazo-info"></div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label mb-1" style="font-size:.8rem;">Documento de respaldo</label>
+                            <input type="text" class="form-control form-control-sm" id="rn-doc" maxlength="120"
+                                   placeholder="Informe, nota o memorándum (opcional)">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label mb-1" style="font-size:.8rem;">Fecha del documento</label>
+                            <input type="date" class="form-control form-control-sm" id="rn-fecha-doc">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label mb-1" style="font-size:.8rem;">Observación</label>
+                            <input type="text" class="form-control form-control-sm" id="rn-obs" maxlength="500"
+                                   placeholder="Motivo de la regeneración / info adicional (opcional)">
+                        </div>
+                    </div>
+                    <div class="alert alert-warning py-2 small mt-2 mb-0">
+                        <i class="ti ti-info-circle me-1"></i>
+                        <b>El plazo NO se modifica.</b> Solo se actualizan los campos de arriba. 
+                        Queda registrado en auditoría quién regeneró y qué cambió.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-outline-primary" id="rn-previa" disabled
+                            title="Ver cómo saldrá la notificación regenerada. No registra nada.">
+                        <i class="ti ti-eye me-1"></i> Vista previa
+                    </button>
+                    <button type="button" class="btn btn-info" id="rn-guardar">
+                        <i class="ti ti-file-refresh me-1"></i> Regenerar notificación
+                    </button>
+                </div>
+            </div>
+</div>
+</div>
+
+    <!-- ── Generar Reiterativa ────────────────────────────────────────────── -->
+    <div class="modal fade" id="cf-generar-reiterativa" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="ti ti-repeat me-1"></i> Generar notificación reiterativa</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <div class="fw-semibold" id="gr-bien-codigo"></div>
+                        <div class="text-muted small" id="gr-bien-desc"></div>
+                        <div class="text-muted small" id="gr-acta-anterior-ref"></div>
+                        <div class="text-muted small fw-semibold" id="gr-tipo-reiterativa"></div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label mb-1" style="font-size:.8rem;">Documento de respaldo</label>
+                            <input type="text" class="form-control form-control-sm" id="gr-doc" maxlength="120"
+                                   placeholder="Informe, nota o memorándum (opcional)">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label mb-1" style="font-size:.8rem;">Fecha del documento</label>
+                            <input type="date" class="form-control form-control-sm" id="gr-fecha-doc">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label mb-1" style="font-size:.8rem;">Observación</label>
+                            <input type="text" class="form-control form-control-sm" id="gr-obs" maxlength="500"
+                                   placeholder="Motivo de la reiterativa / info adicional (opcional)">
+                        </div>
+                    </div>
+                    <div class="alert alert-info py-2 small mt-2 mb-0">
+                        <i class="ti ti-info-circle me-1"></i>
+                        <b>Se crea una NUEVA notificación</b> con correlativo continuo (ej: NOT-AF-020/2026).<br>
+                        El PDF mencionará: "Esta notificación reiterativa hace referencia a la notificación NOT:SCIAF:AF N° 001/2026".<br>
+                        <b>Máximo 2 reiterativas permitidas</b> (inicial + 2 reiterativas = 3 notificaciones totales).
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-outline-primary" id="gr-previa" disabled
+                            title="Ver cómo saldrá la notificación reiterativa. No registra nada.">
+                        <i class="ti ti-eye me-1"></i> Vista previa
+                    </button>
+                    <button type="button" class="btn btn-primary" id="gr-guardar">
+                        <i class="ti ti-repeat me-1"></i> Generar reiterativa
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script th:inline="none">
+<script th:inline="none">
     (function () {
         var BASE = '/administracion/control-activos';
         var CUS = BASE + '/custodia';
@@ -333,13 +496,55 @@
         function estadoDe(h) {
             if (h.estadoHallazgo === 'RESUELTO') return '<span class="badge est-ok">Resuelto</span>';
             if (h.estadoHallazgo === 'EN_CUSTODIA') return '<span class="badge est-custodia">En custodia</span>';
+            
+            // Mostrar contador de plazo si hay acta con plazo
+            var plazoHtml = '';
+            if (h.plazoDias != null && h.fechaEnvioCustodia) {
+                plazoHtml = ' <span class="badge badge-plazo" data-plazo-dias="' + h.plazoDias + '" data-fecha-inicio="' + h.fechaEnvioCustodia + '" style="font-size:.7rem;"></span>';
+            }
+            
             var msg = h.mensajeEnvio ? ' title="' + esc(h.mensajeEnvio) + '"' : '';
             switch (h.estadoEnvio) {
-                case 'ESPERANDO_ALTA': return '<span class="badge est-camino"' + msg + '>Preparando custodia</span>';
-                case 'ENVIADO':        return '<span class="badge est-camino"' + msg + '>Trasladando en VSIAF</span>';
-                case 'ERROR':          return '<span class="badge est-error"' + msg + '>Error de traslado <i class="ti ti-info-circle"></i></span>';
+                case 'ESPERANDO_ALTA': return '<span class="badge est-camino"' + msg + '>Preparando custodia</span>' + plazoHtml;
+                case 'ENVIADO':        return '<span class="badge est-camino"' + msg + '>Trasladando en VSIAF</span>' + plazoHtml;
+                case 'ERROR':          return '<span class="badge est-error"' + msg + '>Error de traslado <i class="ti ti-info-circle"></i></span>' + plazoHtml;
             }
-            return '<span class="badge est-abierto">Abierto · sin registrar</span>';
+            return '<span class="badge est-abierto">Abierto · sin registrar</span>' + plazoHtml;
+        }
+
+        /** Actualiza todos los contadores de plazo en la vista. */
+        function actualizarContadoresPlazo() {
+            $('#cf-wrap .badge-plazo').each(function () {
+                var $b = $(this);
+                var plazoDias = parseInt($b.data('plazo-dias'), 10);
+                var fechaInicioStr = $b.data('fecha-inicio');
+                if (!plazoDias || !fechaInicioStr) return;
+                var inicio = new Date(fechaInicioStr);
+                var fin = new Date(inicio.getTime() + plazoDias * 24 * 60 * 60 * 1000);
+                var ahora = new Date();
+                var diffDias = Math.ceil((fin - ahora) / (24 * 60 * 60 * 1000));
+                var icono, texto, clase;
+                if (diffDias < 0) {
+                    icono = 'ti ti-alert-circle';
+                    texto = 'Vencido hace ' + Math.abs(diffDias) + ' día(s)';
+                    clase = 'badge-plazo-vencido';
+                } else if (diffDias === 0) {
+                    icono = 'ti ti-alert-circle';
+                    texto = 'Vence hoy';
+                    clase = 'badge-plazo-alerta';
+                } else if (diffDias <= 2) {
+                    icono = 'ti ti-clock';
+                    texto = 'Quedan ' + diffDias + ' día(s)';
+                    clase = 'badge-plazo-alerta';
+                } else {
+                    icono = 'ti ti-calendar-check';
+                    texto = 'Quedan ' + diffDias + ' día(s)';
+                    clase = 'badge-plazo-ok';
+                }
+                $b.removeClass('badge-plazo-vencido badge-plazo-alerta badge-plazo-ok')
+                  .addClass(clase)
+                  .html('<i class="' + icono + ' me-1"></i>' + texto);
+            });
         }
 
         function pintar() {
@@ -409,7 +614,7 @@
                       '<i class="ti ti-file-alert me-1"></i>Registrar ' + sinRegistrar + '</button>' : '';
 
                 return '<div class="card cf-grupo shadow-sm">' +
-                    '<div class="cf-grupo-head ' + cabClase + '" data-bs-toggle="collapse" data-bs-target="#' + id + '">' +
+                    '<div class="cf-grupo-head ' + cabClase + ' collapsed" data-bs-toggle="collapse" data-bs-target="#' + id + '">' +
                         '<div><div class="cf-nom">' + esc(g.nombre) + '</div>' +
                         '<div class="cf-sub">C.I. ' + esc(g.ci || 's/d') + ' · ' + Object.keys(predios).length +
                         ' predio(s) · ' + Object.keys(oficinas).length + ' oficina(s)</div></div>' +
@@ -422,7 +627,7 @@
                             botonRegistrar +
                         '</div>' +
                     '</div>' +
-                    '<div class="collapse show" id="' + id + '"><div class="table-responsive">' +
+                    '<div class="collapse" id="' + id + '"><div class="table-responsive">' +
                     '<table class="table table-hover mb-0"><thead><tr>' +
                         '<th>Código</th><th>Descripción</th><th>Tipo</th>' +
                         '<th>Estado</th><th>Acta / origen</th><th></th>' +
@@ -430,20 +635,84 @@
             }).join('');
 
             $('#cf-grupos').html(html);
+            actualizarContadoresPlazo();
         }
 
         function filaHallazgo(h) {
             var resuelto = h.estadoHallazgo === 'RESUELTO';
+            var tienePlazo = h.plazoDias != null && h.fechaEnvioCustodia;
+            var numeroActaStr = h.numeroActa || '';
+            
+            // Badge visual para identificar faltantes con/sin plazo
+            var badgePlazo = '';
+            if (tienePlazo) {
+                badgePlazo = '<span class="badge badge-plazo-activo" data-plazo-dias="' + h.plazoDias + '" data-fecha-inicio="' + h.fechaEnvioCustodia + '" title="Faltante con plazo de ' + h.plazoDias + ' días hábiles"><i class="ti ti-clock me-1"></i>Con plazo</span>';
+            } else if (h.idActa && !tienePlazo && (h.estadoHallazgo === 'ABIERTO' || h.estadoHallazgo === 'EN_CUSTODIA')) {
+                badgePlazo = '<span class="badge badge-plazo-falta" title="Faltante registrado SIN plazo"><i class="ti ti-alert-circle me-1"></i>Sin plazo</span>';
+            }
+            
             var acciones;
             if (resuelto) {
                 // Resuelto dentro de un acta: no se reabre (si vuelve a faltar, va en un acta nueva).
                 acciones = h.idActa ? '' : '<button class="btn btn-sm btn-outline-secondary cf-reabrir" data-id="' +
                            h.idHallazgo + '" title="Reabrir"><i class="ti ti-rotate"></i></button>';
-            } else if (h.estadoEnvio === 'ENVIADO') {
+            } else if (h.estadoEnvio === 'ENVIADO' || h.estadoEnvio === 'ESPERANDO_ALTA') {
                 acciones = '<span class="text-muted" style="font-size:.75rem;">en traslado…</span>';
             } else {
                 acciones = '<button class="btn btn-sm btn-outline-success cf-resolver" data-id="' + h.idHallazgo +
                            '"><i class="ti ti-check me-1"></i>Resolver</button>';
+                
+                // Botón "Regenerar notificación" (sin cambiar plazo) - para faltantes con acta
+                if (h.idActa && (h.estadoHallazgo === 'ABIERTO' || h.estadoHallazgo === 'EN_CUSTODIA')) {
+                    acciones += ' <button class="btn btn-sm btn-outline-info cf-regenerar-notif ms-1" ' +
+                                'data-id-hallazgo="' + h.idHallazgo + '" ' +
+                                'data-id-acta="' + h.idActa + '" ' +
+                                'data-codigo="' + esc(h.codigo || '') + '" ' +
+                                'data-descripcion="' + esc(h.descripcion || '') + '" ' +
+                                'data-numero-acta="' + esc(numeroActaStr) + '" ' +
+                                'data-tiene-plazo="' + (tienePlazo ? '1' : '0') + '" ' +
+                                'title="Regenerar PDF de notificación (actualiza campos opcionales, NO cambia el plazo)"><i class="ti ti-file-refresh me-1"></i>Regenerar</button>';
+                    
+                    // Botón "Generar Reiterativa" - para faltantes con acta que pueden tener reiterativa
+                    // Se verifica en el backend el límite (máx 2 reiterativas)
+                    var reiterativaLabel = (h.numeroReiterativa || 0) === 0 ? 'Generar 1ª Reiterativa' : 
+                                          (h.numeroReiterativa === 1 ? 'Generar Última Reiterativa' : 'Máx. alcanzado');
+                    var reiterativaDisabled = (h.numeroReiterativa || 0) >= 2 ? ' disabled' : '';
+                    var reiterativaTitle = (h.numeroReiterativa || 0) >= 2 
+                        ? 'Ya se generaron 2 reiterativas (máximo permitido)'
+                        : 'Generar notificación reiterativa (continúa el correlativo y referencia a la anterior)';
+                    acciones += ' <button class="btn btn-sm btn-outline-primary cf-generar-reiterativa ms-1"' + reiterativaDisabled + ' ' +
+                                'data-id-hallazgo="' + h.idHallazgo + '" ' +
+                                'data-id-acta-anterior="' + h.idActa + '" ' +
+                                'data-codigo="' + esc(h.codigo || '') + '" ' +
+                                'data-descripcion="' + esc(h.descripcion || '') + '" ' +
+                                'data-numero-acta-anterior="' + esc(numeroActaStr) + '" ' +
+                                'data-numero-reiterativa="' + (h.numeroReiterativa || 0) + '" ' +
+                                'title="' + reiterativaTitle + '"><i class="ti ti-repeat me-1"></i>' + reiterativaLabel + '</button>';
+                    
+                    // Botón "Actualizar plazo" - solo si ya tiene plazo
+                    if (tienePlazo) {
+                        acciones += ' <button class="btn btn-sm btn-outline-warning cf-notificar-plazo ms-1" ' +
+                                    'data-id-hallazgo="' + h.idHallazgo + '" ' +
+                                    'data-id-acta="' + h.idActa + '" ' +
+                                    'data-codigo="' + esc(h.codigo || '') + '" ' +
+                                    'data-descripcion="' + esc(h.descripcion || '') + '" ' +
+                                    'data-numero-acta="' + esc(numeroActaStr) + '" ' +
+                                    'title="Cambiar el plazo de la notificación existente"><i class="ti ti-clock me-1"></i>Actualizar plazo</button>';
+                    }
+                }
+                
+                // === NUEVO BOTÓN "Notificar falta" ===
+                // Para faltantes ABIERTOS sin acta (primer registro)
+                if (h.estadoHallazgo === 'ABIERTO' && !h.estadoEnvio && !h.idActa) {
+                    acciones += ' <button class="btn btn-sm btn-outline-danger cf-registrar-fila ms-1" ' +
+                                'data-id-persona="' + (h.idPersona || '') + '" ' +
+                                'data-nombre="' + esc(h.responsable || '') + '" ' +
+                                'data-ci="' + esc(h.ci || '') + '" ' +
+                                'data-id-activo="' + (h.idActivo || '') + '" ' +
+                                'data-codigo="' + esc(h.codigo || '') + '" ' +
+                                'title="Generar la notificación de faltante por primera vez"><i class="ti ti-printer me-1"></i>Notificar falta</button>';
+                }
             }
             var detalleRes = resuelto
                 ? '<div style="font-size:.74rem;" class="text-success"><i class="ti ti-circle-check"></i> ' +
@@ -455,11 +724,18 @@
                 ? '<a href="' + pdfActa(h.idActa) + '" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i> ' +
                   esc(numDoc(h.numeroActa)) + '</a><br><span class="text-muted">' + esc(puerta) + '</span>'
                 : esc(h.numeroInventario || 'Registro directo') + '<br><span class="text-muted">' + fmtFecha(h.fechaDeteccion) + '</span>';
+            
+            // Columna Estado incluye badge de plazo + estado + countdown
+            var estadoHtml = estadoDe(h);
+            if (badgePlazo) {
+                estadoHtml = badgePlazo + ' ' + estadoHtml;
+            }
+            
             return '<tr class="' + (resuelto ? 'cf-resuelto' : '') + '">' +
                    '<td><span class="cf-cod">' + esc(h.codigo || '—') + '</span></td>' +
                    '<td>' + esc(h.descripcion || '—') + detalleRes + '</td>' +
                    '<td><span class="badge badge-' + h.tipoHallazgo + '">' + esc(h.tipoHallazgo) + '</span></td>' +
-                   '<td>' + estadoDe(h) + '</td>' +
+                   '<td>' + estadoHtml + '</td>' +
                    '<td style="font-size:.78rem;">' + origen + '</td>' +
                    '<td class="text-end">' + acciones + '</td></tr>';
         }
@@ -827,15 +1103,15 @@
         });
 
         // ── Registro de faltantes ───────────────────────────────────────
-        var reg = { persona: null, bienes: [], sel: {} };
+        var reg = { persona: null, bienes: [], sel: {}, filtroUnico: null };
         var tBuscar = null;
 
         function modalRegistro() {
             return bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-reg'));
         }
 
-        function abrirRegistro(persona) {
-            reg = { persona: null, bienes: [], sel: {} };
+        function abrirRegistro(persona, filtroUnico) {
+            reg = { persona: null, bienes: [], sel: {}, filtroUnico: filtroUnico || null };
             $('#cf-reg-buscar').val(''); $('#cf-reg-personas').empty();
             $('#cf-reg-doc, #cf-reg-fecha-doc, #cf-reg-obs, #cf-reg-filtro, #cf-reg-plazo').val('');
             $('#cf-reg-plazo').removeClass('is-invalid');
@@ -848,10 +1124,23 @@
         }
 
         $('#cf-btn-registrar').on('click', function () { abrirRegistro(null); });
+        
         $(document).on('click.cf', '#cf-wrap .cf-registrar-persona', function (e) {
             e.stopPropagation();   // que no colapse la tarjeta
             var $b = $(this);
             abrirRegistro({ idPersona: $b.data('id'), nombre: $b.data('nombre'), ci: $b.data('ci') });
+        });
+
+        // NUEVO: Click para "Notificar falta" desde la fila individual
+        $(document).on('click.cf', '#cf-wrap .cf-registrar-fila', function (e) {
+            e.stopPropagation();
+            var $b = $(this);
+            var p = null;
+            if ($b.data('id-persona')) {
+                p = { idPersona: $b.data('id-persona'), nombre: $b.data('nombre'), ci: $b.data('ci') };
+            }
+            var filtro = { idActivo: $b.data('id-activo'), codigo: $b.data('codigo') };
+            abrirRegistro(p, filtro);
         });
 
         $('#cf-reg-buscar').on('input', function () {
@@ -877,16 +1166,12 @@
         });
 
         $('#cf-reg-cambiar').on('click', function () {
-            reg = { persona: null, bienes: [], sel: {} };
+            reg = { persona: null, bienes: [], sel: {}, filtroUnico: reg.filtroUnico };
             actualizarConteo();
             $('#cf-reg-paso2').hide(); $('#cf-reg-paso1').show();
             $('#cf-reg-buscar').trigger('focus');
         });
 
-        /**
-         * @param preseleccionar true cuando se abre desde la tarjeta de una persona: se tildan
-         *        los faltantes que dejó un levantamiento y todavía no están en un acta.
-         */
         function elegirPersona(p, preseleccionar) {
             reg.persona = p;
             $('#cf-reg-persona-nombre').text(p.nombre);
@@ -896,7 +1181,15 @@
             $.get(CUS + '/personas/' + p.idPersona + '/bienes').done(function (bs) {
                 reg.bienes = bs || [];
                 reg.sel = {};
-                if (preseleccionar) {
+                
+                if (reg.filtroUnico) {
+                    reg.bienes.forEach(function (b) {
+                        if ((reg.filtroUnico.idActivo && b.idActivo == reg.filtroUnico.idActivo) || 
+                            (reg.filtroUnico.codigo && b.codigo == reg.filtroUnico.codigo)) {
+                            reg.sel[b.idActivo] = true;
+                        }
+                    });
+                } else if (preseleccionar) {
                     reg.bienes.forEach(function (b) {
                         if (b.seleccionable && b.idHallazgo && b.estadoHallazgo === 'ABIERTO') reg.sel[b.idActivo] = true;
                     });
@@ -967,7 +1260,6 @@
             return reg.bienes.filter(function (b) { return reg.sel[b.idActivo]; });
         }
 
-        /** Hay una vista previa generándose: Registrar y Vista previa quedan quietos hasta que termine. */
         var previaEnCurso = false;
 
         function actualizarConteo() {
@@ -976,7 +1268,6 @@
             $('#cf-reg-guardar, #cf-reg-previa').prop('disabled', n === 0 || previaEnCurso);
         }
 
-        /** Plazo escrito (número entero de 1 a 90) o null, avisando qué falta. */
         function leerPlazo() {
             var txt = ($('#cf-reg-plazo').val() || '').trim();
             var n = parseInt(txt, 10);
@@ -989,7 +1280,6 @@
             return n;
         }
 
-        /** Lo que se manda al servidor: igual para registrar y para la vista previa. */
         function datosPedido(sel, plazo) {
             return {
                 idPersona: reg.persona.idPersona,
@@ -1045,9 +1335,6 @@
             });
         });
 
-        // ── Vista previa (no registra nada) ──────────────────────────────
-        // El servidor arma la notificación con las mismas validaciones del registro, en una
-        // transacción de solo lectura: no guarda, no saca número y no toca el VSIAF.
         var ETIQUETA_PREVIA = '<i class="ti ti-eye me-1"></i> Vista previa';
         $('#cf-reg-previa').on('click', function () {
             var sel = seleccionados();
@@ -1055,8 +1342,6 @@
             var plazo = leerPlazo();
             if (plazo === null) return;
             var $b = $(this);
-            // Mientras se genera no se puede registrar ni pedir otra: si no, el aviso tardío de la
-            // vista previa ("no se registró nada") taparía el de un registro real.
             previaEnCurso = true;
             actualizarConteo();
             $b.html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generando…');
@@ -1066,12 +1351,10 @@
                 body: JSON.stringify(datosPedido(sel, plazo)),
                 cache: 'no-store'
             }).then(function (r) {
-                // Sesión perdida: sciaf-sesion.js ya muestra su aviso; no se tapa con otro.
                 if (window.sciafSesion && window.sciafSesion.perdida(r)) return;
                 var tipo = r.headers.get('Content-Type') || '';
                 if (r.ok && tipo.indexOf('application/pdf') === 0) {
                     return r.blob().then(function (blob) {
-                        // Si ya cerró el registro, no se le abre una ventana que no espera.
                         if ($('#cf-reg').hasClass('show')) mostrarVistaPrevia(blob);
                     });
                 }
@@ -1090,7 +1373,6 @@
 
         function mostrarVistaPrevia(blob) {
             var url = URL.createObjectURL(blob);
-            // Se libera más tarde: la pestaña aparte puede seguir usándolo un rato.
             var liberar = function () { setTimeout(function () { URL.revokeObjectURL(url); }, 10 * 60 * 1000); };
             if (!window.Swal) { window.open(url, '_blank'); liberar(); return; }
             Swal.fire({
@@ -1148,13 +1430,374 @@
             if ($('#cf-tab-conc').hasClass('active')) cargarConciliacion();
         });
 
+        // ── Regenerar notificación (SIN cambiar plazo) ──────────────────────
+        var rn = { idHallazgo: null, idActa: null, numeroActa: '', codigo: '', descripcion: '', plazoActual: null };
+        var rnPreviaEnCurso = false;
+
+        function modalRegenerarNotif() {
+            return bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-regenerar-notif'));
+        }
+
+        function abrirRegenerarNotif(idHallazgo, idActa, codigo, descripcion, numeroActa, tienePlazo) {
+            rn.idHallazgo = idHallazgo;
+            rn.idActa = idActa;
+            rn.codigo = codigo;
+            rn.descripcion = descripcion;
+            rn.numeroActa = numeroActa;
+            rn.plazoActual = tienePlazo;
+            $('#rn-doc, #rn-fecha-doc, #rn-obs').val('');
+            $('#rn-previa').html('<i class="ti ti-eye me-1"></i> Vista previa');
+            $('#rn-bien-codigo').text('Código: ' + codigo);
+            $('#rn-bien-desc').text(descripcion);
+            $('#rn-acta-ref').text('Acta: ' + numDoc(numeroActa));
+            $('#rn-plazo-info').text(tienePlazo 
+                ? 'Plazo actual: ' + rn.plazoActual + ' día(s) hábil(es) — NO se modificará'
+                : 'Este faltante NO tiene plazo asignado — se mantendrá así');
+            modalRegenerarNotif().show();
+            setTimeout(function () { $('#rn-doc').trigger('focus'); }, 300);
+        }
+
+        function datosRegenerarNotif() {
+            return {
+                idHallazgo: rn.idHallazgo,
+                idActa: rn.idActa,
+                documentoRespaldo: $('#rn-doc').val() || null,
+                fechaDocumento: $('#rn-fecha-doc').val() || null,
+                observacion: $('#rn-obs').val() || null
+            };
+        }
+
+        $(document).on('click.cf', '#cf-wrap .cf-regenerar-notif', function (e) {
+            e.stopPropagation();
+            var $b = $(this);
+            abrirRegenerarNotif($b.data('id-hallazgo'), $b.data('id-acta'),
+                                $b.data('codigo'), $b.data('descripcion'), $b.data('numero-acta'),
+                                $b.data('tiene-plazo') === '1');
+        });
+
+        $('#rn-guardar').on('click', function () {
+            var datos = datosRegenerarNotif();
+            var $b = $('#rn-guardar').prop('disabled', true);
+            var textoPlazo = rn.plazoActual 
+                ? 'El plazo actual de <b>' + rn.plazoActual + ' día(s) hábil(es)</b> NO se modifica.'
+                : 'Este faltante no tiene plazo asignado (no se agregará).';
+            confirmar({
+                titulo: '¿Regenerar la notificación?',
+                texto: 'Se actualizan los campos opcionales (documento, fecha, observación) en la notificación ' +
+                       'para el bien <b>' + esc(rn.codigo) + '</b> (acta ' + esc(numDoc(rn.numeroActa)) + ').<br>' +
+                       textoPlazo + '<br>' +
+                       'El bien ya está en custodia (no se envía al VSIAF). Se regenera el PDF.<br>' +
+                       '<b>Queda registrado en auditoría quién hizo el cambio y qué campos modificó.</b>',
+                aceptar: 'Regenerar notificación',
+                peligrosa: false
+            }).then(function (si) {
+                if (!si) { $b.prop('disabled', false); return; }
+                $.ajax({
+                    url: CUS + '/actas/regenerar-notificacion', type: 'POST', contentType: 'application/json',
+                    data: JSON.stringify(datos)
+                })
+                .done(function (r) {
+                    modalRegenerarNotif().hide();
+                    cargar();
+                    if (window.Swal) {
+                        Swal.fire({
+                            title: 'Notificación regenerada', icon: 'success', html: esc(r.message),
+                            showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir notificación',
+                            cancelButtonText: 'Cerrar'
+                        }).then(function (x) { if (x.isConfirmed) window.open(pdfActa(r.idActa), '_blank'); });
+                    } else {
+                        window.open(pdfActa(r.idActa), '_blank');
+                    }
+                })
+                .fail(function (xhr) {
+                    aviso('No se regeneró', '<div style="text-align:left; white-space:pre-line;">' +
+                          esc(errorDe(xhr, 'Error al regenerar la notificación.')) + '</div>', 'error');
+                })
+                .always(function () { $b.prop('disabled', false); });
+            });
+        });
+
+        $('#rn-previa').on('click', function () {
+            if (rnPreviaEnCurso) return;
+            var $b = $(this);
+            rnPreviaEnCurso = true;
+            $('#rn-guardar, #rn-previa').prop('disabled', true);
+            $b.html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generando…');
+            fetch(CUS + '/actas/regenerar-notificacion/vista-previa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify(datosRegenerarNotif()),
+                cache: 'no-store'
+            }).then(function (r) {
+                if (window.sciafSesion && window.sciafSesion.perdida(r)) return;
+                var tipo = r.headers.get('Content-Type') || '';
+                if (r.ok && tipo.indexOf('application/pdf') === 0) {
+                    return r.blob().then(function (blob) { mostrarVistaPrevia(blob); });
+                }
+                return r.json().catch(function () { return {}; }).then(function (j) {
+                    aviso('No se pudo generar la vista previa', '<div style="text-align:left; white-space:pre-line;">' +
+                          esc(j.message || ('El servidor respondió ' + r.status + '.')) + '</div>', 'error');
+                });
+            }).catch(function () {
+                aviso('No se pudo generar la vista previa', 'Sin conexión con el servidor.', 'error');
+            }).then(function () {
+                rnPreviaEnCurso = false;
+                $b.html('<i class="ti ti-eye me-1"></i> Vista previa');
+                $('#rn-guardar, #rn-previa').prop('disabled', false);
+            });
+        });
+
+        // ── Generar Reiterativa ─────────────────────────────────────────────
+        var gr = { idHallazgo: null, idActaAnterior: null, numeroActaAnterior: '', codigo: '', descripcion: '', numeroReiterativa: 0 };
+        var grPreviaEnCurso = false;
+
+        function modalGenerarReiterativa() {
+            return bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-generar-reiterativa'));
+        }
+
+        function abrirGenerarReiterativa(idHallazgo, idActaAnterior, codigo, descripcion, numeroActaAnterior, numeroReiterativa) {
+            gr.idHallazgo = idHallazgo;
+            gr.idActaAnterior = idActaAnterior;
+            gr.codigo = codigo;
+            gr.descripcion = descripcion;
+            gr.numeroActaAnterior = numeroActaAnterior;
+            gr.numeroReiterativa = numeroReiterativa;
+            $('#gr-doc, #gr-fecha-doc, #gr-obs').val('');
+            $('#gr-previa').html('<i class="ti ti-eye me-1"></i> Vista previa');
+            $('#gr-bien-codigo').text('Código: ' + codigo);
+            $('#gr-bien-desc').text(descripcion);
+            $('#gr-acta-anterior-ref').text('Reitera a: ' + numDoc(numeroActaAnterior));
+            var siguiente = numeroReiterativa + 1;
+            var label = siguiente === 1 ? 'PRIMERA REITERATIVA' : 'ÚLTIMA NOTIFICACIÓN REITERATIVA';
+            $('#gr-tipo-reiterativa').text('Tipo: ' + label + ' (será la #' + siguiente + ')');
+            modalGenerarReiterativa().show();
+            setTimeout(function () { $('#gr-doc').trigger('focus'); }, 300);
+        }
+
+        function datosGenerarReiterativa() {
+            return {
+                idHallazgo: gr.idHallazgo,
+                idActaAnterior: gr.idActaAnterior,
+                numeroReiterativa: gr.numeroReiterativa + 1, // La siguiente en secuencia
+                documentoRespaldo: $('#gr-doc').val() || null,
+                fechaDocumento: $('#gr-fecha-doc').val() || null,
+                observacion: $('#gr-obs').val() || null
+            };
+        }
+
+        $(document).on('click.cf', '#cf-wrap .cf-generar-reiterativa', function (e) {
+            e.stopPropagation();
+            var $b = $(this);
+            if ($b.prop('disabled')) return;
+            abrirGenerarReiterativa($b.data('id-hallazgo'), $b.data('id-acta-anterior'),
+                                    $b.data('codigo'), $b.data('descripcion'), $b.data('numero-acta-anterior'),
+                                    parseInt($b.data('numero-reiterativa'), 10) || 0);
+        });
+
+        $('#gr-guardar').on('click', function () {
+            var datos = datosGenerarReiterativa();
+            var $b = $('#gr-guardar').prop('disabled', true);
+            var siguiente = gr.numeroReiterativa + 1;
+            var label = siguiente === 1 ? 'PRIMERA REITERATIVA' : 'ÚLTIMA NOTIFICACIÓN REITERATIVA';
+            confirmar({
+                titulo: '¿Generar ' + label + '?',
+                texto: 'Se crea una <b>nueva notificación</b> con correlativo continuo para el bien <b>' + esc(gr.codigo) + '</b>.<br>' +
+                       'Reitera a la notificación <b>' + esc(numDoc(gr.numeroActaAnterior)) + '</b>.<br>' +
+                       'El bien ya está en custodia (no se envía al VSIAF). Se genera PDF con referencia a la anterior.<br>' +
+                       '<b>Queda registrado en auditoría quién generó la reiterativa.</b>',
+                aceptar: 'Generar ' + label,
+                peligrosa: false
+            }).then(function (si) {
+                if (!si) { $b.prop('disabled', false); return; }
+                $.ajax({
+                    url: CUS + '/actas/generar-reiterativa', type: 'POST', contentType: 'application/json',
+                    data: JSON.stringify(datos)
+                })
+                .done(function (r) {
+                    modalGenerarReiterativa().hide();
+                    cargar();
+                    if (window.Swal) {
+                        Swal.fire({
+                            title: label + ' generada', icon: 'success', html: esc(r.message),
+                            showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir notificación',
+                            cancelButtonText: 'Cerrar'
+                        }).then(function (x) { if (x.isConfirmed) window.open(pdfActa(r.idActa), '_blank'); });
+                    } else {
+                        window.open(pdfActa(r.idActa), '_blank');
+                    }
+                })
+                .fail(function (xhr) {
+                    aviso('No se generó', '<div style="text-align:left; white-space:pre-line;">' +
+                          esc(errorDe(xhr, 'Error al generar la reiterativa.')) + '</div>', 'error');
+                })
+                .always(function () { $b.prop('disabled', false); });
+            });
+        });
+
+        $('#gr-previa').on('click', function () {
+            if (grPreviaEnCurso) return;
+            var $b = $(this);
+            grPreviaEnCurso = true;
+            $('#gr-guardar, #gr-previa').prop('disabled', true);
+            $b.html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generando…');
+            fetch(CUS + '/actas/generar-reiterativa/vista-previa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify(datosGenerarReiterativa()),
+                cache: 'no-store'
+            }).then(function (r) {
+                if (window.sciafSesion && window.sciafSesion.perdida(r)) return;
+                var tipo = r.headers.get('Content-Type') || '';
+                if (r.ok && tipo.indexOf('application/pdf') === 0) {
+                    return r.blob().then(function (blob) { mostrarVistaPrevia(blob); });
+                }
+                return r.json().catch(function () { return {}; }).then(function (j) {
+                    aviso('No se pudo generar la vista previa', '<div style="text-align:left; white-space:pre-line;">' +
+                          esc(j.message || ('El servidor respondió ' + r.status + '.')) + '</div>', 'error');
+                });
+            }).catch(function () {
+                aviso('No se pudo generar la vista previa', 'Sin conexión con el servidor.', 'error');
+            }).then(function () {
+                grPreviaEnCurso = false;
+                $b.html('<i class="ti ti-eye me-1"></i> Vista previa');
+                $('#gr-guardar, #gr-previa').prop('disabled', false);
+            });
+        });
+
+        // ── Notificar plazo (actualizar notificación existente) ──────
+        var np = { idHallazgo: null, idActa: null };
+        var npPreviaEnCurso = false;
+
+        function modalNotificarPlazo() {
+            return bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-notif-plazo'));
+        }
+
+        function abrirNotificarPlazo(idHallazgo, idActa, codigo, descripcion, numeroActa) {
+            np.idHallazgo = idHallazgo;
+            np.idActa = idActa;
+            np.numeroActa = numeroActa; // Guardar el número de acta string
+            np.codigo = codigo; // Guardar código para mensajes
+            $('#np-plazo, #np-doc, #np-fecha-doc, #np-obs').val('');
+            $('#np-plazo').removeClass('is-invalid');
+            $('#np-previa').html('<i class="ti ti-eye me-1"></i> Vista previa');
+            $('#np-bien-codigo').text('Código: ' + codigo);
+            $('#np-bien-desc').text(descripcion);
+            $('#np-acta-ref').text('Acta actual: ' + numDoc(numeroActa));
+            modalNotificarPlazo().show();
+            setTimeout(function () { $('#np-plazo').trigger('focus'); }, 300);
+        }
+
+        function leerPlazoNP() {
+            var txt = ($('#np-plazo').val() || '').trim();
+            var n = parseInt(txt, 10);
+            if (!/^\d+$/.test(txt) || n < 1 || n > 90) {
+                $('#np-plazo').addClass('is-invalid').trigger('focus');
+                aviso('Falta el plazo', 'Escriba en cuántos <b>días hábiles</b> debe responder la persona (de 1 a 90).', 'warning');
+                return null;
+            }
+            $('#np-plazo').removeClass('is-invalid');
+            return n;
+        }
+
+        function datosNotificarPlazo(plazo) {
+            return {
+                idHallazgo: np.idHallazgo,
+                idActa: np.idActa,
+                plazoDias: plazo,
+                documentoRespaldo: $('#np-doc').val() || null,
+                fechaDocumento: $('#np-fecha-doc').val() || null,
+                observacion: $('#np-obs').val() || null
+            };
+        }
+
+        $(document).on('click.cf', '#cf-wrap .cf-notificar-plazo', function (e) {
+            e.stopPropagation();
+            var $b = $(this);
+            abrirNotificarPlazo($b.data('id-hallazgo'), $b.data('id-acta'),
+                                $b.data('codigo'), $b.data('descripcion'), $b.data('numero-acta'));
+        });
+
+        $('#np-plazo').on('input', function () {
+            var n = parseInt($(this).val(), 10);
+            $('#np-guardar, #np-previa').prop('disabled', isNaN(n) || n < 1 || n > 90 || npPreviaEnCurso);
+        });
+
+        $('#np-guardar').on('click', function () {
+            var plazo = leerPlazoNP();
+            if (plazo === null) return;
+            var datos = datosNotificarPlazo(plazo);
+            var $b = $('#np-guardar').prop('disabled', true);
+            confirmar({
+                titulo: '¿Actualizar la notificación con nuevo plazo?',
+                texto: 'Se actualiza el plazo a <b>' + plazo + ' día(s) hábil(es)</b> en la notificación ' +
+                       'para el bien <b>' + esc(np.codigo) + '</b> (acta ' + esc(numDoc(np.numeroActa)) + ').<br>' +
+                       'El bien ya está en custodia (no se envía al VSIAF). Se regenera el PDF con el nuevo plazo.',
+                aceptar: 'Actualizar notificación',
+                peligrosa: false
+            }).then(function (si) {
+                if (!si) { $b.prop('disabled', false); return; }
+                $.ajax({
+                    url: CUS + '/actas/notificar-plazo', type: 'POST', contentType: 'application/json',
+                    data: JSON.stringify(datos)
+                })
+                .done(function (r) {
+                    modalNotificarPlazo().hide();
+                    cargar();
+                    if (window.Swal) {
+                        Swal.fire({
+                            title: 'Notificación actualizada', icon: 'success', html: esc(r.message),
+                            showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir notificación',
+                            cancelButtonText: 'Cerrar'
+                        }).then(function (x) { if (x.isConfirmed) window.open(pdfActa(r.idActa), '_blank'); });
+                    } else {
+                        window.open(pdfActa(r.idActa), '_blank');
+                    }
+                })
+                .fail(function (xhr) {
+                    aviso('No se actualizó', '<div style="text-align:left; white-space:pre-line;">' +
+                          esc(errorDe(xhr, 'Error al actualizar la notificación.')) + '</div>', 'error');
+                })
+                .always(function () { $b.prop('disabled', false); });
+            });
+        });
+
+        $('#np-previa').on('click', function () {
+            var plazo = leerPlazoNP();
+            if (plazo === null || npPreviaEnCurso) return;
+            var $b = $(this);
+            npPreviaEnCurso = true;
+            $('#np-guardar, #np-previa').prop('disabled', true);
+            $b.html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generando…');
+            fetch(CUS + '/actas/notificar-plazo/vista-previa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify(datosNotificarPlazo(plazo)),
+                cache: 'no-store'
+            }).then(function (r) {
+                if (window.sciafSesion && window.sciafSesion.perdida(r)) return;
+                var tipo = r.headers.get('Content-Type') || '';
+                if (r.ok && tipo.indexOf('application/pdf') === 0) {
+                    return r.blob().then(function (blob) { mostrarVistaPrevia(blob); });
+                }
+                return r.json().catch(function () { return {}; }).then(function (j) {
+                    aviso('No se pudo generar la vista previa', '<div style="text-align:left; white-space:pre-line;">' +
+                          esc(j.message || ('El servidor respondió ' + r.status + '.')) + '</div>', 'error');
+                });
+            }).catch(function () {
+                aviso('No se pudo generar la vista previa', 'Sin conexión con el servidor.', 'error');
+            }).then(function () {
+                npPreviaEnCurso = false;
+                $b.html('<i class="ti ti-eye me-1"></i> Vista previa');
+                $('#np-guardar, #np-previa').prop('disabled', false);
+            });
+        });
+
         // ── Tiempo real: el traslado a custodia avanza solo ──────────────
         (function sse() {
             if (!window.EventSource) return;
             var es = new EventSource('/api/eventos/stream');
             var espera = null;
             es.addEventListener('faltantes-custodia', function () {
-                // Si el fragmento ya no está en pantalla, se corta la conexión.
                 if (!document.getElementById('cf-wrap')) { es.close(); return; }
                 clearTimeout(espera);
                 espera = setTimeout(function () {
@@ -1165,8 +1808,12 @@
             $(window).on('beforeunload', function () { es.close(); });
         })();
 
+        // Actualizar contadores de plazo cada minuto
+        setInterval(actualizarContadoresPlazo, 60000);
+        actualizarContadoresPlazo();
+
         cargar();
-        cargarConciliacion();   // para que el contador de la pestaña avise sin tener que abrirla
+        cargarConciliacion();
     })();
     </script>
 </div>

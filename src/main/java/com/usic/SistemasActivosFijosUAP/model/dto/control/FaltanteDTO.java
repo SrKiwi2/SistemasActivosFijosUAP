@@ -49,5 +49,7 @@ public record FaltanteDTO(
         String        estadoEnvio,
         String        mensajeEnvio,
         /** Histórico regularizado sin oficina de origen conocida (apunta a la oficina de faltantes). */
-        boolean       origenNoRegistrado
+        boolean       origenNoRegistrado,
+        /** Plazo en días hábiles de la notificación (extraído del contenido JSON del acta). */
+        Integer       plazoDias
 ) {}

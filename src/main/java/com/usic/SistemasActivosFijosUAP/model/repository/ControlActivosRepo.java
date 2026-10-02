@@ -449,6 +449,7 @@ public class ControlActivosRepo {
         Timestamp res = rs.getTimestamp("fecha_resolucion");
         Timestamp env = rs.getTimestamp("fecha_envio_custodia");
         java.sql.Date doc = rs.getDate("fecha_documento");
+        Integer plazo = rs.getObject("plazo_dias", Integer.class);
         return new FaltanteDTO(
                 rs.getLong("id_hallazgo"),
                 rs.getString("tipo_hallazgo"),
@@ -487,7 +488,8 @@ public class ControlActivosRepo {
                 rs.getString("numero_acta"),
                 rs.getString("estado_envio"),
                 rs.getString("mensaje_envio"),
-                rs.getBoolean("origen_en_custodia"));
+                rs.getBoolean("origen_en_custodia"),
+                plazo);
     };
 
     /**
@@ -512,7 +514,10 @@ public class ControlActivosRepo {
                    h.id_responsable_custodia, h.fecha_envio_custodia, h.usuario_envio_custodia,
                    pe.id_persona, pe.ci, o.cod_ofi, p.unidad,
                    h.id_acta, af.numero as numero_acta, h.estado_envio, h.mensaje_envio,
-                   o.es_custodia as origen_en_custodia
+                   o.es_custodia as origen_en_custodia,
+                   case when af.contenido is not null
+                        then (af.contenido::json -> 'notificacion' ->> 'plazoDiasHabiles')::int
+                        else null end as plazo_dias
             from hallazgo_inventario h
             left join inventario i     on i.id_inventario  = h.id_inventario
             join oficina o             on o.id_oficina     = %s

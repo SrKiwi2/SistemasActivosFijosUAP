@@ -1,7 +1,6 @@
 <h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Rol</h4>
 
-<!-- Este div se adaptará al scrollX configurado en DataTables -->
-<div id="tablaRegistro" class="w-100"></div>
+<div id="tablaRegistro"></div>
 
 <!-- Modal estructurado correctamente -->
 <div class="modal fade" id="modalFormularioRol" tabindex="-1" aria-hidden="true">
@@ -13,27 +12,62 @@
 <script>
     $(document).ready(function () {
         cargarTabla();
+
+        // Auto-refresco por SSE si se usa en otros módulos
+        if (window.registrarTablaSse) window.registrarTablaSse('rol', function () { cargarTabla(); });
     });
 
+    // ── Inicialización DataTable con filtros por columna ──────────────────
+    function initDataTable() {
+        const $tbl = $('#data-table');
+        if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
+
+        $tbl.DataTable({
+            destroy: true,
+            orderCellsTop: true,
+            language: {
+                sProcessing: "Procesando...",
+                sLengthMenu: "Mostrar _MENU_ registros",
+                sZeroRecords: "No se encontraron resultados",
+                sInfo: "Mostrando del _START_ al _END_ de _TOTAL_ registros",
+                sInfoEmpty: "Mostrando 0 de 0 registros",
+                sInfoFiltered: "(filtrado de _MAX_ registros)",
+                sSearch: "Buscar general:",
+                sLoadingRecords: "Cargando...",
+                oPaginate: {
+                    sFirst: "Primero",
+                    sLast: "Último",
+                    sNext: "Siguiente",
+                    sPrevious: "Anterior"
+                }
+            },
+            initComplete: function () {
+                // Inicializar tooltips de esta tabla
+                $tbl.find('[data-bs-toggle="tooltip"]').each(function (i, el) {
+                    bootstrap.Tooltip.getOrCreateInstance(el);
+                });
+            }
+        });
+    }
+
     function cargarTabla() {
-        showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
-        
+        // Loader DENTRO de la tabla (no bloquea toda la pantalla)
+        $("#tablaRegistro").html(`
+            <div class="text-center text-muted py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <div class="mt-2">Cargando roles…</div>
+            </div>
+        `);
+
         $.ajax({
             type: 'POST',
             url: "/administracion/rol/tabla-registros",
-            success: function (response) {
-                $("#tablaRegistro").html(response);
+            success: function (html) {
+                $("#tablaRegistro").html(html);
+                initDataTable();
             },
-            error:function(){
-                $("#tablaRegistro").html(`
-                    <div class="alert alert-danger m-3">
-                    Ocurrió un error al cargar la tabla.
-                    <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
-                    </div>
-                `);
-            },
-            complete:function(){
-                hideGlobalLoader();
+            error: function (xhr) {
+                $("#tablaRegistro").html(`<div class="alert alert-danger m-3">Error cargando tabla</div>`);
             }
         });
     }
@@ -49,4 +83,13 @@
     function eliminar(nombre, id) {
         eliminarRegistroAlert(nombre, id, "/administracion/rol/eliminar", cargarTabla);
     }
+
+    // ── Delegación de eventos (una sola vez; el fragmento se recarga seguido) ──
+    $(document).off('click.rolMod', '.btn-editar-rol').on('click.rolMod', '.btn-editar-rol', function () {
+        cargarFormularioEdit($(this).data('id'));
+    });
+
+    $(document).off('click.rolMod', '.btn-eliminar-rol').on('click.rolMod', '.btn-eliminar-rol', function () {
+        eliminar($(this).data('nombre'), $(this).data('id'));
+    });
 </script>
