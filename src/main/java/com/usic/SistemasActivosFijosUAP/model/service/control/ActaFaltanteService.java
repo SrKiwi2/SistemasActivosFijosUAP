@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActaFaltanteDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActivoDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IConfiguracionGestionDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IHallazgoInventarioDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IOficinaDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IPersonasDao;
@@ -36,6 +37,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.control.PersonaFaltanteDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.RegistrarFaltantesRequest;
 import com.usic.SistemasActivosFijosUAP.model.entity.ActaFaltante;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.ConfiguracionGestion;
 import com.usic.SistemasActivosFijosUAP.model.entity.HallazgoInventario;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
@@ -63,6 +65,11 @@ public class ActaFaltanteService {
 
     /** Tope de bienes por acta: más que esto no es un acta, es un inventario. */
     private static final int TOPE_BIENES = 500;
+    /** Plazo de la notificación, en días hábiles: lo escribe quien registra. */
+    private static final int PLAZO_MAXIMO = 90;
+    /** Clave del turno (pg_advisory_xact_lock) para numerar notificaciones sin repetir. */
+    private static final long TURNO_NUMERACION = 0x5C1AF0001L;
+    private static final String CIUDAD_POR_DEFECTO = "Cobija";
     private static final int MINIMO_BUSQUEDA = 2;
     private static final int TOPE_PERSONAS = 30;
 
@@ -79,6 +86,7 @@ public class ActaFaltanteService {
     private final IHallazgoInventarioDao hallazgoDao;
     private final IActivoDao activoDao;
     private final IPersonasDao personaDao;
+    private final IConfiguracionGestionDao configuracionDao;
     private final CustodiaFaltantesRepo repo;
     private final EnvioCustodiaService envioService;
     private final ActividadService actividadService;
@@ -114,86 +122,45 @@ public class ActaFaltanteService {
      */
     public Registro registrar(RegistrarFaltantesRequest req, Usuario autor) {
         Creada creada = enTransaccion(() -> crearActa(req, autor));
+        String numero = ActaFaltante.numeroImpreso(creada.numero());
 
         actividadService.registrar(autor, ActividadService.MOD_ACTIVO, ActividadService.ACC_REGISTRO,
-                creada.numero(), "Registró el acta de faltantes " + creada.numero() + " de " + creada.persona()
+                creada.numero(), "Registró la notificación de faltantes " + numero + " de " + creada.persona()
                         + ": " + creada.idsHallazgo().size() + " bien(es)", creada.idsHallazgo().size(), creada.idActa());
 
-        // El acta ya existe pase lo que pase con el VSIAF: lo que falle queda en cada faltante.
+        // La notificación ya existe pase lo que pase con el VSIAF: lo que falle queda en cada faltante.
         envioService.iniciar(creada.idsHallazgo(), autor);
 
-        return new Registro(creada.idActa(), creada.numero(), creada.idsHallazgo().size(),
-                "Acta " + creada.numero() + " registrada con " + creada.idsHallazgo().size()
+        return new Registro(creada.idActa(), numero, creada.idsHallazgo().size(),
+                "Notificación " + numero + " registrada con " + creada.idsHallazgo().size()
                         + " bien(es). El traslado a la custodia se aplica en el VSIAF en unos segundos.");
     }
 
     private record Creada(Long idActa, String numero, String persona, List<Long> idsHallazgo) {}
 
     private Creada crearActa(RegistrarFaltantesRequest req, Usuario autor) {
-        if (req == null || req.idPersona() == null) throw new ReglaNegocioException("Indique la persona.");
-        List<Long> ids = req.idsActivos() == null ? List.of()
-                : req.idsActivos().stream().filter(Objects::nonNull).distinct().toList();
-        if (ids.isEmpty()) throw new ReglaNegocioException("Seleccione al menos un bien.");
-        if (ids.size() > TOPE_BIENES) {
-            throw new ReglaNegocioException("Un acta admite hasta " + TOPE_BIENES + " bienes; se eligieron " + ids.size() + ".");
-        }
-        Persona persona = personaDao.findById(req.idPersona())
-                .orElseThrow(() -> new ReglaNegocioException("La persona no existe."));
-
-        Map<Long, Activo> activos = activoDao.findAllById(ids).stream()
-                .collect(Collectors.toMap(Activo::getIdActivo, Function.identity()));
-        List<String> problemas = new ArrayList<>();
-        Map<Long, HallazgoInventario> previos = new LinkedHashMap<>();
-        for (Long id : ids) {
-            Activo a = activos.get(id);
-            if (a == null) { problemas.add("#" + id + ": no existe"); continue; }
-            String p = problemaParaRegistrar(a, persona);
-            if (p == null) {
-                List<HallazgoInventario> pend = hallazgoDao.pendientesDelActivo(id);
-                if (!pend.isEmpty()) {
-                    HallazgoInventario h = pend.get(0);
-                    if (h.getActa() != null) p = "ya está en el acta " + h.getActa().getNumero();
-                    else if (!ControlActivosService.ABIERTO.equals(h.getEstadoHallazgo())) p = "ya está en custodia";
-                    else previos.put(id, h);
-                }
-            }
-            if (p != null) problemas.add(a.getCodigo() + ": " + p);
-        }
-        if (!problemas.isEmpty()) {
-            throw new ReglaNegocioException("No se registró nada. Revise estos bienes:\n• " + String.join("\n• ", problemas));
-        }
-
-        List<Activo> ordenados = ids.stream().map(activos::get)
-                .sorted(Comparator.comparing((Activo a) -> a.getOficina().getPredio().getDescrip(), Comparator.nullsLast(String::compareTo))
-                        .thenComparing(a -> a.getOficina().getCodOfi(), Comparator.nullsLast(Short::compareTo))
-                        .thenComparing(Activo::getCodigo, Comparator.nullsLast(String::compareTo)))
-                .toList();
-
-        String usuario = autor != null ? autor.getUsuario() : "SISTEMA";
+        Preparado p = preparar(req, "No se registró nada. Revise estos bienes:");
+        Persona persona = p.persona();
+        List<Activo> ordenados = p.ordenados();
+        Map<Long, HallazgoInventario> previos = p.previos();
         LocalDateTime ahora = LocalDateTime.now();
+        // Antes de tomar el turno y de insertar: si falta el firmante, no se toca nada.
+        Map<String, Object> notificacion = datosNotificacion(req.plazoDias(), ahora, ordenados);
 
-        ActaFaltante acta = new ActaFaltante();
-        acta.setToken(nuevoToken());
-        acta.setPersona(persona);
-        acta.setPersonaNombre(recortar(persona.getNombreCompleto(), 160));
-        acta.setPersonaCi(recortar(persona.getCi(), 20));
-        acta.setPersonaCargo(recortar(cargoPrincipal(ordenados), 120));
-        acta.setFechaEmision(ahora);
-        acta.setUsuarioEmision(usuario);
-        acta.setDocumentoRespaldo(recortar(vacioANull(req.documentoRespaldo()), 120));
-        acta.setFechaDocumento(req.fechaDocumento());
-        acta.setObservacion(vacioANull(req.observacion()));
-        acta.setTotalBienes(ordenados.size());
-        acta.setEstadoActa(ActaFaltante.VIGENTE);
-        acta.setEstado("ACTIVO");
-        if (autor != null) acta.setRegistroIdUsuario(autor.getIdUsuario());
+        // Turno para el correlativo de la gestión: lo tiene esta transacción hasta confirmar.
+        actaDao.turnoNumeracion(TURNO_NUMERACION);
+        String numero = String.format("%s%03d/%d", ActaFaltante.PREFIJO_NOTIFICACION,
+                actaDao.ultimoCorrelativo(String.valueOf(ahora.getYear())) + 1, ahora.getYear());
+
+        ActaFaltante acta = armarActa(req, p, autor, ahora);
         // contenido y hash son NOT NULL y dependen del número, que sale del id: primero un borrador.
         acta.setContenido("{}");
         acta.setHashContenido("-");
         actaDao.saveAndFlush(acta);
 
-        acta.setNumero(numeroDe(ActaFaltante.TIPO_FALTANTES, ahora, acta.getIdActa()));
-        acta.setContenido(contenido(acta, persona, ordenados, ActaFaltante.TIPO_FALTANTES, Activo::getOficina));
+        acta.setNumero(numero);
+        acta.setContenido(contenido(acta, persona, ordenados, ActaFaltante.TIPO_FALTANTES, Activo::getOficina,
+                notificacion));
         acta.setHashContenido(sha256(acta.getContenido()));
 
         List<Long> idsHallazgo = new ArrayList<>();
@@ -207,7 +174,8 @@ public class ActaFaltanteService {
                 h.setActivo(a);
                 h.setCodigoFisico(a.getCodigo());
                 h.setDescripcionFisica(recortar(a.getDescripcion(), 1024));
-                h.setDescripcionDiscrepancia("Registrado como faltante en el acta " + acta.getNumero());
+                h.setDescripcionDiscrepancia("Registrado como faltante en la notificación "
+                        + ActaFaltante.numeroImpreso(acta.getNumero()));
                 h.setEstado("ACTIVO");
                 if (autor != null) h.setRegistroIdUsuario(autor.getIdUsuario());
             }
@@ -227,6 +195,117 @@ public class ActaFaltanteService {
         return new Creada(acta.getIdActa(), acta.getNumero(), acta.getPersonaNombre(), idsHallazgo);
     }
 
+    /** Lo validado y ordenado para emitir: lo usan igual el registro y la vista previa. */
+    private record Preparado(Persona persona, List<Activo> ordenados, Map<Long, HallazgoInventario> previos) {}
+
+    /**
+     * Valida el pedido y los bienes (solo lee) y los ordena como van en el documento.
+     *
+     * @param encabezado cómo empieza el mensaje cuando hay bienes que no se pueden incluir
+     * @throws ReglaNegocioException con todo lo que falta o sobra
+     */
+    private Preparado preparar(RegistrarFaltantesRequest req, String encabezado) {
+        if (req == null || req.idPersona() == null) throw new ReglaNegocioException("Indique la persona.");
+        List<Long> ids = req.idsActivos() == null ? List.of()
+                : req.idsActivos().stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) throw new ReglaNegocioException("Seleccione al menos un bien.");
+        if (ids.size() > TOPE_BIENES) {
+            throw new ReglaNegocioException("Un acta admite hasta " + TOPE_BIENES + " bienes; se eligieron " + ids.size() + ".");
+        }
+        if (req.plazoDias() == null || req.plazoDias() < 1 || req.plazoDias() > PLAZO_MAXIMO) {
+            throw new ReglaNegocioException("Escriba el plazo para responder, en días hábiles (de 1 a " + PLAZO_MAXIMO + ").");
+        }
+        Persona persona = personaDao.findById(req.idPersona())
+                .orElseThrow(() -> new ReglaNegocioException("La persona no existe."));
+
+        Map<Long, Activo> activos = activoDao.findAllById(ids).stream()
+                .collect(Collectors.toMap(Activo::getIdActivo, Function.identity()));
+        List<String> problemas = new ArrayList<>();
+        Map<Long, HallazgoInventario> previos = new LinkedHashMap<>();
+        for (Long id : ids) {
+            Activo a = activos.get(id);
+            if (a == null) { problemas.add("#" + id + ": no existe"); continue; }
+            String p = problemaParaRegistrar(a, persona);
+            if (p == null) {
+                List<HallazgoInventario> pend = hallazgoDao.pendientesDelActivo(id);
+                if (!pend.isEmpty()) {
+                    HallazgoInventario h = pend.get(0);
+                    if (h.getActa() != null) {
+                        String n = h.getActa().getNumero();
+                        p = "ya está en " + (n != null && n.startsWith(ActaFaltante.PREFIJO_NOTIFICACION)
+                                ? "la notificación " : "el acta ") + ActaFaltante.numeroImpreso(n);
+                    }
+                    else if (!ControlActivosService.ABIERTO.equals(h.getEstadoHallazgo())) p = "ya está en custodia";
+                    else previos.put(id, h);
+                }
+            }
+            if (p != null) problemas.add(a.getCodigo() + ": " + p);
+        }
+        if (!problemas.isEmpty()) {
+            throw new ReglaNegocioException(encabezado + "\n• " + String.join("\n• ", problemas));
+        }
+
+        List<Activo> ordenados = ids.stream().map(activos::get)
+                .sorted(Comparator.comparing((Activo a) -> a.getOficina().getPredio().getDescrip(), Comparator.nullsLast(String::compareTo))
+                        .thenComparing(a -> a.getOficina().getCodOfi(), Comparator.nullsLast(Short::compareTo))
+                        .thenComparing(Activo::getCodigo, Comparator.nullsLast(String::compareTo)))
+                .toList();
+        return new Preparado(persona, ordenados, previos);
+    }
+
+    /** El acta en memoria con los datos de la persona y del pedido (sin número, sin contenido, sin guardar). */
+    private ActaFaltante armarActa(RegistrarFaltantesRequest req, Preparado p, Usuario autor, LocalDateTime ahora) {
+        ActaFaltante acta = new ActaFaltante();
+        acta.setToken(nuevoToken());
+        acta.setPersona(p.persona());
+        acta.setPersonaNombre(recortar(p.persona().getNombreCompleto(), 160));
+        acta.setPersonaCi(recortar(p.persona().getCi(), 20));
+        acta.setPersonaCargo(recortar(cargoPrincipal(p.ordenados()), 120));
+        acta.setFechaEmision(ahora);
+        acta.setUsuarioEmision(autor != null ? autor.getUsuario() : "SISTEMA");
+        acta.setDocumentoRespaldo(recortar(vacioANull(req.documentoRespaldo()), 120));
+        acta.setFechaDocumento(req.fechaDocumento());
+        acta.setObservacion(vacioANull(req.observacion()));
+        acta.setTotalBienes(p.ordenados().size());
+        acta.setEstadoActa(ActaFaltante.VIGENTE);
+        acta.setEstado("ACTIVO");
+        if (autor != null) acta.setRegistroIdUsuario(autor.getIdUsuario());
+        return acta;
+    }
+
+    // ── Vista previa ────────────────────────────────────────────────────────
+
+    /** Estado del DTO de una vista previa (nunca se guarda: el PDF la marca como tal). */
+    public static final String VISTA_PREVIA = "VISTA_PREVIA";
+
+    /**
+     * La notificación tal como saldría al registrar, <b>sin registrar nada</b>: mismas
+     * validaciones, mismos datos y mismo formato, pero sin número, sin guardar, sin turno de
+     * numeración y sin tocar el VSIAF.
+     * <p>
+     * Corre en una transacción de solo lectura que además se deshace al terminar: aunque algo
+     * intentara escribir, PostgreSQL lo rechaza ("read-only transaction") y nada queda.
+     *
+     * @throws ReglaNegocioException lo mismo que diría el registro (bienes que no se pueden
+     *         incluir, plazo, firmante sin configurar...)
+     */
+    public ActaFaltanteDTO vistaPrevia(RegistrarFaltantesRequest req, Usuario autor) {
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        tx.setReadOnly(true);
+        return tx.execute(estado -> {
+            estado.setRollbackOnly();
+            Preparado p = preparar(req, "Estos bienes no se pueden incluir en la notificación:");
+            LocalDateTime ahora = LocalDateTime.now();
+            Map<String, Object> notificacion = datosNotificacion(req.plazoDias(), ahora, p.ordenados());
+            ActaFaltante acta = armarActa(req, p, autor, ahora);
+            acta.setNumero(ActaFaltante.PREFIJO_NOTIFICACION + "___/" + ahora.getYear());
+            acta.setContenido(contenido(acta, p.persona(), p.ordenados(), ActaFaltante.TIPO_FALTANTES,
+                    Activo::getOficina, notificacion));
+            acta.setHashContenido(sha256(acta.getContenido()));
+            return aDto(acta, VISTA_PREVIA);
+        });
+    }
+
     /** Por qué este bien no puede ir en un acta de esta persona; null si puede. */
     private String problemaParaRegistrar(Activo a, Persona persona) {
         if (!Activo.ESTADO_ACTIVO.equals(a.getEstado())) return "no está vigente";
@@ -240,6 +319,39 @@ public class ActaFaltanteService {
         if (r.isEsCustodia() || o.isEsCustodia()) return "ya está en una oficina de faltantes";
         if (Boolean.TRUE.equals(a.getBloqueado())) return "está bloqueado";
         return null;
+    }
+
+    /**
+     * Lo propio de la notificación, que queda en la foto (y por lo tanto en su huella): el
+     * plazo, la ciudad, quién firma por Activos Fijos y la unidad del destinatario. Se toma
+     * de la configuración de la gestión el día que se emite; si después cambia, el papel ya
+     * impreso y la reimpresión siguen diciendo lo mismo.
+     */
+    private Map<String, Object> datosNotificacion(int plazoDias, LocalDateTime fecha, List<Activo> activos) {
+        // Una gestión puede tener varias configuraciones (una por prefijo): la activa más reciente.
+        ConfiguracionGestion conf = configuracionDao
+                .findFirstByGestionAndEstadoOrderByIdConfigDesc(fecha.getYear(), "ACTIVO")
+                .or(() -> configuracionDao.findFirstByGestionOrderByIdConfigDesc(fecha.getYear()))
+                .orElse(null);
+        String firmante = conf != null ? vacioANull(conf.getResponsableActivosNombre()) : null;
+        if (firmante == null) {
+            // Queda grabado en la notificación: sin nombre saldría para siempre sin firmante.
+            throw new ReglaNegocioException("Falta el nombre del Responsable de Activos Fijos en la configuración de la gestión "
+                    + fecha.getYear() + ". Cárguelo en Configuración antes de emitir la notificación.");
+        }
+        Map<String, Object> n = new LinkedHashMap<>();
+        n.put("plazoDiasHabiles", plazoDias);
+        n.put("ciudad", conf != null && conf.getCiudad() != null && !conf.getCiudad().isBlank()
+                ? conf.getCiudad().trim() : CIUDAD_POR_DEFECTO);
+        n.put("firmante", firmante);
+        // Unidad del destinatario: la oficina donde tenía más de los bienes notificados.
+        n.put("unidad", activos.stream()
+                .map(a -> a.getOficina().getNombre())
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(Function.identity(), LinkedHashMap::new, Collectors.counting()))
+                .entrySet().stream().max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey).orElse(null));
+        return n;
     }
 
     /** El cargo de la fila de responsable que aporta más bienes al acta (una persona tiene uno por oficina). */
@@ -361,7 +473,7 @@ public class ActaFaltanteService {
 
         acta.setNumero(numeroDe(ActaFaltante.TIPO_REGULARIZACION, ahora, acta.getIdActa()));
         acta.setContenido(contenido(acta, persona, ordenados, ActaFaltante.TIPO_REGULARIZACION,
-                a -> origen.get(a.getIdActivo())));
+                a -> origen.get(a.getIdActivo()), null));
         acta.setHashContenido(sha256(acta.getContenido()));
 
         List<Long> idsHallazgo = new ArrayList<>();
@@ -482,11 +594,32 @@ public class ActaFaltanteService {
     }
 
     private ActaFaltanteDTO aDto(ActaFaltante acta) {
+        String estado = acta.getEstadoActa();
+        if (ActaFaltante.VIGENTE.equals(estado)) {
+            List<HallazgoInventario> hs = hallazgoDao.deLaActa(acta.getIdActa());
+            if (!hs.isEmpty() && hs.stream().allMatch(h -> ControlActivosService.RESUELTO.equals(h.getEstadoHallazgo()))) {
+                estado = RESUELTA;
+            }
+        }
+        return aDto(acta, estado);
+    }
+
+    /** @param estado VIGENTE | ANULADA | RESUELTA | VISTA_PREVIA */
+    private ActaFaltanteDTO aDto(ActaFaltante acta, String estado) {
         List<ActaFaltanteDTO.Predio> predios = new ArrayList<>();
         String tipo = acta.esRegularizacion() ? ActaFaltante.TIPO_REGULARIZACION : ActaFaltante.TIPO_FALTANTES;
+        Integer plazo = null;
+        String ciudad = null, firmante = null, unidadDestino = null;
         try {
             JsonNode raiz = json.readTree(acta.getContenido());
             if (raiz.hasNonNull("tipo")) tipo = raiz.path("tipo").asText(tipo);
+            JsonNode not = raiz.path("notificacion");
+            if (not.hasNonNull("plazoDiasHabiles")) {
+                plazo = not.path("plazoDiasHabiles").asInt();
+                ciudad = texto(not, "ciudad");
+                firmante = texto(not, "firmante");
+                unidadDestino = texto(not, "unidad");
+            }
             Map<String, Map<String, List<ActaFaltanteDTO.Bien>>> arbol = new LinkedHashMap<>();
             Map<String, String> nombrePredio = new LinkedHashMap<>();
             Map<String, Short> codOficina = new LinkedHashMap<>();
@@ -497,7 +630,8 @@ public class ActaFaltanteService {
                 codOficina.putIfAbsent(unidad + "#" + claveOfi, b.hasNonNull("codOfi") ? (short) b.path("codOfi").asInt() : null);
                 arbol.computeIfAbsent(unidad, k -> new LinkedHashMap<>())
                         .computeIfAbsent(claveOfi, k -> new ArrayList<>())
-                        .add(new ActaFaltanteDTO.Bien(b.path("codigo").asText(""), b.path("descripcion").asText("")));
+                        .add(new ActaFaltanteDTO.Bien(b.path("codigo").asText(""), b.path("descripcion").asText(""),
+                                texto(b, "descripcionCorta"), texto(b, "marca"), texto(b, "modelo"), texto(b, "serie")));
             }
             arbol.forEach((unidad, oficinas) -> {
                 List<ActaFaltanteDTO.Oficina> lista = new ArrayList<>();
@@ -509,19 +643,17 @@ public class ActaFaltanteService {
             log.error("[ACTA-FALTANTES] Contenido ilegible en {}: {}", acta.getNumero(), e.getMessage());
         }
 
-        String estado = acta.getEstadoActa();
-        if (ActaFaltante.VIGENTE.equals(estado)) {
-            List<HallazgoInventario> hs = hallazgoDao.deLaActa(acta.getIdActa());
-            if (!hs.isEmpty() && hs.stream().allMatch(h -> ControlActivosService.RESUELTO.equals(h.getEstadoHallazgo()))) {
-                estado = RESUELTA;
-            }
-        }
         return new ActaFaltanteDTO(acta.getIdActa(), acta.getNumero(), acta.getToken(), acta.getFechaEmision(),
                 acta.getUsuarioEmision(), acta.getPersonaNombre(), acta.getPersonaCi(), acta.getPersonaCargo(),
                 acta.getDocumentoRespaldo(), acta.getFechaDocumento(), acta.getObservacion(),
                 acta.getTotalBienes() != null ? acta.getTotalBienes() : 0, estado, acta.getMotivoAnulacion(),
                 acta.getFechaAnulacion(), acta.getHashContenido(),
-                Objects.equals(sha256(acta.getContenido()), acta.getHashContenido()), predios, tipo);
+                Objects.equals(sha256(acta.getContenido()), acta.getHashContenido()), predios, tipo,
+                plazo, ciudad, firmante, unidadDestino);
+    }
+
+    private static String texto(JsonNode n, String campo) {
+        return n.hasNonNull(campo) && !n.path(campo).asText().isBlank() ? n.path(campo).asText() : null;
     }
 
     // ── Apoyo ───────────────────────────────────────────────────────────────
@@ -530,9 +662,10 @@ public class ActaFaltanteService {
      * Foto de lo emitido. El orden de las claves es fijo: el hash depende del texto exacto.
      *
      * @param origen oficina que se imprime como "de origen" de cada bien; null = no registrada
+     * @param notificacion datos propios de la notificación; null en las actas de regularización
      */
     private String contenido(ActaFaltante acta, Persona persona, List<Activo> activos, String tipo,
-                             Function<Activo, Oficina> origen) {
+                             Function<Activo, Oficina> origen, Map<String, Object> notificacion) {
         Map<String, Object> raiz = new LinkedHashMap<>();
         raiz.put("numero", acta.getNumero());
         raiz.put("tipo", tipo);
@@ -560,9 +693,18 @@ public class ActaFaltanteService {
             Oficina o = origen.apply(a);
             b.put("codOfi", o != null ? o.getCodOfi() : null);
             b.put("oficina", o != null ? o.getNombre() : ORIGEN_NO_REGISTRADO);
+            if (notificacion != null) {
+                // Columnas de la notificación, separadas de la descripción tal como estaba ese día.
+                DatosTecnicos d = DatosTecnicos.de(a.getDescripcion());
+                b.put("descripcionCorta", d.descripcion());
+                b.put("marca", d.marca());
+                b.put("modelo", d.modelo());
+                b.put("serie", d.serie());
+            }
             bienes.add(b);
         }
         raiz.put("bienes", bienes);
+        if (notificacion != null) raiz.put("notificacion", notificacion);
         try {
             return json.writeValueAsString(raiz);
         } catch (Exception e) {

@@ -57,7 +57,8 @@
             </h4>
             <p class="text-muted mb-2" style="font-size:.9rem; max-width:860px;">
                 Agrupado por <b>persona</b>, luego por predio y oficina de donde falta el bien. Al
-                <b>registrar</b> los faltantes se emite el <b>acta</b> para firmar y los bienes pasan a la
+                <b>registrar</b> los faltantes se emite la <b>notificación</b> al responsable (con el plazo en días
+                hábiles para que informe) y los bienes pasan a la
                 oficina de faltantes de su predio. Al <b>resolver</b>, si el bien apareció vuelve a su
                 responsable; si se justificó o va a baja, queda en custodia pendiente de baja.
             </p>
@@ -100,7 +101,7 @@
         <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#cf-tab-faltantes" type="button">
             <i class="ti ti-list-details me-1"></i> Faltantes</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cf-tab-actas" type="button" id="cf-tab-actas-btn">
-            <i class="ti ti-file-certificate me-1"></i> Actas de faltantes</button></li>
+            <i class="ti ti-file-certificate me-1"></i> Notificaciones y actas</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cf-tab-conc" type="button" id="cf-tab-conc-btn">
             <i class="ti ti-scale me-1"></i> Conciliación <span class="badge bg-danger ms-1 d-none" id="cf-conc-badge"></span></button></li>
     </ul>
@@ -168,7 +169,7 @@
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
                         <thead><tr>
-                            <th>N° de acta</th><th>Fecha</th><th>Persona</th><th class="text-center">Bienes</th>
+                            <th>N° de documento</th><th>Fecha</th><th>Persona</th><th class="text-center">Bienes</th>
                             <th>Estado</th><th>Traslado a custodia</th><th class="text-end">Acciones</th>
                         </tr></thead>
                         <tbody id="cf-actas-cuerpo"></tbody>
@@ -223,16 +224,26 @@
                             <table class="table table-sm mb-0"><tbody id="cf-reg-bienes"></tbody></table>
                         </div>
                         <div class="row g-2">
-                            <div class="col-md-5">
+                            <!-- Plazo de la notificación: obligatorio, sin valor por defecto (lo decide Activos Fijos) -->
+                            <div class="col-md-3">
+                                <label class="form-label mb-1" style="font-size:.8rem;" for="cf-reg-plazo">
+                                    Plazo para responder <span class="text-danger">*</span></label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control" id="cf-reg-plazo" min="1" max="90" step="1"
+                                           inputmode="numeric" placeholder="Ej. 5">
+                                    <span class="input-group-text">días hábiles</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
                                 <label class="form-label mb-1" style="font-size:.8rem;">Documento de respaldo</label>
                                 <input type="text" class="form-control form-control-sm" id="cf-reg-doc" maxlength="120"
                                        placeholder="Informe, nota o memorándum (opcional)">
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label mb-1" style="font-size:.8rem;">Fecha del documento</label>
                                 <input type="date" class="form-control form-control-sm" id="cf-reg-fecha-doc">
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label mb-1" style="font-size:.8rem;">Observación</label>
                                 <input type="text" class="form-control form-control-sm" id="cf-reg-obs" maxlength="500">
                             </div>
@@ -241,8 +252,13 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <!-- Vista previa: arma la notificación con lo elegido, sin registrar nada -->
+                    <button type="button" class="btn btn-outline-primary" id="cf-reg-previa" disabled
+                            title="Ver cómo saldrá la notificación. No registra nada, no saca número ni toca el VSIAF.">
+                        <i class="ti ti-eye me-1"></i> Vista previa
+                    </button>
                     <button type="button" class="btn btn-danger" id="cf-reg-guardar" disabled>
-                        <i class="ti ti-file-certificate me-1"></i> Registrar y emitir acta
+                        <i class="ti ti-file-certificate me-1"></i> Registrar y emitir notificación
                     </button>
                 </div>
             </div>
@@ -278,6 +294,8 @@
                 : Promise.resolve(window.confirm(o.titulo + '\n\n' + String(o.texto || '').replace(/<[^>]*>/g, '')));
         }
         function pdfActa(idActa) { return CUS + '/actas/' + idActa + '/pdf'; }
+        /** NOT-AF-001/2026 → "NOT:SCIAF:AF N° 001/2026", como va en el papel. Las actas, tal cual. */
+        function numDoc(n) { return n && n.indexOf('NOT-AF-') === 0 ? 'NOT:SCIAF:AF N° ' + n.substring(7) : (n || ''); }
 
         // ── Filtros de ubicación ─────────────────────────────────────────
         $.get(BASE + '/mapa/predios').done(function (ps) {
@@ -435,7 +453,7 @@
             var puerta = h.origen === 'HISTORICO' ? 'Regularización' : (h.numeroInventario || 'Registro directo');
             var origen = h.numeroActa
                 ? '<a href="' + pdfActa(h.idActa) + '" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i> ' +
-                  esc(h.numeroActa) + '</a><br><span class="text-muted">' + esc(puerta) + '</span>'
+                  esc(numDoc(h.numeroActa)) + '</a><br><span class="text-muted">' + esc(puerta) + '</span>'
                 : esc(h.numeroInventario || 'Registro directo') + '<br><span class="text-muted">' + fmtFecha(h.fechaDeteccion) + '</span>';
             return '<tr class="' + (resuelto ? 'cf-resuelto' : '') + '">' +
                    '<td><span class="cf-cod">' + esc(h.codigo || '—') + '</span></td>' +
@@ -471,7 +489,7 @@
                 html:
                     '<div class="text-start" style="font-size:.88rem;">' +
                     '<div class="mb-2"><span class="cf-cod">' + esc(s.codigo) + '</span> ' + esc(s.descripcion || '') +
-                    (s.numeroActa ? '<br><span class="text-muted">Acta ' + esc(s.numeroActa) + '</span>' : '') + '</div>' +
+                    (s.numeroActa ? '<br><span class="text-muted">' + esc(numDoc(s.numeroActa)) + '</span>' : '') + '</div>' +
                     (s.aviso ? '<div class="alert alert-warning py-2 mb-2" style="font-size:.82rem;">' + esc(s.aviso) + '</div>' : '') +
                     '<label class="form-label mb-1">¿Qué pasó?</label>' +
                     '<select id="sw-tipo" class="form-select mb-2">' + s.tiposPermitidos.map(function (t) {
@@ -621,7 +639,7 @@
                 lista.map(function (a) {
                     return '<tr><td><span class="cf-cod">' + esc(a.codigo) + '</span></td><td>' + esc(a.descripcion) + '</td>' +
                         '<td>' + esc(a.persona || '—') + '</td><td style="font-size:.78rem;">' + esc(a.unidad) + ' · ' + esc(a.oficinaActual) + '</td>' +
-                        '<td>' + (a.idActa ? '<a href="' + pdfActa(a.idActa) + '" target="_blank" rel="noopener">' + esc(a.numeroActa) + '</a>' : '—') + '</td>' +
+                        '<td>' + (a.idActa ? '<a href="' + pdfActa(a.idActa) + '" target="_blank" rel="noopener">' + esc(numDoc(a.numeroActa)) + '</a>' : '—') + '</td>' +
                         '<td style="font-size:.78rem;">' + esc(a.detalle) + '</td></tr>';
                 }).join('') + '</tbody></table></div></div></div>';
         }
@@ -722,7 +740,7 @@
         function pintarActas() {
             var q = ($('#cf-actas-filtro').val() || '').trim().toLowerCase();
             var lista = actas.filter(function (a) {
-                return !q || (a.numero || '').toLowerCase().indexOf(q) !== -1 ||
+                return !q || (a.numero || '').toLowerCase().indexOf(q) !== -1 || numDoc(a.numero).toLowerCase().indexOf(q) !== -1 ||
                        (a.personaNombre || '').toLowerCase().indexOf(q) !== -1 ||
                        (a.personaCi || '').toLowerCase().indexOf(q) !== -1;
             });
@@ -747,16 +765,16 @@
                                '" target="_blank" rel="noopener" title="Descargar / imprimir"><i class="ti ti-printer"></i></a>';
                 if (a.conError > 0 && a.estadoActa === 'VIGENTE') {
                     acciones += ' <button class="btn btn-sm btn-outline-warning cf-acta-reintentar" data-id="' + a.idActa +
-                                '" data-numero="' + esc(a.numero) + '" title="Reintentar el traslado"><i class="ti ti-reload"></i></button>';
+                                '" data-numero="' + esc(numDoc(a.numero)) + '" title="Reintentar el traslado"><i class="ti ti-reload"></i></button>';
                 }
                 // Una regularización no movió nada: se anula mientras no haya resueltos.
                 var esReg = (a.numero || '').indexOf('AR-') === 0;
                 if (a.estadoActa === 'VIGENTE' && !a.resueltos && (esReg || (!a.enCustodia && !a.enviados))) {
                     acciones += ' <button class="btn btn-sm btn-outline-danger cf-acta-anular" data-id="' + a.idActa +
-                                '" data-numero="' + esc(a.numero) + '" title="Anular"><i class="ti ti-ban"></i></button>';
+                                '" data-numero="' + esc(numDoc(a.numero)) + '" title="Anular"><i class="ti ti-ban"></i></button>';
                 }
                 return '<tr>' +
-                    '<td><span class="cf-cod">' + esc(a.numero) + '</span>' +
+                    '<td><span class="cf-cod">' + esc(numDoc(a.numero)) + '</span>' +
                     (esReg ? '<br><span class="badge bg-label-info" style="font-size:.68rem;">Regularización</span>' : '') + '</td>' +
                     '<td style="font-size:.8rem;">' + fmtFechaHora(a.fechaEmision) + '<br><span class="text-muted">' + esc(a.usuarioEmision || '') + '</span></td>' +
                     '<td>' + esc(a.personaNombre) + '<br><span class="text-muted" style="font-size:.78rem;">C.I. ' + esc(a.personaCi || 's/d') + '</span></td>' +
@@ -819,7 +837,9 @@
         function abrirRegistro(persona) {
             reg = { persona: null, bienes: [], sel: {} };
             $('#cf-reg-buscar').val(''); $('#cf-reg-personas').empty();
-            $('#cf-reg-doc, #cf-reg-fecha-doc, #cf-reg-obs, #cf-reg-filtro').val('');
+            $('#cf-reg-doc, #cf-reg-fecha-doc, #cf-reg-obs, #cf-reg-filtro, #cf-reg-plazo').val('');
+            $('#cf-reg-plazo').removeClass('is-invalid');
+            $('#cf-reg-previa').html('<i class="ti ti-eye me-1"></i> Vista previa');
             $('#cf-reg-paso2').hide(); $('#cf-reg-paso1').show();
             actualizarConteo();
             modalRegistro().show();
@@ -914,7 +934,7 @@
                 }
                 var marca = '';
                 if (b.bloqueado) marca = '<span class="badge est-gris">Bloqueado</span>';
-                else if (b.numeroActa) marca = '<span class="badge est-camino">En acta ' + esc(b.numeroActa) + '</span>';
+                else if (b.numeroActa) marca = '<span class="badge est-camino">En ' + esc(numDoc(b.numeroActa)) + '</span>';
                 else if (b.idHallazgo) marca = '<span class="badge est-abierto">Faltante ' + esc(b.numeroInventario || '') + '</span>';
                 html += '<tr class="' + (b.seleccionable ? '' : 'no-sel') + '">' +
                     '<td><input type="checkbox" class="form-check-input cf-sel-bien" data-id="' + b.idActivo + '" data-of="' + b.idOficina + '"' +
@@ -947,45 +967,70 @@
             return reg.bienes.filter(function (b) { return reg.sel[b.idActivo]; });
         }
 
+        /** Hay una vista previa generándose: Registrar y Vista previa quedan quietos hasta que termine. */
+        var previaEnCurso = false;
+
         function actualizarConteo() {
             var n = seleccionados().length;
             $('#cf-reg-conteo').text(n + ' seleccionado(s)');
-            $('#cf-reg-guardar').prop('disabled', n === 0);
+            $('#cf-reg-guardar, #cf-reg-previa').prop('disabled', n === 0 || previaEnCurso);
+        }
+
+        /** Plazo escrito (número entero de 1 a 90) o null, avisando qué falta. */
+        function leerPlazo() {
+            var txt = ($('#cf-reg-plazo').val() || '').trim();
+            var n = parseInt(txt, 10);
+            if (!/^\d+$/.test(txt) || n < 1 || n > 90) {
+                $('#cf-reg-plazo').addClass('is-invalid').trigger('focus');
+                aviso('Falta el plazo', 'Escriba en cuántos <b>días hábiles</b> debe responder la persona (de 1 a 90).', 'warning');
+                return null;
+            }
+            $('#cf-reg-plazo').removeClass('is-invalid');
+            return n;
+        }
+
+        /** Lo que se manda al servidor: igual para registrar y para la vista previa. */
+        function datosPedido(sel, plazo) {
+            return {
+                idPersona: reg.persona.idPersona,
+                idsActivos: sel.map(function (b) { return b.idActivo; }),
+                documentoRespaldo: $('#cf-reg-doc').val() || null,
+                fechaDocumento: $('#cf-reg-fecha-doc').val() || null,
+                observacion: $('#cf-reg-obs').val() || null,
+                plazoDias: plazo
+            };
         }
 
         $('#cf-reg-guardar').on('click', function () {
             var sel = seleccionados();
             if (!sel.length || !reg.persona) return;
+            var plazo = leerPlazo();
+            if (plazo === null) return;
             var predios = {};
             sel.forEach(function (b) { predios[b.unidad] = (predios[b.unidad] || 0) + 1; });
             var resumen = Object.keys(predios).map(function (u) { return '<b>' + esc(u) + '</b>: ' + predios[u]; }).join(' · ');
 
             confirmar({
                 titulo: '¿Registrar ' + sel.length + ' faltante(s) de ' + esc(reg.persona.nombre) + '?',
-                texto: 'Se emite el <b>acta de faltantes</b> y los bienes se trasladan a la oficina de faltantes de su predio ' +
+                texto: 'Se emite la <b>notificación de faltantes</b> con un plazo de <b>' + plazo + ' día(s) hábil(es)</b> ' +
+                       'para responder, y los bienes se trasladan a la oficina de faltantes de su predio ' +
                        '(si el predio no tiene, se crea). El traslado se envía al <b>VSIAF</b>.<br><br>' + resumen,
-                aceptar: 'Registrar y emitir acta',
+                aceptar: 'Registrar y emitir notificación',
                 peligrosa: true
             }).then(function (si) {
                 if (!si) return;
                 var $b = $('#cf-reg-guardar').prop('disabled', true);
                 $.ajax({
                     url: CUS + '/actas', type: 'POST', contentType: 'application/json',
-                    data: JSON.stringify({
-                        idPersona: reg.persona.idPersona,
-                        idsActivos: sel.map(function (b) { return b.idActivo; }),
-                        documentoRespaldo: $('#cf-reg-doc').val() || null,
-                        fechaDocumento: $('#cf-reg-fecha-doc').val() || null,
-                        observacion: $('#cf-reg-obs').val() || null
-                    })
+                    data: JSON.stringify(datosPedido(sel, plazo))
                 })
                 .done(function (r) {
                     modalRegistro().hide();
                     cargar();
                     if (window.Swal) {
                         Swal.fire({
-                            title: 'Acta ' + r.numero, icon: 'success', html: esc(r.message),
-                            showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir acta para imprimir',
+                            title: 'Notificación ' + r.numero, icon: 'success', html: esc(r.message),
+                            showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir notificación para imprimir',
                             cancelButtonText: 'Cerrar'
                         }).then(function (x) { if (x.isConfirmed) window.open(pdfActa(r.idActa), '_blank'); });
                     } else {
@@ -999,6 +1044,71 @@
                 .always(function () { $b.prop('disabled', seleccionados().length === 0); });
             });
         });
+
+        // ── Vista previa (no registra nada) ──────────────────────────────
+        // El servidor arma la notificación con las mismas validaciones del registro, en una
+        // transacción de solo lectura: no guarda, no saca número y no toca el VSIAF.
+        var ETIQUETA_PREVIA = '<i class="ti ti-eye me-1"></i> Vista previa';
+        $('#cf-reg-previa').on('click', function () {
+            var sel = seleccionados();
+            if (previaEnCurso || !sel.length || !reg.persona) return;
+            var plazo = leerPlazo();
+            if (plazo === null) return;
+            var $b = $(this);
+            // Mientras se genera no se puede registrar ni pedir otra: si no, el aviso tardío de la
+            // vista previa ("no se registró nada") taparía el de un registro real.
+            previaEnCurso = true;
+            actualizarConteo();
+            $b.html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generando…');
+            fetch(CUS + '/actas/vista-previa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify(datosPedido(sel, plazo)),
+                cache: 'no-store'
+            }).then(function (r) {
+                // Sesión perdida: sciaf-sesion.js ya muestra su aviso; no se tapa con otro.
+                if (window.sciafSesion && window.sciafSesion.perdida(r)) return;
+                var tipo = r.headers.get('Content-Type') || '';
+                if (r.ok && tipo.indexOf('application/pdf') === 0) {
+                    return r.blob().then(function (blob) {
+                        // Si ya cerró el registro, no se le abre una ventana que no espera.
+                        if ($('#cf-reg').hasClass('show')) mostrarVistaPrevia(blob);
+                    });
+                }
+                return r.json().catch(function () { return {}; }).then(function (j) {
+                    aviso('No se pudo generar la vista previa', '<div style="text-align:left; white-space:pre-line;">' +
+                          esc(j.message || ('El servidor respondió ' + r.status + '.')) + '</div>', 'error');
+                });
+            }).catch(function () {
+                aviso('No se pudo generar la vista previa', 'Sin conexión con el servidor.', 'error');
+            }).then(function () {
+                previaEnCurso = false;
+                $b.html(ETIQUETA_PREVIA);
+                actualizarConteo();
+            });
+        });
+
+        function mostrarVistaPrevia(blob) {
+            var url = URL.createObjectURL(blob);
+            // Se libera más tarde: la pestaña aparte puede seguir usándolo un rato.
+            var liberar = function () { setTimeout(function () { URL.revokeObjectURL(url); }, 10 * 60 * 1000); };
+            if (!window.Swal) { window.open(url, '_blank'); liberar(); return; }
+            Swal.fire({
+                title: 'Vista previa de la notificación',
+                html: '<div class="alert alert-warning py-2 small text-start mb-2"><i class="ti ti-info-circle me-1"></i>' +
+                      '<b>No se registró nada.</b> Es solo para revisar: no tiene número ni validez. Para emitirla, ' +
+                      'cierre esta ventana y pulse <b>Registrar y emitir notificación</b>.</div>' +
+                      '<iframe src="' + url + '" title="Vista previa de la notificación" ' +
+                      'style="width:100%; height:68vh; border:1px solid #dcdfe6; border-radius:6px;"></iframe>' +
+                      '<div class="mt-2 small text-start"><a href="' + url + '" target="_blank" rel="noopener">' +
+                      '<i class="ti ti-external-link me-1"></i>Abrir en otra pestaña</a> ' +
+                      '<span class="text-muted">(si no se ve arriba, por ejemplo en el celular)</span></div>',
+                width: '92%',
+                showConfirmButton: false,
+                showCloseButton: true,
+                didDestroy: liberar
+            });
+        }
 
         // ── Exportar ─────────────────────────────────────────────────────
         function withXLSX(cb) {
@@ -1019,7 +1129,7 @@
                         'Unidad': h.unidad, 'Predio': h.predio, 'Cód. oficina': h.codOfi, 'Oficina de origen': h.oficina,
                         'Código activo': h.codigo, 'Descripción': h.descripcion,
                         'Tipo': h.tipoHallazgo, 'Estado': h.estadoHallazgo, 'Traslado': h.estadoEnvio,
-                        'Acta': h.numeroActa, 'Levantamiento': h.numeroInventario, 'Detectado': fmtFecha(h.fechaDeteccion),
+                        'Notificación / acta': numDoc(h.numeroActa), 'Levantamiento': h.numeroInventario, 'Detectado': fmtFecha(h.fechaDeteccion),
                         'Documento': h.documentoRespaldo, 'Enviado a custodia': fmtFecha(h.fechaEnvioCustodia),
                         'Resolución': h.tipoResolucion, 'Acción correctiva': h.accionCorrectiva,
                         'Revisor': h.usuarioRevisor, 'Resuelto': fmtFecha(h.fechaResolucion)

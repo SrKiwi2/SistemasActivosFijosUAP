@@ -31,16 +31,34 @@ public record ActaFaltanteDTO(
         boolean       integro,
         List<Predio>  predios,
         /** FALTANTES | REGULARIZACION */
-        String        tipo
+        String        tipo,
+        /** Solo notificaciones (null en las actas): días hábiles para responder. */
+        Integer       plazoDias,
+        String        ciudad,
+        /** Responsable de Activos Fijos que firma, según la configuración de la gestión al emitir. */
+        String        firmante,
+        /** Unidad organizacional del destinatario (su oficina con más bienes notificados). */
+        String        unidad
 ) {
 
     public boolean esRegularizacion() {
         return "REGULARIZACION".equals(tipo);
     }
 
+    /** Faltantes emitidos desde el 2-oct-2026: formato de notificación con plazo. */
+    public boolean esNotificacion() {
+        return plazoDias != null;
+    }
+
     /** Título del documento según su tipo. */
     public String titulo() {
+        if (esNotificacion()) return "NOTIFICACIÓN DE ACTIVOS FÍSICOS FALTANTES";
         return esRegularizacion() ? "ACTA DE REGULARIZACIÓN DE FALTANTES" : "ACTA DE FALTANTES";
+    }
+
+    /** Como va en el papel: NOT:SCIAF:AF N° 001/2026 (las actas, tal cual). */
+    public String numeroImpreso() {
+        return com.usic.SistemasActivosFijosUAP.model.entity.ActaFaltante.numeroImpreso(numero);
     }
 
     /** Huella corta para el papel: los primeros 16 caracteres del hash, en grupos de 4. */
@@ -58,5 +76,10 @@ public record ActaFaltanteDTO(
 
     public record Oficina(Short codOfi, String nombre, List<Bien> bienes) {}
 
-    public record Bien(String codigo, String descripcion) {}
+    /**
+     * @param descripcion completa, como estaba registrada
+     * @param descripcionCorta sin marca/modelo/serie, que van en sus columnas (solo notificaciones)
+     */
+    public record Bien(String codigo, String descripcion, String descripcionCorta,
+                       String marca, String modelo, String serie) {}
 }

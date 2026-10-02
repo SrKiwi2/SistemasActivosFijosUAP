@@ -190,7 +190,15 @@
                     if (abierto && abierto.classList.contains('swal2-toast')) Swal.close();
                 }
 
-                Swal.mixin({
+                // Un diálogo abierto (una confirmación, un formulario, la vista previa de un
+                // documento) no se reemplaza por este aviso: SweetAlert muestra uno a la vez y el
+                // toast lo cerraba en la cara del usuario. La sincronización sigue igual; solo no
+                // se avisa esta vez.
+                const dialogo = (typeof Swal.isVisible === 'function' && Swal.isVisible()
+                        && typeof Swal.getPopup === 'function') ? Swal.getPopup() : null;
+                const hayDialogo = !!(dialogo && !dialogo.classList.contains('swal2-toast'));
+
+                if (!hayDialogo) Swal.mixin({
                     toast: true,
                     position: 'bottom-end',
                     showConfirmButton: false,

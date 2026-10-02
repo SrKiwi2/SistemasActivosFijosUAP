@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -83,7 +84,8 @@ public class CustodiaFaltantesController {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_PDF);
         h.setContentDisposition(ContentDisposition.inline()
-                .filename("acta_faltantes_" + acta.numero() + ".pdf").build());
+                .filename((acta.esNotificacion() ? "notificacion_faltantes_" : "acta_faltantes_")
+                        + acta.numero().replaceAll("[^A-Za-z0-9-]", "-") + ".pdf").build());
         return new ResponseEntity<>(pdf, h, HttpStatus.OK);
     }
 
@@ -101,6 +103,27 @@ public class CustodiaFaltantesController {
         cuerpo.put("total", r.total());
         cuerpo.put("message", r.mensaje());
         return ResponseEntity.ok(cuerpo);
+    }
+
+    /**
+     * Vista previa de la notificación con la persona, los bienes y el plazo elegidos, <b>sin
+     * registrar nada</b>: no guarda, no saca número y no toca el VSIAF (ver
+     * {@link ActaFaltanteService#vistaPrevia}). Pide el mismo permiso que registrar porque
+     * muestra lo que se emitiría.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/actas/vista-previa")
+    public ResponseEntity<?> vistaPrevia(@RequestBody RegistrarFaltantesRequest req, HttpServletRequest http)
+            throws Exception {
+        exigirPermiso(http);
+        ActaFaltanteDTO acta = actaService.vistaPrevia(req, usuarioDe(http));
+        byte[] pdf = pdfService.generarVistaPrevia(acta);
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.APPLICATION_PDF);
+        h.setCacheControl(CacheControl.noStore());
+        h.setContentDisposition(ContentDisposition.inline()
+                .filename("vista_previa_notificacion_faltantes.pdf").build());
+        return new ResponseEntity<>(pdf, h, HttpStatus.OK);
     }
 
     public record AnularRequest(String motivo) {}

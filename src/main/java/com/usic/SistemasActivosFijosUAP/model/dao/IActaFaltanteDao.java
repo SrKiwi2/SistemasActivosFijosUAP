@@ -17,4 +17,16 @@ public interface IActaFaltanteDao extends JpaRepository<ActaFaltante, Long> {
 
     @Query("select a from ActaFaltante a where a.persona.idPersona = :idPersona order by a.fechaEmision desc")
     List<ActaFaltante> deLaPersona(@Param("idPersona") Long idPersona);
+
+    /**
+     * Turno para numerar notificaciones: mientras dure la transacción, nadie más saca un
+     * número (se libera solo al confirmar o deshacer). Así no se repite el correlativo.
+     */
+    @Query(value = "select count(*) from (select pg_advisory_xact_lock(:clave)) t", nativeQuery = true)
+    long turnoNumeracion(@Param("clave") long clave);
+
+    /** Último correlativo de notificación de la gestión: NOT-AF-<b>007</b>/2026 → 7. */
+    @Query(value = "select coalesce(max(cast(substring(numero from '^NOT-AF-([0-9]+)/') as integer)), 0)"
+            + " from acta_faltante where numero like 'NOT-AF-%/' || :gestion", nativeQuery = true)
+    int ultimoCorrelativo(@Param("gestion") String gestion);
 }

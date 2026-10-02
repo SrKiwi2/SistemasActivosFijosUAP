@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <title th:text="${acta != null} ? 'Acta ' + ${acta.numero} + ' · Verificación' : 'Verificación de acta'">Verificación de acta</title>
+    <title th:text="${acta != null} ? ${acta.numeroImpreso()} + ' · Verificación' : 'Verificación de documento'">Verificación de acta</title>
     <style>
         :root {
             --fondo: #f3f5f9; --tarjeta: #ffffff; --texto: #1f2a37; --suave: #5f6b7a; --borde: #e3e7ee;
@@ -43,18 +43,20 @@
     </style>
 </head>
 <body>
-<main>
+<!-- Desde el 2-oct-2026 los faltantes nuevos se emiten como notificación; las anteriores y las regularizaciones son actas. -->
+<main th:with="doc=${acta != null and acta.esNotificacion()} ? 'Notificación' : 'Acta'">
     <header>
         <div class="inst">Universidad Amazónica de Pando · Sección de Activos Fijos</div>
-        <h1 th:text="${acta != null and acta.esRegularizacion()} ? 'Verificación de acta de regularización de faltantes'
-                                                                  : 'Verificación de acta de faltantes'">Verificación de acta de faltantes</h1>
+        <h1 th:text="${acta != null and acta.esNotificacion()} ? 'Verificación de notificación de activos físicos faltantes'
+                   : (${acta != null and acta.esRegularizacion()} ? 'Verificación de acta de regularización de faltantes'
+                                                                  : 'Verificación de acta de faltantes')">Verificación de acta de faltantes</h1>
     </header>
 
     <!-- Token que no corresponde a ninguna acta -->
     <div th:if="${acta == null}" class="estado mal">
         <div class="ico">✕</div>
         <div><b>Acta no encontrada</b>
-            Este código no corresponde a ninguna acta emitida por el SCIAF. Si el papel dice lo
+            Este código no corresponde a ningún documento emitido por el SCIAF. Si el papel dice lo
             contrario, el documento no es auténtico o el código está dañado.</div>
     </div>
 
@@ -62,23 +64,23 @@
 
         <div th:if="${!acta.integro}" class="estado mal">
             <div class="ico">!</div>
-            <div><b>El registro de esta acta fue alterado</b>
+            <div><b th:text="'El registro de este documento fue alterado'">El registro de esta acta fue alterado</b>
                 El contenido guardado no coincide con su huella. Consulte a la Sección de Activos Fijos.</div>
         </div>
 
         <div th:if="${acta.integro and acta.estado == 'VIGENTE'}" class="estado ok">
             <div class="ico">✓</div>
-            <div><b>Acta auténtica y vigente</b>
+            <div><b th:text="${doc} + ' auténtica y vigente'">Acta auténtica y vigente</b>
                 Emitida por el SCIAF. Compare los datos de abajo con el papel: deben coincidir.</div>
         </div>
         <div th:if="${acta.integro and acta.estado == 'RESUELTA'}" class="estado ok">
             <div class="ico">✓</div>
-            <div><b>Acta auténtica · faltantes resueltos</b>
-                Todos los bienes de esta acta ya fueron aclarados.</div>
+            <div><b th:text="${doc} + ' auténtica · faltantes resueltos'">Acta auténtica · faltantes resueltos</b>
+                Todos los bienes de este documento ya fueron aclarados.</div>
         </div>
         <div th:if="${acta.integro and acta.estado == 'ANULADA'}" class="estado aviso">
             <div class="ico">⚠</div>
-            <div><b>Acta anulada</b>
+            <div><b th:text="${doc} + ' anulada'">Acta anulada</b>
                 <span th:text="'Anulada el ' + ${#temporals.format(acta.fechaAnulacion, 'dd/MM/yyyy HH:mm')}
                                + (${acta.motivoAnulacion} != null ? ': ' + ${acta.motivoAnulacion} : '.')"></span>
                 El papel ya no tiene validez.</div>
@@ -86,13 +88,16 @@
 
         <section class="tarjeta">
             <dl>
-                <dt>N° de acta</dt>        <dd th:text="${acta.numero}"></dd>
+                <dt>N° de documento</dt>   <dd th:text="${acta.numeroImpreso()}"></dd>
                 <dt>Responsable</dt>       <dd th:text="${acta.personaNombre}"></dd>
                 <dt>C.I.</dt>              <dd th:text="${ciOculto} ?: '—'"></dd>
                 <dt>Cargo</dt>             <dd th:text="${acta.personaCargo} ?: '—'"></dd>
                 <dt>Fecha de emisión</dt>  <dd th:text="${#temporals.format(acta.fechaEmision, 'dd/MM/yyyy HH:mm')}"></dd>
                 <dt>Documento</dt>         <dd th:text="${acta.documentoRespaldo} ?: '—'"></dd>
                 <dt>Bienes</dt>            <dd th:text="${acta.totalBienes}"></dd>
+                <th:block th:if="${acta.esNotificacion()}">
+                <dt>Plazo para informar</dt><dd th:text="${acta.plazoDias} + ' día(s) hábil(es) desde la recepción'"></dd>
+                </th:block>
                 <dt>Huella</dt>            <dd class="huella" th:text="${acta.huella()}"></dd>
             </dl>
         </section>

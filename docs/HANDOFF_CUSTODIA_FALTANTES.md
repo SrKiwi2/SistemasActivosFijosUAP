@@ -366,3 +366,41 @@ Abrir el proyecto y decirle:
 
 > Lee `docs/HANDOFF_CUSTODIA_FALTANTES.md` y el anexo de custodia en
 > `docs/PLAN_CONTROL_ACTIVOS.md`. Las 6 fases están escritas; toca la prueba en vivo.
+
+## Notificación de activos físicos faltantes (2026-10-02) — sin commitear, sin probar en vivo
+
+Pedido de Activos Fijos: los faltantes de un responsable se notifican con su formato
+(carta "NOTIFICACIÓN DE ACTIVOS FÍSICOS FALTANTES") y el plazo se escribe al registrar.
+
+Decisiones del usuario: la notificación **reemplaza** al acta en los faltantes nuevos; el
+plazo viene **vacío y es obligatorio** (1 a 90 días hábiles); las **regularizaciones (AR-)
+siguen con su acta**. Las actas AF- ya emitidas se reimprimen igual que antes.
+
+- Número: correlativo por gestión, guardado `NOT-AF-001/2026` (la columna `numero` es de 20)
+  e impreso `NOT:SCIAF:AF N° 001/2026`. Se saca con `pg_advisory_xact_lock` en la misma
+  transacción del registro (`IActaFaltanteDao.turnoNumeracion/ultimoCorrelativo`).
+- **Sin cambio de esquema** (`acta_faltante` es de postgres): plazo, ciudad, firmante y
+  unidad del destinatario van en `contenido` → bloque `notificacion`, y cada bien lleva
+  `descripcionCorta/marca/modelo/serie`. Todo queda bajo la huella SHA-256.
+- Firmante = `configuracion_gestion.responsable_activos_nombre` de la gestión (hoy "Lic.
+  Verónica Layme Cori"). Si falta, **no deja emitir** (si no, saldría sin firma para siempre).
+- Marca/modelo/serie no tienen columna en `activo`: `DatosTecnicos` los separa de la
+  descripción (`M:`, `MARCA`, `MOD.`, `N/S:`, `S:`, `SERIE:`...). Si el valor parece texto
+  libre, no lo separa y queda en la descripción ("—" en la columna).
+- PDF: `PdfActaFaltanteService.notificacion` (membrete, QR y huella como el acta; plazo en
+  letras "5 (cinco) días hábiles"). Página pública de verificación adaptada.
+- Pantalla Faltantes: campo "Plazo para responder (días hábiles)", textos "notificación",
+  pestaña "Notificaciones y actas", números mostrados como en el papel.
+
+Pendiente: probar un registro real (escribe en bd_a3 y encola el traslado al VSIAF). En
+otras pantallas (seguimiento, ruta de activo) el número aparece como `NOT-AF-001/2026`.
+
+### Vista previa de la notificación (2026-10-02)
+
+Botón **Vista previa** en el modal "Registrar faltantes" (pide el plazo, igual que registrar).
+`POST /administracion/control-activos/custodia/actas/vista-previa` → PDF con marca de agua
+"VISTA PREVIA", "N° ___/año", sin QR ni código de verificación. **No registra nada**:
+`ActaFaltanteService.vistaPrevia` usa las mismas validaciones (`preparar`) y datos (`armarActa`,
+`datosNotificacion`, `contenido`) que el registro, en un `TransactionTemplate` de solo lectura
+que además se deshace; no toma el turno de numeración ni llama a `EnvioCustodiaService`.
+Mismo permiso que registrar (`exigirPermiso`).

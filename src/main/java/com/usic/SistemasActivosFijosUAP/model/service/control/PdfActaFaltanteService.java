@@ -2,11 +2,13 @@ package com.usic.SistemasActivosFijosUAP.model.service.control;
 
 import java.io.ByteArrayOutputStream;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.itextpdf.text.BaseColor;
+import com.itextpdf.text.Chunk;
 import com.itextpdf.text.Document;
 import com.itextpdf.text.Element;
 import com.itextpdf.text.Font;
@@ -30,7 +32,10 @@ import com.usic.SistemasActivosFijosUAP.model.entity.ActaFaltante;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * PDF del acta de faltantes, para imprimir y firmar.
+ * PDF del acta de faltantes, para imprimir y firmar. Los faltantes emitidos desde el
+ * 2-oct-2026 salen como <b>notificación</b> ({@link #notificacion}), con el formato que
+ * definió la Sección de Activos Fijos; las actas anteriores y las de regularización
+ * conservan su formato de acta.
  * <p>
  * Hoja carta con el membrete institucional en cada página. Sobre el pie de cada hoja va
  * una franja de verificación: QR hacia la página pública del SCIAF, número, huella del
@@ -90,6 +95,7 @@ public class PdfActaFaltanteService {
     }
 
     public byte[] generar(ActaFaltanteDTO acta) throws Exception {
+        if (acta.esNotificacion()) return notificacion(acta, false);
         Rectangle hoja = PageSize.LETTER;
         Document doc = new Document(hoja, MARGEN_LADO, MARGEN_LADO, MARGEN_ARRIBA, MARGEN_ABAJO);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -127,6 +133,283 @@ public class PdfActaFaltanteService {
 
         doc.close();
         return out.toByteArray();
+    }
+
+    // ── Notificación de activos físicos faltantes ──────────────────────────
+
+    private static final Locale ES = Locale.forLanguageTag("es-BO");
+    private static final DateTimeFormatter FECHA_LARGA = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", ES);
+    private static final String UAP = "UNIVERSIDAD AMAZÓNICA DE PANDO";
+
+    private static final Font N_CAB    = new Font(Font.FontFamily.HELVETICA, 11, Font.BOLD);
+    private static final Font N_TEXTO  = new Font(Font.FontFamily.HELVETICA, 10);
+    private static final Font N_NEGRITA = new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD);
+    private static final Font N_TABLA_CAB = new Font(Font.FontFamily.HELVETICA, 8, Font.BOLD);
+    private static final Font N_TABLA  = new Font(Font.FontFamily.HELVETICA, 8);
+    private static final Font N_PIE    = new Font(Font.FontFamily.HELVETICA, 8);
+    private static final Font N_PIE_B  = new Font(Font.FontFamily.HELVETICA, 8, Font.BOLD);
+    private static final float ALTO_FIRMA_NOTIFICACION = 110f;
+    private static final BaseColor AMBAR = new BaseColor(176, 92, 0);
+    private static final Font N_VISTA_PREVIA = new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, AMBAR);
+    private static final Font F_FRANJA_PREVIA = new Font(Font.FontFamily.HELVETICA, 7.5f, Font.BOLD, AMBAR);
+
+    /**
+     * Vista previa de una notificación que todavía no se registró: el mismo documento, pero
+     * con "VISTA PREVIA" de marca de agua en cada hoja y sin número, QR ni código de
+     * verificación. No existe en el SCIAF, así que no sirve para entregar.
+     */
+    public byte[] generarVistaPrevia(ActaFaltanteDTO acta) throws Exception {
+        if (!acta.esNotificacion()) {
+            throw new IllegalArgumentException("La vista previa es solo para notificaciones de faltantes.");
+        }
+        return notificacion(acta, true);
+    }
+
+    /**
+     * Carta dirigida al responsable con el detalle de los bienes no encontrados, el plazo en
+     * días hábiles para informar y la firma del Responsable de Activos Fijos. Todo sale de la
+     * foto guardada al emitir.
+     */
+    private byte[] notificacion(ActaFaltanteDTO acta, boolean vistaPrevia) throws Exception {
+        Document doc = new Document(PageSize.LETTER, MARGEN_LADO, MARGEN_LADO, MARGEN_ARRIBA, MARGEN_ABAJO);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PdfWriter writer = PdfWriter.getInstance(doc, out);
+
+        if (vistaPrevia) {
+            // Sin QR: llevaría a una página que no existe (la vista previa no se guarda).
+            writer.setPageEvent(new Hoja(acta, null, null, cargarMembrete(), true));
+        } else {
+            String url = urlVerificacion(acta.token());
+            Image qr = new BarcodeQRCode(url, 1, 1, null).getImage();
+            qr.scaleAbsolute(54, 54);
+            writer.setPageEvent(new Hoja(acta, url, qr, cargarMembrete()));
+        }
+
+        doc.addTitle((vistaPrevia ? "VISTA PREVIA — " : "")
+                + "Notificación de activos físicos faltantes " + acta.numeroImpreso());
+        doc.addAuthor("Sección de Activos Fijos - UAP");
+        doc.addCreator("SCIAF");
+        doc.open();
+
+        for (String linea : new String[] { UAP, "DIRECCIÓN ADMINISTRATIVA FINANCIERA", "SECCIÓN DE ACTIVOS FIJOS" }) {
+            Paragraph p = new Paragraph(linea, N_CAB);
+            p.setAlignment(Element.ALIGN_CENTER);
+            doc.add(p);
+        }
+
+        Paragraph numero = new Paragraph(acta.numeroImpreso(), N_NEGRITA);
+        numero.setAlignment(Element.ALIGN_RIGHT);
+        numero.setSpacingBefore(12);
+        doc.add(numero);
+        Paragraph fecha = new Paragraph(nvl(acta.ciudad(), "Cobija") + ", "
+                + (acta.fechaEmision() != null ? acta.fechaEmision().format(FECHA_LARGA) : ""), N_NEGRITA);
+        fecha.setAlignment(Element.ALIGN_RIGHT);
+        fecha.setSpacingAfter(10);
+        doc.add(fecha);
+
+        if (vistaPrevia) {
+            Paragraph aviso = new Paragraph("VISTA PREVIA — no registrada: sin número y sin validez", N_VISTA_PREVIA);
+            aviso.setAlignment(Element.ALIGN_CENTER);
+            aviso.setSpacingAfter(8);
+            doc.add(aviso);
+        }
+
+        if (ActaFaltante.ANULADA.equals(acta.estado())) {
+            Paragraph anulada = new Paragraph("NOTIFICACIÓN ANULADA"
+                    + (acta.fechaAnulacion() != null ? " el " + acta.fechaAnulacion().format(FECHA_HORA) : "")
+                    + (acta.motivoAnulacion() != null ? " — " + acta.motivoAnulacion() : ""), F_ANULADA);
+            anulada.setAlignment(Element.ALIGN_CENTER);
+            anulada.setSpacingAfter(8);
+            doc.add(anulada);
+        }
+
+        doc.add(new Paragraph("Señor(a):", N_NEGRITA));
+        doc.add(new Paragraph(acta.personaNombre().toUpperCase(ES), N_NEGRITA));
+        if (acta.personaCargo() != null) doc.add(new Paragraph(acta.personaCargo().toUpperCase(ES), N_NEGRITA));
+        if (acta.unidad() != null) doc.add(new Paragraph(acta.unidad().toUpperCase(ES), N_NEGRITA));
+        doc.add(new Paragraph(UAP, N_NEGRITA));
+        Paragraph presente = new Paragraph("Presente.-", N_NEGRITA);
+        presente.setSpacingBefore(8);
+        doc.add(presente);
+
+        Paragraph ref = new Paragraph("REF.: NOTIFICACIÓN DE ACTIVOS FÍSICOS FALTANTES", N_NEGRITA);
+        ref.setAlignment(Element.ALIGN_CENTER);
+        ref.setSpacingBefore(8);
+        ref.setSpacingAfter(8);
+        doc.add(ref);
+
+        doc.add(new Paragraph("De mi consideración:", N_NEGRITA));
+        doc.add(parrafo("Mediante la presente, la **Sección de Activos Fijos** de la Universidad Amazónica de Pando, "
+                + "en el marco de las actividades de **control, verificación y actualización de los registros de "
+                + "activos fijos**, pone en su conocimiento los resultados de la verificación física realizada a los "
+                + "bienes registrados bajo su responsabilidad."));
+        doc.add(parrafo("Como resultado del proceso de cotejo entre los registros institucionales y la verificación "
+                + "física efectuada, se identificaron **activos fijos que no fueron encontrados físicamente**, los "
+                + "cuales se detallan a continuación:"));
+
+        Paragraph detalle = new Paragraph("DETALLE DE ACTIVOS FÍSICOS FALTANTES", N_NEGRITA);
+        detalle.setSpacingBefore(4);
+        detalle.setSpacingAfter(6);
+        doc.add(detalle);
+
+        int total = 0;
+        boolean variosPredios = acta.predios().size() > 1;
+        for (ActaFaltanteDTO.Predio p : acta.predios()) {
+            for (ActaFaltanteDTO.Oficina o : p.oficinas()) {
+                String titulo = "Oficina " + (o.codOfi() != null ? o.codOfi() + " – " : "– ")
+                        + nvl(o.nombre(), ActaFaltanteService.ORIGEN_NO_REGISTRADO)
+                        + (variosPredios ? " (" + nvl(p.nombre(), p.unidad()) + ")" : "");
+                // El título de la oficina, la cabecera y al menos una fila van juntos: si no
+                // entran al pie de esta hoja, la oficina empieza en la siguiente.
+                if (writer.getVerticalPosition(true) - doc.bottom() < 85) {
+                    doc.newPage();
+                }
+                Paragraph to = new Paragraph(titulo, N_NEGRITA);
+                to.setSpacingBefore(4);
+                to.setSpacingAfter(3);
+                to.setKeepTogether(true);
+                doc.add(to);
+                doc.add(tablaOficina(o));
+                total += o.bienes().size();
+            }
+        }
+        Paragraph tot = new Paragraph("TOTAL DE ACTIVOS FALTANTES: " + total, N_NEGRITA);
+        tot.setSpacingBefore(4);
+        tot.setSpacingAfter(8);
+        doc.add(tot);
+
+        doc.add(parrafo("De acuerdo con los registros del **Sistema de Información de Activos Fijos (vSIAF)** y el "
+                + "levantamiento físico realizado, los bienes detallados precedentemente se encuentran registrados bajo "
+                + "su responsabilidad y, a la fecha consignada en el presente documento, **no fueron ubicados "
+                + "físicamente en las dependencias y ubicaciones registradas**."));
+        doc.add(parrafo("En consecuencia, **se solicita a usted informar a la Sección de Activos Fijos sobre la situación "
+                + "y paradero de cada uno de los bienes señalados**, proporcionando la información y/o documentación "
+                + "que permita establecer su ubicación actual y las circunstancias relacionadas con su ausencia."));
+        doc.add(parrafo("La información solicitada deberá ser presentada dentro del plazo de **"
+                + plazoEnTexto(acta.plazoDias()) + (Integer.valueOf(1).equals(acta.plazoDias()) ? " día hábil" : " días hábiles")
+                + "**, computables a partir de la recepción de la "
+                + "presente notificación, a efectos de realizar el correspondiente seguimiento y actualización de los "
+                + "registros patrimoniales."));
+        doc.add(parrafo("La presente comunicación queda registrada en el **Sistema de Control Interno de Activos Fijos "
+                + "(SCIAF)** para fines de control y seguimiento."));
+        doc.add(parrafo("Sin otro particular, saludo a usted con las consideraciones más distinguidas."));
+        Paragraph atte = new Paragraph("Atentamente,", N_NEGRITA);
+        atte.setSpacingBefore(4);
+        doc.add(atte);
+
+        firmaNotificacion(doc, writer, acta, vistaPrevia);
+        doc.close();
+        return out.toByteArray();
+    }
+
+    /** Párrafo justificado; lo que va entre ** sale en negrita. */
+    private static Paragraph parrafo(String texto) {
+        Paragraph p = new Paragraph();
+        String[] partes = texto.split("\\*\\*", -1);
+        for (int i = 0; i < partes.length; i++) {
+            if (!partes[i].isEmpty()) p.add(new Chunk(partes[i], i % 2 == 1 ? N_NEGRITA : N_TEXTO));
+        }
+        p.setAlignment(Element.ALIGN_JUSTIFIED);
+        p.setLeading(13.5f);
+        p.setSpacingAfter(7);
+        return p;
+    }
+
+    private PdfPTable tablaOficina(ActaFaltanteDTO.Oficina o) throws Exception {
+        PdfPTable t = new PdfPTable(7);
+        t.setWidthPercentage(100);
+        t.setWidths(new float[] { 0.5f, 1.7f, 2.9f, 1.15f, 1.3f, 1.45f, 1.6f });
+        t.setHeaderRows(1);
+        t.setSpacingAfter(4);
+        // Una fila nunca se parte entre dos hojas (ninguna es más alta que una hoja).
+        t.setSplitRows(false);
+        for (String cab : new String[] { "N.º", "CÓDIGO DE ACTIVO", "DESCRIPCIÓN DEL ACTIVO", "MARCA", "MODELO",
+                "N.º DE SERIE", "OFICINA / UBICACIÓN" }) {
+            PdfPCell c = celdaTabla(cab, N_TABLA_CAB, Element.ALIGN_CENTER);
+            c.setBackgroundColor(GRIS_CLARO);
+            t.addCell(c);
+        }
+        String ubicacion = (o.codOfi() != null ? o.codOfi() + " – " : "") + nvl(o.nombre(), ActaFaltanteService.ORIGEN_NO_REGISTRADO);
+        int n = 0;
+        for (ActaFaltanteDTO.Bien b : o.bienes()) {
+            n++;
+            t.addCell(celdaTabla(String.format("%02d", n), N_TABLA, Element.ALIGN_CENTER));
+            t.addCell(celdaTabla(nvl(b.codigo(), ""), N_TABLA, Element.ALIGN_CENTER));
+            t.addCell(celdaTabla(nvl(b.descripcionCorta(), nvl(b.descripcion(), "")), N_TABLA, Element.ALIGN_LEFT));
+            t.addCell(celdaTabla(nvl(b.marca(), "—"), N_TABLA, Element.ALIGN_CENTER));
+            t.addCell(celdaTabla(nvl(b.modelo(), "—"), N_TABLA, Element.ALIGN_CENTER));
+            t.addCell(celdaTabla(nvl(b.serie(), "—"), N_TABLA, Element.ALIGN_CENTER));
+            t.addCell(celdaTabla(ubicacion, N_TABLA, Element.ALIGN_CENTER));
+        }
+        return t;
+    }
+
+    private static PdfPCell celdaTabla(String texto, Font f, int alineacion) {
+        PdfPCell c = new PdfPCell(new Phrase(texto, f));
+        c.setHorizontalAlignment(alineacion);
+        c.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        c.setPadding(3.5f);
+        c.setBorderColor(new BaseColor(150, 150, 150));
+        return c;
+    }
+
+    /**
+     * Firma del Responsable de Activos Fijos (al centro) y, debajo, copia y código de
+     * verificación. Nunca queda partida entre dos hojas.
+     */
+    private void firmaNotificacion(Document doc, PdfWriter writer, ActaFaltanteDTO acta, boolean vistaPrevia)
+            throws Exception {
+        if (writer.getVerticalPosition(true) - doc.bottom() < ALTO_FIRMA_NOTIFICACION) {
+            doc.newPage();
+        }
+        PdfPTable t = new PdfPTable(1);
+        t.setWidthPercentage(100);
+        t.setKeepTogether(true);
+        PdfPCell c = new PdfPCell();
+        c.setBorder(Rectangle.NO_BORDER);
+        Paragraph espacio = new Paragraph(" ");
+        espacio.setSpacingBefore(30);
+        c.addElement(espacio);
+        for (Paragraph p : new Paragraph[] {
+                new Paragraph("________________________________________", N_TEXTO),
+                new Paragraph(acta.firmante() != null ? acta.firmante().toUpperCase(ES) : " ", N_NEGRITA),
+                new Paragraph("RESPONSABLE DE ACTIVOS FIJOS", N_NEGRITA),
+                new Paragraph(UAP, N_NEGRITA) }) {
+            p.setAlignment(Element.ALIGN_CENTER);
+            c.addElement(p);
+        }
+        Paragraph pie = new Paragraph();
+        pie.setSpacingBefore(14);
+        pie.add(new Chunk("C.c.: ", N_PIE_B));
+        pie.add(new Chunk("Archivo – Sección de Activos Fijos\n", N_PIE));
+        pie.add(new Chunk("Documento generado por: ", N_PIE_B));
+        pie.add(new Chunk("Sistema de Control Interno de Activos Fijos – SCIAF\n", N_PIE));
+        pie.add(new Chunk("Código de verificación: ", N_PIE_B));
+        pie.add(new Chunk(vistaPrevia ? "— (vista previa: sin código, no tiene validez)" : nvl(acta.huella(), "—"), N_PIE));
+        c.addElement(pie);
+        t.addCell(c);
+        doc.add(t);
+    }
+
+    private static final String[] UNIDADES = { "cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete",
+            "ocho", "nueve", "diez", "once", "doce", "trece", "catorce", "quince", "dieciséis", "diecisiete",
+            "dieciocho", "diecinueve", "veinte", "veintiuno", "veintidós", "veintitrés", "veinticuatro",
+            "veinticinco", "veintiséis", "veintisiete", "veintiocho", "veintinueve" };
+    private static final String[] DECENAS = { "", "", "", "treinta", "cuarenta", "cincuenta", "sesenta",
+            "setenta", "ochenta", "noventa" };
+
+    /** 5 → "5 (cinco)", 21 → "21 (veintiún)": como se escribe delante de "días". */
+    static String plazoEnTexto(Integer dias) {
+        if (dias == null) return "___";
+        int d = dias;
+        String letras;
+        if (d >= 0 && d < 30) letras = UNIDADES[d];
+        else if (d < 100) letras = DECENAS[d / 10] + (d % 10 == 0 ? "" : " y " + UNIDADES[d % 10]);
+        else return String.valueOf(d);
+        // Delante de un sustantivo masculino: "un día", "veintiún días", "treinta y un días".
+        if (letras.endsWith("veintiuno")) letras = letras.replace("veintiuno", "veintiún");
+        else if (letras.endsWith("uno")) letras = letras.substring(0, letras.length() - 3) + "un";
+        return d + " (" + letras + ")";
     }
 
     // ── Partes ──────────────────────────────────────────────────────────────
@@ -322,13 +605,20 @@ public class PdfActaFaltanteService {
         private final String url;
         private final Image qr;
         private final Image membrete;
+        /** Vista previa: sin QR ni huella en la franja, y "VISTA PREVIA" de marca de agua. */
+        private final boolean vistaPrevia;
         private PdfTemplate totalPaginas;
 
         Hoja(ActaFaltanteDTO acta, String url, Image qr, Image membrete) {
+            this(acta, url, qr, membrete, false);
+        }
+
+        Hoja(ActaFaltanteDTO acta, String url, Image qr, Image membrete, boolean vistaPrevia) {
             this.acta = acta;
             this.url = url;
             this.qr = qr;
             this.membrete = membrete;
+            this.vistaPrevia = vistaPrevia;
         }
 
         @Override
@@ -365,19 +655,32 @@ public class PdfActaFaltanteService {
                 cb.stroke();
                 cb.restoreState();
 
-                qr.setAbsolutePosition(x, y);
-                cb.addImage(qr);
+                if (vistaPrevia) {
+                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT, new Phrase(
+                            "VISTA PREVIA de la notificación de faltantes — no está registrada en el SCIAF", F_FRANJA_PREVIA),
+                            x, y + 40, 0);
+                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT, new Phrase(
+                            "No tiene número, QR ni código de verificación: no tiene validez y no se debe entregar.", F_FRANJA),
+                            x, y + 29, 0);
+                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT, new Phrase(
+                            "Para emitirla: Faltantes › Registrar faltantes › Registrar y emitir notificación.", F_FRANJA),
+                            x, y + 18, 0);
+                } else {
+                    qr.setAbsolutePosition(x, y);
+                    cb.addImage(qr);
 
-                float tx = x + 62;
-                ColumnText.showTextAligned(cb, Element.ALIGN_LEFT,
-                        new Phrase((acta.esRegularizacion() ? "Acta de regularización de faltantes N° " : "Acta de faltantes N° ")
-                                + acta.numero() + " — generada por el SCIAF", F_FRANJA_B),
-                        tx, y + 42, 0);
-                ColumnText.showTextAligned(cb, Element.ALIGN_LEFT,
-                        new Phrase("Verifique su autenticidad escaneando el código QR o en:", F_FRANJA), tx, y + 32, 0);
-                ColumnText.showTextAligned(cb, Element.ALIGN_LEFT, new Phrase(url, F_FRANJA_B), tx, y + 22, 0);
-                ColumnText.showTextAligned(cb, Element.ALIGN_LEFT,
-                        new Phrase("Huella del contenido: " + acta.huella(), F_FRANJA), tx, y + 12, 0);
+                    float tx = x + 62;
+                    String doc = acta.esNotificacion() ? "Notificación de faltantes " + acta.numeroImpreso()
+                            : (acta.esRegularizacion() ? "Acta de regularización de faltantes N° " : "Acta de faltantes N° ")
+                                    + acta.numero();
+                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT,
+                            new Phrase(doc + " — generada por el SCIAF", F_FRANJA_B), tx, y + 42, 0);
+                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT,
+                            new Phrase("Verifique su autenticidad escaneando el código QR o en:", F_FRANJA), tx, y + 32, 0);
+                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT, new Phrase(url, F_FRANJA_B), tx, y + 22, 0);
+                    ColumnText.showTextAligned(cb, Element.ALIGN_LEFT,
+                            new Phrase("Huella del contenido: " + acta.huella(), F_FRANJA), tx, y + 12, 0);
+                }
 
                 String pagina = "Página " + writer.getPageNumber() + " de ";
                 float ancho = F_FRANJA.getCalculatedBaseFont(false).getWidthPoint(pagina, F_FRANJA.getSize());
@@ -386,7 +689,9 @@ public class PdfActaFaltanteService {
                 cb.addTemplate(totalPaginas, px + ancho, y + 2);
 
                 if (ActaFaltante.ANULADA.equals(acta.estado())) {
-                    marcaAnulada(writer, document);
+                    marcaDeAgua(writer, document, "ANULADA", 90, new BaseColor(176, 32, 45));
+                } else if (vistaPrevia) {
+                    marcaDeAgua(writer, document, "VISTA PREVIA", 78, AMBAR);
                 }
             } catch (Exception e) {
                 // Un fallo de la franja no debe impedir entregar el acta.
@@ -399,7 +704,7 @@ public class PdfActaFaltanteService {
                     new Phrase(String.valueOf(writer.getPageNumber()), F_FRANJA), 0, 0, 0);
         }
 
-        private void marcaAnulada(PdfWriter writer, Document document) {
+        private void marcaDeAgua(PdfWriter writer, Document document, String texto, float tamano, BaseColor color) {
             PdfContentByte cb = writer.getDirectContent();
             cb.saveState();
             PdfGState gs = new PdfGState();
@@ -407,7 +712,7 @@ public class PdfActaFaltanteService {
             cb.setGState(gs);
             Rectangle hoja = document.getPageSize();
             ColumnText.showTextAligned(cb, Element.ALIGN_CENTER,
-                    new Phrase("ANULADA", new Font(Font.FontFamily.HELVETICA, 90, Font.BOLD, new BaseColor(176, 32, 45))),
+                    new Phrase(texto, new Font(Font.FontFamily.HELVETICA, tamano, Font.BOLD, color)),
                     hoja.getWidth() / 2, hoja.getHeight() / 2, 45);
             cb.restoreState();
         }

@@ -68,6 +68,19 @@ public class ActaFaltante extends AuditoriaConfig {
         return numero != null && numero.startsWith("AR-");
     }
 
+    /**
+     * Desde el 2-oct-2026 los faltantes nuevos se emiten como <b>notificación</b> (formato de
+     * Activos Fijos, NOT:SCIAF:AF N° 001/2026) en vez de acta. El número se guarda corto
+     * (NOT-AF-001/2026: la columna es de 20) y se imprime completo con {@link #numeroImpreso}.
+     */
+    public static final String PREFIJO_NOTIFICACION = "NOT-AF-";
+
+    public static String numeroImpreso(String numero) {
+        return numero != null && numero.startsWith(PREFIJO_NOTIFICACION)
+                ? "NOT:SCIAF:AF N° " + numero.substring(PREFIJO_NOTIFICACION.length())
+                : numero;
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_acta")
