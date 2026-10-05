@@ -22,7 +22,12 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.annotation.Validated;
@@ -129,6 +134,7 @@ public class ActivosController {
 
     private final PasswordEncoder passwordEncoder;
     private final IHistorialActivoDao historialActivoDao;
+    private final PlatformTransactionManager transactionManager;
     private final com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService actividadService;
 
     /**
@@ -1098,10 +1104,42 @@ public class ActivosController {
                 h.setNombreRespNuevo(nombreDe(respNuevo));
             }
 
-            historialActivoDao.save(h);
+            guardarHistorialAparte(h, "ASIGNACION");
         } catch (Exception e) {
             log.warn("[ASIGNACION] No se pudo registrar el historial del activo {}: {}",
                     activo.getCodigo(), e.getMessage());
+        }
+    }
+
+    /**
+     * Guarda una fila de {@code historial_activo} en su propia transacción y, si hay una
+     * en curso, recién cuando esta se confirma.
+     *
+     * <p>Antes se guardaba dentro de la transacción de la operación y el {@code catch}
+     * no alcanzaba: en Postgres un INSERT rechazado (p. ej. por el CHECK de
+     * {@code tipo_evento}) deja abortada toda la transacción, así que lo siguiente
+     * fallaba y al final se deshacía también el cambio del activo. Así, si el historial
+     * falla, solo se pierde esa fila; y si la operación se deshace, no queda un evento
+     * de algo que no pasó.
+     */
+    private void guardarHistorialAparte(HistorialActivo h, String etiqueta) {
+        Runnable guardar = () -> {
+            try {
+                TransactionTemplate tx = new TransactionTemplate(transactionManager);
+                tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                tx.executeWithoutResult(s -> historialActivoDao.save(h));
+            } catch (Exception e) {
+                log.warn("[{}] No se pudo registrar el historial del activo {}: {}",
+                        etiqueta, h.getCodigoActivo(), e.getMessage());
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() { guardar.run(); }
+            });
+        } else {
+            guardar.run();
         }
     }
 
@@ -1128,7 +1166,7 @@ public class ActivosController {
                 h.setResponsableAnterior(activo.getResponsable());
                 h.setResponsableNuevo(activo.getResponsable());
             }
-            historialActivoDao.save(h);
+            guardarHistorialAparte(h, "CODIGO-URGENTE");
         } catch (Exception e) {
             log.warn("[CODIGO-URGENTE] No se pudo registrar el historial del cambio de código: {}", e.getMessage());
         }
@@ -2688,7 +2726,7 @@ public class ActivosController {
                 h.setResponsableNuevo(activo.getResponsable());
                 h.setNombreRespNuevo(nombreDe(activo.getResponsable()));
             }
-            historialActivoDao.save(h);
+            guardarHistorialAparte(h, "EDITAR-REGISTRADO");
         } catch (Exception e) {
             log.warn("[EDITAR-REGISTRADO] No se pudo registrar el historial de la edición: {}", e.getMessage());
         }
