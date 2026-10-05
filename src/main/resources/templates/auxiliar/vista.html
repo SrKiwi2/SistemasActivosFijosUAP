@@ -1,52 +1,223 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Auxiliar</h4>
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Auxiliar — plantilla de mantenimiento (docs/PLANTILLA_MODULOS.md)
+     Auxiliares de cada grupo contable por predio. El alta y la edición van a la base y
+     al VSIAF por la cola del worker (AuxiliarRegistroService / AuxiliarDbfWriterService).
+     Carga eficiente: la vista abre al instante y la tabla se pide enseguida, con el
+     preloader del sistema en la tarjeta (SciafPrecarga); sin N+1 (listarParaTabla);
+     se refresca sola cuando el VSIAF cambia (SSE "auxiliar").
+     Todo dentro de #modAuxiliar y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modAuxiliar">
 
-<div id="tablaRegistro"></div>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-folders"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-adjustments-horizontal"></i> Clasificación contable <i class="ti ti-chevron-right"></i> Auxiliar
+        </nav>
+        <h1 class="sm-titulo">Auxiliares</h1>
+        <p class="sm-subtitulo">Subdivisiones de cada grupo contable por predio. Se registran aquí y se envían al VSIAF.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-total">—</strong> auxiliares</span>
+        <span class="sm-dato js-sync" title="Última sincronización con el VSIAF">
+            <i class="ti ti-refresh-dot"></i> <span class="js-sync-texto">—</span></span>
+        <div class="btn-group">
+            <button type="button" class="sm-btn sm-btn-neutro" data-accion="sincronizar" data-completo="false"
+                    title="Traer los cambios del VSIAF">
+                <i class="ti ti-refresh"></i> Sincronizar
+            </button>
+            <button type="button" class="sm-btn sm-btn-neutro sm-btn-icono ms-1" data-bs-toggle="dropdown" aria-expanded="false"
+                    title="Más opciones de sincronización"><i class="ti ti-chevron-down"></i></button>
+            <ul class="dropdown-menu dropdown-menu-end sm-menu-flotante">
+                <li><a class="dropdown-item" href="javascript:void(0)" data-accion="sincronizar" data-completo="true">
+                    <i class="ti ti-database"></i> Sincronización completa (más lenta)</a></li>
+            </ul>
+        </div>
+        <button type="button" class="sm-btn" data-accion="nuevo">
+            <i class="ti ti-plus"></i> Nuevo auxiliar
+        </button>
+    </div>
+</header>
 
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por nombre, código o predio…"
+                autocomplete="off" aria-label="Buscar auxiliar" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+        </div>
+        <select class="sm-select js-f-predio" aria-label="Predio" style="width:auto;min-width:180px;">
+            <option value="">Todos los predios</option>
+        </select>
+        <select class="sm-select js-f-grupo" aria-label="Grupo contable" style="width:auto;min-width:160px;">
+            <option value="">Todos los grupos</option>
+        </select>
+        <div class="sm-toolbar-grupo">
+            <label class="sm-filas">
+                <i class="ti ti-list-numbers"></i> Filas
+                <select class="sm-select js-largo" aria-label="Filas por página">
+                    <option value="auto" selected>Ajustar a pantalla</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="-1">Todas</option>
+                </select>
+            </label>
+        </div>
+    </div>
+
+    <div class="sm-aviso sm-aviso-aviso m-3 mb-0 d-none js-aviso-dbf">
+        <i class="ti ti-database-exclamation"></i>
+        <div>Se muestran los auxiliares <strong>directo del VSIAF</strong>: la base del SCIAF todavía no los tiene
+            (no se pueden editar). Pulse <strong>Sincronizar</strong> para traerlos.</div>
+    </div>
+
+    <!-- La tabla se pide al abrir (POST tabla-registros), con el preloader en la tarjeta -->
+    <div class="js-tabla"></div>
+</section>
+
+<!-- Formulario de alta / edición -->
 <div class="modal fade" id="modalFormularioAuxiliar" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" id="prediocontenidoModalAuxiliar"></div>
+    <div class="modal-dialog modal-dialog-centered sm-dialog-md">
+        <div class="modal-content sm-modal" id="contenidoModalAuxiliar"></div>
     </div>
 </div>
 
+</div>
+
 <script>
-    $(document).ready(function () {
-        cargarTabla();
+    (function () {
+        const URL = '/administracion/auxiliar';
+        const $raiz = $('#modAuxiliar');
+        const $cont = $raiz.find('.js-tabla');
+        const $modal = $raiz.find('#modalFormularioAuxiliar');
+        const esc = SciafModulo.escapar;
 
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
+        /* ── Filtros (predio y grupo, armados con lo que hay en la tabla) ── */
+        const filtro = { predio: '', grupo: '' };
+        function pasaFiltro(tr) {
+            if (filtro.predio && tr.dataset.predio !== filtro.predio) return false;
+            if (filtro.grupo && tr.dataset.grupo !== filtro.grupo) return false;
+            return true;
+        }
+
+        function llenarSelect($sel, valores, actual, etiquetaTodos) {
+            const lista = Array.from(valores).filter(Boolean).sort((a, b) => String(a).localeCompare(String(b), 'es', { numeric: true }));
+            if (actual && !valores.has(actual)) lista.push(actual);
+            $sel.html('<option value="">' + etiquetaTodos + '</option>'
+                + lista.map(v => '<option value="' + esc(v) + '">' + esc(v) + '</option>').join(''));
+            $sel.val(actual);
+        }
+
+        function contar(api) {
+            const predios = new Set(), grupos = new Set();
+            api.rows().nodes().each(function (tr) { predios.add(tr.dataset.predio); grupos.add(tr.dataset.grupo); });
+            llenarSelect($raiz.find('.js-f-predio'), predios, filtro.predio, 'Todos los predios');
+            llenarSelect($raiz.find('.js-f-grupo'), grupos, filtro.grupo, 'Todos los grupos');
+        }
+
+        function iniciarTabla() {
+            SciafModulo.estadoSync($cont.find('.js-sync-info'), $raiz.find('.js-sync'), $raiz.find('.js-aviso-dbf'));
+            SciafModulo.tabla({
+                tabla: $cont.find('table'),
+                buscador: $raiz.find('.js-buscar'),
+                largo: $raiz.find('.js-largo'),
+                total: $raiz.find('.js-total'),
+                // Como en el VSIAF: predio, grupo y código auxiliar.
+                orden: [ [0, 'asc'], [1, 'asc'], [2, 'asc'] ],   // con espacios: dos corchetes juntos son sintaxis de Thymeleaf
+                noOrdenables: [4],
+                altoFila: 62,
+                filtroFila: pasaFiltro,
+                alDibujar: contar,
+                dt: { language: { sEmptyTable: 'No hay auxiliares. Pulse «Sincronizar» o «Nuevo auxiliar».' } }
+            });
+        }
+
+        function recargar() {
+            $cont.css('opacity', 0.55);
+            return SciafModulo.cargar($cont, URL + '/tabla-registros')
+                .then(iniciarTabla)
+                .catch(e => SciafModulo.avisarError(e, 'No se pudo cargar la tabla'))
+                .finally(() => $cont.css('opacity', 1));
+        }
+
+        function redibujar() {
+            const $t = $cont.find('table');
+            if ($.fn.DataTable.isDataTable($t)) $t.DataTable().draw();
+        }
+
+        $raiz.on('change', '.js-f-predio', function () { filtro.predio = this.value; redibujar(); });
+        $raiz.on('change', '.js-f-grupo', function () { filtro.grupo = this.value; redibujar(); });
+
+        /* ── Formulario, reenvío y quitar ────────────────────────────────── */
+        function abrirFormulario(id) {
+            SciafModulo.abrirFormulario($modal, $raiz.find('#contenidoModalAuxiliar'),
+                id ? URL + '/formulario-edit/' + id : URL + '/formulario');
+        }
+        SciafModulo.alGuardarModal($modal, recargar);
+
+        let sincronizando = false;
+        $raiz.on('click', '[data-accion]', function () {
+            const caja = this.closest('[data-id]');
+            const id = caja ? caja.dataset.id : null;
+            const nombre = caja ? caja.dataset.nombre : '';
+            switch (this.dataset.accion) {
+                case 'nuevo':  abrirFormulario(null); break;
+                case 'editar': abrirFormulario(id); break;
+                case 'reenviar':
+                    SciafModulo.accion({
+                        url: URL + '/reenviar-vsiaf/' + encodeURIComponent(id),
+                        confirmacion: {
+                            titulo: '¿Reenviar al VSIAF?',
+                            texto: 'Se manda el auxiliar <b>' + esc(nombre) + '</b> al VSIAF.<br>'
+                                + '<small class="text-muted">Si allá ya existe, no se duplica: queda como está.</small>',
+                            aceptar: 'Sí, reenviar'
+                        }
+                    });
+                    break;
+                case 'eliminar':
+                    SciafModulo.eliminar({
+                        url: URL + '/eliminar/' + id,
+                        titulo: '¿Quitar el auxiliar?',
+                        html: 'Se quita <b>' + esc(nombre) + '</b> de las listas del SCIAF.'
+                            + '<div class="alert alert-warning text-start mt-3 mb-0 small"><i class="ti ti-alert-triangle me-1"></i>'
+                            + 'En el <b>VSIAF sigue existiendo</b>: una sincronización completa lo vuelve a traer. '
+                            + 'Para darlo de baja del todo, hágalo también en el VSIAF.</div>',
+                        confirmar: 'Sí, quitar',
+                        alTerminar: recargar
+                    });
+                    break;
+                case 'sincronizar':
+                    if (sincronizando) return;
+                    sincronizando = true;
+                    SciafModulo.sincronizarVsiaf({
+                        url: URL + '/sync-from-mounted',
+                        completo: this.dataset.completo === 'true',
+                        boton: $raiz.find('[data-accion="sincronizar"][data-completo="false"]'),
+                        tarjeta: $cont.closest('.sm-card'),
+                        // Arreglos anidados con espacios: dos corchetes juntos son sintaxis de Thymeleaf.
+                        extras: [ ['Sin entidad', 'sinEntidad', 'text-warning'], ['Sin predio', 'sinPredio', 'text-warning'],
+                                  ['Sin grupo contable', 'sinGrupoContable', 'text-warning'],
+                                  ['Duplicados en el VSIAF', 'duplicadosEnDbf', 'text-warning'] ],
+                        alTerminar: recargar
+                    }).finally(() => { sincronizando = false; });
+                    break;
+            }
         });
 
-    });
+        // Cuando el VSIAF cambia AUXILIAR.DBF, la sincronización automática avisa y se recarga.
+        if (window.registrarTablaSse) window.registrarTablaSse('auxiliar', recargar);
 
-    function initDataTable() {
-        const $tbl = $('#data-table');
-        if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
-        $tbl.DataTable({ language: {/* tu traducción */ } });
-    }
-
-    function cargarTabla(q) {
-        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
-
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/auxiliar/tabla-registros" + (q ? ('?q=' + encodeURIComponent(q)) : ''),
-            success: function (html) { $("#tablaRegistro").html(html); initDataTable(); },
-            error: function (xhr) { $("#tablaRegistro").html(`<div class="alert alert-danger m-3">Error cargando tabla</div>`); },
-            complete: hideGlobalLoader
-        });
-    }
-
-    function cargarFormulario() {
-        cargarFormularioAlert("/administracion/auxiliar/formulario", "#prediocontenidoModalAuxiliar", "#formularioAuxiliar");
-    }
-
-    function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/administracion/auxiliar/formulario-edit", "#prediocontenidoModalAuxiliar", "#formularioAuxiliar");
-    }
-
-    function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/auxiliar/eliminar", cargarTabla);
-    }
-
+        /* ── Primera carga: la pantalla ya está a la vista; la tabla llega con el preloader ── */
+        function primeraCarga() {
+            SciafPrecarga.durante($cont, SciafModulo.cargar($cont, URL + '/tabla-registros'), {
+                texto: 'Cargando auxiliares…',
+                tituloError: 'No se pudo cargar la tabla',
+                alReintentar: primeraCarga
+            }).then(iniciarTabla).catch(() => { /* el error ya quedó en la tarjeta, con Reintentar */ });
+        }
+        primeraCarga();
+    })();
 </script>

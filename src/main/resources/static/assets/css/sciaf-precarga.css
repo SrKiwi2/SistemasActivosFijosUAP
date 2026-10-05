@@ -1,0 +1,180 @@
+/**
+ * sciaf-precarga.css
+ * Preloader de las pantallas (js/sciaf-precarga.js): el logo del SCIAF girando, una barra,
+ * mensajes que rotan y, si la carga se demora, el diagnóstico de por qué (red lenta,
+ * servidor ocupado, sin conexión…). Es el mismo loader de inicio-admin.html, pero dibujado
+ * DENTRO del área que se está cargando (la pestaña, una tarjeta, un modal) en vez de tapar
+ * toda la pantalla: el resto del sistema sigue usable mientras tanto.
+ *
+ *   .sp-precarga             contenedor (ocupa el alto visible del área)
+ *   .sp-precarga.sp-compacta para tarjetas y modales
+ *   .sp-precarga.sp-error    la carga falló: ícono, motivo y botones
+ *
+ * Modo oscuro: html.dark-style (Sneat) o html[data-theme="dark"].
+ */
+
+.sp-precarga {
+    --sp-fondo: #ffffff;
+    --sp-borde: rgba(26, 86, 160, 0.12);
+    --sp-texto: #1e293b;
+    --sp-texto-2: #64748b;
+    --sp-acento: #1a56a0;
+    --sp-acento-2: #4a90d9;
+    --sp-aviso: #b45309;
+    --sp-peligro: #b91c1c;
+    --sp-ok: #15803d;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 190px);
+    padding: 24px 12px;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+.sp-precarga.sp-visible { opacity: 1; }
+.sp-precarga.sp-compacta { min-height: 220px; padding: 18px 10px; }
+
+html.dark-style .sp-precarga,
+html[data-theme="dark"] .sp-precarga {
+    --sp-fondo: #2f3349;
+    --sp-borde: rgba(122, 179, 240, 0.18);
+    --sp-texto: #e3e8f2;
+    --sp-texto-2: #9aa5ba;
+    --sp-acento: #3b82f6;
+    --sp-acento-2: #7ab3f0;
+    --sp-aviso: #fbbf24;
+    --sp-peligro: #f87171;
+    --sp-ok: #4ade80;
+}
+
+.sp-tarjeta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: min(380px, 100%);
+    padding: 26px 30px 22px;
+    background: var(--sp-fondo);
+    border: 1px solid var(--sp-borde);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(26, 86, 160, 0.14), 0 1px 4px rgba(0, 0, 0, 0.06);
+    text-align: center;
+}
+.sp-compacta .sp-tarjeta { box-shadow: none; border: 0; background: transparent; padding: 10px; }
+
+/* ── Logo girando ──────────────────────────────────────────────────── */
+@keyframes sp-giro {
+    from { transform: perspective(600px) rotateY(0deg); }
+    to   { transform: perspective(600px) rotateY(360deg); }
+}
+.sp-logo {
+    width: 62px;
+    height: 62px;
+    object-fit: contain;
+    will-change: transform;
+    animation: sp-giro 1.4s linear infinite;
+}
+.sp-compacta .sp-logo { width: 48px; height: 48px; }
+
+/* ── Barra ─────────────────────────────────────────────────────────── */
+@keyframes sp-barra {
+    0%   { margin-left: -40%; }
+    60%  { margin-left: 100%; }
+    100% { margin-left: 100%; }
+}
+.sp-barra {
+    width: 140px;
+    height: 3px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(26, 86, 160, 0.12);
+}
+.sp-barra::after {
+    content: '';
+    display: block;
+    width: 40%;
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--sp-acento), var(--sp-acento-2));
+    animation: sp-barra 1.4s ease-in-out infinite;
+}
+
+/* ── Textos ────────────────────────────────────────────────────────── */
+.sp-titulo {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--sp-texto);
+    margin: 0;
+}
+.sp-mensaje {
+    min-height: 1.3em;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--sp-texto-2);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.sp-mensaje.sp-cambiando { opacity: 0; transform: translateY(4px); }
+
+/* Diagnóstico de la demora: aparece a los pocos segundos */
+.sp-diagnostico {
+    display: none;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(100, 116, 139, 0.08);
+    font-size: 0.8rem;
+    line-height: 1.35;
+    color: var(--sp-texto-2);
+    text-align: left;
+}
+.sp-diagnostico.sp-ver { display: flex; }
+.sp-diagnostico i { font-size: 1.05rem; margin-top: 1px; }
+.sp-diagnostico[data-tipo="procesando"] i  { color: var(--sp-acento); }
+.sp-diagnostico[data-tipo="red-lenta"] i,
+.sp-diagnostico[data-tipo="demora"] i       { color: var(--sp-aviso); }
+.sp-diagnostico[data-tipo="sin-red"] i,
+.sp-diagnostico[data-tipo="sin-respuesta"] i,
+.sp-diagnostico[data-tipo="servidor"] i     { color: var(--sp-peligro); }
+.sp-diagnostico b { color: var(--sp-texto); font-weight: 600; }
+
+.sp-tiempo {
+    font-size: 0.72rem;
+    color: var(--sp-texto-2);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
+}
+.sp-tiempo:empty { display: none; }
+
+/* ── Acciones (reintentar / inicio) ────────────────────────────────── */
+.sp-acciones { display: none; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.sp-acciones.sp-ver { display: flex; }
+
+/* ── Estado de error ───────────────────────────────────────────────── */
+.sp-error .sp-logo,
+.sp-error .sp-barra,
+.sp-error .sp-tiempo { display: none; }
+.sp-error-icono {
+    display: none;
+    font-size: 2.2rem;
+    color: var(--sp-aviso);
+    line-height: 1;
+}
+.sp-error .sp-error-icono { display: block; }
+.sp-error .sp-mensaje { color: var(--sp-texto-2); white-space: normal; }
+
+@media (prefers-reduced-motion: reduce) {
+    .sp-logo { animation: none; opacity: 0.7; }
+    .sp-barra::after { animation-duration: 3s; }
+    .sp-precarga, .sp-mensaje { transition: none; }
+}
+
+@media (max-width: 575.98px) {
+    .sp-precarga { min-height: calc(100vh - 160px); }
+    .sp-tarjeta { padding: 20px 16px 18px; }
+}
+
+/* En la tarjeta de una tabla: ocupa el lugar que va a ocupar la tabla (no salta el alto). */
+.sm-card .sp-precarga.sp-compacta { min-height: max(300px, calc(100vh - 340px)); }

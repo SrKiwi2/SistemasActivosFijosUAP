@@ -39,6 +39,8 @@ public class ColaVsiafReintentoScheduler {
     private final IDbfColaOrdenDao colaDao;
     private final IActivoDao activoDao;
     private final ActualDbfWriterService actualDbfWriterService;
+    /** Sin la carpeta de la cola a la vista no se reencola nada (laptop de desarrollo, montaje caído). */
+    private final com.usic.SistemasActivosFijosUAP.componet.VsiafDisponibilidad vsiaf;
 
     @Value("${legacy.dbf.write.mode:bytes}")
     private String writeMode;
@@ -58,6 +60,7 @@ public class ColaVsiafReintentoScheduler {
     @Transactional
     public void reintentarActivosRechazados() {
         if (!"cola".equalsIgnoreCase(writeMode)) return;
+        if (!vsiaf.dbf("reintento de la cola")) return;
 
         List<DbfColaOrden> rechazadas = colaDao.findByEstadoAndTablaOrderByIdOrdenAsc(
                 DbfColaOrden.ERROR, "ACTUAL", PageRequest.of(0, Math.max(1, lote)));

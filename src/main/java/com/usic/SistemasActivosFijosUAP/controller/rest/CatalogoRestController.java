@@ -513,14 +513,9 @@ public class CatalogoRestController {
     @GetMapping("/cargos/search")
     @ResponseBody
     public List<Map<String, String>> buscarCargos(@RequestParam(required = false) String q) {
-
-        List<Cargo> cargos = (q == null || q.isBlank()) 
-            ? cargoService.findAll() 
-            : cargoService.buscarPorNombreLike("%" + q.toUpperCase() + "%");
-            
-        return cargos.stream()
-            .limit(20)
-            .map(c -> Map.of("nombre", c.getNombre()))
+        // Solo los 20 que se muestran: antes se traía la tabla entera y se cortaba en memoria.
+        return cargoService.nombresParecidos(q, 20).stream()
+            .map(n -> Map.of("nombre", n))
             .collect(Collectors.toList());
     }
 

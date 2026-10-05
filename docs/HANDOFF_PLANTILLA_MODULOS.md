@@ -1,0 +1,216 @@
+# Handoff — Migración de pantallas a la plantilla (sesión del 03 al 05-oct-2026)
+
+Este documento es el contexto para continuar en otra máquina. Lo que vivía solo en la memoria
+local del agente está resumido al final («Contexto que no está en el código»). La guía técnica
+de la plantilla es **`docs/PLANTILLA_MODULOS.md`**: léela antes de tocar una pantalla.
+
+---
+
+## 1. Qué se está haciendo
+
+Migrar las pantallas del SCIAF, **módulo por módulo**, a una plantilla visual y de
+comportamiento común. Esa plantilla nació con Rol, a pedido del usuario. Lo que pidió:
+- cabecera compacta;
+- tarjeta con relieve, botones 3D y tabla con sombra;
+- sin filtros por columna;
+- todo dentro de la pantalla sin scroll («Ajustar a pantalla»);
+- contenido algo más grande;
+- carga eficiente.
+
+En cada módulo, además:
+- se corrigen los **bugs** que aparezcan, explicándoselos al usuario en detalle;
+- se **quita el código muerto**: endpoints, plantillas y funciones que nada usa. Antes de
+  borrar, se verifica buscando la URL en templates, JS, Java y `mobile/`.
+
+### Forma de trabajar que pide el usuario (respetarla)
+- **Uno por uno.** Terminas un módulo, le explicas qué cambió y qué bugs había, y **esperas su
+  orden** para el siguiente. Él elige cuál sigue.
+- Responde siempre en **español**. Explica los bugs con el escenario concreto de cómo fallan.
+- **MAYÚSCULAS:** los campos se ven y se registran en mayúsculas.
+  - Excepciones: usuario de acceso, contraseñas, correo, URL, textos del menú lateral, y
+    textos libres largos como el mensaje de un comunicado o la observación de una transferencia.
+  - Se aplica en la plantilla (`SciafModulo.formulario` lo hace solo) **y** en el controlador.
+- En pantallas críticas (Activos, Pendientes, Transferencia, Asignación) pidió **«solo lo
+  visual, que no falle nada»**. Ahí se cambia solo la cáscara: cabecera, colores, alto y
+  preloader. Su lógica no se toca, salvo bugs, que se explican.
+- **No hacer commit** salvo que lo pida. **No escribir datos de prueba en la base**: la base
+  local ES la de producción.
+- Al terminar cada módulo: compilar y lanzar el subagente **`revisor`** sobre el diff. Ha
+  encontrado fallos graves en casi todos los módulos; aplicar sus hallazgos antes de cerrar.
+
+---
+
+## 2. Piezas de la plantilla (todas nuevas en esta sesión)
+
+| Archivo | Qué es |
+|---|---|
+| `static/assets/css/sciaf-modulo.css` + `static/assets/js/sciaf-modulo.js` | Clases `sm-*` y la API `SciafModulo`: `tabla`, `formulario` (con `validar`, `confirmacion`, `interceptar`, `alGuardar`, `mayusculas`), `eliminar`, `accion`, `abrirFormulario`, `alGuardarModal`, `cargar`, `pedirJson`, `sincronizarVsiaf`, `estadoSync`, `escapar` |
+| `static/assets/css/sciaf-precarga.css` + `static/assets/js/sciaf-precarga.js` | Preloader `SciafPrecarga`: el logo girando con textos al azar y el diagnóstico de la demora (red lenta, servidor ocupado, sin conexión), midiendo `GET /api/estado/ping`. Integrado en `sciaf-pestanas.js` y en `abrirFormulario` |
+| `componet/VsiafDisponibilidad.java` | Pausa las tareas que tocan el VSIAF si el montaje no está, como en la laptop local. Propiedad `sciaf.vsiaf.modo` = `auto` / `desactivado` / `activo` |
+| `docs/PLANTILLA_MODULOS.md` | Guía completa: reglas, carga eficiente, preloader, contrato JSON y tabla de módulos migrados con sus notas |
+
+> ⚠️ **Despliegue:** esos archivos están **sin rastrear** (`??`). `layout/head.html` y
+> `layout/script.html` ya los cargan. Si se commitean las vistas sin ellos, las pantallas
+> migradas fallan (`ReferenceError: SciafModulo / SciafPrecarga`). Van **en el mismo commit**
+> (`git add -A`).
+
+---
+
+## 3. Módulos migrados (todos compilan; ninguno probado en navegador)
+
+Cada fila de la tabla «Módulos migrados» de `docs/PLANTILLA_MODULOS.md` tiene el detalle. En
+resumen:
+
+- **Usuarios y acceso:** Rol, Persona, Usuario, Responsables, Gestión de Menú.
+  - **Persona:** al editarla, propaga el nombre y C.I. al VSIAF en todos sus responsables
+    (`ResponsableGestionService.propagarPersona`), solo si la persona tenía un C.I. válido antes.
+- **Comunicación:** Comunicados.
+- **Supervisión:** Monitoreo de actividad, Autorizaciones, Usuarios conectados.
+- **Clasificación contable:** Grupo contable, Auxiliar, Organismo financiador, Estado del
+  activo, Responsable de entrega.
+- **Ámbito geográfico:** Entidad, Municipio, Predio, Oficina.
+  - **Predio:** tiene una acción nueva, **Configurar** (municipio + código del predio, que forman
+    el prefijo del código de activo), solo para administradores.
+  - **Códigos de municipio y predio:** solo letras y números, de 1 a 6. **El usuario debe
+    confirmar ese máximo de 6.**
+- **Administración de activos:**
+  - **Registro de activos:** queda **solo el formulario**; la tabla se quitó a pedido del
+    usuario. `cargarTabla()` queda vacía **a propósito**, ver el comentario en `activo/vista.html`.
+  - **Pendientes:** solo lo visual.
+- **Transferencias:** Transferencia de activos, solo lo visual. Las rutas «interna» y
+  «externa» ya apuntan a la misma vista.
+- **Asignar activos:** `activo/asignacionActivos.html`, solo lo visual más bugs.
+- **Bajas e ingresos:** Baja de activos (`operaciones/baja/modulo.html`) e Ingreso de bienes
+  ajenos (`operaciones/ingreso/modulo.html` + `seguimiento/ingreso/vista.html`).
+
+### Lo último que se hizo (05-oct)
+**Bajas e Ingresos.**
+- **Vista de bajas borrada:** `seguimiento/baja/vista.html` estaba rota (otro modelo de bajas,
+  endpoints inexistentes). La ruta `/administracion/baja/vista` ahora abre el módulo.
+- **Registro de baja (`/baja/registro`):** ahora exige sesión y permiso de menú (`opcion_baja_modulo`
+  o `opcion_ba`), rechaza una segunda baja del mismo activo (409) y es transaccional, con rollback
+  dentro del `catch`.
+- **Registro de ingreso (`/ingreso/registrar`):** sesión y permiso (`opcion_ingreso_modulo`), la
+  fecha de retiro (+3 meses) la calcula el servidor y se usa en el PDF, y rollback dentro del `catch`.
+- **Seguimiento de ingresos:** los colores pasaron de `:root` a `.ia-pantalla`; las fechas ya no
+  salen un día antes; el filtro de responsable usa select2 contra `/api/responsables/buscar`.
+
+---
+
+## 4. Pendientes y decisiones abiertas (ofrecidas al usuario, sin respuesta todavía)
+
+1. **Asignar activos:** hoy reasigna **todos** los activos del responsable origen. Se ofreció
+   agregar casillas para elegir algunos. Esperando decisión.
+2. **Bajas:**
+   - **Índice único:** falta un índice único en `baja_activo(id_activo)` para cerrar la doble
+     baja simultánea. Es DDL en producción: solo con permiso explícito.
+   - **Baja solo en el SCIAF:** la baja deja el activo en BAJA en el SCIAF, pero no toca el VSIAF.
+     Allá se desaprueba aparte. Es así por diseño.
+3. **Ingreso:** el firmante del comprobante está fijo en el HTML (`LIC. VERONICA LAYME CORI`).
+   Se ofreció pasarlo a la configuración.
+4. **Control de Activos:** Faltantes (`controlActivos/faltantes.html`) y Mapa
+   (`controlActivos/mapa.html`) abren su propio `EventSource('/api/eventos/stream')`. Cada uno
+   consume una de las ~6 conexiones del navegador por servidor.
+   - **Arreglo:** el mismo de Pendientes. `layout/head.html` reemite el evento como
+     `$(document).trigger('sciaf:<evento>')`, y la pantalla escucha ese evento en vez de abrir
+     una conexión.
+5. **`SyncOrchestrator.despacharSync`:** no tiene handler para entidad, predio, grupoContable ni
+   organismoFinanciero, y en producción loguea «Sin handler de sync».
+6. **Transferencia Londra:** el usuario dijo «dejemos ese módulo» por ahora.
+7. **Pantallas que faltan migrar,** según `OpcionMenuSeeder`. El usuario elige el orden.
+   - Hoja de ruta › Búsqueda y Seguimiento.
+   - Control de activos › Mapa, Faltantes.
+   - Movimientos › Asignaciones, Transferencias.
+   - Historial › Historial activo, Seguimiento de activo (ruta), Historial de transferencias.
+   - Consulta › Buscar/Filtrar activos, Reporte de asignaciones.
+   - Conciliación › BD↔VSIAF, Revisión de correlativos.
+   - Transferencia Londra.
+
+---
+
+## 5. Trampas que ya costaron tiempo (léelas)
+
+- **Thymeleaf y los corchetes:** dos corchetes juntos (`[[` o `]]`) dentro de `<script>` son
+  sintaxis de inlining y rompen la pantalla.
+  - Escribir los arreglos anidados con espacios: `[ [0, 'asc'] ]`.
+  - Tampoco poner `[[` en comentarios.
+- **Pestañas (`sciaf-pestanas.js`):** al cambiar de pestaña, el DOM de la anterior se desprende,
+  pero las **funciones globales y los ids se repiten** entre módulos.
+  - Cada vista va en una IIFE con `$raiz` y sin globales.
+  - Nunca buscar `$('#tablaRegistro')` en todo el documento: varias pantallas usan ese id. Tomar
+    la referencia al cargar la vista.
+- **Colores en `:root` y reglas sin prefijo:** las pantallas con diseño propio (tf-, aa-, ia-)
+  definían sus colores en `:root` y tenían reglas globales de Select2, que cambiaban todo el
+  sistema mientras estaban abiertas.
+  - Acotarlas a su contenedor, por ejemplo `.aa-pantalla`, y mapear los colores a `--sm-*`.
+  - Abrir sus desplegables con `dropdownParent` dentro de la pantalla.
+- **Fechas `AAAA-MM-DD`:** `new Date('2026-03-01')` las lee en UTC, y en Bolivia (UTC-4) da el
+  día anterior. `toISOString()` da la fecha de **mañana** después de las 20:00. Construir las
+  fechas locales a mano.
+- **Archivos con CRLF:** casi todo el repo usa CRLF.
+  - **`sed -i` de Git Bash lo convierte a LF.** Para editar, usar la herramienta Edit o scripts
+    Node que normalicen y restauren el CRLF.
+  - Los scripts que reemplazan texto a veces fallan por espacios al final de las líneas:
+    normalizar con `replace(/[ \t]+\n/g, '\n')`.
+- **Escapado en la consola:** las regex y las barras invertidas dentro de `node -e "…"` se
+  pierden. Escribir el script en un archivo del scratchpad.
+- **Maven:** `./mvnw.cmd -o -q compile` tarda varios minutos en esta laptop. Correrlo en segundo
+  plano y verificar con `grep -E "ERROR|FIN"` sobre el log, porque una salida vacía no garantiza
+  éxito.
+- **Hibernate 6:** validado en esta sesión que funcionan `CAST(x AS String)`, `CONCAT` de varios
+  argumentos y `:param = -1` con `Long`. Evitar `upper(trim(?1))` en parámetros: falló al
+  arrancar.
+- **`GlobalExceptionHandler`:** `@ExceptionHandler(Exception.class)` convierte cualquier
+  `ResponseStatusException` en 500. Para devolver otro código, poner un manejador local en el
+  controlador, como en `ImportController`.
+- **Seguridad:** casi todo es `permitAll()` (`/administracion/**`, `/api/**`, `/baja/**`,
+  `/ingreso/**`, `/importe/**`…). **La autorización va en el servidor, en cada endpoint**:
+  - `RolesSciaf.esAdministrativo(request)`;
+  - o el permiso de menú: la sesión trae `opciones`, el Set de códigos de `opcion_menu`.
+  - Ya se cerraron `/importe/**` (estaba abierto sin sesión), `/baja/registro`,
+    `/ingreso/registrar` y `consultar-api-datos`, este último borrado.
+
+---
+
+## 6. Contexto que no está en el código (venía de la memoria local)
+
+- **La laptop de desarrollo** usa la **base de producción** (`application.properties`: `bd_a3`,
+  no `bd_a4`). No tiene los montajes del VSIAF (`/mnt/dbfwin`, `/mnt/vsiaf_transferencias`).
+  - `VsiafDisponibilidad` pausa ahí las tareas DBF.
+  - **No probar desde local nada que encole al VSIAF:** la orden falla y marca registros reales
+    como pendientes o con error en producción.
+- **Escritura al VSIAF:** `legacy.dbf.write.mode=cola`. El SCIAF deja órdenes JSON en `_cola/` y
+  un worker PowerShell 32-bit con VFPOLEDB (`tools/Worker-Vsiaf.ps1`) las aplica. Ese worker es
+  la tarea programada `Worker-Vsiaf` en la VM Windows del VSIAF y mantiene el índice `.CDX`.
+  **Nunca escribir los DBF en crudo**: rompe el índice.
+- **Topología:**
+  - VSIAF oficial: VM Windows `172.16.21.4`, shares `dbfs` y `sayove`.
+  - SCIAF de producción: Ubuntu `172.16.22.7`.
+  - VSIAF de prueba: `172.16.22.3`.
+  - Las credenciales las tiene el usuario; no van en el repo.
+- **Antes de desplegar, verificar:** `write.mode=cola` y `spring.task.scheduling.pool.size=4`
+  commiteados; `text/event-stream` NO en `server.compression.mime-types`.
+- **Menú dinámico:** `opcion_menu` en árbol, más `usuario_opcion`. El `OpcionMenuSeeder` solo
+  inserta (no actualiza filas existentes), y la sesión guarda `opciones`. Los permisos «puros»
+  son ítems con `visible=false`, por ejemplo `opcion_activo_editar` y `opcion_activo_desaprobar`.
+- **Correlativos:** la función `preview_codigo_activo_by_codes` en producción **sigue sin
+  blindar**. El arreglo está en `scripts/sql/fix_generador_correlativo_5digitos.sql`, sin
+  aplicar: el usuario es cauto con producción.
+- **Otros handoffs del proyecto** (ver CLAUDE.md): `HANDOFF_CUSTODIA_FALTANTES.md`,
+  `PLAN/HANDOFF_CONTROL_ACTIVOS.md`, `PLAN_APP_MOVIL.md`, `HANDOFF_USUARIOS_MENU_RUTA.md`.
+
+---
+
+## 7. Cómo retomar
+
+1. `git pull` y leer este archivo, `docs/PLANTILLA_MODULOS.md` y `CLAUDE.md`.
+2. Preguntarle al usuario cuál es el siguiente módulo, o si responde alguna de las decisiones
+   de la sección 4.
+3. Para cada módulo:
+   - leer la vista, su fragmento, su formulario y su controlador completos;
+   - buscar quién más usa sus endpoints;
+   - migrar con el patrón del módulo más parecido: Organismo/Entidad para catálogos del VSIAF,
+     Estado del activo/Municipio para un ABM propio, Responsables/Oficinas para tablas paginadas
+     en el servidor con VSIAF, Transferencia/Asignación para pantallas propias de solo lo visual;
+   - compilar, pasar el `revisor`, corregir;
+   - actualizar `docs/PLANTILLA_MODULOS.md` y **este handoff**.

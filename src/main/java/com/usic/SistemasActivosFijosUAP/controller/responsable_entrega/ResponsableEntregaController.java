@@ -35,9 +35,11 @@ public class ResponsableEntregaController {
 
     private final IResponsableEntregaService responsableEntregaService;
 
+    /** La pantalla llega con la tabla ya armada: un solo pedido al abrir. */
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String vista() {
+    public String vista(Model model) throws Exception {
+        cargarTabla(model, null);
         return "responsable_entrega/vista";
     }
 
@@ -45,6 +47,11 @@ public class ResponsableEntregaController {
     @PostMapping("/tabla-registros")
     public String tablaRegistros(Model model,
             @RequestParam(name = "q", required = false) String q) throws Exception {
+        cargarTabla(model, q);
+        return "responsable_entrega/tabla_registro";
+    }
+
+    private void cargarTabla(Model model, String q) throws Exception {
         List<ResponsableEntrega> lista = responsableEntregaService.buscarPorQ(q);
         List<String> encryptedIds = new ArrayList<>();
         for (ResponsableEntrega r : lista) {
@@ -52,7 +59,13 @@ public class ResponsableEntregaController {
         }
         model.addAttribute("lista", lista);
         model.addAttribute("id_encryptado", encryptedIds);
-        return "responsable_entrega/tabla_registro";
+    }
+
+    /** En MAYÚSCULAS (figura así en el acta) y sin espacios sobrantes; vacío pasa a null. */
+    private static String limpiar(String s) {
+        if (s == null) return null;
+        String t = s.trim().replaceAll("\\s+", " ").toUpperCase(java.util.Locale.ROOT);
+        return t.isEmpty() ? null : t;
     }
 
     @ValidarUsuarioAutenticado
@@ -84,6 +97,17 @@ public class ResponsableEntregaController {
                     .toList()
             ));
         }
+
+        responsableEntrega.setIdResponsableEntrega(null);   // un alta nunca pisa otro registro
+        responsableEntrega.setNombre(limpiar(responsableEntrega.getNombre()));
+        responsableEntrega.setCargo(limpiar(responsableEntrega.getCargo()));
+        if (responsableEntrega.getNombre() == null) {
+            return ResponseEntity.ok(Map.of("ok", false, "msg", "Ingrese el nombre."));
+        }
+        if (!responsableEntregaService.isNombreUnique(responsableEntrega.getNombre(), null)) {
+            return ResponseEntity.ok(Map.of("ok", false, "msg", "Ya existe una persona de entrega con ese nombre."));
+        }
+        responsableEntrega.setSeleccionado(false);   // se elige con el botón "Seleccionar"
 
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         responsableEntrega.setUsuario(usuario != null ? usuario.getUsuario() : "SISTEMA");
@@ -118,8 +142,16 @@ public class ResponsableEntregaController {
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No encontrado"));
         }
 
-        original.setNombre(form.getNombre());
-        original.setCargo(form.getCargo());
+        String nombre = limpiar(form.getNombre());
+        if (nombre == null) {
+            return ResponseEntity.ok(Map.of("ok", false, "msg", "Ingrese el nombre."));
+        }
+        if (!responsableEntregaService.isNombreUnique(nombre, original.getIdResponsableEntrega())) {
+            return ResponseEntity.ok(Map.of("ok", false, "msg", "Ya existe otra persona de entrega con ese nombre."));
+        }
+        original.setNombre(nombre);
+        original.setCargo(limpiar(form.getCargo()));
+        if (usuario != null) original.setModificacionIdUsuario(usuario.getIdUsuario());
         original.setGenero(form.getGenero());
         original.setUsuario(usuario != null ? usuario.getUsuario() : "SISTEMA");
         original.setFechaUlt(LocalDate.now());
@@ -128,16 +160,27 @@ public class ResponsableEntregaController {
         return ResponseEntity.ok(Map.of("ok", true, "msg", "Modificado correctamente"));
     }
 
+    /**
+     * JSON { ok, msg } como el resto. Si era la persona seleccionada para el acta, deja de
+     * estarlo y se avisa: el acta de asignación queda sin responsable hasta elegir otra.
+     */
     @ValidarUsuarioAutenticado
     @PostMapping("/eliminar/{id_responsable}")
-    public ResponseEntity<String> eliminar(@PathVariable("id_responsable") String idEnc) throws Exception {
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> eliminar(HttpServletRequest request,
+            @PathVariable("id_responsable") String idEnc) throws Exception {
         Long id = Long.parseLong(Encriptar.decrypt(idEnc));
         ResponsableEntrega r = responsableEntregaService.findById(id);
-        if (r != null) {
-            r.setEstado("ELIMINADO");
-            responsableEntregaService.save(r);
-        }
-        return ResponseEntity.ok("Eliminado");
+        if (r == null) return ResponseEntity.ok(Map.of("ok", false, "msg", "No encontrado."));
+        boolean eraSeleccionado = Boolean.TRUE.equals(r.getSeleccionado());
+        r.setEstado("ELIMINADO");
+        r.setSeleccionado(false);
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        if (usuario != null) r.setModificacionIdUsuario(usuario.getIdUsuario());
+        responsableEntregaService.save(r);
+        return ResponseEntity.ok(Map.of("ok", true, "msg", eraSeleccionado
+                ? "Eliminado. Era quien figuraba en el acta: seleccione a otra persona."
+                : "Eliminado"));
     }
 
     @ValidarUsuarioAutenticado
@@ -149,19 +192,6 @@ public class ResponsableEntregaController {
         r.setSeleccionado(true);
         responsableEntregaService.save(r);
         return ResponseEntity.ok(Map.of("ok", true, "msg", "Seleccionado correctamente"));
-    }
-
-    @ValidarUsuarioAutenticado
-    @GetMapping("/api/seleccionado")
-    @ResponseBody
-    public ResponseEntity<?> apiSeleccionado() {
-        ResponsableEntrega r = responsableEntregaService.findSeleccionado();
-        if (r == null) return ResponseEntity.ok(null);
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("id", r.getIdResponsableEntrega());
-        m.put("nombre", r.getNombre());
-        m.put("genero", r.getGenero());
-        return ResponseEntity.ok(m);
     }
 
     @ValidarUsuarioAutenticado
@@ -179,22 +209,4 @@ public class ResponsableEntregaController {
         }).toList();
     }
 
-    @ValidarUsuarioAutenticado
-    @GetMapping("/api/detalle/{idEnc}")
-    @ResponseBody
-    public ResponseEntity<?> apiDetalle(@PathVariable String idEnc) {
-        try {
-            Long id = Long.parseLong(Encriptar.decrypt(idEnc));
-            ResponsableEntrega r = responsableEntregaService.findById(id);
-            if (r == null) return ResponseEntity.notFound().build();
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("idResponsableEntrega", r.getIdResponsableEntrega());
-            m.put("nombre", r.getNombre());
-            m.put("cargo", r.getCargo());
-            m.put("estado", r.getEstado());
-            return ResponseEntity.ok(m);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
-        }
-    }
 }

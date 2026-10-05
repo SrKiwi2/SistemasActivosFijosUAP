@@ -1,66 +1,37 @@
-<div class="card">
-    <div class="card-header d-flex justify-content-lg-between">
-        <h5>Registro Estado del Activo</h5>
-        <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-            data-bs-target="#modalFormularioEstadoActivo">
-            <i class="fa-solid fa-user-plus"></i> Agregar Estado Activo
-        </button>
-    </div>
-    <div class="card-datatable table-responsive pt-0">
-        <table class="datatables-basic table table-hover" id="data-table">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>NOMBRE</th>
-                    <th>CODIGO</th>
-                    <th>OPCIONES</th>
-                </tr>
-            </thead>
-            <tbody class="animate__animated animate__bounceInDown">
-                <tr th:each="estadoa, index: ${listasEstadoActivos}">
-                    <th th:text="${index.index+1}"></th>
-                    <th th:text="${estadoa.nombre}"></th>
-                    <th th:text="${estadoa.codigo}"></th>
-                    <th>
-                        <button type="button" class="btn btn-sm btn-primary"
-                            th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
-                            data-bs-toggle="modal" data-bs-target="#modalFormularioEstadoActivo">
-                            <i class="fa-solid fa-pen-to-square"></i> Editar
-                        </button>
-                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${estadoa.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
-                            <i class="fa-solid fa-trash"></i> Eliminar
-                        </button>
-                    </th>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<script>
-    $('#data-table').DataTable({
-        language: {
-            "sProcessing": "Procesando...",
-            "sLengthMenu": "Mostrar _MENU_ registros",
-            "sZeroRecords": "No se encontraron resultados",
-            "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
-            "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
-            "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
-            "sInfoPostFix": "",
-            "sSearch": "Buscar:",
-            "sUrl": "",
-            "sInfoThousands": ",",
-            "sLoadingRecords": "Cargando...",
-            "oPaginate": {
-                "sFirst": "Primero",
-                "sLast": "Último",
-                "sNext": "Siguiente",
-                "sPrevious": "Anterior"
-            },
-            "oAria": {
-                "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
-                "sSortDescending": ": Activar para ordenar la columna de manera descendente"
-            }
-        }
-    });
-</script>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: estadoActivo/tabla_registro.html — estados del activo.
+     · Al abrir llega incluido en estadoActivo/vista.html (th:replace … :: tabla): un pedido.
+       POST /administracion/estadoa/tabla-registros lo devuelve para recargar.
+     · data-activos: cuántos activos usan el estado (para mostrar y avisar al eliminar).
+     ══════════════════════════════════════════════════════════════ -->
+<table class="table sm-tabla align-middle js-tabla-estados" th:fragment="tabla">
+    <thead>
+        <tr>
+            <th style="width:120px;">Código</th>
+            <th>Estado</th>
+            <th style="width:200px;">Activos con este estado</th>
+            <th class="text-end" style="width:240px;">Opciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr th:each="e, it : ${listasEstadoActivos}"
+            th:with="n=${activosPorEstado.get(e.idEstadoActivo) ?: 0}"
+            th:attr="data-activos=${n}">
+            <td><span class="sm-codigo sm-mayus" th:text="${e.codigo}"></span></td>
+            <td class="sm-nombre" th:text="${e.nombre}"></td>
+            <td th:attr="data-order=${n}">
+                <span th:if="${n > 0}" class="sm-pastilla sm-pastilla-info py-0">
+                    <i class="ti ti-box"></i> <span th:text="${#numbers.formatInteger(n, 1, 'POINT')}"></span></span>
+                <span th:if="${n == 0}" class="sm-pastilla py-0">Sin activos</span>
+            </td>
+            <td class="text-end">
+                <div class="sm-acciones" th:attr="data-id=${id_encryptado[it.index]}, data-nombre=${e.nombre}">
+                    <button type="button" class="sm-btn sm-btn-sm sm-btn-suave" data-accion="editar" title="Modificar este estado">
+                        <i class="ti ti-edit"></i> Editar</button>
+                    <button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-peligro" data-accion="eliminar" title="Eliminar este estado">
+                        <i class="ti ti-trash"></i> Eliminar</button>
+                </div>
+            </td>
+        </tr>
+    </tbody>
+</table>

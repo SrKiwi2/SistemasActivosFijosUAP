@@ -3,6 +3,8 @@ package com.usic.SistemasActivosFijosUAP.model.dao;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,6 +14,89 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
 public interface IOficinaDao extends JpaRepository<Oficina, Long> {
+
+    /** Lo que muestra un buscador de oficinas (select2): sin cargar entidades ni su predio. */
+    interface OficinaOpcion {
+        Long getId();
+        String getUnidad();
+        Short getCodOfi();
+        String getNombre();
+    }
+
+    /**
+     * Oficinas activas para un buscador, en UNA consulta (predio en el mismo JOIN).
+     * {@code q} ya viene armado: "%CAUN%5%SISTEMAS%" encuentra "CAUN — 5 | SISTEMAS".
+     */
+    @Query("""
+            SELECT o.idOficina AS id, p.unidad AS unidad, o.codOfi AS codOfi, o.nombre AS nombre
+            FROM Oficina o JOIN o.predio p
+            WHERE o.estado = 'ACTIVO'
+              AND UPPER(CONCAT(COALESCE(p.unidad, ''), ' ', CAST(o.codOfi AS String), ' ', COALESCE(o.nombre, ''))) LIKE :q
+            ORDER BY p.unidad, o.codOfi
+            """)
+    List<OficinaOpcion> opciones(@Param("q") String q, Pageable pageable);
+
+    @Query("""
+            SELECT o.idOficina AS id, p.unidad AS unidad, o.codOfi AS codOfi, o.nombre AS nombre
+            FROM Oficina o JOIN o.predio p
+            WHERE o.idOficina = :id
+            """)
+    Optional<OficinaOpcion> opcion(@Param("id") Long id);
+
+    /** Fila de la tabla de Oficinas: solo lo que se muestra, sin cargar entidades. */
+    interface OficinaFila {
+        Long getId();
+        Short getCodOfi();
+        String getNombre();
+        String getObserv();
+        String getUnidad();
+        String getEntidadCodigo();
+        Boolean getPendienteDbf();
+        Boolean getEsCustodia();
+        Long getRegistroIdUsuario();
+        Long getModificacionIdUsuario();
+        java.util.Date getRegistro();
+        java.util.Date getModificacion();
+    }
+
+    /**
+     * Página de la tabla de Oficinas (paginada en el servidor): predio y entidad en el mismo
+     * JOIN. {@code q} ya armado ("%CAUN%5%" encuentra la oficina 5 de CAUN); {@code idPredio}
+     * = -1 para todos.
+     */
+    @Query(value = """
+            SELECT o.idOficina AS id, o.codOfi AS codOfi, o.nombre AS nombre, o.observ AS observ,
+                   p.unidad AS unidad, e.entidadCodigo AS entidadCodigo, o.pendienteDbf AS pendienteDbf,
+                   o.esCustodia AS esCustodia, o.registroIdUsuario AS registroIdUsuario,
+                   o.modificacionIdUsuario AS modificacionIdUsuario, o.registro AS registro, o.modificacion AS modificacion
+            FROM Oficina o JOIN o.predio p LEFT JOIN p.entidad e
+            WHERE o.estado = 'ACTIVO' AND (:idPredio = -1 OR p.idPredio = :idPredio)
+              AND UPPER(CONCAT(COALESCE(p.unidad, ''), ' ', CAST(o.codOfi AS String), ' ', COALESCE(o.nombre, ''), ' ',
+                               COALESCE(e.entidadCodigo, ''))) LIKE :q
+            ORDER BY p.unidad, o.codOfi
+            """,
+            countQuery = """
+            SELECT COUNT(o) FROM Oficina o JOIN o.predio p LEFT JOIN p.entidad e
+            WHERE o.estado = 'ACTIVO' AND (:idPredio = -1 OR p.idPredio = :idPredio)
+              AND UPPER(CONCAT(COALESCE(p.unidad, ''), ' ', CAST(o.codOfi AS String), ' ', COALESCE(o.nombre, ''), ' ',
+                               COALESCE(e.entidadCodigo, ''))) LIKE :q
+            """)
+    Page<OficinaFila> pagina(@Param("q") String q, @Param("idPredio") Long idPredio, Pageable pageable);
+
+    @Query("SELECT COUNT(o) FROM Oficina o WHERE o.estado = 'ACTIVO'")
+    long contarActivas();
+
+    /** [idOficina, responsables vigentes] de las oficinas indicadas (la página visible). */
+    @Query("SELECT r.oficina.idOficina, COUNT(r) FROM Responsable r WHERE r.oficina.idOficina IN :ids AND r.estado = 'ACTIVO' GROUP BY r.oficina.idOficina")
+    List<Object[]> responsablesPorOficina(@Param("ids") java.util.Collection<Long> ids);
+
+    /** [idOficina, activos no eliminados] de las oficinas indicadas (la página visible). */
+    @Query("SELECT a.oficina.idOficina, COUNT(a) FROM Activo a WHERE a.oficina.idOficina IN :ids AND (a.estado IS NULL OR a.estado <> 'ELIMINADO') GROUP BY a.oficina.idOficina")
+    List<Object[]> activosPorOficina(@Param("ids") java.util.Collection<Long> ids);
+
+    /** [idPredio, cantidad] de oficinas activas por predio: una consulta agrupada. */
+    @Query("SELECT o.predio.idPredio, COUNT(o) FROM Oficina o WHERE o.estado = 'ACTIVO' GROUP BY o.predio.idPredio")
+    List<Object[]> contarPorPredio();
     @Query("SELECT o FROM Oficina o WHERE LOWER(o.nombre) = LOWER(?1) AND o.estado = 'ACTIVO'")
     Optional<Oficina> buscarPorNombre(String nombre);
 
@@ -71,7 +156,7 @@ public interface IOficinaDao extends JpaRepository<Oficina, Long> {
 
     @Query(value = "SELECT COALESCE(MAX(cod_ofi), 0) + 1 " +
                    "FROM oficina " +
-                   "WHERE id_predio = :idPredio AND _estado = 'ACTIVO'", 
+                   "WHERE id_predio = :idPredio AND _estado = 'ACTIVO'",
            nativeQuery = true)
     Short findNextCodOfiByPredioId(@Param("idPredio") Long idPredio);
 

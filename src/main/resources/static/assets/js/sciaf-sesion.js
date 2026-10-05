@@ -94,7 +94,7 @@
         });
     }
 
-    window.sciafSesion = { perdida, avisar };
+    window.sciafSesion = { perdida, avisar, esIngreso };
 
     // ── fetch: cualquier pedido que vuelva con la página de ingreso ─────────
     if (window.fetch && !window.fetch.__sciafSesion) {

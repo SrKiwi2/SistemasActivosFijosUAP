@@ -1,70 +1,49 @@
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <div>
-            <h5 class="mb-0">Personal de Entrega</h5>
-            <small class="text-muted">Personas que figuran en el acta de asignación</small>
-        </div>
-        <div class="d-flex gap-2">
-            <button class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal" data-bs-target="#modalFormulario">
-                <i class="fa-solid fa-plus me-1"></i> Nuevo
-            </button>
-        </div>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-bordered table-hover" id="data-table">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width:60px;">#</th>
-                        <th>Nombre</th>
-                        <th>Cargo</th>
-                        <th style="width:80px;">Género</th>
-                        <th style="width:100px;">Selección</th>
-                        <th style="width:60px;">Estado</th>
-                        <th style="width:100px;">Acción</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="r, i : ${lista}">
-                        <td class="text-center" th:text="${i.index + 1}"></td>
-                        <td th:text="${r.nombre}"></td>
-                        <td th:text="${r.cargo != null ? r.cargo : '—'}"></td>
-                        <td class="text-center" th:text="${r.genero == 'M' ? 'Masculino' : (r.genero == 'F' ? 'Femenino' : '—')}"></td>
-                        <td class="text-center">
-                            <span th:if="${r.seleccionado == true}" class="badge bg-info">
-                                <i class="fa-solid fa-check-circle me-1"></i>Seleccionado
-                            </span>
-                            <button th:if="${r.estado == 'ACTIVO' and r.seleccionado != true}"
-                                    class="btn btn-sm btn-outline-info"
-                                    th:data-id="${id_encryptado[i.index]}"
-                                    onclick="seleccionar(this.dataset.id)"
-                                    title="Usar en acta">
-                                <i class="fa-solid fa-check"></i> Seleccionar
-                            </button>
-                        </td>
-                        <td class="text-center">
-                            <span class="badge" th:classappend="${r.estado == 'ACTIVO' ? 'bg-success' : 'bg-secondary'}"
-                                  th:text="${r.estado}"></span>
-                        </td>
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-warning"
-                                    th:data-id="${id_encryptado[i.index]}"
-                                    onclick="cargarFormularioEdit(this.dataset.id)"
-                                    title="Editar">
-                                <i class="fa-solid fa-pen"></i>
-                            </button>
-                            <button class="btn btn-sm btn-danger"
-                                    th:if="${r.estado == 'ACTIVO'}"
-                                    th:data-nombre="${r.nombre}"
-                                    th:data-id="${id_encryptado[i.index]}"
-                                    onclick="eliminar(this.dataset.nombre, this.dataset.id)"
-                                    title="Eliminar">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: responsable_entrega/tabla_registro.html — personal de entrega.
+     · Al abrir llega incluido en responsable_entrega/vista.html (th:replace … :: tabla).
+       POST /administracion/responsable-entrega/tabla-registros lo devuelve para recargar.
+     · La fila con data-seleccionado="true" es quien figura en el acta de asignación.
+     ══════════════════════════════════════════════════════════════ -->
+<table class="table sm-tabla align-middle js-tabla-entrega" th:fragment="tabla">
+    <thead>
+        <tr>
+            <th>Nombre</th>
+            <th style="width:150px;">Género</th>
+            <th style="width:190px;">En el acta</th>
+            <th class="text-end" style="width:240px;">Opciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr th:each="r, i : ${lista}"
+            th:attr="data-seleccionado=${r.seleccionado == true}, data-nombre=${r.nombre}">
+            <td>
+                <div class="sm-persona">
+                    <span class="sm-avatar" th:text="${#strings.isEmpty(r.nombre) ? '?' : #strings.toUpperCase(#strings.substring(r.nombre, 0, 1))}">?</span>
+                    <div class="sm-persona-texto">
+                        <span class="sm-nombre" th:text="${r.nombre}"></span>
+                        <span class="sm-sub sm-mayus" th:text="${r.cargo != null ? r.cargo : 'Sin cargo'}"></span>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <span class="sm-pastilla py-0" th:text="${r.genero == 'M' ? 'Masculino' : (r.genero == 'F' ? 'Femenino' : '—')}"></span>
+            </td>
+            <td th:attr="data-order=${r.seleccionado == true ? 0 : 1}">
+                <span th:if="${r.seleccionado == true}" class="sm-pastilla sm-pastilla-activo py-0">Figura en el acta</span>
+                <button th:if="${r.seleccionado != true and r.estado == 'ACTIVO'}" type="button"
+                        class="sm-btn sm-btn-sm sm-btn-suave sm-btn-exito" data-accion="seleccionar"
+                        th:attr="data-id=${id_encryptado[i.index]}" title="Que figure en el acta de asignación">
+                    <i class="ti ti-check"></i> Seleccionar</button>
+            </td>
+            <td class="text-end">
+                <div class="sm-acciones" th:attr="data-id=${id_encryptado[i.index]}">
+                    <button type="button" class="sm-btn sm-btn-sm sm-btn-suave" data-accion="editar" title="Modificar">
+                        <i class="ti ti-edit"></i> Editar</button>
+                    <button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-peligro" data-accion="eliminar"
+                            th:if="${r.estado == 'ACTIVO'}" title="Eliminar">
+                        <i class="ti ti-trash"></i> Eliminar</button>
+                </div>
+            </td>
+        </tr>
+    </tbody>
+</table>

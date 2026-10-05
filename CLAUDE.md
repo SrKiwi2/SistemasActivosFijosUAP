@@ -124,6 +124,7 @@ Work spans several machines, so in-flight task state lives in `docs/` handoff fi
 - `docs/PLAN_CONTROL_ACTIVOS.md` / `docs/HANDOFF_CONTROL_ACTIVOS.md` — Control de Activos module and its mobile contract.
 - `docs/PLAN_APP_MOVIL.md` — mobile app (Vue + Capacitor).
 - `docs/HANDOFF_USUARIOS_MENU_RUTA.md` — faltante transfers marked in red, asset route tracking, user management, live permissions (no re-login), menu management (seeder is now insert-only).
+- `docs/HANDOFF_PLANTILLA_MODULOS.md` — **active work**: migrating screens module-by-module to the shared template (`sciaf-modulo.*`, `sciaf-precarga.*`, guide in `docs/PLANTILLA_MODULOS.md`); modules done, open decisions, pitfalls and the user's working rules. Read first when continuing UI work.
 
 ### Security Configuration
 

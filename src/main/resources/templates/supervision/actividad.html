@@ -1,276 +1,340 @@
-<!-- ═══════════════════════════════════════════════════════
-     Monitoreo de actividad (solo ADMINISTRADOR / SUPER USUARIO)
-     Solo lectura. Se actualiza solo con el evento SSE "actividad".
-     ═══════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Monitoreo de actividad (solo ADMINISTRADOR / SUPER USUARIO). Solo lectura.
+     Plantilla de mantenimiento (docs/PLANTILLA_MODULOS.md). Carga eficiente:
+       · la primera página y el resumen del día llegan con la vista (${inicial}): al abrir
+         no se pide nada más; mientras no haya filtros, la primera página sale de ahí;
+       · cada refresco en vivo trae página + resumen en UNA respuesta (resumen=true);
+       · los eventos en ráfaga (SSE "actividad" / "autorizacion") se juntan en un refresco.
+     Todo dentro de #modActividad y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modActividad">
+
 <style>
-    #mon-actividad .kpi { border: 0; border-radius: 14px; box-shadow: 0 2px 10px rgba(34,41,47,.06); }
-    #mon-actividad .kpi .kpi-ico { width: 42px; height: 42px; border-radius: 12px; display: flex;
-        align-items: center; justify-content: center; font-size: 1.25rem; }
-    #mon-actividad .kpi .kpi-num { font-size: 1.5rem; font-weight: 700; line-height: 1; }
-    #mon-actividad .kpi .kpi-lbl { font-size: .72rem; text-transform: uppercase; letter-spacing: .4px; color: #8a8d93; }
-    #mon-actividad .acc-badge { font-size: .68rem; font-weight: 700; letter-spacing: .3px; }
-    #mon-actividad .ref-chip { font-family: monospace; font-size: .75rem; background: #f3f2f7; border-radius: 6px;
-        padding: 2px 7px; border: 0; cursor: pointer; white-space: nowrap; }
-    #mon-actividad .ref-chip:hover { background: #e8e6f0; }
-    #mon-actividad tr.fila-nueva { animation: monFlash 2.4s ease; }
-    @keyframes monFlash { 0% { background: rgba(115,103,240,.18); } 100% { background: transparent; } }
-    #mon-actividad .en-vivo { display: inline-flex; align-items: center; gap: 6px; font-size: .75rem; color: #28c76f; font-weight: 600; }
-    #mon-actividad .en-vivo::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #28c76f;
-        box-shadow: 0 0 0 0 rgba(40,199,111,.6); animation: monPulso 1.8s infinite; }
-    @keyframes monPulso { 0% { box-shadow: 0 0 0 0 rgba(40,199,111,.6); } 70% { box-shadow: 0 0 0 8px rgba(40,199,111,0); } 100% { box-shadow: 0 0 0 0 rgba(40,199,111,0); } }
-    #tblActividad_processing { display: none !important; }
+    #modActividad .act-lado .sm-card { height: 100%; }
+    #modActividad .act-top { display: flex; align-items: center; gap: .6rem; padding: .55rem 0; border-bottom: 1px dashed var(--sm-borde); cursor: pointer; }
+    #modActividad .act-top:last-child { border-bottom: 0; }
+    #modActividad .act-top:hover .sm-nombre { color: var(--sm-primario); }
+    #modActividad .act-top .sm-avatar { width: 34px; height: 34px; font-size: .8rem; }
+    #modActividad .act-barra { display: grid; grid-template-columns: 110px 1fr 34px; gap: .5rem; align-items: center; font-size: .82rem; padding: .25rem 0; }
+    #modActividad .act-barra .sm-progreso-barra { height: 7px; }
+    #modActividad .act-ref {
+        display: inline-flex; align-items: center; gap: .3rem; max-width: 100%;
+        padding: .2rem .55rem; border-radius: 7px; border: 1px solid var(--sm-borde-fuerte);
+        background: var(--sm-superficie-2); color: var(--sm-texto); font: 600 .78rem ui-monospace, Consolas, monospace;
+        cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #modActividad .act-ref:hover { border-color: var(--sm-primario); color: var(--sm-primario); }
+    #modActividad .act-fecha { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+    #modActividad .act-fecha .sm-input { width: 150px; height: 40px; }
+    #modActividad .act-detalle { font-size: .9rem; color: var(--sm-texto); }
 </style>
 
-<div class="container-xxl flex-grow-1 container-p-y" id="mon-actividad">
-
-    <div class="d-flex flex-wrap justify-content-between align-items-center py-2 mb-3 gap-2">
-        <h4 class="fw-bold mb-0"><span class="text-muted fw-light">Supervisión /</span> Monitoreo de actividad</h4>
-        <span class="en-vivo">En vivo</span>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-activity"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-eye-check"></i> Supervisión <i class="ti ti-chevron-right"></i> Monitoreo de actividad
+        </nav>
+        <h1 class="sm-titulo">Monitoreo de actividad</h1>
+        <p class="sm-subtitulo">Qué se hace en el sistema y quién lo hace. Solo lectura; se actualiza sola.</p>
     </div>
-
-    <!-- Resumen del día -->
-    <div class="row g-3 mb-3">
-        <div class="col-6 col-lg-3">
-            <div class="card kpi"><div class="card-body d-flex gap-3 align-items-center">
-                <div class="kpi-ico bg-label-primary"><i class="ti ti-activity"></i></div>
-                <div><div class="kpi-num" id="kpiTotal">0</div><div class="kpi-lbl">Acciones hoy</div></div>
-            </div></div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="card kpi"><div class="card-body d-flex gap-3 align-items-center">
-                <div class="kpi-ico bg-label-success"><i class="ti ti-circle-plus"></i></div>
-                <div><div class="kpi-num" id="kpiRegistros">0</div><div class="kpi-lbl">Registros hoy</div></div>
-            </div></div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="card kpi"><div class="card-body d-flex gap-3 align-items-center">
-                <div class="kpi-ico bg-label-info"><i class="ti ti-pencil"></i></div>
-                <div><div class="kpi-num" id="kpiModif">0</div><div class="kpi-lbl">Modificaciones hoy</div></div>
-            </div></div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="card kpi"><div class="card-body d-flex gap-3 align-items-center">
-                <div class="kpi-ico bg-label-warning"><i class="ti ti-shield-question"></i></div>
-                <div><div class="kpi-num" id="kpiSolicitudes">0</div><div class="kpi-lbl">Solicitudes pendientes</div></div>
-            </div></div>
-        </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-k-total">—</strong> acciones hoy</span>
+        <span class="sm-dato"><strong class="js-k-reg text-success">—</strong> registros</span>
+        <span class="sm-dato"><strong class="js-k-mod">—</strong> modificaciones</span>
+        <button type="button" class="sm-dato" data-accion="autorizaciones" title="Ir a Autorizaciones">
+            <strong class="js-k-sol text-warning">—</strong> solicitudes pendientes <i class="ti ti-arrow-right"></i></button>
+        <span class="sm-vivo" title="Se actualiza sola cuando alguien hace algo">En vivo</span>
     </div>
+</header>
 
-    <div class="row g-3">
-        <!-- Filtros + tabla -->
-        <div class="col-12 col-xl-9">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body pb-2">
-                    <div class="row g-2 align-items-end">
-                        <div class="col-6 col-md-3">
-                            <label class="form-label small fw-bold text-muted mb-1">Usuario</label>
-                            <select id="fUsuario" class="form-select form-select-sm">
-                                <option value="">Todos</option>
-                                <option th:each="u : ${usuarios}" th:value="${u}" th:text="${u}"></option>
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="form-label small fw-bold text-muted mb-1">Módulo</label>
-                            <select id="fModulo" class="form-select form-select-sm">
-                                <option value="">Todos</option>
-                                <option value="ACTIVO">Activos</option>
-                                <option value="OFICINA">Oficinas</option>
-                                <option value="RESPONSABLE">Responsables</option>
-                                <option value="ASIGNACION">Asignación</option>
-                                <option value="TRANSFERENCIA">Transferencia</option>
-                                <option value="BLOQUEO">Bloqueo</option>
-                                <option value="AUTORIZACION">Autorizaciones</option>
-                                <option value="USUARIO">Usuarios y accesos</option>
-                                <option value="MENU">Gestión de menú</option>
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="form-label small fw-bold text-muted mb-1">Acción</label>
-                            <select id="fAccion" class="form-select form-select-sm">
-                                <option value="">Todas</option>
-                                <option value="REGISTRO">Registro</option>
-                                <option value="MODIFICACION">Modificación</option>
-                                <option value="ELIMINACION">Eliminación</option>
-                                <option value="APROBACION">Aprobación</option>
-                                <option value="MOVIMIENTO">Movimiento</option>
-                                <option value="SOLICITUD">Solicitud</option>
-                                <option value="RECHAZO">Rechazo</option>
-                                <option value="BLOQUEO">Bloqueo</option>
-                                <option value="DESBLOQUEO">Desbloqueo</option>
-                                <option value="REENVIO">Reenvío VSIAF</option>
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="form-label small fw-bold text-muted mb-1">Desde</label>
-                            <input type="date" id="fDesde" class="form-control form-control-sm">
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="form-label small fw-bold text-muted mb-1">Hasta</label>
-                            <input type="date" id="fHasta" class="form-control form-control-sm">
-                        </div>
-                        <div class="col-6 col-md-1 d-grid">
-                            <button class="btn btn-sm btn-outline-secondary" id="btnLimpiarFiltros" title="Limpiar filtros">
-                                <i class="ti ti-filter-off"></i>
-                            </button>
-                        </div>
-                        <div class="col-12">
-                            <input type="search" id="fTexto" class="form-control form-control-sm"
-                                   placeholder="Buscar por código o texto (ej. 01-02-0123, CAUN-5, nombre del responsable)…">
-                        </div>
+<div class="row g-3">
+    <div class="col-12 col-xl-9">
+        <section class="sm-card">
+            <div class="sm-toolbar">
+                <div class="sm-buscador">
+                    <i class="ti ti-search"></i>
+                    <input type="text" class="sm-input js-buscar" placeholder="Buscar código o texto (01-02-0123, nombre…)"
+                        autocomplete="off" aria-label="Buscar en la actividad" />
+                    <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+                </div>
+                <select class="sm-select js-f-usuario" aria-label="Usuario" style="width:auto;min-width:170px;">
+                    <option value="">Todos los usuarios</option>
+                    <option th:each="u : ${usuarios}" th:value="${u}" th:text="${u}"></option>
+                </select>
+                <select class="sm-select js-f-modulo" aria-label="Módulo" style="width:auto;min-width:160px;">
+                    <option value="">Todos los módulos</option>
+                    <option value="ACTIVO">Activos</option>
+                    <option value="OFICINA">Oficinas</option>
+                    <option value="RESPONSABLE">Responsables</option>
+                    <option value="ASIGNACION">Asignación</option>
+                    <option value="TRANSFERENCIA">Transferencia</option>
+                    <option value="BLOQUEO">Bloqueo</option>
+                    <option value="AUTORIZACION">Autorizaciones</option>
+                    <option value="USUARIO">Usuarios y accesos</option>
+                    <option value="MENU">Gestión de menú</option>
+                </select>
+                <select class="sm-select js-f-accion" aria-label="Acción" style="width:auto;min-width:150px;">
+                    <option value="">Todas las acciones</option>
+                    <option value="REGISTRO">Registro</option>
+                    <option value="MODIFICACION">Modificación</option>
+                    <option value="ELIMINACION">Eliminación</option>
+                    <option value="APROBACION">Aprobación</option>
+                    <option value="MOVIMIENTO">Movimiento</option>
+                    <option value="SOLICITUD">Solicitud</option>
+                    <option value="RECHAZO">Rechazo</option>
+                    <option value="BLOQUEO">Bloqueo</option>
+                    <option value="DESBLOQUEO">Desbloqueo</option>
+                    <option value="REENVIO">Reenvío VSIAF</option>
+                </select>
+
+                <div class="sm-toolbar-grupo">
+                    <div class="sm-segmento js-periodo" role="group" aria-label="Período">
+                        <button type="button" data-dias="0">Hoy</button>
+                        <button type="button" data-dias="7">7 días</button>
+                        <button type="button" data-dias="30">30 días</button>
+                        <button type="button" class="activo" data-dias="">Todo</button>
                     </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0" id="tblActividad" style="width:100%">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width:130px">Fecha</th>
-                                <th style="width:120px">Usuario</th>
-                                <th style="width:150px">Módulo / Acción</th>
-                                <th>Detalle</th>
-                                <th style="width:170px">Código</th>
-                            </tr>
-                        </thead>
-                    </table>
+                    <div class="act-fecha">
+                        <input type="date" class="sm-input js-f-desde" aria-label="Desde" title="Desde">
+                        <input type="date" class="sm-input js-f-hasta" aria-label="Hasta" title="Hasta">
+                    </div>
+                    <select class="sm-select js-largo" aria-label="Filas por página" style="width:auto;min-width:120px;">
+                        <option value="auto" selected>Ajustar</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    <button type="button" class="sm-btn sm-btn-neutro sm-btn-icono" data-accion="limpiar" title="Quitar todos los filtros">
+                        <i class="ti ti-filter-off"></i></button>
                 </div>
             </div>
-        </div>
 
-        <!-- Usuarios más activos hoy -->
-        <div class="col-12 col-xl-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header pb-2"><h6 class="mb-0"><i class="ti ti-users me-1"></i> Más activos hoy</h6></div>
-                <div class="card-body pt-2" id="topUsuarios">
-                    <div class="text-muted small">Sin actividad todavía.</div>
-                </div>
-            </div>
-        </div>
+            <table class="table sm-tabla align-middle js-tabla">
+                <thead>
+                    <tr>
+                        <th style="width:140px;">Fecha</th>
+                        <th style="width:200px;">Usuario</th>
+                        <th style="width:160px;">Acción</th>
+                        <th>Detalle</th>
+                        <th style="width:180px;">Código</th>
+                    </tr>
+                </thead>
+            </table>
+        </section>
+    </div>
+
+    <!-- Hoy: quién y qué -->
+    <div class="col-12 col-xl-3 act-lado">
+        <section class="sm-card">
+            <div class="sm-seccion-cab border-0"><i class="ti ti-users"></i> Más activos hoy</div>
+            <div class="px-3 pb-2 js-top"><div class="text-muted small py-2">Sin actividad todavía.</div></div>
+            <div class="sm-seccion-cab border-0 mt-2"><i class="ti ti-chart-bar"></i> Hoy por acción</div>
+            <div class="px-3 pb-3 js-barras"><div class="text-muted small py-2">—</div></div>
+        </section>
     </div>
 </div>
 
-<script>
-(function () {
-    'use strict';
+</div>
 
-    const ACC = {
-        REGISTRO: ['bg-label-success', 'Registro'], MODIFICACION: ['bg-label-info', 'Modificación'],
-        ELIMINACION: ['bg-label-danger', 'Eliminación'], APROBACION: ['bg-label-success', 'Aprobación'],
-        MOVIMIENTO: ['bg-label-primary', 'Movimiento'], SOLICITUD: ['bg-label-warning', 'Solicitud'],
-        RECHAZO: ['bg-label-danger', 'Rechazo'], BLOQUEO: ['bg-label-warning', 'Bloqueo'],
-        DESBLOQUEO: ['bg-label-success', 'Desbloqueo'], REENVIO: ['bg-label-info', 'Reenvío VSIAF']
-    };
-    const MOD = { ACTIVO: 'Activos', OFICINA: 'Oficinas', RESPONSABLE: 'Responsables', ASIGNACION: 'Asignación',
-        TRANSFERENCIA: 'Transferencia', BLOQUEO: 'Bloqueo', AUTORIZACION: 'Autorizaciones' };
+<script th:inline="javascript">
+    (function () {
+        'use strict';
 
-    function esc(v) { return $('<div>').text(v == null ? '' : String(v)).html(); }
+        const URL = '/administracion/actividad';
+        /** Primera página + resumen que llegaron con la vista (sin pedirlos de nuevo). */
+        let cache = /*[[${inicial}]]*/ null;
 
-    $('#fUsuario, #fModulo, #fAccion').each(function () {
-        $(this).select2({ width: '100%', minimumResultsForSearch: 6, dropdownParent: $('#mon-actividad') });
-    });
-
-    let ultimoId = 0;       // para resaltar las filas que llegan en vivo
-
-    const tabla = $('#tblActividad').DataTable({
-        serverSide: true,
-        processing: false,
-        searching: false,
-        ordering: false,
-        pageLength: 25,
-        lengthMenu: [25, 50, 100],
-        ajax: {
-            url: '/administracion/actividad/api/datatables',
-            type: 'POST',
-            data: function (d) {
-                d.usuario = $('#fUsuario').val();
-                d.modulo = $('#fModulo').val();
-                d.accion = $('#fAccion').val();
-                d.texto = $('#fTexto').val();
-                d.desde = $('#fDesde').val();
-                d.hasta = $('#fHasta').val();
-            }
-        },
-        columns: [
-            { data: 'fecha', render: d => `<span class="small text-nowrap">${esc(d)}</span>` },
-            { data: 'usuario', render: (d, t, r) => `<div class="lh-sm"><div class="fw-semibold">${esc(d)}</div>
-                                                      <small class="text-muted">${esc(r.rol)}</small></div>` },
-            { data: 'accion', render: (d, t, r) => {
-                const a = ACC[d] || ['bg-label-secondary', d];
-                return `<div class="lh-sm"><span class="badge acc-badge ${a[0]}">${esc(a[1])}</span>
-                        <div class="small text-muted mt-1">${esc(MOD[r.modulo] || r.modulo)}</div></div>`;
-            } },
-            { data: 'descripcion', render: (d, t, r) => `<div class="small">${esc(d)}</div>` +
-                (r.cantidad > 1 ? `<span class="badge bg-label-secondary mt-1">${r.cantidad} registros</span>` : '') },
-            { data: 'referencia', render: d => d
-                ? `<button type="button" class="ref-chip" data-ref="${esc(d)}" title="Copiar para buscarlo en su módulo">
-                       <i class="ti ti-copy me-1"></i>${esc(d)}</button>` : '' }
-        ],
-        createdRow: function (row, data) {
-            if (ultimoId && data.idActividad > ultimoId) $(row).addClass('fila-nueva');
-        },
-        drawCallback: function () {
-            const filas = this.api().rows().data().toArray();
-            if (filas.length) ultimoId = Math.max(ultimoId, ...filas.map(f => f.idActividad || 0));
-        },
-        language: {
-            emptyTable: 'Sin actividad registrada con estos filtros',
-            info: 'Mostrando _START_ a _END_ de _TOTAL_',
-            infoEmpty: 'Sin registros', lengthMenu: 'Mostrar _MENU_',
-            paginate: { first: 'Primero', last: 'Último', next: 'Sig.', previous: 'Ant.' }
-        }
-    });
-
-    // Copiar el código para ir a buscarlo en su módulo
-    $('#tblActividad').off('click.mon').on('click.mon', '.ref-chip', function () {
-        const ref = $(this).data('ref');
-        navigator.clipboard?.writeText(ref).then(() => {
-            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Código copiado: ' + ref,
-                showConfirmButton: false, timer: 1800 });
-        });
-    });
-
-    let tDebounce;
-    $('#fTexto').on('input', function () {
-        clearTimeout(tDebounce);
-        tDebounce = setTimeout(() => tabla.ajax.reload(), 350);
-    });
-    $('#fUsuario, #fModulo, #fAccion, #fDesde, #fHasta').on('change', () => tabla.ajax.reload());
-    $('#btnLimpiarFiltros').on('click', function () {
-        $('#fUsuario, #fModulo, #fAccion').val('').trigger('change.select2');
-        $('#fTexto, #fDesde, #fHasta').val('');
-        tabla.ajax.reload();
-    });
-
-    function cargarResumen() {
-        $.get('/administracion/actividad/api/resumen', function (r) {
-            $('#kpiTotal').text(r.totalHoy || 0);
-            $('#kpiRegistros').text((r.porAccion && r.porAccion.REGISTRO) || 0);
-            $('#kpiModif').text((r.porAccion && r.porAccion.MODIFICACION) || 0);
-            $('#kpiSolicitudes').text(r.solicitudesPendientes || 0);
-            const top = r.topUsuarios || [];
-            $('#topUsuarios').html(top.length ? top.map((u, i) => `
-                <div class="d-flex align-items-center justify-content-between py-2 ${i ? 'border-top' : ''}">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="avatar avatar-sm"><span class="avatar-initial rounded-circle bg-label-primary">${esc(String(u.usuario).substring(0, 2).toUpperCase())}</span></span>
-                        <span class="fw-semibold small">${esc(u.usuario)}</span>
-                    </div>
-                    <span class="badge bg-label-primary">${u.total}</span>
-                </div>`).join('') : '<div class="text-muted small">Sin actividad todavía.</div>');
-        });
-    }
-    cargarResumen();
-
-    // En vivo: cada acción de otro usuario recarga la primera página y el resumen.
-    if (window.sciafEscuchar) {
-        let tVivo;
-        const refrescar = function () {
-            if (!document.getElementById('tblActividad')) return;   // se salió del módulo
-            clearTimeout(tVivo);
-            tVivo = setTimeout(function () {                        // agrupa ráfagas
-                if (tabla.page.info().page === 0) tabla.ajax.reload(null, false);
-                cargarResumen();
-            }, 500);
+        const $raiz = $('#modActividad');
+        const esc = SciafModulo.escapar;
+        const ACC = {
+            REGISTRO: ['sm-pastilla-activo', 'Registro'], MODIFICACION: ['sm-pastilla-info', 'Modificación'],
+            ELIMINACION: ['sm-pastilla-peligro', 'Eliminación'], APROBACION: ['sm-pastilla-activo', 'Aprobación'],
+            MOVIMIENTO: ['sm-pastilla-info', 'Movimiento'], SOLICITUD: ['sm-pastilla-aviso', 'Solicitud'],
+            RECHAZO: ['sm-pastilla-peligro', 'Rechazo'], BLOQUEO: ['sm-pastilla-aviso', 'Bloqueo'],
+            DESBLOQUEO: ['sm-pastilla-activo', 'Desbloqueo'], REENVIO: ['sm-pastilla-info', 'Reenvío VSIAF']
         };
-        window.sciafEscuchar('actividad', 'monitoreo', refrescar);
-        window.sciafEscuchar('autorizacion', 'monitoreo', refrescar);
-    }
-})();
+        const MOD = { ACTIVO: 'Activos', OFICINA: 'Oficinas', RESPONSABLE: 'Responsables', ASIGNACION: 'Asignación',
+            TRANSFERENCIA: 'Transferencia', BLOQUEO: 'Bloqueo', AUTORIZACION: 'Autorizaciones',
+            USUARIO: 'Usuarios y accesos', MENU: 'Gestión de menú' };
+
+        const $usuario = $raiz.find('.js-f-usuario');
+        const $modulo = $raiz.find('.js-f-modulo');
+        const $accion = $raiz.find('.js-f-accion');
+        const $desde = $raiz.find('.js-f-desde');
+        const $hasta = $raiz.find('.js-f-hasta');
+        const $buscar = $raiz.find('.js-buscar');
+
+        // Muchos usuarios: lista con buscador.
+        if ($.fn.select2) {
+            $usuario.select2({ width: '200px', minimumResultsForSearch: 6, dropdownParent: $raiz });
+        }
+
+        function filtros() {
+            return { usuario: $usuario.val() || '', modulo: $modulo.val() || '', accion: $accion.val() || '',
+                     desde: $desde.val() || '', hasta: $hasta.val() || '' };
+        }
+        function sinFiltros(d) {
+            const f = filtros();
+            return !f.usuario && !f.modulo && !f.accion && !f.desde && !f.hasta && !(d.search && d.search.value);
+        }
+
+        /* ── Resumen del día (cabecera + panel lateral) ──────────────────── */
+        function pintarResumen(r) {
+            if (!r) return;
+            const pa = r.porAccion || {};
+            $raiz.find('.js-k-total').text(r.totalHoy || 0);
+            $raiz.find('.js-k-reg').text(pa.REGISTRO || 0);
+            $raiz.find('.js-k-mod').text(pa.MODIFICACION || 0);
+            $raiz.find('.js-k-sol').text(r.solicitudesPendientes || 0);
+
+            const top = r.topUsuarios || [];
+            $raiz.find('.js-top').html(top.length ? top.map(u =>
+                '<div class="act-top" data-usuario="' + esc(u.usuario) + '" title="Ver solo lo de ' + esc(u.usuario) + '">'
+                + '<span class="sm-avatar">' + esc(String(u.usuario).substring(0, 2).toUpperCase()) + '</span>'
+                + '<span class="sm-nombre flex-grow-1 text-truncate" style="text-transform:none">' + esc(u.usuario) + '</span>'
+                + '<span class="sm-pastilla sm-pastilla-info py-0">' + u.total + '</span></div>').join('')
+                : '<div class="text-muted small py-2">Sin actividad todavía.</div>');
+
+            const filas = Object.entries(pa).sort((a, b) => b[1] - a[1]);
+            const max = filas.length ? filas[0][1] : 0;
+            $raiz.find('.js-barras').html(filas.length ? filas.map(([acc, n]) =>
+                '<div class="act-barra"><span class="text-truncate">' + esc((ACC[acc] || [null, acc])[1]) + '</span>'
+                + '<div class="sm-progreso-barra"><span style="width:' + (max ? Math.round(n * 100 / max) : 0) + '%"></span></div>'
+                + '<strong class="text-end">' + n + '</strong></div>').join('')
+                : '<div class="text-muted small py-2">—</div>');
+        }
+
+        /* ── Tabla (paginada en el servidor) ─────────────────────────────── */
+        let pedirResumen = false;
+        let ultimoId = 0;      // para resaltar lo que llega en vivo
+
+        const tabla = SciafModulo.tabla({
+            tabla: $raiz.find('.js-tabla'),
+            buscador: $buscar,
+            largo: $raiz.find('.js-largo'),
+            altoFila: 62,
+            alDibujar: function (api) {
+                const ids = api.rows().data().toArray().map(f => f.idActividad || 0);
+                if (ids.length) ultimoId = Math.max(ultimoId, ...ids);
+            },
+            dt: {
+                serverSide: true,
+                ordering: false,
+                ajax: function (d, cb) {
+                    // Primera página sin filtros: sale de lo que ya se tiene (vista o último refresco).
+                    if (cache && d.start === 0 && sinFiltros(d) && d.length <= (cache.data || []).length) {
+                        cb(Object.assign({}, cache, { draw: d.draw, data: cache.data.slice(0, d.length) }));
+                        if (cache.resumen) pintarResumen(cache.resumen);
+                        return;
+                    }
+                    const datos = Object.assign({}, d, filtros(),
+                        { texto: d.search ? d.search.value : '', resumen: pedirResumen });
+                    pedirResumen = false;
+                    $.ajax({ type: 'POST', url: URL + '/api/datatables', data: datos, dataType: 'json' })
+                        .done(function (r) {
+                            if (r.resumen) pintarResumen(r.resumen);
+                            if (d.start === 0 && sinFiltros(d)) cache = r;
+                            cb(r);
+                        })
+                        .fail(function () { cb({ draw: d.draw, recordsTotal: 0, recordsFiltered: 0, data: [] }); });
+                },
+                createdRow: function (row, data) {
+                    if (ultimoId && data.idActividad > ultimoId) row.classList.add('sm-nuevo');
+                },
+                language: { sEmptyTable: 'Sin actividad registrada con estos filtros' },
+                columns: [
+                    { data: 'fecha', render: d => '<span class="sm-codigo text-nowrap">' + esc(d) + '</span>' },
+                    { data: 'usuario', render: (d, t, r) =>
+                        '<div class="sm-persona"><span class="sm-avatar" style="width:34px;height:34px;font-size:.8rem">'
+                        + esc(String(d || '?').substring(0, 2).toUpperCase()) + '</span>'
+                        + '<div class="sm-persona-texto"><span class="fw-semibold">' + esc(d) + '</span>'
+                        + '<span class="sm-sub">' + esc(r.rol) + '</span></div></div>' },
+                    { data: 'accion', render: (d, t, r) => {
+                        const a = ACC[d] || ['', d];
+                        return '<span class="sm-pastilla ' + a[0] + ' py-0">' + esc(a[1]) + '</span>'
+                            + '<div class="sm-sub mt-1">' + esc(MOD[r.modulo] || r.modulo) + '</div>';
+                    } },
+                    { data: 'descripcion', render: (d, t, r) => '<div class="act-detalle">' + esc(d) + '</div>'
+                        + (r.cantidad > 1 ? '<span class="sm-pastilla py-0 mt-1">' + r.cantidad + ' registros</span>' : '') },
+                    { data: 'referencia', render: d => d
+                        ? '<button type="button" class="act-ref" data-ref="' + esc(d) + '" title="Copiar para buscarlo en su módulo">'
+                          + '<i class="ti ti-copy"></i>' + esc(d) + '</button>' : '' }
+                ]
+            }
+        });
+
+        function recargar(conResumen) {
+            cache = null;                       // lo de antes ya no sirve
+            pedirResumen = !!conResumen;
+            if (tabla) tabla.ajax.reload(null, false);
+        }
+
+        /* ── Filtros ─────────────────────────────────────────────────────── */
+        function marcarPeriodo(dias) {
+            $raiz.find('.js-periodo button').removeClass('activo')
+                .filter(function () { return String($(this).data('dias')) === String(dias); }).addClass('activo');
+        }
+
+        $raiz.on('change', '.js-f-usuario, .js-f-modulo, .js-f-accion', () => recargar(false));
+        $raiz.on('change', '.js-f-desde, .js-f-hasta', function () { marcarPeriodo('x'); recargar(false); });
+
+        $raiz.on('click', '.js-periodo button', function () {
+            const dias = $(this).data('dias');
+            const hoy = new Date();
+            const iso = f => new Date(f.getTime() - f.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+            if (dias === '' || dias == null) { $desde.val(''); $hasta.val(''); }
+            else { const ini = new Date(hoy); ini.setDate(ini.getDate() - Number(dias)); $desde.val(iso(ini)); $hasta.val(iso(hoy)); }
+            marcarPeriodo(dias === undefined ? '' : dias);
+            recargar(false);
+        });
+
+        $raiz.on('click', '[data-accion="limpiar"]', function () {
+            $usuario.val('').trigger('change.select2');
+            $modulo.val(''); $accion.val(''); $desde.val(''); $hasta.val('');
+            $buscar.val('').trigger('input');
+            marcarPeriodo('');
+            recargar(false);
+        });
+
+        // Clic en un usuario de "Más activos hoy": ver solo lo suyo, hoy.
+        $raiz.on('click', '.act-top', function () {
+            const u = this.dataset.usuario;
+            if (!$usuario.find('option').filter(function () { return this.value === u; }).length) {
+                $usuario.append(new Option(u, u));
+            }
+            $usuario.val(u).trigger('change.select2');
+            $raiz.find('.js-periodo button[data-dias="0"]').trigger('click');
+        });
+
+        $raiz.on('click', '[data-accion="autorizaciones"]', function () {
+            if (window.cargarContenido) window.cargarContenido('/administracion/autorizaciones/vista');
+        });
+
+        // Copiar el código para ir a buscarlo en su módulo.
+        $raiz.on('click', '.act-ref', function () {
+            const ref = this.dataset.ref;
+            const listo = () => Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Código copiado: ' + ref,
+                showConfirmButton: false, timer: 1800 });
+            if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(ref).then(listo);
+            else { const a = document.createElement('textarea'); a.value = ref; document.body.appendChild(a); a.select();
+                   document.execCommand('copy'); a.remove(); listo(); }
+        });
+
+        /* ── En vivo ─────────────────────────────────────────────────────── */
+        if (window.sciafEscuchar) {
+            let espera;
+            const refrescar = function () {
+                clearTimeout(espera);
+                espera = setTimeout(function () {         // junta ráfagas de eventos
+                    if (tabla && tabla.page.info().page === 0) recargar(true);
+                    else $.getJSON(URL + '/api/resumen', pintarResumen);
+                }, 600);
+            };
+            window.sciafEscuchar('actividad', 'monitoreo', refrescar);
+            window.sciafEscuchar('autorizacion', 'monitoreo', refrescar);
+        }
+
+        if (cache && cache.resumen) pintarResumen(cache.resumen);
+    })();
 </script>

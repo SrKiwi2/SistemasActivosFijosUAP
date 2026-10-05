@@ -1,51 +1,122 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Municipio</h4>
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Municipio — plantilla de mantenimiento (docs/PLANTILLA_MODULOS.md)
+     Catálogo propio del SCIAF (no existe en el VSIAF): municipios a los que se asignan los
+     predios. La tabla llega con la vista (un pedido) y muestra cuántos predios usan cada
+     uno (una consulta agrupada). Todo dentro de #modMunicipio y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modMunicipio">
 
-<div id="tablaRegistro"></div>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-map-pins"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-map-2"></i> Ámbito geográfico <i class="ti ti-chevron-right"></i> Municipio
+        </nav>
+        <h1 class="sm-titulo">Municipios</h1>
+        <p class="sm-subtitulo">Municipios donde están los predios. Su código es la primera parte del código de cada activo.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-total">—</strong> municipios</span>
+        <span class="sm-dato"><strong class="js-predios">—</strong> predios asignados</span>
+        <button type="button" class="sm-btn" data-accion="nuevo" th:if="${esAdmin}">
+            <i class="ti ti-plus"></i> Nuevo municipio
+        </button>
+    </div>
+</header>
+
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por código o nombre…"
+                autocomplete="off" aria-label="Buscar municipio" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="sm-toolbar-espacio"></div>
+        <label class="sm-filas">
+            <i class="ti ti-list-numbers"></i> Filas
+            <select class="sm-select js-largo" aria-label="Filas por página">
+                <option value="auto" selected>Ajustar a pantalla</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="-1">Todas</option>
+            </select>
+        </label>
+    </div>
+
+    <!-- La tabla llega con la vista: sin segundo pedido al abrir -->
+    <div class="js-tabla">
+        <table th:replace="~{municipio/tabla_registro :: tabla}"></table>
+    </div>
+</section>
 
 <div class="modal fade" id="modalFormularioMunicipio" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" id="contenidoModalMunicipio"></div>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content sm-modal" id="contenidoModalMunicipio"></div>
     </div>
 </div>
 
+</div>
+
 <script>
-    $(document).ready(function () {
-        cargarTabla();
+    (function () {
+        const URL = '/administracion/municipio';
+        const $raiz = $('#modMunicipio');
+        const $cont = $raiz.find('.js-tabla');
+        const $modal = $raiz.find('#modalFormularioMunicipio');
+        const esc = SciafModulo.escapar;
 
-    });
+        function iniciarTabla() {
+            SciafModulo.tabla({
+                tabla: $cont.find('table'),
+                buscador: $raiz.find('.js-buscar'),
+                largo: $raiz.find('.js-largo'),
+                total: $raiz.find('.js-total'),
+                orden: [ [1, 'asc'] ],
+                noOrdenables: [3],
+                alDibujar: function (api) {
+                    let n = 0;
+                    api.rows().nodes().each(function (tr) { n += Number(tr.dataset.predios) || 0; });
+                    $raiz.find('.js-predios').text(n);
+                }
+            });
+        }
 
-    function cargarTabla() {
-        showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/municipio/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
-            success: function (response) {
-                $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
-            },
-            error:function(){
-            $("#tablaRegistro").html(`
-                <div class="alert alert-danger m-3">
-                Ocurrió un error al cargar la tabla.
-                <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
-                </div>
-            `);
-            },
-            complete:function(){
-            hideGlobalLoader();
+        function recargar() {
+            $cont.css('opacity', 0.55);
+            return SciafModulo.cargar($cont, URL + '/tabla-registros')
+                .then(iniciarTabla)
+                .catch(e => SciafModulo.avisarError(e, 'No se pudo cargar la tabla'))
+                .finally(() => $cont.css('opacity', 1));
+        }
+
+        function abrirFormulario(id) {
+            SciafModulo.abrirFormulario($modal, $raiz.find('#contenidoModalMunicipio'),
+                id ? URL + '/formulario-edit/' + id : URL + '/formulario');
+        }
+        SciafModulo.alGuardarModal($modal, recargar);
+
+        $raiz.on('click', '[data-accion]', function () {
+            const caja = this.closest('[data-id]');
+            const id = caja ? caja.dataset.id : null;
+            switch (this.dataset.accion) {
+                case 'nuevo':  abrirFormulario(null); break;
+                case 'editar': abrirFormulario(id); break;
+                case 'eliminar': {
+                    const predios = Number(this.closest('tr').dataset.predios) || 0;
+                    SciafModulo.eliminar({
+                        url: URL + '/eliminar/' + id,
+                        titulo: '¿Eliminar el municipio?',
+                        html: 'Se eliminará el municipio <b>' + esc(caja.dataset.nombre) + '</b>.'
+                            + (predios > 0 ? '<div class="alert alert-warning text-start mt-3 mb-0 small"><i class="ti ti-alert-triangle me-1"></i>'
+                                + '<b>' + predios + '</b> predio(s) lo tienen asignado: lo conservarán, pero ya no se podrá elegir.</div>' : ''),
+                        alTerminar: recargar
+                    });
+                    break;
+                }
             }
         });
-    }
 
-    function cargarFormulario() {
-        cargarFormularioAlert("/administracion/municipio/formulario", "#contenidoModalMunicipio", "#formularioMunicipio");
-    }
-
-    function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/administracion/municipio/formulario-edit", "#contenidoModalMunicipio", "#formularioMunicipio");
-    }
-
-    function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/municipio/eliminar",cargarTabla);
-    }
-
+        iniciarTabla();
+    })();
 </script>

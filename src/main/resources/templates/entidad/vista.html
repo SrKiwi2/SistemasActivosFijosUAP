@@ -1,51 +1,150 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Entidad - Institución</h4>
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Entidad — plantilla de mantenimiento (docs/PLANTILLA_MODULOS.md)
+     Catálogo del VSIAF por gestión (ENTIDAD.DBF): aquí se CONSULTA y se SINCRONIZA (no se
+     edita: las entidades las define el VSIAF). Es la raíz del ámbito geográfico: cada
+     predio pertenece a una entidad.
+     Carga eficiente: la tabla y el estado de la sincronización llegan con la vista (un
+     pedido); se refresca sola cuando el VSIAF cambia (SSE "entidad").
+     Todo dentro de #modEntidad y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modEntidad">
 
-<div id="tablaRegistro"></div>
-
-<div class="modal fade" id="modalFormularioEntidad" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" id="contenidoModalEntidad"></div>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-building-community"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-map-2"></i> Ámbito geográfico <i class="ti ti-chevron-right"></i> Entidad
+        </nav>
+        <h1 class="sm-titulo">Entidades</h1>
+        <p class="sm-subtitulo">Instituciones registradas en el VSIAF por gestión. Cada predio pertenece a una entidad.</p>
     </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-total">—</strong> entidades</span>
+        <th:block th:if="${esAdmin}">
+        <span class="sm-dato js-sync" title="Última sincronización con el VSIAF">
+            <i class="ti ti-refresh-dot"></i> <span class="js-sync-texto">—</span></span>
+        <div class="btn-group">
+            <button type="button" class="sm-btn" data-accion="sincronizar" data-completo="false">
+                <i class="ti ti-refresh"></i> Sincronizar con VSIAF
+            </button>
+            <button type="button" class="sm-btn sm-btn-icono ms-1" data-bs-toggle="dropdown" aria-expanded="false"
+                    title="Más opciones de sincronización"><i class="ti ti-chevron-down"></i></button>
+            <ul class="dropdown-menu dropdown-menu-end sm-menu-flotante">
+                <li><a class="dropdown-item" href="javascript:void(0)" data-accion="sincronizar" data-completo="true">
+                    <i class="ti ti-database"></i> Sincronización completa (más lenta)</a></li>
+            </ul>
+        </div>
+        </th:block>
+    </div>
+</header>
+
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por código, nombre o sigla…"
+                autocomplete="off" aria-label="Buscar entidad" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+        </div>
+        <!-- Gestiones presentes (se arma con la tabla) -->
+        <div class="sm-segmento js-gestiones" role="group" aria-label="Filtrar por gestión"></div>
+        <div class="sm-toolbar-grupo">
+            <label class="sm-filas">
+                <i class="ti ti-list-numbers"></i> Filas
+                <select class="sm-select js-largo" aria-label="Filas por página">
+                    <option value="auto" selected>Ajustar a pantalla</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="-1">Todas</option>
+                </select>
+            </label>
+        </div>
+    </div>
+
+    <div class="sm-aviso sm-aviso-aviso m-3 mb-0 d-none js-aviso-dbf">
+        <i class="ti ti-database-exclamation"></i>
+        <div>Se muestran las entidades <strong>directo del VSIAF</strong>: la base del SCIAF todavía no las tiene.
+            Pulse <strong>Sincronizar con VSIAF</strong> para traerlas.</div>
+    </div>
+
+    <!-- La tabla llega con la vista: sin segundo pedido al abrir -->
+    <div class="js-tabla">
+        <div th:replace="~{entidad/tabla_registro :: tabla}"></div>
+    </div>
+</section>
+
 </div>
 
 <script>
-    $(document).ready(function () {
-        cargarTabla();
+    (function () {
+        const URL = '/administracion/entidad';
+        const $raiz = $('#modEntidad');
+        const $cont = $raiz.find('.js-tabla');
+        const esc = SciafModulo.escapar;
 
-    });
+        /* ── Filtro por gestión (botones armados con las gestiones de la tabla) ── */
+        const filtro = { gestion: '' };
+        function pasaFiltro(tr) { return !filtro.gestion || tr.dataset.gestion === filtro.gestion; }
 
-    function initDataTable() {
-        const $tbl = $('#data-table');
-        if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
-        $tbl.DataTable({ language: {/* tu traducción */ } });
-    }
+        function pintarGestiones(api) {
+            const cuenta = {};
+            let total = 0;
+            api.rows().nodes().each(function (tr) { total++; cuenta[tr.dataset.gestion] = (cuenta[tr.dataset.gestion] || 0) + 1; });
+            const gestiones = Object.keys(cuenta).sort((a, b) => Number(b) - Number(a));
+            if (filtro.gestion && !cuenta[filtro.gestion]) filtro.gestion = '';
+            $raiz.find('.js-gestiones').html(
+                '<button type="button" data-gestion=""' + (filtro.gestion ? '' : ' class="activo"') + '>Todas <span class="sm-cuenta">' + total + '</span></button>'
+                + gestiones.map(g => '<button type="button" data-gestion="' + esc(g) + '"' + (g === filtro.gestion ? ' class="activo"' : '')
+                    + '>' + esc(g) + ' <span class="sm-cuenta">' + cuenta[g] + '</span></button>').join(''));
+        }
 
-    function cargarTabla(q) {
-        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/entidad/tabla-registros" + (q ? ('?q=' + encodeURIComponent(q)) : ''),
-            success: function (html) {
-                $("#tablaRegistro").html(html);
-                initDataTable();
-            },
-            error: function (xhr) {
-                $("#tablaRegistro").html(`<div class="alert alert-danger m-3">Error cargando tabla</div>`);
-                console.error('tabla-registros entidad', xhr.status, xhr.responseText);
-            },
-            complete: hideGlobalLoader
+        function iniciarTabla() {
+            SciafModulo.estadoSync($cont.find('.js-sync-info'), $raiz.find('.js-sync'), $raiz.find('.js-aviso-dbf'));
+            SciafModulo.tabla({
+                tabla: $cont.find('table'),
+                buscador: $raiz.find('.js-buscar'),
+                largo: $raiz.find('.js-largo'),
+                total: $raiz.find('.js-total'),
+                // La gestión más nueva primero, luego por código.
+                orden: [ [0, 'desc'], [1, 'asc'] ],
+                altoFila: 60,
+                filtroFila: pasaFiltro,
+                alDibujar: pintarGestiones,
+                dt: { language: { sEmptyTable: 'No hay entidades. Pulse «Sincronizar con VSIAF».' } }
+            });
+        }
+
+        function recargar() {
+            $cont.css('opacity', 0.55);
+            return SciafModulo.cargar($cont, URL + '/tabla-registros')
+                .then(iniciarTabla)
+                .catch(e => SciafModulo.avisarError(e, 'No se pudo cargar la tabla'))
+                .finally(() => $cont.css('opacity', 1));
+        }
+
+        $raiz.on('click', '.js-gestiones button', function () {
+            const g = String($(this).data('gestion') || '');
+            filtro.gestion = filtro.gestion === g ? '' : g;
+            const $t = $cont.find('table');
+            if ($.fn.DataTable.isDataTable($t)) $t.DataTable().draw();
         });
-    }
 
-    function cargarFormulario() {
-        cargarFormularioAlert("/administracion/entidad/formulario", "#contenidoModalEntidad", "#formularioEntidad");
-    }
+        let sincronizando = false;
+        $raiz.on('click', '[data-accion="sincronizar"]', function () {
+            if (sincronizando) return;
+            sincronizando = true;
+            SciafModulo.sincronizarVsiaf({
+                url: URL + '/sync-from-mounted',
+                completo: this.dataset.completo === 'true',
+                boton: $raiz.find('[data-accion="sincronizar"][data-completo="false"]'),
+                tarjeta: $cont.closest('.sm-card'),
+                alTerminar: recargar
+            }).finally(() => { sincronizando = false; });
+        });
 
-    function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/administracion/entidad/formulario-edit", "#contenidoModalEntidad", "#formularioEntidad");
-    }
+        // Cuando el VSIAF cambia ENTIDAD.DBF y se sincroniza, la tabla se recarga sola.
+        if (window.registrarTablaSse) window.registrarTablaSse('entidad', recargar);
 
-    function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/entidad/eliminar", cargarTabla);
-    }
+        iniciarTabla();
+    })();
 </script>

@@ -1,224 +1,333 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Oficina</h4>
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Oficinas — plantilla de mantenimiento (docs/PLANTILLA_MODULOS.md)
+     Oficinas de cada predio. Lo que se registra o modifica viaja al VSIAF por la cola del
+     worker (OFICINA.DBF); el estado real del envío se ve en la columna VSIAF y se refresca
+     solo cuando el worker responde (SSE cola-vsiaf).
+     Carga eficiente: tabla paginada en el servidor (/api/datatables): predio y entidad en
+     la misma consulta; responsables, activos, cola y solicitudes de la página visible en
+     consultas agrupadas (antes: la tabla entera en HTML, con N+1 por predio y entidad).
+     Quien no es ADMINISTRADOR / SUPER USUARIO: sin sincronizar ni auditoría, y cambiar
+     predio/código o eliminar genera una solicitud de autorización.
+     Todo dentro de #modOficina y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modOficina">
 
-<div id="tablaRegistro"></div>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-door"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-map-2"></i> Ámbito geográfico <i class="ti ti-chevron-right"></i> Oficinas
+        </nav>
+        <h1 class="sm-titulo">Oficinas</h1>
+        <p class="sm-subtitulo">Oficinas de cada predio. Lo que registre o modifique se envía al VSIAF.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-total">—</strong> oficinas</span>
+        <th:block th:if="${esAdmin}">
+            <span class="sm-dato js-sync" title="Última sincronización con el VSIAF">
+                <i class="ti ti-refresh-dot"></i> <span class="js-sync-texto">—</span></span>
+            <span class="js-sync-info d-none"
+                  th:attr="data-ultima=${ultimaSincronizacion ?: 'Nunca'}, data-estado=${estadoSync ?: 'PENDIENTE'},
+                           data-procesados=${registrosProcesados ?: 0}, data-nuevos=${registrosNuevos ?: 0},
+                           data-actualizados=${registrosActualizados ?: 0}, data-duracion=${duracionUltimaSync ?: 0},
+                           data-origen='db'"></span>
+            <div class="btn-group">
+                <button type="button" class="sm-btn sm-btn-neutro" data-accion="sincronizar" data-completo="false"
+                        title="Traer los cambios del VSIAF">
+                    <i class="ti ti-refresh"></i> Sincronizar
+                </button>
+                <button type="button" class="sm-btn sm-btn-neutro sm-btn-icono ms-1" data-bs-toggle="dropdown" aria-expanded="false"
+                        title="Más opciones de sincronización"><i class="ti ti-chevron-down"></i></button>
+                <ul class="dropdown-menu dropdown-menu-end sm-menu-flotante">
+                    <li><a class="dropdown-item" href="javascript:void(0)" data-accion="sincronizar" data-completo="true">
+                        <i class="ti ti-database"></i> Sincronización completa (más lenta)</a></li>
+                </ul>
+            </div>
+        </th:block>
+        <button type="button" class="sm-btn" data-accion="nuevo">
+            <i class="ti ti-plus"></i> Nueva oficina
+        </button>
+    </div>
+</header>
 
-<div class="modal fade" id="modalFormularioOficina" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" id="prediocontenidoModalOficina"></div>
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por unidad, código o nombre…"
+                autocomplete="off" aria-label="Buscar oficina" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+        </div>
+        <div style="min-width:240px;max-width:360px;flex:1 1 240px;">
+            <select class="sm-select js-f-predio" aria-label="Filtrar por predio">
+                <option value="">Todos los predios</option>
+                <option th:each="p : ${predios}" th:value="${p.idPredio}" th:text="${p.unidad + ' — ' + (p.descrip ?: '')}"></option>
+            </select>
+        </div>
+        <div class="sm-toolbar-grupo">
+            <span class="sm-sub d-none d-xl-inline" th:unless="${esAdmin}">
+                <i class="ti ti-info-circle"></i> Lo que registre o modifique se envía solo al VSIAF.
+            </span>
+            <label class="sm-filas">
+                <i class="ti ti-list-numbers"></i> Filas
+                <select class="sm-select js-largo" aria-label="Filas por página">
+                    <option value="auto" selected>Ajustar a pantalla</option>
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </label>
+        </div>
+    </div>
+
+    <table class="table sm-tabla align-middle js-tabla">
+        <thead>
+            <tr>
+                <th style="width:120px;">Predio</th>
+                <th style="width:80px;">Cód.</th>
+                <th>Oficina</th>
+                <th style="width:170px;">Uso</th>
+                <th style="width:150px;">VSIAF</th>
+                <th th:if="${esAdmin}" style="width:210px;">Registro / modificación</th>
+                <th class="text-end" style="width:190px;">Opciones</th>
+            </tr>
+        </thead>
+    </table>
+</section>
+
+<!-- Formulario de alta / edición (el contenido llega por AJAX) -->
+<div class="modal fade" id="modalFormularioOficina" tabindex="-1" aria-hidden="true"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content sm-modal" id="contenidoModalOficina"></div>
     </div>
 </div>
 
-<script>
-    $(document).ready(function () {
-        cargarTabla();
+</div>
 
-        // Auto-refresco por SSE: si el VSIAF cambia y se sincroniza, recargar esta tabla sola.
-        if (window.registrarTablaSse) window.registrarTablaSse('oficina', function () { cargarTabla(); });
+<script th:inline="javascript">
+    (function () {
+        const URL = '/administracion/oficina';
+        const ES_ADMIN = /*[[${esAdmin == true}]]*/ false;
+        const esc = SciafModulo.escapar;
+        const $raiz = $('#modOficina');
+        const $modal = $raiz.find('#modalFormularioOficina');
+        const $fPredio = $raiz.find('.js-f-predio');
 
-        // Una solicitud de autorización se resolvió (o llegó una nueva): refrescar la tabla.
+        function enPantalla() { return document.body.contains($raiz[0]); }
+
+        $fPredio.select2({
+            dropdownParent: $raiz, width: '100%', placeholder: 'Todos los predios', allowClear: true,
+            language: { noResults: () => 'Sin resultados' }
+        });
+
+        /* ── Celdas ──────────────────────────────────────────────────────── */
+        const ESTADOS = {
+            VSIAF:     ['sm-pastilla-activo', 'ti-circle-check'],
+            EN_COLA:   ['sm-pastilla-info', 'ti-hourglass-high'],
+            ERROR:     ['sm-pastilla-peligro', 'ti-alert-triangle'],
+            PENDIENTE: ['sm-pastilla-aviso', 'ti-cloud-upload']
+        };
+
+        function celdaPredio(r) {
+            return '<span class="sm-codigo sm-mayus">' + esc(r.unidad || '—') + '</span>'
+                + (r.entidad ? '<div class="sm-sub">Entidad ' + esc(r.entidad) + '</div>' : '');
+        }
+
+        function celdaOficina(r) {
+            return '<span class="sm-nombre">' + esc(r.nombre) + '</span>'
+                + (r.esCustodia ? ' <span class="sm-pastilla sm-pastilla-aviso py-0" title="Oficina de custodia de faltantes del predio">'
+                    + '<i class="ti ti-shield-lock"></i> Custodia</span>' : '')
+                + (r.observ ? '<div class="sm-sub">' + esc(r.observ) + '</div>' : '');
+        }
+
+        function celdaUso(r) {
+            if (!r.responsables && !r.activos) return '<span class="sm-pastilla py-0">Sin uso</span>';
+            return '<div class="sm-pastillas">'
+                + (r.responsables ? '<span class="sm-pastilla sm-pastilla-info py-0" title="Responsables vigentes"><i class="ti ti-user-star"></i> ' + r.responsables + '</span>' : '')
+                + (r.activos ? '<span class="sm-pastilla sm-pastilla-info py-0" title="Activos ubicados"><i class="ti ti-box"></i> '
+                    + String(r.activos).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '</span>' : '')
+                + '</div>';
+        }
+
+        function celdaVsiaf(r) {
+            const cfg = ESTADOS[r.estadoVsiaf] || ['', 'ti-help'];
+            return '<span class="sm-pastilla ' + cfg[0] + '" data-estado-vsiaf="' + esc(r.estadoVsiaf) + '" title="' + esc(r.estadoDetalle) + '">'
+                + '<i class="ti ' + cfg[1] + '"></i> ' + esc(r.estadoTexto) + '</span>'
+                + (r.solicitudPendiente ? '<div class="mt-1"><span class="sm-pastilla sm-pastilla-aviso py-0" title="Hay una solicitud de autorización pendiente">'
+                    + '<i class="ti ti-shield-half"></i> Autorización pendiente</span></div>' : '');
+        }
+
+        function celdaAuditoria(r) {
+            const reg = (r.registradoPor || r.fechaRegistro)
+                ? '<div><span class="sm-sub">Reg.</span> <b>' + esc(r.registradoPor || 'VSIAF / sistema') + '</b> <span class="sm-sub">' + esc(r.fechaRegistro) + '</span></div>' : '';
+            const mod = r.modificadoPor
+                ? '<div><span class="sm-sub">Mod.</span> <b>' + esc(r.modificadoPor) + '</b> <span class="sm-sub">' + esc(r.fechaModificacion) + '</span></div>' : '';
+            return '<div class="small lh-sm">' + (reg + mod || '<span class="sm-sub">—</span>') + '</div>';
+        }
+
+        function celdaAcciones(r) {
+            const datos = 'data-id="' + esc(r.idEnc) + '" data-nombre="' + esc(r.unidad + '-' + r.codOfi + ' ' + r.nombre) + '"'
+                + ' data-responsables="' + (r.responsables || 0) + '" data-activos="' + (r.activos || 0) + '"';
+            const reenviar = (r.estadoVsiaf === 'PENDIENTE' || r.estadoVsiaf === 'ERROR')
+                ? '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-icono" data-accion="reenviar" title="Enviar / reenviar al VSIAF">'
+                  + '<i class="ti ti-send"></i></button>' : '';
+            return '<div class="sm-acciones" ' + datos + '>'
+                + '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave" data-accion="editar" title="Modificar nombre, observaciones, predio o código">'
+                + '<i class="ti ti-edit"></i> Editar</button>'
+                + reenviar
+                + '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-peligro sm-btn-icono" data-accion="eliminar" '
+                + 'title="' + (ES_ADMIN ? 'Eliminar del SCIAF' : 'Solicitar eliminación (requiere autorización)') + '"><i class="ti ti-trash"></i></button>'
+                + '</div>';
+        }
+
+        const columnas = [
+            { data: null, render: (d, t, r) => celdaPredio(r) },
+            { data: 'codOfi', render: v => '<span class="sm-codigo">' + esc(v) + '</span>' },
+            { data: null, render: (d, t, r) => celdaOficina(r) },
+            { data: null, render: (d, t, r) => celdaUso(r) },
+            { data: null, render: (d, t, r) => celdaVsiaf(r) }
+        ];
+        if (ES_ADMIN) columnas.push({ data: null, render: (d, t, r) => celdaAuditoria(r) });
+        columnas.push({ data: null, className: 'text-end', render: (d, t, r) => celdaAcciones(r) });
+
+        const tabla = SciafModulo.tabla({
+            tabla: $raiz.find('.js-tabla'),
+            buscador: $raiz.find('.js-buscar'),
+            largo: $raiz.find('.js-largo'),
+            total: $raiz.find('.js-total'),
+            altoFila: 60,
+            dt: {
+                serverSide: true,
+                ordering: false,
+                deferRender: true,
+                ajax: {
+                    url: URL + '/api/datatables',
+                    type: 'POST',
+                    data: d => { d.idPredio = $fPredio.val() || ''; }
+                },
+                columns: columnas,
+                language: { sEmptyTable: 'No hay oficinas. Pulse «Nueva oficina» o sincronice con el VSIAF.' }
+            }
+        });
+
+        // Recarga conservando página, búsqueda y filtro (formulario, acciones, SSE).
+        function recargar() {
+            if (tabla && enPantalla()) tabla.ajax.reload(null, false);
+        }
+        $fPredio.on('change', function () { if (tabla) tabla.ajax.reload(); });
+
+        /* ── Estado de la sincronización (solo administradores) ──────────── */
+        const $syncInfo = $raiz.find('.js-sync-info');
+        function pintarSync() { SciafModulo.estadoSync($syncInfo, $raiz.find('.js-sync'), null); }
+        function actualizarSync() {
+            $.get(URL + '/sync-info', function (i) {
+                $syncInfo.attr({
+                    'data-ultima': i.ultimaSincronizacion, 'data-estado': i.estado,
+                    'data-procesados': i.registrosProcesados, 'data-nuevos': i.registrosNuevos,
+                    'data-actualizados': i.registrosActualizados, 'data-duracion': i.duracionSegundos
+                });
+                pintarSync();
+            });
+        }
+        if (ES_ADMIN) pintarSync();
+
+        /* ── Formulario ─────────────────────────────────────────────────── */
+        function abrirFormulario(idEnc) {
+            SciafModulo.abrirFormulario($modal, $raiz.find('#contenidoModalOficina'),
+                idEnc ? URL + '/formulario-edit/' + encodeURIComponent(idEnc) : URL + '/formulario', null,
+                idEnc ? 'Cargando datos de la oficina…' : 'Preparando el formulario…');
+        }
+        SciafModulo.alGuardarModal($modal, recargar);
+
+        /* ── Acciones ────────────────────────────────────────────────────── */
+        function eliminar(caja) {
+            const id = caja.dataset.id, nombre = caja.dataset.nombre;
+            const uso = (Number(caja.dataset.responsables) || 0) + (Number(caja.dataset.activos) || 0);
+            if (uso > 0) {
+                Swal.fire('No se puede eliminar', 'La oficina <b>' + esc(nombre) + '</b> tiene responsables o activos. '
+                    + 'Transfiéralos o dé de baja a sus responsables primero.', 'info');
+                return;
+            }
+            if (ES_ADMIN) {
+                SciafModulo.eliminar({
+                    url: URL + '/eliminar/' + encodeURIComponent(id),
+                    titulo: '¿Eliminar la oficina?',
+                    html: 'Se da de baja la oficina <b>' + esc(nombre) + '</b> en el SCIAF.'
+                        + '<div class="alert alert-warning text-start mt-3 mb-0 small"><i class="ti ti-alert-triangle me-1"></i>'
+                        + 'En el <b>VSIAF la fila sigue existiendo</b> (el VSIAF no borra oficinas).</div>',
+                    confirmar: 'Sí, eliminar',
+                    alTerminar: recargar
+                });
+                return;
+            }
+            Swal.fire({
+                title: 'Solicitar eliminación',
+                html: 'Eliminar la oficina <b>' + esc(nombre) + '</b> requiere autorización. Indique el motivo.',
+                input: 'textarea',
+                inputPlaceholder: 'Motivo (obligatorio)',
+                inputValidator: v => !(v || '').trim() ? 'Indique el motivo' : undefined,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Enviar solicitud',
+                cancelButtonText: 'Cancelar'
+            }).then(r => {
+                if (!r.isConfirmed) return;
+                SciafModulo.accion({ url: URL + '/eliminar/' + encodeURIComponent(id), datos: { motivo: r.value }, alTerminar: recargar });
+            });
+        }
+
+        let sincronizando = false;
+        $raiz.on('click', '[data-accion]', function () {
+            const caja = this.closest('[data-id]');
+            switch (this.dataset.accion) {
+                case 'nuevo':  abrirFormulario(null); break;
+                case 'editar': abrirFormulario(caja.dataset.id); break;
+                case 'eliminar': eliminar(caja); break;
+                case 'reenviar':
+                    SciafModulo.accion({
+                        url: URL + '/subir-dbf/' + encodeURIComponent(caja.dataset.id),
+                        confirmacion: {
+                            titulo: '¿Enviar al VSIAF?',
+                            texto: 'La oficina <b>' + esc(caja.dataset.nombre) + '</b> está en el SCIAF pero no llegó al VSIAF.<br>'
+                                + '<small class="text-muted">Si allá ya existe, se actualiza: no se duplica.</small>',
+                            aceptar: 'Sí, enviar'
+                        },
+                        alTerminar: recargar
+                    });
+                    break;
+                case 'sincronizar':
+                    if (sincronizando) return;
+                    sincronizando = true;
+                    SciafModulo.sincronizarVsiaf({
+                        url: URL + '/sync-from-mounted',
+                        completo: this.dataset.completo === 'true',
+                        boton: $raiz.find('[data-accion="sincronizar"][data-completo="false"]'),
+                        tarjeta: $raiz.find('.sm-card'),
+                        // Arreglos anidados con espacios: dos corchetes juntos son sintaxis de Thymeleaf.
+                        extras: [ ['Sin entidad', 'sinEntidad', 'text-warning'], ['Sin predio', 'sinPredio', 'text-warning'] ],
+                        alTerminar: () => { recargar(); actualizarSync(); }
+                    }).finally(() => { sincronizando = false; });
+                    break;
+            }
+        });
+
+        /* ── En vivo ─────────────────────────────────────────────────────── */
+        // El VSIAF cambió OFICINA.DBF y la sincronización automática lo trajo.
+        if (window.registrarTablaSse) window.registrarTablaSse('oficina', recargar);
+
+        // Se resolvió (o llegó) una solicitud de autorización de este módulo.
         if (window.sciafEscuchar) window.sciafEscuchar('autorizacion', 'oficina', function (d) {
-            if (!$('#tablaRegistro').length || (d && d.modulo && d.modulo !== 'OFICINA')) return;
-            if (!$('.modal.show').length) cargarTabla();
+            if (!enPantalla() || (d && d.modulo && d.modulo !== 'OFICINA')) return;
+            if (!$modal.hasClass('show')) recargar();
         });
 
         // El worker resolvió órdenes de la cola: si hay oficinas "En cola", refrescar su estado.
-        // Se pospone si hay un modal abierto para no cerrarle el formulario a nadie.
         $(document).off('sciaf:cola-vsiaf.oficina').on('sciaf:cola-vsiaf.oficina', function () {
-            if (!$('#tablaRegistro').length) { $(document).off('sciaf:cola-vsiaf.oficina'); return; }
-            if (!$('#tablaRegistro [data-estado-vsiaf="EN_COLA"]').length) return;
-            if ($('.modal.show').length) return;
-            cargarTabla();
+            if (!enPantalla()) return;
+            if (!$raiz.find('[data-estado-vsiaf="EN_COLA"]').length || $modal.hasClass('show')) return;
+            recargar();
         });
-    });
-
-    // ── Botones de la tabla (delegados una sola vez; el fragmento se recarga seguido) ──
-    $(document).off('click.oficinaMod', '.btn-editar-oficina').on('click.oficinaMod', '.btn-editar-oficina', function () {
-        cargarFormularioEdit($(this).data('id'));
-    });
-
-    $(document).off('click.oficinaMod', '.btn-eliminar-oficina').on('click.oficinaMod', '.btn-eliminar-oficina', function () {
-        eliminar($(this).data('nombre'), $(this).data('id'), String($(this).data('admin')) === 'true');
-    });
-
-    $(document).off('click.oficinaMod', '#btnSyncOficina').on('click.oficinaMod', '#btnSyncOficina', function () {
-        sincronizarOficinas(false);
-    });
-
-    $(document).off('click.oficinaMod', '#btnSyncCompleto').on('click.oficinaMod', '#btnSyncCompleto', function () {
-        Swal.fire({
-            title: '¿Forzar sincronización completa?',
-            text: "Esto procesará todos los registros y puede tardar más tiempo",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, sincronizar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) sincronizarOficinas(true);
-        });
-    });
-
-    // Enviar / reenviar al VSIAF una oficina pendiente o rechazada
-    $(document).off('click.oficinaMod', '.btn-subir-dbf').on('click.oficinaMod', '.btn-subir-dbf', function () {
-        const idEnc = $(this).data('id');
-        Swal.fire({
-            title: 'Enviar al VSIAF',
-            text: "Esta oficina está en el SCIAF pero no llegó al VSIAF. ¿Enviarla ahora?",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, enviar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#ffc107'
-        }).then((result) => {
-            if (!result.isConfirmed) return;
-            showGlobalLoader({ texto: 'Enviando al VSIAF…' });
-            $.ajax({
-                type: 'POST',
-                url: '/administracion/oficina/subir-dbf/' + idEnc,
-                success: function (res) {
-                    Swal.fire(res.ok ? 'Enviada' : 'Atención', res.msg, res.ok ? 'success' : 'warning');
-                    cargarTabla();
-                },
-                error: function (xhr) {
-                    Swal.fire('Error', xhr.responseJSON?.msg || 'No se pudo enviar.', 'error');
-                },
-                complete: hideGlobalLoader
-            });
-        });
-    });
-
-    function initDataTable() {
-        const $tbl = $('#data-table');
-        if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
-
-        const table = $tbl.DataTable({
-            destroy: true,
-            orderCellsTop: true,
-            language: {
-                sProcessing: "Procesando...",
-                sLengthMenu: "Mostrar _MENU_ registros",
-                sZeroRecords: "No se encontraron resultados",
-                sInfo: "Mostrando del _START_ al _END_ de _TOTAL_ registros",
-                sInfoEmpty: "Mostrando 0 de 0 registros",
-                sInfoFiltered: "(filtrado de _MAX_ registros)",
-                sSearch: "Buscar general:",
-                sLoadingRecords: "Cargando...",
-                oPaginate: {
-                    sFirst: "Primero",
-                    sLast: "Último",
-                    sNext: "Siguiente",
-                    sPrevious: "Anterior"
-                }
-            }
-        });
-
-        // Filtros por columna
-        $tbl.find('thead tr:eq(1) th').each(function (i) {
-            const $input = $('input', this);
-            $input.off('.dt');
-            $input.on('keyup.dt change.dt', function () {
-                if (table.column(i).search() !== this.value) {
-                    table.column(i).search(this.value).draw();
-                }
-            });
-        });
-    }
-
-    function cargarTabla(q) {
-        // Loader DENTRO de la tabla (no el preload global que bloquea toda la pantalla / el tecleo)
-        $("#tablaRegistro").html(
-            '<div class="text-center text-muted py-5">' +
-            '<div class="spinner-border text-primary" role="status"></div>' +
-            '<div class="mt-2">Cargando oficinas…</div></div>'
-        );
-
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/oficina/tabla-registros" + (q ? ('?q=' + encodeURIComponent(q)) : ''),
-            success: function (html) {
-                $("#tablaRegistro").html(html);
-                initDataTable();
-            },
-            error: function (xhr) {
-                $("#tablaRegistro").html(`<div class="alert alert-danger m-3">Error cargando tabla</div>`);
-            }
-        });
-    }
-
-    function cargarFormulario() {
-        cargarFormularioAlert("/administracion/oficina/formulario", "#prediocontenidoModalOficina", "#formularioOficina");
-    }
-
-    function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/administracion/oficina/formulario-edit", "#prediocontenidoModalOficina", "#formularioOficina");
-    }
-
-    // Muestra el motivo real si el servidor lo rechaza (p. ej. la oficina tiene responsables o activos).
-    // Un ADMINISTRADOR / SUPER USUARIO elimina directo; el resto envía una solicitud con motivo.
-    function eliminar(nombre, id, esAdmin) {
-        Swal.fire({
-            title: esAdmin ? 'Eliminar oficina' : 'Solicitar eliminación',
-            text: esAdmin
-                ? '¿Eliminar "' + nombre + '" del SCIAF? En el VSIAF la oficina sigue existiendo.'
-                : 'Eliminar "' + nombre + '" requiere autorización. Indique el motivo; se aplicará cuando el revisor lo apruebe.',
-            input: esAdmin ? undefined : 'textarea',
-            inputPlaceholder: 'Motivo (obligatorio)',
-            inputValidator: esAdmin ? undefined : (v => !(v || '').trim() ? 'Indique el motivo' : undefined),
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: esAdmin ? 'Sí, eliminar' : 'Enviar solicitud',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#dc3545',
-            reverseButtons: true
-        }).then((r) => {
-            if (!r.isConfirmed) return;
-            $.post('/administracion/oficina/eliminar/' + id, esAdmin ? {} : { motivo: r.value })
-                .done(function (res) {
-                    cargarTabla();
-                    Swal.fire(res.solicitud ? 'Solicitud enviada' : 'Eliminada', res.msg, res.solicitud ? 'info' : 'success');
-                })
-                .fail(function (xhr) { Swal.fire('No se eliminó', xhr.responseJSON?.msg || 'Error al eliminar.', 'error'); });
-        });
-    }
-
-    function sincronizarOficinas(forzarCompleto) {
-        Swal.fire({
-            title: 'Sincronizando Oficinas...',
-            html: 'Por favor espere',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-        });
-
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/oficina/sync-from-mounted",
-            data: { forzarCompleto: forzarCompleto },
-            success: function (res) {
-                const tiempoSegundos = (res.duracionMs / 1000).toFixed(2);
-                Swal.fire({
-                    title: 'Completado',
-                    icon: 'success',
-                    confirmButtonText: 'Aceptar',
-                    html: `
-                        <div class="text-start">
-                            <p><strong>✅ Sincronización de Oficinas exitosa</strong></p>
-                            <hr>
-                            <p><i class="fa-solid fa-file-import"></i> Total leídas: <strong>${res.totalLeidas}</strong></p>
-                            <p><i class="fa-solid fa-plus-circle text-success"></i> Insertados: <strong>${res.insertados}</strong></p>
-                            <p><i class="fa-solid fa-edit text-primary"></i> Actualizados: <strong>${res.actualizados}</strong></p>
-                            <p><i class="fa-solid fa-check-circle text-info"></i> Omitidos (sin cambios): <strong>${res.omitidos}</strong></p>
-                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin entidad: <strong>${res.sinEntidad}</strong></p>
-                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin predio: <strong>${res.sinPredio}</strong></p>
-                            <p><i class="fa-solid fa-clock"></i> Tiempo: <strong>${tiempoSegundos}s</strong></p>
-                        </div>`
-                });
-                cargarTabla();
-            },
-            error: function (xhr) {
-                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
-                Swal.fire('Error en Sincronización', msg, 'error');
-            }
-        });
-    }
+    })();
 </script>

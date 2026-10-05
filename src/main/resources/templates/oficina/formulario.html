@@ -1,333 +1,200 @@
-<!-- ═══════════════════════════════════════════════════════
-     FRAGMENTO: oficina/formulario.html
-       1. Rediseño: header con identidad visual + secciones limpias
-       2. Validación cliente (sin campos vacíos) con feedback inline
-       3. Envío AJAX propio: botón con estado "Registrando…", anti
-          doble-click y bloqueo de cierre mientras se guarda
-     ═══════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: oficina/formulario.html  (va dentro de .modal-content del #modalFormularioOficina)
+     Lo usan la pantalla de Oficinas y, embebido (embebido=true), el alta de Responsable.
+     El envío lo hace SciafModulo.formulario() (JSON { ok, msg }) con dos trámites propios
+     que resuelve "interceptar":
+       · requiereAutorizacion: quien no es administrador quiso cambiar predio o código
+         → se pide el motivo y se reenvía como solicitud;
+       · requireConfirmacion (409): el responsable que se registra junto con la oficina
+         tiene un nombre parecido a otras personas → si es otra, se reenvía con respForzar.
+     Al guardar avisa con el evento 'oficina:registrada' (lo escucha el alta de Responsable).
+     En el VSIAF el nombre de la oficina cabe en 65 caracteres y el del responsable en 35.
+     ══════════════════════════════════════════════════════════════ -->
 
-<style>
-    /* ── Secciones del formulario ─────────────────────── */
-    #modalFormularioOficina .frm-section {
-        border: 1px solid #e9ecef;
-        border-radius: 10px;
-        overflow: visible;
-        margin-bottom: 1rem;
-    }
-
-    #modalFormularioOficina .frm-section-header {
-        padding: 0.65rem 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.55rem;
-        font-size: 0.78rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        background: rgba(26, 86, 160, 0.06);
-        color: #1a56a0;
-        border-bottom: 1px solid rgba(26, 86, 160, 0.12);
-        border-radius: 10px 10px 0 0;
-    }
-
-    #modalFormularioOficina .frm-section-body {
-        padding: 1.1rem 1rem 0.85rem;
-    }
-
-    /* ── Etiquetas ────────────────────────────────────── */
-    #modalFormularioOficina .frm-label {
-        font-size: 0.73rem;
-        font-weight: 700;
-        color: #566a7f;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-        margin-bottom: 0.35rem;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-
-    #modalFormularioOficina .frm-label i {
-        color: #1a56a0;
-        width: 14px;
-        text-align: center;
-    }
-
-    /* ── Tamaño cómodo de los controles ───────────────── */
-    #modalFormularioOficina .form-control,
-    #modalFormularioOficina .form-select {
-        height: 42px;
-        font-size: 0.9rem;
-    }
-
-    #modalFormularioOficina textarea.form-control {
-        height: auto;
-        min-height: 70px;
-    }
-
-    /* ── Select2 dentro del modal ─────────────────────── */
-    #modalFormularioOficina .modal-content,
-    #modalFormularioOficina .modal-body {
-        overflow: visible !important;
-    }
-
-    #modalFormularioOficina .select2-container {
-        width: 100% !important;
-    }
-
-    #modalFormularioOficina .select2-selection--single {
-        height: 42px !important;
-        border-radius: 0.375rem !important;
-        border-color: #d9dee3 !important;
-        display: flex !important;
-        align-items: center !important;
-    }
-
-    #modalFormularioOficina .select2-selection__rendered {
-        line-height: 40px !important;
-        font-size: 0.9rem !important;
-        padding-left: 12px !important;
-    }
-
-    #modalFormularioOficina .select2-selection__arrow {
-        height: 40px !important;
-    }
-
-    #modalFormularioOficina .select2-dropdown {
-        z-index: 1060 !important;
-        font-size: 0.875rem;
-    }
-
-    /* Marca el select2 en rojo cuando el select oculto es inválido */
-    #modalFormularioOficina select.is-invalid + .select2-container .select2-selection--single {
-        border-color: #dc3545 !important;
-    }
-
-    /* ── Sección del responsable (alta conjunta) ──────── */
-    #modalFormularioOficina .frm-section-header.sh-green {
-        background: rgba(25, 135, 84, 0.06);
-        color: #157347;
-        border-bottom: 1px solid rgba(25, 135, 84, 0.12);
-    }
-
-    #modalFormularioOficina .frm-section-header .form-switch {
-        margin: 0 0 0 auto;
-        text-transform: none;
-        letter-spacing: 0;
-        font-weight: 600;
-    }
-
-    #modalFormularioOficina .persona-status {
-        font-size: 0.78rem;
-        padding: 0.35rem 0.6rem;
-        border-radius: 6px;
-    }
-
-    #modalFormularioOficina .persona-status.found { background: rgba(25, 135, 84, 0.08); color: #157347; }
-    #modalFormularioOficina .persona-status.notfound { background: rgba(255, 171, 0, 0.1); color: #a36a00; }
-</style>
-
-<!-- ── Header ─────────────────────────────────────────── -->
-<div class="modal-header border-0 py-3 px-4"
-    style="background:linear-gradient(90deg,rgba(26,86,160,0.07) 0%,transparent 100%);border-bottom:2px solid #1a56a0 !important;">
-    <div class="d-flex align-items-center gap-2">
-        <div style="width:34px;height:34px;background:rgba(26,86,160,0.12);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#1a56a0;font-size:1rem;flex-shrink:0;">
-            <i class="fa-solid fa-building"></i>
-        </div>
-        <div>
-            <h6 class="modal-title fw-bold mb-0" style="color:#1a56a0;"
-                th:text="${edit} ? 'Modificar Oficina' : 'Registrar Oficina'">Oficina</h6>
-            <small class="text-muted" style="font-size:0.7rem;">
-                Se guarda en el SCIAF y se envía al VSIAF en el mismo paso
-            </small>
-        </div>
+<div class="sm-modal-cab">
+    <div class="sm-cabecera-icono">
+        <i class="ti" th:classappend="${edit} ? 'ti-edit' : 'ti-door'"></i>
+    </div>
+    <div>
+        <h5 class="sm-modal-titulo" th:text="${edit} ? 'Modificar oficina' : 'Nueva oficina'">Oficina</h5>
+        <p class="sm-modal-sub">Se guarda en el SCIAF y se envía al VSIAF en el mismo paso.</p>
     </div>
     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
 
-<form id="formularioOficina" method="post"
-    th:action="${edit} ? @{/administracion/oficina/modificar-oficina} : @{/administracion/oficina/registrar-oficina}"
-    th:object="${oficina}" novalidate>
+<form id="formularioOficina" method="post" novalidate autocomplete="off"
+      th:action="${edit} ? @{/administracion/oficina/modificar-oficina} : @{/administracion/oficina/registrar-oficina}"
+      th:object="${oficina}">
 
-    <!-- Campo oculto para ID (solo en edición) -->
-    <input type="hidden" th:if="${edit != null}" th:field="*{idOficina}" name="idOficina">
+    <input type="hidden" th:if="${edit != null}" th:field="*{idOficina}">
 
-    <!-- ── Body ───────────────────────────────────────── -->
-    <div class="modal-body px-4 pt-3 pb-2" style="background:#f8f9fb;">
+    <div class="sm-modal-cuerpo">
 
         <!-- Auditoría (solo edición y solo administradores) -->
-        <div th:if="${edit != null and esAdmin == true}" class="small text-muted mb-2">
-            <i class="fa-solid fa-user-clock me-1"></i>
-            Registrada
-            <th:block th:if="${registradoPor != null}">por <strong th:text="${registradoPor}"></strong></th:block>
-            <th:block th:if="${oficina.registro != null}" th:text="${'el ' + #dates.format(oficina.registro, 'dd/MM/yyyy HH:mm')}"></th:block>
-            <th:block th:if="${modificadoPor != null}">
-                · última modificación por <strong th:text="${modificadoPor}"></strong>
-                <th:block th:if="${oficina.modificacion != null}" th:text="${'el ' + #dates.format(oficina.modificacion, 'dd/MM/yyyy HH:mm')}"></th:block>
-            </th:block>
+        <div th:if="${edit != null and esAdmin == true}" class="sm-auditoria">
+            <i class="ti ti-history"></i>
+            <span>
+                Registrada
+                <th:block th:if="${registradoPor != null}">por <strong th:text="${registradoPor}"></strong></th:block>
+                <th:block th:if="${oficina.registro != null}" th:text="${'el ' + #dates.format(oficina.registro, 'dd/MM/yyyy HH:mm')}"></th:block>
+                <th:block th:if="${modificadoPor != null}">
+                    · última modificación por <strong th:text="${modificadoPor}"></strong>
+                    <th:block th:if="${oficina.modificacion != null}" th:text="${'el ' + #dates.format(oficina.modificacion, 'dd/MM/yyyy HH:mm')}"></th:block>
+                </th:block>
+            </span>
         </div>
 
         <!-- Clave bloqueada: la oficina ya tiene responsables o bienes -->
-        <div th:if="${bloquearClave}" class="alert alert-info py-2 small mb-3">
-            <i class="fa-solid fa-lock me-1"></i>
-            Esta oficina tiene <strong th:text="${responsablesOficina}">0</strong> responsable(s) y
-            <strong th:text="${activosOficina}">0</strong> activo(s): el <strong>predio</strong> y el
-            <strong>código</strong> no se pueden cambiar (en el VSIAF quedarían apuntando a una oficina inexistente).
-            Solo se editan el nombre y las observaciones.
+        <div th:if="${bloquearClave}" class="sm-aviso">
+            <i class="ti ti-lock"></i>
+            <div>Tiene <strong th:text="${responsablesOficina}">0</strong> responsable(s) y
+                <strong th:text="${activosOficina}">0</strong> activo(s): el <b>predio</b> y el <b>código</b> no se pueden
+                cambiar (en el VSIAF quedarían apuntando a una oficina inexistente). Solo se editan el nombre y las observaciones.</div>
         </div>
 
-        <div class="frm-section">
-            <div class="frm-section-header">
-                <i class="fa-solid fa-circle-info"></i> Datos de la Oficina
-            </div>
-            <div class="frm-section-body">
+        <!-- ── Oficina ── -->
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-door"></i> Datos de la oficina</div>
+            <div class="sm-seccion-cuerpo">
                 <div class="row g-3">
-
-                    <!-- Predio -->
                     <div class="col-12">
-                        <label class="frm-label" for="selectPredio">
-                            <i class="fa-solid fa-building"></i> Predio <span class="text-danger">*</span>
-                        </label>
-                        <select class="select2 form-select" th:field="*{predio.idPredio}" id="selectPredio" required
-                            th:disabled="${bloquearClave}">
-                            <option value="">Seleccione un predio…</option>
-                            <option th:each="p : ${predios}" th:value="${p.idPredio}"
-                                th:text="${p.descrip} + ' - ' + ${p.codigo}"></option>
-                        </select>
+                        <label class="sm-label" for="ofiPredio">Predio <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <select id="ofiPredio" th:field="*{predio.idPredio}" required th:disabled="${bloquearClave}"
+                                    data-placeholder="Busque el predio por unidad o nombre">
+                                <option value="">Elija el predio…</option>
+                                <option th:each="p : ${predios}" th:value="${p.idPredio}"
+                                        th:text="${p.unidad + ' — ' + (p.descrip ?: '')}"></option>
+                            </select>
+                            <div class="invalid-feedback">Elija el predio.</div>
+                        </div>
                         <!-- Un select deshabilitado no se envía: el valor viaja en este oculto -->
                         <input th:if="${bloquearClave}" type="hidden" name="predio.idPredio" th:value="*{predio.idPredio}">
-                        <div class="invalid-feedback">Debe seleccionar un predio.</div>
                     </div>
 
-                    <!-- Código oficina -->
                     <div class="col-12 col-md-4">
-                        <label class="frm-label" for="inputCodOfi">
-                            <i class="fa-solid fa-hashtag"></i> Código <span class="text-danger">*</span>
-                        </label>
-                        <input type="number" th:field="*{codOfi}" class="form-control" id="inputCodOfi" min="1"
-                            max="32767" step="1" required placeholder="Ej: 1" th:readonly="${bloquearClave}" />
-                        <div class="invalid-feedback">Introduzca un código válido (1–32767).</div>
-                        <small class="text-muted" style="font-size:0.7rem;" th:unless="${bloquearClave}">Se autocompleta al elegir el predio.</small>
-                    </div>
-
-                    <!-- Nombre Oficina -->
-                    <div class="col-12 col-md-8">
-                        <label class="frm-label" for="inputNombre">
-                            <i class="fa-regular fa-building"></i> Nombre de la Oficina <span class="text-danger">*</span>
-                        </label>
-                        <input type="text" th:field="*{nombre}" class="form-control" id="inputNombre"
-                            placeholder="Ej: Dirección de Recursos Humanos" required maxlength="65" />
-                        <div class="invalid-feedback">Introduzca el nombre de la oficina (máx. 65 caracteres).</div>
-                        <small class="text-muted" style="font-size:0.7rem;">Máximo 65 caracteres (largo del campo en el VSIAF).</small>
-                    </div>
-
-                    <!-- Observaciones -->
-                    <div class="col-12">
-                        <label class="frm-label" for="inputObserv">
-                            <i class="fa-regular fa-note-sticky"></i> Observaciones
-                            <span class="text-muted fw-normal" style="text-transform:none;letter-spacing:0;">(opcional)</span>
-                        </label>
-                        <textarea th:field="*{observ}" class="form-control" id="inputObserv" rows="2"
-                            maxlength="255" placeholder="Información adicional…"></textarea>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-
-        <!-- ── Responsable de la nueva oficina (solo alta, no cuando se abre desde Responsables) ── -->
-        <div th:if="${edit == null and embebido != true}" class="frm-section" id="seccionRespOficina">
-            <div class="frm-section-header sh-green">
-                <i class="fa-solid fa-user-tie"></i> Responsable de la oficina
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="chkConResponsable" name="conResponsable"
-                        value="true" checked>
-                    <label class="form-check-label small" for="chkConResponsable">Registrarlo ahora</label>
-                </div>
-            </div>
-            <div class="frm-section-body" id="camposRespOficina">
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="frm-label" for="respCi">
-                            <i class="fa-solid fa-id-card"></i> C.I. <span class="text-danger">*</span>
-                        </label>
-                        <div class="d-flex gap-2 align-items-start">
-                            <input type="text" class="form-control resp-req" id="respCi" name="respCi"
-                                maxlength="15" placeholder="Número de carnet" style="max-width:200px;">
-                            <select class="form-select" name="respCodExp" style="max-width:120px;">
-                                <option value="1">CHQ (1)</option>
-                                <option value="2">LPZ (2)</option>
-                                <option value="3">CBB (3)</option>
-                                <option value="4">ORU (4)</option>
-                                <option value="5">PTS (5)</option>
-                                <option value="6">TAR (6)</option>
-                                <option value="7">SCZ (7)</option>
-                                <option value="8">BEN (8)</option>
-                                <option value="9" selected>PAN (9)</option>
-                            </select>
-                            <button class="btn btn-outline-primary flex-shrink-0" type="button" id="btnBuscarRespCi"
-                                style="height:42px;">
-                                <i class="fa-solid fa-magnifying-glass me-1"></i> Buscar
-                            </button>
+                        <label class="sm-label" for="ofiCodigo">Código <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-hash"></i>
+                            <input type="number" th:field="*{codOfi}" id="ofiCodigo" class="sm-input" min="1" max="32767" step="1"
+                                   placeholder="Ej: 1" required th:readonly="${bloquearClave}" />
+                            <div class="invalid-feedback">Código válido: 1 a 32767.</div>
                         </div>
-                        <div id="respPersonaStatus" class="mt-2 d-none"></div>
+                        <div class="sm-ayuda" th:unless="${bloquearClave}">Se completa solo al elegir el predio.</div>
                     </div>
 
-                    <div class="col-md-4">
-                        <label class="frm-label" for="respNombre">Nombres <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control resp-req" id="respNombre" name="respNombre" placeholder="Nombres">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="frm-label" for="respPaterno">Ap. Paterno <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control resp-req" id="respPaterno" name="respPaterno" placeholder="Apellido paterno">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="frm-label" for="respMaterno">Ap. Materno</label>
-                        <input type="text" class="form-control" id="respMaterno" name="respMaterno" placeholder="(opcional)">
-                    </div>
-
-                    <div class="col-md-8">
-                        <label class="frm-label" for="respCargo">
-                            <i class="fa-solid fa-briefcase"></i> Cargo <span class="text-danger">*</span>
-                        </label>
-                        <select id="respCargo" name="respCargo" class="form-select resp-req">
-                            <option value=""></option>
-                        </select>
-                        <small class="text-muted" style="font-size:0.7rem;">Busque o escriba uno nuevo (máx. 40 caracteres).</small>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="frm-label" for="respCodFun">
-                            <i class="fa-solid fa-hashtag"></i> Cód. Funcionario <span class="text-danger">*</span>
-                        </label>
-                        <input type="number" class="form-control resp-req" id="respCodFun" name="respCodigoFuncionario"
-                            value="1" min="1" max="99999" step="1">
-                        <small class="text-muted" style="font-size:0.7rem;">Correlativo dentro de la oficina.</small>
+                    <div class="col-12 col-md-8">
+                        <label class="sm-label" for="ofiNombre">Nombre de la oficina <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-building"></i>
+                            <input type="text" th:field="*{nombre}" id="ofiNombre" class="sm-input" maxlength="65"
+                                   placeholder="Ej: DIRECCIÓN DE RECURSOS HUMANOS" required />
+                            <div class="invalid-feedback">Ingrese el nombre (máx. 65 caracteres).</div>
+                        </div>
                     </div>
 
                     <div class="col-12">
-                        <label class="frm-label" for="respCorreo">Correo <span class="text-muted fw-normal" style="text-transform:none;letter-spacing:0;">(opcional)</span></label>
-                        <input type="email" class="form-control" id="respCorreo" name="respCorreo" placeholder="opcional@correo.com">
+                        <label class="sm-label" for="ofiObserv">Observaciones <span class="text-muted fw-normal">(opcional)</span></label>
+                        <textarea th:field="*{observ}" id="ofiObserv" class="sm-input" rows="2" maxlength="255"
+                                  placeholder="Información adicional…"></textarea>
                     </div>
                 </div>
             </div>
         </div>
 
-        <input type="hidden" name="respForzar" id="respForzar" value="false">
+        <!-- ── Responsable de la nueva oficina (solo alta y no embebido) ── -->
+        <div th:if="${edit == null and embebido != true}" class="sm-seccion js-seccion-resp">
+            <div class="sm-seccion-cab">
+                <i class="ti ti-user-star"></i> Responsable de la oficina
+                <div class="form-check form-switch ms-auto mb-0">
+                    <input class="form-check-input" type="checkbox" id="ofiConResp" name="conResponsable" value="true" checked>
+                    <label class="form-check-label small" for="ofiConResp">Registrarlo ahora</label>
+                </div>
+            </div>
+            <div class="sm-seccion-cuerpo js-campos-resp">
+                <div class="row g-3">
+                    <div class="col-12 col-md-7">
+                        <label class="sm-label" for="respCi">C.I. <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <div class="sm-input-grupo">
+                                <input type="text" class="sm-input js-resp" id="respCi" name="respCi" maxlength="15"
+                                       placeholder="Número de carnet" required />
+                                <button type="button" class="sm-btn sm-btn-neutro js-buscar-resp" title="Buscar a la persona por su C.I. (Enter)">
+                                    <i class="ti ti-search"></i> Buscar</button>
+                            </div>
+                            <div class="invalid-feedback">Ingrese el C.I.</div>
+                        </div>
+                        <div class="sm-ayuda js-resp-estado">Si la persona ya existe, se completan sus datos.</div>
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <label class="sm-label" for="respExp">Expedido en</label>
+                        <select class="sm-select js-resp" id="respExp" name="respCodExp">
+                            <option value="1">CHQ · Chuquisaca</option>
+                            <option value="2">LPZ · La Paz</option>
+                            <option value="3">CBB · Cochabamba</option>
+                            <option value="4">ORU · Oruro</option>
+                            <option value="5">PTS · Potosí</option>
+                            <option value="6">TAR · Tarija</option>
+                            <option value="7">SCZ · Santa Cruz</option>
+                            <option value="8">BEN · Beni</option>
+                            <option value="9" selected>PAN · Pando</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <label class="sm-label" for="respNombre">Nombre(s) <span class="sm-req">*</span></label>
+                        <input type="text" class="sm-input js-resp" id="respNombre" name="respNombre" required />
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="sm-label" for="respPaterno">Apellido paterno <span class="sm-req">*</span></label>
+                        <input type="text" class="sm-input js-resp" id="respPaterno" name="respPaterno" required />
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="sm-label" for="respMaterno">Apellido materno</label>
+                        <input type="text" class="sm-input js-resp" id="respMaterno" name="respMaterno" />
+                    </div>
+                    <div class="col-12" id="ofiContadorResp"></div>
+
+                    <div class="col-12 col-md-8">
+                        <label class="sm-label" for="respCargo">Cargo <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <select id="respCargo" name="respCargo" class="js-resp" required
+                                    data-placeholder="Busque el cargo o escriba uno nuevo">
+                                <option value=""></option>
+                            </select>
+                            <div class="invalid-feedback">Elija o escriba el cargo.</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="sm-label" for="respCodFun">Cód. funcionario <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-hash"></i>
+                            <input type="number" class="sm-input js-resp" id="respCodFun" name="respCodigoFuncionario"
+                                   value="1" min="1" max="99999" step="1" required />
+                        </div>
+                        <div class="sm-ayuda">Correlativo dentro de la oficina.</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="sm-label" for="respCorreo">Correo <span class="text-muted fw-normal">(opcional)</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-mail"></i>
+                            <input type="email" class="sm-input js-resp" id="respCorreo" name="respCorreo" data-sm-mayus="no"
+                                   placeholder="opcional@uap.edu.bo" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- ── Footer ─────────────────────────────────────── -->
-    <div class="modal-footer border-0 bg-light py-2 px-4">
-        <small class="text-muted me-auto" style="font-size:0.72rem;">
-            <i class="fa-solid fa-circle-info me-1"></i>
-            Los campos con <span class="text-danger">*</span> son obligatorios
-        </small>
-        <button type="button" class="btn btn-outline-secondary btn-sm px-4" data-bs-dismiss="modal"
-            id="btnCancelarOficina">
-            <i class="fa-solid fa-xmark me-1"></i> Cancelar
+    <div class="sm-modal-pie">
+        <span class="sm-nota"><span class="sm-req">*</span> Campo obligatorio</span>
+        <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal" id="btnCancelarOficina">
+            <i class="ti ti-x"></i> Cancelar
         </button>
-        <button type="submit" class="btn btn-success btn-sm px-4 fw-bold" id="btnGuardarOficina">
-            <i class="fa-solid fa-floppy-disk me-1"></i>
-            <span th:text="${edit}? 'Guardar cambios' : 'Guardar registro'">Guardar</span>
+        <button type="submit" class="sm-btn sm-btn-exito" id="btnGuardarOficina">
+            <i class="ti ti-device-floppy"></i>
+            <span th:text="${edit} ? 'Guardar cambios' : 'Registrar oficina'">Guardar</span>
         </button>
     </div>
 </form>
@@ -335,320 +202,175 @@
 <script>
     (function () {
         const $form = $('#formularioOficina');
-
-        // Largos que impone el VSIAF: NOMOFIC 65 y el nombre completo del responsable 35.
-        if (window.sciafContador) {
-            sciafContador.simple('#inputNombre', 65, { etiqueta: 'Nombre de la oficina en el VSIAF' });
-        }
-        const $btnGuardar = $('#btnGuardarOficina');
-        const $btnCancelar = $('#btnCancelarOficina');
-        const $modal = $('#modalFormularioOficina');
-        const $btnClose = $modal.find('.btn-close');
+        const $modal = $form.closest('.modal');
         const esEdicion = $form.find('input[name="idOficina"]').length > 0;
-        const claveBloqueada = $('#selectPredio').prop('disabled');
-        const htmlBtnOriginal = $btnGuardar.html();
-        const $seccionResp = $('#seccionRespOficina');
-        let enviando = false;
+        const esc = SciafModulo.escapar;
+        const $predio = $('#ofiPredio'), $codigo = $('#ofiCodigo');
+        const claveBloqueada = $predio.prop('disabled');
+        const $seccionResp = $form.find('.js-seccion-resp');
+        const idioma = { noResults: () => 'Sin resultados', searching: () => 'Buscando…', errorLoading: () => 'No se pudo buscar' };
 
-        // Impide cerrar el modal (Esc / clic en el fondo) mientras se guarda.
-        // Namespace + off para no acumular handlers en el modal persistente.
-        $modal.off('hide.bs.modal.oficinaGuard').on('hide.bs.modal.oficinaGuard', function (e) {
-            if (enviando) e.preventDefault();
+        if (window.sciafContador) {
+            sciafContador.simple('#ofiNombre', 65, { etiqueta: 'Nombre de la oficina en el VSIAF' });
+        }
+
+        /* ── Predio (lista corta, con búsqueda) + código siguiente ──────── */
+        $predio.select2({ dropdownParent: $modal, width: '100%', placeholder: $predio.data('placeholder'), language: idioma });
+        $predio.on('change', function () {
+            $(this).removeClass('is-invalid');
+            if (claveBloqueada) return;
+            const id = this.value;
+            if (!id) { if (!esEdicion) $codigo.val(''); return; }
+            $codigo.prop('disabled', true);
+            $.getJSON('/administracion/oficina/siguiente-codigo/' + encodeURIComponent(id))
+                .done(cod => $codigo.val(cod).removeClass('is-invalid').addClass('sm-nuevo'))
+                .fail(() => Swal.fire('Atención', 'No se pudo obtener el código siguiente del predio.', 'warning'))
+                .always(() => { $codigo.prop('disabled', false); setTimeout(() => $codigo.removeClass('sm-nuevo'), 900); });
         });
 
-        /* ── Responsable junto con la oficina ───────────── */
-        function conResponsable() {
-            return $seccionResp.length > 0 && $('#chkConResponsable').is(':checked');
-        }
-
+        /* ── Responsable junto con la oficina ───────────────────────────── */
+        // Apagado: sus campos se deshabilitan (no se validan ni se envían).
+        function conResponsable() { return $seccionResp.length > 0 && $('#ofiConResp').is(':checked'); }
         function alternarResponsable() {
-            $('#camposRespOficina').toggle(conResponsable());
-            if (!conResponsable()) $seccionResp.find('.is-invalid').removeClass('is-invalid');
+            const si = conResponsable();
+            $form.find('.js-campos-resp').toggle(si);
+            $form.find('.js-resp').prop('disabled', !si).removeClass('is-invalid');
         }
-        $('#chkConResponsable').on('change', alternarResponsable);
+        $('#ofiConResp').on('change', alternarResponsable);
 
-        const contadorNombreResp = ($seccionResp.length && window.sciafContador)
-            ? sciafContador.combinado(['#respNombre', '#respPaterno', '#respMaterno'], 35)
+        const contadorResp = ($seccionResp.length && window.sciafContador)
+            ? sciafContador.combinado(['#respNombre', '#respPaterno', '#respMaterno'], 35, { contenedor: '#ofiContadorResp' })
             : null;
 
         if ($seccionResp.length) {
-            // Select2 del cargo: busca en el catálogo y permite escribir uno nuevo.
-            setTimeout(function () {
-                $('#respCargo').select2({
-                    theme: 'bootstrap-5',
-                    dropdownParent: $modal,
-                    width: '100%',
-                    tags: true,
-                    placeholder: 'Busque o escriba un cargo…',
-                    allowClear: true,
-                    language: { noResults: () => 'Sin resultados', searching: () => 'Buscando…' },
-                    createTag: function (params) {
-                        const t = $.trim(params.term).toUpperCase();
-                        return t ? { id: t, text: t, newTag: true } : null;
-                    },
-                    ajax: {
-                        url: '/api/cargos/search',
-                        dataType: 'json',
-                        delay: 250,
-                        data: params => ({ q: params.term }),
-                        processResults: data => ({ results: data.map(c => ({ id: c.nombre, text: c.nombre })) }),
-                        cache: true
-                    }
-                });
-            }, 100);
-
-            // Buscar la persona por CI y completar los datos si ya existe.
-            $('#btnBuscarRespCi').on('click', buscarPersonaPorCi);
-            $('#respCi').on('keydown', function (e) {
-                if (e.key === 'Enter') { e.preventDefault(); buscarPersonaPorCi(); }
-            });
-        }
-
-        function buscarPersonaPorCi() {
-            const ci = $('#respCi').val().trim();
-            if (!ci) { $('#respCi').addClass('is-invalid').trigger('focus'); return; }
-            const $btn = $('#btnBuscarRespCi');
-            $btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i>');
-            $.ajax({
-                url: '/administracion/responsable/api/personas/buscar-por-ci',
-                data: { ci },
-                success: function (p) {
-                    $('#respNombre').val(p.nombre || '').removeClass('is-invalid');
-                    $('#respPaterno').val(p.paterno || '').removeClass('is-invalid');
-                    $('#respMaterno').val(p.materno || '');
-                    $('#respPersonaStatus').removeClass('d-none').html(
-                        '<div class="persona-status found"><i class="fa-solid fa-circle-check me-1"></i>' +
-                        'Persona ya registrada — datos completados.</div>');
+            $('#respCargo').select2({
+                dropdownParent: $modal, width: '100%', tags: true, allowClear: true,
+                placeholder: $('#respCargo').data('placeholder'), language: idioma,
+                createTag: p => {
+                    const t = (p.term || '').trim().toLocaleUpperCase('es');
+                    return t ? { id: t, text: t, newTag: true } : null;
                 },
-                error: function () {
-                    $('#respPersonaStatus').removeClass('d-none').html(
-                        '<div class="persona-status notfound"><i class="fa-solid fa-pen me-1"></i>' +
-                        'Persona nueva — complete nombres y apellidos.</div>');
-                    $('#respNombre').trigger('focus');
-                },
-                complete: function () {
-                    $btn.prop('disabled', false).html('<i class="fa-solid fa-magnifying-glass me-1"></i> Buscar');
+                templateResult: d => d.newTag ? $('<span>').text('Nuevo cargo: ' + d.text) : d.text,
+                ajax: {
+                    url: '/api/cargos/search', dataType: 'json', delay: 250,
+                    data: p => ({ q: p.term || '' }),
+                    processResults: data => ({ results: data.map(c => ({ id: c.nombre, text: c.nombre })) }),
+                    cache: true
                 }
             });
-        }
 
-        /* ── Validación ─────────────────────────────────── */
-        function marcar($el, invalido) {
-            $el.toggleClass('is-invalid', invalido);
-            return !invalido;
-        }
-
-        function validar() {
-            let ok = true;
-            const mensajes = [];
-
-            if (!marcar($('#selectPredio'), !$('#selectPredio').val())) { ok = false; }
-
-            const cod = parseInt($('#inputCodOfi').val(), 10);
-            if (!marcar($('#inputCodOfi'), isNaN(cod) || cod < 1 || cod > 32767)) { ok = false; }
-
-            const nombre = $('#inputNombre').val().trim();
-            if (!marcar($('#inputNombre'), !nombre || nombre.length > 65)) { ok = false; }
-
-            if (conResponsable()) {
-                const ci = $('#respCi').val().trim();
-                if (!marcar($('#respCi'), !ci || ci.length > 15)) { ok = false; mensajes.push('C.I. del responsable'); }
-                if (!marcar($('#respNombre'), !$('#respNombre').val().trim())) { ok = false; mensajes.push('nombres'); }
-                if (!marcar($('#respPaterno'), !$('#respPaterno').val().trim())) { ok = false; mensajes.push('apellido paterno'); }
-                const cargo = ($('#respCargo').val() || '').trim();
-                if (!marcar($('#respCargo'), !cargo || cargo.length > 40)) {
-                    ok = false; mensajes.push(cargo.length > 40 ? 'cargo (máx. 40 caracteres)' : 'cargo');
-                }
-                const cf = parseInt($('#respCodFun').val(), 10);
-                if (!marcar($('#respCodFun'), isNaN(cf) || cf < 1 || cf > 99999)) { ok = false; mensajes.push('código de funcionario'); }
-                // El nombre completo viaja al VSIAF en un solo campo de 35 caracteres.
-                if (contadorNombreResp && contadorNombreResp.excede()) {
-                    ok = false;
-                    mensajes.push('nombre completo del responsable (máx. 35)');
-                }
-            }
-            return { ok, mensajes };
-        }
-
-        // Limpia el error de un campo apenas el usuario lo corrige
-        $form.on('input change', 'input, select, textarea', function () {
-            $(this).removeClass('is-invalid');
-        });
-
-        /* ── Bloqueo / desbloqueo de controles mientras guarda ── */
-        function bloquear(texto) {
-            enviando = true;
-            $btnGuardar.prop('disabled', true)
-                .html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' + texto);
-            $btnCancelar.prop('disabled', true);
-            $btnClose.prop('disabled', true).css('pointer-events', 'none');
-        }
-
-        function desbloquear() {
-            enviando = false;
-            $btnGuardar.prop('disabled', false).html(htmlBtnOriginal);
-            $btnCancelar.prop('disabled', false);
-            $btnClose.prop('disabled', false).css('pointer-events', '');
-        }
-
-        function datosFormulario() {
-            // Si no se registra responsable, sus campos no viajan (evita mensajes de validación ajenos).
-            let data = $form.serializeArray();
-            if (!conResponsable()) {
-                data = data.filter(f => !f.name.startsWith('resp') && f.name !== 'conResponsable');
-            }
-            return $.param(data);
-        }
-
-        /* ── Envío del formulario ───────────────────────── */
-        $form.on('submit', function (event) {
-            event.preventDefault();
-            if (enviando) return;            // anti doble-click / doble Enter
-
-            const v = validar();
-            if (!v.ok) {
-                $form.find('.is-invalid').first().trigger('focus');
-                if (v.mensajes.length) {
-                    Swal.fire('Faltan datos', 'Revise: ' + v.mensajes.join(', ') + '.', 'warning');
-                }
-                return;
-            }
-            $('#respForzar').val('false');
-            enviar();
-        });
-
-        function enviar(extra) {
-            bloquear(esEdicion ? 'Guardando…' : 'Registrando…');
-
-            $.ajax({
-                type: 'POST',
-                url: $form.attr('action'),
-                data: datosFormulario() + (extra ? '&' + $.param(extra) : ''),
-                dataType: 'json',
-                success: function (res) {
-                    // Cambio de predio/código sin rol administrativo: se pide el motivo y se envía la solicitud.
-                    if (res && res.requiereAutorizacion) {
-                        desbloquear();
-                        pedirAutorizacion(res.msg);
-                        return;
-                    }
-                    if (res && res.ok && res.solicitud) {
-                        enviando = false;
-                        $modal.modal('hide');
-                        if (typeof cargarTabla === 'function' && $('#tablaRegistro').length) cargarTabla();
-                        Swal.fire({ icon: 'info', title: 'Solicitud enviada', text: res.msg, timer: 5000, showConfirmButton: false });
-                        return;
-                    }
-                    if (res && res.ok) {
-                        enviando = false;          // libera la guarda de cierre
-                        $modal.modal('hide');
-                        // Quien abrió el formulario decide qué recargar (tabla de oficinas,
-                        // select de oficinas del formulario de responsable, etc.).
-                        $(document).trigger('oficina:registrada', [res]);
-                        if (typeof cargarTabla === 'function' && $('#tablaRegistro').length) cargarTabla();
-
-                        if (res.vsiafOk === false) {
-                            Swal.fire('Guardado, pero no llegó al VSIAF', res.msg, 'warning');
-                        } else {
-                            Swal.fire({
-                                toast: true, position: 'top-end', icon: 'success',
-                                title: res.msg || (esEdicion ? 'Oficina modificada' : 'Oficina registrada'),
-                                showConfirmButton: false, timer: 4000, timerProgressBar: true
-                            });
-                        }
+            async function buscarPersona() {
+                const ci = ($('#respCi').val() || '').trim();
+                if (!ci) { $('#respCi').addClass('is-invalid').trigger('focus'); return; }
+                const $b = $form.find('.js-buscar-resp'), html = $b.html();
+                $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+                try {
+                    const r = await SciafModulo.pedir('/administracion/responsable/api/personas/buscar-por-ci?ci=' + encodeURIComponent(ci), { metodo: 'GET' });
+                    if (r.ok) {
+                        const p = await r.json();
+                        $('#respNombre').val(p.nombre || '');
+                        $('#respPaterno').val(p.paterno || '');
+                        $('#respMaterno').val(p.materno || '').trigger('input');
+                        $form.find('.js-resp-estado').html('<span class="text-success"><i class="ti ti-circle-check"></i> Persona ya registrada: datos completados.</span>');
+                    } else if (r.status === 404) {
+                        $form.find('.js-resp-estado').html('<span class="text-warning"><i class="ti ti-user-plus"></i> No está registrada: complete sus datos.</span>');
+                        $('#respNombre').trigger('focus');
                     } else {
-                        desbloquear();
-                        mostrarError(res);
+                        throw new Error(SciafPrecarga.motivo(r.status));
                     }
-                },
-                error: function (xhr) {
-                    desbloquear();
-                    if (xhr.status === 409 && xhr.responseJSON && xhr.responseJSON.requireConfirmacion) {
-                        confirmarPersonaNueva(xhr.responseJSON);
-                        return;
-                    }
-                    if (xhr.status === 403) {
-                        Swal.fire('Sin permiso', 'No tiene permiso para registrar oficinas.', 'error');
-                        return;
-                    }
-                    mostrarError(xhr.responseJSON, xhr.status);
+                } catch (e) {
+                    SciafModulo.avisarError(e, 'No se pudo buscar a la persona');
+                } finally {
+                    $b.prop('disabled', false).html(html);
                 }
-            });
-        }
-
-        function mostrarError(res, status) {
-            let msg = (res && res.msg) || 'No se pudo completar la operación.';
-            if (res && res.errors && res.errors.length) msg = res.errors.map(e => e.message).join('<br>');
-            else if (!res && status === 500) msg = 'Error interno del servidor (500). Revise los registros.';
-            Swal.fire('Atención', msg, 'error');
-        }
-
-        function pedirAutorizacion(msg) {
-            Swal.fire({
-                icon: 'info',
-                title: 'Requiere autorización',
-                html: `<div class="text-start small mb-2">${$('<div>').text(msg).html()}</div>
-                       <div class="text-start small text-muted">Su pedido le llega al revisor. No se aplica nada hasta que lo apruebe;
-                       le avisaremos aquí mismo cuando lo resuelva.</div>`,
-                input: 'textarea',
-                inputPlaceholder: 'Motivo del cambio (obligatorio)',
-                inputValidator: v => !(v || '').trim() ? 'Indique el motivo' : undefined,
-                showCancelButton: true,
-                confirmButtonText: 'Enviar solicitud',
-                cancelButtonText: 'Cancelar'
-            }).then(r => {
-                if (r.isConfirmed) enviar({ solicitarAutorizacion: true, motivoSolicitud: r.value });
-            });
-        }
-
-        // Hay personas con un nombre parecido y ninguna con ese CI: se pregunta antes de crear otra.
-        function confirmarPersonaNueva(conflicto) {
-            const lista = (conflicto.personasCoincidentes || [])
-                .map(p => `<li>${$('<div>').text(p.nombreCompleto).html()} <span class="text-muted">(CI: ${$('<div>').text(p.ci || 'sin CI').html()})</span></li>`)
-                .join('');
-            Swal.fire({
-                icon: 'question',
-                title: 'Personas con nombre similar',
-                html: `<div class="text-start small">Ya hay registradas:<ul class="mt-2">${lista}</ul>
-                       Si es otra persona, créela igual. Si es una de estas, cancele y búsquela por su C.I.</div>`,
-                showCancelButton: true,
-                confirmButtonText: 'Es otra persona: crear',
-                cancelButtonText: 'Cancelar'
-            }).then(r => {
-                if (!r.isConfirmed) return;
-                $('#respForzar').val('true');
-                enviar();
-            });
-        }
-
-        /* ── Autocompletar código correlativo al elegir predio ── */
-        $('#selectPredio').on('change', function () {
-            if (claveBloqueada) return;
-            const idPredio = $(this).val();
-            const $inputCodOfi = $('#inputCodOfi');
-
-            if (!idPredio) {
-                if (!esEdicion) $inputCodOfi.val('');
-                return;
             }
+            $form.on('click', '.js-buscar-resp', buscarPersona);
+            $('#respCi').on('keydown', e => { if (e.key === 'Enter') buscarPersona(); });
+        }
+        $form.on('select2:select select2:clear', 'select', function () { $(this).removeClass('is-invalid'); });
 
-            $inputCodOfi.prop('disabled', true).val('');
-
-            $.ajax({
-                url: '/administracion/oficina/siguiente-codigo/' + idPredio,
-                type: 'GET',
-                dataType: 'json',
-                success: function (siguienteCodigo) {
-                    $inputCodOfi.val(siguienteCodigo).removeClass('is-invalid');
-                },
-                error: function () {
-                    $inputCodOfi.val('');
-                    Swal.fire('Atención', 'No se pudo obtener el código correlativo.', 'warning');
-                },
-                complete: function () {
-                    $inputCodOfi.prop('disabled', false);
+        SciafModulo.formulario({
+            form: $form,
+            modal: $modal,
+            guardar: '#btnGuardarOficina',
+            cancelar: '#btnCancelarOficina',
+            textoGuardando: esEdicion ? 'Guardando…' : 'Registrando…',
+            msgExito: esEdicion ? 'Oficina modificada' : 'Oficina registrada',
+            validar: function () {
+                if (conResponsable()) {
+                    if (contadorResp && contadorResp.excede()) {
+                        Swal.fire('Nombre demasiado largo', contadorResp.mensaje(), 'warning');
+                        return false;
+                    }
+                    if (($('#respCargo').val() || '').trim().length > 40) {
+                        $('#respCargo').addClass('is-invalid');
+                        Swal.fire('Cargo demasiado largo', 'El cargo no puede pasar de 40 caracteres (largo del campo en el VSIAF).', 'warning');
+                        return false;
+                    }
                 }
-            });
+                return true;
+            },
+            confirmacion: function () {
+                const predio = $predio.find('option:selected').text() || '';
+                const resp = conResponsable()
+                    ? '<br>Responsable: <b>' + esc([$('#respNombre').val(), $('#respPaterno').val(), $('#respMaterno').val()].join(' ').trim()) + '</b>' : '';
+                return {
+                    titulo: esEdicion ? '¿Guardar los cambios?' : '¿Registrar la oficina?',
+                    texto: '<b>' + esc($codigo.val() + ' · ' + ($('#ofiNombre').val() || '')) + '</b><br>' + esc(predio) + resp
+                        + '<br><small class="text-muted">Se guarda en el SCIAF y se envía al VSIAF.</small>',
+                    aceptar: esEdicion ? 'Sí, guardar' : 'Sí, registrar'
+                };
+            },
+            interceptar: function (res, api) {
+                // Cambiar predio o código sin rol administrativo: va como solicitud con motivo.
+                if (res && res.requiereAutorizacion) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Requiere autorización',
+                        html: '<div class="text-start small mb-2">' + esc(res.msg) + '</div>'
+                            + '<div class="text-start small text-muted">El pedido le llega al revisor; no se aplica nada hasta que lo apruebe. '
+                            + 'Le avisaremos aquí mismo cuando lo resuelva.</div>',
+                        input: 'textarea',
+                        inputPlaceholder: 'Motivo del cambio (obligatorio)',
+                        inputValidator: v => !(v || '').trim() ? 'Indique el motivo' : undefined,
+                        showCancelButton: true,
+                        confirmButtonText: 'Enviar solicitud',
+                        cancelButtonText: 'Cancelar'
+                    }).then(r => r.isConfirmed
+                        ? api.reenviar(null, { solicitarAutorizacion: true, motivoSolicitud: r.value })
+                        : api.cancelar());
+                    return true;
+                }
+                // El responsable tiene un nombre parecido a otras personas y ninguna con ese C.I.
+                if (res && res.requireConfirmacion) {
+                    const lista = (res.personasCoincidentes || []).map(p =>
+                        '<li>' + esc(p.nombreCompleto) + ' <span class="text-muted">(C.I. ' + esc(p.ci || 'sin C.I.') + ')</span></li>').join('');
+                    Swal.fire({
+                        icon: 'question',
+                        title: 'Personas con nombre parecido',
+                        html: '<div class="text-start small">Ya están registradas:<ul class="mt-2">' + lista + '</ul>'
+                            + 'Si es otra persona, regístrela igual. Si es una de estas, cancele y búsquela por su C.I.</div>',
+                        showCancelButton: true,
+                        confirmButtonText: 'Es otra persona: registrar',
+                        cancelButtonText: 'Cancelar'
+                    }).then(r => r.isConfirmed ? api.reenviar(null, { respForzar: true }) : api.cancelar());
+                    return true;
+                }
+                return false;
+            },
+            alGuardar: function (res) {
+                // Quien abrió el formulario decide qué hacer (p. ej. el alta de Responsable elige la oficina nueva).
+                $(document).trigger('oficina:registrada', [res]);
+                if (res.solicitud) {
+                    Swal.fire({ icon: 'info', title: 'Solicitud enviada', text: res.msg, timer: 5000, showConfirmButton: false });
+                } else if (res.vsiafOk === false) {
+                    Swal.fire('Guardado, pero no llegó al VSIAF', res.msg, 'warning');
+                }
+            }
         });
+
+        // Cursor listo para escribir.
+        const enfocar = () => (esEdicion ? $('#ofiNombre') : $predio).trigger('focus');
+        if ($modal.hasClass('show')) enfocar(); else $modal.one('shown.bs.modal', enfocar);
     })();
 </script>

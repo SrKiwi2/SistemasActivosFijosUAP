@@ -6,7 +6,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,12 +62,19 @@ public class AuxiliarController {
     /** Alta de auxiliares — compartida con el registro rápido de los módulos de activos. */
     private final AuxiliarRegistroService auxiliarRegistroService;
     private final SyncControlService syncControlService;
+    /** Sin VSIAF a la vista (laptop de desarrollo, montaje caído) la sincronización avisa en vez de leer 0 registros. */
+    private final com.usic.SistemasActivosFijosUAP.componet.VsiafDisponibilidad vsiaf;
     private static final Logger log = LoggerFactory.getLogger(AuxiliarController.class);
 
 
+    /**
+     * La pantalla llega al instante (cabecera, barra y tarjeta) y la tabla se pide aparte,
+     * con el preloader en la tarjeta. Con muchos auxiliares, armar la tabla en el mismo
+     * pedido dejaba la pestaña en blanco hasta que terminaba.
+     */
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String inicio_auxiliar() {
+    public String inicio_auxiliar(Model model) throws Exception {
         return "auxiliar/vista";
     }
 
@@ -78,7 +84,12 @@ public class AuxiliarController {
     public String tablaRegistros_auxiliar(Model model,
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "gestion", required = false) Short gestionPreferida) throws Exception {
+        cargarTabla(model, q, gestionPreferida);
+        return "auxiliar/tabla_registro";
+    }
 
+    private void cargarTabla(Model model, String q, Short gestionPreferida) throws Exception {
+        long t0 = System.currentTimeMillis();
         try {
             SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("auxiliar");
             
@@ -101,10 +112,18 @@ public class AuxiliarController {
             model.addAttribute("estadoSync", "ERROR");
         }
 
-        List<Auxiliar> lista = auxiliarService.buscarPorQ(q);
+        // Sin búsqueda (lo normal: la tabla filtra en el navegador): sin eliminados y con
+        // predio/entidad/grupo en la misma consulta.
+        List<Auxiliar> lista = (q == null || q.isBlank())
+                ? auxiliarService.listarParaTabla()
+                : auxiliarService.buscarPorQ(q);
+        long tConsulta = System.currentTimeMillis();
         boolean fromDb = (lista != null && !lista.isEmpty());
 
-        if (!fromDb) {
+        if (!fromDb && !vsiaf.dbf("lista de auxiliares")) {
+            // Sin base y sin VSIAF a la vista (laptop de desarrollo): tabla vacía, no un error.
+            lista = new ArrayList<>();
+        } else if (!fromDb) {
             // Fallback DBF
             var filas = dbfService.listarAuxiliarAll(q);
             lista = new ArrayList<>(filas.size());
@@ -144,7 +163,13 @@ public class AuxiliarController {
         model.addAttribute("listasAuxiliares", lista);
         model.addAttribute("id_encryptado", encryptedIds);
         model.addAttribute("sourceUsed", fromDb ? "db" : "dbf");
-        return "auxiliar/tabla_registro";
+
+        long total = System.currentTimeMillis() - t0;
+        if (total > 1500) {
+            // Para saber dónde se va el tiempo cuando la tabla tarda (la base remota o el armado).
+            log.info("[AUXILIAR] Tabla lenta: {} filas en {} ms (consulta {} ms, origen {})",
+                    lista.size(), total, tConsulta - t0, fromDb ? "base" : "VSIAF");
+        }
     }
 
     @ValidarUsuarioAutenticado
@@ -383,51 +408,6 @@ public class AuxiliarController {
         ));
     }
 
-    @ValidarUsuarioAutenticado
-    @GetMapping("/api/detalle/{idEnc}")
-    @ResponseBody
-    public ResponseEntity<?> obtenerDetalle(@PathVariable String idEnc) {
-        try {
-            Long id = Long.parseLong(Encriptar.decrypt(idEnc));
-            Auxiliar auxiliar = auxiliarService.findById(id);
-            
-            if (auxiliar == null) {
-                return ResponseEntity.notFound().build();
-            }
-            
-            Map<String, Object> response = new LinkedHashMap<>();
-            response.put("idAuxiliar", auxiliar.getIdAuxiliar());
-            response.put("codAux", auxiliar.getCodAux());
-            response.put("nombre", auxiliar.getNombre());
-            response.put("estado", auxiliar.getEstado());
-            
-            if (auxiliar.getGrupoContable() != null) {
-                response.put("grupoContable", Map.of(
-                    "idGrupoContable", auxiliar.getGrupoContable().getIdGrupoContable(),
-                    "nombre", auxiliar.getGrupoContable().getNombre(),
-                    "codContable", auxiliar.getGrupoContable().getCodContable()
-                ));
-            }
-            
-            if (auxiliar.getPredio() != null) {
-                response.put("predio", Map.of(
-                    "idPredio", auxiliar.getPredio().getIdPredio(),
-                    "descrip", auxiliar.getPredio().getDescrip(),
-                    "codigo", auxiliar.getPredio().getCodigo()
-                ));
-            }
-            
-            return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            log.error("Error obteniendo detalle: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).body(Map.of(
-                "ok", false,
-                "message", "Error al obtener detalle: " + e.getMessage()
-            ));
-        }
-    }
-
     /**
      * Vuelve a mandar un auxiliar al VSIAF.
      * <p>
@@ -468,15 +448,25 @@ public class AuxiliarController {
         }
     }
 
+    /**
+     * Quita el auxiliar de las listas del SCIAF (JSON { ok, msg }, como el resto). No toca
+     * el VSIAF: allá sigue existiendo y una sincronización completa lo vuelve a traer.
+     */
     @ValidarUsuarioAutenticado
     @PostMapping("/eliminar/{id_auxiliar}")
-    public ResponseEntity<String> eliminar(Model model, @PathVariable("id_auxiliar") String idAuxiliar)
-            throws Exception {
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> eliminar(HttpServletRequest request,
+            @PathVariable("id_auxiliar") String idAuxiliar) throws Exception {
         Long id = Long.parseLong(Encriptar.decrypt(idAuxiliar));
         Auxiliar auxiliar = auxiliarService.findById(id);
+        if (auxiliar == null) {
+            return ResponseEntity.ok(Map.of("ok", false, "msg", "El auxiliar no existe."));
+        }
         auxiliar.setEstado("ELIMINADO");
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        if (usuario != null) auxiliar.setModificacionIdUsuario(usuario.getIdUsuario());
         auxiliarService.save(auxiliar);
-        return ResponseEntity.ok("Registro Eliminado");
+        return ResponseEntity.ok(Map.of("ok", true, "msg", "Auxiliar quitado del SCIAF"));
     }
 
     /*SINCRONIZADOR DBF - BD*/
@@ -489,6 +479,9 @@ public class AuxiliarController {
         @RequestParam(name = "forzarCompleto", defaultValue = "false") boolean forzarCompleto) {
     
         long inicio = System.currentTimeMillis();
+        if (!vsiaf.dbf("sincronización manual")) {
+            return ResponseEntity.ok(Map.of("ok", false, "message", vsiaf.motivoDbf()));
+        }
         
         try {
             var filas = dbfService.listarAuxiliarAll(q);
@@ -678,49 +671,6 @@ public class AuxiliarController {
                 a -> a,
                 (existing, replacement) -> existing
             ));
-    }
-
-    /**
-     * ✅ ENDPOINT AJAX para obtener info de sincronización
-     */
-    @GetMapping("/sync-info")
-    @ResponseBody
-    public ResponseEntity<?> obtenerInfoSync() {
-        try {
-            SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("auxiliar");
-            
-            if (syncInfo != null) {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
-                
-                return ResponseEntity.ok(Map.of(
-                    "ultimaSincronizacion", syncInfo.getUltimaSincronizacion().format(formatter),
-                    "estado", syncInfo.getEstado(),
-                    "registrosProcesados", syncInfo.getRegistrosProcesados(),
-                    "registrosNuevos", syncInfo.getRegistrosNuevos(),
-                    "registrosActualizados", syncInfo.getRegistrosActualizados(),
-                    "duracionSegundos", syncInfo.getDuracionMs() / 1000.0
-                ));
-            }
-            
-            return ResponseEntity.ok(Map.of(
-                "ultimaSincronizacion", "Nunca sincronizado",
-                "estado", "PENDIENTE",
-                "registrosProcesados", 0,
-                "registrosNuevos", 0,
-                "registrosActualizados", 0,
-                "duracionSegundos", 0.0
-            ));
-            
-        } catch (Exception e) {
-            return ResponseEntity.ok(Map.of(
-                "ultimaSincronizacion", "Error al obtener info",
-                "estado", "ERROR",
-                "registrosProcesados", 0,
-                "registrosNuevos", 0,
-                "registrosActualizados", 0,
-                "duracionSegundos", 0.0
-            ));
-        }
     }
 
     /* HELPERS */

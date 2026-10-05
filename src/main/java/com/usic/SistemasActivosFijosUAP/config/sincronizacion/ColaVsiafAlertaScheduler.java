@@ -49,6 +49,8 @@ public class ColaVsiafAlertaScheduler {
     private final IDbfColaOrdenDao colaDao;
     private final INotificacionService notificacionService;
     private final SseEmitterRegistry sseRegistry;
+    /** Sin VSIAF a la vista los avisos de "cola atascada" serían falsos: se pausan. */
+    private final com.usic.SistemasActivosFijosUAP.componet.VsiafDisponibilidad vsiaf;
 
     @Value("${legacy.dbf.write.mode:bytes}")
     private String writeMode;
@@ -95,6 +97,7 @@ public class ColaVsiafAlertaScheduler {
     @Transactional
     public void revisar() {
         if (!"cola".equalsIgnoreCase(writeMode)) return;
+        if (!vsiaf.dbf("avisos de la cola")) return;
 
         try {
             avisarRechazadas();

@@ -6,25 +6,28 @@
 ====================================================================== -->
 
 <style>
-    /* ── TOKENS (compartidos con el sistema) ─────────────────────────── */
-    :root {
-        --bg-page: #f0f2f5;
-        --bg-panel: #ffffff;
-        --bg-input: #f4f6fa;
-        --bg-hover: #f0f4ff;
-        --border-soft: #e4e8f0;
-        --border-med: #c9d0e0;
-        --border-focus: #3b5bdb;
-        --txt-primary: #1a2340;
-        --txt-sub: #5a6a8a;
-        --txt-muted: #9aa3b8;
-        --accent: #3b5bdb;
-        --accent-lt: rgba(59, 91, 219, .09);
-        --accent-hov: #2f4ac7;
-        --green: #12b76a;
-        --green-lt: rgba(18, 183, 106, .10);
-        --red: #f04438;
-        --red-lt: rgba(240, 68, 56, .10);
+    /* ── TOKENS ───────────────────────────────────────────────────────────
+       Antes estaban en :root: mientras la pantalla estaba abierta cambiaban esas variables
+       para TODO el sistema. Ahora valen solo dentro de .aa-pantalla y toman los colores de
+       la plantilla (sciaf-modulo.css), así que también funcionan en modo oscuro. */
+    .aa-pantalla {
+        --bg-page: transparent;
+        --bg-panel: var(--sm-superficie);
+        --bg-input: var(--sm-superficie-2);
+        --bg-hover: rgba(var(--sm-primario-rgb), .06);
+        --border-soft: var(--sm-borde);
+        --border-med: var(--sm-borde-fuerte);
+        --border-focus: var(--sm-primario);
+        --txt-primary: var(--sm-texto);
+        --txt-sub: var(--sm-texto-2);
+        --txt-muted: var(--sm-texto-2);
+        --accent: var(--sm-primario);
+        --accent-lt: rgba(var(--sm-primario-rgb), .09);
+        --accent-hov: var(--sm-primario-borde);
+        --green: var(--sm-exito);
+        --green-lt: rgba(var(--sm-exito-rgb), .10);
+        --red: var(--sm-peligro);
+        --red-lt: rgba(var(--sm-peligro-rgb), .10);
         --amber: #f79009;
         --amber-lt: rgba(247, 144, 9, .10);
         --violet: #7c3aed;
@@ -51,54 +54,17 @@
         color: var(--txt-primary);
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 56px);
+        /* El alto real lo calcula el script (lo que queda de la ventana); esto es el respaldo. */
+        height: calc(100vh - 210px);
+        min-height: 420px;
         overflow: hidden;
-        background: var(--bg-page);
-    }
-
-    /* ── TOPBAR ───────────────────────────────────────────────────────── */
-    .aa-topbar {
-        height: 46px;
-        flex-shrink: 0;
         background: var(--bg-panel);
-        border-bottom: 1px solid var(--border-soft);
-        box-shadow: var(--sh-sm);
-        display: flex;
-        align-items: center;
-        gap: 11px;
-        padding: 0 20px;
-        z-index: 20;
+        border: 1px solid var(--border-soft);
+        border-radius: var(--sm-radio, 14px);
+        box-shadow: var(--sm-sombra-card);
     }
 
-    .aa-topbar-icon {
-        width: 26px;
-        height: 26px;
-        background: var(--violet);
-        border-radius: 5px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-
-    .aa-topbar-icon svg {
-        width: 13px;
-        height: 13px;
-        color: #fff;
-    }
-
-    .aa-topbar-title {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--txt-primary);
-    }
-
-    .aa-topbar-clock {
-        margin-left: auto;
-        font-family: var(--font-mono);
-        font-size: 10px;
-        color: var(--txt-muted);
-    }
+    .aa-pantalla .aa-mayus { text-transform: uppercase; }
 
     /* ── PASOS (stepper visual) ───────────────────────────────────────── */
     .aa-steps {
@@ -718,7 +684,7 @@
     .aa-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(255, 255, 255, .75);
+        background: color-mix(in srgb, var(--bg-panel) 75%, transparent);
         backdrop-filter: blur(3px);
         display: flex;
         align-items: center;
@@ -951,11 +917,11 @@
     }
 
     /* Select2 estilos */
-    .select2-container {
+    .aa-pantalla .select2-container {
         width: 100% !important
     }
 
-    .select2-container--default .select2-selection--single {
+    .aa-pantalla .select2-container--default .select2-selection--single {
         background-color: var(--bg-input);
         border: 1px solid var(--border-med);
         border-radius: var(--r-sm);
@@ -965,14 +931,15 @@
         transition: border-color var(--t), box-shadow var(--t)
     }
 
-    .select2-container--default.select2-container--open .select2-selection--single,
-    .select2-container--default.select2-container--focus .select2-selection--single {
+    .aa-pantalla .select2-container--default.select2-container--open .select2-selection--single,
+
+    .aa-pantalla .select2-container--default.select2-container--focus .select2-selection--single {
         border-color: var(--border-focus);
         box-shadow: 0 0 0 3px var(--accent-lt);
         outline: none
     }
 
-    .select2-container--default .select2-selection--single .select2-selection__rendered {
+    .aa-pantalla .select2-container--default .select2-selection--single .select2-selection__rendered {
         color: var(--txt-primary) !important;
         font-family: var(--font-ui);
         font-size: 12.5px;
@@ -981,16 +948,16 @@
         padding-right: 26px !important
     }
 
-    .select2-container--default .select2-selection--single .select2-selection__placeholder {
+    .aa-pantalla .select2-container--default .select2-selection--single .select2-selection__placeholder {
         color: var(--txt-muted) !important
     }
 
-    .select2-container--default .select2-selection--single .select2-selection__arrow {
+    .aa-pantalla .select2-container--default .select2-selection--single .select2-selection__arrow {
         height: 32px;
         right: 7px
     }
 
-    .select2-dropdown {
+    .aa-pantalla .select2-dropdown {
         background-color: var(--bg-panel);
         border: 1px solid var(--border-focus);
         border-radius: var(--r-md);
@@ -998,11 +965,11 @@
         margin-top: 2px
     }
 
-    .select2-search--dropdown {
+    .aa-pantalla .select2-search--dropdown {
         padding: 7px 7px 5px
     }
 
-    .select2-search--dropdown .select2-search__field {
+    .aa-pantalla .select2-search--dropdown .select2-search__field {
         border: 1px solid var(--border-med);
         border-radius: var(--r-sm);
         background: var(--bg-input);
@@ -1015,11 +982,11 @@
         transition: border-color var(--t)
     }
 
-    .select2-search--dropdown .select2-search__field:focus {
+    .aa-pantalla .select2-search--dropdown .select2-search__field:focus {
         border-color: var(--border-focus)
     }
 
-    .select2-results__option {
+    .aa-pantalla .select2-results__option {
         font-family: var(--font-ui);
         font-size: 12.5px;
         color: var(--txt-primary) !important;
@@ -1027,17 +994,17 @@
         transition: background var(--t)
     }
 
-    .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+    .aa-pantalla .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
         background-color: var(--accent-lt) !important;
         color: var(--accent) !important
     }
 
-    .select2-container--default .select2-results__option--selected {
+    .aa-pantalla .select2-container--default .select2-results__option--selected {
         background-color: var(--bg-page) !important;
         font-weight: 600
     }
 
-    .select2-container--default.select2-container--disabled .select2-selection--single {
+    .aa-pantalla .select2-container--default.select2-container--disabled .select2-selection--single {
         opacity: .4;
         cursor: not-allowed
     }
@@ -1069,20 +1036,23 @@
     }
 </style>
 
-<div class="aa-wrap">
+<div class="aa-pantalla sm-pagina" id="modAsignacion">
 
-    <!-- Topbar -->
-    <header class="aa-topbar">
-        <div class="aa-topbar-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-        </div>
-        <span class="aa-topbar-title">Asignación de Activos entre Responsables</span>
-        <span class="aa-topbar-clock" id="aa-clock">—</span>
-    </header>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-users-group"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-arrows-exchange"></i> Movimientos <i class="ti ti-chevron-right"></i> Asignación de activos
+        </nav>
+        <h1 class="sm-titulo">Asignación de activos entre responsables</h1>
+        <p class="sm-subtitulo">Pase los activos de un responsable a otro de la misma oficina. Los códigos de los activos no cambian.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><i class="ti ti-clock"></i> <span id="aa-clock">—</span></span>
+    </div>
+</header>
+
+<div class="aa-wrap">
 
     <!-- Stepper visual -->
     <div class="aa-steps" id="aa-steps">
@@ -1119,7 +1089,7 @@
                 <select id="aa-predio" class="aa-sel" data-sciaf-no-guardar>
                     <option value="">— Seleccione —</option>
                     <th:block th:each="p : ${predios}">
-                        <option th:value="${p.idPredio}" th:text="${p.descrip} + ' — ' + ${p.codigo}"></option>
+                        <option th:value="${p.idPredio}" th:text="${p.unidad + ' — ' + (p.descrip ?: '')}"></option>
                     </th:block>
                 </select>
             </div>
@@ -1309,7 +1279,7 @@
                         <span class="aa-dot" style="background:var(--accent)"></span>
                         C.I. <span style="color:var(--red)">*</span>
                     </label>
-                    <input class="aa-input" type="text" id="aa-nr-ci" placeholder="Ej: 12345678" />
+                    <input class="aa-input aa-mayus" type="text" id="aa-nr-ci" placeholder="Ej: 12345678" maxlength="15" />
                 </div>
                 <div class="aa-ctrl-group" style="min-width:120px;">
                     <label class="aa-ctrl-lbl">
@@ -1324,7 +1294,7 @@
             <div class="aa-modal-row">
                 <div class="aa-ctrl-group grow">
                     <label class="aa-ctrl-lbl">Nombre(s) <span style="color:var(--red)">*</span></label>
-                    <input class="aa-input" type="text" id="aa-nr-nombre" placeholder="Ej: Juan Carlos" />
+                    <input class="aa-input aa-mayus" type="text" id="aa-nr-nombre" placeholder="Ej: JUAN CARLOS" />
                 </div>
             </div>
 
@@ -1332,11 +1302,11 @@
             <div class="aa-modal-row">
                 <div class="aa-ctrl-group grow">
                     <label class="aa-ctrl-lbl">Paterno <span style="color:var(--red)">*</span></label>
-                    <input class="aa-input" type="text" id="aa-nr-paterno" placeholder="Apellido paterno" />
+                    <input class="aa-input aa-mayus" type="text" id="aa-nr-paterno" placeholder="Apellido paterno" />
                 </div>
                 <div class="aa-ctrl-group grow">
                     <label class="aa-ctrl-lbl">Materno <span style="font-weight:400">(opcional)</span></label>
-                    <input class="aa-input" type="text" id="aa-nr-materno" placeholder="Apellido materno" />
+                    <input class="aa-input aa-mayus" type="text" id="aa-nr-materno" placeholder="Apellido materno" />
                 </div>
             </div>
 
@@ -1360,7 +1330,7 @@
                 <!-- Input inline para cargo nuevo, oculto por defecto -->
                 <div id="aa-nr-cargo-nuevo-wrap"
                     style="display:none;margin-top:5px;gap:6px;align-items:center;">
-                    <input id="aa-nr-cargo-nuevo-txt" class="aa-input" style="flex:1;"
+                    <input id="aa-nr-cargo-nuevo-txt" class="aa-input aa-mayus" style="flex:1;" maxlength="40"
                         placeholder="Nombre del nuevo cargo..." />
                     <button type="button" id="aa-nr-btn-cancelar-cargo"
                         style="flex-shrink:0;font-size:11px;padding:4px 8px;
@@ -1385,6 +1355,8 @@
         </div>
     </div>
 </div>
+
+</div><!-- /.aa-pantalla -->
 
 <script>
     (function () {
@@ -1419,7 +1391,7 @@
                     $e.off('change.aa');
                 } catch (_) { }
             });
-            const base = { width: '100%', allowClear: true, minimumResultsForSearch: 4 };
+            const base = { width: '100%', allowClear: true, minimumResultsForSearch: 4, dropdownParent: $('#modAsignacion') };
             $('#aa-predio').select2({ ...base, placeholder: '— Seleccione unidad —' });
             $('#aa-oficina').select2({ ...base, placeholder: '— Seleccione oficina —' });
             $('#aa-resp1').select2({ ...base, placeholder: '— Seleccione responsable —' });
@@ -1923,17 +1895,18 @@
             if (window._aaContadorNombre && window._aaContadorNombre.excede()) {
                 aaToast('w', 'Nombre demasiado largo', window._aaContadorNombre.mensaje()); return;
             }
-            const ci       = document.getElementById('aa-nr-ci').value.trim();
-            const nombre   = document.getElementById('aa-nr-nombre').value.trim();
-            const paterno  = document.getElementById('aa-nr-paterno').value.trim();
-            const materno  = document.getElementById('aa-nr-materno').value.trim();
+            const may      = id => document.getElementById(id).value.trim().toLocaleUpperCase('es');
+            const ci       = may('aa-nr-ci');
+            const nombre   = may('aa-nr-nombre');
+            const paterno  = may('aa-nr-paterno');
+            const materno  = may('aa-nr-materno');
             const codfunc  = document.getElementById('aa-nr-codfunc').value.trim();
 
             // Determinar cargo: ¿panel nuevo visible o Select2?
             const cargoNuevoVisible =
                 document.getElementById('aa-nr-cargo-nuevo-wrap').style.display !== 'none';
             const cargo = cargoNuevoVisible
-                ? document.getElementById('aa-nr-cargo-nuevo-txt').value.trim()
+                ? may('aa-nr-cargo-nuevo-txt')
                 : ($('#aa-nr-cargo').val() || '');
 
             // Validaciones
@@ -1968,7 +1941,7 @@
                     const conflicto = await r.json();
                     const forzar = await sciafConfirmar({
                         titulo: 'Ya existe una persona parecida',
-                        texto: `${conflicto.msg}<br><br>Si es la misma persona, cancele y búsquela por C.I. `
+                        texto: `${x(conflicto.msg || '').replace(/\n/g, '<br>')}<br><br>Si es la misma persona, cancele y búsquela por C.I. `
                              + `en vez de crearla otra vez.`,
                         aceptar: 'Es otra persona, crearla',
                         peligrosa: true
@@ -1992,8 +1965,16 @@
 
                 document.getElementById('aa-modal-bg').classList.remove('on');
 
-                // Recargar lista de responsables de la oficina actual conservando resp1
+                // Recargar lista de responsables de la oficina actual conservando resp1.
+                // aaOficinaChange vacía S.activos (al cambiar de oficina corresponde): se
+                // guardan antes y se reponen. Antes la tabla quedaba vacía y "Asignar"
+                // respondía "Sin activos" aunque se veía el responsable origen elegido.
+                const activosPrevios = S.activos.slice();
+                const resp1Previo = S.resp1Id, resp1NombrePrevio = S.resp1Nombre;
                 await window.aaOficinaChange();
+                S.activos = activosPrevios;
+                S.resp1Id = resp1Previo;
+                S.resp1Nombre = resp1NombrePrevio;
                 if (S.resp1Id) {
                     $('#aa-resp1').val(String(S.resp1Id)).trigger('change.select2');
                     // Restaurar activos sin volver a consultar el servidor
@@ -2121,6 +2102,17 @@
                 }
             });
         }
+
+        // La pantalla ocupa lo que queda de la ventana bajo la cabecera.
+        function aaAjustarAlto() {
+            const w = document.querySelector('#modAsignacion .aa-wrap');
+            if (!w || !document.body.contains(w) || window.innerWidth < 860) { if (w) w.style.height = ''; return; }
+            const cont = document.getElementById('contenido');
+            const relleno = cont ? (parseFloat(getComputedStyle(cont).paddingBottom) || 0) : 16;
+            w.style.height = Math.max(420, window.innerHeight - w.getBoundingClientRect().top - relleno - 8) + 'px';
+        }
+        $(window).off('resize.aaAlto').on('resize.aaAlto', aaAjustarAlto);
+        setTimeout(aaAjustarAlto, 0);
 
         (function boot() {
             if (typeof $ !== 'undefined' && $.fn?.select2) { window.aaInitSelect2(); aaRegistrarRespaldo(); aaPrepararDesdeConsulta(); }

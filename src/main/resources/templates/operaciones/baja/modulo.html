@@ -1,383 +1,366 @@
-<!-- ============================================================
-     MÓDULO: BAJA DE ACTIVOS
-     Vista dedicada (fragmento inyectado en #contenido vía AJAX).
-     Registro de baja con informe adjunto + cambio de estado a BAJA
-     en PostgreSQL + seguimiento de bajas.
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Baja de activos — plantilla de pantallas (docs/PLANTILLA_MODULOS.md)
+     Registro de baja con informe adjunto: genera el acta en PDF y pasa el activo a BAJA en
+     el SCIAF (en el VSIAF se desaprueba aparte, desde Registro de activos).
      Backend:
-       POST /baja/registro                  (registro + PDF + estado BAJA)
-       POST /administracion/baja/tabla       (listado HTML)
-       GET  /api/buscar-activo-responsable   (lookup del activo)
-============================================================= -->
+       POST /baja/registro                  (registro + PDF + estado BAJA; un activo, una vez)
+       POST /administracion/baja/tabla       (listado: seguimiento/baja/tabla_registro.html)
+       GET  /api/buscar-activo-responsable   (búsqueda del activo)
+     Todo dentro de #modBaja y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modBaja">
 
-<div class="container-fluid px-0">
-
-    <!-- Encabezado -->
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-        <h4 class="mb-0">
-            <span class="text-muted fw-light">Operaciones de Activos /</span> Baja de Activos
-        </h4>
-        <button class="btn btn-danger" id="btnAbrirRegistroBaja">
-            <i class="bx bx-trash me-1"></i> Registrar baja
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-trash"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-box-multiple"></i> Bajas e ingresos <i class="ti ti-chevron-right"></i> Baja de activos
+        </nav>
+        <h1 class="sm-titulo">Baja de activos</h1>
+        <p class="sm-subtitulo">Registre la baja con el informe de la unidad de hardware. El activo pasa a BAJA en el SCIAF;
+            en el VSIAF se desaprueba desde Registro de activos.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-total">—</strong> bajas</span>
+        <span class="sm-dato" title="Bajas con fecha de este mes"><strong class="js-mes">—</strong> este mes</span>
+        <span class="sm-dato" title="Bajas con informe adjunto"><strong class="js-informe">—</strong> con informe</span>
+        <button type="button" class="sm-btn sm-btn-peligro" id="btnAbrirRegistroBaja">
+            <i class="ti ti-trash"></i> Registrar baja
         </button>
     </div>
+</header>
 
-    <!-- Stats -->
-    <div class="row g-3 mb-3">
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <div class="avatar bg-label-danger"><i class="bx bx-trash fs-4"></i></div>
-                    <div>
-                        <h5 class="mb-0 fw-bold" id="bja-stat-total">0</h5>
-                        <small class="text-muted">Total bajas</small>
-                    </div>
-                </div>
-            </div>
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por N° documento, código, activo o responsable…"
+                   autocomplete="off" aria-label="Buscar baja" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <div class="avatar bg-label-primary"><i class="bx bx-calendar fs-4"></i></div>
-                    <div>
-                        <h5 class="mb-0 fw-bold" id="bja-stat-mes">0</h5>
-                        <small class="text-muted">Este mes</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <div class="avatar bg-label-success"><i class="bx bx-file fs-4"></i></div>
-                    <div>
-                        <h5 class="mb-0 fw-bold" id="bja-stat-informe">0</h5>
-                        <small class="text-muted">Con informe</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <div class="avatar bg-label-warning"><i class="bx bx-filter-alt fs-4"></i></div>
-                    <div>
-                        <h5 class="mb-0 fw-bold" id="bja-stat-visibles">0</h5>
-                        <small class="text-muted">Filtradas</small>
-                    </div>
-                </div>
-            </div>
+        <select id="bja-f-motivo" class="sm-select" style="width:auto;min-width:170px;" aria-label="Motivo">
+            <option value="">Todos los motivos</option>
+            <option value="Robo">Robo</option>
+            <option value="Extravío">Extravío</option>
+            <option value="Dañado">Dañado</option>
+            <option value="Cumplió vida útil">Cumplió vida útil</option>
+        </select>
+        <input type="date" id="bja-f-desde" class="sm-input" style="width:auto;" title="Desde" aria-label="Desde" />
+        <input type="date" id="bja-f-hasta" class="sm-input" style="width:auto;" title="Hasta" aria-label="Hasta" />
+        <div class="sm-toolbar-grupo">
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro" id="bja-btn-limpiar" title="Quitar filtros">
+                <i class="ti ti-filter-off"></i> Limpiar
+            </button>
+            <label class="sm-filas">
+                <i class="ti ti-list-numbers"></i> Filas
+                <select class="sm-select js-largo" aria-label="Filas por página">
+                    <option value="auto" selected>Ajustar a pantalla</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="-1">Todas</option>
+                </select>
+            </label>
         </div>
     </div>
+    <div id="bajaTablaContainer"></div>
+</section>
 
-    <!-- Filtros -->
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body py-3">
-            <div class="row g-2 align-items-end">
-                <div class="col-12 col-md-4">
-                    <label class="form-label mb-1 small fw-semibold text-muted">BUSCAR</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text"><i class="bx bx-search"></i></span>
-                        <input type="text" id="bja-f-buscar" class="form-control" placeholder="N° documento, código, responsable...">
-                    </div>
+<!-- ═══ Registrar baja ═══ -->
+<div class="modal fade" id="modalRegistrarBaja" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <form id="formRegBaja" autocomplete="off" enctype="multipart/form-data" class="modal-content sm-modal" novalidate>
+            <div class="sm-modal-cab">
+                <div class="sm-cabecera-icono"><i class="ti ti-trash"></i></div>
+                <div>
+                    <h5 class="sm-modal-titulo">Registrar baja de activo</h5>
+                    <p class="sm-modal-sub">Se genera el acta en PDF y el activo pasa a estado BAJA.</p>
                 </div>
-                <div class="col-6 col-md-3">
-                    <label class="form-label mb-1 small fw-semibold text-muted">MOTIVO</label>
-                    <select id="bja-f-motivo" class="form-select form-select-sm">
-                        <option value="">Todos</option>
-                        <option value="Robo">Robo</option>
-                        <option value="Extravío">Extravío</option>
-                        <option value="Dañado">Dañado</option>
-                        <option value="Cumplió vida útil">Cumplió vida útil</option>
-                    </select>
-                </div>
-                <div class="col-3 col-md-2">
-                    <label class="form-label mb-1 small fw-semibold text-muted">DESDE</label>
-                    <input type="date" id="bja-f-desde" class="form-control form-control-sm">
-                </div>
-                <div class="col-3 col-md-2">
-                    <label class="form-label mb-1 small fw-semibold text-muted">HASTA</label>
-                    <input type="date" id="bja-f-hasta" class="form-control form-control-sm">
-                </div>
-                <div class="col-12 col-md-1 d-flex gap-1 justify-content-end">
-                    <button class="btn btn-sm btn-outline-secondary" id="bja-btn-limpiar" title="Limpiar"><i class="bx bx-x"></i></button>
-                    <button class="btn btn-sm btn-outline-primary" id="bja-btn-refrescar" title="Actualizar"><i class="bx bx-refresh"></i></button>
-                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-        </div>
-    </div>
 
-    <div id="bajaTablaContainer">
-        <div class="text-center text-muted py-5">
-            <div class="spinner-border text-danger"></div>
-            <div class="mt-2">Cargando registros...</div>
-        </div>
-    </div>
-</div>
-
-<!-- ===================== MODAL: REGISTRAR BAJA ===================== -->
-<div class="modal fade" id="modalRegistrarBaja" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <form id="formRegBaja" autocomplete="off" enctype="multipart/form-data" class="w-100">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title fw-bold"><i class="bx bx-trash me-2"></i>Registrar baja de activo</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-
-                    <!-- Identificación del activo -->
-                    <fieldset class="border rounded-3 p-3 mb-3">
-                        <legend class="w-auto px-2 fs-6 fw-semibold text-info"><i class="bx bx-barcode me-1"></i> Activo a dar de baja</legend>
-                        <label class="form-label fw-semibold small">Código del activo <span class="text-danger">*</span></label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bx bx-upc-scan"></i></span>
-                            <input type="text" class="form-control" name="codigoActivoBaja" id="bja-codigo"
-                                   placeholder="Ej: 12-34-56-78" required oninput="this.value=this.value.toUpperCase()">
-                            <button class="btn btn-outline-info" type="button" id="bja-btn-buscar">
-                                <i class="bx bx-search me-1"></i> Buscar
-                            </button>
-                        </div>
-                        <div id="bja-activo-feedback" class="form-text"></div>
-
-                        <div id="bja-activo-info" class="mt-3 d-none">
-                            <div class="card bg-label-info border-0">
-                                <div class="card-body py-2 px-3">
-                                    <div class="row g-2 small">
-                                        <div class="col-12"><span class="text-muted">Descripción:</span>
-                                            <span class="fw-semibold" id="bja-info-desc">—</span></div>
-                                        <div class="col-md-6"><span class="text-muted">Oficina:</span>
-                                            <span class="fw-semibold" id="bja-info-ofi">—</span></div>
-                                        <div class="col-md-6"><span class="text-muted">Responsable:</span>
-                                            <span class="fw-semibold" id="bja-info-resp">—</span></div>
-                                    </div>
-                                </div>
+            <div class="sm-modal-cuerpo">
+                <div class="sm-seccion">
+                    <div class="sm-seccion-cab"><i class="ti ti-barcode"></i> Activo a dar de baja</div>
+                    <div class="sm-seccion-cuerpo">
+                        <label class="sm-label" for="bja-codigo">Código del activo <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <div class="sm-input-grupo">
+                                <input type="text" class="sm-input" name="codigoActivoBaja" id="bja-codigo"
+                                       placeholder="Ej: 12-34-56-78" required oninput="this.value=this.value.toUpperCase()" />
+                                <button class="sm-btn sm-btn-neutro" type="button" id="bja-btn-buscar">
+                                    <i class="ti ti-search"></i> Buscar
+                                </button>
                             </div>
                         </div>
-                    </fieldset>
+                        <div id="bja-activo-feedback" class="sm-ayuda"></div>
 
-                    <!-- Datos de la baja -->
-                    <fieldset class="border rounded-3 p-3 mb-3">
-                        <legend class="w-auto px-2 fs-6 fw-semibold text-danger"><i class="bx bx-error-circle me-1"></i> Datos de la baja</legend>
+                        <div id="bja-activo-info" class="sm-aviso mt-2 mb-0 d-none">
+                            <i class="ti ti-box"></i>
+                            <div class="small">
+                                <div><span class="sm-sub">Descripción:</span> <b id="bja-info-desc">—</b></div>
+                                <div><span class="sm-sub">Oficina:</span> <b id="bja-info-ofi">—</b>
+                                    · <span class="sm-sub">Responsable:</span> <b id="bja-info-resp">—</b></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sm-seccion">
+                    <div class="sm-seccion-cab"><i class="ti ti-alert-triangle"></i> Datos de la baja</div>
+                    <div class="sm-seccion-cuerpo">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold small">Motivo de baja <span class="text-danger">*</span></label>
-                                <select class="form-select" name="causa" id="bja-causa" required>
-                                    <option value="" selected disabled>Seleccione...</option>
+                                <label class="sm-label" for="bja-causa">Motivo de baja <span class="sm-req">*</span></label>
+                                <select class="sm-select" name="causa" id="bja-causa" required>
+                                    <option value="" selected disabled>Seleccione…</option>
                                     <option value="ROBO">Robo</option>
                                     <option value="EXTRAVIO">Extravío</option>
                                     <option value="DANADO">Dañado</option>
-                                    <option value="FIN_VIDA_UTIL">Cumplió año útil de vida</option>
+                                    <option value="FIN_VIDA_UTIL">Cumplió su vida útil</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold small">Fecha de baja <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control" name="fechaBaja" id="bja-fecha" required>
+                                <label class="sm-label" for="bja-fecha">Fecha de baja <span class="sm-req">*</span></label>
+                                <input type="date" class="sm-input" name="fechaBaja" id="bja-fecha" required />
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold small">N° de documento / informe <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" name="numeroDocumento" id="bja-nrodoc" placeholder="Ej: INF-USIC-045/2026" required>
+                                <label class="sm-label" for="bja-nrodoc">N° de documento / informe <span class="sm-req">*</span></label>
+                                <input type="text" class="sm-input" name="numeroDocumento" id="bja-nrodoc"
+                                       placeholder="Ej: INF-USIC-045/2026" required />
                             </div>
                             <div class="col-12">
-                                <label class="form-label fw-semibold small">Descripción / justificación</label>
-                                <textarea class="form-control" name="descripcionBaja" id="bja-descripcion" rows="3"
-                                          placeholder="Detalle el estado del bien y la justificación de la baja..."></textarea>
+                                <label class="sm-label" for="bja-descripcion">Descripción / justificación</label>
+                                <textarea class="sm-input" name="descripcionBaja" id="bja-descripcion" rows="3"
+                                          placeholder="Estado del bien y justificación de la baja…"></textarea>
                             </div>
                         </div>
-                    </fieldset>
-
-                    <!-- Informe adjunto -->
-                    <fieldset class="border rounded-3 p-3">
-                        <legend class="w-auto px-2 fs-6 fw-semibold text-primary"><i class="bx bx-paperclip me-1"></i> Informe de la unidad de hardware</legend>
-                        <label class="form-label fw-semibold small">Adjuntar informe (PDF o imagen) <span class="text-danger">*</span></label>
-                        <input type="file" class="form-control" name="informe" id="bja-informe"
-                               accept=".pdf,.png,.jpg,.jpeg,.webp" required>
-                        <div class="form-text">Documento de evaluación emitido por la unidad de hardware que respalda la baja.</div>
-                    </fieldset>
-
-                    <div id="bja-form-alert" class="alert alert-danger mt-3 d-none"></div>
+                    </div>
                 </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bx bx-x me-1"></i>Cancelar</button>
-                    <button type="submit" class="btn btn-danger" id="bja-btn-guardar">
-                        <span class="spinner-border spinner-border-sm me-2 d-none" id="bja-spinner"></span>
-                        <i class="bx bx-check-circle me-1"></i> Confirmar baja
-                    </button>
+
+                <div class="sm-seccion">
+                    <div class="sm-seccion-cab"><i class="ti ti-paperclip"></i> Informe de la unidad de hardware</div>
+                    <div class="sm-seccion-cuerpo">
+                        <label class="sm-label" for="bja-informe">Adjuntar informe (PDF o imagen) <span class="sm-req">*</span></label>
+                        <input type="file" class="sm-input" name="informe" id="bja-informe" accept=".pdf,.png,.jpg,.jpeg,.webp" required />
+                        <div class="sm-ayuda">Documento de evaluación que respalda la baja.</div>
+                    </div>
                 </div>
+
+                <div id="bja-form-alert" class="sm-aviso sm-aviso-peligro mb-0 d-none"></div>
+            </div>
+
+            <div class="sm-modal-pie">
+                <span class="sm-nota"><span class="sm-req">*</span> Campo obligatorio</span>
+                <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal" id="bja-btn-cancelar">
+                    <i class="ti ti-x"></i> Cancelar
+                </button>
+                <button type="submit" class="sm-btn sm-btn-peligro" id="bja-btn-guardar">
+                    <i class="ti ti-check"></i> Confirmar baja
+                </button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- ===================== MODAL: DETALLE BAJA ===================== -->
+<!-- ═══ Detalle ═══ -->
 <div class="modal fade" id="modalDetalleBaja" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-danger text-white">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content sm-modal">
+            <div class="sm-modal-cab">
+                <div class="sm-cabecera-icono"><i class="ti ti-file-description"></i></div>
                 <div>
-                    <h5 class="modal-title fw-bold mb-0" id="det-numero">—</h5>
-                    <small class="opacity-75" id="det-fecha">—</small>
+                    <h5 class="sm-modal-titulo" id="det-numero">—</h5>
+                    <p class="sm-modal-sub" id="det-fecha">—</p>
                 </div>
-                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body">
+            <div class="sm-modal-cuerpo">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <div class="card border h-100">
-                            <div class="card-header bg-label-danger py-2"><i class="bx bx-error-circle me-1"></i>Baja</div>
-                            <div class="card-body small">
-                                <dl class="row mb-0">
-                                    <dt class="col-5 text-muted">Motivo</dt><dd class="col-7" id="det-motivo">—</dd>
-                                    <dt class="col-5 text-muted">Fecha</dt><dd class="col-7" id="det-fecha2">—</dd>
-                                    <dt class="col-5 text-muted">N° documento</dt><dd class="col-7" id="det-doc">—</dd>
-                                </dl>
+                        <div class="sm-seccion h-100 mb-0">
+                            <div class="sm-seccion-cab"><i class="ti ti-alert-triangle"></i> Baja</div>
+                            <div class="sm-seccion-cuerpo small">
+                                <div><span class="sm-sub">Motivo:</span> <b id="det-motivo">—</b></div>
+                                <div><span class="sm-sub">Fecha:</span> <b id="det-fecha2">—</b></div>
+                                <div><span class="sm-sub">N° documento:</span> <b id="det-doc">—</b></div>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="card border h-100">
-                            <div class="card-header bg-label-info py-2"><i class="bx bx-package me-1"></i>Activo</div>
-                            <div class="card-body small">
-                                <dl class="row mb-0">
-                                    <dt class="col-5 text-muted">Código</dt><dd class="col-7" id="det-codigo">—</dd>
-                                    <dt class="col-5 text-muted">Descripción</dt><dd class="col-7" id="det-activo">—</dd>
-                                    <dt class="col-5 text-muted">Responsable</dt><dd class="col-7" id="det-resp">—</dd>
-                                    <dt class="col-5 text-muted">Oficina</dt><dd class="col-7" id="det-ofi">—</dd>
-                                </dl>
+                        <div class="sm-seccion h-100 mb-0">
+                            <div class="sm-seccion-cab"><i class="ti ti-box"></i> Activo</div>
+                            <div class="sm-seccion-cuerpo small">
+                                <div><span class="sm-sub">Código:</span> <b class="sm-codigo" id="det-codigo">—</b></div>
+                                <div><span class="sm-sub">Descripción:</span> <span id="det-activo">—</span></div>
+                                <div><span class="sm-sub">Responsable:</span> <span id="det-resp">—</span></div>
+                                <div><span class="sm-sub">Oficina:</span> <span id="det-ofi">—</span></div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-12" id="det-desc-wrap">
-                        <div class="alert alert-secondary mb-0">
-                            <strong class="d-block small text-muted mb-1">JUSTIFICACIÓN</strong>
-                            <span id="det-descripcion">—</span>
+                    <div class="col-12">
+                        <div class="sm-aviso mb-0">
+                            <i class="ti ti-notes"></i>
+                            <div><b class="d-block small">Justificación</b><span id="det-descripcion">—</span></div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer bg-light">
-                <a id="det-informe" href="#" target="_blank" class="btn btn-danger d-none">
-                    <i class="bx bxs-file-pdf me-1"></i> Ver informe adjunto
+            <div class="sm-modal-pie">
+                <a id="det-informe" href="#" target="_blank" class="sm-btn sm-btn-peligro d-none">
+                    <i class="ti ti-file-type-pdf"></i> Ver informe adjunto
                 </a>
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bx bx-x me-1"></i>Cerrar</button>
+                <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal"><i class="ti ti-x"></i> Cerrar</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ===================== MODAL: PDF ===================== -->
+<!-- ═══ Acta generada ═══ -->
 <div class="modal fade" id="modalPdfBaja" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title"><i class="bx bxs-file-pdf me-2"></i>Acta de baja generada</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <div class="modal-content sm-modal">
+            <div class="sm-modal-cab">
+                <div class="sm-cabecera-icono"><i class="ti ti-file-type-pdf"></i></div>
+                <div><h5 class="sm-modal-titulo">Acta de baja generada</h5></div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body p-0">
-                <iframe id="bja-iframe-pdf" style="width:100%;height:600px;border:none"></iframe>
+            <div class="p-0">
+                <iframe id="bja-iframe-pdf" style="width:100%;height:70vh;border:none"></iframe>
             </div>
         </div>
     </div>
+</div>
+
 </div>
 
 <script>
     (function () {
         'use strict';
 
-        // ---- refs ----
-        const $form = $('#formRegBaja');
+        const $raiz = $('#modBaja');
+        const $cont = $raiz.find('#bajaTablaContainer');
         const formEl = document.getElementById('formRegBaja');
+        const $form = $(formEl);
 
-        // Fecha por defecto: hoy
-        const hoy = new Date().toISOString().slice(0, 10);
+        // Fecha LOCAL (toISOString es UTC: en Bolivia, desde las 20:00 daba la fecha de mañana).
+        function fechaLocal(d) {
+            const z = n => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+        }
+        const hoy = fechaLocal(new Date());
         $('#bja-fecha').val(hoy);
 
-        // ---------- Cargar listado ----------
-        window.cargarTablaBaja = function () {
-            $.ajax({
-                type: 'POST',
-                url: '/administracion/baja/tabla',
-                success: function (html) {
-                    $('#bajaTablaContainer').html(html);
-                    aplicarFiltrosBaja();
-                },
-                error: function () {
-                    $('#bajaTablaContainer').html(
-                        '<div class="alert alert-danger">No se pudo cargar el listado. ' +
-                        '<button class="btn btn-sm btn-outline-danger ms-2" onclick="cargarTablaBaja()">Reintentar</button></div>');
-                }
-            });
-        };
-
-        // ---------- Filtros (client-side sobre filas .baja-row) ----------
-        function aplicarFiltrosBaja() {
-            const q = ($('#bja-f-buscar').val() || '').toLowerCase().trim();
+        /* ── Filtros (motivo y fechas; el texto lo busca la tabla) ───────── */
+        function pasaFiltro(tr) {
+            const d = tr.dataset;
             const motivo = $('#bja-f-motivo').val();
-            const desde = $('#bja-f-desde').val();
-            const hasta = $('#bja-f-hasta').val();
-
-            let total = 0, visibles = 0, conInforme = 0, mes = 0;
-            const mesActual = new Date().toISOString().slice(0, 7);
-
-            $('.baja-row').each(function () {
-                const $r = $(this);
-                total++;
-                const fecha = ($r.data('fecha') || '') + '';
-                if (fecha.slice(0, 7) === mesActual) mes++;
-                if ($r.data('informe')) conInforme++;
-
-                let ok = true;
-                if (q) {
-                    const texto = ($r.data('numero') + ' ' + $r.data('codigo') + ' ' + $r.data('activo') + ' ' + $r.data('responsable')).toLowerCase();
-                    if (!texto.includes(q)) ok = false;
-                }
-                if (ok && motivo && ($r.data('motivo') + '') !== motivo) ok = false;
-                if (ok && desde && fecha && fecha < desde) ok = false;
-                if (ok && hasta && fecha && fecha > hasta) ok = false;
-
-                $r.toggle(ok);
-                if (ok) visibles++;
-            });
-
-            $('#bja-stat-total').text(total);
-            $('#bja-stat-mes').text(mes);
-            $('#bja-stat-informe').text(conInforme);
-            $('#bja-stat-visibles').text(visibles);
+            const desde = $('#bja-f-desde').val(), hasta = $('#bja-f-hasta').val();
+            const fecha = d.fecha || '';
+            if (motivo && d.motivo !== motivo) return false;
+            if (desde && fecha && fecha < desde) return false;
+            if (hasta && fecha && fecha > hasta) return false;
+            return true;
         }
 
-        $('#bja-f-buscar').off('input.bja').on('input.bja', aplicarFiltrosBaja);
-        $('#bja-f-motivo, #bja-f-desde, #bja-f-hasta').off('change.bja').on('change.bja', aplicarFiltrosBaja);
-        $('#bja-btn-limpiar').off('click.bja').on('click.bja', function () {
-            $('#bja-f-buscar').val(''); $('#bja-f-motivo').val(''); $('#bja-f-desde').val(''); $('#bja-f-hasta').val('');
-            aplicarFiltrosBaja();
-        });
-        $('#bja-btn-refrescar').off('click.bja').on('click.bja', cargarTablaBaja);
+        function contar(api) {
+            const mesActual = hoy.slice(0, 7);
+            let total = 0, mes = 0, informe = 0;
+            api.rows().nodes().each(function (tr) {
+                total++;
+                if ((tr.dataset.fecha || '').slice(0, 7) === mesActual) mes++;
+                if (tr.dataset.informe) informe++;
+            });
+            $raiz.find('.js-total').text(total);
+            $raiz.find('.js-mes').text(mes);
+            $raiz.find('.js-informe').text(informe);
+        }
 
-        // ---------- Abrir modal de registro ----------
-        $('#btnAbrirRegistroBaja').off('click.bja').on('click.bja', function () {
-            resetFormBaja();
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalRegistrarBaja')).show();
+        function iniciarTabla() {
+            SciafModulo.tabla({
+                tabla: $cont.find('table'),
+                buscador: $raiz.find('.js-buscar'),
+                largo: $raiz.find('.js-largo'),
+                orden: [ [1, 'desc'] ],
+                noOrdenables: [5],
+                altoFila: 60,
+                filtroFila: pasaFiltro,
+                alDibujar: contar,
+                dt: { language: { sEmptyTable: 'No hay bajas registradas.' } }
+            });
+        }
+
+        function cargarTablaBaja() {
+            const primera = !$cont.find('table').length;
+            const pedido = SciafModulo.cargar($cont, '/administracion/baja/tabla');
+            const p = primera
+                ? SciafPrecarga.durante($cont, pedido, { texto: 'Cargando bajas…', tituloError: 'No se pudo cargar el listado', alReintentar: cargarTablaBaja })
+                : pedido;
+            if (!primera) $cont.css('opacity', 0.55);
+            return p.then(iniciarTabla)
+                .catch(e => { if (!primera) SciafModulo.avisarError(e, 'No se pudo actualizar el listado'); })
+                .finally(() => $cont.css('opacity', 1));
+        }
+
+        function redibujar() {
+            const $t = $cont.find('table');
+            if ($.fn.DataTable.isDataTable($t)) $t.DataTable().draw();
+        }
+        $raiz.on('change', '#bja-f-motivo, #bja-f-desde, #bja-f-hasta', redibujar);
+        $raiz.on('click', '#bja-btn-limpiar', function () {
+            $('#bja-f-motivo, #bja-f-desde, #bja-f-hasta').val('');
+            $raiz.find('.js-buscar').val('').closest('.sm-buscador').removeClass('con-texto');
+            const $t = $cont.find('table');
+            if ($.fn.DataTable.isDataTable($t)) $t.DataTable().search('').draw();
         });
 
-        function resetFormBaja() {
+        /* ── Detalle (clic en la fila; el enlace del informe abre el informe) ── */
+        $raiz.on('click', 'tr.baja-row', function (e) {
+            if ($(e.target).closest('.js-informe').length) return;
+            const d = $(this).data();
+            $('#det-numero').text(d.numero || 'Baja de activo');
+            $('#det-fecha').text(d.fecha || '—');
+            $('#det-motivo').text(d.motivo || '—');
+            $('#det-fecha2').text(d.fecha || '—');
+            $('#det-doc').text(d.numero || '—');
+            $('#det-codigo').text(d.codigo || '—');
+            $('#det-activo').text(d.activo || '—');
+            $('#det-resp').text(d.responsable || '—');
+            $('#det-ofi').text(d.oficina || '—');
+            const desc = (d.descripcion || '').toString().trim();
+            $('#det-descripcion').text(desc || 'Sin justificación registrada.');
+            const $inf = $('#det-informe');
+            if (d.informe) $inf.attr('href', d.informe).removeClass('d-none');
+            else $inf.addClass('d-none');
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleBaja')).show();
+        });
+
+        /* ── Registrar ──────────────────────────────────────────────────── */
+        $raiz.on('click', '#btnAbrirRegistroBaja', function () {
             formEl.reset();
-            $('#bja-fecha').val(hoy);
+            $('#bja-fecha').val(fechaLocal(new Date()));
             $('#bja-activo-info').addClass('d-none');
             $('#bja-activo-feedback').removeClass('text-success text-danger').text('');
             $('#bja-form-alert').addClass('d-none').text('');
             $('#bja-codigo').removeClass('is-valid is-invalid');
-        }
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalRegistrarBaja')).show();
+        });
 
-        // ---------- Lookup del activo ----------
-        $('#bja-btn-buscar').off('click.bja').on('click.bja', buscarActivoBaja);
-        $('#bja-codigo').off('keypress.bja').on('keypress.bja', function (e) {
-            if (e.which === 13) { e.preventDefault(); buscarActivoBaja(); }
+        $('#bja-btn-buscar').on('click', buscarActivoBaja);
+        $('#bja-codigo').on('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); buscarActivoBaja(); }
+        });
+        // Cambiar el código invalida la búsqueda anterior.
+        $('#bja-codigo').on('input', function () {
+            $('#bja-activo-info').addClass('d-none');
+            $('#bja-activo-feedback').removeClass('text-success text-danger').text('');
+            $(this).removeClass('is-valid is-invalid');
         });
 
         function buscarActivoBaja() {
             const codigo = ($('#bja-codigo').val() || '').trim();
-            if (!codigo) { return; }
+            if (!codigo) return;
             const $fb = $('#bja-activo-feedback');
-            $fb.removeClass('text-success text-danger').text('Buscando...');
+            $fb.removeClass('text-success text-danger').text('Buscando…');
             $('#bja-activo-info').addClass('d-none');
             $('#bja-codigo').removeClass('is-valid is-invalid');
 
@@ -392,7 +375,7 @@
                     $('#bja-info-ofi').text(a.oficinaNombre || '—');
                     $('#bja-info-resp').text(a.responsableNombre || '—');
                     $('#bja-activo-info').removeClass('d-none');
-                    $fb.removeClass('text-danger').addClass('text-success').html('<i class="bx bx-check-circle"></i> Activo encontrado.');
+                    $fb.removeClass('text-danger').addClass('text-success').html('<i class="ti ti-circle-check"></i> Activo encontrado.');
                     $('#bja-codigo').removeClass('is-invalid').addClass('is-valid');
                 })
                 .catch(err => {
@@ -401,70 +384,62 @@
                 });
         }
 
-        // ---------- Submit ----------
-        $form.off('submit.bja').on('submit.bja', function (e) {
+        let enviando = false;
+        $(document.getElementById('modalRegistrarBaja')).on('hide.bs.modal', function (e) { if (enviando) e.preventDefault(); });
+
+        $form.on('submit', async function (e) {
             e.preventDefault();
+            if (enviando) return;
             $('#bja-form-alert').addClass('d-none').text('');
 
-            if (!formEl.checkValidity()) {
-                formEl.reportValidity();
-                return;
-            }
+            if (!formEl.checkValidity()) { formEl.reportValidity(); return; }
             if ($('#bja-activo-info').hasClass('d-none')) {
-                $('#bja-form-alert').removeClass('d-none').text('Primero busca y valida el activo por su código.');
+                $('#bja-form-alert').removeClass('d-none').text('Primero busque y valide el activo por su código.');
                 return;
             }
+            const codigo = $('#bja-codigo').val().trim();
+            const seguir = window.sciafConfirmar ? await sciafConfirmar({
+                titulo: '¿Dar de baja el activo?',
+                texto: 'El activo <b>' + SciafModulo.escapar(codigo) + '</b> pasa a estado <b>BAJA</b> y se genera el acta.'
+                    + '<br><small class="text-muted">En el VSIAF se desaprueba aparte, desde Registro de activos.</small>',
+                aceptar: 'Sí, dar de baja',
+                peligrosa: true
+            }) : true;
+            if (!seguir) return;
 
-            const $btn = $('#bja-btn-guardar');
-            $btn.prop('disabled', true);
-            $('#bja-spinner').removeClass('d-none');
+            const $btn = $('#bja-btn-guardar'), html = $btn.html();
+            enviando = true;
+            $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Registrando…');
+            $('#bja-btn-cancelar').prop('disabled', true);
 
-            fetch('/baja/registro', { method: 'POST', body: new FormData(formEl) })
-                .then(async r => {
-                    if (!r.ok) {
-                        const t = await r.text().catch(() => '');
-                        throw new Error(t || 'No se pudo registrar la baja.');
-                    }
-                    return r.blob();
-                })
-                .then(blob => {
-                    bootstrap.Modal.getInstance(document.getElementById('modalRegistrarBaja'))?.hide();
-                    const url = URL.createObjectURL(blob);
-                    document.getElementById('bja-iframe-pdf').src = url;
-                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPdfBaja')).show();
-                    if (window.Swal) Swal.fire({ icon: 'success', title: 'Baja registrada', text: 'El activo cambió a estado BAJA.', timer: 2200, showConfirmButton: false });
-                    cargarTablaBaja();
-                })
-                .catch(err => {
-                    $('#bja-form-alert').removeClass('d-none').text(err.message);
-                })
-                .finally(() => {
-                    $btn.prop('disabled', false);
-                    $('#bja-spinner').addClass('d-none');
-                });
+            // En MAYÚSCULAS, como el resto de los registros.
+            const fd = new FormData(formEl);
+            fd.set('numeroDocumento', String(fd.get('numeroDocumento') || '').trim().toLocaleUpperCase('es'));
+            fd.set('descripcionBaja', String(fd.get('descripcionBaja') || '').trim().toLocaleUpperCase('es'));
+
+            try {
+                const r = await fetch('/baja/registro', { method: 'POST', body: fd });
+                if (!r.ok) {
+                    const t = await r.text().catch(() => '');
+                    throw new Error(t || 'No se pudo registrar la baja.');
+                }
+                const blob = await r.blob();
+                enviando = false;
+                bootstrap.Modal.getInstance(document.getElementById('modalRegistrarBaja'))?.hide();
+                document.getElementById('bja-iframe-pdf').src = URL.createObjectURL(blob);
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPdfBaja')).show();
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Baja registrada: el activo pasó a BAJA.',
+                    showConfirmButton: false, timer: 3500 });
+                cargarTablaBaja();
+            } catch (err) {
+                $('#bja-form-alert').removeClass('d-none').text(err.message);
+            } finally {
+                enviando = false;
+                $btn.prop('disabled', false).html(html);
+                $('#bja-btn-cancelar').prop('disabled', false);
+            }
         });
 
-        // ---------- Detalle (lo invoca el fragmento de tabla) ----------
-        window.abrirModalBaja = function ($row) {
-            const d = $row.data();
-            $('#det-numero').text(d.numero || 'Baja de activo');
-            $('#det-fecha').text(d.fecha || '—');
-            $('#det-motivo').text(d.motivo || '—');
-            $('#det-fecha2').text(d.fecha || '—');
-            $('#det-doc').text(d.numero || '—');
-            $('#det-codigo').text(d.codigo || '—');
-            $('#det-activo').text(d.activo || '—');
-            $('#det-resp').text(d.responsable || '—');
-            $('#det-ofi').text(d.oficina || '—');
-            const desc = (d.descripcion || '').toString().trim();
-            $('#det-descripcion').text(desc || 'Sin justificación registrada.');
-            const $inf = $('#det-informe');
-            if (d.informe) { $inf.attr('href', d.informe).removeClass('d-none'); }
-            else { $inf.addClass('d-none'); }
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleBaja')).show();
-        };
-
-        // init
         cargarTablaBaja();
     })();
 </script>

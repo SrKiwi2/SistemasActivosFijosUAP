@@ -1,189 +1,48 @@
-<div class="card">
-    <div class="card-header d-flex justify-content-lg-between">
-        <h5>Registro Grupo Contable</h5>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: grupoContable/tabla_registro.html — catálogo de grupos contables.
+     · Al abrir llega incluido en grupoContable/vista.html (th:replace … :: tabla):
+       un pedido. POST /administracion/grupoc/tabla-registros lo devuelve para recargar.
+     · .js-sync-info lleva el estado de la última sincronización: la vista lo pasa a
+       su cabecera en cada recarga (sin pedirlo aparte).
+     · Solo lectura: el catálogo es del VSIAF (CODCONT.DBF) y se trae sincronizando.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="js-contenido" th:fragment="tabla">
+    <span class="js-sync-info d-none"
+          th:attr="data-ultima=${ultimaSincronizacion ?: 'Nunca'}, data-estado=${estadoSync ?: 'PENDIENTE'},
+                   data-procesados=${registrosProcesados ?: 0}, data-nuevos=${registrosNuevos ?: 0},
+                   data-actualizados=${registrosActualizados ?: 0}, data-duracion=${duracionUltimaSync ?: 0},
+                   data-origen=${sourceUsed}"></span>
 
-        <div class="d-flex gap-2 align-items-center">
-            <!-- ✅ Badge con información de última sincronización -->
-            <span class="badge bg-info" id="ultimaSync" data-bs-toggle="tooltip" data-bs-placement="bottom"
-                th:title="'Procesados: ' + (${registrosProcesados ?: 0}) + ' | Nuevos: ' + (${registrosNuevos ?: 0}) + ' | Actualizados: ' + (${registrosActualizados ?: 0}) + ' | Duración: ' + (${duracionUltimaSync ?: 0}) + 's'">
-                <i class="fa-solid fa-clock me-1"></i>
-                Última sync: <span th:text="${ultimaSincronizacion ?: 'Nunca'}">--</span>
-            </span>
-
-            <!-- ✅ Badge de estado -->
-            <span class="badge" id="estadoSyncBadge"
-                th:classappend="${estadoSync == 'COMPLETADO'} ? 'bg-success' : (${estadoSync == 'ERROR'} ? 'bg-danger' : 'bg-warning')"
-                th:text="${estadoSync ?: 'PENDIENTE'}">
-            </span>
-
-            <!-- ✅ Botón sincronización incremental -->
-            <button id="btnSyncGrupoContable" class="btn btn-outline-secondary btn-sm">
-                <i class="fa-solid fa-sync me-1"></i> Sincronizar
-            </button>
-
-            <!-- ✅ Botón sincronización completa -->
-            <button id="btnSyncCompleto" class="btn btn-outline-warning btn-sm" data-bs-toggle="tooltip"
-                data-bs-placement="bottom" title="Forzar sincronización completa (más lento)">
-                <i class="fa-solid fa-database me-1"></i> Sync Completo
-            </button>
-        </div>
-    </div>
-
-    <div class="card-datatable table-responsive pt-0">
-        <table class="datatables-basic table table-hover" id="data-table">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Código</th>
-                    <th>Nombre</th>
-                    <th>Vida Útil</th>
-                    <th>Depreciar</th>
-                    <th>Actualizar</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="gc, index: ${listasGrupoContable}">
-                    <td th:text="${index.index + 1}"></td>
-                    <td>
-                        <span class="badge bg-primary" th:text="${gc.codContable}"></span>
-                    </td>
-                    <td th:text="${gc.nombre}"></td>
-                    <td th:text="${gc.vidaUtil ?: '-'}"></td>
-                    <td>
-                        <span th:if="${gc.depreciar != null && gc.depreciar == true}" class="badge bg-success">
-                            <i class="fa-solid fa-check"></i> Sí
-                        </span>
-                        <span th:if="${gc.depreciar == null || gc.depreciar == false}" class="badge bg-secondary">
-                            <i class="fa-solid fa-times"></i> No
-                        </span>
-                    </td>
-                    <td>
-                        <span th:if="${gc.actualizar != null && gc.actualizar == true}" class="badge bg-success">
-                            <i class="fa-solid fa-check"></i> Sí
-                        </span>
-                        <span th:if="${gc.actualizar == null || gc.actualizar == false}" class="badge bg-secondary">
-                            <i class="fa-solid fa-times"></i> No
-                        </span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+    <table class="table sm-tabla align-middle js-tabla-grupos">
+        <thead>
+            <tr>
+                <th style="width:120px;">Código</th>
+                <th>Grupo contable</th>
+                <th style="width:140px;">Vida útil</th>
+                <th style="width:130px;">Deprecia</th>
+                <th style="width:130px;">Actualiza</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="gc : ${listasGrupoContable}"
+                th:attr="data-deprecia=${gc.depreciar != null and gc.depreciar}, data-actualiza=${gc.actualizar != null and gc.actualizar}">
+                <td th:attr="data-order=${gc.codContable}">
+                    <span class="sm-codigo" th:text="${gc.codContable}"></span>
+                </td>
+                <td class="sm-nombre" th:text="${gc.nombre}"></td>
+                <td th:attr="data-order=${gc.vidaUtil ?: 0}">
+                    <span th:if="${gc.vidaUtil != null}" th:text="${gc.vidaUtil} + ' años'"></span>
+                    <span th:if="${gc.vidaUtil == null}" class="sm-sub">—</span>
+                </td>
+                <td>
+                    <span th:if="${gc.depreciar != null and gc.depreciar}" class="sm-pastilla sm-pastilla-activo py-0">Sí</span>
+                    <span th:unless="${gc.depreciar != null and gc.depreciar}" class="sm-pastilla py-0">No</span>
+                </td>
+                <td>
+                    <span th:if="${gc.actualizar != null and gc.actualizar}" class="sm-pastilla sm-pastilla-info py-0"><i class="ti ti-check"></i> Sí</span>
+                    <span th:unless="${gc.actualizar != null and gc.actualizar}" class="sm-pastilla py-0">No</span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 </div>
-
-<script>
-    $(document).on('click', '#btnSyncGrupoContable', function () {
-        sincronizar(false);
-    });
-
-    $(document).on('click', '#btnSyncCompleto', function () {
-        Swal.fire({
-            title: '¿Forzar sincronización completa?',
-            text: "Esto procesará todos los registros y puede tardar más tiempo",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, sincronizar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                sincronizar(true);
-            }
-        });
-    });
-
-    function sincronizar(forzarCompleto) {
-        showGlobalLoader({ texto: 'Sincronizando Grupos Contables...' });
-
-        $.ajax({
-            type: 'POST',
-            url: '/administracion/grupoc/sync-from-mounted',
-            data: { forzarCompleto: forzarCompleto },
-            success: function (res) {
-                const tiempoSegundos = (res.duracionMs / 1000).toFixed(2);
-                const msg = `
-                        <div class="text-start">
-                            <p><strong>✅ Sincronización exitosa</strong></p>
-                            <hr>
-                            <p><i class="fa-solid fa-file-import"></i> Total leídas: <strong>${res.totalLeidas}</strong></p>
-                            <p><i class="fa-solid fa-plus-circle text-success"></i> Insertados: <strong>${res.insertados}</strong></p>
-                            <p><i class="fa-solid fa-edit text-primary"></i> Actualizados: <strong>${res.actualizados}</strong></p>
-                            <p><i class="fa-solid fa-check-circle text-info"></i> Omitidos (sin cambios): <strong>${res.omitidos}</strong></p>
-                            <p><i class="fa-solid fa-clock"></i> Tiempo: <strong>${tiempoSegundos}s</strong></p>
-                        </div>
-                    `;
-
-                Swal.fire({
-                    title: 'Completado',
-                    html: msg,
-                    icon: 'success',
-                    confirmButtonText: 'Aceptar'
-                });
-
-                // ✅ Actualizar badge
-                actualizarInfoSync();
-
-                cargarTabla();
-            },
-            error: function (xhr) {
-                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
-                Swal.fire('Error', msg, 'error');
-            },
-            complete: hideGlobalLoader
-        });
-    }
-
-    // ✅ Actualizar badges sin recargar página
-    function actualizarInfoSync() {
-        $.ajax({
-            type: 'GET',
-            url: '/administracion/grupoc/sync-info',
-            success: function (info) {
-                $('#ultimaSync span').text(info.ultimaSincronizacion);
-
-                const tooltip = `Procesados: ${info.registrosProcesados || 0} | Nuevos: ${info.registrosNuevos || 0} | Actualizados: ${info.registrosActualizados || 0} | Duración: ${info.duracionSegundos || 0}s`;
-                $('#ultimaSync').attr('data-bs-original-title', tooltip);
-
-                const badgeEstado = $('#estadoSyncBadge');
-                badgeEstado.removeClass('bg-success bg-danger bg-warning');
-
-                if (info.estado === 'COMPLETADO') {
-                    badgeEstado.addClass('bg-success');
-                } else if (info.estado === 'ERROR') {
-                    badgeEstado.addClass('bg-danger');
-                } else {
-                    badgeEstado.addClass('bg-warning');
-                }
-
-                badgeEstado.text(info.estado);
-            }
-        });
-    }
-
-    $('#data-table').DataTable({
-        language: {
-            "sProcessing": "Procesando...",
-            "sLengthMenu": "Mostrar _MENU_ registros",
-            "sZeroRecords": "No se encontraron resultados",
-            "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
-            "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
-            "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
-            "sInfoPostFix": "",
-            "sSearch": "Buscar:",
-            "sUrl": "",
-            "sInfoThousands": ",",
-            "sLoadingRecords": "Cargando...",
-            "oPaginate": {
-                "sFirst": "Primero",
-                "sLast": "Último",
-                "sNext": "Siguiente",
-                "sPrevious": "Anterior"
-            },
-            "oAria": {
-                "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
-                "sSortDescending": ": Activar para ordenar la columna de manera descendente"
-            }
-        }
-    });
-</script>

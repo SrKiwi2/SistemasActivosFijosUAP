@@ -1,52 +1,63 @@
-<div class="modal-header">
-    <h4 class="modal-title">
-        <i class="ti ti-list-check me-1"></i>
-        Permisos de Menú
-        <span class="text-muted fw-light" th:if="${usuario != null && usuario.persona != null}"
-              th:text="' — ' + ${usuario.persona.nombreCompleto}"></span>
-    </h4>
-    <button type="button" class="btn btn-sm btn-outline-secondary ms-auto me-2"
-            th:onclick="verHistorialPermisos([[${idCifrado}]], [[${usuario.usuario}]])"
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: usuario/permisos.html  (va dentro de .modal-content.sm-modal)
+     Los botones "Historial de cambios" y "Activar usuario…" son .usr-accion: los
+     atiende usuario/vista.html. Al guardar, recarga la tabla que la vista dejó en el
+     modal (SciafModulo.alGuardarModal).
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-modal-cab">
+    <div class="sm-cabecera-icono"><i class="ti ti-list-check"></i></div>
+    <div>
+        <h5 class="sm-modal-titulo">Permisos de menú</h5>
+        <p class="sm-modal-sub sm-mayus" th:if="${usuario != null && usuario.persona != null}"
+           th:text="${usuario.persona.nombreCompleto + ' · ' + usuario.usuario}"></p>
+    </div>
+    <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro usr-accion ms-auto" data-accion="historial"
+            th:attr="data-id=${idCifrado}, data-usuario=${usuario.usuario}"
             title="Quién le agregó o quitó permisos, cuándo y desde dónde">
-        <i class="ti ti-history me-1"></i> Historial de cambios
+        <i class="ti ti-history"></i> Historial de cambios
     </button>
-    <a type="button" class="btn-close ms-0" data-bs-dismiss="modal" aria-label="Close"></a>
+    <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
 
 <style>
     /* El <form> envuelve cuerpo y pie: sin esto el modal "scrollable" de Bootstrap no
        encuentra un .modal-body hijo directo y el contenido queda cortado, sin scroll. */
     #formularioPermisos { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
-    #formularioPermisos > .modal-body { overflow-y: auto; min-height: 0; max-height: calc(100vh - 200px); }
-    #formularioPermisos .pm-seccion { border: 1px solid rgba(0,0,0,.08); border-radius: 10px; margin-bottom: .9rem; }
+    #formularioPermisos > .modal-body { overflow-y: auto; min-height: 0; max-height: calc(100vh - 220px); }
+    #formularioPermisos .pm-herramientas { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin-bottom: .9rem; }
+    #formularioPermisos .pm-herramientas .sm-buscador { flex: 0 1 300px; min-width: 200px; }
+    #formularioPermisos .pm-leyenda { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: .8rem; font-size: .82rem; color: var(--sm-texto-2); }
+    #formularioPermisos .pm-seccion { margin-bottom: .9rem; }
     #formularioPermisos .pm-seccion-cab {
-        display: flex; align-items: center; gap: .6rem; padding: .55rem .9rem;
-        background: rgba(26,86,160,.05); border-bottom: 1px solid rgba(0,0,0,.06); border-radius: 10px 10px 0 0;
+        display: flex; align-items: center; gap: .6rem; padding: .65rem 1rem;
+        border-bottom: 1px solid var(--sm-borde); border-radius: 12px 12px 0 0;
+        background: linear-gradient(180deg, rgba(var(--sm-primario-rgb), .07), transparent);
     }
-    #formularioPermisos .pm-grupo { padding: .6rem .9rem; border-bottom: 1px dashed rgba(0,0,0,.07); }
+    #formularioPermisos .pm-grupo { padding: .65rem 1rem; border-bottom: 1px dashed var(--sm-borde); }
     #formularioPermisos .pm-grupo:last-child { border-bottom: none; }
-    #formularioPermisos .pm-grupo-cab { display: flex; align-items: center; gap: .5rem; margin-bottom: .35rem; }
-    #formularioPermisos .pm-opcion { display: flex; align-items: center; gap: .45rem; padding: .25rem .35rem; border-radius: 6px; }
-    #formularioPermisos .pm-opcion:hover { background: rgba(26,86,160,.05); }
-    #formularioPermisos .pm-opcion label { cursor: pointer; flex: 1; }
+    #formularioPermisos .pm-grupo-cab { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; }
+    #formularioPermisos .pm-opcion { display: flex; align-items: center; gap: .5rem; padding: .35rem .45rem; border-radius: 8px; transition: background-color .15s; }
+    #formularioPermisos .pm-opcion:hover { background: rgba(var(--sm-primario-rgb), .06); }
+    #formularioPermisos .pm-opcion label { cursor: pointer; flex: 1; font-size: .9rem; }
     #formularioPermisos .pm-oculto { display: none !important; }
-    #formularioPermisos .pm-cambio { box-shadow: inset 3px 0 0 #f59e0b; }
+    #formularioPermisos .pm-cambio { box-shadow: inset 3px 0 0 #f59e0b; background: rgba(245, 158, 11, .07); }
+    #formularioPermisos .form-check-input { width: 1.15em; height: 1.15em; cursor: pointer; }
 </style>
 
 <form id="formularioPermisos" method="post" th:action="@{/administracion/usuario/guardar-permisos}" novalidate>
 
     <input type="hidden" name="idUsuario" th:value="${usuario.idUsuario}">
 
-    <div class="modal-body">
+    <div class="modal-body sm-modal-cuerpo pb-3">
 
-        <div class="alert alert-warning py-2" th:if="${esAdministrador}">
-            <i class="ti ti-shield-check me-1"></i>
-            Es <strong>ADMINISTRADOR</strong>: ve siempre todo el menú, sin importar lo que se marque acá.
+        <div class="sm-aviso sm-aviso-aviso" th:if="${esAdministrador}">
+            <i class="ti ti-shield-check"></i>
+            <div>Es <strong>ADMINISTRADOR</strong>: ve siempre todo el menú, sin importar lo que se marque acá.</div>
         </div>
 
         <!-- Desactivado: sin acceso. Sus permisos están en el respaldo, no acá. -->
-        <div class="alert alert-danger d-flex gap-2 align-items-start" th:if="${inactivo == true}">
-            <i class="ti ti-user-off fs-4"></i>
+        <div class="sm-aviso sm-aviso-peligro" th:if="${inactivo == true}">
+            <i class="ti ti-user-off"></i>
             <div>
                 <strong>Usuario desactivado: no tiene acceso a ningún módulo.</strong><br>
                 <span th:if="${respaldo != null and respaldo.hay and respaldo.cantidad > 0}"
@@ -58,46 +69,46 @@
         </div>
 
         <!-- Aviso: el usuario aún no tiene permisos propios (se muestra la plantilla de su rol) -->
-        <div class="alert alert-info py-2" th:if="${usaPlantilla and !esAdministrador and inactivo != true}">
-            <i class="ti ti-info-circle me-1"></i>
-            Este usuario no tiene permisos propios todavía. Se muestran marcadas las opciones por
-            defecto de su rol <strong th:text="${usuario.rol != null ? usuario.rol.nombre : ''}"></strong>.
-            Al guardar quedarán como permisos individuales.
+        <div class="sm-aviso" th:if="${usaPlantilla and !esAdministrador and inactivo != true}">
+            <i class="ti ti-info-circle"></i>
+            <div>Este usuario no tiene permisos propios todavía. Se muestran marcadas las opciones por
+                defecto de su rol <strong th:text="${usuario.rol != null ? usuario.rol.nombre : ''}"></strong>.
+                Al guardar quedarán como permisos individuales.</div>
         </div>
 
-        <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-            <div class="input-group input-group-sm" style="max-width: 260px;">
-                <span class="input-group-text"><i class="ti ti-search"></i></span>
-                <input type="text" class="form-control" id="pmBuscar" placeholder="Buscar opción...">
+        <div class="pm-herramientas">
+            <div class="sm-buscador">
+                <i class="ti ti-search"></i>
+                <input type="text" class="sm-input" id="pmBuscar" placeholder="Buscar opción…" autocomplete="off" />
             </div>
-            <button type="button" class="btn btn-sm btn-outline-primary" onclick="aplicarPlantillaRol()">
-                <i class="ti ti-wand me-1"></i> Plantilla del rol
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-suave" onclick="aplicarPlantillaRol()">
+                <i class="ti ti-wand"></i> Plantilla del rol
             </button>
-            <button type="button" class="btn btn-sm btn-outline-success" onclick="marcarTodosPermisos(true)">
-                <i class="ti ti-checks me-1"></i> Marcar todos
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-exito" onclick="marcarTodosPermisos(true)">
+                <i class="ti ti-checks"></i> Marcar todos
             </button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="marcarTodosPermisos(false)"
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro" onclick="marcarTodosPermisos(false)"
                     title="Si guarda sin ninguna opción, el usuario queda sin acceso y se desactiva">
-                <i class="ti ti-eraser me-1"></i> Quitar todos
+                <i class="ti ti-eraser"></i> Quitar todos
             </button>
-            <span class="ms-auto small">
-                <strong id="pmTotal">0</strong> marcadas
-                <span class="text-warning ms-2 d-none" id="pmCambios"><i class="ti ti-pencil"></i> <span></span> cambio(s) sin guardar</span>
+            <span class="ms-auto">
+                <span class="sm-pastilla sm-pastilla-info"><strong id="pmTotal">0</strong>&nbsp;marcadas</span>
+                <span class="sm-pastilla sm-pastilla-aviso ms-1 d-none" id="pmCambios"><i class="ti ti-pencil"></i> <span></span> cambio(s) sin guardar</span>
             </span>
         </div>
 
-        <div class="small text-muted mb-2 d-flex flex-wrap gap-3">
+        <div class="pm-leyenda">
             <span><span class="badge bg-label-info"><i class="ti ti-key"></i></span> permiso especial: habilita una acción, no es una pantalla</span>
             <span><span class="badge bg-label-secondary"><i class="ti ti-eye-off"></i></span> oculto en el menú</span>
             <span><span class="badge bg-label-danger"><i class="ti ti-lock"></i></span> bloqueado por el administrador</span>
         </div>
 
         <!-- Árbol del menú: sección → grupo → opciones -->
-        <div th:each="secc : ${arbol}" class="pm-seccion" th:if="${!#lists.isEmpty(secc.hijos)}">
+        <div th:each="secc : ${arbol}" class="sm-seccion pm-seccion" th:if="${!#lists.isEmpty(secc.hijos)}">
             <div class="pm-seccion-cab">
                 <input class="form-check-input pm-todo-seccion" type="checkbox" title="Marcar toda la sección">
                 <span class="fw-bold text-uppercase small text-primary" th:text="${secc.descripcion}"></span>
-                <span class="badge bg-label-secondary ms-auto pm-cuenta"></span>
+                <span class="sm-pastilla ms-auto pm-cuenta"></span>
             </div>
 
             <div th:each="grp : ${secc.hijos}" class="pm-grupo" th:if="${!#lists.isEmpty(grp.hijos)}">
@@ -106,7 +117,7 @@
                     <span class="sm-si" th:classappend="${'si-' + grp.colorClase}" style="width:24px;height:24px;font-size:.85rem;">
                         <i th:class="${grp.icono}"></i></span>
                     <span class="fw-semibold small" th:text="${grp.descripcion}"></span>
-                    <span class="badge bg-label-secondary pm-cuenta"></span>
+                    <span class="sm-pastilla pm-cuenta py-0"></span>
                 </div>
                 <div class="row g-1">
                     <div class="col-12 col-md-6 col-xl-4" th:each="o : ${grp.hijos}">
@@ -117,7 +128,7 @@
                                    th:attr="data-inicial=${marcados.contains(o.codigo)}">
                             <span class="sm-si" th:classappend="${'si-' + o.colorClase}" style="width:22px;height:22px;font-size:.8rem;">
                                 <i th:class="${o.icono}"></i></span>
-                            <label class="form-check-label small" th:for="${'chk_' + o.codigo}" th:text="${o.descripcion}"></label>
+                            <label class="form-check-label" th:for="${'chk_' + o.codigo}" th:text="${o.descripcion}"></label>
                             <span class="badge bg-label-info" th:if="${o.permisoPuro}" title="Permiso especial"><i class="ti ti-key"></i></span>
                             <span class="badge bg-label-secondary" th:if="${!o.visible and !o.permisoPuro}" title="Oculto en el menú"><i class="ti ti-eye-off"></i></span>
                             <span class="badge bg-label-danger" th:if="${o.bloqueado}" title="Bloqueado: aunque lo tenga, no puede entrar"><i class="ti ti-lock"></i></span>
@@ -129,22 +140,25 @@
 
     </div>
 
-    <div class="modal-footer">
-        <small class="text-muted me-auto" th:if="${conectado}">
+    <div class="sm-modal-pie">
+        <span class="sm-nota" th:if="${conectado}">
             <i class="ti ti-point-filled text-success"></i> Está conectado: verá el cambio al instante, sin cerrar sesión.
-        </small>
-        <button type="button" class="btn btn-outline-primary" onclick="pmEnviar('PLANTILLA')"
+        </span>
+        <span class="sm-nota" th:unless="${conectado}"></span>
+        <button type="button" class="sm-btn sm-btn-suave" onclick="pmEnviar('PLANTILLA')"
                 th:unless="${usaPlantilla or inactivo == true}"
                 title="Borra sus permisos propios: vuelve a ver el menú que define su rol">
-            <i class="ti ti-wand me-1"></i> Usar solo la plantilla del rol
+            <i class="ti ti-wand"></i> Usar solo la plantilla del rol
         </button>
-        <a type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</a>
-        <button type="submit" class="btn btn-success" th:unless="${inactivo == true}">
-            <i class="ti ti-device-floppy me-1"></i> Guardar Permisos
+        <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">
+            <i class="ti ti-x"></i> Cerrar
         </button>
-        <button type="button" class="btn btn-success" th:if="${inactivo == true}"
-                th:onclick="pmActivar([[${idCifrado}]], [[${usuario.usuario}]])">
-            <i class="ti ti-user-check me-1"></i> Activar usuario…
+        <button type="submit" class="sm-btn sm-btn-exito" th:unless="${inactivo == true}">
+            <i class="ti ti-device-floppy"></i> Guardar permisos
+        </button>
+        <button type="button" class="sm-btn sm-btn-exito usr-accion" th:if="${inactivo == true}" data-accion="activar"
+                th:attr="data-id=${idCifrado}, data-usuario=${usuario.usuario}">
+            <i class="ti ti-user-check"></i> Activar usuario…
         </button>
     </div>
 </form>
@@ -264,8 +278,11 @@
                     type: 'POST', url: form.getAttribute('action'), data: $.param(datos), dataType: 'json',
                     success: function (r) {
                         if (!r.ok) { Swal.fire('No se pudo', r.msg || 'Ocurrió un error.', 'warning'); return; }
-                        bootstrap.Modal.getInstance(document.getElementById('modalPermisosUsuario'))?.hide();
-                        if (typeof usrCargarTabla === 'function') usrCargarTabla();
+                        const modal = document.getElementById('modalPermisosUsuario');
+                        bootstrap.Modal.getInstance(modal)?.hide();
+                        // La tabla que recargar la dejó la vista en el modal (sin globales).
+                        const recargar = $(modal).data('smRecargar');
+                        if (typeof recargar === 'function') recargar(r);
                         Swal.fire({ icon: 'success', title: 'Listo', text: r.msg });
                     },
                     error: function (xhr) {
@@ -283,15 +300,11 @@
             window.pmEnviar(null);
         });
 
-        // Desactivado: solo lectura. Se activa desde acá o desde ⋮ → Activar.
+        // Desactivado: solo lectura. Se activa desde acá (botón del pie) o desde ⋮ → Activar.
         if (PM_INACTIVO) {
-            form.querySelectorAll('.modal-body input[type="checkbox"], .modal-body .d-flex > button')
+            form.querySelectorAll('.modal-body input[type="checkbox"], .pm-herramientas button')
                 .forEach(el => el.disabled = true);
         }
-        window.pmActivar = function (id, usuario) {
-            bootstrap.Modal.getInstance(document.getElementById('modalPermisosUsuario'))?.hide();
-            if (typeof cambiarEstadoUsuario === 'function') cambiarEstadoUsuario(id, usuario, true);
-        };
 
         contar();
     })();

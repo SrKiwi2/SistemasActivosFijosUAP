@@ -73,6 +73,20 @@ public class IngresoActivosAjenosController {
 
     private final ArchivoStorageService archivoStorageService;
 
+
+    /**
+     * /ingreso/** es permitAll() en SeguridadConfig: el permiso se revisa aquí. Pasa un
+     * ADMINISTRADOR / SUPER USUARIO o quien tenga la opción del menú (opcion_ingreso_modulo).
+     */
+    private static boolean tienePermiso(HttpServletRequest request) {
+        if (com.usic.SistemasActivosFijosUAP.config.RolesSciaf.esAdministrativo(request)) return true;
+        Object opciones = request.getSession(false) != null ? request.getSession().getAttribute("opciones") : null;
+        if (opciones instanceof java.util.Set<?> set) {
+            for (String c : new String[] { "opcion_ingreso_modulo" }) if (set.contains(c)) return true;
+        }
+        return false;
+    }
+
     @PostMapping("/registrar")
     @Transactional(rollbackFor = Exception.class)
     public ResponseEntity<byte[]> ingresoActivosAjenos(
@@ -97,6 +111,16 @@ public class IngresoActivosAjenosController {
 
         try{
             final Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+            // /ingreso/** es permitAll() en SeguridadConfig; además, sin usuario, más abajo
+            // fallaba con NullPointerException al registrar.
+            if (usuario == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body("La sesión se cerró: vuelva a ingresar para registrar el ingreso.".getBytes());
+            }
+            if (!tienePermiso(request)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("Su usuario no tiene permiso para registrar ingresos de bienes ajenos.".getBytes());
+            }
             final Responsable responsablePropietario = obtenerORegistrarResponsable(codigoFuncionarioPropietario, ciPropietario);
             final Responsable responsableAutorizador = obtenerORegistrarResponsable(codigoFuncionarioAutorizador, ciAutorizador);
 
@@ -108,11 +132,10 @@ public class IngresoActivosAjenosController {
                     )
                 );
 
-            // El periodo de vigencia es de 3 meses: si no llega la fecha de retiro, se calcula.
-            String fechaFin = fechaRetiro;
-            if (fechaFin == null || fechaFin.isBlank()) {
-                fechaFin = LocalDate.parse(fechaIncorporacion).plusMonths(3).toString();
-            }
+            // El periodo de vigencia es SIEMPRE de 3 meses y lo calcula el servidor. Antes se
+            // usaba la fecha que mandaba el navegador, que por la zona horaria podía venir
+            // corrida varios días (y el PDF y la base no coincidían).
+            String fechaFin = LocalDate.parse(fechaIncorporacion).plusMonths(3).toString();
 
             // Nota del inmediato superior que autoriza el ingreso (una por ingreso).
             String notaPath = archivoStorageService.guardar(notaSuperior, "ajenos/notas", "nota_" + codigoFuncionarioPropietario);
@@ -169,7 +192,7 @@ public class IngresoActivosAjenosController {
 
             byte[] pdfBytes = pdfIngresoActivoAjenoService.generarPdfActivosAjenos(
                 fechaIncorporacion,
-                fechaRetiro,
+                fechaFin,
                 responsablePropietario,
                 oficinaIncorpora.getNombre(),
                 responsableAutorizador,
@@ -187,6 +210,9 @@ public class IngresoActivosAjenosController {
             return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
 
         } catch (Exception ex) {
+            // Se responde el error, pero lo hecho se deshace: el catch no relanzaba y la
+            // transacción se confirmaba igual (un reintento duplicaba el ingreso).
+            org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             ex.printStackTrace();
             String errorMsg = "Error procesando: " + ex.getMessage();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
@@ -217,30 +243,30 @@ public class IngresoActivosAjenosController {
 
     private Responsable obtenerORegistrarResponsable(String codigoFuncionario, String ci) {
         Responsable responsable = responsableService.buscarPorCodigo(codigoFuncionario);
-        
+
         Map<String, String> requestBody = Map.of(
             "usuario", codigoFuncionario,
             "contrasena", ci
         );
-    
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("key", "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10");
-    
+
         RestTemplate restTemplate = new RestTemplate();
         HttpEntity<Map<String, String>> request = new HttpEntity<>(requestBody, headers);
-    
+
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
             "http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos",
              HttpMethod.POST,
             request,
             new ParameterizedTypeReference<Map<String, Object>>() {}
         );
-    
+
         if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
             throw new RuntimeException("Error consultando API externa.");
         }
-    
+
         Map<String, Object> datos = Objects.requireNonNull(response.getBody());
         String nombre = (String) datos.get("per_nombres");
         String paterno = (String) datos.get("per_ap_paterno");
@@ -251,12 +277,12 @@ public class IngresoActivosAjenosController {
         String nombreOficina = (String) datos.get("eo_descripcion");
         String nombrePredio= (String) datos.get("cp_descripcion");
         String nombreCargo = (String) datos.get("p_descripcion");
-    
+
         Persona persona = personaService.buscarPersonaPorCI(ciPersona);
         if (persona == null) {
             persona = personaService.buscarPersonaPorNombreCompletoUno(nombre, paterno, materno);
         }
-    
+
         if (persona == null) {
             persona = new Persona();
             persona.setNombre(nombre);
@@ -265,7 +291,7 @@ public class IngresoActivosAjenosController {
             persona.setCi(ciPersona);
             persona.setCorreo(correo);
             persona.setEstado("ACTIVO");
-    
+
             Genero genero = generoService.buscarGeneroPorNombre(sexo);
             if (genero == null) {
                 genero = new Genero();
@@ -276,10 +302,10 @@ public class IngresoActivosAjenosController {
                 generoService.save(genero);
             }
             persona.setGenero(genero);
-    
+
             personaService.save(persona);
         }
-    
+
         Predio predio = predioServicio.findByDescrip(nombrePredio)
             .orElseGet(() -> {
                 Entidad entidadP = entidadService.findById(53L);
@@ -294,7 +320,7 @@ public class IngresoActivosAjenosController {
                 p.setRegistro(new Date());
                 p.setRegistroIdUsuario(1L);
                 return predioServicio.save(p);
-            }); 
+            });
 
         Oficina oficina = oficinaService.buscarPorNombre(nombreOficina).orElseGet(() -> {
             short next = oficinaService.nextCodOfiForPredio(predio.getIdPredio());
@@ -307,7 +333,7 @@ public class IngresoActivosAjenosController {
             o.setPredio(predio);
             return oficinaService.save(o);
         });
-    
+
         Cargo cargo = cargoService.buscarPorNombre(nombreCargo);
         if (cargo == null) {
             cargo = new Cargo();
@@ -317,7 +343,7 @@ public class IngresoActivosAjenosController {
             cargo.setRegistroIdUsuario(1L);
             cargoService.save(cargo);
         }
-    
+
         List<Responsable> relacionados = responsableService.findByPersonaAndEstado(persona, "ACTIVO");
         if (relacionados.isEmpty()) {
             // Si NO existe ninguno y quieres crear uno "base", créalo aquí.

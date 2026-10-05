@@ -1,176 +1,529 @@
-<h4 class="py-3 mb-2"><span class="text-muted fw-light">Administración del Sistema /</span> Gestión de Menú</h4>
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Gestión de Menú — plantilla de mantenimiento (docs/PLANTILLA_MODULOS.md)
+     Carga eficiente:
+       · el árbol llega YA armado con la vista (th:replace menu/tabla :: arbol): un solo
+         pedido al abrir; /tabla solo se pide para recargar;
+       · las acciones hacen un solo pedido (sin el chequeo previo de sesión);
+       · la recarga propia y el eco SSE del mismo cambio se juntan en UNA recarga;
+       · al recargar se conservan los grupos contraídos, el filtro y el scroll.
+     Todo dentro de #modMenu y sin funciones globales, salvo window.menuGestionRecargar,
+     que es el gancho que usa sciaf-menu-vivo.js cuando otro administrador cambia el menú.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modMenu">
 
-<!-- Qué hace cada acción: es lo primero que alguien se pregunta en esta pantalla. -->
-<div class="card border-0 shadow-sm mb-3">
-    <div class="card-body py-3">
-        <div class="row g-3 small">
-            <div class="col-12 col-md-6 col-xl-3 d-flex gap-2">
-                <i class="ti ti-arrows-move fs-4 text-primary"></i>
-                <div><strong>Ordenar y mover:</strong> arrastre desde <i class="ti ti-grip-vertical"></i>.
-                    Un ítem se puede soltar en otro grupo y un grupo en otra sección. Se guarda al pulsar
-                    <em>Guardar orden</em>.</div>
-            </div>
-            <div class="col-12 col-md-6 col-xl-3 d-flex gap-2">
-                <i class="ti ti-eye-off fs-4 text-secondary"></i>
-                <div><strong>Ocultar:</strong> sale del menú, pero quien tiene el permiso sigue pudiendo usar
-                    la pantalla (por ejemplo, desde otro módulo).</div>
-            </div>
-            <div class="col-12 col-md-6 col-xl-3 d-flex gap-2">
-                <i class="ti ti-lock fs-4 text-danger"></i>
-                <div><strong>Bloquear:</strong> sigue en el menú con un candado y <u>nadie</u> puede entrar,
-                    salvo ADMINISTRADOR. Para mantenimiento. En un grupo, bloquea todo lo que tiene.</div>
-            </div>
-            <div class="col-12 col-md-6 col-xl-3 d-flex gap-2">
-                <i class="ti ti-trash fs-4 text-danger"></i>
-                <div><strong>Eliminar:</strong> desaparece del menú y de los permisos de los usuarios.
-                    Queda en la <em>papelera</em> y se puede restaurar.</div>
-            </div>
+<style>
+    #modMenu .mn-arbol { padding: .75rem 1rem 1rem; }
+    #modMenu .mn-nodo { margin-bottom: .4rem; }
+    #modMenu .mn-fila {
+        display: flex; align-items: center; gap: .6rem;
+        padding: .5rem .65rem; border-radius: 11px;
+        background: var(--sm-superficie); border: 1px solid var(--sm-borde);
+        box-shadow: inset 0 1px 0 var(--sm-brillo), 0 1px 2px rgba(15, 23, 42, .05);
+        transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+    }
+    #modMenu .mn-fila:hover {
+        border-color: rgba(var(--sm-primario-rgb), .35);
+        box-shadow: inset 0 1px 0 var(--sm-brillo), 0 6px 14px -8px rgba(var(--sm-primario-rgb), .45);
+    }
+    #modMenu .mn-seccion > .mn-fila {
+        background: linear-gradient(90deg, rgba(var(--sm-primario-rgb), .1), rgba(var(--sm-primario-rgb), .03));
+        border-color: rgba(var(--sm-primario-rgb), .25);
+    }
+    #modMenu .mn-hijos { margin-left: 1.55rem; padding: .4rem 0 .05rem .7rem; border-left: 2px dashed rgba(var(--sm-primario-rgb), .18); min-height: 12px; }
+    #modMenu .mn-colapsado > .mn-hijos { display: none; }
+    #modMenu .mn-asa { cursor: grab; color: var(--sm-texto-2); font-size: 1.15rem; display: inline-flex; padding: .1rem; border-radius: 6px; }
+    #modMenu .mn-asa:hover { background: var(--sm-superficie-3); color: var(--sm-primario); }
+    #modMenu .mn-asa:active { cursor: grabbing; }
+    #modMenu .mn-caret {
+        border: 0; background: transparent; color: var(--sm-texto-2); width: 26px; height: 26px; border-radius: 7px;
+        display: inline-flex; align-items: center; justify-content: center; transition: transform .15s ease, background-color .15s;
+    }
+    #modMenu .mn-caret:hover { background: var(--sm-superficie-3); }
+    #modMenu .mn-colapsado > .mn-fila .mn-caret { transform: rotate(-90deg); }
+    #modMenu .mn-tipo {
+        font-size: .68rem; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+        color: var(--sm-primario); background: var(--sm-superficie); border: 1px solid rgba(var(--sm-primario-rgb), .3);
+        border-radius: 6px; padding: .15rem .45rem;
+    }
+    #modMenu .mn-texto { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; line-height: 1.3; }
+    #modMenu .mn-nombre { font-weight: 600; color: var(--sm-texto); font-size: .97rem; }
+    #modMenu .mn-item .mn-nombre { font-weight: 500; }
+    #modMenu .mn-meta { font-size: .78rem; color: var(--sm-texto-2); display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; min-width: 0; }
+    #modMenu .mn-meta code { font-size: .76rem; color: var(--sm-texto-2); background: transparent; padding: 0; }
+    #modMenu .mn-cuenta { opacity: .85; }
+    #modMenu .mn-url { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sm-primario); }
+    #modMenu .mn-acciones { margin-left: auto; display: flex; gap: .3rem; flex-wrap: nowrap; opacity: .55; transition: opacity .15s ease; }
+    #modMenu .mn-fila:hover .mn-acciones, #modMenu .mn-fila:focus-within .mn-acciones { opacity: 1; }
+    #modMenu .mn-acciones .sm-btn { margin-bottom: 0; width: 32px; height: 32px; }
+    #modMenu .mn-oculto > .mn-fila { border-style: dashed; }
+    #modMenu .mn-oculto > .mn-fila .mn-nombre { opacity: .6; }
+    #modMenu .mn-bloqueado > .mn-fila { box-shadow: inset 4px 0 0 var(--sm-peligro), 0 1px 2px rgba(15, 23, 42, .05); }
+    #modMenu .mn-fantasma > .mn-fila { background: rgba(var(--sm-exito-rgb), .12) !important; border: 1px dashed var(--sm-exito); }
+    #modMenu .mn-movido > .mn-fila { box-shadow: inset 4px 0 0 #f59e0b, 0 1px 2px rgba(15, 23, 42, .05); }
+    #modMenu .mn-oculta-filtro { display: none !important; }
+    #modMenu .mn-pendiente {
+        display: flex; gap: .75rem; align-items: center; flex-wrap: wrap;
+        padding: .65rem 1rem; border-bottom: 1px solid rgba(245, 158, 11, .35);
+        background: rgba(245, 158, 11, .1); color: var(--sm-texto); font-size: .9rem;
+    }
+    #modMenu .mn-pendiente .sm-btn { margin-bottom: 0; }
+    #modMenu .mn-papelera-fila { display: flex; align-items: center; gap: .6rem; padding: .6rem .2rem; border-bottom: 1px solid var(--sm-borde); }
+    #modMenu .mn-papelera-fila:last-child { border-bottom: 0; }
+    #modMenu .mn-ayuda-item { display: flex; gap: .75rem; padding: .7rem 0; border-bottom: 1px dashed var(--sm-borde); }
+    #modMenu .mn-ayuda-item:last-child { border-bottom: 0; }
+    #modMenu .mn-ayuda-item > i { font-size: 1.5rem; }
+    @media (max-width: 767.98px) {
+        #modMenu .mn-fila { flex-wrap: wrap; }
+        #modMenu .mn-acciones { opacity: 1; width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+        #modMenu .mn-hijos { margin-left: .6rem; }
+    }
+</style>
+
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-layout-sidebar"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-users"></i> Usuarios <i class="ti ti-chevron-right"></i> Gestión de menú
+        </nav>
+        <h1 class="sm-titulo">Gestión de menú</h1>
+        <p class="sm-subtitulo">Secciones, grupos y opciones del menú lateral. Los cambios se aplican al instante a quien esté conectado.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-n-secciones">—</strong> secciones</span>
+        <span class="sm-dato"><strong class="js-n-grupos">—</strong> grupos</span>
+        <span class="sm-dato"><strong class="js-n-items">—</strong> opciones</span>
+        <div class="dropdown">
+            <button type="button" class="sm-btn" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="ti ti-plus"></i> Agregar <i class="ti ti-chevron-down"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end sm-menu-flotante">
+                <li><a class="dropdown-item" href="javascript:void(0)" data-accion="nuevo" data-tipo="ITEM">
+                    <i class="ti ti-point"></i> Ítem (pantalla o permiso)</a></li>
+                <li><a class="dropdown-item" href="javascript:void(0)" data-accion="nuevo" data-tipo="GRUPO">
+                    <i class="ti ti-folder"></i> Grupo (desplegable)</a></li>
+                <li><a class="dropdown-item" href="javascript:void(0)" data-accion="nuevo" data-tipo="SECCION">
+                    <i class="ti ti-heading"></i> Sección (encabezado)</a></li>
+            </ul>
         </div>
-        <div class="small text-muted mt-2">
-            <i class="ti ti-bolt text-warning"></i> Los cambios se aplican al instante: el menú de cada usuario
-            conectado se actualiza solo, sin cerrar sesión.
+    </div>
+</header>
+
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar opción, código o URL…"
+                autocomplete="off" aria-label="Buscar en el menú" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+
+        <!-- Filtro por marca: muestra lo marcado y dónde está -->
+        <div class="sm-segmento js-segmento" role="group" aria-label="Filtrar">
+            <button type="button" class="activo" data-filtro="">Todo</button>
+            <button type="button" data-filtro="oculto">Ocultos <span class="sm-cuenta" data-cuenta="oculto">0</span></button>
+            <button type="button" data-filtro="bloqueado" data-tono="peligro">Bloqueados <span class="sm-cuenta" data-cuenta="bloqueado">0</span></button>
+            <button type="button" data-filtro="permiso">Permisos especiales <span class="sm-cuenta" data-cuenta="permiso">0</span></button>
+            <button type="button" data-filtro="rota" data-tono="peligro" title="Ítems cuya URL no corresponde a ninguna pantalla">URL rota <span class="sm-cuenta" data-cuenta="rota">0</span></button>
+        </div>
+
+        <div class="sm-toolbar-grupo">
+            <button type="button" class="sm-btn sm-btn-neutro sm-btn-icono" data-accion="expandir" title="Expandir todo">
+                <i class="ti ti-arrows-vertical"></i></button>
+            <button type="button" class="sm-btn sm-btn-neutro sm-btn-icono" data-accion="contraer" title="Contraer los grupos">
+                <i class="ti ti-fold"></i></button>
+            <button type="button" class="sm-btn sm-btn-neutro" data-accion="papelera" title="Opciones eliminadas (se pueden restaurar)">
+                <i class="ti ti-trash"></i> Papelera <span class="sm-pastilla py-0 js-n-papelera">0</span></button>
+            <button type="button" class="sm-btn sm-btn-neutro sm-btn-icono" data-accion="ayuda" title="¿Qué hace cada acción?">
+                <i class="ti ti-help"></i></button>
+        </div>
+    </div>
+
+    <!-- Orden cambiado en pantalla y sin guardar -->
+    <div class="mn-pendiente js-pendiente d-none">
+        <i class="ti ti-alert-circle fs-4 text-warning"></i>
+        <span class="flex-grow-1">Movió opciones de lugar. El menú de los usuarios no cambia hasta que guarde.</span>
+        <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro" data-accion="descartar">Descartar</button>
+        <button type="button" class="sm-btn sm-btn-sm sm-btn-exito" data-accion="guardar-orden">
+            <i class="ti ti-device-floppy"></i> Guardar orden</button>
+    </div>
+
+    <!-- El árbol llega con la vista: sin segundo pedido al abrir -->
+    <div class="js-arbol">
+        <th:block th:replace="~{menu/tabla :: arbol}"></th:block>
+    </div>
+</section>
+
+<!-- Formulario de alta / edición -->
+<div class="modal fade" id="modalFormularioMenu" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content sm-modal" id="contenidoModalMenu"></div>
+    </div>
+</div>
+
+<!-- Papelera -->
+<div class="modal fade" id="modalPapeleraMenu" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content sm-modal">
+            <div class="sm-modal-cab">
+                <div class="sm-cabecera-icono"><i class="ti ti-trash"></i></div>
+                <div>
+                    <h5 class="sm-modal-titulo">Papelera del menú</h5>
+                    <p class="sm-modal-sub">Opciones eliminadas. Al restaurarlas vuelven a su lugar, pero sin los permisos que tenían.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body sm-modal-cuerpo pb-3">
+                <div class="sm-seccion px-3 mb-0 js-papelera"></div>
+            </div>
         </div>
     </div>
 </div>
 
-<div id="tablaRegistro"></div>
-
-<div class="modal fade" id="modalFormularioMenu" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content" id="contenidoModalMenu"></div>
+<!-- Ayuda: qué hace cada acción -->
+<div class="modal fade" id="modalAyudaMenu" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content sm-modal">
+            <div class="sm-modal-cab">
+                <div class="sm-cabecera-icono"><i class="ti ti-help"></i></div>
+                <div>
+                    <h5 class="sm-modal-titulo">¿Qué hace cada acción?</h5>
+                    <p class="sm-modal-sub">Los cambios se aplican al instante: el menú de cada usuario conectado se actualiza solo.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body sm-modal-cuerpo pb-3">
+                <div class="sm-seccion px-3 mb-0">
+                    <div class="mn-ayuda-item"><i class="ti ti-arrows-move text-primary"></i>
+                        <div><strong>Ordenar y mover:</strong> arrastre desde <i class="ti ti-grip-vertical"></i> o use las flechas.
+                            Un ítem se puede soltar en otro grupo y un grupo en otra sección. Se guarda al pulsar <em>Guardar orden</em>.</div></div>
+                    <div class="mn-ayuda-item"><i class="ti ti-eye-off text-secondary"></i>
+                        <div><strong>Ocultar:</strong> sale del menú, pero quien tiene el permiso sigue pudiendo usar la
+                            pantalla (por ejemplo, desde otro módulo).</div></div>
+                    <div class="mn-ayuda-item"><i class="ti ti-lock text-danger"></i>
+                        <div><strong>Bloquear:</strong> sigue en el menú con un candado y <u>nadie</u> puede entrar, salvo
+                            ADMINISTRADOR. Para mantenimiento. En un grupo, bloquea todo lo que tiene.</div></div>
+                    <div class="mn-ayuda-item"><i class="ti ti-trash text-danger"></i>
+                        <div><strong>Eliminar:</strong> desaparece del menú y de los permisos de los usuarios. Queda en la
+                            <em>papelera</em> y se puede restaurar.</div></div>
+                    <div class="mn-ayuda-item"><i class="ti ti-key text-info"></i>
+                        <div><strong>Permiso especial:</strong> un ítem sin URL. No es una pantalla: es una casilla en
+                            «Permisos» que habilita una acción.</div></div>
+                </div>
+            </div>
+        </div>
     </div>
+</div>
+
 </div>
 
 <script>
     (function () {
-        // SortableJS está en vendor pero no lo carga el layout: se trae solo acá.
-        if (!window.Sortable && !document.getElementById('sortablejs-lib')) {
-            const s = document.createElement('script');
-            s.id = 'sortablejs-lib';
-            s.src = '/assets/vendor/libs/sortablejs/sortable.js';
-            s.onload = () => { if (typeof window.menuGestionActivarArrastre === 'function') window.menuGestionActivarArrastre(); };
-            document.head.appendChild(s);
-        }
-    })();
+        const URL = '/administracion/menu';
+        const $raiz = $('#modMenu');
+        const $arbol = $raiz.find('.js-arbol');
+        const $tarjeta = $arbol.closest('.sm-card');
+        const $modalForm = $raiz.find('#modalFormularioMenu');
+        const esc = SciafModulo.escapar;
+        const norm = t => window.SciafCatalogos ? SciafCatalogos.normalizarTexto(t || '') : (t || '').toLowerCase();
 
-    $(document).ready(function () {
-        cargarTabla();
-    });
+        const pendientes = new Map();     // idPadre ('' = raíz) → lista cuyo orden cambió
+        const colapsados = new Set();     // ids de nodos contraídos: sobreviven a las recargas
+        const filtro = { texto: '', marca: '' };
+        let sortables = [];
 
-    function cargarTabla(silencioso) {
-        if (!silencioso) {
-            showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
-        }
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/menu/tabla",
-            success: function (response) {
-                $("#tablaRegistro").html(response);
-            },
-            error: function () {
-                $("#tablaRegistro").html(`
-                    <div class="alert alert-danger m-3">
-                    Ocurrió un error al cargar el menú.
-                    <button class="btn btn-sm btn-outline-danger ms-2" onclick="cargarTabla()">Reintentar</button>
-                    </div>`);
-            },
-            complete: function () {
-                if (!silencioso) hideGlobalLoader();
-            }
-        });
-    }
-
-    /**
-     * Otro administrador cambió el menú (llega por SSE, ver sciaf-menu-vivo.js): se
-     * redibuja, salvo que acá haya un orden sin guardar, que no se quiere perder.
-     */
-    window.menuGestionRecargar = function () {
-        if (!document.getElementById('menu-arbol')) return;
-        if (window.menuGestionHayPendientes && window.menuGestionHayPendientes()) return;
-        cargarTabla(true);
-    };
-
-    function cargarFormulario(tipo, idPadre) {
-        $.ajax({
-            url: "/adm/cargar-datos", method: "GET",
-            success: function () {
-                $.post("/administracion/menu/formulario", { tipo: tipo || 'ITEM', idPadre: idPadre || '' }, function (html) {
-                    $("#contenidoModalMenu").html(html);
-                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFormularioMenu')).show();
+        /* ── SortableJS: está en vendor pero el layout no lo carga; se trae una vez ── */
+        function cargarSortable() {
+            if (window.Sortable) return Promise.resolve();
+            if (!window.__sciafSortable) {
+                window.__sciafSortable = new Promise(function (ok, mal) {
+                    const s = document.createElement('script');
+                    s.src = '/assets/vendor/libs/sortablejs/sortable.js';
+                    s.onload = ok;
+                    s.onerror = mal;
+                    document.head.appendChild(s);
                 });
             }
-        });
-    }
+            return window.__sciafSortable;
+        }
 
-    function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/administracion/menu/formulario-edit", "#contenidoModalMenu", "#formularioMenu");
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFormularioMenu')).show();
-    }
+        function activarArrastre() {
+            sortables.forEach(s => { try { s.destroy(); } catch (e) { /* ya no está */ } });
+            sortables = [];
+            $arbol.find('.mn-lista').each(function () {
+                const lista = this;
+                sortables.push(Sortable.create(lista, {
+                    group: { name: 'mn-' + lista.dataset.tipoHijo, pull: true, put: true },
+                    handle: '.mn-asa',
+                    draggable: '.mn-nodo',
+                    animation: 150,
+                    ghostClass: 'mn-fantasma',
+                    fallbackOnBody: true,
+                    swapThreshold: 0.6,
+                    onEnd: function (ev) {
+                        if (ev.from === ev.to && ev.oldIndex === ev.newIndex) return;
+                        ev.item.classList.add('mn-movido');
+                        marcarPendiente(ev.from);
+                        marcarPendiente(ev.to);
+                        const cerrado = ev.to.closest('.mn-colapsado');
+                        if (cerrado) { cerrado.classList.remove('mn-colapsado'); colapsados.delete(cerrado.dataset.id); }
+                    }
+                }));
+            });
+        }
 
-    /** POST de una acción puntual, con confirmación (toda escritura pregunta antes). */
-    function accionMenu(url, confirmacion) {
-        sciafConfirmar(confirmacion).then(function (si) {
-            if (!si) return;
-            $.ajax({
-                url: "/adm/cargar-datos", method: "GET",
-                success: function () {
-                    $.ajax({
-                        type: 'POST', url: url, dataType: 'json',
-                        success: function (resp) {
-                            cargarTabla(true);
-                            if (resp.ok) {
-                                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: resp.msg,
-                                    showConfirmButton: false, timer: 3500 });
-                            } else {
-                                Swal.fire('Atención', resp.msg || 'No se pudo completar la acción.', 'warning');
-                            }
-                        },
-                        error: function (xhr) {
-                            const msg = xhr.responseJSON && xhr.responseJSON.msg;
-                            Swal.fire('Error', msg || 'No se pudo completar la acción.', 'error');
-                        }
-                    });
+        /* ── Orden pendiente ─────────────────────────────────────────────── */
+        function marcarPendiente(lista) {
+            if (!lista) return;
+            pendientes.set(lista.dataset.padre || '', lista);
+            $raiz.find('.js-pendiente').removeClass('d-none');
+            recalcularAlto();
+        }
+
+        function limpiarPendientes() {
+            pendientes.clear();
+            $raiz.find('.js-pendiente').addClass('d-none');
+            recalcularAlto();
+        }
+
+        /* ── Contadores, papelera y filtro ───────────────────────────────── */
+        function contar() {
+            $raiz.find('.js-n-secciones').text($arbol.find('.mn-seccion').length);
+            $raiz.find('.js-n-grupos').text($arbol.find('.mn-grupo').length);
+            $raiz.find('.js-n-items').text($arbol.find('.mn-item').length);
+            ['oculto', 'bloqueado', 'permiso', 'rota'].forEach(function (m) {
+                $raiz.find('[data-cuenta="' + m + '"]').text($arbol.find('.mn-nodo[data-' + m + '="true"]').length);
+            });
+            const $fuente = $arbol.find('.js-papelera-fuente');
+            $raiz.find('.js-n-papelera').text($fuente.data('cantidad') || 0);
+            $raiz.find('.js-papelera').html($fuente.children().length
+                ? $fuente.html()
+                : '<div class="text-muted py-3">La papelera está vacía.</div>');
+        }
+
+        function aplicarFiltro() {
+            const q = norm(filtro.texto).trim();
+            const marca = filtro.marca;
+            const nodos = $arbol.find('.mn-nodo').get();
+            nodos.forEach(n => n.classList.remove('mn-oculta-filtro'));
+            if (!q && !marca) {
+                // Sin filtro vuelve lo que el usuario había contraído.
+                nodos.forEach(n => n.classList.toggle('mn-colapsado', colapsados.has(n.dataset.id)));
+                return;
+            }
+            nodos.forEach(n => n.classList.add('mn-oculta-filtro'));
+            nodos.forEach(function (n) {
+                const coincide = (!q || norm(n.dataset.buscar).includes(q)) && (!marca || n.dataset[marca] === 'true');
+                if (!coincide) return;
+                // Se muestra el nodo y el camino hasta él, abierto.
+                for (let p = n; p && p !== $arbol[0]; p = p.parentElement) {
+                    if (p.classList.contains('mn-nodo')) p.classList.remove('mn-oculta-filtro', 'mn-colapsado');
+                }
+                // Buscar por texto una sección o grupo muestra todo lo que contiene.
+                if (q && !marca) n.querySelectorAll('.mn-nodo').forEach(h => h.classList.remove('mn-oculta-filtro'));
+            });
+        }
+
+        /* ── Carga ───────────────────────────────────────────────────────── */
+        let recalcularAlto = function () {};
+
+        function iniciarArbol() {
+            contar();
+            aplicarFiltro();
+            cargarSortable().then(activarArrastre).catch(function () {
+                console.warn('[Menú] No se pudo cargar SortableJS: queda ordenar con las flechas.');
+            });
+            recalcularAlto();
+        }
+
+        function cargarArbol() {
+            const scroll = $arbol.scrollTop();
+            $tarjeta.addClass('sm-procesando');
+            return SciafModulo.cargar($arbol, URL + '/tabla')
+                .then(function () {
+                    limpiarPendientes();
+                    iniciarArbol();
+                    $arbol.scrollTop(scroll);
+                })
+                .catch(e => SciafModulo.avisarError(e, 'No se pudo cargar el menú'))
+                .finally(() => $tarjeta.removeClass('sm-procesando'));
+        }
+
+        // La recarga propia (después de una acción) y el aviso SSE del mismo cambio llegan
+        // casi juntos: se juntan en UNA sola recarga.
+        let esperaRecarga = null;
+        function programarRecarga() {
+            clearTimeout(esperaRecarga);
+            esperaRecarga = setTimeout(cargarArbol, 300);
+        }
+
+        /** Gancho de sciaf-menu-vivo.js: otro administrador cambió el menú. */
+        // También con la pestaña oculta: así al volver ya está al día.
+        window.menuGestionRecargar = function () {
+            if (pendientes.size) return;          // no pisar un orden sin guardar
+            programarRecarga();
+        };
+
+        /* ── Formularios y acciones ──────────────────────────────────────── */
+        function abrirNuevo(tipo, idPadre) {
+            SciafModulo.abrirFormulario($modalForm, $raiz.find('#contenidoModalMenu'), URL + '/formulario',
+                { tipo: tipo || 'ITEM', idPadre: idPadre || '' });
+        }
+
+        function abrirEdicion(id) {
+            SciafModulo.abrirFormulario($modalForm, $raiz.find('#contenidoModalMenu'), URL + '/formulario-edit/' + id);
+        }
+
+        SciafModulo.alGuardarModal($modalForm, programarRecarga);
+
+        function accion(url, confirmacion) {
+            SciafModulo.accion({ url: url, confirmacion: confirmacion, alTerminar: programarRecarga });
+        }
+
+        function moverLocal(nodo, delta) {
+            const lista = nodo.parentElement;
+            const hermanos = Array.from(lista.children).filter(c => c.classList.contains('mn-nodo'));
+            const j = hermanos.indexOf(nodo) + delta;
+            if (j < 0 || j >= hermanos.length) return;
+            lista.insertBefore(nodo, delta < 0 ? hermanos[j] : hermanos[j].nextSibling);
+            nodo.classList.add('mn-movido');
+            marcarPendiente(lista);
+        }
+
+        function guardarOrden() {
+            if (!pendientes.size) return;
+            sciafConfirmar({
+                titulo: '¿Guardar el nuevo orden del menú?',
+                texto: 'El menú de todos los usuarios conectados se actualiza al instante.',
+                aceptar: 'Sí, guardar'
+            }).then(async function (si) {
+                if (!si) return;
+                const $boton = $raiz.find('[data-accion="guardar-orden"]').prop('disabled', true);
+                try {
+                    // En secuencia: mover un ítem de grupo toca dos listas y el servidor
+                    // reasigna el padre al guardar la de destino.
+                    for (const [padre, lista] of pendientes) {
+                        const ids = Array.from(lista.children)
+                            .filter(c => c.classList.contains('mn-nodo'))
+                            .map(c => Number(c.dataset.id));
+                        const r = await SciafModulo.pedirJson(URL + '/reordenar',
+                            { json: { idPadre: padre === '' ? null : Number(padre), ids: ids } });
+                        if (!r.ok) throw new Error(r.msg || 'No se pudo guardar el orden.');
+                    }
+                    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Orden guardado',
+                        showConfirmButton: false, timer: 3000 });
+                } catch (e) {
+                    SciafModulo.avisarError(e, 'No se pudo guardar el orden');
+                } finally {
+                    $boton.prop('disabled', false);
+                    limpiarPendientes();
+                    programarRecarga();
                 }
             });
-        });
-    }
+        }
 
-    function toggleOpcion(id, nombre, visible) {
-        accionMenu("/administracion/menu/toggle/" + id, {
-            titulo: visible ? '¿Ocultar «' + nombre + '» del menú?' : '¿Mostrar «' + nombre + '» en el menú?',
-            texto: visible ? 'Deja de aparecer en el menú de todos. Los permisos asignados se conservan.'
-                           : 'Vuelve a aparecer en el menú de quienes tengan el permiso.',
-            aceptar: visible ? 'Sí, ocultar' : 'Sí, mostrar'
+        $raiz.on('click', '[data-accion]', function (e) {
+            const $b = $(this);
+            const nodo = this.closest('.mn-nodo, .mn-papelera-fila');
+            const id = nodo ? nodo.dataset.id : null;
+            const nombre = nodo ? nodo.dataset.nombre : '';
+            switch ($b.attr('data-accion')) {
+                case 'colapsar':
+                    nodo.classList.toggle('mn-colapsado');
+                    if (nodo.classList.contains('mn-colapsado')) colapsados.add(id); else colapsados.delete(id);
+                    break;
+                case 'expandir':
+                    colapsados.clear();
+                    $arbol.find('.mn-nodo').removeClass('mn-colapsado');
+                    break;
+                case 'contraer':
+                    $arbol.find('.mn-grupo').each(function () { colapsados.add(this.dataset.id); this.classList.add('mn-colapsado'); });
+                    break;
+                case 'subir':  moverLocal(nodo, -1); break;
+                case 'bajar':  moverLocal(nodo, 1); break;
+                case 'nuevo':  abrirNuevo($b.attr('data-tipo'), null); break;
+                case 'agregar': abrirNuevo($b.attr('data-tipo-hijo'), id); break;
+                case 'editar': abrirEdicion(id); break;
+                case 'abrir':
+                    if (window.cargarContenido) window.cargarContenido($b.attr('data-url'));
+                    break;
+                case 'visible': {
+                    const visible = $b.attr('data-visible') === 'true';
+                    accion(URL + '/toggle/' + id, {
+                        titulo: visible ? '¿Ocultar «' + nombre + '» del menú?' : '¿Mostrar «' + nombre + '» en el menú?',
+                        texto: visible ? 'Deja de aparecer en el menú de todos. Los permisos asignados se conservan.'
+                                       : 'Vuelve a aparecer en el menú de quienes tengan el permiso.',
+                        aceptar: visible ? 'Sí, ocultar' : 'Sí, mostrar'
+                    });
+                    break;
+                }
+                case 'bloquear': {
+                    const bloquear = $b.attr('data-bloquear') === 'true';
+                    accion(URL + '/bloquear/' + id + '?bloquear=' + bloquear, {
+                        titulo: bloquear ? '¿Bloquear «' + nombre + '»?' : '¿Desbloquear «' + nombre + '»?',
+                        texto: bloquear
+                            ? 'Nadie podrá entrar (salvo ADMINISTRADOR) hasta que lo desbloquee. Quien lo tenga abierto verá que se cerró.'
+                            : 'Quienes tengan el permiso podrán volver a usarlo de inmediato.',
+                        aceptar: bloquear ? 'Sí, bloquear' : 'Sí, desbloquear',
+                        peligrosa: bloquear
+                    });
+                    break;
+                }
+                case 'eliminar': {
+                    const usuarios = Number($b.attr('data-usuarios') || 0);
+                    accion(URL + '/eliminar/' + id, {
+                        titulo: '¿Eliminar «' + nombre + '»?',
+                        texto: 'Sale del menú y de la pantalla de permisos.'
+                            + (usuarios > 0 ? '<br><strong>' + usuarios + ' usuario(s)</strong> la tienen asignada y la perderán.' : '')
+                            + '<br><br>Queda en la papelera y se puede restaurar.',
+                        aceptar: 'Sí, eliminar',
+                        peligrosa: true
+                    });
+                    break;
+                }
+                case 'restaurar':
+                    bootstrap.Modal.getInstance($raiz.find('#modalPapeleraMenu')[0])?.hide();
+                    accion(URL + '/restaurar/' + id, {
+                        titulo: '¿Restaurar «' + nombre + '»?',
+                        texto: 'Vuelve al menú en su lugar original. Los permisos que tenía no vuelven: hay que asignarla de nuevo.',
+                        aceptar: 'Sí, restaurar'
+                    });
+                    break;
+                case 'papelera':
+                    bootstrap.Modal.getOrCreateInstance($raiz.find('#modalPapeleraMenu')[0]).show();
+                    break;
+                case 'ayuda':
+                    bootstrap.Modal.getOrCreateInstance($raiz.find('#modalAyudaMenu')[0]).show();
+                    break;
+                case 'guardar-orden': guardarOrden(); break;
+                case 'descartar': cargarArbol(); break;
+            }
         });
-    }
 
-    function bloquearOpcion(id, nombre, bloquear) {
-        accionMenu("/administracion/menu/bloquear/" + id + "?bloquear=" + bloquear, {
-            titulo: bloquear ? '¿Bloquear «' + nombre + '»?' : '¿Desbloquear «' + nombre + '»?',
-            texto: bloquear
-                ? 'Nadie podrá entrar (salvo ADMINISTRADOR) hasta que lo desbloquee. Quien lo tenga abierto verá que se cerró.'
-                : 'Quienes tengan el permiso podrán volver a usarlo de inmediato.',
-            aceptar: bloquear ? 'Sí, bloquear' : 'Sí, desbloquear',
-            peligrosa: bloquear
+        /* ── Buscador y filtro ───────────────────────────────────────────── */
+        const $buscar = $raiz.find('.js-buscar');
+        const $cajaBuscar = $buscar.closest('.sm-buscador');
+        let esperaBusqueda = null;
+        $buscar.on('input', function () {
+            $cajaBuscar.toggleClass('con-texto', !!this.value);
+            clearTimeout(esperaBusqueda);
+            esperaBusqueda = setTimeout(() => { filtro.texto = this.value; aplicarFiltro(); }, 120);
+        }).on('keydown', function (e) {
+            if (e.key === 'Escape' && this.value) { this.value = ''; $(this).trigger('input'); }
         });
-    }
+        $cajaBuscar.find('.sm-buscador-limpiar').on('click', function () { $buscar.val('').trigger('input').trigger('focus'); });
 
-    function eliminarOpcion(id, nombre, usuarios) {
-        accionMenu("/administracion/menu/eliminar/" + id, {
-            titulo: '¿Eliminar «' + nombre + '»?',
-            texto: 'Sale del menú y de la pantalla de permisos.'
-                + (usuarios > 0 ? '<br><strong>' + usuarios + ' usuario(s)</strong> la tienen asignada y la perderán.' : '')
-                + '<br><br>Queda en la papelera y se puede restaurar.',
-            aceptar: 'Sí, eliminar',
-            peligrosa: true
+        $raiz.on('click', '.js-segmento button', function () {
+            const valor = $(this).data('filtro') || '';
+            filtro.marca = (filtro.marca === valor) ? '' : valor;
+            $raiz.find('.js-segmento button').removeClass('activo')
+                .filter(function () { return ($(this).data('filtro') || '') === filtro.marca; }).addClass('activo');
+            aplicarFiltro();
         });
-    }
 
-    function restaurarOpcion(id, nombre) {
-        accionMenu("/administracion/menu/restaurar/" + id, {
-            titulo: '¿Restaurar «' + nombre + '»?',
-            texto: 'Vuelve al menú en su lugar original. Los permisos que tenía no vuelven: hay que asignarla de nuevo.',
-            aceptar: 'Sí, restaurar'
-        });
-    }
+        // El árbol tiene su propio scroll, del alto que queda en pantalla.
+        recalcularAlto = SciafModulo.ajustarAlto($arbol);
+        iniciarArbol();
+    })();
 </script>

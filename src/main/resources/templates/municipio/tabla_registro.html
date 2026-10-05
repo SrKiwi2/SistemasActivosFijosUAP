@@ -1,66 +1,37 @@
-<div class="card">
-    <div class="card-header d-flex justify-content-lg-between">
-        <h5>Registro Municipio</h5>
-        <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal"
-            data-bs-target="#modalFormularioMunicipio">
-            <i class="fa-solid fa-user-plus"></i> Agregar Municipio
-        </button>
-    </div>
-    <div class="card-datatable table-responsive pt-0">
-        <table class="datatables-basic table table-hover" id="data-table">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Municipio</th>
-                    <th>Código</th>
-                    <th>OPCIONES</th>
-                </tr>
-            </thead>
-            <tbody class="animate__animated animate__bounceInDown">
-                <tr th:each="municipio, index: ${listasMunicipios}">
-                    <th th:text="${index.index+1}"></th>
-                    <th th:text="${municipio.nombre}"></th>
-                    <th th:text="${municipio.codigo}"></th>
-                    <th>
-                        <button type="button" class="btn btn-sm btn-primary"
-                            th:onclick="cargarFormularioEdit([[${id_encryptado[__${index.index}__]}]])"
-                            data-bs-toggle="modal" data-bs-target="#modalFormularioMunicipio">
-                            <i class="fa-solid fa-pen-to-square"></i> Editar
-                        </button>
-                        <button type="button" class="btn btn-sm btn-danger" th:onclick="eliminar([[${municipio.nombre}]],[[${id_encryptado[__${index.index}__]}]])">
-                            <i class="fa-solid fa-trash"></i> Eliminar
-                        </button>
-                    </th>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<script>
-    $('#data-table').DataTable({
-        language: {
-            "sProcessing": "Procesando...",
-            "sLengthMenu": "Mostrar _MENU_ registros",
-            "sZeroRecords": "No se encontraron resultados",
-            "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
-            "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
-            "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
-            "sInfoPostFix": "",
-            "sSearch": "Buscar:",
-            "sUrl": "",
-            "sInfoThousands": ",",
-            "sLoadingRecords": "Cargando...",
-            "oPaginate": {
-                "sFirst": "Primero",
-                "sLast": "Último",
-                "sNext": "Siguiente",
-                "sPrevious": "Anterior"
-            },
-            "oAria": {
-                "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
-                "sSortDescending": ": Activar para ordenar la columna de manera descendente"
-            }
-        }
-    });
-</script>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: municipio/tabla_registro.html — municipios.
+     · Al abrir llega incluido en municipio/vista.html (th:replace … :: tabla): un pedido.
+       POST /administracion/municipio/tabla-registros lo devuelve para recargar.
+     · data-predios: cuántos predios usan el municipio (para mostrar y avisar al eliminar).
+     ══════════════════════════════════════════════════════════════ -->
+<table class="table sm-tabla align-middle js-tabla-municipios" th:fragment="tabla">
+    <thead>
+        <tr>
+            <th style="width:140px;">Código</th>
+            <th>Municipio</th>
+            <th style="width:200px;">Predios</th>
+            <th class="text-end" style="width:240px;"><span th:if="${esAdmin}">Opciones</span></th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr th:each="m, it : ${listasMunicipios}"
+            th:with="n=${prediosPorMunicipio.get(m.idMunicipio) ?: 0}"
+            th:attr="data-predios=${n}">
+            <td><span class="sm-codigo sm-mayus" th:text="${m.codigo ?: '—'}"></span></td>
+            <td class="sm-nombre" th:text="${m.nombre}"></td>
+            <td th:attr="data-order=${n}">
+                <span th:if="${n > 0}" class="sm-pastilla sm-pastilla-info py-0">
+                    <i class="ti ti-building-estate"></i> <span th:text="${n}"></span></span>
+                <span th:if="${n == 0}" class="sm-pastilla py-0">Sin predios</span>
+            </td>
+            <td class="text-end">
+                <div class="sm-acciones" th:if="${esAdmin}" th:attr="data-id=${id_encryptado[it.index]}, data-nombre=${m.nombre}">
+                    <button type="button" class="sm-btn sm-btn-sm sm-btn-suave" data-accion="editar" title="Modificar este municipio">
+                        <i class="ti ti-edit"></i> Editar</button>
+                    <button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-peligro" data-accion="eliminar" title="Eliminar este municipio">
+                        <i class="ti ti-trash"></i> Eliminar</button>
+                </div>
+            </td>
+        </tr>
+    </tbody>
+</table>

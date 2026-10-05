@@ -41,6 +41,11 @@ public interface IUsuarioDao extends JpaRepository <Usuario, Long>{
 
     Optional<Usuario> findByIdUsuario(Long idUsuario);
 
+    /** Usuarios (no eliminados) de una persona: a quiénes avisar si cambian sus datos. */
+    @Query("select u.idUsuario from Usuario u where u.persona.idPersona = :idPersona "
+            + "and (u.estado is null or u.estado <> 'ELIMINADO')")
+    List<Long> idsPorPersona(@Param("idPersona") Long idPersona);
+
     /** Usuario con persona y rol ya cargados: va a quedar guardado en la sesión HTTP. */
     @Query("""
         select u

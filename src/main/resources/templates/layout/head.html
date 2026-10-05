@@ -67,6 +67,9 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" />
     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" />
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css" />
+    <!-- Plantilla de pantallas de mantenimiento (ver templates/rol/) -->
+    <link rel="stylesheet" href="/assets/css/sciaf-modulo.css" />
+    <link rel="stylesheet" href="/assets/css/sciaf-precarga.css" />
 
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 
@@ -106,6 +109,15 @@
                     let data = {};
                     try { data = JSON.parse(e.data); } catch (err) { /* sin datos */ }
                     $(document).trigger('sciaf:cola-vsiaf', [data]);
+                });
+
+                // Cambió la lista de activos pendientes (otro usuario registró, editó o subió):
+                // la pantalla de Pendientes lo escucha aquí en vez de abrir su propia conexión
+                // (cada EventSource ocupa una de las pocas conexiones del navegador al servidor).
+                eventSource.addEventListener('pendientes-cambio', function (e) {
+                    let data = {};
+                    try { data = JSON.parse(e.data); } catch (err) { /* sin datos */ }
+                    $(document).trigger('sciaf:pendientes-cambio', [data]);
                 });
 
                 eventSource.addEventListener('sync-progreso', function (e) {

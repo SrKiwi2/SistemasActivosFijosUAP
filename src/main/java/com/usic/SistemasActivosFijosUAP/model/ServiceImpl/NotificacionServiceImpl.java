@@ -129,10 +129,39 @@ public class NotificacionServiceImpl implements INotificacionService {
             if (!n.getUsuario().getIdUsuario().equals(usuario.getIdUsuario())) {
                 throw new IllegalStateException("No autorizado");
             }
+            boolean yaLeida = n.isLeida();
             n.setLeida(true);
             n.setFechaLectura(LocalDateTime.now());
             notificacionDao.save(n);
+
+            // Si es un comunicado, el emisor ve el acuse al momento (su tabla y el control de
+            // lectura abierto se actualizan solos). Se avisa después del commit: si no, el
+            // navegador podría volver a pedir la tabla antes de que el cambio exista.
+            Comunicado com = n.getComunicado();
+            if (!yaLeida && com != null && com.getEmisor() != null) {
+                Long idEmisor = com.getEmisor().getIdUsuario();
+                Long idComunicado = com.getIdComunicado();
+                despuesDelCommit(() -> sseRegistry.enviarAUsuario(idEmisor, EVENTO_ACUSE,
+                        Map.of("idComunicado", idComunicado, "accion", "leida")));
+            }
         });
+    }
+
+    /** Evento SSE para el emisor de un comunicado: alguien confirmó la lectura. */
+    public static final String EVENTO_ACUSE = "comunicado";
+
+    private void despuesDelCommit(Runnable r) {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            r.run();
+                        }
+                    });
+        } else {
+            r.run();
+        }
     }
 
     @Override
@@ -266,8 +295,8 @@ public class NotificacionServiceImpl implements INotificacionService {
         Comunicado com = comunicadoDao.findById(idComunicado)
             .orElseThrow(() -> new IllegalArgumentException("Comunicado no encontrado."));
 
-        List<Notificacion> destinos =
-            notificacionDao.findByComunicadoOrderByLeidaAscFechaCreacionDesc(com);
+        // Una sola consulta con usuario y persona (antes: N+1 por destinatario).
+        List<Notificacion> destinos = notificacionDao.destinatariosConPersona(com);
 
         long total      = destinos.size();
         long recibieron = destinos.stream().filter(Notificacion::isEntregada).count();

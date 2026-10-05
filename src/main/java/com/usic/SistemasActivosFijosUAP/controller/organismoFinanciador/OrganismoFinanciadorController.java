@@ -36,10 +36,14 @@ public class OrganismoFinanciadorController {
     private final IOrganismoFinancieroService organismoFinancieroService;
     private final JavaDbfService dbfService;
     private final SyncControlService syncControlService;
+    /** Sin VSIAF a la vista (laptop de desarrollo, montaje caído) la sincronización avisa en vez de leer 0 registros. */
+    private final com.usic.SistemasActivosFijosUAP.componet.VsiafDisponibilidad vsiaf;
 
+    /** La pantalla llega con la tabla ya armada: un solo pedido al abrir. */
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String inicio_of() {
+    public String inicio_of(Model model) throws Exception {
+        cargarTabla(model, null);
         return "organismoFinanciador/vista";
     }
 
@@ -48,7 +52,11 @@ public class OrganismoFinanciadorController {
     @PostMapping("/tabla-registros")
     public String tablaRegistros_of(Model model,
             @RequestParam(name = "q", required = false) String q) throws Exception {
-        
+        cargarTabla(model, q);
+        return "organismoFinanciador/tabla_registro";
+    }
+
+    private void cargarTabla(Model model, String q) throws Exception {
         try {
             SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("organismo_financiero");
             
@@ -85,7 +93,7 @@ public class OrganismoFinanciadorController {
             model.addAttribute("listasOrganismoFinanciero", lista);
             model.addAttribute("id_encryptado", encryptedIds);
             model.addAttribute("sourceUsed", "db");
-            return "organismoFinanciador/tabla_registro";
+            return;
         }
 
         // Fallback: DBF
@@ -106,7 +114,6 @@ public class OrganismoFinanciadorController {
         model.addAttribute("listasOrganismoFinanciero", fantasma);
         model.addAttribute("id_encryptado", encryptedIds);
         model.addAttribute("sourceUsed", "dbf");
-        return "organismoFinanciador/tabla_registro";
     }
 
     @ValidarUsuarioAutenticado
@@ -117,6 +124,9 @@ public class OrganismoFinanciadorController {
             @RequestParam(name = "forzarCompleto", defaultValue = "false") boolean forzarCompleto) {
         
         long inicio = System.currentTimeMillis();
+        if (!vsiaf.dbf("sincronización manual")) {
+            return ResponseEntity.ok(Map.of("ok", false, "message", vsiaf.motivoDbf()));
+        }
         
         try {
             // Leer DBF
@@ -248,49 +258,6 @@ public class OrganismoFinanciadorController {
         }
         
         return cache;
-    }
-
-    /**
-     * ENDPOINT AJAX para obtener info de sincronización
-     */
-    @GetMapping("/sync-info")
-    @ResponseBody
-    public ResponseEntity<?> obtenerInfoSync() {
-        try {
-            SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("organismo_financiero");
-            
-            if (syncInfo != null) {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
-                
-                return ResponseEntity.ok(Map.of(
-                    "ultimaSincronizacion", syncInfo.getUltimaSincronizacion().format(formatter),
-                    "estado", syncInfo.getEstado(),
-                    "registrosProcesados", syncInfo.getRegistrosProcesados(),
-                    "registrosNuevos", syncInfo.getRegistrosNuevos(),
-                    "registrosActualizados", syncInfo.getRegistrosActualizados(),
-                    "duracionSegundos", syncInfo.getDuracionMs() / 1000.0
-                ));
-            }
-            
-            return ResponseEntity.ok(Map.of(
-                "ultimaSincronizacion", "Nunca sincronizado",
-                "estado", "PENDIENTE",
-                "registrosProcesados", 0,
-                "registrosNuevos", 0,
-                "registrosActualizados", 0,
-                "duracionSegundos", 0.0
-            ));
-            
-        } catch (Exception e) {
-            return ResponseEntity.ok(Map.of(
-                "ultimaSincronizacion", "Error al obtener info",
-                "estado", "ERROR",
-                "registrosProcesados", 0,
-                "registrosNuevos", 0,
-                "registrosActualizados", 0,
-                "duracionSegundos", 0.0
-            ));
-        }
     }
 
     private boolean isBlank(String s) {

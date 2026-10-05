@@ -169,8 +169,8 @@ public class OficinaGestionService implements EjecutorAutorizacion {
 
         original.setPredio(predioNuevo);
         original.setCodOfi(d.codOfi());
-        original.setNombre(d.nombre().trim());
-        original.setObserv(d.observ() != null && !d.observ().isBlank() ? d.observ().trim() : null);
+        original.setNombre(mayus(d.nombre()));
+        original.setObserv(mayus(d.observ()));
         original.setFechaUlt(LocalDate.now());
         original.setModificacion(new Date());
         original.setUsuario(usuarioNombre);
@@ -187,6 +187,13 @@ public class OficinaGestionService implements EjecutorAutorizacion {
                 referencia(original), "Modificó la oficina " + referencia(original) + ": " + cambios,
                 original.getIdOficina());
         return new Resultado(envio.ok(), "Oficina modificada. " + envio.mensaje());
+    }
+
+    /** Texto en MAYÚSCULAS, sin espacios sobrantes; null si queda vacío (como lo guarda el VSIAF). */
+    public static String mayus(String s) {
+        if (s == null) return null;
+        String t = s.trim().replaceAll("\\s+", " ").toUpperCase(java.util.Locale.ROOT);
+        return t.isEmpty() ? null : t;
     }
 
     /** Baja lógica en el SCIAF (en el VSIAF la fila de OFICINA.DBF sigue existiendo). */

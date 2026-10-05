@@ -1,147 +1,490 @@
-<div class="modal-header">
-    <h4 class="modal-title" th:text="${edit}? 'Modificar Usuario' : 'Registrar Usuario'"></h4>
-    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: usuario/formulario.html  (va dentro de .modal-content.sm-modal)
+     El envío lo hace SciafModulo.formulario() y espera JSON { ok, msg }.
+     El nombre de usuario y la contraseña NO pasan a mayúsculas (data-sm-mayus="no"):
+     el ingreso al sistema los compara tal cual se escribieron.
+     ══════════════════════════════════════════════════════════════ -->
+
+<div class="sm-modal-cab">
+    <div class="sm-cabecera-icono">
+        <i class="ti" th:classappend="${edit} ? 'ti-user-edit' : 'ti-user-plus'"></i>
+    </div>
+    <div>
+        <h5 class="sm-modal-titulo" th:text="${edit} ? 'Modificar usuario' : 'Nuevo usuario'">Usuario</h5>
+        <p class="sm-modal-sub"
+            th:text="${edit} ? 'Cambie la persona, el nombre de usuario o el rol.' : 'Cree una cuenta de acceso. Si la persona no está registrada, regístrela aquí mismo.'">
+        </p>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
+
 <form id="formularioUsuario" method="post"
-    th:action="${edit}? @{/administracion/usuario/modificar-usuario} : @{/administracion/usuario/registrar-usuario}" novalidate>
+    th:action="${edit} ? @{/administracion/usuario/modificar-usuario} : @{/administracion/usuario/registrar-usuario}"
+    novalidate>
 
     <input type="hidden" th:if="${edit}" name="idUsuario" th:value="${usuario.idUsuario}">
 
-    <div class="modal-body">
-        <div class="row">
-            <div class="col-12 col-md-6 mb-3">
-                <label class="form-label" for="select2Basic">Persona</label>
-                <select id="select2Basic"
-                        name="persona.idPersona"
-                        class="select2 form-select form-select-lg"
-                        data-allow-clear="true"
-                        required>
-                    <option value="">Seleccione una persona</option>
-                    <option th:each="persona : ${listaPersonas}"
-                            th:value="${persona.idPersona}"
-                            th:selected="${usuario != null && usuario.persona != null && persona.idPersona == usuario.persona.idPersona}"
-                            th:text="${persona.nombreCompleto + ' - ' + persona.ci}">
-                    </option>
-                </select>
-                <div class="invalid-feedback">Debe seleccionar a una persona.</div>
-            </div>
-            <div class="col-12 col-md-6 mb-3">
-                <label for="select2Primary" class="form-label">Rol</label>
-                <div class="select2-primary">
-                    <select id="select2Primary"
-                            name="rol.idRol"
-                            class="select2 form-select"
-                            required>
-                        <option value="">Seleccione un rol</option>
-                        <option th:each="rol: ${listaRoles}"
-                                th:value="${rol.idRol}"
-                                th:text="${rol.nombre}"
-                                th:selected="${usuario != null && usuario.rol != null && rol.idRol == usuario.rol.idRol}">
-                        </option>
-                    </select>
-                    <div class="invalid-feedback">Debe seleccionar un rol.</div>
+    <div class="sm-modal-cuerpo">
+
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-id-badge-2"></i> Persona y rol</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="sm-label" for="usrPersona">Persona <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <select id="usrPersona" name="persona.idPersona" class="select2 form-select"
+                                    data-placeholder="Busque por nombre o C.I." required>
+                                <option value="">Seleccione una persona</option>
+                                <option th:each="persona : ${listaPersonas}"
+                                        th:value="${persona.idPersona}"
+                                        th:selected="${usuario != null && usuario.persona != null && persona.idPersona == usuario.persona.idPersona}"
+                                        th:text="${persona.nombreCompleto + ' - ' + persona.ci}">
+                                </option>
+                            </select>
+                            <div class="invalid-feedback">Seleccione la persona dueña de la cuenta.</div>
+                        </div>
+                        <div class="sm-ayuda d-flex align-items-center flex-wrap gap-2 mt-2 js-np-pregunta">
+                            <span>¿No aparece en la lista?</span>
+                            <button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-np-abrir">
+                                <i class="ti ti-user-plus"></i> Registrar nueva persona
+                            </button>
+                        </div>
+
+                        <!-- Alta rápida de persona. Sus campos no tienen "name": no viajan con el
+                             formulario de usuario; se envían aparte a /persona/registrar-persona. -->
+                        <div class="sm-subformulario js-np d-none">
+                            <div class="sm-subformulario-cab">
+                                <i class="ti ti-user-plus"></i>
+                                <div>
+                                    <strong>Nueva persona</strong>
+                                    <div class="sm-ayuda mt-0">Se registra en <strong>Personas</strong> y queda elegida para este usuario.</div>
+                                </div>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-12 col-md-5">
+                                    <label class="sm-label" for="usrNpCi">C.I. <span class="sm-req">*</span></label>
+                                    <div class="sm-campo">
+                                        <i class="ti ti-id-badge"></i>
+                                        <input type="text" id="usrNpCi" class="sm-input" placeholder="Ej: 1234567" autocomplete="off" />
+                                        <div class="invalid-feedback">Ingrese el C.I.</div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-7">
+                                    <label class="sm-label" for="usrNpNombre">Nombre(s) <span class="sm-req">*</span></label>
+                                    <div class="sm-campo">
+                                        <i class="ti ti-user"></i>
+                                        <input type="text" id="usrNpNombre" class="sm-input" placeholder="Ej: JUAN CARLOS" autocomplete="off" />
+                                        <div class="invalid-feedback">Ingrese el nombre.</div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label class="sm-label" for="usrNpPaterno">Apellido paterno</label>
+                                    <div class="sm-campo">
+                                        <i class="ti ti-letter-p"></i>
+                                        <input type="text" id="usrNpPaterno" class="sm-input" placeholder="Ej: MAMANI" autocomplete="off" />
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label class="sm-label" for="usrNpMaterno">Apellido materno</label>
+                                    <div class="sm-campo">
+                                        <i class="ti ti-letter-m"></i>
+                                        <input type="text" id="usrNpMaterno" class="sm-input" placeholder="Ej: QUISPE" autocomplete="off" />
+                                    </div>
+                                </div>
+                                <!-- Si llega a ser responsable, el VSIAF guarda el nombre completo en 35 caracteres -->
+                                <div class="col-12" id="usrNpContador"></div>
+                            </div>
+                            <div class="d-flex justify-content-end flex-wrap gap-2 mt-3">
+                                <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-np-cancelar">
+                                    <i class="ti ti-x"></i> Cancelar
+                                </button>
+                                <button type="button" class="sm-btn sm-btn-sm sm-btn-exito js-np-guardar">
+                                    <i class="ti ti-device-floppy"></i> Registrar persona
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="sm-label" for="usrRol">Rol <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <select id="usrRol" name="rol.idRol" class="select2 form-select" required>
+                                <option value="">Seleccione un rol</option>
+                                <option th:each="rol: ${listaRoles}"
+                                        th:value="${rol.idRol}"
+                                        th:text="${rol.nombre}"
+                                        th:selected="${usuario != null && usuario.rol != null && rol.idRol == usuario.rol.idRol}">
+                                </option>
+                            </select>
+                            <div class="invalid-feedback">Seleccione un rol.</div>
+                        </div>
+                        <div class="sm-ayuda">Si no se le asignan permisos propios, ve el menú que define su rol.</div>
+                    </div>
                 </div>
-                <small class="text-muted">Si no se le asignan permisos propios, ve el menú que define su rol.</small>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-12 col-md-6 mb-3">
-                <label class="form-label" for="usuario">Nombre de usuario</label>
-                <input type="text"
-                       id="usuario"
-                       name="usuario"
-                       th:value="${usuario != null ? usuario.usuario : ''}"
-                       class="form-control"
-                       placeholder="Ej. jperez"
-                       pattern="[A-Za-z0-9._@\-]{3,40}"
-                       autocomplete="off"
-                       required />
-                <div class="invalid-feedback">Entre 3 y 40 caracteres, sin espacios (letras, números, . _ - @).</div>
             </div>
         </div>
 
-        <!-- Contraseña: solo al registrar. Al editar se usa «Restablecer contraseña». -->
-        <div class="row" th:unless="${edit}">
-            <div class="col-12 col-md-6 mb-3">
-                <label class="form-label" for="password">Contraseña</label>
-                <div class="input-group">
-                    <input type="password" id="password" name="password" class="form-control"
-                           placeholder="Mínimo 8, con letras y números" minlength="8" maxlength="72"
-                           autocomplete="new-password" required />
-                    <button type="button" class="btn btn-outline-secondary" onclick="usrVerClave()" title="Mostrar/ocultar">
-                        <i class="ti ti-eye" id="usrIcoVer"></i></button>
-                    <button type="button" class="btn btn-outline-primary" onclick="usrGenerarClave()" title="Generar una segura">
-                        <i class="ti ti-wand"></i></button>
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-key"></i> Acceso</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <label class="sm-label" for="usrNombre">Nombre de usuario <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-at"></i>
+                            <input type="text" id="usrNombre" name="usuario" class="sm-input" data-sm-mayus="no"
+                                   th:value="${usuario != null ? usuario.usuario : ''}"
+                                   placeholder="Ej. jperez" pattern="[A-Za-z0-9._@\-]{3,40}" maxlength="40"
+                                   autocomplete="off" required />
+                            <div class="invalid-feedback">Entre 3 y 40 caracteres, sin espacios (letras, números, . _ - @).</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="progress mt-1" style="height:4px;"><div class="progress-bar" id="usrFuerza" style="width:0%"></div></div>
-                <small class="text-muted" id="usrFuerzaTxt">Mínimo 8 caracteres, con letras y números.</small>
+
+                <!-- Contraseña: solo al registrar. Al editar se usa «Restablecer contraseña». -->
+                <div class="row g-3 mt-0" th:unless="${edit}">
+                    <div class="col-12 col-md-6">
+                        <label class="sm-label" for="usrClave">Contraseña <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <div class="sm-input-grupo">
+                                <input type="password" id="usrClave" name="password" class="sm-input" data-sm-mayus="no"
+                                       placeholder="Mínimo 8, con letras y números" minlength="8" maxlength="72"
+                                       autocomplete="new-password" required />
+                                <button type="button" class="sm-btn sm-btn-neutro sm-btn-icono js-ver-clave" title="Mostrar u ocultar">
+                                    <i class="ti ti-eye"></i></button>
+                                <button type="button" class="sm-btn sm-btn-suave sm-btn-icono js-generar-clave" title="Generar una segura">
+                                    <i class="ti ti-wand"></i></button>
+                            </div>
+                            <div class="invalid-feedback">Mínimo 8 caracteres, con letras y números.</div>
+                        </div>
+                        <div class="sm-fuerza"><span class="js-fuerza"></span></div>
+                        <div class="sm-ayuda js-fuerza-texto">Mínimo 8 caracteres, con letras y números.</div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="sm-label" for="usrConfirmacion">Repetir contraseña <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-lock-check"></i>
+                            <input type="password" id="usrConfirmacion" name="confirmacion" class="sm-input" data-sm-mayus="no"
+                                   autocomplete="new-password" required />
+                            <div class="invalid-feedback">Las contraseñas no coinciden.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sm-aviso mt-3 mb-0" th:if="${edit}">
+                    <i class="ti ti-info-circle"></i>
+                    <div>Para cambiar la contraseña use <strong>Restablecer contraseña</strong> en el menú
+                        <i class="ti ti-dots-vertical"></i> del usuario. Si cambia el rol y el usuario está
+                        conectado, su menú se actualiza al instante.</div>
+                </div>
             </div>
-            <div class="col-12 col-md-6 mb-3">
-                <label class="form-label" for="confirmacion">Repetir contraseña</label>
-                <input type="password" id="confirmacion" name="confirmacion" class="form-control"
-                       autocomplete="new-password" required />
-                <div class="invalid-feedback">Las contraseñas no coinciden.</div>
-            </div>
-        </div>
-        <div class="alert alert-info py-2 mb-0 small" th:if="${edit}">
-            <i class="ti ti-info-circle me-1"></i>
-            Para cambiar la contraseña use <strong>Restablecer contraseña</strong> en el menú <i class="ti ti-dots-vertical"></i>
-            del usuario. Si cambia el rol y el usuario está conectado, su menú se actualiza al instante.
         </div>
     </div>
-    <div class="modal-footer">
-        <!-- Flexbox para alinear botones a la derecha y evitar desbordes -->
-        <div class="d-flex justify-content-end gap-2 w-100">
-            <a type="button" class="btn btn-secondary text-white" data-bs-dismiss="modal">Cancelar</a>
-            <button type="submit" class="btn btn-success" th:text="${edit}? 'Guardar Cambios': 'Guardar Registro'"></button>
-        </div>
+
+    <div class="sm-modal-pie">
+        <span class="sm-nota"><span class="sm-req">*</span> Campo obligatorio</span>
+        <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal" id="btnCancelarUsuario">
+            <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button type="submit" class="sm-btn sm-btn-exito" id="btnGuardarUsuario">
+            <i class="ti ti-device-floppy"></i>
+            <span th:text="${edit} ? 'Guardar cambios' : 'Registrar usuario'">Guardar</span>
+        </button>
     </div>
 </form>
 
 <script>
     (function () {
-        const clave = document.getElementById('password');
-        const conf = document.getElementById('confirmacion');
-        if (clave) {
-            const evaluar = () => {
-                const v = clave.value;
-                let p = 0;
-                if (v.length >= 8) p++;
-                if (v.length >= 12) p++;
-                if (/[A-Za-z]/.test(v) && /\d/.test(v)) p++;
-                if (/[A-Z]/.test(v) && /[a-z]/.test(v)) p++;
-                if (/[^A-Za-z0-9]/.test(v)) p++;
-                const b = document.getElementById('usrFuerza');
-                b.style.width = (p * 20) + '%';
-                b.className = 'progress-bar ' + (p <= 2 ? 'bg-danger' : p === 3 ? 'bg-warning' : 'bg-success');
-                const valida = v.length >= 8 && /[A-Za-z]/.test(v) && /\d/.test(v);
-                clave.setCustomValidity(valida ? '' : 'Mínimo 8 caracteres, con letras y números.');
-                document.getElementById('usrFuerzaTxt').textContent = valida
-                    ? (p >= 4 ? 'Contraseña fuerte.' : 'Válida. Más larga y con mayúsculas o símbolos es mejor.')
-                    : 'Mínimo 8 caracteres, con letras y números.';
-                conf.setCustomValidity(conf.value && conf.value !== v ? 'No coincide' : '');
-            };
-            clave.addEventListener('input', evaluar);
-            conf.addEventListener('input', evaluar);
+        const $form = $('#formularioUsuario');
+        const esEdicion = $form.find('input[name="idUsuario"]').length > 0;
+        const clave = document.getElementById('usrClave');
+        const conf = document.getElementById('usrConfirmacion');
+        const nombre = document.getElementById('usrNombre');
 
-            window.usrVerClave = function () {
+        /* ── Contraseña (solo al registrar): fuerza, ver y generar ───────── */
+        function claveValida(v) {
+            return v.length >= 8 && /[A-Za-z]/.test(v) && /\d/.test(v);
+        }
+
+        function evaluar() {
+            if (!clave) return;
+            const v = clave.value;
+            let p = 0;
+            if (v.length >= 8) p++;
+            if (v.length >= 12) p++;
+            if (/[A-Za-z]/.test(v) && /\d/.test(v)) p++;
+            if (/[A-Z]/.test(v) && /[a-z]/.test(v)) p++;
+            if (/[^A-Za-z0-9]/.test(v)) p++;
+            const barra = $form.find('.js-fuerza')[0];
+            barra.style.width = (p * 20) + '%';
+            barra.style.backgroundColor = p <= 2 ? '#e5484d' : p === 3 ? '#f59e0b' : '#22a352';
+            $form.find('.js-fuerza-texto').text(claveValida(v)
+                ? (p >= 4 ? 'Contraseña fuerte.' : 'Válida. Más larga y con mayúsculas o símbolos es mejor.')
+                : 'Mínimo 8 caracteres, con letras y números.');
+        }
+
+        if (clave) {
+            clave.addEventListener('input', evaluar);
+            $form.find('.js-ver-clave').on('click', function () {
                 const ver = clave.type === 'password';
                 clave.type = conf.type = ver ? 'text' : 'password';
-                document.getElementById('usrIcoVer').className = ver ? 'ti ti-eye-off' : 'ti ti-eye';
-            };
-            window.usrGenerarClave = function () {
+                $(this).find('i').attr('class', ver ? 'ti ti-eye-off' : 'ti ti-eye');
+            });
+            $form.find('.js-generar-clave').on('click', function () {
                 const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz', nums = '23456789';
-                const r = n => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; };
+                const r = function (n) { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; };
                 let s = '';
                 for (let i = 0; i < 7; i++) s += letras[r(letras.length)];
                 for (let i = 0; i < 3; i++) s += nums[r(nums.length)];
-                s = s.split('').sort(() => r(3) - 1).join('');
+                s = s.split('').sort(function () { return r(3) - 1; }).join('');
                 clave.value = conf.value = s;
                 clave.type = conf.type = 'text';
-                document.getElementById('usrIcoVer').className = 'ti ti-eye-off';
+                $form.find('.js-ver-clave i').attr('class', 'ti ti-eye-off');
+                $(clave).removeClass('is-invalid');
+                $(conf).removeClass('is-invalid');
                 evaluar();
-            };
+            });
         }
+
+        /** Reglas propias, además de los obligatorios que revisa la plantilla. */
+        function validar() {
+            let ok = true;
+            if (nombre.value && !nombre.checkValidity()) { $(nombre).addClass('is-invalid'); ok = false; }
+            if (clave) {
+                if (clave.value && !claveValida(clave.value)) { $(clave).addClass('is-invalid'); ok = false; }
+                if (conf.value && conf.value !== clave.value) { $(conf).addClass('is-invalid'); ok = false; }
+            }
+            return ok;
+        }
+
+        // Select2 (lo inicia fragment.js) no avisa con "input": se limpia la marca al elegir.
+        $form.on('select2:select', 'select', function () { $(this).removeClass('is-invalid'); });
+
+        /* ── Alta rápida de persona ──────────────────────────────────────── */
+        const $persona = $('#usrPersona');
+        const $np = $form.find('.js-np');
+        const $npPregunta = $form.find('.js-np-pregunta');
+        const $npCi = $('#usrNpCi'), $npNombre = $('#usrNpNombre');
+        const $npPaterno = $('#usrNpPaterno'), $npMaterno = $('#usrNpMaterno');
+        const $npGuardar = $form.find('.js-np-guardar');
+        const esc = SciafModulo.escapar;
+        let npEnviando = false;
+
+        if (window.sciafContador) {
+            sciafContador.combinado(['#usrNpNombre', '#usrNpPaterno', '#usrNpMaterno'], 35, {
+                etiqueta: 'Nombre completo (si llega a ser responsable, el VSIAF admite 35)',
+                contenedor: '#usrNpContador'
+            });
+        }
+
+        /** Abre el panel; {@code busqueda}: lo que se escribió en la lista sin encontrarlo. */
+        function abrirNuevaPersona(busqueda) {
+            const t = (busqueda || '').trim().toLocaleUpperCase('es');
+            if (t) {
+                // Números → es un C.I.; texto → es un nombre.
+                if (/^\d[\d\s.-]*[A-Z]{0,3}$/.test(t)) $npCi.val(t); else $npNombre.val(t);
+                $npNombre.trigger('input');
+            }
+            $npPregunta.addClass('d-none');
+            $np.removeClass('d-none');
+            ($npCi.val() ? $npNombre : $npCi).trigger('focus');
+        }
+
+        function cerrarNuevaPersona(limpiar) {
+            $np.addClass('d-none');
+            $npPregunta.removeClass('d-none');
+            $np.find('.is-invalid').removeClass('is-invalid');
+            if (limpiar) {
+                $np.find('input').val('');
+                $npNombre.trigger('input');
+            }
+        }
+
+        /** Deja elegida la persona en la lista (la agrega si todavía no estaba). */
+        function elegirPersona(id, texto) {
+            if (!$persona.find('option[value="' + id + '"]').length) {
+                $persona.append(new Option(texto, id, false, false));
+            }
+            $persona.val(String(id)).trigger('change').removeClass('is-invalid');
+        }
+
+        function registrarPersona() {
+            if (npEnviando) return;
+            const datos = {
+                ci: $npCi.val().trim(),
+                nombre: $npNombre.val().trim(),
+                paterno: $npPaterno.val().trim(),
+                materno: $npMaterno.val().trim()
+            };
+            $npCi.toggleClass('is-invalid', !datos.ci);
+            $npNombre.toggleClass('is-invalid', !datos.nombre);
+            if (!datos.ci || !datos.nombre) {
+                $np.find('.is-invalid').first().trigger('focus');
+                return;
+            }
+            const completo = [datos.nombre, datos.paterno, datos.materno].filter(Boolean).join(' ');
+
+            sciafConfirmar({
+                titulo: '¿Registrar a esta persona?',
+                texto: '<b>' + esc(completo) + '</b><br>C.I. ' + esc(datos.ci),
+                aceptar: 'Sí, registrar'
+            }).then(function (si) {
+                if (!si) return;
+                npEnviando = true;
+                const htmlBoton = $npGuardar.html();
+                $npGuardar.prop('disabled', true)
+                    .html('<span class="spinner-border spinner-border-sm"></span> Registrando…');
+                $.ajax({ type: 'POST', url: '/administracion/persona/registrar-persona', data: datos, dataType: 'json' })
+                    .done(function (r) {
+                        if (r && r.ok) {
+                            elegirPersona(r.idPersona, r.texto);
+                            cerrarNuevaPersona(true);
+                            Swal.fire({ toast: true, position: 'top-end', icon: 'success', showConfirmButton: false,
+                                timer: 3500, title: 'Persona registrada y elegida' });
+                        } else if (r && r.idExistente) {
+                            // El C.I. ya es de alguien: se ofrece elegir a esa persona.
+                            Swal.fire({
+                                icon: 'info', title: 'Esa persona ya está registrada',
+                                html: esc(r.msg), showCancelButton: true, reverseButtons: true,
+                                confirmButtonText: 'Elegirla', cancelButtonText: 'Corregir el C.I.'
+                            }).then(function (x) {
+                                if (x.isConfirmed) {
+                                    elegirPersona(r.idExistente, r.textoExistente);
+                                    cerrarNuevaPersona(true);
+                                } else {
+                                    $npCi.addClass('is-invalid').trigger('focus');
+                                }
+                            });
+                        } else {
+                            Swal.fire('Atención', (r && r.msg) || 'No se pudo registrar la persona.', 'warning');
+                        }
+                    })
+                    .fail(function (xhr) {
+                        Swal.fire('Error', (xhr.responseJSON && xhr.responseJSON.msg)
+                            || 'No se pudo registrar la persona. Revise su sesión e intente de nuevo.', 'error');
+                    })
+                    .always(function () {
+                        npEnviando = false;
+                        $npGuardar.prop('disabled', false).html(htmlBoton);
+                    });
+            });
+        }
+
+        $form.on('click', '.js-np-abrir', function () { abrirNuevaPersona(''); });
+        $form.on('click', '.js-np-cancelar', function () { cerrarNuevaPersona(true); });
+        $form.on('click', '.js-np-guardar', registrarPersona);
+        $np.on('input', 'input', function () { $(this).removeClass('is-invalid'); });
+        // Enter en el panel registra a la persona (no envía el formulario de usuario).
+        $np.on('keydown', 'input', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); registrarPersona(); }
+        });
+
+        // Si en la lista se busca y no hay resultados, la propia lista ofrece registrarla
+        // con lo que se escribió. fragment.js inicia Select2 después de este script: se
+        // espera a que termine y se vuelve a iniciar esta lista con ese mensaje.
+        setTimeout(function () {
+            if ($persona.data('select2')) $persona.select2('destroy');
+            $persona.select2({
+                dropdownParent: $form,
+                width: '100%',
+                placeholder: $persona.data('placeholder') || 'Seleccione una persona',
+                language: {
+                    // Un elemento (no texto): Select2 lo inserta tal cual y sigue escapando
+                    // los nombres de las personas de la lista.
+                    noResults: function () {
+                        return $('<div>').append(
+                            $('<div class="py-1">').text('No está en la lista.'),
+                            $('<button type="button" class="sm-btn sm-btn-sm sm-btn-suave mt-1 js-np-desde-busqueda">')
+                                .html('<i class="ti ti-user-plus"></i> Registrarla como nueva persona'));
+                    }
+                }
+            });
+        }, 0);
+
+        $form.on('mousedown', '.js-np-desde-busqueda', function (e) {
+            e.preventDefault();
+            const busqueda = $form.find('.select2-search__field').val();
+            $persona.select2('close');
+            abrirNuevaPersona(busqueda);
+        });
+
+        /* ── Credenciales listas para copiar y enviar (solo al registrar) ──── */
+
+        function textoCredenciales(r, contrasena) {
+            return [
+                'Estimado(a) ' + (r.nombre || r.usuario) + ':',
+                '',
+                'Se creó su cuenta de acceso al sistema SCIAF de la UAP.',
+                '',
+                'Ingrese en: ' + r.enlace,
+                'Usuario: ' + r.usuario,
+                'Contraseña: ' + contrasena,
+                r.rol ? 'Rol: ' + r.rol : null,
+                '',
+                'Por seguridad, cambie su contraseña al ingresar: haga clic en su avatar',
+                '(arriba a la derecha) → «Cambiar mi contraseña».'
+            ].filter(function (l) { return l !== null; }).join('\n');
+        }
+
+        /** Copia al portapapeles; sin HTTPS (navigator.clipboard no existe) usa la selección. */
+        function copiar(texto, area) {
+            if (navigator.clipboard && window.isSecureContext) {
+                return navigator.clipboard.writeText(texto);
+            }
+            area.focus();
+            area.select();
+            const ok = document.execCommand('copy');
+            return ok ? Promise.resolve() : Promise.reject();
+        }
+
+        function mostrarCredenciales(r, contrasena) {
+            const texto = textoCredenciales(r, contrasena);
+            Swal.fire({
+                icon: 'success',
+                title: 'Usuario creado',
+                width: 620,
+                html: '<p class="mb-2 text-start small">Copie este mensaje y envíeselo a <strong>' + esc(r.nombre || r.usuario)
+                    + '</strong>. La contraseña <strong>no se vuelve a mostrar</strong> (si la pierde, use «Restablecer contraseña»).</p>'
+                    + '<textarea id="usrCredenciales" class="form-control" rows="11" readonly '
+                    + 'style="font-family: ui-monospace, Consolas, monospace; font-size: .9rem; resize: none;">'
+                    + esc(texto) + '</textarea>',
+                showDenyButton: true,
+                confirmButtonText: '<i class="ti ti-copy me-1"></i> Copiar mensaje',
+                denyButtonText: 'Listo',
+                reverseButtons: true,
+                allowOutsideClick: false,
+                // Copiar no cierra: así se ve que se copió y se puede volver a copiar.
+                preConfirm: function () {
+                    const area = document.getElementById('usrCredenciales');
+                    return copiar(texto, area).then(function () {
+                        Swal.getConfirmButton().innerHTML = '<i class="ti ti-check me-1"></i> ¡Copiado!';
+                        return false;
+                    }, function () {
+                        area.select();
+                        Swal.showValidationMessage('No se pudo copiar solo: el texto quedó seleccionado, use Ctrl+C.');
+                        return false;
+                    });
+                },
+                didOpen: function () {
+                    const area = document.getElementById('usrCredenciales');
+                    area.addEventListener('focus', function () { area.select(); });
+                }
+            });
+        }
+
+        SciafModulo.formulario({
+            form: '#formularioUsuario',
+            modal: '#modalFormularioUsuario',
+            guardar: '#btnGuardarUsuario',
+            cancelar: '#btnCancelarUsuario',
+            textoGuardando: esEdicion ? 'Guardando…' : 'Registrando…',
+            msgExito: esEdicion ? 'Usuario modificado' : 'Usuario registrado',
+            validar: validar,
+            // La tabla la recarga la vista (SciafModulo.alGuardarModal en usuario/vista.html).
+            alGuardar: function (r) {
+                // La contraseña sale del propio formulario: el servidor no la devuelve.
+                if (!esEdicion && r && r.usuario) mostrarCredenciales(r, clave ? clave.value : '');
+            }
+        });
     })();
-    manejarEnvioFormulario('#formularioUsuario');
 </script>

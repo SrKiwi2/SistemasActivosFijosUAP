@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.service.seguridad;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -45,6 +46,7 @@ public class SesionPermisosService {
 
     public static final String EVENTO_PERMISOS = "permisos";
     public static final String EVENTO_MENU = "menu";
+    public static final String EVENTO_PERFIL = "perfil";
 
     private final AtomicLong versionGlobal = new AtomicLong(System.currentTimeMillis());
     private final Map<Long, Long> versionPorUsuario = new ConcurrentHashMap<>();
@@ -76,6 +78,24 @@ public class SesionPermisosService {
             versionPorUsuario.merge(idUsuario, 1L, Long::sum);
             sse.enviarAUsuario(idUsuario, EVENTO_PERMISOS, payload(mensaje, false));
         });
+    }
+
+    /**
+     * Cambiaron los datos personales (nombre, C.I.) de una persona: las sesiones de sus
+     * usuarios se rearman en la próxima petición (la sesión guarda la Persona) y el
+     * navegador actualiza el nombre de la barra superior sin recargar (evento "perfil",
+     * topbar.js). No es un cambio de permisos: no pasa por sciaf-menu-vivo.
+     */
+    public void personaCambio(Long idPersona, String nombreCompleto) {
+        if (idPersona == null) return;
+        List<Long> usuarios = usuarioDao.idsPorPersona(idPersona);
+        if (usuarios.isEmpty()) return;
+        Map<String, Object> datos = new LinkedHashMap<>();
+        datos.put("nombre", nombreCompleto);
+        alConfirmar(() -> usuarios.forEach(id -> {
+            versionPorUsuario.merge(id, 1L, Long::sum);
+            sse.enviarAUsuario(id, EVENTO_PERFIL, datos);
+        }));
     }
 
     /** Cambió el catálogo de menú (orden, nombre, ícono, bloqueo...): afecta a todos. */

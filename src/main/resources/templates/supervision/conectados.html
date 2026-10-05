@@ -1,217 +1,316 @@
-<!-- supervision/conectados.html — Quién está conectado y qué pantalla está mirando -->
-<h4 class="py-3 mb-3"><span class="text-muted fw-light">Supervisión /</span> Usuarios conectados</h4>
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Usuarios conectados — quién está conectado y qué pantalla está mirando.
+     Plantilla de mantenimiento (docs/PLANTILLA_MODULOS.md). Carga eficiente:
+       · las sesiones llegan con la vista (${inicial}): se ven al instante;
+       · se consulta cada 5 s solo si la pantalla está a la vista (ni pestaña del sistema
+         oculta ni pestaña del navegador en segundo plano); al volver, se pide al momento;
+       · se redibuja SOLO la tarjeta que cambió (el resto solo actualiza sus "hace X"):
+         no parpadea ni se cierra el recorrido que el usuario dejó abierto.
+     Todo dentro de #modConectados y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modConectados">
 
 <style>
-    #conectados .cx-stat b { font-size: 1.5rem; line-height: 1.1; display: block; }
-    #conectados .cx-card { border: 1px solid rgba(0,0,0,.08); border-radius: 12px; height: 100%; transition: box-shadow .15s; }
-    #conectados .cx-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.07); }
-    #conectados .cx-card.ausente { opacity: .75; }
-    #conectados .cx-avatar {
-        width: 42px; height: 42px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-        font-weight: 700; background: rgba(26,86,160,.12); color: #1a56a0; position: relative; flex-shrink: 0;
+    #modConectados .cx-vista {
+        display: flex; gap: .6rem; align-items: center; padding: .55rem .75rem; border-radius: 11px;
+        background: rgba(var(--sm-primario-rgb), .06); border: 1px solid rgba(var(--sm-primario-rgb), .18);
     }
-    #conectados .cx-punto { position: absolute; right: -1px; bottom: -1px; width: 12px; height: 12px; border-radius: 50%;
-        border: 2px solid var(--bs-body-bg, #fff); }
-    #conectados .cx-punto.en-linea { background: #22c55e; }
-    #conectados .cx-punto.ausente { background: #f59e0b; }
-    #conectados .cx-vista {
-        background: rgba(26,86,160,.06); border: 1px solid rgba(26,86,160,.15); border-radius: 9px;
-        padding: .5rem .7rem; display: flex; gap: .55rem; align-items: center;
-    }
-    #conectados .cx-vista i { font-size: 1.3rem; color: #1a56a0; }
-    #conectados .cx-chip { cursor: pointer; }
-    #conectados .cx-chip.activo { background: #1a56a0 !important; color: #fff !important; }
-    #conectados .cx-recorrido { font-size: .8rem; border-left: 2px dashed rgba(26,86,160,.25); padding-left: .7rem; margin-left: .3rem; }
-    html[data-theme="dark"] #conectados .cx-card { border-color: rgba(255,255,255,.1); }
+    #modConectados .cx-vista > i { font-size: 1.35rem; color: var(--sm-primario); }
+    #modConectados .cx-vista .fw-semibold { color: var(--sm-texto); }
+    #modConectados .sm-tarjeta.ausente { opacity: .8; }
+    #modConectados .sm-tarjeta.ausente .sm-avatar { filter: grayscale(.5); }
+    #modConectados .cx-estado { font-size: .84rem; font-weight: 600; }
+    #modConectados .cx-recorrido { font-size: .82rem; border-left: 2px dashed rgba(var(--sm-primario-rgb), .3); padding-left: .7rem; margin-left: .3rem; }
+    #modConectados .cx-meta { font-size: .8rem; color: var(--sm-texto-2); line-height: 1.5; }
+    #modConectados .cx-chips-fila { padding: .6rem 1rem; border-bottom: 1px solid var(--sm-borde); display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+    #modConectados .cx-chips-fila > small { font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--sm-texto-2); }
+    #modConectados .cx-oculta { display: none !important; }
+    #modConectados .form-switch .form-check-input { width: 2.4em; height: 1.25em; cursor: pointer; }
 </style>
 
-<div id="conectados">
-    <div class="row g-3 mb-3">
-        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 cx-stat">
-            <b class="text-success" id="cxUsuarios">—</b><small class="text-muted"><i class="ti ti-users"></i> Usuarios conectados</small></div></div></div>
-        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 cx-stat">
-            <b id="cxSesiones">—</b><small class="text-muted"><i class="ti ti-device-desktop"></i> Sesiones abiertas</small></div></div></div>
-        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 cx-stat">
-            <b class="text-warning" id="cxAusentes">—</b><small class="text-muted"><i class="ti ti-zzz"></i> Ausentes</small></div></div></div>
-        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3 cx-stat">
-            <b id="cxVistas">—</b><small class="text-muted"><i class="ti ti-layout"></i> Pantallas en uso</small></div></div></div>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-users"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-eye-check"></i> Supervisión <i class="ti ti-chevron-right"></i> Usuarios conectados
+        </nav>
+        <h1 class="sm-titulo">Usuarios conectados</h1>
+        <p class="sm-subtitulo">Quién está en el sistema ahora y qué pantalla está mirando.</p>
     </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-n-usuarios text-success">—</strong> usuarios</span>
+        <span class="sm-dato"><strong class="js-n-sesiones">—</strong> sesiones</span>
+        <span class="sm-dato"><strong class="js-n-ausentes text-warning">—</strong> ausentes</span>
+        <span class="sm-dato"><strong class="js-n-vistas">—</strong> pantallas en uso</span>
+        <span class="sm-vivo js-vivo" title="Se actualiza cada 5 segundos">En vivo</span>
+    </div>
+</header>
 
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body py-3">
-            <div class="d-flex flex-wrap gap-2 align-items-center">
-                <div class="input-group input-group-sm" style="max-width: 280px;">
-                    <span class="input-group-text"><i class="ti ti-search"></i></span>
-                    <input type="text" class="form-control" id="cxBuscar" placeholder="Buscar usuario, rol, pantalla, IP...">
-                </div>
-                <div class="form-check form-switch ms-2 mb-0">
-                    <input class="form-check-input" type="checkbox" id="cxAuto" checked>
-                    <label class="form-check-label small" for="cxAuto">Actualizar cada 5 s</label>
-                </div>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="cxRefrescar"><i class="ti ti-refresh"></i></button>
-                <small class="text-muted ms-auto" id="cxHora"></small>
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar usuario, rol, pantalla, IP…"
+                autocomplete="off" aria-label="Buscar sesión" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="sm-segmento js-estado" role="group" aria-label="Filtrar por estado">
+            <button type="button" class="activo" data-estado="">Todos <span class="sm-cuenta js-c-todos">0</span></button>
+            <button type="button" data-estado="1" data-tono="exito">En línea <span class="sm-cuenta js-c-linea">0</span></button>
+            <button type="button" data-estado="2">Ausentes <span class="sm-cuenta js-c-ausentes">0</span></button>
+        </div>
+        <div class="sm-toolbar-grupo">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input js-auto" type="checkbox" id="cxAuto" checked>
+                <label class="form-check-label small" for="cxAuto">Actualizar cada 5 s</label>
             </div>
-            <div class="mt-3">
-                <div class="small text-muted text-uppercase fw-semibold mb-1" style="font-size:.7rem; letter-spacing:.06em;">
-                    Pantallas en uso <span class="fw-normal text-lowercase">(clic para filtrar)</span></div>
-                <div id="cxChips" class="d-flex flex-wrap gap-1"></div>
-            </div>
+            <button type="button" class="sm-btn sm-btn-neutro sm-btn-icono" data-accion="refrescar" title="Actualizar ahora">
+                <i class="ti ti-refresh"></i></button>
+            <small class="text-muted js-hora"></small>
         </div>
     </div>
 
-    <div class="row g-3" id="cxLista"></div>
-
-    <div class="small text-muted mt-3">
-        <i class="ti ti-info-circle"></i> Cada navegador avisa al cambiar de pantalla y cada 30 s. <strong>Ausente</strong>:
-        la pestaña del navegador está en segundo plano o no usa teclado ni mouse hace más de 5 minutos. Si un navegador
-        se cierra de golpe, deja de figurar en menos de 2 minutos.
+    <div class="cx-chips-fila">
+        <small>Pantallas en uso</small>
+        <div class="sm-chips js-chips"></div>
     </div>
+
+    <div class="sm-tarjetas js-lista"></div>
+
+    <div class="sm-ayuda px-3 pb-3 mt-0">
+        <i class="ti ti-info-circle"></i> Cada navegador avisa al cambiar de pantalla y cada 30 s. <strong>Ausente</strong>:
+        la pestaña está en segundo plano o no usa teclado ni mouse hace más de 5 minutos. Si un navegador se cierra
+        de golpe, deja de figurar en menos de 2 minutos.
+    </div>
+</section>
+
 </div>
 
-<script>
-(function () {
-    'use strict';
+<script th:inline="javascript">
+    (function () {
+        'use strict';
 
-    const raiz = document.getElementById('conectados');
-    let datos = [];
-    let filtroVista = '';
-    const abiertos = new Set();   // tarjetas con el recorrido desplegado
+        const URL = '/administracion/conectados';
+        let datos = /*[[${inicial}]]*/ [];
 
-    function esc(t) { const d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
-    function hace(seg) {
-        if (seg == null) return '—';
-        if (seg < 60) return seg + ' s';
-        const m = Math.floor(seg / 60);
-        if (m < 60) return m + ' min';
-        const h = Math.floor(m / 60);
-        return h + ' h ' + (m % 60) + ' min';
-    }
+        const $raiz = $('#modConectados');
+        const raiz = $raiz[0];
+        const $lista = $raiz.find('.js-lista');
+        const esc = SciafModulo.escapar;
+        const norm = t => window.SciafCatalogos ? SciafCatalogos.normalizarTexto(t || '') : (t || '').toLowerCase();
 
-    function cargar() {
-        if (!document.body.contains(raiz)) return;          // la pestaña no está al frente
-        fetch('/administracion/conectados/datos', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
-            .then(r => r.ok ? r.json() : Promise.reject(r.status))
-            .then(r => {
-                datos = r.sesiones || [];
-                document.getElementById('cxHora').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-BO');
-                pintar();
-            })
-            .catch(st => {
-                document.getElementById('cxLista').innerHTML = `<div class="col-12"><div class="alert alert-warning">
-                    ${st === 403 ? 'No tiene permiso para ver esta pantalla.' : 'No se pudo consultar quién está conectado.'}</div></div>`;
+        const filtro = { vista: '', estado: '', texto: '' };
+        const abiertos = new Set();        // tarjetas con el recorrido desplegado
+        const firmas = new Map();          // id de sesión → firma de lo que se ve (sin los "hace X")
+
+        function hace(seg) {
+            if (seg == null) return '—';
+            if (seg < 60) return seg + ' s';
+            const m = Math.floor(seg / 60);
+            if (m < 60) return m + ' min';
+            return Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
+        }
+
+        /** Lo que cambia la tarjeta (sin los contadores de tiempo, que se actualizan aparte). */
+        function firma(s) {
+            return JSON.stringify([s.nombre, s.usuario, s.rol, s.estado, s.vista, s.icono, s.ip, s.navegador,
+                s.pestanas, (s.recorrido || []).map(p => p.titulo || p.url), abiertos.has(s.id),
+                s.estado === 2 && s.inactivoSeg >= 300]);
+        }
+
+        function tarjeta(s) {
+            const ausente = s.estado === 2;
+            const motivo = ausente
+                ? (s.inactivoSeg != null && s.inactivoSeg >= 300
+                    ? 'Ausente · sin actividad hace <span data-seg="inactivoSeg">' + hace(s.inactivoSeg) + '</span>'
+                    : 'Ausente · pestaña en segundo plano')
+                : 'En línea';
+            const inicial = (s.nombre || s.usuario || '?').trim().charAt(0).toUpperCase();
+            const pest = (s.pestanas || []).map(p => '<span class="sm-pastilla py-0 me-1 mb-1">' + esc(p) + '</span>').join('');
+            const rec = (s.recorrido || []).map((p, i) => '<div class="d-flex justify-content-between gap-2 '
+                + (i === 0 ? 'fw-semibold' : 'text-muted') + '"><span class="text-truncate">' + esc(p.titulo || p.url)
+                + '</span><span class="text-nowrap" data-rec="' + i + '">hace ' + hace(p.haceSeg) + '</span></div>').join('');
+            const abierto = abiertos.has(s.id);
+            return '<div class="sm-tarjeta' + (ausente ? ' ausente' : '') + '" data-id="' + esc(s.id) + '">'
+                + '<div class="sm-persona">'
+                +   '<span class="sm-avatar">' + esc(inicial) + '<span class="sm-punto ' + (ausente ? 'ausente' : 'on') + '"></span></span>'
+                +   '<div class="sm-persona-texto" style="min-width:0">'
+                +     '<span class="sm-nombre text-truncate">' + esc(s.nombre)
+                +       (s.esYo ? ' <span class="sm-pastilla sm-pastilla-info py-0">usted</span>' : '') + '</span>'
+                +     '<span class="sm-sub"><code>' + esc(s.usuario) + '</code> · ' + esc(s.rol || '—') + '</span>'
+                +   '</div></div>'
+                + '<div class="cx-estado ' + (ausente ? 'text-warning' : 'text-success') + '"><i class="ti ti-point-filled"></i> ' + motivo + '</div>'
+                + '<div class="cx-vista"><i class="' + esc(s.icono || 'ti ti-layout') + '"></i><div style="min-width:0">'
+                +   '<div class="sm-sub">Está viendo</div>'
+                +   '<div class="fw-semibold text-truncate">' + esc(s.vista || '—') + '</div>'
+                +   '<div class="sm-sub">hace <span data-seg="enVistaSeg">' + hace(s.enVistaSeg) + '</span> en esta pantalla</div>'
+                + '</div></div>'
+                + (pest ? '<div><div class="sm-sub mb-1">Pestañas abiertas (' + s.pestanas.length + ')</div>' + pest + '</div>' : '')
+                + '<div class="cx-meta"><i class="ti ti-world"></i> ' + esc(s.ip || '—') + ' · ' + esc(s.navegador || '') + '<br>'
+                +   '<i class="ti ti-clock"></i> Sesión iniciada hace <span data-seg="conectadoSeg">' + hace(s.conectadoSeg) + '</span>'
+                +   ' · último aviso hace <span data-seg="ultimoAvisoSeg">' + hace(s.ultimoAvisoSeg) + '</span></div>'
+                + (abierto ? '<div><div class="sm-sub mb-1">Recorrido reciente</div><div class="cx-recorrido">'
+                    + (rec || '<span class="text-muted">Sin movimientos.</span>') + '</div></div>' : '')
+                + '<div class="sm-acciones">'
+                +   '<button type="button" class="sm-btn sm-btn-sm sm-btn-neutro" data-recorrido="' + esc(s.id) + '">'
+                +     '<i class="ti ti-route"></i> ' + (abierto ? 'Ocultar recorrido' : 'Recorrido') + '</button>'
+                +   (s.esYo ? '' : '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-peligro ms-auto" data-cerrar="'
+                        + esc(s.id) + '" data-nombre="' + esc(s.usuario) + '"><i class="ti ti-logout"></i> Cerrar sesión</button>')
+                + '</div></div>';
+        }
+
+        /** Solo cambia los "hace X" de una tarjeta que no cambió en lo demás. */
+        function actualizarTiempos(el, s) {
+            el.querySelectorAll('[data-seg]').forEach(span => { span.textContent = hace(s[span.dataset.seg]); });
+            el.querySelectorAll('[data-rec]').forEach(span => {
+                const p = (s.recorrido || [])[Number(span.dataset.rec)];
+                if (p) span.textContent = 'hace ' + hace(p.haceSeg);
             });
-    }
+        }
 
-    function pintar() {
-        const usuarios = new Set(datos.map(s => s.idUsuario));
-        document.getElementById('cxUsuarios').textContent = usuarios.size;
-        document.getElementById('cxSesiones').textContent = datos.length;
-        document.getElementById('cxAusentes').textContent = datos.filter(s => s.estado === 2).length;
+        function pasa(s) {
+            if (filtro.vista && (s.vista || '—') !== filtro.vista) return false;
+            if (filtro.estado && String(s.estado) !== filtro.estado) return false;
+            if (filtro.texto && !norm([s.nombre, s.usuario, s.rol, s.vista, s.ip, s.navegador].join(' ')).includes(filtro.texto)) return false;
+            return true;
+        }
 
-        // Pantallas en uso: cuántas sesiones hay en cada una.
-        const porVista = {};
-        datos.forEach(s => { const k = s.vista || '—'; porVista[k] = (porVista[k] || 0) + 1; });
-        const vistas = Object.entries(porVista).sort((a, b) => b[1] - a[1]);
-        document.getElementById('cxVistas').textContent = vistas.length;
-        if (filtroVista && !porVista[filtroVista]) filtroVista = '';
-        document.getElementById('cxChips').innerHTML = vistas.length
-            ? vistas.map(([v, n]) => `<span class="badge bg-label-primary cx-chip ${v === filtroVista ? 'activo' : ''}"
-                data-vista="${esc(v)}">${esc(v)} <strong>${n}</strong></span>`).join('')
-            : '<span class="text-muted small">Nadie conectado.</span>';
+        /** Redibuja lo mínimo: agrega, quita o reemplaza solo las tarjetas que cambiaron. */
+        function pintar(resaltarNuevas) {
+            // Totales
+            $raiz.find('.js-n-usuarios').text(new Set(datos.map(s => s.idUsuario)).size);
+            $raiz.find('.js-n-sesiones, .js-c-todos').text(datos.length);
+            const ausentes = datos.filter(s => s.estado === 2).length;
+            $raiz.find('.js-n-ausentes, .js-c-ausentes').text(ausentes);
+            $raiz.find('.js-c-linea').text(datos.length - ausentes);
 
-        const q = (document.getElementById('cxBuscar').value || '').toLowerCase().trim();
-        const lista = datos.filter(s => (!filtroVista || s.vista === filtroVista)
-            && (!q || [s.nombre, s.usuario, s.rol, s.vista, s.ip, s.navegador].join(' ').toLowerCase().includes(q)));
+            // Pantallas en uso (chips)
+            const porVista = {};
+            datos.forEach(s => { const k = s.vista || '—'; porVista[k] = (porVista[k] || 0) + 1; });
+            const vistas = Object.entries(porVista).sort((a, b) => b[1] - a[1]);
+            $raiz.find('.js-n-vistas').text(vistas.length);
+            if (filtro.vista && !porVista[filtro.vista]) filtro.vista = '';
+            $raiz.find('.js-chips').html(vistas.length
+                ? vistas.map(([v, n]) => '<span class="sm-chip' + (v === filtro.vista ? ' activo' : '') + '" data-vista="'
+                    + esc(v) + '">' + esc(v) + ' <b>' + n + '</b></span>').join('')
+                : '<span class="text-muted small">Nadie conectado.</span>');
 
-        document.getElementById('cxLista').innerHTML = lista.length ? lista.map(tarjeta).join('')
-            : '<div class="col-12"><div class="text-muted py-4 text-center">No hay sesiones que coincidan.</div></div>';
-    }
+            // Tarjetas
+            const visibles = datos.filter(pasa);
+            const ids = new Set(visibles.map(s => String(s.id)));
+            $lista.children('.sm-tarjeta').each(function () {
+                if (!ids.has(this.dataset.id)) { firmas.delete(this.dataset.id); this.remove(); }
+            });
+            $lista.children('.sm-vacio').remove();
+            let anterior = null;
+            visibles.forEach(function (s) {
+                const id = String(s.id);
+                let el = $lista[0].querySelector(':scope > .sm-tarjeta[data-id="' + CSS.escape(id) + '"]');
+                const f = firma(s);
+                if (el && firmas.get(id) === f) {
+                    actualizarTiempos(el, s);
+                } else {
+                    const nuevo = $(tarjeta(s))[0];
+                    if (!el && resaltarNuevas) nuevo.classList.add('sm-nuevo');
+                    if (el) el.replaceWith(nuevo); else $lista[0].appendChild(nuevo);
+                    el = nuevo;
+                    firmas.set(id, f);
+                }
+                // Mantener el orden que da el servidor (activos primero, luego por nombre).
+                const debeIr = anterior ? anterior.nextElementSibling : $lista[0].firstElementChild;
+                if (debeIr !== el) $lista[0].insertBefore(el, debeIr);
+                anterior = el;
+            });
+            if (!visibles.length) {
+                $lista.append('<div class="sm-vacio"><i class="ti ti-user-search"></i>'
+                    + (datos.length ? 'No hay sesiones que coincidan.' : 'Nadie conectado en este momento.') + '</div>');
+            }
+        }
 
-    function tarjeta(s) {
-        const ausente = s.estado === 2;
-        const motivo = ausente
-            ? (s.inactivoSeg != null && s.inactivoSeg >= 300 ? 'Ausente · sin actividad hace ' + hace(s.inactivoSeg)
-                                                           : 'Ausente · pestaña en segundo plano')
-            : 'En línea';
-        const inicial = (s.nombre || s.usuario || '?').trim().charAt(0).toUpperCase();
-        const pest = (s.pestanas || []).map(p => `<span class="badge bg-label-secondary me-1 mb-1">${esc(p)}</span>`).join('');
-        const rec = (s.recorrido || []).map((p, i) => `<div class="d-flex justify-content-between gap-2 ${i === 0 ? 'fw-semibold' : 'text-muted'}">
-                <span class="text-truncate">${esc(p.titulo || p.url)}</span><span class="text-nowrap">hace ${hace(p.haceSeg)}</span></div>`).join('');
-        const abierto = abiertos.has(s.id);
-        return `<div class="col-12 col-md-6 col-xxl-4">
-          <div class="card cx-card shadow-none ${ausente ? 'ausente' : ''}"><div class="card-body">
-            <div class="d-flex gap-3 align-items-center mb-3">
-              <span class="cx-avatar">${esc(inicial)}<span class="cx-punto ${ausente ? 'ausente' : 'en-linea'}"></span></span>
-              <div class="flex-grow-1" style="min-width:0">
-                <div class="fw-semibold text-truncate">${esc(s.nombre)} ${s.esYo ? '<span class="badge bg-label-primary">usted</span>' : ''}</div>
-                <div class="small text-muted"><code>${esc(s.usuario)}</code> · <span class="badge bg-label-info">${esc(s.rol || '—')}</span></div>
-              </div>
-            </div>
-            <div class="small mb-1 ${ausente ? 'text-warning' : 'text-success'}"><i class="ti ti-point-filled"></i> ${esc(motivo)}</div>
-            <div class="cx-vista mb-2">
-              <i class="${esc(s.icono || 'ti ti-layout')}"></i>
-              <div style="min-width:0">
-                <div class="small text-muted">Está viendo</div>
-                <div class="fw-semibold text-truncate">${esc(s.vista || '—')}</div>
-                <div class="small text-muted">hace ${hace(s.enVistaSeg)} en esta pantalla</div>
-              </div>
-            </div>
-            ${pest ? `<div class="small text-muted mb-1">Pestañas abiertas (${s.pestanas.length})</div><div class="mb-2">${pest}</div>` : ''}
-            <div class="small text-muted">
-              <i class="ti ti-world"></i> ${esc(s.ip || '—')} · ${esc(s.navegador || '')}<br>
-              <i class="ti ti-clock"></i> Sesión iniciada hace ${hace(s.conectadoSeg)} · último aviso hace ${hace(s.ultimoAvisoSeg)}
-            </div>
-            <div class="collapse ${abierto ? 'show' : ''} mt-2" id="cxRec-${esc(s.id)}">
-              <div class="small text-muted mb-1">Recorrido reciente</div>
-              <div class="cx-recorrido">${rec || '<span class="text-muted">Sin movimientos.</span>'}</div>
-            </div>
-            <div class="d-flex gap-2 mt-3">
-              <button type="button" class="btn btn-sm btn-outline-secondary" data-recorrido="${esc(s.id)}">
-                <i class="ti ti-route me-1"></i>${abierto ? 'Ocultar recorrido' : 'Recorrido'}</button>
-              ${s.esYo ? '' : `<button type="button" class="btn btn-sm btn-outline-danger ms-auto" data-cerrar="${esc(s.id)}"
-                data-nombre="${esc(s.usuario)}"><i class="ti ti-logout me-1"></i>Cerrar sesión</button>`}
-            </div>
-          </div></div></div>`;
-    }
+        /* ── Consulta periódica (solo con la pantalla a la vista) ────────── */
+        function aLaVista() {
+            return document.body.contains(raiz) && document.visibilityState === 'visible';
+        }
 
-    raiz.addEventListener('click', function (e) {
-        const chip = e.target.closest('.cx-chip');
-        if (chip) { filtroVista = filtroVista === chip.dataset.vista ? '' : chip.dataset.vista; pintar(); return; }
+        let pidiendo = false;
+        function cargar() {
+            if (pidiendo || !document.body.contains(raiz)) return;
+            pidiendo = true;
+            SciafModulo.pedirJson(URL + '/datos', { metodo: 'GET' })
+                .then(r => {
+                    if (r.ok === false) throw new Error(r.msg || 'Sin permiso.');
+                    datos = r.sesiones || [];
+                    $raiz.find('.js-hora').text('Actualizado ' + new Date().toLocaleTimeString('es-BO'));
+                    pintar(true);
+                })
+                .catch(e => { if (!e.sesionPerdida) $raiz.find('.js-hora').text('No se pudo actualizar'); })
+                .finally(() => { pidiendo = false; });
+        }
 
-        const rec = e.target.closest('[data-recorrido]');
-        if (rec) {
-            const id = rec.dataset.recorrido;
+        function marcarVivo() {
+            const auto = $raiz.find('.js-auto').is(':checked');
+            $raiz.find('.js-vivo').toggleClass('pausado', !auto).text(auto ? 'En vivo' : 'En pausa');
+        }
+
+        // Un solo temporizador aunque la pantalla se vuelva a abrir. Con la pantalla cerrada
+        // u oculta no pide nada (aLaVista), así que no carga al servidor.
+        clearInterval(window._cxTimer);
+        window._cxTimer = setInterval(function () {
+            if ($raiz.find('.js-auto').is(':checked') && aLaVista()) cargar();
+        }, 5000);
+
+        // Al volver a la pestaña del navegador, se pide al momento (sin esperar los 5 s).
+        $(document).off('visibilitychange.cxMod').on('visibilitychange.cxMod', function () {
+            if (aLaVista() && $raiz.find('.js-auto').is(':checked')) cargar();
+        });
+
+        /* ── Interacción ─────────────────────────────────────────────────── */
+        $raiz.on('click', '.sm-chip', function () {
+            filtro.vista = filtro.vista === this.dataset.vista ? '' : this.dataset.vista;
+            pintar(false);
+        });
+        $raiz.on('click', '.js-estado button', function () {
+            const v = String($(this).data('estado') || '');
+            filtro.estado = filtro.estado === v ? '' : v;
+            $raiz.find('.js-estado button').removeClass('activo')
+                .filter(function () { return String($(this).data('estado') || '') === filtro.estado; }).addClass('activo');
+            pintar(false);
+        });
+        const $buscar = $raiz.find('.js-buscar');
+        let espera;
+        $buscar.on('input', function () {
+            $buscar.closest('.sm-buscador').toggleClass('con-texto', !!this.value);
+            clearTimeout(espera);
+            espera = setTimeout(() => { filtro.texto = norm(this.value).trim(); pintar(false); }, 120);
+        }).on('keydown', function (e) { if (e.key === 'Escape' && this.value) { this.value = ''; $(this).trigger('input'); } });
+        $raiz.find('.sm-buscador-limpiar').on('click', () => $buscar.val('').trigger('input').trigger('focus'));
+
+        $raiz.on('change', '.js-auto', function () { marcarVivo(); if (this.checked) cargar(); });
+        $raiz.on('click', '[data-accion="refrescar"]', cargar);
+
+        $raiz.on('click', '[data-recorrido]', function () {
+            const id = this.dataset.recorrido;
             if (abiertos.has(id)) abiertos.delete(id); else abiertos.add(id);
-            pintar();
-            return;
-        }
+            pintar(false);
+        });
 
-        const cerrar = e.target.closest('[data-cerrar]');
-        if (cerrar) {
-            sciafConfirmar({
-                titulo: '¿Cerrar la sesión de «' + cerrar.dataset.nombre + '»?',
-                texto: 'Se cierran todas sus sesiones abiertas y vuelve a la pantalla de ingreso. Puede volver a ingresar.',
-                aceptar: 'Sí, cerrar sesión', peligrosa: true
-            }).then(si => {
-                if (!si) return;
-                $.post('/administracion/conectados/cerrar/' + encodeURIComponent(cerrar.dataset.cerrar), function (r) {
-                    Swal.fire({ toast: true, position: 'top-end', icon: r.ok ? 'success' : 'warning', title: r.msg,
-                        showConfirmButton: false, timer: 3500 });
-                    setTimeout(cargar, 800);
-                }, 'json').fail(() => Swal.fire('Error', 'No se pudo cerrar la sesión.', 'error'));
+        $raiz.on('click', '[data-cerrar]', function () {
+            const nombre = this.dataset.nombre;
+            SciafModulo.accion({
+                url: URL + '/cerrar/' + encodeURIComponent(this.dataset.cerrar),
+                confirmacion: {
+                    titulo: '¿Cerrar la sesión de «' + nombre + '»?',
+                    texto: 'Se cierran todas sus sesiones abiertas y vuelve a la pantalla de ingreso. Puede volver a ingresar.',
+                    aceptar: 'Sí, cerrar sesión', peligrosa: true
+                },
+                alTerminar: () => setTimeout(cargar, 800)
             });
-        }
-    });
+        });
 
-    document.getElementById('cxBuscar').addEventListener('input', pintar);
-    document.getElementById('cxRefrescar').addEventListener('click', cargar);
-
-    // Un solo temporizador aunque la pantalla se vuelva a abrir.
-    clearInterval(window._cxTimer);
-    window._cxTimer = setInterval(function () {
-        const auto = document.getElementById('cxAuto');
-        if (auto && auto.checked) cargar();
-    }, 5000);
-    cargar();
-})();
+        // Las tarjetas tienen su propio scroll, del alto que queda en pantalla.
+        SciafModulo.ajustarAlto($lista, 70);
+        marcarVivo();
+        pintar(false);
+        $raiz.find('.js-hora').text('Actualizado ' + new Date().toLocaleTimeString('es-BO'));
+    })();
 </script>

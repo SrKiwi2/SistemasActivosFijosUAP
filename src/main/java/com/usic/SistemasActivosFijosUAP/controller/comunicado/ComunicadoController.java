@@ -61,16 +61,25 @@ public class ComunicadoController {
         Set.of("SUPER USUARIO", "ADMINISTRADOR", "RESPONSABLE");
 
     // ── Página principal ──────────────────────────────────────────────────────
+    /** La pantalla llega con la tabla ya armada: un solo pedido al abrir. */
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String vista() {
+    public String vista(Model model) {
+        cargarTabla(model);
         return "comunicado/vista";
     }
 
-    // ── Tabla de comunicados enviados con estadísticas ────────────────────────
+    // ── Tabla de comunicados enviados con estadísticas (recargas) ─────────────
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla")
     public String tabla(Model model) {
+        cargarTabla(model);
+        return "comunicado/tabla";
+    }
+
+    private static final DateTimeFormatter FMT_ORDEN = DateTimeFormatter.ofPattern("yyyyMMddHHmm");
+
+    private void cargarTabla(Model model) {
         Page<Comunicado> pagina = notificacionService.listarComunicados(
             PageRequest.of(0, 200));
 
@@ -89,6 +98,8 @@ public class ComunicadoController {
             Map<String, Object> f = new LinkedHashMap<>();
             f.put("id",             c.getIdComunicado());
             f.put("fecha",          c.getFechaEnvio() != null ? c.getFechaEnvio().format(FMT) : "");
+            // Para ordenar por fecha de verdad (dd/MM/yyyy como texto no ordena bien).
+            f.put("fechaOrden",     c.getFechaEnvio() != null ? c.getFechaEnvio().format(FMT_ORDEN) : "0");
             f.put("tipo",           c.getTipo() != null ? c.getTipo().name() : "GENERAL");
             f.put("titulo",         c.getTitulo());
             f.put("importante",     c.isImportante());
@@ -102,7 +113,6 @@ public class ComunicadoController {
         }
 
         model.addAttribute("comunicados", filas);
-        return "comunicado/tabla";
     }
 
     // ── Formulario de redacción ───────────────────────────────────────────────

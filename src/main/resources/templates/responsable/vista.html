@@ -1,408 +1,358 @@
-<!-- ═══════════════════════════════════════════════════════
-     VISTA: tabla_responsables.html  (fragmento que se carga en #contenido)
-     Cambios clave:
-       1. processing: false  → suprime los "dots" de DataTable
-       2. preDrawCallback / drawCallback → usa globalLoader
-       3. Overlay CSS del DataTable processing eliminado
-     ═══════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Responsables — plantilla de mantenimiento (docs/PLANTILLA_MODULOS.md)
+     Funcionarios a cargo de los bienes de cada oficina. Lo que se registra o modifica
+     viaja al VSIAF por la cola del worker (RESP.DBF); el estado real del envío se ve en
+     la columna VSIAF y se refresca solo cuando el worker responde (SSE cola-vsiaf).
+     Carga eficiente:
+       · tabla paginada en el servidor (miles de responsables), sin N+1 en la página;
+       · el filtro y el formulario BUSCAN la oficina mientras se escribe (antes traían
+         todas las oficinas y consultaban el predio de cada una por separado).
+     Quien no es ADMINISTRADOR / SUPER USUARIO: sin sincronizar ni auditoría, y cambiar
+     oficina/código o eliminar genera una solicitud de autorización.
+     Todo dentro de #modResponsable y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modResponsable">
 
-<style>
-    /* Suprime el div .dataTables_processing que DataTable inyecta */
-    #data-table_processing { display: none !important; }
-</style>
-
-<div class="container-xxl flex-grow-1 container-p-y">
-
-    <div class="d-flex justify-content-between align-items-center py-3 mb-2">
-        <h4 class="fw-bold py-1 mb-0">
-            <span class="text-muted fw-light">Administración /</span> Responsables
-        </h4>
-        <div class="d-flex align-items-center gap-2" th:if="${esAdmin}">
-            <span class="badge bg-label-primary" id="ultimaSync"
-                  data-bs-toggle="tooltip" title="Última sincronización con DBF">
-                <i class="fa-solid fa-clock me-1"></i>
-                <span th:text="${ultimaSincronizacion ?: 'Nunca'}">--</span>
-            </span>
-            <span class="badge" id="estadoSyncBadge"
-                  th:classappend="${estadoSync == 'COMPLETADO'} ? 'bg-success' :
-                                  (${estadoSync == 'ERROR'} ? 'bg-danger' : 'bg-warning')"
-                  th:text="${estadoSync ?: 'PENDIENTE'}">
-            </span>
-        </div>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-user-star"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-users"></i> Usuarios y acceso <i class="ti ti-chevron-right"></i> Responsables
+        </nav>
+        <h1 class="sm-titulo">Responsables</h1>
+        <p class="sm-subtitulo">Funcionarios a cargo de los bienes de cada oficina. Lo que registre o modifique se envía al VSIAF.</p>
     </div>
-
-    <!-- Barra de herramientas -->
-    <div class="card mb-4 border-0 shadow-sm">
-        <div class="card-body p-3">
-            <div class="row g-3 align-items-center">
-                <div class="col-md-4 col-lg-3">
-                    <label class="form-label small fw-bold text-muted mb-1">Filtrar por Oficina</label>
-                    <select id="filtroOficina" class="form-select form-select-sm">
-                        <option value="">Todas las oficinas</option>
-                        <option th:each="o : ${oficinas}"
-                                th:value="${o.idOficina}"
-                                th:text="${o.predio.unidad + ' — ' + o.codOfi + ' | ' + o.nombre}">
-                        </option>
-                    </select>
-                </div>
-                <div class="col-md-8 col-lg-9 text-md-end mt-3 mt-md-0">
-                    <small th:unless="${esAdmin}" class="text-muted me-2">
-                        <i class="fa-solid fa-circle-info me-1"></i>
-                        Lo que registre o modifique se envía solo al VSIAF.
-                    </small>
-                    <!-- Sincronización manual con el DBF: solo administradores -->
-                    <div class="btn-group me-2" role="group" th:if="${esAdmin}">
-                        <button id="btnSyncResp" class="btn btn-outline-secondary btn-sm"
-                                title="Sincronización rápida">
-                            <i class="fa-solid fa-rotate me-1"></i> Sync
-                        </button>
-                        <button id="btnSyncCompleto" class="btn btn-outline-warning btn-sm"
-                                title="Forzar sincronización completa">
-                            <i class="fa-solid fa-database"></i>
-                        </button>
-                    </div>
-                    <button type="button" class="btn btn-primary btn-sm px-3"
-                            onclick="cargarFormulario()">
-                        <i class="fa-solid fa-user-plus me-1"></i> Nuevo Responsable
-                    </button>
-                </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-total">—</strong> responsables</span>
+        <th:block th:if="${esAdmin}">
+            <span class="sm-dato js-sync" title="Última sincronización con el VSIAF">
+                <i class="ti ti-refresh-dot"></i> <span class="js-sync-texto">—</span></span>
+            <span class="js-sync-info d-none"
+                  th:attr="data-ultima=${ultimaSincronizacion ?: 'Nunca'}, data-estado=${estadoSync ?: 'PENDIENTE'},
+                           data-procesados=${registrosProcesados ?: 0}, data-nuevos=${registrosNuevos ?: 0},
+                           data-actualizados=${registrosActualizados ?: 0}, data-duracion=${duracionUltimaSync ?: 0},
+                           data-origen='db'"></span>
+            <div class="btn-group">
+                <button type="button" class="sm-btn sm-btn-neutro" data-accion="sincronizar" data-completo="false"
+                        title="Traer los cambios del VSIAF">
+                    <i class="ti ti-refresh"></i> Sincronizar
+                </button>
+                <button type="button" class="sm-btn sm-btn-neutro sm-btn-icono ms-1" data-bs-toggle="dropdown" aria-expanded="false"
+                        title="Más opciones de sincronización"><i class="ti ti-chevron-down"></i></button>
+                <ul class="dropdown-menu dropdown-menu-end sm-menu-flotante">
+                    <li><a class="dropdown-item" href="javascript:void(0)" data-accion="sincronizar" data-completo="true">
+                        <i class="ti ti-database"></i> Sincronización completa (más lenta)</a></li>
+                </ul>
             </div>
+        </th:block>
+        <button type="button" class="sm-btn" data-accion="nuevo">
+            <i class="ti ti-user-plus"></i> Nuevo responsable
+        </button>
+    </div>
+</header>
+
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por nombre, C.I., código o cargo…"
+                autocomplete="off" aria-label="Buscar responsable" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="js-filtro-oficina-caja" style="min-width:260px;max-width:380px;flex:1 1 260px;">
+            <select class="sm-select js-f-oficina" aria-label="Filtrar por oficina">
+                <option value="">Todas las oficinas</option>
+            </select>
+        </div>
+        <div class="sm-toolbar-grupo">
+            <span class="sm-sub d-none d-xl-inline" th:unless="${esAdmin}">
+                <i class="ti ti-info-circle"></i> Lo que registre o modifique se envía solo al VSIAF.
+            </span>
+            <label class="sm-filas">
+                <i class="ti ti-list-numbers"></i> Filas
+                <select class="sm-select js-largo" aria-label="Filas por página">
+                    <option value="auto" selected>Ajustar a pantalla</option>
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </label>
         </div>
     </div>
 
-    <!-- Tabla -->
-    <div class="card shadow-sm">
-        <div class="card-datatable table-responsive">
-            <table class="datatables-basic table table-hover border-top" id="data-table">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width:44px">#</th>
-                        <th style="width:90px">Cód.</th>
-                        <th>Nombre Completo</th>
-                        <th style="width:110px">C.I.</th>
-                        <th>Oficina</th>
-                        <th>Cargo</th>
-                        <th style="width:110px">VSIAF</th>
-                        <th th:if="${esAdmin}">Registro / Modificación</th>
-                        <th class="text-center" style="width:110px">Acciones</th>
-                    </tr>
-                </thead>
-            </table>
-        </div>
+    <table class="table sm-tabla align-middle js-tabla">
+        <thead>
+            <tr>
+                <th style="width:60px;">#</th>
+                <th style="width:80px;">Cód.</th>
+                <th>Responsable</th>
+                <th>Oficina</th>
+                <th style="width:190px;">Cargo</th>
+                <th style="width:150px;">VSIAF</th>
+                <th th:if="${esAdmin}" style="width:210px;">Registro / modificación</th>
+                <th class="text-end" style="width:200px;">Opciones</th>
+            </tr>
+        </thead>
+    </table>
+</section>
+
+<!-- Formulario de alta / edición (el contenido llega por AJAX) -->
+<div class="modal fade" id="modalFormularioResponsable" tabindex="-1" aria-hidden="true"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content sm-modal" id="contenidoModalResponsable"></div>
     </div>
 </div>
 
-<!-- Modal formulario responsable -->
-<div class="modal fade" id="modalFormularioResponsable" tabindex="-1"
-     aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" id="contenidoModalResponsbale"></div>
+<!-- Alta de oficina desde el formulario (secundario, encima del primero) -->
+<div class="modal fade" id="modalFormularioOficina" tabindex="-1" aria-hidden="true" style="z-index:1070;">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content sm-modal" id="prediocontenidoModalOficina"></div>
     </div>
 </div>
 
-<!-- Modal formulario oficina (secundario) -->
-<div class="modal fade" id="modalFormularioOficina" tabindex="-1"
-     aria-hidden="true" style="z-index:1070;">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" id="prediocontenidoModalOficina"></div>
-    </div>
 </div>
 
 <script th:inline="javascript">
-(function () {   /* ← IIFE: evita conflictos al recargar la vista */
+    (function () {
+        const URL = '/administracion/responsable';
+        const ES_ADMIN = /*[[${esAdmin == true}]]*/ false;
+        const esc = SciafModulo.escapar;
+        const $raiz = $('#modResponsable');
+        const $modal = $raiz.find('#modalFormularioResponsable');
+        const $contenidoModal = $raiz.find('#contenidoModalResponsable');
+        const $fOficina = $raiz.find('.js-f-oficina');
 
-    const ES_ADMIN = /*[[${esAdmin == true}]]*/ false;
+        function enPantalla() { return document.body.contains($raiz[0]); }
 
-    /** Escapa texto que viene de la base antes de meterlo en HTML. */
-    function esc(v) { return $('<div>').text(v == null ? '' : String(v)).html(); }
-
-    /* ── Init ───────────────────────────────────────────── */
-    $(document).ready(function () {
-
-        $('#filtroOficina').select2({
+        /* ── Filtro por oficina: busca mientras se escribe ─────────────── */
+        $fOficina.select2({
+            dropdownParent: $raiz,
+            width: '100%',
             placeholder: 'Todas las oficinas',
             allowClear: true,
-            width: '100%',
-            dropdownParent: $('body')
+            minimumInputLength: 0,
+            language: {
+                noResults: () => 'Sin resultados',
+                searching: () => 'Buscando…',
+                errorLoading: () => 'No se pudo buscar'
+            },
+            ajax: {
+                url: URL + '/api/oficinas/opciones',
+                dataType: 'json',
+                delay: 250,
+                data: p => ({ q: p.term || '' }),
+                processResults: data => ({ results: data }),
+                cache: true
+            }
         });
 
-        initDataTable();
+        /* ── Celdas ──────────────────────────────────────────────────────── */
+        const ESTADOS = {
+            VSIAF:     ['sm-pastilla-activo', 'ti-circle-check'],
+            EN_COLA:   ['sm-pastilla-info', 'ti-hourglass-high'],
+            ERROR:     ['sm-pastilla-peligro', 'ti-alert-triangle'],
+            PENDIENTE: ['sm-pastilla-aviso', 'ti-cloud-upload']
+        };
 
-        // Auto-refresco por SSE: si el VSIAF cambia y se sincroniza, recargar esta tabla sola
-        // (sin perder la página/filtros actuales).
-        if (window.registrarTablaSse) window.registrarTablaSse('responsable', function () {
-            if ($.fn.DataTable.isDataTable('#data-table')) $('#data-table').DataTable().ajax.reload(null, false);
+        function nombreCompleto(r) {
+            return [r.paterno, r.materno, r.nombre].filter(Boolean).join(' ');
+        }
+
+        function celdaResponsable(r) {
+            const nombre = nombreCompleto(r);
+            return '<div class="sm-persona">' +
+                '<span class="sm-avatar">' + esc((nombre || '?').charAt(0)) + '</span>' +
+                '<div class="sm-persona-texto">' +
+                    '<span class="sm-nombre">' + esc(nombre || '—') + '</span>' +
+                    '<span class="sm-sub sm-mayus">' + (r.ci ? 'C.I. ' + esc(r.ci) : 'Sin C.I.') + '</span>' +
+                '</div></div>';
+        }
+
+        function celdaVsiaf(r) {
+            const cfg = ESTADOS[r.estadoVsiaf] || ['', 'ti-help'];
+            let html = '<span class="sm-pastilla ' + cfg[0] + '" data-estado-vsiaf="' + esc(r.estadoVsiaf) + '"' +
+                ' title="' + esc(r.estadoDetalle) + '"><i class="ti ' + cfg[1] + '"></i> ' + esc(r.estadoTexto) + '</span>';
+            if (r.solicitudPendiente) {
+                html += '<div class="mt-1"><span class="sm-pastilla sm-pastilla-aviso py-0" title="Hay una solicitud de autorización pendiente">' +
+                    '<i class="ti ti-shield-half"></i> Autorización pendiente</span></div>';
+            }
+            return html;
+        }
+
+        function celdaAuditoria(r) {
+            const reg = (r.registradoPor || r.fechaRegistro)
+                ? '<div><span class="sm-sub">Reg.</span> <b>' + esc(r.registradoPor || 'VSIAF / sistema') + '</b> <span class="sm-sub">' + esc(r.fechaRegistro) + '</span></div>' : '';
+            const mod = r.modificadoPor
+                ? '<div><span class="sm-sub">Mod.</span> <b>' + esc(r.modificadoPor) + '</b> <span class="sm-sub">' + esc(r.fechaModificacion) + '</span></div>' : '';
+            return '<div class="small lh-sm">' + (reg + mod || '<span class="sm-sub">—</span>') + '</div>';
+        }
+
+        function celdaAcciones(r) {
+            const datos = 'data-id="' + esc(r.idEnc) + '" data-nombre="' + esc(nombreCompleto(r)) + '"';
+            const reenviar = (r.estadoVsiaf === 'PENDIENTE' || r.estadoVsiaf === 'ERROR')
+                ? '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-icono" data-accion="reenviar" ' +
+                  'title="Enviar / reenviar al VSIAF"><i class="ti ti-send"></i></button>' : '';
+            return '<div class="sm-acciones" ' + datos + '>' +
+                '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave" data-accion="editar" title="Modificar datos, oficina o cargo">' +
+                    '<i class="ti ti-edit"></i> Editar</button>' +
+                reenviar +
+                '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-peligro sm-btn-icono" data-accion="eliminar" ' +
+                    'title="' + (ES_ADMIN ? 'Eliminar del SCIAF' : 'Solicitar eliminación (requiere autorización)') + '">' +
+                    '<i class="ti ti-trash"></i></button>' +
+                '</div>';
+        }
+
+        const columnas = [
+            { data: null, className: 'sm-num', render: (d, t, r, m) => m.row + m.settings._iDisplayStart + 1 },
+            { data: 'codFun', render: v => '<span class="sm-codigo">' + esc(v || '—') + '</span>' },
+            { data: null, render: (d, t, r) => celdaResponsable(r) },
+            { data: 'oficina', render: v => '<span class="sm-sub">' + esc(v || '—') + '</span>' },
+            { data: 'cargo', render: v => v ? '<span class="sm-mayus">' + esc(v) + '</span>' : '<span class="sm-sub">—</span>' },
+            { data: null, render: (d, t, r) => celdaVsiaf(r) }
+        ];
+        if (ES_ADMIN) columnas.push({ data: null, render: (d, t, r) => celdaAuditoria(r) });
+        columnas.push({ data: null, className: 'text-end', render: (d, t, r) => celdaAcciones(r) });
+
+        const tabla = SciafModulo.tabla({
+            tabla: $raiz.find('.js-tabla'),
+            buscador: $raiz.find('.js-buscar'),
+            largo: $raiz.find('.js-largo'),
+            total: $raiz.find('.js-total'),
+            altoFila: 60,
+            dt: {
+                serverSide: true,
+                ordering: false,
+                deferRender: true,
+                ajax: {
+                    url: URL + '/api/datatables',
+                    type: 'POST',
+                    data: d => { d.oficinaId = $fOficina.val() || ''; }
+                },
+                columns: columnas,
+                language: { sEmptyTable: 'No hay responsables. Pulse «Nuevo responsable».' }
+            }
         });
 
-        // Una solicitud de autorización se resolvió (o llegó una nueva): refrescar la tabla.
+        // Recarga conservando página, búsqueda y filtro (formulario, acciones, SSE).
+        function recargar() {
+            if (tabla && enPantalla()) tabla.ajax.reload(null, false);
+        }
+
+        $fOficina.on('change', function () { if (tabla) tabla.ajax.reload(); });
+
+        /* ── Estado de la sincronización en la cabecera (solo administradores) ── */
+        const $syncInfo = $raiz.find('.js-sync-info');
+        function pintarSync() {
+            SciafModulo.estadoSync($syncInfo, $raiz.find('.js-sync'), null);
+        }
+        function actualizarSync() {
+            $.get(URL + '/sync-info', function (i) {
+                $syncInfo.attr({
+                    'data-ultima': i.ultimaSincronizacion, 'data-estado': i.estado,
+                    'data-procesados': i.registrosProcesados, 'data-nuevos': i.registrosNuevos,
+                    'data-actualizados': i.registrosActualizados, 'data-duracion': i.duracionSegundos
+                });
+                pintarSync();
+            });
+        }
+        if (ES_ADMIN) pintarSync();
+
+        /* ── Formulario ─────────────────────────────────────────────────── */
+        // Un solo pedido; el id cifrado viaja como parámetro "id".
+        function abrirFormulario(idEnc) {
+            SciafModulo.abrirFormulario($modal, $contenidoModal, URL + '/formulario', idEnc ? { id: idEnc } : {},
+                idEnc ? 'Cargando datos del responsable…' : 'Preparando el formulario…');
+        }
+        SciafModulo.alGuardarModal($modal, recargar);
+
+        /* ── Acciones ────────────────────────────────────────────────────── */
+        function eliminar(id, nombre) {
+            if (ES_ADMIN) {
+                SciafModulo.eliminar({
+                    url: URL + '/eliminar/' + encodeURIComponent(id),
+                    titulo: '¿Eliminar responsable?',
+                    html: 'Se da de baja a <b>' + esc(nombre) + '</b> en el SCIAF.'
+                        + '<div class="alert alert-warning text-start mt-3 mb-0 small"><i class="ti ti-alert-triangle me-1"></i>'
+                        + 'En el <b>VSIAF la fila sigue existiendo</b> (el VSIAF no borra responsables). '
+                        + 'Solo se puede si no tiene bienes a cargo.</div>',
+                    confirmar: 'Sí, eliminar',
+                    alTerminar: recargar
+                });
+                return;
+            }
+            // Sin rol administrativo: la baja la aprueba un revisor.
+            Swal.fire({
+                title: 'Solicitar eliminación',
+                html: 'Eliminar a <b>' + esc(nombre) + '</b> requiere autorización. Indique el motivo.',
+                input: 'textarea',
+                inputPlaceholder: 'Motivo (obligatorio)',
+                inputValidator: v => !(v || '').trim() ? 'Indique el motivo' : undefined,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Enviar solicitud',
+                cancelButtonText: 'Cancelar'
+            }).then(r => {
+                if (!r.isConfirmed) return;
+                SciafModulo.accion({ url: URL + '/eliminar/' + encodeURIComponent(id), datos: { motivo: r.value }, alTerminar: recargar });
+            });
+        }
+
+        let sincronizando = false;
+        $raiz.on('click', '[data-accion]', function () {
+            const caja = this.closest('[data-id]');
+            const id = caja ? caja.dataset.id : null;
+            const nombre = caja ? caja.dataset.nombre : '';
+            switch (this.dataset.accion) {
+                case 'nuevo':  abrirFormulario(null); break;
+                case 'editar': abrirFormulario(id); break;
+                case 'eliminar': eliminar(id, nombre); break;
+                case 'reenviar':
+                    SciafModulo.accion({
+                        url: URL + '/subir-dbf/' + encodeURIComponent(id),
+                        confirmacion: {
+                            titulo: '¿Enviar al VSIAF?',
+                            texto: '<b>' + esc(nombre) + '</b> está en el SCIAF pero no llegó al VSIAF.<br>'
+                                + '<small class="text-muted">Si allá ya existe, se actualiza: no se duplica.</small>',
+                            aceptar: 'Sí, enviar'
+                        },
+                        alTerminar: recargar
+                    });
+                    break;
+                case 'sincronizar':
+                    if (sincronizando) return;
+                    sincronizando = true;
+                    SciafModulo.sincronizarVsiaf({
+                        url: URL + '/sync-from-mounted',
+                        completo: this.dataset.completo === 'true',
+                        boton: $raiz.find('[data-accion="sincronizar"][data-completo="false"]'),
+                        tarjeta: $raiz.find('.sm-card'),
+                        // Arreglos anidados con espacios: dos corchetes juntos son sintaxis de Thymeleaf.
+                        extras: [ ['Sin oficina en el SCIAF', 'sinOficina', 'text-warning'],
+                                  ['Personas creadas', 'personasCreadas', ''],
+                                  ['Duplicados en el VSIAF', 'duplicadosDbf', 'text-warning'] ],
+                        alTerminar: () => { recargar(); actualizarSync(); }
+                    }).finally(() => { sincronizando = false; });
+                    break;
+            }
+        });
+
+        /* ── En vivo ─────────────────────────────────────────────────────── */
+        // El VSIAF cambió RESP.DBF y la sincronización automática lo trajo.
+        if (window.registrarTablaSse) window.registrarTablaSse('responsable', recargar);
+
+        // Se resolvió (o llegó) una solicitud de autorización de este módulo.
         if (window.sciafEscuchar) window.sciafEscuchar('autorizacion', 'responsable', function (d) {
-            if (!$('#data-table').length || (d && d.modulo && d.modulo !== 'RESPONSABLE')) return;
-            if (!$('.modal.show').length) $('#data-table').DataTable().ajax.reload(null, false);
+            if (!enPantalla() || (d && d.modulo && d.modulo !== 'RESPONSABLE')) return;
+            if (!$modal.hasClass('show')) recargar();
         });
 
         // El worker resolvió órdenes de la cola: si hay responsables "En cola", refrescar su estado.
         $(document).off('sciaf:cola-vsiaf.responsable').on('sciaf:cola-vsiaf.responsable', function () {
-            if (!$('#data-table').length) { $(document).off('sciaf:cola-vsiaf.responsable'); return; }
-            if (!$('#data-table [data-estado-vsiaf="EN_COLA"]').length) return;
-            if ($('.modal.show').length) return;
-            $('#data-table').DataTable().ajax.reload(null, false);
+            if (!enPantalla()) return;
+            if (!$raiz.find('[data-estado-vsiaf="EN_COLA"]').length || $modal.hasClass('show')) return;
+            recargar();
         });
-
-        $('#filtroOficina').on('change', function () {
-            $('#data-table').DataTable().ajax.reload();
-        });
-
-        // Handlers delegados con namespace + off: la vista se puede recargar sin duplicarlos.
-        $(document).off('.respMod');
-        $(document).on('click.respMod', '#btnSyncResp',    () => sincronizar(false));
-        $(document).on('click.respMod', '#btnSyncCompleto', function () {
-            Swal.fire({
-                title: '¿Sincronización Completa?',
-                text: 'Se revisarán todos los registros. Puede tardar unos segundos.',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, continuar'
-            }).then(r => { if (r.isConfirmed) sincronizar(true); });
-        });
-
-        $(document).on('click.respMod', '.btn-subir-dbf', function () {
-            const idEnc = $(this).data('id');
-            Swal.fire({
-                title: 'Enviar al VSIAF',
-                text: 'Este responsable está en el SCIAF pero no llegó al VSIAF. ¿Enviarlo ahora?',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, enviar',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#ffc107'
-            }).then(res => {
-                if (!res.isConfirmed) return;
-                showGlobalLoader({ texto: 'Enviando al VSIAF…' });
-                $.post('/administracion/responsable/subir-dbf/' + idEnc, function (resp) {
-                    hideGlobalLoader();
-                    Swal.fire(resp.ok ? 'Enviado' : 'Atención', resp.msg, resp.ok ? 'success' : 'warning');
-                    $('#data-table').DataTable().ajax.reload(null, false);
-                }).fail(xhr => { hideGlobalLoader(); Swal.fire('Error', xhr.responseJSON?.msg || 'Fallo de conexión', 'error'); });
-            });
-        });
-
-        $(document).on('click.respMod', '.btn-eliminar-responsable', function () {
-            const idEnc = $(this).data('id');
-            // ADMINISTRADOR / SUPER USUARIO elimina directo; el resto envía una solicitud con motivo.
-            Swal.fire({
-                title: ES_ADMIN ? '¿Eliminar responsable?' : 'Solicitar eliminación',
-                text: ES_ADMIN ? 'Se da de baja en el SCIAF (en el VSIAF la fila sigue existiendo).'
-                               : 'Eliminar un responsable requiere autorización. Indique el motivo.',
-                input: ES_ADMIN ? undefined : 'textarea',
-                inputPlaceholder: 'Motivo (obligatorio)',
-                inputValidator: ES_ADMIN ? undefined : (v => !(v || '').trim() ? 'Indique el motivo' : undefined),
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: ES_ADMIN ? 'Sí, eliminar' : 'Enviar solicitud',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#dc3545'
-            }).then(res => {
-                if (!res.isConfirmed) return;
-                showGlobalLoader({ texto: ES_ADMIN ? 'Eliminando…' : 'Enviando solicitud…' });
-                $.post('/administracion/responsable/eliminar/' + idEnc, ES_ADMIN ? {} : { motivo: res.value }, function (resp) {
-                    hideGlobalLoader();
-                    Swal.fire(resp.solicitud ? 'Solicitud enviada' : (resp.ok ? 'Eliminado' : 'Error'), resp.msg,
-                              resp.solicitud ? 'info' : (resp.ok ? 'success' : 'error'));
-                    if (resp.ok) $('#data-table').DataTable().ajax.reload(null, false);
-                }).fail(xhr => { hideGlobalLoader(); Swal.fire('No se eliminó', xhr.responseJSON?.msg || 'Fallo de conexión', 'error'); });
-            });
-        });
-    });
-
-    /* ── DataTable ──────────────────────────────────────── */
-    function initDataTable() {
-        const $tbl = $('#data-table');
-        if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
-
-        $tbl.DataTable({
-            processing: false,          /* ← OFF: suprime los dots "Procesando…" */
-            serverSide: true,
-            deferRender: true,
-            pageLength: 25,
-            lengthMenu: [10, 25, 50, 100],
-
-            /* ── Reemplaza el indicator de DataTable por globalLoader ── */
-            preDrawCallback: function () {
-                showGlobalLoader({ texto: 'Cargando responsables…' });
-            },
-            drawCallback: function () {
-                hideGlobalLoader();
-                /* Reactivar tooltips */
-                document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
-                    bootstrap.Tooltip.getOrCreateInstance(el);
-                });
-            },
-
-            ajax: {
-                url: '/administracion/responsable/api/datatables',
-                type: 'POST',
-                data: function (d) { d.oficinaId = $('#filtroOficina').val(); },
-                error: function () {
-                    hideGlobalLoader();
-                    Swal.fire('Error', 'No se pudieron cargar los datos.', 'error');
-                }
-            },
-
-            columns: [
-                {
-                    data: null, orderable: false, searchable: false, width: '30px',
-                    render: (d, t, r, m) => m.row + m.settings._iDisplayStart + 1
-                },
-                {
-                    data: 'codFun', width: '80px',
-                    render: d => `<span class="badge bg-label-primary fw-bold">${esc(d) || '—'}</span>`
-                },
-                {
-                    data: null,
-                    render: (d, t, row) =>
-                        `<div class="lh-sm">
-                            <div class="fw-semibold text-dark">${esc(row.paterno)} ${esc(row.materno)}</div>
-                            <small class="text-muted">${esc(row.nombre)}</small>
-                         </div>`
-                },
-                { data: 'ci', width: '110px', render: d => esc(d) },
-                {
-                    data: 'oficina',
-                    render: d => `<span class="small text-muted">${esc(d) || '—'}</span>`
-                },
-                {
-                    data: 'cargo',
-                    render: d => `<span class="fw-semibold text-primary small">${esc(d) || '—'}</span>`
-                },
-                {
-                    // Estado real del envío al VSIAF (cola del worker)
-                    data: 'estadoVsiaf', orderable: false, searchable: false,
-                    render: (d, t, row) => {
-                        const cfg = {
-                            VSIAF:     ['bg-label-success', 'fa-check'],
-                            EN_COLA:   ['bg-label-info',    'fa-hourglass-half'],
-                            ERROR:     ['bg-label-danger',  'fa-triangle-exclamation'],
-                            PENDIENTE: ['bg-label-warning', 'fa-cloud-arrow-up']
-                        }[d] || ['bg-label-secondary', 'fa-question'];
-                        return `<span class="badge ${cfg[0]}" data-estado-vsiaf="${esc(d)}"
-                                      data-bs-toggle="tooltip" title="${esc(row.estadoDetalle)}">
-                                    <i class="fa-solid ${cfg[1]} me-1"></i>${esc(row.estadoTexto)}
-                                </span>` + (row.solicitudPendiente
-                                ? `<span class="badge bg-label-warning mt-1 d-inline-block" title="Hay una solicitud de autorización pendiente">
-                                       <i class="fa-solid fa-shield-halved me-1"></i>Autorización pendiente</span>` : '');
-                    }
-                },
-                // Auditoría: quién registró y quién modificó (solo administradores)
-                ...(ES_ADMIN ? [{
-                    data: null, orderable: false, searchable: false,
-                    render: (d, t, row) => {
-                        const reg = (row.registradoPor || row.fechaRegistro)
-                            ? `<div><span class="text-muted">Reg.:</span> <span class="fw-semibold">${esc(row.registradoPor || 'VSIAF / sistema')}</span>
-                                   <span class="text-muted">${esc(row.fechaRegistro)}</span></div>` : '';
-                        const mod = row.modificadoPor
-                            ? `<div><span class="text-muted">Mod.:</span> <span class="fw-semibold">${esc(row.modificadoPor)}</span>
-                                   <span class="text-muted">${esc(row.fechaModificacion)}</span></div>` : '';
-                        return `<div class="small lh-sm">${reg}${mod}</div>`;
-                    }
-                }] : []),
-                {
-                    data: 'idResponsable', orderable: false, searchable: false,
-                    className: 'text-center', width: '110px',
-                    render: (data, type, row) => {
-                        const reenviar = (row.estadoVsiaf === 'PENDIENTE' || row.estadoVsiaf === 'ERROR')
-                            ? `<button class="btn btn-icon btn-sm btn-warning btn-subir-dbf"
-                                       data-id="${row.idEnc}"
-                                       data-bs-toggle="tooltip" title="Enviar / reenviar al VSIAF">
-                                   <i class="fa-solid fa-cloud-arrow-up"></i>
-                               </button>` : '';
-                        const eliminar = `<button class="btn btn-icon btn-sm btn-outline-danger btn-eliminar-responsable"
-                                       data-id="${row.idEnc}" title="${ES_ADMIN ? 'Eliminar' : 'Solicitar eliminación (requiere autorización)'}">
-                                   <i class="fa-solid fa-trash"></i>
-                               </button>`;
-                        return `<div class="d-inline-flex gap-1">
-                            <button class="btn btn-icon btn-sm btn-outline-primary"
-                                    onclick="editarResponsable('${row.idEnc}')"
-                                    title="Editar">
-                                <i class="fa-solid fa-pen"></i>
-                            </button>
-                            ${eliminar}
-                            ${reenviar}
-                        </div>`;
-                    }
-                }
-            ],
-
-            language: {
-                emptyTable: 'No hay responsables registrados',
-                info: 'Mostrando _START_ a _END_ de _TOTAL_ registros',
-                infoEmpty: 'Sin registros',
-                infoFiltered: '(filtrado de _MAX_ total)',
-                lengthMenu: 'Mostrar _MENU_',
-                loadingRecords: '',
-                processing: '',
-                search: 'Buscar:',
-                zeroRecords: 'Sin resultados',
-                paginate: { first: 'Primero', last: 'Último', next: 'Sig.', previous: 'Ant.' }
-            }
-        });
-    }
-
-    /* ── Formulario ─────────────────────────────────────── */
-    function abrirModalResponsable(idEnc = null) {
-        showGlobalLoader({ texto: idEnc ? 'Cargando datos…' : 'Preparando formulario…' });
-        $('#contenidoModalResponsbale').html('');
-        $('#modalFormularioResponsable').modal('show');
-
-        $.get('/administracion/responsable/formulario', idEnc ? { id: idEnc } : {}, function (data) {
-            hideGlobalLoader();
-            $('#contenidoModalResponsbale').html(data);
-            if (idEnc && !$('#formResponsable input[name="idResponsableEnc"]').length) {
-                $('#formResponsable').prepend(`<input type="hidden" name="idResponsableEnc" value="${idEnc}">`);
-            }
-        }).fail(function () {
-            hideGlobalLoader();
-            $('#contenidoModalResponsbale').html(`
-                <div class="modal-body text-center py-5 text-danger">
-                    <i class="fa-solid fa-circle-exclamation fa-2x mb-2 d-block"></i>
-                    <p class="mb-3">No se pudo cargar el formulario.</p>
-                    <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
-                </div>`);
-        });
-    }
-
-    /* Exportados al scope global para los onclick del HTML */
-    window.cargarFormulario  = () => abrirModalResponsable(null);
-    window.editarResponsable = (id) => abrirModalResponsable(id);
-
-    /* ── Sincronizar ────────────────────────────────────── */
-    function sincronizar(completo) {
-        showGlobalLoader({ texto: completo ? 'Sincronización completa…' : 'Sincronizando…' });
-        $.post('/administracion/responsable/sync-from-mounted', { forzarCompleto: completo }, function (res) {
-            hideGlobalLoader();
-            Swal.fire({
-                title: 'Sincronización Finalizada',
-                html: `Procesados: <b>${res.totalLeidas}</b> &nbsp;|&nbsp;
-                       Nuevos: <b>${res.insertados}</b> &nbsp;|&nbsp;
-                       Actualizados: <b>${res.actualizados}</b>`,
-                icon: 'success'
-            });
-            actualizarInfoSync();
-            $('#data-table').DataTable().ajax.reload();
-        }).fail(() => {
-            hideGlobalLoader();
-            Swal.fire('Error', 'Error en sincronización', 'error');
-        });
-    }
-
-    function actualizarInfoSync() {
-        $.get('/administracion/responsable/sync-info', function (info) {
-            $('#ultimaSync span').text(info.ultimaSincronizacion);
-            $('#estadoSyncBadge').text(info.estado)
-                .removeClass('bg-success bg-danger bg-warning')
-                .addClass(info.estado === 'COMPLETADO' ? 'bg-success'
-                        : info.estado === 'ERROR'      ? 'bg-danger' : 'bg-warning');
-        });
-    }
-
-})();
+    })();
 </script>

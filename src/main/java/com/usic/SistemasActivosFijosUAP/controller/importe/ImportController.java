@@ -13,14 +13,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.linuxense.javadbf.DBFReader;
+import com.usic.SistemasActivosFijosUAP.config.RolesSciaf;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.ActualImportService;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.AuxiliarImportService;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.EntidadImportService;
@@ -31,6 +34,7 @@ import com.usic.SistemasActivosFijosUAP.model.service.importacion.OrganismoFinIm
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.PredioImportService;
 import com.usic.SistemasActivosFijosUAP.model.service.importacion.ResponsableImportService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -48,6 +52,35 @@ public class ImportController {
     private final ActualImportService actualImportService;
     private final ImportProgressService progress;
     private final TaskExecutor taskExecutor;
+
+    /**
+     * Toda importación escribe en masa en la base (entidades, predios, oficinas,
+     * responsables, catálogos, activos): solo ADMINISTRADOR / SUPER USUARIO. Antes estaba
+     * abierta del todo: /importe/** es permitAll() en SeguridadConfig y aquí no se revisaba
+     * nada, así que cualquiera, incluso sin iniciar sesión, podía subir un DBF.
+     * <p>
+     * Un método @ModelAttribute corre antes de cada endpoint de este controlador.
+     */
+    @ModelAttribute
+    void soloAdministradores(HttpServletRequest request) {
+        if (!RolesSciaf.esAdministrativo(request)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Solo un ADMINISTRADOR o SUPER USUARIO puede importar datos.");
+        }
+    }
+
+    /**
+     * El rechazo de arriba sale como 403. Sin esto lo atrapaba el
+     * {@code @ExceptionHandler(Exception.class)} de GlobalExceptionHandler y respondía 500
+     * (con un error en el log por cada intento). Un manejador del propio controlador tiene
+     * prioridad sobre el global.
+     */
+    @org.springframework.web.bind.annotation.ExceptionHandler(ResponseStatusException.class)
+    @ResponseBody
+    ResponseEntity<Map<String, Object>> rechazado(ResponseStatusException ex) {
+        return ResponseEntity.status(ex.getStatusCode())
+                .body(Map.of("ok", false, "message", ex.getReason() == null ? "No permitido." : ex.getReason()));
+    }
 
     @PostMapping("/import-entidad")
     @ResponseBody

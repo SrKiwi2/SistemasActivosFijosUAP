@@ -1,126 +1,258 @@
-<div class="modal-header">
-    <h4 class="modal-title"><i class="ti ti-send me-1"></i> Nuevo comunicado</h4>
-    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: comunicado/formulario.html  (va dentro de .modal-content.sm-modal)
+     El envío lo hace SciafModulo.formulario() y espera JSON { ok, msg }.
+     Mayúsculas: el TÍTULO sí (regla de la plantilla); el MENSAJE y la URL no
+     (data-sm-mayus="no"): un texto largo en mayúsculas se lee mal y la URL distingue.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-modal-cab">
+    <div class="sm-cabecera-icono"><i class="ti ti-send"></i></div>
+    <div>
+        <h5 class="sm-modal-titulo">Nuevo comunicado</h5>
+        <p class="sm-modal-sub">Llega al instante a la campanita de cada destinatario; usted ve quién confirmó la lectura.</p>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
 
-<form id="formularioComunicado" method="post"
-      th:action="@{/administracion/comunicados/enviar}" novalidate>
+<style>
+    #formularioComunicado { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    #formularioComunicado > .modal-body { overflow-y: auto; min-height: 0; max-height: calc(100vh - 220px); }
+    #formularioComunicado .com-previa {
+        display: flex; gap: .75rem; align-items: flex-start; padding: .8rem 1rem;
+        border: 1px dashed rgba(var(--sm-primario-rgb), .45); border-radius: 12px; background: var(--sm-superficie);
+    }
+    #formularioComunicado .com-previa-icono {
+        width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; color: #fff; background: var(--sm-primario);
+    }
+    #formularioComunicado .com-previa-icono.URGENTE { background: var(--sm-peligro); }
+    #formularioComunicado .com-previa-icono.AVISO { background: #d97706; }
+    #formularioComunicado .com-previa-icono.GENERAL { background: #64748b; }
+    #formularioComunicado .com-previa-texto { min-width: 0; }
+    #formularioComunicado .com-previa-titulo { font-weight: 700; color: var(--sm-texto); }
+    #formularioComunicado .com-previa-mensaje { font-size: .86rem; color: var(--sm-texto-2); white-space: pre-line;
+        display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    #formularioComunicado .sm-opcion.tipo-URGENTE input:checked + span { border-color: var(--sm-peligro); background: rgba(var(--sm-peligro-rgb), .07); box-shadow: 0 0 0 3px rgba(var(--sm-peligro-rgb), .16); }
+    #formularioComunicado .form-switch .form-check-input { width: 2.4em; height: 1.25em; cursor: pointer; }
+</style>
 
-    <div class="modal-body">
-        <div class="row g-3">
+<form id="formularioComunicado" method="post" th:action="@{/administracion/comunicados/enviar}" novalidate>
 
-            <div class="col-md-5">
-                <label class="form-label">Tipo</label>
-                <select name="tipo" class="form-select" required>
-                    <option value="AVISO">Aviso</option>
-                    <option value="TRABAJO">Trabajo / tarea</option>
-                    <option value="URGENTE">Urgente</option>
-                    <option value="GENERAL" selected>General</option>
-                </select>
-            </div>
+    <div class="modal-body sm-modal-cuerpo">
 
-            <div class="col-md-7 d-flex align-items-end">
-                <div class="form-check mt-2">
-                    <input class="form-check-input" type="checkbox" name="importante" value="true"
-                           id="comImportante">
+        <!-- 1. Qué tipo de comunicado -->
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-category"></i> Tipo</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="sm-opciones">
+                    <label class="sm-opcion"><input type="radio" name="tipo" value="GENERAL" checked>
+                        <span><i class="ti ti-message text-secondary"></i><span>General<small>Información para todos</small></span></span></label>
+                    <label class="sm-opcion"><input type="radio" name="tipo" value="AVISO">
+                        <span><i class="ti ti-bell text-warning"></i><span>Aviso<small>Algo que conviene saber</small></span></span></label>
+                    <label class="sm-opcion"><input type="radio" name="tipo" value="TRABAJO">
+                        <span><i class="ti ti-briefcase text-primary"></i><span>Trabajo<small>Una tarea por hacer</small></span></span></label>
+                    <label class="sm-opcion tipo-URGENTE"><input type="radio" name="tipo" value="URGENTE">
+                        <span><i class="ti ti-urgent text-danger"></i><span>Urgente<small>Requiere atención ya</small></span></span></label>
+                </div>
+                <div class="form-check form-switch mt-3 mb-0">
+                    <input class="form-check-input" type="checkbox" name="importante" value="true" id="comImportante">
                     <label class="form-check-label" for="comImportante">
-                        <i class="ti ti-star-filled text-warning"></i>
-                        Marcar como importante (destacado)
+                        <i class="ti ti-star-filled text-warning"></i> Marcar como importante (se destaca en la campanita)
                     </label>
                 </div>
             </div>
+        </div>
 
-            <div class="col-12">
-                <label class="form-label">Título <span class="text-danger">*</span></label>
-                <input type="text" name="titulo" class="form-control" maxlength="255"
-                       placeholder="Ej. Inventario físico la próxima semana" required>
-            </div>
-
-            <div class="col-12">
-                <label class="form-label">Mensaje</label>
-                <textarea name="mensaje" class="form-control" rows="4"
-                          placeholder="Detalle del comunicado..."></textarea>
-            </div>
-
-            <div class="col-12">
-                <label class="form-label">URL de destino (opcional)</label>
-                <input type="text" name="urlDestino" class="form-control"
-                       placeholder="Ej. /administracion/activo/vista">
-                <small class="text-muted">Si la indica, el destinatario podrá ir directo a esa pantalla.</small>
-            </div>
-
-            <hr class="my-1">
-
-            <div class="col-12">
-                <label class="form-label d-block">Destinatarios</label>
-                <div class="btn-group" role="group">
-                    <input type="radio" class="btn-check" name="alcance" id="alcTodos" value="TODOS"
-                           onchange="ajustarAlcance()">
-                    <label class="btn btn-outline-primary" for="alcTodos">
-                        <i class="ti ti-users me-1"></i> Todos
-                    </label>
-
-                    <input type="radio" class="btn-check" name="alcance" id="alcUsuarios" value="USUARIOS"
-                           checked onchange="ajustarAlcance()">
-                    <label class="btn btn-outline-primary" for="alcUsuarios">
-                        <i class="ti ti-user me-1"></i> Usuarios específicos
-                    </label>
-
-                    <input type="radio" class="btn-check" name="alcance" id="alcOficina" value="OFICINA"
-                           onchange="ajustarAlcance()">
-                    <label class="btn btn-outline-primary" for="alcOficina">
-                        <i class="ti ti-building me-1"></i> Por oficina / sección
-                    </label>
+        <!-- 2. Qué dice -->
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-file-text"></i> Contenido</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="sm-label" for="comTitulo">Título <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-heading"></i>
+                            <input type="text" name="titulo" id="comTitulo" class="sm-input" maxlength="255"
+                                   placeholder="Ej. Inventario físico la próxima semana" required autocomplete="off">
+                            <div class="invalid-feedback">Escriba el título del comunicado.</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="sm-label" for="comMensaje">Mensaje</label>
+                        <textarea name="mensaje" id="comMensaje" class="sm-input" rows="4" data-sm-mayus="no"
+                                  placeholder="Detalle del comunicado…"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="sm-label" for="comUrl">Ir a una pantalla (opcional)</label>
+                        <div class="sm-campo">
+                            <i class="ti ti-link"></i>
+                            <input type="text" name="urlDestino" id="comUrl" class="sm-input" list="comPantallas" data-sm-mayus="no"
+                                   placeholder="Elija una pantalla del menú o escriba la dirección" autocomplete="off">
+                        </div>
+                        <datalist id="comPantallas"></datalist>
+                        <div class="sm-ayuda">Si la indica, el destinatario podrá abrir esa pantalla directo desde el aviso.</div>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Selección de usuarios -->
-            <div class="col-12 campo-usuarios">
-                <label class="form-label">Seleccione usuario(s)</label>
-                <select name="idsUsuarios" class="form-select select2" multiple>
-                    <option th:each="u : ${usuarios}" th:value="${u.id}"
-                            th:text="${u.nombre} + (${u.rol} != '' ? ' (' + ${u.rol} + ')' : '')"></option>
-                </select>
+        <!-- 3. A quién -->
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-users"></i> Destinatarios</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="sm-opciones mb-3">
+                    <label class="sm-opcion"><input type="radio" name="alcance" value="USUARIOS" checked>
+                        <span><i class="ti ti-user-check"></i><span>Usuarios específicos<small>Los que usted elija</small></span></span></label>
+                    <label class="sm-opcion"><input type="radio" name="alcance" value="OFICINA">
+                        <span><i class="ti ti-building"></i><span>Por oficina<small>Sus responsables</small></span></span></label>
+                    <label class="sm-opcion"><input type="radio" name="alcance" value="TODOS">
+                        <span><i class="ti ti-users"></i><span>Todos<small>Usuarios activos</small></span></span></label>
+                </div>
+
+                <div class="campo-usuarios">
+                    <label class="sm-label" for="comUsuarios">Usuarios <span class="sm-req">*</span></label>
+                    <div class="sm-campo">
+                        <select name="idsUsuarios" id="comUsuarios" class="form-select" multiple>
+                            <option th:each="u : ${usuarios}" th:value="${u.id}"
+                                    th:text="${u.nombre} + (${u.rol} != '' ? ' (' + ${u.rol} + ')' : '')"></option>
+                        </select>
+                        <div class="invalid-feedback">Elija al menos un usuario.</div>
+                    </div>
+                </div>
+
+                <div class="campo-oficina">
+                    <label class="sm-label" for="comOficina">Oficina <span class="sm-req">*</span></label>
+                    <div class="sm-campo">
+                        <select name="idOficina" id="comOficina" class="form-select">
+                            <option value="">— Seleccione —</option>
+                            <option th:each="o : ${oficinas}" th:value="${o.id}"
+                                    th:text="${(o.codigo != null ? o.codigo + ' — ' : '') + o.nombre}"></option>
+                        </select>
+                        <div class="invalid-feedback">Elija la oficina.</div>
+                    </div>
+                    <div class="sm-ayuda">Llega a los usuarios que son responsables de esa oficina.</div>
+                </div>
+
+                <div class="sm-aviso mt-3 mb-0">
+                    <i class="ti ti-target-arrow"></i>
+                    <div><strong>Llegará a:</strong> <span class="js-resumen-destino">—</span></div>
+                </div>
             </div>
+        </div>
 
-            <!-- Selección de oficina -->
-            <div class="col-12 campo-oficina">
-                <label class="form-label">Seleccione la oficina / sección</label>
-                <select name="idOficina" class="form-select select2">
-                    <option value="">— Seleccione —</option>
-                    <option th:each="o : ${oficinas}" th:value="${o.id}"
-                            th:text="${(o.codigo != null ? o.codigo + ' — ' : '') + o.nombre}"></option>
-                </select>
-                <small class="text-muted">Llega a los usuarios responsables de esa oficina.</small>
+        <!-- Vista previa: así lo ve el destinatario -->
+        <div class="sm-label mb-2"><i class="ti ti-eye"></i> Así lo verá el destinatario</div>
+        <div class="com-previa">
+            <div class="com-previa-icono js-previa-icono GENERAL"><i class="ti ti-message"></i></div>
+            <div class="com-previa-texto">
+                <div class="com-previa-titulo">
+                    <i class="ti ti-star-filled text-warning d-none js-previa-estrella"></i>
+                    <span class="js-previa-titulo">Título del comunicado</span>
+                </div>
+                <div class="com-previa-mensaje js-previa-mensaje">El mensaje aparece aquí.</div>
             </div>
-
         </div>
     </div>
 
-    <div class="modal-footer">
-        <a type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</a>
-        <button type="submit" class="btn btn-success">
-            <i class="ti ti-send me-1"></i> Enviar comunicado
+    <div class="sm-modal-pie">
+        <span class="sm-nota"><span class="sm-req">*</span> Campo obligatorio</span>
+        <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal" id="btnCancelarComunicado">
+            <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button type="submit" class="sm-btn sm-btn-exito" id="btnEnviarComunicado">
+            <i class="ti ti-send"></i> Enviar comunicado
         </button>
     </div>
 </form>
 
 <script>
-    function ajustarAlcance() {
-        const alcance = document.querySelector('#formularioComunicado input[name="alcance"]:checked').value;
-        const campoUsuarios = document.querySelector('#formularioComunicado .campo-usuarios');
-        const campoOficina  = document.querySelector('#formularioComunicado .campo-oficina');
+    (function () {
+        const $form = $('#formularioComunicado');
+        const $usuarios = $('#comUsuarios');
+        const $oficina = $('#comOficina');
+        const esc = SciafModulo.escapar;
+        const ICONOS = { GENERAL: 'ti-message', AVISO: 'ti-bell', TRABAJO: 'ti-briefcase', URGENTE: 'ti-urgent' };
 
-        const mostrar = (el, on) => {
-            el.style.display = on ? '' : 'none';
-            // Deshabilitar los inputs ocultos para que no se envíen (evita binding inválido).
-            el.querySelectorAll('select, input').forEach(c => c.disabled = !on);
-        };
+        // Listas con buscador (antes de que la plantilla las inicie sin placeholder).
+        $usuarios.select2({ dropdownParent: $form, width: '100%', placeholder: 'Busque y elija uno o varios usuarios' });
+        $oficina.select2({ dropdownParent: $form, width: '100%', placeholder: 'Busque la oficina' });
 
-        mostrar(campoUsuarios, alcance === 'USUARIOS');
-        mostrar(campoOficina,  alcance === 'OFICINA');
-    }
+        // Pantallas del menú que este usuario ve (sin pedir nada al servidor).
+        const pantallas = $('#layout-menu .menu-item[data-url]').map(function () {
+            const url = $(this).attr('data-url');
+            const titulo = $(this).find('> a > div').first().text().trim();
+            return url ? '<option value="' + esc(url) + '">' + esc(titulo) + '</option>' : null;
+        }).get();
+        $('#comPantallas').html(pantallas.join(''));
 
-    ajustarAlcance();
-    manejarEnvioFormulario('#formularioComunicado');
+        function alcance() { return $form.find('input[name="alcance"]:checked').val(); }
+        function tipo() { return $form.find('input[name="tipo"]:checked').val(); }
+
+        /** Muestra el campo del alcance elegido; los ocultos se deshabilitan (no se envían). */
+        function ajustarAlcance() {
+            const a = alcance();
+            const mostrar = (sel, on) => {
+                const el = $form.find(sel)[0];
+                el.style.display = on ? '' : 'none';
+                el.querySelectorAll('select, input').forEach(c => c.disabled = !on);
+            };
+            mostrar('.campo-usuarios', a === 'USUARIOS');
+            mostrar('.campo-oficina', a === 'OFICINA');
+            resumir();
+        }
+
+        /** "Llegará a: …" según lo elegido. */
+        function textoDestino() {
+            const a = alcance();
+            if (a === 'TODOS') return 'todos los usuarios activos (' + $usuarios.find('option').length + ')';
+            if (a === 'OFICINA') {
+                const t = $oficina.find('option:selected').val() ? $oficina.find('option:selected').text() : '';
+                return t ? 'los responsables de ' + t : 'elija una oficina';
+            }
+            const n = ($usuarios.val() || []).length;
+            return n ? n + ' usuario(s) elegido(s)' : 'elija al menos un usuario';
+        }
+        function resumir() { $form.find('.js-resumen-destino').text(textoDestino()); }
+
+        function previa() {
+            const t = tipo();
+            $form.find('.js-previa-icono').attr('class', 'com-previa-icono js-previa-icono ' + t)
+                .find('i').attr('class', 'ti ' + (ICONOS[t] || 'ti-message'));
+            $form.find('.js-previa-titulo').text($('#comTitulo').val().trim() || 'Título del comunicado');
+            $form.find('.js-previa-mensaje').text($('#comMensaje').val().trim() || 'El mensaje aparece aquí.');
+            $form.find('.js-previa-estrella').toggleClass('d-none', !$('#comImportante').is(':checked'));
+        }
+
+        $form.on('change', 'input[name="alcance"]', ajustarAlcance);
+        $form.on('change', 'input[name="tipo"], #comImportante', previa);
+        $form.on('input', '#comTitulo, #comMensaje', previa);
+        $usuarios.on('change', function () { resumir(); $(this).removeClass('is-invalid'); });
+        $oficina.on('change', function () { resumir(); $(this).removeClass('is-invalid'); });
+
+        ajustarAlcance();
+        previa();
+
+        SciafModulo.formulario({
+            form: '#formularioComunicado',
+            modal: '#modalFormularioComunicado',
+            guardar: '#btnEnviarComunicado',
+            cancelar: '#btnCancelarComunicado',
+            textoGuardando: 'Enviando…',
+            msgExito: 'Comunicado enviado',
+            validar: function () {
+                const a = alcance();
+                if (a === 'USUARIOS' && !($usuarios.val() || []).length) { $usuarios.addClass('is-invalid'); return false; }
+                if (a === 'OFICINA' && !$oficina.val()) { $oficina.addClass('is-invalid'); return false; }
+                return true;
+            },
+            confirmacion: function () {
+                return {
+                    titulo: '¿Enviar el comunicado?',
+                    texto: '<b>' + esc($('#comTitulo').val().trim()) + '</b><br>Llegará a ' + esc(textoDestino()) + '.'
+                         + '<br><small class="text-muted">Una vez enviado no se puede retirar.</small>',
+                    aceptar: 'Sí, enviar'
+                };
+            }
+            // La tabla la recarga la vista (SciafModulo.alGuardarModal).
+        });
+    })();
 </script>

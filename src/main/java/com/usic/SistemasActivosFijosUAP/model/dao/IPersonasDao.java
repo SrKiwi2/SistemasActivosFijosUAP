@@ -18,6 +18,14 @@ public interface IPersonasDao extends JpaRepository <Persona, Long>{
     @Query("SELECT p FROM Persona p WHERE p.ci = ?1 AND p.estado = 'ACTIVO'")
     Optional<Persona> findByCi(String ci);
 
+    /**
+     * Sin distinguir mayúsculas: hay C.I. viejos guardados con letras en minúscula ("lp").
+     * {@code ciNormalizado} debe llegar ya sin espacios y en MAYÚSCULAS (lo hace el
+     * servicio): Hibernate no valida un parámetro dentro de upper(trim(?1)).
+     */
+    @Query("SELECT p FROM Persona p WHERE upper(trim(p.ci)) = :ci AND p.estado = 'ACTIVO'")
+    List<Persona> listarPorCi(@Param("ci") String ciNormalizado);
+
     @Query("SELECT p FROM Persona p WHERE p.estado = 'ACTIVO'")
     List<Persona> listarPersonas();
 
@@ -52,6 +60,10 @@ public interface IPersonasDao extends JpaRepository <Persona, Long>{
         String getPaterno();
         String getMaterno();
         String getCi();
+        /** Usuarios ACTIVOS con esta persona (normalmente 0 o 1). */
+        Long getUsuarios();
+        /** Asignaciones ACTIVAS como responsable de oficina. */
+        Long getResponsables();
     }
 
     @Query(
@@ -61,7 +73,11 @@ public interface IPersonasDao extends JpaRepository <Persona, Long>{
         p.nombre      as nombre,
         p.paterno     as paterno,
         p.materno     as materno,
-        p.ci          as ci
+        p.ci          as ci,
+        (select count(*) from usuario u
+          where u.id_persona = p.id_persona and u._estado = 'ACTIVO')     as usuarios,
+        (select count(*) from responsable r
+          where r.id_persona = p.id_persona and r._estado = 'ACTIVO')     as responsables
         from persona p
         where p._estado = 'ACTIVO'
         and (
@@ -71,7 +87,7 @@ public interface IPersonasDao extends JpaRepository <Persona, Long>{
             or p.materno ilike concat('%', :q, '%')
             or p.ci      ilike concat('%', :q, '%')
         )
-        order by 2
+        order by 2, 3, 4, 1
         limit :#{#pageable.pageSize}
         offset :#{#pageable.offset}
     """,

@@ -143,6 +143,27 @@ public class MonitorConexionesService {
                    .toList();
     }
 
+    /**
+     * ¿Se puede trabajar con ese recurso? (lo usa VsiafDisponibilidad para pausar las
+     * tareas del VSIAF). Solo CAÍDO cuenta como no disponible: DEGRADADO (solo lectura,
+     * falta un archivo) todavía permite leer. Si aún no hubo sondeo, se sondea ahora
+     * (con su timeout: un montaje colgado no bloquea más de unos segundos).
+     */
+    public boolean disponible(String clave) {
+        EstadoConexionDto e = ultimoEstado.get(clave);
+        if (e == null) {
+            verificarTodo(false);
+            e = ultimoEstado.get(clave);
+        }
+        return e != null && !EstadoConexionDto.CAIDO.equals(e.estado());
+    }
+
+    /** Detalle del último sondeo de ese recurso (para los mensajes). */
+    public String detalle(String clave) {
+        EstadoConexionDto e = ultimoEstado.get(clave);
+        return e == null ? "sin datos" : e.detalle();
+    }
+
     /** Resumen para el color del icono: el peor estado manda. */
     public String estadoGlobal() {
         List<EstadoConexionDto> estados = estadoActual();

@@ -1,201 +1,209 @@
-<div class="modal-header">
-    <h4 class="modal-title" th:text="${edit}? 'Modificar Auxiliar' : 'Registrar Auxiliar'"></h4>
-    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: auxiliar/formulario.html  (va dentro de .modal-content.sm-modal)
+     El envío lo hace SciafModulo.formulario() y espera JSON { ok, msg, vsiaf }.
+     · Código auxiliar: lo calcula el servidor según predio + grupo (correlativo).
+     · Nombre: único dentro del predio + grupo (se verifica mientras se escribe; el
+       servidor vuelve a validar). Se guarda en MAYÚSCULAS.
+     Sin loader de pantalla completa: el progreso se ve en el propio campo.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-modal-cab">
+    <div class="sm-cabecera-icono">
+        <i class="ti" th:classappend="${edit} ? 'ti-edit' : 'ti-folder-plus'"></i>
+    </div>
+    <div>
+        <h5 class="sm-modal-titulo" th:text="${edit} ? 'Modificar auxiliar' : 'Nuevo auxiliar'">Auxiliar</h5>
+        <p class="sm-modal-sub"
+           th:text="${edit} ? 'Los cambios se guardan aquí y se envían al VSIAF.' : 'Se registra aquí y se envía al VSIAF con su código correlativo.'"></p>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
+
 <form id="formularioAuxiliar" method="post"
-    th:action="${edit}? @{/administracion/auxiliar/modificar-auxiliar} : @{/administracion/auxiliar/registrar-auxiliar}"
+    th:action="${edit} ? @{/administracion/auxiliar/modificar-auxiliar} : @{/administracion/auxiliar/registrar-auxiliar}"
     novalidate>
     <input type="hidden" th:if="${edit != null}" th:field="*{auxiliar.idAuxiliar}">
-    <div class="modal-body">
-        <div class="row">
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label">Grupo contable</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-layer-group"></i></span>
-                    <select id="selectGrupoContable" th:field="*{auxiliar.grupoContable.idGrupoContable}"
-                        class="form-select select2it" required>
-                        <option value="">Seleccione…</option>
-                        <option th:each="g : ${gruposContables}" th:value="${g.idGrupoContable}"
-                            th:data-code="${g.codContable != null ? #numbers.formatInteger(g.codContable, 2) : ''}"
-                            th:text="${g.nombre + ' (' + g.codContable + ')'}"></option>
-                    </select>
-                </div>
-            </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label">Predio</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-building"></i></span>
-                    <select id="selectPredio" th:field="*{auxiliar.predio.idPredio}" class="form-select select2it"
-                        required>
-                        <option value="">Seleccione…</option>
-                        <option th:each="p : ${predios}" th:value="${p.idPredio}"
-                            th:text="${p.descrip + ' (' + p.codigo + ')'}"></option>
-                    </select>
-                </div>
-            </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="codAuxInput">Código auxiliar</label>
-                <input id="inputCodAux" type="number" th:field="*{auxiliar.codAux}" class="form-control"
-                    placeholder="Ej: 101" required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
-            </div>
 
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="nombreAuxiliarInput">Nombre auxiliar</label>
-                <input id="nombreAuxiliarInput" type="text" th:field="*{auxiliar.nombre}" class="form-control"
-                    placeholder="Ej: Muebles y Enseres" required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback" id="nombreAuxiliarFeedback">Porfavor Introduzca un dato valido.</div>
+    <div class="sm-modal-cuerpo">
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-map-pin"></i> Dónde va</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <label class="sm-label" for="selectPredio">Predio <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <select id="selectPredio" th:field="*{auxiliar.predio.idPredio}" class="form-select select2" required>
+                                <option value="">Seleccione…</option>
+                                <option th:each="p : ${predios}" th:value="${p.idPredio}"
+                                        th:text="${p.descrip + ' (' + p.codigo + ')'}"></option>
+                            </select>
+                            <div class="invalid-feedback">Elija el predio.</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="sm-label" for="selectGrupoContable">Grupo contable <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <select id="selectGrupoContable" th:field="*{auxiliar.grupoContable.idGrupoContable}"
+                                    class="form-select select2" required>
+                                <option value="">Seleccione…</option>
+                                <option th:each="g : ${gruposContables}" th:value="${g.idGrupoContable}"
+                                        th:text="${g.nombre + ' (' + g.codContable + ')'}"></option>
+                            </select>
+                            <div class="invalid-feedback">Elija el grupo contable.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-folder"></i> Auxiliar</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="row g-3">
+                    <div class="col-12 col-md-4">
+                        <label class="sm-label" for="inputCodAux">Código <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-hash js-icono-cod"></i>
+                            <input id="inputCodAux" type="number" th:field="*{auxiliar.codAux}" class="sm-input"
+                                   placeholder="Ej: 101" required data-sm-mayus="no" />
+                            <div class="invalid-feedback">Ingrese el código.</div>
+                        </div>
+                        <div class="sm-ayuda js-ayuda-cod">Se calcula al elegir predio y grupo.</div>
+                    </div>
+                    <div class="col-12 col-md-8">
+                        <label class="sm-label" for="nombreAuxiliarInput">Nombre <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-tag js-icono-nombre"></i>
+                            <input id="nombreAuxiliarInput" type="text" th:field="*{auxiliar.nombre}" class="sm-input"
+                                   placeholder="Ej: MUEBLES Y ENSERES" required maxlength="255" autocomplete="off" />
+                            <div class="invalid-feedback" id="nombreAuxiliarFeedback">Ingrese el nombre del auxiliar.</div>
+                        </div>
+                        <div class="sm-ayuda">No puede repetirse dentro del mismo predio y grupo contable.</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="modal-footer">
-        <div class="row">
-            <div class="col-12">
-                <a type="submit" class="btn btn-secondary" style="color: white;" data-bs-dismiss="modal">Cancelar</a>
-                <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
 
-            </div>
-        </div>
+    <div class="sm-modal-pie">
+        <span class="sm-nota"><span class="sm-req">*</span> Campo obligatorio</span>
+        <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal" id="btnCancelarAuxiliar">
+            <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button type="submit" class="sm-btn sm-btn-exito" id="btnGuardarAuxiliar">
+            <i class="ti ti-device-floppy"></i>
+            <span th:text="${edit} ? 'Guardar cambios' : 'Registrar auxiliar'">Guardar</span>
+        </button>
     </div>
 </form>
 
 <script>
-
     (function () {
-        manejarEnvioFormulario('#formularioAuxiliar');
+        const $form = $('#formularioAuxiliar');
+        const esEdicion = $form.find('input[name="idAuxiliar"]').length > 0;
+        const predio = document.getElementById('selectPredio');
+        const grupo = document.getElementById('selectGrupoContable');
+        const codAux = document.getElementById('inputCodAux');
+        const nombre = document.getElementById('nombreAuxiliarInput');
+        const $feedback = $('#nombreAuxiliarFeedback');
+        let nombreRepetido = false;
 
-        /*AUTOCOMPLETAR CODIGO AUXILIAR*/
-        const $selectPredio = document.getElementById('selectPredio');
-        const $selectGrupoContable = document.getElementById('selectGrupoContable');
-        const $inputCodAux = document.getElementById('inputCodAux');
+        /** Ícono del campo como indicador: girando mientras consulta. */
+        function trabajando($icono, si, normal) {
+            $icono.attr('class', si ? 'ti ti-loader-2' : 'ti ' + normal);
+            // spinner-border: la animación de giro que ya trae Bootstrap.
+            $icono.css('animation', si ? 'spinner-border .8s linear infinite' : '');
+        }
 
+        /* ── Código correlativo (lo calcula el servidor) ─────────────────── */
         function actualizarCodAux() {
-            const idPredio = $selectPredio.value;
-            const idGrupoContable = $selectGrupoContable.value;
-
-            if (idPredio && idGrupoContable) {
-                if (typeof showGlobalLoader === 'function') {
-                    showGlobalLoader({ texto: 'Calculando correlativo...' });
-                }
-                const url = '[[@{/administracion/auxiliar/obtener-cod-auxiliar}]]' + `?idPredio=${idPredio}&idGrupoContable=${idGrupoContable}`;
-                fetch(url)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Error al obtener el correlativo: ' + response.statusText);
-                        }
-                        return response.text();
-                    })
-                    .then(codAux => {
-                        $inputCodAux.value = codAux;
-                        $inputCodAux.readOnly = true;
-                    })
-                    .catch(error => {
-                        console.error('Fetch Error:', error);
-                        alert('No se pudo obtener el código auxiliar. Por favor, inténtelo de nuevo.');
-                    })
-                    .finally(() => {
-                        if (typeof hideGlobalLoader === 'function') {
-                            hideGlobalLoader();
-                        }
-                    });
-            } else {
-                $inputCodAux.value = '';
-                $inputCodAux.readOnly = false;
-            }
-        }
-
-        $selectPredio.addEventListener('change', actualizarCodAux);
-        $selectGrupoContable.addEventListener('change', actualizarCodAux);
-
-        if ('[[${edit}]]' === 'null' || '[[${edit}]]' === '') {
-            setTimeout(actualizarCodAux, 100);
-        }
-
-        /*VERIFICAR NOMBRE AUXILIAR — SIEMPRE DENTRO DEL PREDIO + GRUPO CONTABLE*/
-
-        const $inputNombreAux = document.getElementById('nombreAuxiliarInput');
-        // El hidden lo genera th:field, así que su id es 'idAuxiliar' (el nombre del campo
-        // sin el prefijo del bean). Antes se buscaba 'idAuxiliarHidden', que no existe: al
-        // editar nunca se mandaba el id y el auxiliar chocaba consigo mismo, dejando el
-        // formulario inválido y sin poder guardarse.
-        const $inputIdAuxiliar = document.getElementById('idAuxiliar');
-        const $nombreFeedback = document.getElementById('nombreAuxiliarFeedback');
-
-        var validationTimer;
-
-        function validarUnicidadNombre() {
-            clearTimeout(validationTimer);
-
-            if (!$inputNombreAux.value.trim()) {
-                $inputNombreAux.classList.remove('is-valid', 'is-invalid');
-                $inputNombreAux.setCustomValidity('');
+            if (!predio.value || !grupo.value) {
+                if (!esEdicion) { codAux.value = ''; codAux.readOnly = false; }
                 return;
             }
+            const $icono = $form.find('.js-icono-cod');
+            trabajando($icono, true);
+            fetch('/administracion/auxiliar/obtener-cod-auxiliar?idPredio=' + encodeURIComponent(predio.value)
+                    + '&idGrupoContable=' + encodeURIComponent(grupo.value), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => { if (!r.ok) throw new Error(r.statusText); return r.text(); })
+                .then(cod => {
+                    codAux.value = cod;
+                    codAux.readOnly = true;
+                    $(codAux).removeClass('is-invalid');
+                    $form.find('.js-ayuda-cod').text('Siguiente número libre en ese predio y grupo.');
+                })
+                .catch(() => $form.find('.js-ayuda-cod').text('No se pudo calcular: escríbalo a mano.'))
+                .finally(() => trabajando($icono, false, 'ti-hash js-icono-cod'));
+        }
 
-            // Sin predio y grupo no hay con qué comparar: el mismo nombre es válido en otro
-            // predio. Se deja pasar y el servidor vuelve a validar contra el ámbito real.
-            const idPredio = $selectPredio.value;
-            const idGrupoContable = $selectGrupoContable.value;
-            if (!idPredio || !idGrupoContable) {
-                $inputNombreAux.classList.remove('is-valid', 'is-invalid');
-                $inputNombreAux.setCustomValidity('');
-                return;
-            }
-
-            validationTimer = setTimeout(() => {
-                const nombre = $inputNombreAux.value.trim();
-                const idAuxiliar = $inputIdAuxiliar ? $inputIdAuxiliar.value : '';
-
-                const baseUrl = '[[@{/administracion/auxiliar/validar-nombre-unico}]]';
-                let url = `${baseUrl}?nombre=${encodeURIComponent(nombre)}`
-                        + `&idPredio=${idPredio}&idGrupoContable=${idGrupoContable}`;
-
-                if (idAuxiliar) {
-                    url += `&idAuxiliar=${idAuxiliar}`;
-                }
-
-                if (typeof showGlobalLoader === 'function') {
-                    showGlobalLoader({ texto: 'Verificando unicidad...', speed: 0.8 });
-                }
-
-                fetch(url)
-                    .then(response => {
-                        if (!response.ok) throw new Error('Error de red');
-                        return response.json();
-                    })
-                    .then(isUnique => {
-                        if (isUnique) {
-                            $inputNombreAux.classList.remove('is-invalid');
-                            $inputNombreAux.classList.add('is-valid');
-                            $inputNombreAux.setCustomValidity('');
+        /* ── Nombre único dentro del predio + grupo ──────────────────────── */
+        let espera = null;
+        function validarNombre() {
+            clearTimeout(espera);
+            nombreRepetido = false;
+            $(nombre).removeClass('is-invalid is-valid');
+            const n = nombre.value.trim();
+            if (!n || !predio.value || !grupo.value) return;   // sin ámbito no hay con qué comparar
+            espera = setTimeout(function () {
+                const idAux = $form.find('input[name="idAuxiliar"]').val();
+                const $icono = $form.find('.js-icono-nombre');
+                trabajando($icono, true);
+                fetch('/administracion/auxiliar/validar-nombre-unico?nombre=' + encodeURIComponent(n)
+                        + '&idPredio=' + encodeURIComponent(predio.value) + '&idGrupoContable=' + encodeURIComponent(grupo.value)
+                        + (idAux ? '&idAuxiliar=' + encodeURIComponent(idAux) : ''),
+                        { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(r => { if (!r.ok) throw new Error('red'); return r.json(); })
+                    .then(unico => {
+                        nombreRepetido = !unico;
+                        if (nombreRepetido) {
+                            $feedback.text('Ya hay un auxiliar con ese nombre en este predio y grupo contable.');
+                            $(nombre).addClass('is-invalid');
                         } else {
-                            $inputNombreAux.classList.remove('is-valid');
-                            $inputNombreAux.classList.add('is-invalid');
-                            $nombreFeedback.textContent =
-                                'Ya hay un auxiliar con ese nombre en este predio y grupo contable.';
-                            $inputNombreAux.setCustomValidity('Inválido');
+                            $(nombre).addClass('is-valid');
                         }
                     })
-                    .catch(error => {
-                        // Si la verificación no responde no se bloquea el alta: el servidor
-                        // vuelve a validar y es el que tiene la última palabra.
-                        console.error('Error de validación:', error);
-                        $inputNombreAux.setCustomValidity('');
-                    })
-                    .finally(() => {
-                        // OCULTAR PRELOADER
-                        if (typeof hideGlobalLoader === 'function') {
-                            hideGlobalLoader();
-                        }
-                    });
-            }, 300);
+                    // Si no responde no se bloquea: el servidor vuelve a validar y tiene la última palabra.
+                    .catch(() => {})
+                    .finally(() => trabajando($icono, false, 'ti-tag js-icono-nombre'));
+            }, 350);
         }
-        $inputNombreAux.addEventListener('input', validarUnicidadNombre);
-        // Cambiar de predio o de grupo cambia el ámbito: lo que era duplicado deja de serlo
-        // (y al revés), así que hay que volver a preguntar.
-        $selectPredio.addEventListener('change', validarUnicidadNombre);
-        $selectGrupoContable.addEventListener('change', validarUnicidadNombre);
+
+        $(predio).on('change', function () { actualizarCodAux(); validarNombre(); });
+        $(grupo).on('change', function () { actualizarCodAux(); validarNombre(); });
+        nombre.addEventListener('input', function () {
+            $feedback.text('Ingrese el nombre del auxiliar.');
+            validarNombre();
+        });
+        // Select2 no avisa con "input": se limpia la marca al elegir.
+        $form.on('select2:select', 'select', function () { $(this).removeClass('is-invalid'); });
+
+        if (!esEdicion) setTimeout(actualizarCodAux, 100);
+
+        SciafModulo.formulario({
+            form: '#formularioAuxiliar',
+            modal: '#modalFormularioAuxiliar',
+            guardar: '#btnGuardarAuxiliar',
+            cancelar: '#btnCancelarAuxiliar',
+            textoGuardando: esEdicion ? 'Guardando…' : 'Registrando…',
+            msgExito: esEdicion ? 'Auxiliar modificado' : 'Auxiliar registrado',
+            confirmacion: function () {
+                return {
+                    titulo: esEdicion ? '¿Guardar los cambios del auxiliar?' : '¿Registrar el auxiliar?',
+                    texto: '<b>' + SciafModulo.escapar(nombre.value.trim().toLocaleUpperCase('es')) + '</b> · código '
+                        + SciafModulo.escapar(codAux.value) + '<br><small class="text-muted">Se guarda aquí y se envía al VSIAF.</small>',
+                    aceptar: esEdicion ? 'Sí, guardar' : 'Sí, registrar'
+                };
+            },
+            validar: function () {
+                if (nombreRepetido) { $(nombre).addClass('is-invalid'); return false; }
+                return true;
+            },
+            // Guardado en la base pero sin llegar al VSIAF: se avisa claro (no es un error a repetir).
+            alGuardar: function (r) {
+                if (r && r.vsiaf === 'ERROR') {
+                    Swal.fire({ icon: 'warning', title: 'Guardado, pero no llegó al VSIAF', text: r.msg });
+                }
+            }
+            // La tabla la recarga la vista (SciafModulo.alGuardarModal).
+        });
     })();
 </script>

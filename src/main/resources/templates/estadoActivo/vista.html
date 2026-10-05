@@ -1,49 +1,121 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span>Estado Activo</h4>
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Estado del activo — plantilla de mantenimiento (docs/PLANTILLA_MODULOS.md)
+     Catálogo propio del SCIAF (bueno, regular, malo…). La tabla llega con la vista (un
+     pedido). Todo dentro de #modEstadoActivo y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modEstadoActivo">
 
-<div id="tablaRegistro"></div>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-badge"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-adjustments-horizontal"></i> Clasificación contable <i class="ti ti-chevron-right"></i> Estado del activo
+        </nav>
+        <h1 class="sm-titulo">Estados del activo</h1>
+        <p class="sm-subtitulo">Condición física con que se registra cada activo (bueno, regular, malo…).</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-total">—</strong> estados</span>
+        <span class="sm-dato"><strong class="js-activos">—</strong> activos clasificados</span>
+        <button type="button" class="sm-btn" data-accion="nuevo">
+            <i class="ti ti-plus"></i> Nuevo estado
+        </button>
+    </div>
+</header>
+
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por código o nombre…"
+                autocomplete="off" aria-label="Buscar estado" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="sm-toolbar-espacio"></div>
+        <label class="sm-filas">
+            <i class="ti ti-list-numbers"></i> Filas
+            <select class="sm-select js-largo" aria-label="Filas por página">
+                <option value="auto" selected>Ajustar a pantalla</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="-1">Todas</option>
+            </select>
+        </label>
+    </div>
+
+    <!-- La tabla llega con la vista: sin segundo pedido al abrir -->
+    <div class="js-tabla">
+        <table th:replace="~{estadoActivo/tabla_registro :: tabla}"></table>
+    </div>
+</section>
 
 <div class="modal fade" id="modalFormularioEstadoActivo" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" id="contenidoModalEstadoActivo"></div>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content sm-modal" id="contenidoModalEstadoActivo"></div>
     </div>
 </div>
 
-<script>
-    $(document).ready(function () {
-        cargarTabla();
-    });
+</div>
 
-    function cargarTabla() {
-        showGlobalLoader({ imgUrl:'/assets/img/logo/activofijos.png', axis:'y', speed:1.2, texto:'Cargando...' });
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/estadoa/tabla-registros",  // Ruta del metodo del controlador en Spring Boot
-            success: function (response) {
-                $("#tablaRegistro").html(response);  // Actualiza el contenido del div con la respuesta del servidor
-            },
-            error:function(){
-            $("#tablaRegistro").html(`
-                <div class="alert alert-danger m-3">
-                Ocurrió un error al cargar la tabla.
-                <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
-                </div>
-            `);
-            },
-            complete:function(){
-            hideGlobalLoader();
+<script>
+    (function () {
+        const URL = '/administracion/estadoa';
+        const $raiz = $('#modEstadoActivo');
+        const $cont = $raiz.find('.js-tabla');
+        const $modal = $raiz.find('#modalFormularioEstadoActivo');
+        const esc = SciafModulo.escapar;
+
+        function iniciarTabla() {
+            SciafModulo.tabla({
+                tabla: $cont.find('table'),
+                buscador: $raiz.find('.js-buscar'),
+                largo: $raiz.find('.js-largo'),
+                total: $raiz.find('.js-total'),
+                orden: [ [0, 'asc'] ],
+                noOrdenables: [3],
+                alDibujar: function (api) {
+                    let n = 0;
+                    api.rows().nodes().each(function (tr) { n += Number(tr.dataset.activos) || 0; });
+                    $raiz.find('.js-activos').text(String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
+                }
+            });
+        }
+
+        function recargar() {
+            $cont.css('opacity', 0.55);
+            return SciafModulo.cargar($cont, URL + '/tabla-registros')
+                .then(iniciarTabla)
+                .catch(e => SciafModulo.avisarError(e, 'No se pudo cargar la tabla'))
+                .finally(() => $cont.css('opacity', 1));
+        }
+
+        function abrirFormulario(id) {
+            SciafModulo.abrirFormulario($modal, $raiz.find('#contenidoModalEstadoActivo'),
+                id ? URL + '/formulario-edit/' + id : URL + '/formulario');
+        }
+        SciafModulo.alGuardarModal($modal, recargar);
+
+        $raiz.on('click', '[data-accion]', function () {
+            const caja = this.closest('[data-id]');
+            const id = caja ? caja.dataset.id : null;
+            switch (this.dataset.accion) {
+                case 'nuevo':  abrirFormulario(null); break;
+                case 'editar': abrirFormulario(id); break;
+                case 'eliminar': {
+                    const activos = Number(this.closest('tr').dataset.activos) || 0;
+                    SciafModulo.eliminar({
+                        url: URL + '/eliminar/' + id,
+                        titulo: '¿Eliminar el estado?',
+                        html: 'Se eliminará el estado <b>' + esc(caja.dataset.nombre) + '</b>.'
+                            + (activos > 0 ? '<div class="alert alert-warning text-start mt-3 mb-0 small"><i class="ti ti-alert-triangle me-1"></i>'
+                                + '<b>' + activos + '</b> activo(s) lo tienen asignado: conservarán ese estado, pero ya no se podrá elegir.</div>' : ''),
+                        alTerminar: recargar
+                    });
+                    break;
+                }
             }
         });
-    }
 
-    function cargarFormulario() {
-        cargarFormularioAlert("/administracion/estadoa/formulario", "#contenidoModalEstadoActivo", "#formularioEstadoActivo");
-    }
-
-    function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/administracion/estadoa/formulario-edit", "#contenidoModalEstadoActivo", "#formularioEstadoActivo");
-    }
-
-    function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/estadoa/eliminar",cargarTabla);
-    }
+        iniciarTabla();
+    })();
 </script>

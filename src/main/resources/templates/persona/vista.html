@@ -1,105 +1,172 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Persona</h4>
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Persona — plantilla de mantenimiento (ver docs/PLANTILLA_MODULOS.md)
+     Variante con paginación en el servidor: hay miles de personas, así que la
+     tabla vive aquí (no hay fragmento tabla_registro) y pide cada página a
+     /administracion/persona/api/datatables. El orden es fijo (nombre, paterno,
+     materno) porque así lo resuelve la consulta.
+     Todo dentro de #modPersona y sin funciones globales (ver rol/vista.html).
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modPersona">
 
-<div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <h5 class="mb-0">Registro Persona</h5>
-    <button type="button" class="btn btn-primary" onclick="cargarFormulario()" data-bs-toggle="modal" data-bs-target="#modalFormularioPersona">
-      <i class="fa-solid fa-user-plus"></i> Agregar Persona
-    </button>
-  </div>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-id-badge-2"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-users"></i> Usuarios <i class="ti ti-chevron-right"></i> Personas
+        </nav>
+        <h1 class="sm-titulo">Personas</h1>
+        <p class="sm-subtitulo">Datos personales de quienes usan el sistema o son responsables de oficinas.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-total">—</strong> personas registradas</span>
+        <button type="button" class="sm-btn js-nuevo">
+            <i class="ti ti-user-plus"></i> Nueva persona
+        </button>
+    </div>
+</header>
 
-  <div class="card-datatable table-responsive pt-0">
-    <div id="tablaLoader"></div>
-    <table class="table table-hover" id="data-table" style="width:100%">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>NOMBRE</th>
-          <th>PATERNO</th>
-          <th>MATERNO</th>
-          <th>C.I.</th>
-          <th>OPCIONES</th>
-        </tr>
-      </thead>
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por nombre, apellido o C.I.…"
+                autocomplete="off" aria-label="Buscar persona" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+        <div class="sm-toolbar-espacio"></div>
+        <label class="sm-filas">
+            <i class="ti ti-list-numbers"></i> Filas
+            <select class="sm-select js-largo" aria-label="Filas por página">
+                <option value="auto" selected>Ajustar a pantalla</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </label>
+    </div>
+
+    <table class="table sm-tabla align-middle js-tabla">
+        <thead>
+            <tr>
+                <th style="width:70px;">#</th>
+                <th style="width:150px;">C.I.</th>
+                <th>Nombre completo</th>
+                <th style="width:230px;">Vínculos</th>
+                <th class="text-end" style="width:240px;">Opciones</th>
+            </tr>
+        </thead>
     </table>
-  </div>
-</div>
+</section>
 
+<!-- Modal del formulario (el contenido llega por AJAX) -->
 <div class="modal fade" id="modalFormularioPersona" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" id="contenidoModalPersona"></div>
+    <div class="modal-dialog modal-dialog-centered sm-dialog-md">
+        <div class="modal-content sm-modal" id="contenidoModalPersona"></div>
     </div>
 </div>
 
+</div>
+
 <script>
-    $(function () {
-      const $tbl = $('#data-table');
-        // 1) Muestra el loader ANTES de inicializar DataTables (cubre el primer request)
-    showGlobalLoader({ texto: 'Cargando...' });
+    (function () {
+        const URL = '/administracion/persona';
+        const esc = SciafModulo.escapar;
+        const $raiz = $('#modPersona');
+        const $modal = $raiz.find('#modalFormularioPersona');
+        const $contenidoModal = $raiz.find('#contenidoModalPersona');
 
-    // 2) Engancha eventos ANTES de crear el DataTable (para no perder el primer preXhr/xhr)
-    $tbl.on('preXhr.dt', function () {
-      showGlobalLoader({ texto: 'Cargando...' });
-    });
-    $tbl.on('xhr.dt', function () {
-      hideGlobalLoader();
-    });
+        function nombreCompleto(r) {
+            return [r.nombre, r.paterno, r.materno].filter(Boolean).join(' ');
+        }
 
-        const tbl = $tbl.DataTable({            // spinner integrado
-            serverSide: true,              // clave
-            deferRender: true,
-            pageLength: 10,
-            lengthMenu: [10,25,50,100],
-            ordering: true,
-            searching: true,
-            ajax: { url: '/administracion/persona/api/datatables', type: 'POST' },
-            columns: [
-            { data: null, orderable:false, searchable:false,
-                render:(d,t,r,m)=> m.row + m.settings._iDisplayStart + 1 },
-            { data: 'nombre'  },
-            { data: 'paterno' },
-            { data: 'materno' },
-            { data: 'ci'      },
-            { data: 'idEnc', orderable:false, searchable:false,
-                render:(idEnc)=> `
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-primary" onclick="cargarFormularioEdit('${idEnc}')" data-bs-toggle="modal" data-bs-target="#modalFormularioPersona">
-                    <i class="fa-solid fa-pen-to-square"></i> Editar
-                    </button>
-                    <button class="btn btn-danger" onclick="eliminar('PERSONA', '${idEnc}')">
-                    <i class="fa-solid fa-trash"></i> Eliminar
-                    </button>
-                </div>` }
-            ],
-            language: {
-            sProcessing:"Procesando...", sLengthMenu:"Mostrar _MENU_",
-            sZeroRecords:"No se encontraron resultados",
-            sInfo:"Mostrando _START_ a _END_ de _TOTAL_",
-            sInfoEmpty:"Mostrando 0 a 0 de 0", sInfoFiltered:"(filtrado de _MAX_)",
-            sSearch:"Buscar:", oPaginate:{ sFirst:"Primero", sLast:"Último", sNext:"Siguiente", sPrevious:"Anterior" }
+        function vinculos(r) {
+            const p = [];
+            if (r.usuarios > 0) {
+                p.push('<span class="sm-pastilla sm-pastilla-info"><i class="ti ti-user-check"></i> Usuario</span>');
+            }
+            if (r.responsables > 0) {
+                p.push('<span class="sm-pastilla sm-pastilla-activo">Responsable' +
+                    (r.responsables > 1 ? ' ×' + r.responsables : '') + '</span>');
+            }
+            return p.length ? '<div class="sm-pastillas">' + p.join('') + '</div>'
+                : '<span class="sm-pastilla">Sin vínculos</span>';
+        }
+
+        function acciones(r) {
+            const datos = 'data-id="' + esc(r.idEnc) + '" data-nombre="' + esc(nombreCompleto(r)) + '"' +
+                ' data-ci="' + esc(r.ci) + '" data-usuarios="' + (r.usuarios || 0) + '"' +
+                ' data-responsables="' + (r.responsables || 0) + '"';
+            return '<div class="sm-acciones">' +
+                '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave btn-editar-persona" ' + datos +
+                ' title="Modificar los datos de esta persona"><i class="ti ti-edit"></i> Editar</button>' +
+                '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-peligro btn-eliminar-persona" ' + datos +
+                ' title="Eliminar esta persona"><i class="ti ti-trash"></i> Eliminar</button>' +
+                '</div>';
+        }
+
+        const tabla = SciafModulo.tabla({
+            tabla: $raiz.find('.js-tabla'),
+            buscador: $raiz.find('.js-buscar'),
+            largo: $raiz.find('.js-largo'),
+            total: $raiz.find('.js-total'),
+            dt: {
+                serverSide: true,
+                ordering: false,
+                deferRender: true,
+                ajax: { url: URL + '/api/datatables', type: 'POST' },
+                columns: [
+                    { data: null, className: 'sm-num',
+                      render: function (d, t, r, m) { return m.row + m.settings._iDisplayStart + 1; } },
+                    { data: 'ci', render: function (v) { return '<span class="sm-codigo sm-mayus">' + esc(v) + '</span>'; } },
+                    { data: null, className: 'sm-nombre', render: function (d, t, r) { return esc(nombreCompleto(r)); } },
+                    { data: null, render: function (d, t, r) { return vinculos(r); } },
+                    { data: null, className: 'text-end', render: function (d, t, r) { return acciones(r); } }
+                ]
             }
         });
 
-        // Debounce del buscador
-        let t;
-        $('#data-table_filter input').off().on('input', function(){
-            clearTimeout(t);
-            const v = this.value;
-            t = setTimeout(()=> tbl.search(v).draw(), 250);
-        });
-    });
+        // Recarga conservando página y búsqueda (formulario, eliminar y SSE).
+        function cargarTabla() {
+            if (tabla) tabla.ajax.reload(null, false);
+        }
 
+        // Un solo pedido (sin el chequeo previo de sesión de fragment.js).
+        function abrirFormulario(id) {
+            SciafModulo.abrirFormulario($modal, $contenidoModal,
+                id ? URL + '/formulario-edit/' + id : URL + '/formulario');
+        }
 
-    function cargarFormulario() {
-        cargarFormularioAlert("/administracion/persona/formulario", "#contenidoModalPersona", "#formularioPersona");
-    }
+        function eliminar($b) {
+            const usuarios = Number($b.data('usuarios')) || 0;
+            const responsables = Number($b.data('responsables')) || 0;
 
-    function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/administracion/persona/formulario-edit", "#contenidoModalPersona", "#formularioPersona");
-    }
+            let html = 'Se eliminará a <b>' + esc($b.data('nombre')) + '</b> (C.I. ' + esc($b.data('ci')) + ').';
+            const avisos = [];
+            if (usuarios > 0) avisos.push('Tiene una <b>cuenta de usuario</b> activa en el sistema.');
+            if (responsables > 0) avisos.push('Es <b>responsable activo</b> en ' + responsables + ' asignación(es) de oficina.');
+            if (avisos.length) {
+                html += '<div class="alert alert-warning text-start mt-3 mb-0 small">' +
+                    '<i class="ti ti-alert-triangle me-1"></i> ' + avisos.join(' ') +
+                    ' Conviene darlos de baja antes.</div>';
+            }
+            SciafModulo.eliminar({
+                url: URL + '/eliminar/' + $b.data('id'),
+                titulo: '¿Eliminar persona?',
+                html: html,
+                alTerminar: cargarTabla
+            });
+        }
 
-    function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/persona/eliminar", cargarTabla);
-    }
+        SciafModulo.alGuardarModal($modal, cargarTabla);
 
+        // Eventos delegados en la raíz: viajan con la pestaña y no chocan con otros módulos.
+        $raiz.on('click', '.js-nuevo', function () { abrirFormulario(null); });
+        $raiz.on('click', '.btn-editar-persona', function () { abrirFormulario($(this).data('id')); });
+        $raiz.on('click', '.btn-eliminar-persona', function () { eliminar($(this)); });
+
+        if (window.registrarTablaSse) window.registrarTablaSse('persona', cargarTabla);
+    })();
 </script>

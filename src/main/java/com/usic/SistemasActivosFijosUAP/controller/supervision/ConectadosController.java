@@ -43,8 +43,10 @@ public class ConectadosController {
 
     @ValidarUsuarioAutenticado
     @GetMapping("/administracion/conectados/vista")
-    public String vista(HttpServletRequest request) {
+    public String vista(HttpServletRequest request, org.springframework.ui.Model model) {
         if (!RolesSciaf.esAdministrativo(request)) return "supervision/sin_permiso";
+        // Las sesiones llegan con la vista: se ven al instante, sin esperar el primer pedido.
+        model.addAttribute("inicial", sesiones(request));
         return "supervision/conectados";
     }
 
@@ -53,10 +55,14 @@ public class ConectadosController {
     @ResponseBody
     public ResponseEntity<?> datos(HttpServletRequest request) {
         if (!RolesSciaf.esAdministrativo(request)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        return ResponseEntity.ok(Map.of("ok", true, "sesiones", sesiones(request)));
+    }
+
+    private List<Map<String, Object>> sesiones(HttpServletRequest request) {
         List<Map<String, Object>> lista = presencia.listar();
         Long yo = RolesSciaf.usuarioDe(request).getIdUsuario();
         lista.forEach(m -> m.put("esYo", yo.equals(m.get("idUsuario"))));
-        return ResponseEntity.ok(Map.of("ok", true, "sesiones", lista));
+        return lista;
     }
 
     /** Cierra todas las sesiones de ese usuario (las mismas reglas que en Usuarios). */

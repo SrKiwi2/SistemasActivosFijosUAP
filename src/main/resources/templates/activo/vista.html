@@ -1,64 +1,103 @@
-<h4 class="py-2 mb-1"><span class="text-muted fw-light">VISTA /</span> REGISTRO DE ACTIVOS</h4>
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Registro de activos — plantilla de pantallas (docs/PLANTILLA_MODULOS.md)
+     Solo el formulario (#formulario → activo/formulario.html: registro individual / en lote,
+     edición y baja en el VSIAF), con el preloader del sistema. Es la pieza delicada: su lógica
+     no se toca aquí. La tabla de activos se quitó: para buscar un activo están Consulta de
+     activos y el buscador por código del propio formulario.
+     Funciones globales que usa el formulario (no renombrar): cargarTabla(), cargarFormulario().
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modActivo">
 
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-clipboard-list"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-box"></i> Administración de activos <i class="ti ti-chevron-right"></i> Registro de activos
+        </nav>
+        <h1 class="sm-titulo">Registro de activos</h1>
+        <p class="sm-subtitulo">Registre activos (uno o en lotes) o búsquelos por código para editarlos o desaprobarlos en el VSIAF.
+            Para listar y filtrar activos use <b>Consulta de activos</b>.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <button type="button" class="sm-btn sm-btn-neutro" data-bs-toggle="modal" data-bs-target="#modalImportDbf"
+                th:if="${esAdmin}" title="Importar activos desde un archivo ACTUAL.DBF">
+            <i class="ti ti-file-import"></i> Importar DBF
+        </button>
+    </div>
+</header>
+
+<!-- Formulario de registro / edición -->
 <div id="formulario"></div>
-<div>
-    <br>
-</div>
 
-<div id="tablaRegistro"></div>
-
+<!-- Importación desde DBF (solo administradores) -->
 <div class="modal fade" id="modalImportDbf" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <form id="formImportDbf" class="modal-content" enctype="multipart/form-data" autocomplete="off">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fa-solid fa-file-import me-2"></i>Importar Activos desde DBF</h5>
+    <div class="modal-dialog modal-dialog-centered sm-dialog-md">
+        <form id="formImportDbf" class="modal-content sm-modal" enctype="multipart/form-data" autocomplete="off">
+            <div class="sm-modal-cab">
+                <div class="sm-cabecera-icono"><i class="ti ti-file-import"></i></div>
+                <div>
+                    <h5 class="sm-modal-titulo">Importar activos desde DBF</h5>
+                    <p class="sm-modal-sub">Carga en la base los activos de un archivo con la estructura de ACTUAL.DBF.</p>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
 
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Archivo .dbf</label>
-                    <input type="file" class="form-control" name="file" accept=".dbf" required />
-                    <div class="form-text">Selecciona el archivo <b>ACTUAL.dbf</b> u otro con la misma estructura.
+            <div class="sm-modal-cuerpo">
+                <div class="sm-seccion">
+                    <div class="sm-seccion-cab"><i class="ti ti-file-database"></i> Archivo</div>
+                    <div class="sm-seccion-cuerpo">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="sm-label" for="impArchivo">Archivo .dbf <span class="sm-req">*</span></label>
+                                <input type="file" class="sm-input" id="impArchivo" name="file" accept=".dbf" required />
+                                <div class="sm-ayuda">Seleccione <b>ACTUAL.DBF</b> u otro con la misma estructura.</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="sm-label" for="impCharset">Codificación de caracteres</label>
+                                <select class="sm-select" id="impCharset" name="charset">
+                                    <option value="windows-1252" selected>Windows-1252 (recomendado)</option>
+                                    <option value="ISO-8859-1">ISO-8859-1</option>
+                                    <option value="UTF-8">UTF-8</option>
+                                </select>
+                                <div class="sm-ayuda">Si aparecen caracteres raros, pruebe ISO-8859-1 o UTF-8.</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Codificación (charset)</label>
-                    <select class="form-select" name="charset">
-                        <option value="windows-1252" selected>Windows-1252 (recomendado)</option>
-                        <option value="ISO-8859-1">ISO-8859-1</option>
-                        <option value="UTF-8">UTF-8</option>
-                    </select>
-                    <div class="form-text">Si ves caracteres raros, prueba ISO-8859-1 o UTF-8.</div>
-                </div>
                 <div id="importProgress" class="d-none">
-                    <div class="mb-2 small text-muted">Importando…</div>
+                    <div class="sm-sub mb-2">Importando…</div>
                     <div class="progress" style="height: 18px;">
                         <div id="importProgressBar" class="progress-bar progress-bar-striped progress-bar-animated"
-                            role="progressbar" style="width: 0%">0%</div>
+                             role="progressbar" style="width: 0%">0%</div>
                     </div>
                     <div class="small mt-2" id="importProgressText"></div>
                 </div>
 
-
                 <div id="importResult" class="d-none"></div>
             </div>
 
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fa-solid fa-play me-1"></i> Iniciar importación
+            <div class="sm-modal-pie">
+                <span class="sm-nota">Solo ADMINISTRADOR / SUPER USUARIO</span>
+                <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">
+                    <i class="ti ti-x"></i> Cerrar
+                </button>
+                <button type="submit" class="sm-btn">
+                    <i class="ti ti-player-play"></i> Iniciar importación
                 </button>
             </div>
         </form>
     </div>
 </div>
 
+</div>
+
 <script>
-    
+    // Raíz de ESTA pantalla, tomada al cargarla: con varias pestañas abiertas, buscar sus
+    // elementos en todo el documento podía tocar la pestaña que se está mirando.
+    window._activoRaiz = document.getElementById('modActivo');
+
     $(document).ready(function () {
-        cargarTabla();
         cargarFormulario();
         registrarEnPestanas();
     });
@@ -112,54 +151,45 @@
         });
     }
 
-    function cargarTabla() {
-        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/activo/tabla-registros",
-            success: function (response) {
-                $("#tablaRegistro").html(response);
-            },
-            error: function () {
-                $("#tablaRegistro").html(`
-                <div class="alert alert-danger m-3">
-                Ocurrió un error al cargar la tabla.
-                <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
-                </div>
-            `);
-            },
-            complete: function () {
-                hideGlobalLoader();
-            }
-        });
-    }
+    /**
+     * El formulario la llama después de guardar (y el aviso de sincronización también). Esta
+     * pantalla ya no tiene tabla, pero se deja definida y sin efecto: si no existiera, esa
+     * llamada ejecutaría la cargarTabla global de otro módulo abierto (Pendientes,
+     * Seguimiento…), que podría recargar su tabla en el lugar equivocado.
+     */
+    function cargarTabla() { /* sin tabla en esta pantalla */ }
 
+    /**
+     * Trae el formulario de registro. Una sola carga viva a la vez: si se reintenta (el
+     * preloader ofrece Reintentar cuando tarda), la anterior se aborta y su respuesta se
+     * descarta. Si no, llegaban dos formularios y ActivoForm quedaba iniciado dos veces
+     * (cada clic en «Agregar lote» creaba dos lotes).
+     */
     function cargarFormulario() {
-        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
+        const raiz = window._activoRaiz;
+        if (!raiz || !document.body.contains(raiz)) return;
+        const $f = $(raiz).find('#formulario');
 
+        if (window._activoFormXhr) { try { window._activoFormXhr.abort(); } catch (e) { /* ya terminó */ } }
+        const n = window._activoFormCarga = (window._activoFormCarga || 0) + 1;
         if (window.ActivoForm?.destroy) window.ActivoForm.destroy();
 
-        $('#formulario').load('/administracion/activo/formulario', function (resp, status) {
-            hideGlobalLoader();
-            if (status === 'success') {
-            if (window.ActivoForm?.init) window.ActivoForm.init('#formulario');
-            else console.error('ActivoForm no cargó.');
-            } else {
-            $('#formulario').html(`<div class="alert alert-danger m-3">
-                Ocurrió un error al cargar el formulario.
-                <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarFormulario()">Reintentar</button>
-            </div>`);
-            }
+        const carga = SciafPrecarga.montar($f, {
+            compacta: true, texto: 'Preparando el formulario de registro…', alReintentar: cargarFormulario
         });
-    }
-
-
-    function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/administracion/activo/formulario-edit", "#prediocontenidoModalActivo", "#formularioActivo");
-    }
-
-    function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/activo/eliminar", cargarTabla);
+        window._activoFormXhr = $.ajax({ url: '/administracion/activo/formulario', method: 'GET' })
+            .done(function (html) {
+                if (n !== window._activoFormCarga) return;          // llegó tarde: hay otra carga
+                carga.cerrar();
+                $f.off();                                          // sin manejadores de un init anterior
+                $f.html(html);
+                if (window.ActivoForm?.init) window.ActivoForm.init('#formulario');
+                else console.error('ActivoForm no cargó.');
+            })
+            .fail(function (xhr) {
+                if (xhr.statusText === 'abort' || n !== window._activoFormCarga) return;
+                carga.error('No se pudo cargar el formulario', SciafPrecarga.motivo(xhr ? xhr.status : 0));
+            });
     }
 
     (function () {
@@ -168,6 +198,7 @@
         const progressBar = document.getElementById('importProgressBar');
         const progressText = document.getElementById('importProgressText');
         const resultBox = document.getElementById('importResult');
+        const esc = SciafModulo.escapar;
 
         function setProgress(pct, text) {
             const val = Math.max(0, Math.min(100, Math.round(pct)));
@@ -182,7 +213,7 @@
             const fd = new FormData(form);
             const file = fd.get('file');
             if (!file || !file.name.toLowerCase().endsWith('.dbf')) {
-                alert('Selecciona un archivo .dbf válido');
+                Swal.fire('Archivo no válido', 'Seleccione un archivo .dbf.', 'warning');
                 return;
             }
 
@@ -191,15 +222,15 @@
             resultBox.innerHTML = '';
             setProgress(0, 'Preparando…');
 
-            const opts = { method: 'POST', body: fd };
             try {
-                // 1) Iniciar import async
-                const r = await fetch('/importe/import-actual/start', opts);
+                // 1) Iniciar la importación (corre en segundo plano en el servidor)
+                const r = await fetch('/importe/import-actual/start', { method: 'POST', body: fd });
+                if (r.status === 403) throw new Error('Solo un ADMINISTRADOR o SUPER USUARIO puede importar.');
                 if (!r.ok) throw new Error('No se pudo iniciar la importación');
-                const { importId, total } = await r.json();
+                const { importId } = await r.json();
 
-                // 2) Polling de estado
-                let timer = setInterval(async () => {
+                // 2) Consultar el avance
+                const timer = setInterval(async () => {
                     try {
                         const rs = await fetch(`/importe/import-actual/status/${importId}`);
                         if (!rs.ok) throw new Error('Estado no disponible');
@@ -211,35 +242,31 @@
                         if (s.terminado) {
                             clearInterval(timer);
                             setProgress(100, 'Completado.');
-                            // mostrar resultado final sencillo
                             resultBox.innerHTML = `
-              <div class="alert alert-success mt-3">
-                <i class="fa-solid fa-circle-check me-2"></i> Importación finalizada.
-                <div class="mt-2">
-                  <span class="badge text-bg-secondary me-2">Leídas: ${s.leidas ?? 0}</span>
-                  <span class="badge text-bg-success me-2">Insertados: ${s.insertados ?? 0}</span>
-                  <span class="badge text-bg-info me-2">Actualizados: ${s.actualizados ?? 0}</span>
-                  <span class="badge text-bg-danger">Errores: ${s.errores ?? 0}</span>
+              <div class="sm-aviso mt-3">
+                <i class="ti ti-circle-check text-success"></i>
+                <div>Importación finalizada.
+                  <div class="sm-pastillas mt-2">
+                    <span class="sm-pastilla">Leídas: ${s.leidas ?? 0}</span>
+                    <span class="sm-pastilla sm-pastilla-activo">Insertados: ${s.insertados ?? 0}</span>
+                    <span class="sm-pastilla sm-pastilla-info">Actualizados: ${s.actualizados ?? 0}</span>
+                    <span class="sm-pastilla sm-pastilla-peligro">Errores: ${s.errores ?? 0}</span>
+                  </div>
                 </div>
-                ${(s.muestrasErrores && s.muestrasErrores.length) ? `
-                <div class="alert alert-warning mt-2">
-                  <div class="fw-semibold mb-1">Algunos errores:</div>
+              </div>
+              ${(s.muestrasErrores && s.muestrasErrores.length) ? `
+              <div class="sm-aviso sm-aviso-aviso">
+                <i class="ti ti-alert-triangle"></i>
+                <div><b>Algunos errores:</b>
                   <ul class="mb-0 small" style="max-height:160px;overflow:auto;">
-                    ${s.muestrasErrores.map(e => `<li>${e}</li>`).join('')}
+                    ${s.muestrasErrores.map(m => `<li>${esc(m)}</li>`).join('')}
                   </ul>
-                </div>` : ''}
-              </div>
-              <div class="text-end">
-                <button id="btnRecargarEntidades" class="btn btn-primary btn-sm">
-                  <i class="fa-solid fa-rotate me-1"></i> Recargar lista
-                </button>
-              </div>
-            `;
+                </div>
+              </div>` : ''}`;
                             resultBox.classList.remove('d-none');
-                            document.getElementById('btnRecargarEntidades')?.addEventListener('click', () => location.reload());
                         }
-                    } catch (e) {
-                        console.error(e);
+                    } catch (err) {
+                        console.error(err);
                     }
                 }, 600);
 
@@ -247,12 +274,11 @@
                 progressBox.classList.add('d-none');
                 resultBox.classList.remove('d-none');
                 resultBox.innerHTML = `
-        <div class="alert alert-danger">
-          <i class="fa-solid fa-triangle-exclamation me-2"></i>
-          Error durante la importación: <b>${(err && err.message) || err}</b>
+        <div class="sm-aviso sm-aviso-peligro">
+          <i class="ti ti-alert-triangle"></i>
+          <div>Error durante la importación: <b>${esc((err && err.message) || err)}</b></div>
         </div>`;
             }
         });
     })();
-
 </script>

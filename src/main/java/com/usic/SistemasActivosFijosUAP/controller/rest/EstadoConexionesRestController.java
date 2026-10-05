@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,6 +34,16 @@ public class EstadoConexionesRestController {
 
     private final MonitorConexionesService monitor;
     private final ColaVsiafDiagnosticoService colaDiagnostico;
+
+    /**
+     * Latido para el preloader de las pantallas (sciaf-precarga.js): no toca disco, base ni
+     * sesión. Si este responde rápido y la pantalla no, la demora es del servidor procesando;
+     * si este también tarda, es la red.
+     */
+    @GetMapping("/ping")
+    public ResponseEntity<Void> ping() {
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
 
     /** Ultimo estado conocido: no toca disco, responde al instante. */
     @GetMapping("/conexiones")

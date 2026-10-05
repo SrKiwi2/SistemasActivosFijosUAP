@@ -1,46 +1,173 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Predio</h4>
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Predio — plantilla de mantenimiento (docs/PLANTILLA_MODULOS.md)
+     Unidades administrativas del VSIAF (UNIDADADMIN.DBF): se CONSULTAN y se SINCRONIZAN.
+     Lo propio del SCIAF es la codificación (municipio + código del predio = prefijo de
+     los códigos de activo): sin ella no se pueden registrar activos en sus oficinas, por
+     eso se marca y se filtra. Solo ADMINISTRADOR / SUPER USUARIO la configura.
+     Carga eficiente: tabla y estado de la sincronización llegan con la vista (un pedido);
+     entidad y municipio en la misma consulta; oficinas por predio en una consulta agrupada.
+     Todo dentro de #modPredio y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modPredio">
 
-<div id="tablaRegistro"></div>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-building-estate"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-map-2"></i> Ámbito geográfico <i class="ti ti-chevron-right"></i> Predio
+        </nav>
+        <h1 class="sm-titulo">Predios</h1>
+        <p class="sm-subtitulo">Unidades administrativas del VSIAF y el prefijo con que se codifican sus activos.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-total">—</strong> predios</span>
+        <th:block th:if="${esAdmin}">
+        <span class="sm-dato js-sync" title="Última sincronización con el VSIAF">
+            <i class="ti ti-refresh-dot"></i> <span class="js-sync-texto">—</span></span>
+        <div class="btn-group">
+            <button type="button" class="sm-btn" data-accion="sincronizar" data-completo="false">
+                <i class="ti ti-refresh"></i> Sincronizar con VSIAF
+            </button>
+            <button type="button" class="sm-btn sm-btn-icono ms-1" data-bs-toggle="dropdown" aria-expanded="false"
+                    title="Más opciones de sincronización"><i class="ti ti-chevron-down"></i></button>
+            <ul class="dropdown-menu dropdown-menu-end sm-menu-flotante">
+                <li><a class="dropdown-item" href="javascript:void(0)" data-accion="sincronizar" data-completo="true">
+                    <i class="ti ti-database"></i> Sincronización completa (más lenta)</a></li>
+            </ul>
+        </div>
+        </th:block>
+    </div>
+</header>
 
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por unidad, nombre, ciudad o prefijo…"
+                autocomplete="off" aria-label="Buscar predio" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="sm-segmento js-filtro" role="group" aria-label="Filtrar por codificación">
+            <button type="button" data-config="" class="activo">Todos <span class="sm-cuenta js-n-todos">0</span></button>
+            <button type="button" data-config="no" title="Sin municipio o código: no se pueden registrar activos">
+                <i class="ti ti-alert-triangle"></i> Sin configurar <span class="sm-cuenta js-n-no">0</span></button>
+            <button type="button" data-config="si">Configurados <span class="sm-cuenta js-n-si">0</span></button>
+        </div>
+        <div class="sm-toolbar-grupo">
+            <label class="sm-filas">
+                <i class="ti ti-list-numbers"></i> Filas
+                <select class="sm-select js-largo" aria-label="Filas por página">
+                    <option value="auto" selected>Ajustar a pantalla</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="-1">Todas</option>
+                </select>
+            </label>
+        </div>
+    </div>
+
+    <div class="sm-aviso sm-aviso-aviso m-3 mb-0 d-none js-aviso-dbf">
+        <i class="ti ti-database-exclamation"></i>
+        <div>Se muestran los predios <strong>directo del VSIAF</strong>: la base del SCIAF todavía no los tiene
+            (no se pueden configurar). Pulse <strong>Sincronizar con VSIAF</strong> para traerlos.</div>
+    </div>
+
+    <!-- La tabla llega con la vista: sin segundo pedido al abrir -->
+    <div class="js-tabla">
+        <div th:replace="~{predio/tabla_registro :: tabla}"></div>
+    </div>
+</section>
+
+<!-- Configuración de codificación -->
 <div class="modal fade" id="modalFormularioPredio" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" id="prediocontenidoModalPredio"></div>
+    <div class="modal-dialog modal-dialog-centered sm-dialog-md">
+        <div class="modal-content sm-modal" id="contenidoModalPredio"></div>
     </div>
 </div>
 
+</div>
+
 <script>
-    $(document).ready(function () {
-        cargarTabla();
+    (function () {
+        const URL = '/administracion/predio';
+        const $raiz = $('#modPredio');
+        const $cont = $raiz.find('.js-tabla');
+        const $modal = $raiz.find('#modalFormularioPredio');
 
-    });
+        /* ── Filtro por codificación ─────────────────────────────────────── */
+        const filtro = { config: '' };
+        function pasaFiltro(tr) { return !filtro.config || tr.dataset.config === filtro.config; }
 
-    function initDataTable() {
-        const $tbl = $('#data-table');
-        if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
-        $tbl.DataTable({ language: {/* tu traducción */ } });
-    }
+        function contar(api) {
+            let si = 0, no = 0;
+            api.rows().nodes().each(function (tr) { if (tr.dataset.config === 'si') si++; else no++; });
+            $raiz.find('.js-n-todos').text(si + no);
+            $raiz.find('.js-n-si').text(si);
+            $raiz.find('.js-n-no').text(no);
+            $raiz.find('.js-filtro button').each(function () {
+                $(this).toggleClass('activo', String($(this).data('config') || '') === filtro.config);
+            });
+        }
 
-    function cargarTabla(q) {
-        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
+        function iniciarTabla() {
+            SciafModulo.estadoSync($cont.find('.js-sync-info'), $raiz.find('.js-sync'), $raiz.find('.js-aviso-dbf'));
+            SciafModulo.tabla({
+                tabla: $cont.find('table'),
+                buscador: $raiz.find('.js-buscar'),
+                largo: $raiz.find('.js-largo'),
+                total: $raiz.find('.js-total'),
+                orden: [ [0, 'asc'] ],
+                noOrdenables: [5],
+                altoFila: 60,
+                filtroFila: pasaFiltro,
+                alDibujar: contar,
+                dt: { language: { sEmptyTable: 'No hay predios. Pulse «Sincronizar con VSIAF».' } }
+            });
+        }
 
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/predio/tabla-registros" + (q ? ('?q=' + encodeURIComponent(q)) : ''),
-            success: function (html) { $("#tablaRegistro").html(html); initDataTable(); },
-            error: function (xhr) { $("#tablaRegistro").html(`<div class="alert alert-danger m-3">Error cargando tabla</div>`); },
-            complete: hideGlobalLoader
+        function recargar() {
+            $cont.css('opacity', 0.55);
+            return SciafModulo.cargar($cont, URL + '/tabla-registros')
+                .then(iniciarTabla)
+                .catch(e => SciafModulo.avisarError(e, 'No se pudo cargar la tabla'))
+                .finally(() => $cont.css('opacity', 1));
+        }
+
+        $raiz.on('click', '.js-filtro button', function () {
+            filtro.config = String($(this).data('config') || '');
+            const $t = $cont.find('table');
+            if ($.fn.DataTable.isDataTable($t)) $t.DataTable().draw();
         });
-    }
 
-    function cargarFormulario() {
-        cargarFormularioAlert("/administracion/predio/formulario", "#prediocontenidoModalPredio", "#formularioPredio");
-    }
+        /* ── Configurar codificación ─────────────────────────────────────── */
+        SciafModulo.alGuardarModal($modal, recargar);
 
-    function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/administracion/predio/formulario-edit", "#prediocontenidoModalPredio", "#formularioPredio");
-    }
+        let sincronizando = false;
+        $raiz.on('click', '[data-accion]', function () {
+            const caja = this.closest('[data-id]');
+            switch (this.dataset.accion) {
+                case 'configurar':
+                    SciafModulo.abrirFormulario($modal, $raiz.find('#contenidoModalPredio'),
+                        URL + '/formulario-config/' + encodeURIComponent(caja.dataset.id));
+                    break;
+                case 'sincronizar':
+                    if (sincronizando) return;
+                    sincronizando = true;
+                    SciafModulo.sincronizarVsiaf({
+                        url: URL + '/sync-from-mounted',
+                        completo: this.dataset.completo === 'true',
+                        boton: $raiz.find('[data-accion="sincronizar"][data-completo="false"]'),
+                        tarjeta: $cont.closest('.sm-card'),
+                        extras: [ ['Sin entidad en el SCIAF', 'sinEntidadEnBD', 'text-warning'] ],
+                        alTerminar: recargar
+                    }).finally(() => { sincronizando = false; });
+                    break;
+            }
+        });
 
-    function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/predio/eliminar", cargarTabla);
-    }
+        // Cuando el VSIAF cambia UNIDADADMIN.DBF y se sincroniza, la tabla se recarga sola.
+        if (window.registrarTablaSse) window.registrarTablaSse('predio', recargar);
+
+        iniciarTabla();
+    })();
 </script>

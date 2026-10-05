@@ -1,89 +1,62 @@
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="ti ti-send me-1"></i> Comunicados enviados</h5>
-        <button type="button" class="btn btn-primary" onclick="cargarFormulario()"
-                data-bs-toggle="modal" data-bs-target="#modalFormularioComunicado">
-            <i class="ti ti-plus me-1"></i> Nuevo comunicado
-        </button>
-    </div>
-    <div class="card-datatable table-responsive pt-0">
-        <table class="datatables-basic table table-hover" id="data-table-comunicados">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Tipo</th>
-                    <th>Título</th>
-                    <th>Destino</th>
-                    <th class="text-center">Destinatarios</th>
-                    <th class="text-center">Recibieron</th>
-                    <th class="text-center">Leyeron</th>
-                    <th style="min-width:120px">% Lectura</th>
-                    <th class="text-center">Acción</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="c : ${comunicados}">
-                    <td th:text="${c.fecha}"></td>
-                    <td>
-                        <span th:switch="${c.tipo}" class="badge">
-                            <span th:case="'URGENTE'" class="badge bg-label-danger">Urgente</span>
-                            <span th:case="'TRABAJO'" class="badge bg-label-primary">Trabajo</span>
-                            <span th:case="'AVISO'"   class="badge bg-label-info">Aviso</span>
-                            <span th:case="*"         class="badge bg-label-secondary">General</span>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: comunicado/tabla.html — comunicados enviados (plantilla de mantenimiento).
+     · Al abrir llega incluido en comunicado/vista.html (th:replace … :: tabla): un pedido.
+       POST /administracion/comunicados/tabla lo devuelve para recargar.
+     · Cada fila lleva sus datos en data-* para el filtro por tipo y los totales.
+     · Sin onclick: el botón declara data-accion y lo atiende la vista.
+     ══════════════════════════════════════════════════════════════ -->
+<table class="table sm-tabla align-middle" th:fragment="tabla">
+    <thead>
+        <tr>
+            <th style="width:150px;">Enviado</th>
+            <th>Comunicado</th>
+            <th style="width:290px;">Lectura</th>
+            <th class="text-end" style="width:150px;">Opciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr th:each="c : ${comunicados}"
+            th:attr="data-id=${c.id}, data-tipo=${c.tipo}, data-importante=${c.importante},
+                     data-total=${c.total}, data-leyeron=${c.leyeron}, data-pct=${c.pct}">
+            <td th:attr="data-order=${c.fechaOrden}">
+                <span class="sm-codigo" th:text="${c.fecha}"></span>
+            </td>
+            <td>
+                <div class="d-flex align-items-start gap-2">
+                    <span class="sm-pastilla py-0 flex-shrink-0" th:switch="${c.tipo}"
+                          th:classappend="${c.tipo == 'URGENTE'} ? 'sm-pastilla-peligro' : (${c.tipo == 'TRABAJO'} ? 'sm-pastilla-info' : (${c.tipo == 'AVISO'} ? 'sm-pastilla-aviso' : ''))">
+                        <th:block th:case="'URGENTE'"><i class="ti ti-urgent"></i> Urgente</th:block>
+                        <th:block th:case="'TRABAJO'"><i class="ti ti-briefcase"></i> Trabajo</th:block>
+                        <th:block th:case="'AVISO'"><i class="ti ti-bell"></i> Aviso</th:block>
+                        <th:block th:case="*"><i class="ti ti-message"></i> General</th:block>
+                    </span>
+                    <div class="sm-persona-texto">
+                        <span class="fw-semibold">
+                            <i th:if="${c.importante}" class="ti ti-star-filled text-warning" title="Importante"></i>
+                            <span th:text="${c.titulo}"></span>
                         </span>
-                    </td>
-                    <td>
-                        <i th:if="${c.importante}" class="ti ti-star-filled text-warning me-1"
-                           title="Importante"></i>
-                        <span th:text="${c.titulo}"></span>
-                    </td>
-                    <td><small class="text-muted" th:text="${c.alcanceDetalle}"></small></td>
-                    <td class="text-center" th:text="${c.total}"></td>
-                    <td class="text-center">
-                        <span class="badge bg-label-secondary" th:text="${c.recibieron}"></span>
-                    </td>
-                    <td class="text-center">
-                        <span class="badge bg-label-success" th:text="${c.leyeron}"></span>
-                    </td>
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <div class="progress flex-grow-1" style="height:8px;">
-                                <div class="progress-bar bg-success" role="progressbar"
-                                     th:style="'width:' + ${c.pct} + '%'"
-                                     th:aria-valuenow="${c.pct}" aria-valuemin="0" aria-valuemax="100"></div>
-                            </div>
-                            <small class="ms-2 text-muted" th:text="${c.pct} + '%'"></small>
-                        </div>
-                    </td>
-                    <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-outline-primary"
-                                th:onclick="'verDetalle(' + ${c.id} + ')'">
-                            <i class="ti ti-eye ti-xs"></i> Ver
-                        </button>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<script>
-    $('#data-table-comunicados').DataTable({
-        order: [],
-        language: {
-            "sProcessing": "Procesando...",
-            "sLengthMenu": "Mostrar _MENU_ registros",
-            "sZeroRecords": "No se encontraron comunicados",
-            "sEmptyTable": "Aún no se ha enviado ningún comunicado",
-            "sInfo": "Mostrando del _START_ al _END_ de _TOTAL_ comunicados",
-            "sInfoEmpty": "Mostrando 0 a 0 de 0 comunicados",
-            "sInfoFiltered": "(filtrado de _MAX_ comunicados)",
-            "sSearch": "Buscar:",
-            "sLoadingRecords": "Cargando...",
-            "oPaginate": {
-                "sFirst": "Primero", "sLast": "Último",
-                "sNext": "Siguiente", "sPrevious": "Anterior"
-            }
-        }
-    });
-</script>
+                        <span class="sm-sub"><i class="ti ti-target-arrow"></i> <span th:text="${c.alcanceDetalle}"></span></span>
+                    </div>
+                </div>
+            </td>
+            <td th:attr="data-order=${c.pct}">
+                <div class="sm-progreso">
+                    <div class="sm-progreso-barra" th:classappend="${c.pct == 0} ? 'nulo' : (${c.pct < 60} ? 'bajo' : '')">
+                        <span th:style="'width:' + ${c.pct} + '%'"></span>
+                    </div>
+                    <span class="sm-progreso-pct" th:text="${c.pct} + '%'"></span>
+                </div>
+                <div class="sm-sub mt-1">
+                    <strong th:text="${c.leyeron}"></strong> de <span th:text="${c.total}"></span> confirmaron ·
+                    <span th:text="${c.recibieron}"></span> recibieron
+                </div>
+            </td>
+            <td class="text-end">
+                <button type="button" class="sm-btn sm-btn-sm sm-btn-suave" data-accion="detalle"
+                        title="Quién lo recibió y quién confirmó la lectura">
+                    <i class="ti ti-clipboard-check"></i> Ver control
+                </button>
+            </td>
+        </tr>
+    </tbody>
+</table>

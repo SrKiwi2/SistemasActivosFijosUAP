@@ -40,7 +40,10 @@
     function reemitirAvisos(sse) {
         // 'permisos' y 'menu': el administrador cambió los permisos de este usuario o el
         // catálogo del menú; sciaf-menu-vivo.js actualiza el menú sin recargar.
-        ['actividad', 'autorizacion', 'permisos', 'menu'].forEach(nombre => {
+        // 'perfil': cambiaron sus datos personales (módulo Persona); ver más abajo.
+        // 'comunicado': alguien confirmó la lectura de un comunicado que este usuario envió
+        // (la pantalla Comunicados se actualiza sola).
+        ['actividad', 'autorizacion', 'permisos', 'menu', 'perfil', 'comunicado'].forEach(nombre => {
             sse.addEventListener(nombre, e => {
                 try {
                     document.dispatchEvent(new CustomEvent('sciaf:' + nombre, { detail: JSON.parse(e.data) }));
@@ -48,6 +51,14 @@
             });
         });
     }
+
+    // Nombre de la barra superior al día cuando alguien corrige los datos de esta persona
+    // (la sesión del servidor ya se rearma sola: SesionPermisosService.personaCambio).
+    document.addEventListener('sciaf:perfil', e => {
+        const nombre = e.detail && e.detail.nombre;
+        if (!nombre) return;
+        document.querySelectorAll('[data-sciaf-perfil="nombre"]').forEach(el => { el.textContent = nombre; });
+    });
 
     // Verificar que el DOM de notificaciones existe
     // (la campana solo aparece para roles autorizados)

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.model.IService.IBajaActivoService;
+import com.usic.SistemasActivosFijosUAP.model.dao.IBajaActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.BajaActivo;
 
 import lombok.RequiredArgsConstructor;
@@ -18,13 +19,19 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/administracion/baja")
 @RequiredArgsConstructor
 public class CBajaActivoController {
-    
-    private final IBajaActivoService bajaActivoService;
 
+    private final IBajaActivoService bajaActivoService;
+    private final IBajaActivoDao bajaActivoDao;
+
+    /**
+     * Ruta anterior: la vista de seguimiento vieja (seguimiento/baja/vista.html) estaba hecha
+     * para otro modelo de bajas y ya no funcionaba (detalle vacío, PDF y exportaciones a
+     * endpoints inexistentes). Queda apuntando al módulo vigente por si algún menú la usa.
+     */
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
     public String vistaBajas() {
-        return "/seguimiento/baja/vista";
+        return "operaciones/baja/modulo";
     }
 
     // Vista dedicada del módulo: registro de baja (con informe adjunto) + seguimiento.
@@ -37,7 +44,7 @@ public class CBajaActivoController {
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla")
     public String tablaBajas(Model model) {
-        List<BajaActivo> bajas = bajaActivoService.findAll();
+        List<BajaActivo> bajas = bajaActivoDao.listarParaTabla();
         model.addAttribute("bajas", bajas);
         return "/seguimiento/baja/tabla_registro";
     }

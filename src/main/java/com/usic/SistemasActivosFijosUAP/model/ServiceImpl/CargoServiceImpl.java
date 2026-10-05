@@ -80,4 +80,10 @@ public class CargoServiceImpl implements ICargoService{
     public List<Cargo> buscarPorNombreLike(String nombre) {
        return dao.buscarPorNombreLike(nombre);
     }
+
+    @Override
+    public List<String> nombresParecidos(String texto, int max) {
+        String t = texto == null ? "" : texto.trim().toUpperCase();
+        return dao.nombresParecidos("%" + t + "%", org.springframework.data.domain.PageRequest.of(0, Math.max(1, max)));
+    }
 }

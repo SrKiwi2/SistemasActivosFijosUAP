@@ -66,21 +66,29 @@ public class OpcionMenuController {
         this.handlerMapping = handlerMapping;
     }
 
+    /**
+     * La pantalla llega con el árbol ya armado: un solo pedido al abrirla (antes la vista
+     * llegaba vacía y recién después pedía /tabla). /tabla queda para las recargas.
+     */
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String vista() {
+    public String vista(Model model) {
+        cargarArbol(model);
         return "menu/vista";
     }
 
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla")
     public String tabla(Model model) {
+        cargarArbol(model);
+        return "menu/tabla";
+    }
+
+    private void cargarArbol(Model model) {
         List<MenuNodoDto> arbol = opcionMenuService.obtenerArbolAdmin();
-        Set<String> rutas = rutasGet();
-        marcarUrls(arbol, rutas);
+        marcarUrls(arbol, rutasGet());
         model.addAttribute("arbol", arbol);
         model.addAttribute("eliminados", opcionMenuService.listarEliminados());
-        return "menu/tabla";
     }
 
     private void marcarUrls(List<MenuNodoDto> nodos, Set<String> rutas) {
@@ -277,18 +285,6 @@ public class OpcionMenuController {
             response.put("msg", "Error al guardar: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
-    }
-
-    @ValidarUsuarioAutenticado
-    @PostMapping("/subir/{id}")
-    public ResponseEntity<Map<String, Object>> subir(HttpServletRequest request, @PathVariable("id") Long id) {
-        return accion(request, id, "Opción movida", () -> opcionMenuService.moverArriba(id), ActividadService.ACC_MOVIMIENTO, "subió");
-    }
-
-    @ValidarUsuarioAutenticado
-    @PostMapping("/bajar/{id}")
-    public ResponseEntity<Map<String, Object>> bajar(HttpServletRequest request, @PathVariable("id") Long id) {
-        return accion(request, id, "Opción movida", () -> opcionMenuService.moverAbajo(id), ActividadService.ACC_MOVIMIENTO, "bajó");
     }
 
     @ValidarUsuarioAutenticado

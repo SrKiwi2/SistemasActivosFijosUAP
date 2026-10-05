@@ -1,6 +1,5 @@
 package com.usic.SistemasActivosFijosUAP.controller.responsable;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -37,9 +36,9 @@ import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
+import com.usic.SistemasActivosFijosUAP.model.dao.IOficinaDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SyncResult;
-import com.usic.SistemasActivosFijosUAP.model.dto.responsable.ResponsableApiDataDTO;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
@@ -77,6 +76,9 @@ public class ResponsableController {
     private final ResponsableGestionService responsableGestionService;
     private final AutorizacionService autorizacionService;
     private final ActividadService actividadService;
+    private final IOficinaDao oficinaDao;
+    /** Sin VSIAF a la vista (laptop de desarrollo, montaje caído) la sincronización avisa en vez de leer 0 registros. */
+    private final com.usic.SistemasActivosFijosUAP.componet.VsiafDisponibilidad vsiaf;
 
     private static final Logger log = LoggerFactory.getLogger(ResponsableController.class);
 
@@ -95,12 +97,61 @@ public class ResponsableController {
                 "msg", "Solo un ADMINISTRADOR o SUPER USUARIO puede hacer esta operación."));
     }
 
+    /**
+     * La pantalla llega sin datos pesados: la tabla se pagina en el servidor y el filtro de
+     * oficina busca a medida que se escribe (antes la vista y el formulario traían TODAS las
+     * oficinas y consultaban el predio de cada una por separado).
+     */
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
     public String inicioResponsable(Model model, HttpServletRequest request) {
-        model.addAttribute("oficinas", oficinaService.listarOficinas());
-        model.addAttribute("esAdmin", esAdmin(request));
+        boolean admin = esAdmin(request);
+        model.addAttribute("esAdmin", admin);
+        if (admin) {
+            try {
+                SyncControl s = syncControlService.obtenerInfoSincronizacion("responsable");
+                if (s != null) {
+                    model.addAttribute("ultimaSincronizacion",
+                            s.getUltimaSincronizacion().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+                    model.addAttribute("estadoSync", s.getEstado());
+                    model.addAttribute("registrosProcesados", s.getRegistrosProcesados());
+                    model.addAttribute("registrosNuevos", s.getRegistrosNuevos());
+                    model.addAttribute("registrosActualizados", s.getRegistrosActualizados());
+                    model.addAttribute("duracionUltimaSync", s.getDuracionMs() / 1000.0);
+                }
+            } catch (Exception e) {
+                model.addAttribute("estadoSync", "ERROR");
+            }
+        }
         return "responsable/vista";
+    }
+
+    /**
+     * Buscador de oficinas (select2 del filtro y del formulario): hasta 40 por pedido, en una
+     * consulta. Con {@code id} devuelve esa sola (para mostrar la recién creada).
+     */
+    @ValidarUsuarioAutenticado
+    @GetMapping(value = "/api/oficinas/opciones", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public List<Map<String, Object>> oficinasOpciones(@RequestParam(required = false) String q,
+            @RequestParam(required = false) Long id) {
+        List<IOficinaDao.OficinaOpcion> lista;
+        if (id != null) {
+            lista = oficinaDao.opcion(id).map(List::of).orElse(List.of());
+        } else {
+            String patron = "%" + String.join("%", (q == null ? "" : q.trim().toUpperCase()).split("\\s+")) + "%";
+            lista = oficinaDao.opciones(patron.replaceAll("%+", "%"), PageRequest.of(0, 40));
+        }
+        List<Map<String, Object>> out = new ArrayList<>(lista.size());
+        for (IOficinaDao.OficinaOpcion o : lista) {
+            out.add(Map.of("id", o.getId(), "text", textoOficina(o.getUnidad(), o.getCodOfi(), o.getNombre())));
+        }
+        return out;
+    }
+
+    /** "CAUN — 5 | SISTEMAS": como la muestran el filtro, el formulario y la tabla. */
+    private static String textoOficina(String unidad, Short codOfi, String nombre) {
+        return nvl(unidad) + " — " + (codOfi != null ? codOfi : "?") + " | " + nvl(nombre);
     }
 
     @ValidarUsuarioAutenticado
@@ -225,7 +276,12 @@ public class ResponsableController {
         }
 
         model.addAttribute("responsable", responsable);
-        model.addAttribute("oficinas", oficinaService.listarOficinas());
+        model.addAttribute("idEnc", responsable.getIdResponsable() != null ? id : null);
+        Oficina of = responsable.getOficina();
+        if (of != null) {
+            model.addAttribute("oficinaTexto", textoOficina(of.getPredio() != null ? of.getPredio().getUnidad() : null,
+                    of.getCodOfi(), of.getNombre()));
+        }
         return "responsable/formulario";
     }
 
@@ -237,19 +293,6 @@ public class ResponsableController {
             return Short.parseShort(codigoStr); 
         } catch (Exception e) {
             return 1; 
-        }
-    }
-
-    @GetMapping("/consultar-api-datos")
-    @ResponseBody
-    public ResponseEntity<ResponsableApiDataDTO> consultarApiDatos(
-            @RequestParam String codigoFuncionario,
-            @RequestParam String ci) {
-        try {
-            ResponsableApiDataDTO dto = responsableService.getResponsableDataFromApi(codigoFuncionario, ci);
-            return ResponseEntity.ok(dto);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
@@ -362,8 +405,11 @@ public class ResponsableController {
                     return ResponseEntity.ok(Map.of("ok", false, "requiereAutorizacion", true,
                         "msg", "Cambiar la oficina o el código de un responsable requiere autorización. Cambios: " + resumen));
                 }
+                // Foto de la persona al pedir: al aprobar, si entretanto la corrigieron, no se pisa.
+                Map<String, Object> pedido = datos.aMapa();
+                pedido.put(ResponsableGestionService.PERSONA_ANTES, ResponsableGestionService.nombreYCi(original.getPersona()));
                 autorizacionService.solicitar(ResponsableGestionService.TIPO_MODIFICAR, ActividadService.MOD_RESPONSABLE,
-                        id, ResponsableGestionService.referencia(original), resumen, datos.aMapa(),
+                        id, ResponsableGestionService.referencia(original), resumen, pedido,
                         motivoSolicitud, usuario);
                 return ResponseEntity.ok(Map.of("ok", true, "solicitud", true,
                     "msg", "Solicitud enviada. Se aplicará cuando el revisor la apruebe; le avisaremos aquí mismo."));
@@ -432,6 +478,9 @@ public class ResponsableController {
             @RequestParam(name = "forzarCompleto", defaultValue = "false") boolean forzarCompleto) {
 
         if (!esAdmin(request)) return soloAdmin();
+        if (!vsiaf.dbf("sincronización manual")) {
+            return ResponseEntity.ok(Map.of("ok", false, "message", vsiaf.motivoDbf()));
+        }
         return syncFromMounted(q, forzarCompleto);
     }
 
@@ -677,30 +726,11 @@ public class ResponsableController {
     @GetMapping("/api/cargos/search")
     @ResponseBody
     public List<Map<String, String>> buscarCargos(@RequestParam(required = false) String q) {
-
-        List<Cargo> cargos = (q == null || q.isBlank()) 
-            ? cargoService.findAll() 
-            : cargoService.buscarPorNombreLike("%" + q.toUpperCase() + "%");
-            
-        return cargos.stream()
-            .limit(20)
-            .map(c -> Map.of("nombre", c.getNombre()))
+        return cargoService.nombresParecidos(q, 20).stream()
+            .map(n -> Map.of("nombre", n))
             .collect(Collectors.toList());
     }
     
-    @GetMapping("/api/oficinas/list-select")
-    @ResponseBody
-    public List<Map<String, Object>> listarOficinasSelect() {
-        return oficinaService.listarOficinas().stream().map(o -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put("idOficina", o.getIdOficina());
-            m.put("codOfi", o.getCodOfi());
-            m.put("nombre", o.getNombre());
-            m.put("predio", Map.of("unidad", o.getPredio().getUnidad()));
-            return m;
-        }).collect(Collectors.toList());
-    }
-
     private Map<String, Oficina> cargarOficinasEnCache() {
         List<Oficina> todas = oficinaService.findAll();
         

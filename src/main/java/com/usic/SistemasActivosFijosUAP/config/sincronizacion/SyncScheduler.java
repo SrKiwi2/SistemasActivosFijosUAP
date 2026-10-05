@@ -25,6 +25,8 @@ public class SyncScheduler {
     private final ITransferenciaLondraService transferenciaService;
     private final SseEmitterRegistry    sseRegistry;
     private final TransferenciasNotificadorService  notificadorService;
+    /** Sin VSIAF a la vista (laptop de desarrollo, montaje caído) estas tareas se pausan. */
+    private final com.usic.SistemasActivosFijosUAP.componet.VsiafDisponibilidad vsiaf;
 
     private long ultimoConteoTransferencias = -1;
 
@@ -35,6 +37,7 @@ public class SyncScheduler {
      */
     @Scheduled(cron = "0 0 */6 * * *")
     public void sincronizarCompletoPeriodico() {
+        if (!vsiaf.dbf("sync completo de respaldo")) return;
         // Sync en orden de dependencias, forzar completo
         // para cubrir cambios que el polling pudo haber perdido
         for (String tabla : List.of(
@@ -54,6 +57,7 @@ public class SyncScheduler {
         fixedDelayString   = "${sync.poll.interval.ms}"
     )
     public void pollearTransferenciasPendientes() {
+        if (!vsiaf.transferencias("sondeo de transferencias")) return;
         try {
             long conteoActual = transferenciaService.contarPendientesEnDbf();
 

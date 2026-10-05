@@ -222,11 +222,11 @@
                                     </div>
                                 </div>
                                 <div class="flex-grow-1">
-                                    <span class="fw-medium d-block"
+                                    <span class="fw-medium d-block" data-sciaf-perfil="nombre"
                                           th:text="${session.persona != null
-                                            ? session.persona.nombre + ' '
-                                            + session.persona.paterno + ' '
-                                            + session.persona.materno
+                                            ? #strings.trim(session.persona.nombre + ' '
+                                            + (session.persona.paterno ?: '') + ' '
+                                            + (session.persona.materno ?: ''))
                                             : 'Invitado'}"></span>
                                     <small class="text-muted"
                                            th:text="${session.persona != null

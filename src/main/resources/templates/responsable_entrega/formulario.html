@@ -1,55 +1,89 @@
-<div class="modal-header">
-    <h5 class="modal-title" th:text="${edit != null ? 'Editar' : 'Nuevo'} + ' Responsable de Entrega'"></h5>
-    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: responsable_entrega/formulario.html  (va dentro de .modal-content.sm-modal)
+     El envío lo hace SciafModulo.formulario() y espera JSON { ok, msg }.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-modal-cab">
+    <div class="sm-cabecera-icono">
+        <i class="ti" th:classappend="${edit != null} ? 'ti-user-edit' : 'ti-user-plus'"></i>
+    </div>
+    <div>
+        <h5 class="sm-modal-titulo" th:text="${edit != null} ? 'Modificar persona de entrega' : 'Nueva persona de entrega'">Responsable de entrega</h5>
+        <p class="sm-modal-sub">Así figura en el acta de asignación.</p>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
-<div class="modal-body">
-    <form id="formulario" th:action="${edit != null ? '/administracion/responsable-entrega/modificar' : '/administracion/responsable-entrega/registrar'}"
-          th:object="${responsableEntrega != null ? responsableEntrega : new com.usic.SistemasActivosFijosUAP.model.entity.ResponsableEntrega()}"
-          method="post" class="needs-validation" novalidate>
-        <input type="hidden" th:if="${edit != null}" name="idResponsableEntrega" th:value="*{idResponsableEntrega}">
-        <div class="mb-3">
-            <label class="form-label small fw-bold">Nombre <span class="text-danger">*</span></label>
-            <input type="text" name="nombre" class="form-control" th:value="*{nombre}"
-                   required maxlength="255" placeholder="Nombre completo del responsable">
-            <div class="invalid-feedback">El nombre es obligatorio</div>
+
+<form id="formularioEntrega" method="post"
+      th:action="${edit != null ? '/administracion/responsable-entrega/modificar' : '/administracion/responsable-entrega/registrar'}"
+      th:object="${responsableEntrega != null ? responsableEntrega : new com.usic.SistemasActivosFijosUAP.model.entity.ResponsableEntrega()}"
+      novalidate>
+    <input type="hidden" th:if="${edit != null}" name="idResponsableEntrega" th:value="*{idResponsableEntrega}">
+
+    <div class="sm-modal-cuerpo">
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-user"></i> Datos</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="sm-label" for="entNombre">Nombre completo <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-user"></i>
+                            <input type="text" name="nombre" id="entNombre" class="sm-input" th:value="*{nombre}"
+                                   required maxlength="255" placeholder="Ej: LIC. MARÍA QUISPE ROJAS" autocomplete="off">
+                            <div class="invalid-feedback">Ingrese el nombre.</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-7">
+                        <label class="sm-label" for="entCargo">Cargo</label>
+                        <div class="sm-campo">
+                            <i class="ti ti-briefcase"></i>
+                            <input type="text" name="cargo" id="entCargo" class="sm-input" th:value="*{cargo}"
+                                   maxlength="255" placeholder="Ej: JEFE DE ACTIVOS FIJOS" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <label class="sm-label" for="entGenero">Género <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <select name="genero" id="entGenero" class="sm-select" required>
+                                <option value="">Seleccione…</option>
+                                <option value="F" th:selected="*{genero} == 'F'">Femenino</option>
+                                <option value="M" th:selected="*{genero} == 'M'">Masculino</option>
+                            </select>
+                            <div class="invalid-feedback">Elija el género.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sm-ayuda mt-2">El nombre, el cargo y el género se usan en el acta de asignación.</div>
+            </div>
         </div>
-        <div class="mb-3">
-            <label class="form-label small fw-bold">Cargo</label>
-            <input type="text" name="cargo" class="form-control" th:value="*{cargo}"
-                   maxlength="255" placeholder="Ej: Jefe de Activos Fijos">
-        </div>
-        <div class="mb-3">
-            <label class="form-label small fw-bold">Género <span class="text-danger">*</span></label>
-            <select name="genero" class="form-control" required>
-                <option value="">Seleccione...</option>
-                <option value="F" th:selected="*{genero} == 'F'">Femenino</option>
-                <option value="M" th:selected="*{genero} == 'M'">Masculino</option>
-            </select>
-            <div class="invalid-feedback">Seleccione el género</div>
-        </div>
-        <div class="text-end">
-            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary" th:text="${edit != null ? 'Guardar cambios' : 'Registrar'}">
-                Registrar
-            </button>
-        </div>
-    </form>
-</div>
+    </div>
+
+    <div class="sm-modal-pie">
+        <span class="sm-nota"><span class="sm-req">*</span> Campo obligatorio</span>
+        <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal" id="btnCancelarEntrega">
+            <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button type="submit" class="sm-btn sm-btn-exito" id="btnGuardarEntrega">
+            <i class="ti ti-device-floppy"></i>
+            <span th:text="${edit != null} ? 'Guardar cambios' : 'Registrar'">Guardar</span>
+        </button>
+    </div>
+</form>
+
 <script>
-    $('#formulario').on('submit', function (e) {
-        e.preventDefault();
-        if (!this.checkValidity()) { this.reportValidity(); return; }
-        const form = this;
-        const btn = form.querySelector('[type="submit"]');
-        const txt = btn.innerHTML;
-        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
-        $.ajax({
-            url: form.action,
-            type: 'POST',
-            data: $(form).serialize(),
-            success: function (res) { if (res.ok) { $('#modalFormulario').modal('hide'); cargarTabla(); Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.msg, showConfirmButton: false, timer: 1600 }); } },
-            error: function () { Swal.fire('Error', 'No se pudo guardar', 'error'); },
-            complete: function () { btn.disabled = false; btn.innerHTML = txt; }
+    (function () {
+        const esEdicion = $('#formularioEntrega input[name="idResponsableEntrega"]').length > 0;
+        SciafModulo.formulario({
+            form: '#formularioEntrega',
+            modal: '#modalFormularioEntrega',
+            guardar: '#btnGuardarEntrega',
+            cancelar: '#btnCancelarEntrega',
+            textoGuardando: esEdicion ? 'Guardando…' : 'Registrando…',
+            msgExito: esEdicion ? 'Modificado' : 'Registrado'
+            // La tabla la recarga la vista (SciafModulo.alGuardarModal).
         });
-    });
+        const $modal = $('#modalFormularioEntrega');
+        if ($modal.hasClass('show')) $('#entNombre').trigger('focus');
+        else $modal.one('shown.bs.modal', () => $('#entNombre').trigger('focus'));
+    })();
 </script>

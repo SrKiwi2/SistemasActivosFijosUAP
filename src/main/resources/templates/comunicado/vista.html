@@ -1,73 +1,204 @@
-<h4 class="py-3 mb-4">
-    <span class="text-muted fw-light">Administración del Sistema /</span> Comunicados
-</h4>
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Comunicados — plantilla de mantenimiento (docs/PLANTILLA_MODULOS.md)
+     · La tabla llega YA armada con la vista (th:replace comunicado/tabla :: tabla): un
+       pedido al abrir; /tabla solo para recargar.
+     · En vivo: cuando un destinatario confirma la lectura, el servidor avisa al emisor
+       (SSE "comunicado", topbar.js lo reemite como 'sciaf:comunicado'): la tabla y el
+       control de lectura abierto se actualizan solos. Varios acuses seguidos se juntan
+       en una sola recarga.
+     · Todo dentro de #modComunicado y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modComunicado">
 
-<div id="tablaRegistro"></div>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-speakerphone"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-message-circle"></i> Comunicación <i class="ti ti-chevron-right"></i> Comunicados
+        </nav>
+        <h1 class="sm-titulo">Comunicados</h1>
+        <p class="sm-subtitulo">Envíe avisos a los usuarios y controle quién los recibió y quién confirmó la lectura.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-total">—</strong> enviados</span>
+        <span class="sm-dato" title="Promedio de lectura confirmada"><strong class="js-promedio">—</strong> lectura</span>
+        <span class="sm-dato" title="Acuses de lectura que faltan, sumando todos los comunicados"><strong class="js-faltan text-warning">—</strong> sin confirmar</span>
+        <button type="button" class="sm-btn" data-accion="nuevo">
+            <i class="ti ti-send"></i> Nuevo comunicado
+        </button>
+    </div>
+</header>
 
-<!-- Modal: redactar / enviar comunicado -->
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por título o destino…"
+                autocomplete="off" aria-label="Buscar comunicado" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+
+        <div class="sm-segmento js-segmento" role="group" aria-label="Filtrar por tipo">
+            <button type="button" class="activo" data-filtro="">Todos <span class="sm-cuenta" data-cuenta="todos">0</span></button>
+            <button type="button" data-filtro="URGENTE" data-tono="peligro">Urgentes <span class="sm-cuenta" data-cuenta="URGENTE">0</span></button>
+            <button type="button" data-filtro="TRABAJO">Trabajo <span class="sm-cuenta" data-cuenta="TRABAJO">0</span></button>
+            <button type="button" data-filtro="AVISO">Avisos <span class="sm-cuenta" data-cuenta="AVISO">0</span></button>
+            <button type="button" data-filtro="GENERAL">Generales <span class="sm-cuenta" data-cuenta="GENERAL">0</span></button>
+            <button type="button" data-filtro="pendiente" data-tono="peligro" title="Con destinatarios que todavía no confirmaron">
+                Sin completar <span class="sm-cuenta" data-cuenta="pendiente">0</span></button>
+        </div>
+
+        <div class="sm-toolbar-grupo">
+            <label class="sm-filas">
+                <i class="ti ti-list-numbers"></i> Filas
+                <select class="sm-select js-largo" aria-label="Filas por página">
+                    <option value="auto" selected>Ajustar a pantalla</option>
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="-1">Todas</option>
+                </select>
+            </label>
+        </div>
+    </div>
+
+    <!-- La tabla llega con la vista: sin segundo pedido al abrir -->
+    <div class="js-tabla">
+        <table th:replace="~{comunicado/tabla :: tabla}"></table>
+    </div>
+</section>
+
+<!-- Redactar / enviar -->
 <div class="modal fade" id="modalFormularioComunicado" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content" id="contenidoModalComunicado"></div>
+        <div class="modal-content sm-modal" id="contenidoModalComunicado"></div>
     </div>
 </div>
 
-<!-- Modal: detalle / control de lecturas -->
+<!-- Control de lectura -->
 <div class="modal fade" id="modalDetalleComunicado" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content" id="contenidoModalDetalle"></div>
+        <div class="modal-content sm-modal" id="contenidoModalDetalle"></div>
     </div>
+</div>
+
 </div>
 
 <script>
-    $(document).ready(function () {
-        cargarTabla();
-    });
+    (function () {
+        const URL = '/administracion/comunicados';
+        const $raiz = $('#modComunicado');
+        const $cont = $raiz.find('.js-tabla');
+        const $modalForm = $raiz.find('#modalFormularioComunicado');
+        const $modalDetalle = $raiz.find('#modalDetalleComunicado');
+        let detalleAbierto = null;        // id del comunicado cuyo control de lectura se está viendo
 
-    function cargarTabla() {
-        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/comunicados/tabla",
-            success: function (response) {
-                $("#tablaRegistro").html(response);
-            },
-            error: function () {
-                $("#tablaRegistro").html(`
-                    <div class="alert alert-danger m-3">
-                    Ocurrió un error al cargar los comunicados.
-                    <button class="btn btn-sm btn-outline-light ms-2" onclick="cargarTabla()">Reintentar</button>
-                    </div>`);
-            },
-            complete: function () {
-                hideGlobalLoader();
+        /* ── Filtro (tipo o "sin completar") ─────────────────────────────── */
+        const filtro = { valor: '' };
+        function pasaFiltro(tr) {
+            const d = tr.dataset;
+            if (!filtro.valor) return true;
+            if (filtro.valor === 'pendiente') return Number(d.leyeron) < Number(d.total);
+            return d.tipo === filtro.valor;
+        }
+
+        /** Totales de la cabecera y del filtro, sobre todas las filas. */
+        function contar(api) {
+            const c = { todos: 0, URGENTE: 0, TRABAJO: 0, AVISO: 0, GENERAL: 0, pendiente: 0 };
+            let sumaPct = 0, faltan = 0;
+            api.rows().nodes().each(function (tr) {
+                const d = tr.dataset;
+                c.todos++;
+                c[d.tipo in c ? d.tipo : 'GENERAL']++;
+                const total = Number(d.total) || 0, leyeron = Number(d.leyeron) || 0;
+                if (leyeron < total) c.pendiente++;
+                faltan += Math.max(0, total - leyeron);
+                sumaPct += Number(d.pct) || 0;
+            });
+            Object.keys(c).forEach(k => $raiz.find('[data-cuenta="' + k + '"]').text(c[k]));
+            $raiz.find('.js-promedio').text(c.todos ? Math.round(sumaPct / c.todos) + '%' : '—');
+            $raiz.find('.js-faltan').text(faltan);
+        }
+
+        /* ── Tabla ───────────────────────────────────────────────────────── */
+        function iniciarTabla() {
+            SciafModulo.tabla({
+                tabla: $cont.find('table'),
+                buscador: $raiz.find('.js-buscar'),
+                largo: $raiz.find('.js-largo'),
+                total: $raiz.find('.js-total'),
+                orden: [ [0, 'desc'] ],   // con espacios: dos corchetes juntos son sintaxis de Thymeleaf
+                noOrdenables: [3],
+                altoFila: 70,
+                filtroFila: pasaFiltro,
+                alDibujar: contar
+            });
+        }
+
+        function cargarTabla() {
+            $cont.css('opacity', 0.55);
+            return SciafModulo.cargar($cont, URL + '/tabla')
+                .then(iniciarTabla)
+                .catch(e => SciafModulo.avisarError(e, 'No se pudo cargar la tabla'))
+                .finally(() => $cont.css('opacity', 1));
+        }
+
+        // Varios acuses de lectura seguidos (o el envío propio) → una sola recarga.
+        let espera = null;
+        function programarRecarga(ms) {
+            clearTimeout(espera);
+            espera = setTimeout(function () {
+                cargarTabla();
+                if (detalleAbierto && $modalDetalle.hasClass('show')) abrirDetalle(detalleAbierto, true);
+            }, ms == null ? 300 : ms);
+        }
+
+        /* ── Formulario y detalle ────────────────────────────────────────── */
+        function abrirNuevo() {
+            SciafModulo.abrirFormulario($modalForm, $raiz.find('#contenidoModalComunicado'), URL + '/formulario');
+        }
+
+        /** {@code silencioso}: refresco en vivo, sin volver a mostrar "Cargando…". */
+        function abrirDetalle(id, silencioso) {
+            detalleAbierto = id;
+            const $contenido = $raiz.find('#contenidoModalDetalle');
+            if (silencioso) {
+                SciafModulo.cargar($contenido, URL + '/detalle/' + id).catch(() => {});
+                return;
+            }
+            SciafModulo.abrirFormulario($modalDetalle, $contenido, URL + '/detalle/' + id, null,
+                'Cargando control de lectura…');
+        }
+        $modalDetalle.on('hidden.bs.modal', function () { detalleAbierto = null; });
+
+        SciafModulo.alGuardarModal($modalForm, () => programarRecarga(0));
+
+        $raiz.on('click', '[data-accion]', function () {
+            const tr = this.closest('tr');
+            switch (this.getAttribute('data-accion')) {
+                case 'nuevo':   abrirNuevo(); break;
+                case 'detalle': if (tr) abrirDetalle(tr.dataset.id); break;
             }
         });
-    }
 
-    function cargarFormulario() {
-        cargarFormularioAlert(
-            "/administracion/comunicados/formulario",
-            "#contenidoModalComunicado",
-            "#formularioComunicado");
-    }
-
-    function verDetalle(id) {
-        $.ajax({
-            url: "/adm/cargar-datos",
-            method: "GET",
-            success: function () {
-                $.ajax({
-                    type: 'POST',
-                    url: "/administracion/comunicados/detalle/" + id,
-                    success: function (response) {
-                        $("#contenidoModalDetalle").html(response);
-                        new bootstrap.Modal(document.getElementById('modalDetalleComunicado')).show();
-                    },
-                    error: function () {
-                        Swal.fire('Error', 'No se pudo cargar el detalle del comunicado.', 'error');
-                    }
-                });
-            }
+        $raiz.on('click', '.js-segmento button', function () {
+            const valor = $(this).data('filtro') || '';
+            filtro.valor = (filtro.valor === valor) ? '' : valor;
+            $raiz.find('.js-segmento button').removeClass('activo')
+                .filter(function () { return ($(this).data('filtro') || '') === filtro.valor; }).addClass('activo');
+            const $t = $cont.find('table');
+            if ($.fn.DataTable.isDataTable($t)) $t.DataTable().draw();
         });
-    }
+
+        // Acuse en vivo: alguien confirmó la lectura de un comunicado que envié. Se escucha
+        // en document con un nombre propio (se reemplaza si la vista se reabre). Con la
+        // pestaña oculta también se refresca, así al volver ya está al día.
+        $(document).off('sciaf:comunicado.comMod').on('sciaf:comunicado.comMod', function () {
+            programarRecarga(1200);
+        });
+
+        iniciarTabla();
+    })();
 </script>

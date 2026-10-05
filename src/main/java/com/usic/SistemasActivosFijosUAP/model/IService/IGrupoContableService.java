@@ -1,6 +1,5 @@
 package com.usic.SistemasActivosFijosUAP.model.IService;
 
-import java.io.File;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,7 +13,6 @@ public interface IGrupoContableService extends IServiceGenerico<GrupoContable, L
     GrupoContable buscarPorNombre(String nombre);
     List<GrupoContable> listarGruposContables();
     GrupoContable buscarPorCodigo(Integer codContable);
-    void importarDesdeDBF(File archivoDBF);
 
     List<GrupoContable> saveAll(Iterable<GrupoContable> grupoContables);
     Optional<GrupoContable> findByCodContable(Integer codContable);

@@ -38,6 +38,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
+import com.usic.SistemasActivosFijosUAP.config.RolesSciaf;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.ActualDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.AuxiliarDbfWriterService;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.registroDbf.OficinaDbfWriterService;
@@ -148,22 +149,9 @@ public class ActivosController {
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String inicio_oficina() {
+    public String inicio_oficina(Model model, HttpServletRequest request) {
+        model.addAttribute("esAdmin", RolesSciaf.esAdministrativo(request));
         return "activo/vista";
-    }
-
-    @ValidarUsuarioAutenticado
-    @PostMapping("/tabla-registros")
-    public String tablaRegistros_activo(Model model) throws Exception {
-        List<Activo> listasOficinas = activoService.listarActivos();
-        List<String> encryptedIds = new ArrayList<>();
-        for (Activo oficinas : listasOficinas) {
-            String id_encryptado = Encriptar.encrypt(Long.toString(oficinas.getIdActivo()));
-            encryptedIds.add(id_encryptado);
-        }
-        model.addAttribute("listasOficinas", listasOficinas);
-        model.addAttribute("id_encryptado", encryptedIds);
-        return "activo/tabla_registro";
     }
 
     @PostMapping("/datatables")
@@ -191,25 +179,30 @@ public class ActivosController {
             ActivoDTO dto = new ActivoDTO();
             dto.setIndex("");
             dto.setCodigo(activo.getCodigo());
+            dto.setNombre(activo.getNombre());
             dto.setDescripcion(activo.getDescripcion());
-            dto.setResponsable(activo.getResponsable().getPersona().getNombre() + " "
-                    + activo.getResponsable().getPersona().getPaterno() + " "
-                    + activo.getResponsable().getPersona().getMaterno());
-            dto.setOficina(etiquetaOficina(activo.getOficina()));
+            // Un activo sin responsable, sin persona o sin fecha (p. ej. traído del VSIAF con
+            // datos incompletos) antes lanzaba NullPointerException y dejaba la página vacía.
+            var resp = activo.getResponsable();
+            var per = resp != null ? resp.getPersona() : null;
+            dto.setResponsable(per == null ? "" : String.join(" ",
+                    per.getNombre() == null ? "" : per.getNombre(),
+                    per.getPaterno() == null ? "" : per.getPaterno(),
+                    per.getMaterno() == null ? "" : per.getMaterno()).trim());
+            dto.setOficina(activo.getOficina() != null ? etiquetaOficina(activo.getOficina()) : "");
             dto.setCosto(activo.getCosto());
             dto.setVidaUtil(activo.getVidaUtil());
-            dto.setFechaAdquisicion(activo.getFechaAdquisicion().toString());
+            dto.setFechaAdquisicion(activo.getFechaAdquisicion() != null ? activo.getFechaAdquisicion().toString() : "");
             dto.setEstado(activo.getEstadoActivo() != null ? activo.getEstadoActivo().getNombre() : "Sin estado");
 
+            // Las acciones las dibuja la tabla con este id (antes el servidor armaba un
+            // onclick con el nombre sin escapar: una comilla en el nombre rompía el botón).
             try {
-                String idEncriptado = Encriptar.encrypt(activo.getIdActivo().toString());
-                dto.setAcciones(
-                        " <button class='btn btn-sm btn-danger' onclick=\"eliminar('" + activo.getNombre() + "', '"
-                                + idEncriptado + "')\">Eliminar</button>");
+                dto.setIdEnc(Encriptar.encrypt(activo.getIdActivo().toString()));
             } catch (Exception e) {
-                dto.setAcciones("<span class='text-danger'>Error al generar acciones</span>");
-                e.printStackTrace();
+                dto.setIdEnc("");
             }
+            dto.setAcciones("");
 
             return dto;
         }).toList();
@@ -2857,20 +2850,6 @@ public class ActivosController {
     private String obtenerUsuario(HttpServletRequest req) {
         Usuario u = (Usuario) req.getSession().getAttribute("usuario");
         return u != null ? u.getUsuario() : "SISTEMA";
-    }
-
-    @ValidarUsuarioAutenticado
-    @PostMapping("/eliminar/{id_activo}")
-    public ResponseEntity<String> eliminar(Model model, HttpServletRequest request,
-            @PathVariable("id_activo") String idActivo) throws Exception {
-        Long id = Long.parseLong(Encriptar.decrypt(idActivo));
-        Activo activo = activoService.findById(id);
-        activo.setEstado("ELIMINADO");
-        activoService.save(activo);
-        actividadService.registrar((Usuario) request.getSession().getAttribute("usuario"),
-                com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ACTIVO, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_ELIMINACION, activo.getCodigo(),
-                "Eliminó el activo " + activo.getCodigo(), activo.getIdActivo());
-        return ResponseEntity.ok("Registro Eliminado");
     }
 
     @ValidarUsuarioAutenticado

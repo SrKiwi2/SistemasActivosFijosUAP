@@ -65,6 +65,7 @@ public class BajaActivoController {
     private final ICargoService cargoService;
     private final IActivoService activoService;
     private final IBajaActivoService bajaActivoService;
+    private final com.usic.SistemasActivosFijosUAP.model.dao.IBajaActivoDao bajaActivoDao;
         private final IEntidadService entidadService;
     private final IMunicipioService municipioService;
 
@@ -74,7 +75,25 @@ public class BajaActivoController {
     private final IEstadoActivoService estadoActivoService;
     private final ArchivoStorageService archivoStorageService;
 
+    /**
+     * /baja/** es permitAll() en SeguridadConfig: el permiso se revisa aquí. Pasa un
+     * ADMINISTRADOR / SUPER USUARIO o quien tenga la opción del menú (opcion_baja_modulo, opcion_ba).
+     */
+    private static boolean tienePermiso(HttpServletRequest request) {
+        if (com.usic.SistemasActivosFijosUAP.config.RolesSciaf.esAdministrativo(request)) return true;
+        Object opciones = request.getSession(false) != null ? request.getSession().getAttribute("opciones") : null;
+        if (opciones instanceof java.util.Set<?> set) {
+            for (String c : new String[] { "opcion_baja_modulo", "opcion_ba" }) if (set.contains(c)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Todo o nada: la baja, el estado BAJA del activo y su EstadoActivo se guardan juntos.
+     * Antes, si fallaba a la mitad quedaba la baja registrada con el activo todavía ACTIVO.
+     */
     @PostMapping("/registro")
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public ResponseEntity<byte[]> registroBajasActivo(
         @RequestParam String fechaBaja,
         @RequestParam String numeroDocumento,
@@ -88,10 +107,30 @@ public class BajaActivoController {
         ) throws Exception{
         try{
             Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+            // /baja/** es permitAll() en SeguridadConfig: sin esto, cualquiera sin sesión
+            // podía pasar un activo a BAJA.
+            if (usuario == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body("La sesión se cerró: vuelva a ingresar para registrar la baja.".getBytes());
+            }
+            if (!tienePermiso(request)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("Su usuario no tiene permiso para dar de baja activos.".getBytes());
+            }
 
             Activo activoBaja = activoService.buscarPorCodigo(codigoActivoBaja);
             if (activoBaja == null) {
                 throw new RuntimeException("No se encontró el activo con código: " + codigoActivoBaja);
+            }
+            // Un activo se da de baja una sola vez: antes se podía repetir y quedaban varias
+            // bajas (y varias actas) del mismo bien.
+            if ("BAJA".equalsIgnoreCase(activoBaja.getEstado()) || bajaActivoDao.existsByActivoIdActivo(activoBaja.getIdActivo())) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(("El activo " + activoBaja.getCodigo() + " ya está dado de baja.").getBytes());
+            }
+            if ("ELIMINADO".equalsIgnoreCase(activoBaja.getEstado())) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(("El activo " + activoBaja.getCodigo() + " fue quitado del sistema: no se puede dar de baja.").getBytes());
             }
 
             // Responsable: se usa el responsable actual del activo. Si el activo no tiene uno
@@ -154,6 +193,8 @@ public class BajaActivoController {
 
             return new ResponseEntity<>(pdfBytes, headers1, HttpStatus.OK);
         }catch (Exception ex) {
+            // Se responde el error, pero lo hecho se deshace (sin esto el catch confirmaba la transacción).
+            org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             ex.printStackTrace(); // Esto mostrará el error real en consola
             String errorMsg = "Error procesando: " + ex.getMessage();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMsg.getBytes());
@@ -166,25 +207,25 @@ public class BajaActivoController {
             "usuario", codigoFuncionario,
             "contrasena", ci
         );
-    
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("key", "e73b1991c59a67fe182524e4d12da556136ced8a9da310c3af4c4efbde804a10");
-    
+
         RestTemplate restTemplate = new RestTemplate();
         HttpEntity<Map<String, String>> request = new HttpEntity<>(requestBody, headers);
-    
+
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
             "http://virtual.uap.edu.bo:7174/api/londraPost/v1/obtenerDatos",
              HttpMethod.POST,
             request,
             new ParameterizedTypeReference<Map<String, Object>>() {}
         );
-    
+
         if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
             throw new RuntimeException("Error consultando API externa.");
         }
-    
+
         Map<String, Object> datos = Objects.requireNonNull(response.getBody());
         String nombre = (String) datos.get("per_nombres");
         String paterno = (String) datos.get("per_ap_paterno");
@@ -195,12 +236,12 @@ public class BajaActivoController {
         String nombreOficina = (String) datos.get("eo_descripcion");
         String nombrePredio= (String) datos.get("cp_descripcion");
         String nombreCargo = (String) datos.get("p_descripcion");
-    
+
         Persona persona = personaService.buscarPersonaPorCI(ciPersona);
         if (persona == null) {
             persona = personaService.buscarPersonaPorNombreCompletoUno(nombre, paterno, materno);
         }
-    
+
         if (persona == null) {
             persona = new Persona();
             persona.setNombre(nombre);
@@ -209,7 +250,7 @@ public class BajaActivoController {
             persona.setCi(ciPersona);
             persona.setCorreo(correo);
             persona.setEstado("ACTIVO");
-    
+
             Genero genero = generoService.buscarGeneroPorNombre(sexo);
             if (genero == null) {
                 genero = new Genero();
@@ -220,10 +261,10 @@ public class BajaActivoController {
                 generoService.save(genero);
             }
             persona.setGenero(genero);
-    
+
             personaService.save(persona);
         }
-    
+
         Predio predio = predioServicio.findByDescrip(nombrePredio)
             .orElseGet(() -> {
                 Entidad entidadP = entidadService.findById(53L);
@@ -238,7 +279,7 @@ public class BajaActivoController {
                 p.setRegistro(new Date());
                 p.setRegistroIdUsuario(1L);
                 return predioServicio.save(p);
-            }); 
+            });
 
         Oficina oficina = oficinaService.buscarPorNombre(nombreOficina).orElseGet(() -> {
             short next = oficinaService.nextCodOfiForPredio(predio.getIdPredio());
@@ -251,7 +292,7 @@ public class BajaActivoController {
             o.setPredio(predio);
             return oficinaService.save(o);
         });
-    
+
         Cargo cargo = cargoService.buscarPorNombre(nombreCargo);
         if (cargo == null) {
             cargo = new Cargo();
@@ -261,7 +302,7 @@ public class BajaActivoController {
             cargo.setRegistroIdUsuario(1L);
             cargoService.save(cargo);
         }
-    
+
         List<Responsable> relacionados = responsableService.findByPersonaAndEstado(persona, "ACTIVO");
         if (relacionados.isEmpty()) {
             // Si NO existe ninguno y quieres crear uno "base", créalo aquí.
@@ -316,5 +357,5 @@ public class BajaActivoController {
         nuevo.setRegistro(new Date());
         return responsableService.save(nuevo);
     }
-    
+
 }

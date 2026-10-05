@@ -1,159 +1,18 @@
 <!-- ═══════════════════════════════════════════════════════════════
-     FRAGMENTO: rol/formulario.html
-     1. Header con identidad visual + secciones limpias (estilo oficina)
-     2. Validación cliente con feedback inline
-     3. Envío AJAX propio: botón con estado "Registrando…", anti
-        doble-click y bloqueo de cierre mientras se guarda
-     4. Animación de entrada del modal
+     FRAGMENTO: rol/formulario.html  (va dentro de .modal-content.sm-modal)
+     Estructura de la plantilla: cabecera · cuerpo con secciones · pie.
+     El envío lo hace SciafModulo.formulario() y espera JSON { ok, msg }.
      ══════════════════════════════════════════════════════════════ -->
 
-<style>
-    /* ── Animación de entrada del modal ─────────────────── */
-    #modalFormularioRol .modal-content {
-        animation: modalIn 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
-        border-radius: 1rem;
-    }
-
-    @keyframes modalIn {
-        from { opacity: 0; transform: translateY(-20px) scale(0.95); }
-        to   { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
-    /* ── Secciones del formulario ───────────────────────── */
-    #modalFormularioRol .frm-section {
-        border: 1px solid #e9ecef;
-        border-radius: 10px;
-        overflow: visible;
-        margin-bottom: 1rem;
-    }
-
-    #modalFormularioRol .frm-section-header {
-        padding: 0.65rem 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.55rem;
-        font-size: 0.78rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        background: rgba(26, 86, 160, 0.06);
-        color: #1a56a0;
-        border-bottom: 1px solid rgba(26, 86, 160, 0.12);
-        border-radius: 10px 10px 0 0;
-    }
-
-    #modalFormularioRol .frm-section-body {
-        padding: 1.1rem 1rem 0.85rem;
-    }
-
-    /* ── Etiquetas con iconos ───────────────────────────── */
-    #modalFormularioRol .frm-label {
-        font-size: 0.73rem;
-        font-weight: 700;
-        color: #566a7f;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-        margin-bottom: 0.35rem;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-
-    #modalFormularioRol .frm-label i {
-        color: #1a56a0;
-        width: 14px;
-        text-align: center;
-    }
-
-    /* ── Tamaño cómodo de los controles ─────────────────── */
-    #modalFormularioRol .form-control,
-    #modalFormularioRol .form-select {
-        height: 42px;
-        font-size: 0.9rem;
-        border: 1px solid #d9dee3;
-        border-radius: 0.5rem;
-        transition: all 0.15s ease;
-    }
-
-    #modalFormularioRol .form-control:focus,
-    #modalFormularioRol .form-select:focus {
-        border-color: #1a56a0;
-        box-shadow: 0 0 0 3px rgba(26, 86, 160, 0.12);
-    }
-
-    #modalFormularioRol textarea.form-control {
-        height: auto;
-        min-height: 70px;
-    }
-
-    /* ── Contador de caracteres ─────────────────────────── */
-    .char-counter {
-        font-size: 0.7rem;
-        color: #94a3b8;
-        text-align: right;
-        margin-top: 0.2rem;
-    }
-
-    .char-counter.warning { color: #f59e0b; }
-    .char-counter.danger  { color: #ef4444; font-weight: 600; }
-
-    /* ── Botones de acción ──────────────────────────────── */
-    #modalFormularioRol .btn-success {
-        background: linear-gradient(135deg, #10b981 0%, #0ea5e9 120%);
-        border: 0;
-        border-radius: 0.5rem;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-        transition: all 0.2s ease;
-    }
-
-    #modalFormularioRol .btn-success:hover:not(:disabled) {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
-    }
-
-    #modalFormularioRol .btn-outline-secondary {
-        border-radius: 0.5rem;
-        border: 1px solid #d9dee3;
-        color: #475569;
-        transition: all 0.15s ease;
-    }
-
-    #modalFormularioRol .btn-outline-secondary:hover:not(:disabled) {
-        background: #f1f5f9;
-        border-color: #cbd5e1;
-        color: #1e293b;
-    }
-
-    /* ── Responsive ─────────────────────────────────────── */
-    @media (max-width: 576px) {
-        #modalFormularioRol .modal-header { padding: 1rem; }
-        #modalFormularioRol .modal-body { padding: 1rem; }
-        #modalFormularioRol .modal-footer { padding: 0.75rem 1rem; flex-direction: column-reverse; gap: 0.5rem; }
-        #modalFormularioRol .modal-footer .me-auto { width: 100%; text-align: center; }
-        #modalFormularioRol .btn-sm { width: 100%; justify-content: center; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        #modalFormularioRol .modal-content { animation: none !important; }
-        #modalFormularioRol .btn-success:hover,
-        #modalFormularioRol .btn-outline-secondary:hover { transform: none; }
-    }
-</style>
-
-<!-- ── Header con identidad institucional ───────────────── -->
-<div class="modal-header border-0 py-3 px-4"
-    style="background:linear-gradient(90deg,rgba(26,86,160,0.07) 0%,transparent 100%);border-bottom:2px solid #1a56a0 !important;">
-    <div class="d-flex align-items-center gap-2">
-        <div style="width:36px;height:36px;background:rgba(26,86,160,0.12);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#1a56a0;font-size:1.1rem;flex-shrink:0;">
-            <i class="fa-solid fa-user-shield"></i>
-        </div>
-        <div>
-            <h6 class="modal-title fw-bold mb-0" style="color:#1a56a0;"
-                th:text="${edit} ? 'Modificar Rol' : 'Registrar Rol'">Rol</h6>
-            <small class="text-muted" style="font-size:0.7rem;">
-                Define el nombre y estado del rol para control de accesos
-            </small>
-        </div>
+<div class="sm-modal-cab">
+    <div class="sm-cabecera-icono">
+        <i class="ti" th:classappend="${edit} ? 'ti-edit' : 'ti-shield-plus'"></i>
+    </div>
+    <div>
+        <h5 class="sm-modal-titulo" th:text="${edit} ? 'Modificar rol' : 'Nuevo rol'">Rol</h5>
+        <p class="sm-modal-sub"
+            th:text="${edit} ? 'Cambie el nombre del rol; los usuarios asignados lo conservan.' : 'Cree un perfil de acceso para asignarlo a los usuarios.'">
+        </p>
     </div>
     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
@@ -162,186 +21,76 @@
     th:action="${edit} ? @{/administracion/rol/modificar-rol} : @{/administracion/rol/registrar-rol}"
     th:object="${rol}" novalidate>
 
-    <!-- Campo oculto para ID (solo en edición) -->
+    <!-- ID (solo en edición) -->
     <input type="hidden" th:if="${edit != null}" th:field="*{idRol}" name="idRol">
 
-    <!-- ── Body ──────────────────────────────────────────── -->
-    <div class="modal-body px-4 pt-3 pb-2" style="background:#f8f9fb;">
+    <div class="sm-modal-cuerpo">
 
         <!-- Auditoría (solo edición) -->
-        <div th:if="${edit != null}" class="small text-muted mb-3">
-            <i class="fa-solid fa-user-clock me-1"></i>
-            Registrado
-            <th:block th:if="${registradoPor != null}">por <strong th:text="${registradoPor}"></strong></th:block>
-            <th:block th:if="${rol.registro != null}" th:text="${'el ' + #dates.format(rol.registro, 'dd/MM/yyyy HH:mm')}"></th:block>
-            <th:block th:if="${modificadoPor != null}">
-                · última modificación por <strong th:text="${modificadoPor}"></strong>
-                <th:block th:if="${rol.modificacion != null}" th:text="${'el ' + #dates.format(rol.modificacion, 'dd/MM/yyyy HH:mm')}"></th:block>
-            </th:block>
+        <div th:if="${edit != null}" class="sm-auditoria">
+            <i class="ti ti-history"></i>
+            <span>
+                Registrado
+                <th:block th:if="${registradoPor != null}">por <strong th:text="${registradoPor}"></strong></th:block>
+                <th:block th:if="${rol.registro != null}" th:text="${'el ' + #dates.format(rol.registro, 'dd/MM/yyyy HH:mm')}"></th:block>
+                <th:block th:if="${modificadoPor != null}">
+                    · última modificación por <strong th:text="${modificadoPor}"></strong>
+                    <th:block th:if="${rol.modificacion != null}" th:text="${'el ' + #dates.format(rol.modificacion, 'dd/MM/yyyy HH:mm')}"></th:block>
+                </th:block>
+            </span>
         </div>
 
-        <div class="frm-section">
-            <div class="frm-section-header">
-                <i class="fa-solid fa-circle-info"></i> Datos del Rol
-            </div>
-            <div class="frm-section-body">
-                <div class="row g-3">
-                    <!-- Nombre del Rol -->
-                    <div class="col-12">
-                        <label class="frm-label" for="inputNombre">
-                            <i class="fa-solid fa-tag"></i> Nombre del Rol <span class="text-danger">*</span>
-                        </label>
-                        <input type="text" th:field="*{nombre}" class="form-control" id="inputNombre"
-                            placeholder="Ej: ADMINISTRADOR, SUPERVISOR, OPERADOR…" required maxlength="50" autocomplete="off" />
-                        <div class="invalid-feedback">Ingrese un nombre único (máx. 50 caracteres).</div>
-                        <div class="char-counter" id="counterNombre"><span id="lenNombre">0</span>/50</div>
-                    </div>
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-info-circle"></i> Datos del rol</div>
+            <div class="sm-seccion-cuerpo">
+                <label class="sm-label" for="inputNombre">
+                    Nombre del rol <span class="sm-req">*</span>
+                </label>
+                <div class="sm-campo">
+                    <i class="ti ti-tag"></i>
+                    <input type="text" th:field="*{nombre}" class="sm-input" id="inputNombre"
+                        placeholder="Ej: ADMINISTRADOR, SUPERVISOR, OPERADOR…" required maxlength="50"
+                        autocomplete="off" />
+                    <div class="invalid-feedback">Ingrese el nombre del rol (máx. 50 caracteres).</div>
                 </div>
+                <div class="sm-ayuda">Se guarda en mayúsculas y no puede repetirse con otro rol activo.</div>
             </div>
         </div>
     </div>
 
-    <!-- ── Footer con estados de carga ───────────────────── -->
-    <div class="modal-footer border-0 bg-light py-2 px-4">
-        <small class="text-muted me-auto d-block d-md-inline" style="font-size:0.72rem;">
-            <i class="fa-solid fa-circle-info me-1"></i>
-            Los campos con <span class="text-danger">*</span> son obligatorios
-        </small>
-        <button type="button" class="btn btn-outline-secondary btn-sm px-4" data-bs-dismiss="modal"
-            id="btnCancelarRol">
-            <i class="fa-solid fa-xmark me-1"></i> Cancelar
+    <div class="sm-modal-pie">
+        <span class="sm-nota"><span class="sm-req">*</span> Campo obligatorio</span>
+        <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal" id="btnCancelarRol">
+            <i class="ti ti-x"></i> Cancelar
         </button>
-        <button type="submit" class="btn btn-success btn-sm px-4 fw-bold" id="btnGuardarRol">
-            <i class="fa-solid fa-floppy-disk me-1"></i>
-            <span th:text="${edit}? 'Guardar cambios' : 'Guardar registro'">Guardar</span>
+        <button type="submit" class="sm-btn sm-btn-exito" id="btnGuardarRol">
+            <i class="ti ti-device-floppy"></i>
+            <span th:text="${edit} ? 'Guardar cambios' : 'Registrar rol'">Guardar</span>
         </button>
     </div>
 </form>
 
 <script>
     (function () {
-        const $form = $('#formularioRol');
-        const $btnGuardar = $('#btnGuardarRol');
-        const $btnCancelar = $('#btnCancelarRol');
+        const esEdicion = $('#formularioRol input[name="idRol"]').length > 0;
+        const $nombre = $('#inputNombre');
+
+        if (window.sciafContador) sciafContador.simple('#inputNombre', 50);
+
+        // Las mayúsculas las pone la plantilla (SciafModulo.formulario) en todos los campos.
+        SciafModulo.formulario({
+            form: '#formularioRol',
+            modal: '#modalFormularioRol',
+            guardar: '#btnGuardarRol',
+            cancelar: '#btnCancelarRol',
+            textoGuardando: esEdicion ? 'Guardando…' : 'Registrando…',
+            msgExito: esEdicion ? 'Rol modificado' : 'Rol registrado'
+            // La tabla la recarga la vista (SciafModulo.alGuardarModal en rol/vista.html).
+        });
+
+        // Cursor listo para escribir (el modal puede estar ya abierto o terminando de abrirse).
         const $modal = $('#modalFormularioRol');
-        const $btnClose = $modal.find('.btn-close');
-        const esEdicion = $form.find('input[name="idRol"]').length > 0;
-        const htmlBtnOriginal = $btnGuardar.html();
-        let enviando = false;
-
-        /* ── Contador de caracteres (máx 50) ─────────────── */
-        const $inputNombre = $('#inputNombre');
-        const $lenNombre = $('#lenNombre');
-        const $counterNombre = $('#counterNombre');
-
-        function actualizarContador() {
-            const len = $inputNombre.val().length;
-            $lenNombre.text(len);
-            $counterNombre.removeClass('warning danger');
-            if (len > 45) $counterNombre.addClass(len >= 50 ? 'danger' : 'warning');
-        }
-        $inputNombre.on('input', actualizarContador);
-        actualizarContador();
-
-        /* ── Impide cerrar modal mientras se guarda ──────── */
-        $modal.off('hide.bs.modal.rolGuard').on('hide.bs.modal.rolGuard', function (e) {
-            if (enviando) e.preventDefault();
-        });
-
-        /* ── Validación inline ───────────────────────────── */
-        function marcar($el, invalido) {
-            $el.toggleClass('is-invalid', invalido);
-            return !invalido;
-        }
-
-        function validar() {
-            let ok = true;
-
-            const nombre = $inputNombre.val().trim();
-            if (!marcar($inputNombre, !nombre || nombre.length > 50)) { ok = false; }
-
-            return ok;
-        }
-
-        // Limpia error al corregir
-        $form.on('input change', 'input, select, textarea', function () {
-            $(this).removeClass('is-invalid');
-        });
-
-        /* ── Bloqueo / desbloqueo controles ──────────────── */
-        function bloquear(texto) {
-            enviando = true;
-            $btnGuardar.prop('disabled', true)
-                .html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' + texto);
-            $btnCancelar.prop('disabled', true);
-            $btnClose.prop('disabled', true).css('pointer-events', 'none');
-        }
-
-        function desbloquear() {
-            enviando = false;
-            $btnGuardar.prop('disabled', false).html(htmlBtnOriginal);
-            $btnCancelar.prop('disabled', false);
-            $btnClose.prop('disabled', false).css('pointer-events', '');
-        }
-
-        /* ── Envío del formulario ────────────────────────── */
-        $form.on('submit', function (event) {
-            event.preventDefault();
-            if (enviando) return; // anti doble-click / doble Enter
-
-            if (!validar()) {
-                $form.find('.is-invalid').first().trigger('focus');
-                Swal.fire('Faltan datos', 'Revise los campos marcados en rojo.', 'warning');
-                return;
-            }
-
-            bloquear(esEdicion ? 'Guardando…' : 'Registrando…');
-
-            $.ajax({
-                type: 'POST',
-                url: $form.attr('action'),
-                data: $form.serialize(),
-                dataType: 'json',
-                success: function (res) {
-                    if (res && res.ok) {
-                        enviando = false;
-                        $modal.modal('hide');
-                        if (typeof cargarTabla === 'function' && $('#tablaRegistro').length) cargarTabla();
-
-                        Swal.fire({
-                            toast: true,
-                            position: 'top-end',
-                            icon: 'success',
-                            title: res.msg || (esEdicion ? 'Rol modificado' : 'Rol registrado'),
-                            showConfirmButton: false,
-                            timer: 4000,
-                            timerProgressBar: true
-                        });
-                    } else {
-                        desbloquear();
-                        let msg = (res && res.msg) || 'No se pudo completar la operación.';
-                        if (res && res.errors && res.errors.length) {
-                            msg = res.errors.map(e => e.message).join('<br>');
-                        }
-                        Swal.fire('Atención', msg, 'error');
-                    }
-                },
-                error: function (xhr) {
-                    desbloquear();
-                    if (xhr.status === 403) {
-                        Swal.fire('Sin permiso', 'No tiene permiso para esta acción.', 'error');
-                        return;
-                    }
-                    let msg = (xhr.responseJSON && xhr.responseJSON.msg) || 'Error interno del servidor.';
-                    Swal.fire('Error', msg, 'error');
-                }
-            });
-        });
-
-        // Enter en input no envía si no es submit
-        $form.on('keydown', 'input', function (e) {
-            if (e.key === 'Enter') e.preventDefault();
-        });
-
+        if ($modal.hasClass('show')) $nombre.trigger('focus');
+        else $modal.one('shown.bs.modal', function () { $nombre.trigger('focus'); });
     })();
 </script>

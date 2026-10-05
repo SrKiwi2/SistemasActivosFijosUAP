@@ -563,48 +563,6 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
 
     @Override
     @Transactional
-    public void moverArriba(Long idOpcion) {
-        intercambiarConVecino(idOpcion, -1);
-    }
-
-    @Override
-    @Transactional
-    public void moverAbajo(Long idOpcion) {
-        intercambiarConVecino(idOpcion, 1);
-    }
-
-    private void intercambiarConVecino(Long idOpcion, int delta) {
-        OpcionMenu nodo = findById(idOpcion);
-        if (nodo == null) {
-            return;
-        }
-        Long idPadre = (nodo.getPadre() != null) ? nodo.getPadre().getIdOpcion() : null;
-        List<OpcionMenu> hermanos = hermanos(idPadre, nodo.getTipo()).stream()
-                .filter(o -> !o.eliminado()).toList();
-
-        int pos = -1;
-        for (int i = 0; i < hermanos.size(); i++) {
-            if (hermanos.get(i).getIdOpcion().equals(idOpcion)) {
-                pos = i;
-                break;
-            }
-        }
-        int destino = pos + delta;
-        if (pos < 0 || destino < 0 || destino >= hermanos.size()) {
-            return; // ya está en el extremo
-        }
-
-        OpcionMenu vecino = hermanos.get(destino);
-        Integer ordenNodo = nodo.getOrden();
-        nodo.setOrden(vecino.getOrden());
-        vecino.setOrden(ordenNodo);
-        opcionMenuDao.save(nodo);
-        opcionMenuDao.save(vecino);
-        limpiarCacheMenu();
-    }
-
-    @Override
-    @Transactional
     public void reordenar(Long idPadre, List<Long> idsEnOrden) {
         if (idsEnOrden == null || idsEnOrden.isEmpty()) {
             return;

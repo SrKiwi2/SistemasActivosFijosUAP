@@ -1,159 +1,222 @@
-<div class="modal-header">
-    <h4 class="modal-title" th:text="${edit} ? 'Editar opción de menú' : 'Nueva opción de menú'"></h4>
-    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: menu/formulario.html  (va dentro de .modal-content.sm-modal)
+     El envío lo hace SciafModulo.formulario() y espera JSON { ok, msg }.
+     SIN mayúsculas forzadas (mayusculas:false): el nombre se muestra tal cual en el menú
+     lateral, y el código, la URL y el ícono distinguen mayúsculas.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-modal-cab">
+    <div class="sm-cabecera-icono">
+        <i class="ti" th:classappend="${edit} ? 'ti-pencil' : 'ti-plus'"></i>
+    </div>
+    <div>
+        <h5 class="sm-modal-titulo" th:text="${edit} ? 'Editar opción de menú' : 'Nueva opción de menú'">Opción de menú</h5>
+        <p class="sm-modal-sub">Así se verá en el menú lateral de quienes tengan el permiso.</p>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
 
 <style>
-    /* Mismo arreglo que en permisos: el <form> envuelve cuerpo y pie del modal scrollable. */
+    /* El <form> envuelve cuerpo y pie del modal scrollable. */
     #formularioMenu { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
-    #formularioMenu > .modal-body { overflow-y: auto; min-height: 0; max-height: calc(100vh - 200px); }
-    #formularioMenu .mn-colores { display: flex; gap: .4rem; flex-wrap: wrap; }
+    #formularioMenu > .modal-body { overflow-y: auto; min-height: 0; max-height: calc(100vh - 220px); }
+    #formularioMenu .mn-colores { display: flex; gap: .45rem; flex-wrap: wrap; }
     #formularioMenu .mn-color input { display: none; }
     #formularioMenu .mn-color span {
         display: inline-flex; align-items: center; justify-content: center;
-        width: 34px; height: 34px; border-radius: 8px; cursor: pointer; border: 2px solid transparent;
+        width: 36px; height: 36px; border-radius: 9px; cursor: pointer; border: 2px solid transparent;
+        transition: transform .12s ease;
     }
-    #formularioMenu .mn-color input:checked + span { border-color: #1a56a0; box-shadow: 0 0 0 2px rgba(26,86,160,.25); }
+    #formularioMenu .mn-color span:hover { transform: translateY(-2px); }
+    #formularioMenu .mn-color input:checked + span { border-color: var(--sm-primario); box-shadow: 0 0 0 3px rgba(var(--sm-primario-rgb), .25); }
     #formularioMenu .mn-iconos {
         display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: .3rem;
-        max-height: 190px; overflow-y: auto; border: 1px solid rgba(0,0,0,.08); border-radius: 8px; padding: .4rem;
+        max-height: 180px; overflow-y: auto; padding: .45rem; margin-top: .5rem;
+        border: 1px solid var(--sm-borde); border-radius: 10px; background: var(--sm-superficie);
     }
     #formularioMenu .mn-iconos button {
-        border: 1px solid transparent; background: transparent; border-radius: 6px; height: 40px; font-size: 1.25rem;
+        border: 1px solid transparent; background: transparent; border-radius: 8px; height: 40px; font-size: 1.25rem;
+        color: var(--sm-texto); transition: background-color .12s ease;
     }
-    #formularioMenu .mn-iconos button:hover, #formularioMenu .mn-iconos button.sel { background: rgba(26,86,160,.1); border-color: rgba(26,86,160,.35); }
+    #formularioMenu .mn-iconos button:hover,
+    #formularioMenu .mn-iconos button.sel { background: rgba(var(--sm-primario-rgb), .1); border-color: rgba(var(--sm-primario-rgb), .35); }
     #formularioMenu .mn-preview {
-        border: 1px dashed rgba(26,86,160,.35); border-radius: 10px; padding: .75rem 1rem;
-        display: flex; align-items: center; gap: .75rem; background: rgba(26,86,160,.03);
+        display: flex; align-items: center; gap: .75rem; padding: .8rem 1rem; margin-bottom: 1rem;
+        border: 1px dashed rgba(var(--sm-primario-rgb), .45); border-radius: 12px; background: var(--sm-superficie);
     }
+    #formularioMenu .mn-preview small { font-size: .68rem; letter-spacing: .06em; }
+    #formularioMenu .form-switch .form-check-input { width: 2.4em; height: 1.25em; cursor: pointer; }
 </style>
 
-<form id="formularioMenu" method="post" th:action="@{/administracion/menu/guardar}" novalidate>
+<form id="formularioMenu" class="sm-sin-mayus" method="post" th:action="@{/administracion/menu/guardar}" novalidate>
 
     <input type="hidden" th:if="${edit}" name="idOpcion" th:value="${nodo.idOpcion}">
 
-    <div class="modal-body">
-        <div class="row g-3">
+    <div class="modal-body sm-modal-cuerpo">
 
-            <!-- Vista previa: cómo va a quedar en el menú -->
-            <div class="col-12">
-                <div class="mn-preview">
-                    <small class="text-muted text-uppercase fw-bold" style="font-size:.68rem; letter-spacing:.06em;">Vista previa</small>
-                    <span id="mnPrevIcono" class="sm-si"><i></i></span>
-                    <span id="mnPrevTexto" class="fw-medium">—</span>
-                    <span id="mnPrevBadge" class="sm-badge sm-bd-warn d-none"></span>
+        <!-- Vista previa: cómo va a quedar en el menú -->
+        <div class="mn-preview">
+            <small class="text-muted text-uppercase fw-bold">Vista previa</small>
+            <span id="mnPrevIcono" class="sm-si"><i></i></span>
+            <span id="mnPrevTexto" class="fw-semibold">—</span>
+            <span id="mnPrevBadge" class="sm-badge sm-bd-warn d-none"></span>
+        </div>
+
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-info-circle"></i> Datos</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="sm-label" for="menuTipo">Tipo <span class="sm-req">*</span></label>
+                        <select id="menuTipo" name="tipo" class="sm-select" required th:disabled="${edit}">
+                            <option value="SECCION" th:selected="${nodo.tipo == 'SECCION'}">Sección (encabezado)</option>
+                            <option value="GRUPO"   th:selected="${nodo.tipo == 'GRUPO'}">Grupo (desplegable)</option>
+                            <option value="ITEM"    th:selected="${nodo.tipo == 'ITEM' or nodo.tipo == null}">Ítem (pantalla o permiso)</option>
+                        </select>
+                        <!-- Un select deshabilitado no se envía: al editar el tipo va oculto. -->
+                        <input type="hidden" name="tipo" th:if="${edit}" th:value="${nodo.tipo}">
+                    </div>
+
+                    <div class="col-md-8">
+                        <label class="sm-label" for="menuDescripcion">Nombre visible <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-tag"></i>
+                            <input type="text" name="descripcion" id="menuDescripcion" class="sm-input" th:value="${nodo.descripcion}"
+                                   maxlength="80" placeholder="Ej. Seguimiento de Activo" required autocomplete="off">
+                            <div class="invalid-feedback">Escriba el nombre que se verá en el menú.</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="sm-label" for="menuCodigo">Código <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-code"></i>
+                            <input type="text" name="codigo" id="menuCodigo" class="sm-input" th:value="${nodo.codigo}"
+                                   th:readonly="${edit}" pattern="[A-Za-z0-9_]+" placeholder="Ej. opcion_mi_modulo"
+                                   required autocomplete="off">
+                            <div class="invalid-feedback">Solo letras, números y guion bajo (ej. opcion_mi_modulo).</div>
+                        </div>
+                        <div class="sm-ayuda">Único y no se cambia después. Para ítems es la llave del permiso; se sugiere a partir del nombre.</div>
+                    </div>
+
+                    <!-- Padre: SECCIÓN para un GRUPO -->
+                    <div class="col-md-6 campo-padre-seccion">
+                        <label class="sm-label">Sección <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <select name="idPadre" class="sm-select" required>
+                                <option value="">— Seleccione —</option>
+                                <option th:each="s : ${secciones}" th:value="${s.idOpcion}" th:text="${s.descripcion}"
+                                        th:selected="${idPadreActual != null and idPadreActual == s.idOpcion}"></option>
+                            </select>
+                            <div class="invalid-feedback">Elija la sección del grupo.</div>
+                        </div>
+                    </div>
+
+                    <!-- Padre: GRUPO para un ÍTEM -->
+                    <div class="col-md-6 campo-padre-item">
+                        <label class="sm-label">Grupo <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <select name="idPadre" class="sm-select" required>
+                                <option value="">— Seleccione —</option>
+                                <option th:each="g : ${grupos}" th:value="${g.idOpcion}"
+                                        th:text="${(g.seccion != null ? g.seccion + ' › ' : '') + g.descripcion}"
+                                        th:selected="${idPadreActual != null and idPadreActual == g.idOpcion}"></option>
+                            </select>
+                            <div class="invalid-feedback">Elija el grupo del ítem.</div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 campo-visible">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="visible" value="true" id="menuVisible"
+                                   th:checked="${nodo.visible == null or nodo.visible}">
+                            <label class="form-check-label" for="menuVisible">Visible en el menú</label>
+                        </div>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <div class="col-md-4">
-                <label class="form-label">Tipo</label>
-                <select id="menuTipo" name="tipo" class="form-select" onchange="ajustarMenuForm()" required
-                        th:disabled="${edit}">
-                    <option value="SECCION" th:selected="${nodo.tipo == 'SECCION'}">Sección (encabezado)</option>
-                    <option value="GRUPO"   th:selected="${nodo.tipo == 'GRUPO'}">Grupo (desplegable)</option>
-                    <option value="ITEM"    th:selected="${nodo.tipo == 'ITEM' or nodo.tipo == null}">Ítem (pantalla o permiso)</option>
-                </select>
-                <!-- Un select deshabilitado no se envía: al editar el tipo va oculto. -->
-                <input type="hidden" name="tipo" th:if="${edit}" th:value="${nodo.tipo}">
-            </div>
-
-            <div class="col-md-8">
-                <label class="form-label">Nombre visible</label>
-                <input type="text" name="descripcion" id="menuDescripcion" class="form-control" th:value="${nodo.descripcion}"
-                       maxlength="80" placeholder="Ej. Seguimiento de Activo" required>
-            </div>
-
-            <div class="col-md-6">
-                <label class="form-label">Código (único, no se cambia después)</label>
-                <input type="text" name="codigo" id="menuCodigo" class="form-control" th:value="${nodo.codigo}"
-                       th:readonly="${edit}" pattern="[A-Za-z0-9_]+"
-                       placeholder="Ej. opcion_mi_modulo" required>
-                <small class="text-muted">Para ítems es la llave del permiso. Se sugiere solo a partir del nombre.</small>
-            </div>
-
-            <!-- Padre: SECCIÓN para un GRUPO -->
-            <div class="col-md-6 campo-padre-seccion">
-                <label class="form-label">Sección</label>
-                <select name="idPadre" class="form-select" required>
-                    <option value="">— Seleccione —</option>
-                    <option th:each="s : ${secciones}" th:value="${s.idOpcion}" th:text="${s.descripcion}"
-                            th:selected="${idPadreActual != null and idPadreActual == s.idOpcion}"></option>
-                </select>
-            </div>
-
-            <!-- Padre: GRUPO para un ÍTEM -->
-            <div class="col-md-6 campo-padre-item">
-                <label class="form-label">Grupo</label>
-                <select name="idPadre" class="form-select" required>
-                    <option value="">— Seleccione —</option>
-                    <option th:each="g : ${grupos}" th:value="${g.idOpcion}"
-                            th:text="${(g.seccion != null ? g.seccion + ' › ' : '') + g.descripcion}"
-                            th:selected="${idPadreActual != null and idPadreActual == g.idOpcion}"></option>
-                </select>
-            </div>
-
-            <!-- Visual: GRUPO e ÍTEM -->
-            <div class="col-12 campo-visual">
-                <label class="form-label">Color</label>
-                <div class="mn-colores">
+        <!-- Apariencia: GRUPO e ÍTEM -->
+        <div class="sm-seccion campo-visual">
+            <div class="sm-seccion-cab"><i class="ti ti-palette"></i> Apariencia</div>
+            <div class="sm-seccion-cuerpo">
+                <label class="sm-label">Color</label>
+                <div class="mn-colores mb-3">
                     <label class="mn-color" th:each="c : ${ {'blue','green','teal','cyan','purple','orange','amber','red'} }"
                            th:title="${c}">
                         <input type="radio" name="colorClase" th:value="${c}" th:checked="${nodo.colorClase == c}">
                         <span class="sm-si" th:classappend="${'si-' + c}"><i class="ti ti-circle-filled"></i></span>
                     </label>
                 </div>
-            </div>
 
-            <div class="col-12 campo-visual">
-                <label class="form-label">Ícono</label>
-                <div class="input-group mb-2">
-                    <span class="input-group-text"><i id="mnIconoActual" th:class="${nodo.icono ?: 'ti ti-point'}"></i></span>
-                    <input type="text" name="icono" id="menuIcono" class="form-control" th:value="${nodo.icono}"
-                           placeholder="Ej. ti ti-route">
-                    <input type="text" id="mnIconoBuscar" class="form-control" placeholder="Buscar ícono: route, user, file...">
+                <label class="sm-label" for="menuIcono">Ícono</label>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <div class="sm-campo">
+                            <i id="mnIconoActual" th:class="${nodo.icono ?: 'ti ti-point'}"></i>
+                            <input type="text" name="icono" id="menuIcono" class="sm-input" th:value="${nodo.icono}"
+                                   placeholder="Ej. ti ti-route" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="sm-campo">
+                            <i class="ti ti-search"></i>
+                            <input type="text" id="mnIconoBuscar" class="sm-input" placeholder="Buscar: route, user, file…" autocomplete="off">
+                        </div>
+                    </div>
                 </div>
                 <div class="mn-iconos" id="mnIconos"></div>
-                <small class="text-muted">Íconos Tabler instalados en el sistema. Escriba en inglés para buscar (map, user, truck, lock...).</small>
+                <div class="sm-ayuda">Íconos Tabler del sistema. Busque en inglés (map, user, truck, lock…).</div>
             </div>
+        </div>
 
-            <!-- Solo ÍTEM -->
-            <div class="col-md-8 campo-item">
-                <label class="form-label">URL de la pantalla</label>
-                <input type="text" name="url" id="menuUrl" class="form-control" th:value="${nodo.url}" list="mnRutas"
-                       placeholder="Ej. /administracion/ruta-activo/vista" autocomplete="off">
-                <datalist id="mnRutas"></datalist>
-                <small class="text-muted">Déjela vacía si es un <strong>permiso especial</strong> (habilita una acción, no es una pantalla).</small>
-                <div class="small text-danger mt-1 d-none" id="mnUrlAviso"><i class="ti ti-link-off"></i> No existe ninguna pantalla con esa URL.</div>
-            </div>
-            <div class="col-md-4 campo-item">
-                <label class="form-label">Insignia (opcional)</label>
-                <input type="text" name="badge" id="menuBadge" class="form-control" th:value="${nodo.badge}" maxlength="8"
-                       placeholder="Ej. NUEVO">
-            </div>
-            <div class="col-12 campo-item">
-                <a class="small text-decoration-none" data-bs-toggle="collapse" href="#mnAvanzado">
-                    <i class="ti ti-settings"></i> Avanzado: ruta base de permisos</a>
-                <div class="collapse mt-2" id="mnAvanzado">
-                    <input type="text" name="rutaBase" class="form-control" th:value="${nodo.rutaBase}"
-                           placeholder="Se deduce de la URL (sin el /vista final)">
-                    <small class="text-muted">Toda petición que empiece con esta ruta exige tener este permiso.</small>
+        <!-- Solo ÍTEM -->
+        <div class="sm-seccion campo-item">
+            <div class="sm-seccion-cab"><i class="ti ti-link"></i> Pantalla</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="sm-label" for="menuUrl">URL de la pantalla</label>
+                        <div class="sm-campo">
+                            <i class="ti ti-world"></i>
+                            <input type="text" name="url" id="menuUrl" class="sm-input" th:value="${nodo.url}" list="mnRutas"
+                                   placeholder="Ej. /administracion/ruta-activo/vista" autocomplete="off">
+                        </div>
+                        <datalist id="mnRutas"></datalist>
+                        <div class="sm-ayuda">Déjela vacía si es un <strong>permiso especial</strong> (habilita una acción, no es una pantalla).</div>
+                        <div class="sm-ayuda text-danger d-none" id="mnUrlAviso"><i class="ti ti-link-off"></i> No existe ninguna pantalla con esa URL.</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="sm-label" for="menuBadge">Insignia (opcional)</label>
+                        <div class="sm-campo">
+                            <i class="ti ti-sparkles"></i>
+                            <input type="text" name="badge" id="menuBadge" class="sm-input" th:value="${nodo.badge}" maxlength="8"
+                                   placeholder="Ej. NUEVO" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <a class="small text-decoration-none" data-bs-toggle="collapse" href="#mnAvanzado">
+                            <i class="ti ti-settings"></i> Avanzado: ruta base de permisos</a>
+                        <div class="collapse mt-2" id="mnAvanzado">
+                            <input type="text" name="rutaBase" class="sm-input" th:value="${nodo.rutaBase}"
+                                   placeholder="Se deduce de la URL (sin el /vista final)" autocomplete="off">
+                            <div class="sm-ayuda">Toda petición que empiece con esta ruta exige tener este permiso.</div>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <div class="col-12 campo-visible">
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" name="visible" value="true" id="menuVisible"
-                           th:checked="${nodo.visible == null or nodo.visible}">
-                    <label class="form-check-label" for="menuVisible">Visible en el menú</label>
-                </div>
-            </div>
-
         </div>
     </div>
 
-    <div class="modal-footer">
-        <a type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</a>
-        <button type="submit" class="btn btn-success"><i class="ti ti-device-floppy me-1"></i> Guardar</button>
+    <div class="sm-modal-pie">
+        <span class="sm-nota"><span class="sm-req">*</span> Campo obligatorio</span>
+        <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal" id="btnCancelarMenu">
+            <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button type="submit" class="sm-btn sm-btn-exito" id="btnGuardarMenu">
+            <i class="ti ti-device-floppy"></i>
+            <span th:text="${edit} ? 'Guardar cambios' : 'Crear opción'">Guardar</span>
+        </button>
     </div>
 </form>
 
@@ -163,22 +226,22 @@
         const $ = s => form.querySelector(s);
         const esNuevo = !form.querySelector('input[name="idOpcion"]');
 
-        window.ajustarMenuForm = function () {
+        function ajustarMenuForm() {
             const tipo = $('#menuTipo').value;
             const mostrar = (el, on) => {
                 el.style.display = on ? '' : 'none';
                 // Los campos ocultos se deshabilitan: así no se envían (hay dos idPadre) ni
-                // bloquean la validación con su "required".
+                // se exigen (la plantilla no valida los deshabilitados).
                 el.querySelectorAll('select, input').forEach(c => c.disabled = !on);
             };
             mostrar($('.campo-padre-seccion'), tipo === 'GRUPO');
             mostrar($('.campo-padre-item'), tipo === 'ITEM');
             form.querySelectorAll('.campo-visual').forEach(el => mostrar(el, tipo !== 'SECCION'));
             form.querySelectorAll('.campo-item').forEach(el => mostrar(el, tipo === 'ITEM'));
-            if (tipo === 'ITEM') $('#mnIconoBuscar').disabled = false;
             ajustarVisible();
             preview();
-        };
+        }
+        $('#menuTipo').addEventListener('change', ajustarMenuForm);
 
         // Un permiso especial (ítem sin URL) nunca se ve en el menú.
         function ajustarVisible() {
@@ -220,36 +283,40 @@
         ['#menuIcono', '#menuBadge'].forEach(s => $(s).addEventListener('input', preview));
         form.querySelectorAll('input[name="colorClase"]').forEach(r => r.addEventListener('change', preview));
 
-        // ── Íconos: se leen de la hoja de estilos de Tabler ya cargada ──────────
-        let todosLosIconos = null;
+        // ── Íconos ────────────────────────────────────────────────────────────
+        // Antes, al abrir, se recorrían TODAS las reglas CSS de la página (miles). Ahora:
+        // los sugeridos se pintan directo, y solo al buscar se lee la hoja de Tabler, una
+        // vez por página (queda en window.__sciafIconosTabler).
+        const SUGERIDOS = ['route', 'map-pin', 'building', 'users', 'user-check', 'file-text', 'clipboard-list',
+            'arrows-exchange', 'packages', 'box', 'search', 'chart-bar', 'report', 'settings', 'lock', 'history',
+            'calendar', 'truck', 'qrcode', 'alert-triangle', 'bell', 'home', 'id-badge-2', 'list-check'];
+
         function iconosDisponibles() {
-            if (todosLosIconos) return todosLosIconos;
+            if (window.__sciafIconosTabler) return window.__sciafIconosTabler;
             const set = new Set();
-            for (const hoja of Array.from(document.styleSheets)) {
+            const hojas = Array.from(document.styleSheets);
+            const tabler = hojas.filter(h => (h.href || '').includes('tabler-icons'));
+            for (const hoja of (tabler.length ? tabler : hojas)) {
                 let reglas;
                 try { reglas = hoja.cssRules; } catch (e) { continue; }
                 if (!reglas) continue;
-                for (const r of Array.from(reglas)) {
-                    const m = r.selectorText && r.selectorText.match(/^\.ti-([a-z0-9-]+)::?before$/);
+                for (let i = 0; i < reglas.length; i++) {
+                    const m = reglas[i].selectorText && reglas[i].selectorText.match(/^\.ti-([a-z0-9-]+)::?before$/);
                     if (m) set.add(m[1]);
                 }
             }
-            todosLosIconos = Array.from(set).sort();
-            return todosLosIconos;
+            window.__sciafIconosTabler = Array.from(set).sort();
+            return window.__sciafIconosTabler;
         }
+
         function pintarIconos(q) {
             const cont = document.getElementById('mnIconos');
-            const lista = iconosDisponibles();
             const filtro = (q || '').trim().toLowerCase();
-            const sugeridos = ['route', 'map-pin', 'building', 'users', 'user-check', 'file-text', 'clipboard-list',
-                'arrows-exchange', 'packages', 'box', 'search', 'chart-bar', 'report', 'settings', 'lock', 'history',
-                'calendar', 'truck', 'qrcode', 'alert-triangle', 'bell', 'home', 'id-badge-2', 'list-check'];
-            const elegidos = filtro ? lista.filter(n => n.includes(filtro)).slice(0, 120)
-                                    : sugeridos.filter(n => lista.includes(n));
+            const elegidos = filtro ? iconosDisponibles().filter(n => n.includes(filtro)).slice(0, 120) : SUGERIDOS;
             const actual = $('#menuIcono').value.trim();
             cont.innerHTML = elegidos.length
-                ? elegidos.map(n => `<button type="button" title="${n}" data-ic="ti ti-${n}"
-                        class="${actual === 'ti ti-' + n ? 'sel' : ''}"><i class="ti ti-${n}"></i></button>`).join('')
+                ? elegidos.map(n => '<button type="button" title="' + n + '" data-ic="ti ti-' + n + '"'
+                    + (actual === 'ti ti-' + n ? ' class="sel"' : '') + '><i class="ti ti-' + n + '"></i></button>').join('')
                 : '<div class="text-muted small p-2">Sin coincidencias.</div>';
         }
         document.getElementById('mnIconos').addEventListener('click', function (e) {
@@ -259,25 +326,56 @@
             this.querySelectorAll('button').forEach(x => x.classList.toggle('sel', x === b));
             preview();
         });
-        $('#mnIconoBuscar').addEventListener('input', function () { pintarIconos(this.value); });
+        let esperaIcono = null;
+        $('#mnIconoBuscar').addEventListener('input', function () {
+            clearTimeout(esperaIcono);
+            esperaIcono = setTimeout(() => pintarIconos(this.value), 120);
+        });
 
         // ── Rutas existentes (autocompletado y aviso de URL inexistente) ────────
+        // Se piden una vez por página: solo cambian al desplegar una versión nueva.
         let rutas = null;
-        fetch('/administracion/menu/rutas', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(r => r.ok ? r.json() : [])
-            .then(lista => {
-                rutas = new Set(lista);
-                document.getElementById('mnRutas').innerHTML = lista.map(u => `<option value="${u}"></option>`).join('');
-                revisarUrl();
-            }).catch(() => {});
+        window.__sciafRutasMenu = window.__sciafRutasMenu || SciafModulo.pedirJson('/administracion/menu/rutas', { metodo: 'GET' })
+            .then(lista => Array.isArray(lista) ? lista : [])
+            .catch(() => { window.__sciafRutasMenu = null; return []; });
+        window.__sciafRutasMenu.then(lista => {
+            rutas = new Set(lista);
+            const dl = document.getElementById('mnRutas');
+            if (dl) dl.innerHTML = lista.map(u => '<option value="' + SciafModulo.escapar(u) + '"></option>').join('');
+            revisarUrl();
+        });
         function revisarUrl() {
             const u = $('#menuUrl').value.trim();
-            document.getElementById('mnUrlAviso').classList.toggle('d-none', !rutas || !u || rutas.has(u));
+            const aviso = document.getElementById('mnUrlAviso');
+            if (aviso) aviso.classList.toggle('d-none', !rutas || !rutas.size || !u || rutas.has(u));
         }
         $('#menuUrl').addEventListener('input', () => { revisarUrl(); ajustarVisible(); });
 
         ajustarMenuForm();
         pintarIconos('');
-        manejarEnvioFormulario('#formularioMenu');
+
+        SciafModulo.formulario({
+            form: '#formularioMenu',
+            modal: '#modalFormularioMenu',
+            guardar: '#btnGuardarMenu',
+            cancelar: '#btnCancelarMenu',
+            mayusculas: false,
+            textoGuardando: 'Guardando…',
+            msgExito: esNuevo ? 'Opción creada' : 'Opción guardada',
+            confirmacion: {
+                titulo: esNuevo ? '¿Crear la opción de menú?' : '¿Guardar los cambios de la opción?',
+                texto: 'El menú de los usuarios conectados se actualiza al instante.',
+                aceptar: esNuevo ? 'Sí, crear' : 'Sí, guardar'
+            },
+            validar: function () {
+                const codigo = $('#menuCodigo');
+                if (codigo.value && !/^[A-Za-z0-9_]+$/.test(codigo.value.trim())) {
+                    codigo.classList.add('is-invalid');
+                    return false;
+                }
+                return true;
+            }
+            // La recarga del árbol la pone la vista (SciafModulo.alGuardarModal).
+        });
     })();
 </script>

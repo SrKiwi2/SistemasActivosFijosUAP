@@ -253,7 +253,7 @@
 
         // Pase lo que pase, el usuario no se queda mirando una pantalla vacía.
         setTimeout(() => {
-            if (activa >= 0 && pestanas[activa] && !$contenido.children().length) {
+            if (activa >= 0 && pestanas[activa] && !tieneContenido() && !hayPrecarga()) {
                 avisoPantallaVacia(pestanas[activa]);
             }
         }, 7000);
@@ -381,6 +381,7 @@
                 const ant = pestanas[activa];
                 ant.scroll = scrollActual();
                 if (activa !== i) {
+                    soltarPrecarga(false);
                     ant.$dom = $contenido.children().detach();
                     // Si se salió antes de que la pantalla terminara de cargar, no hay nada
                     // que devolver: se marca para que se cargue de nuevo al volver (antes
@@ -402,6 +403,7 @@
                 return;
             }
 
+            soltarPrecarga(true);
             $contenido.empty();
             p.$dom = null;
             render(); marcarMenu(p.url);
@@ -451,63 +453,95 @@
             // Lo que quedó en vuelo de otra pestaña ya no se va a mostrar.
             peticiones.slice().forEach(x => { try { x.abort(); } catch (_) {} });
 
-            pedir({ url: '/adm/cargar-datos', method: 'GET' })
-                .done(() => {
+            // El preloader del sistema dentro del área de la pestaña (sciaf-precarga.js):
+            // logo, mensajes y, si se demora, el porqué (red lenta, servidor ocupado, sin
+            // conexión). Antes el área quedaba en blanco y a los 6 s aparecía "no respondió"
+            // aunque la pantalla siguiera llegando.
+            const carga = window.SciafPrecarga
+                ? SciafPrecarga.montar($contenido, { titulo: p.titulo, alReintentar: () => recargarPestana(p), alInicio: irAlInicio })
+                : null;
+
+            // Un solo pedido. Antes se preguntaba primero /adm/cargar-datos para ver si la
+            // sesión seguía viva: un viaje más por pantalla. La sesión perdida se reconoce en
+            // la misma respuesta (401, o la página de ingreso) y la avisa sciaf-sesion.js.
+            pedir({ url: p.url, method: 'GET' })
+                .done((data, _estado, xhr) => {
                     if (!vigente()) { descartar(); return; }
-                    pedir({ url: p.url, method: 'GET' })
-                        .done(data => {
-                            if (!vigente()) { descartar(); return; }
-                            $contenido.html(data);
-                        })
-                        .fail(xhr => { if (xhr.statusText !== 'abort') console.error('Error en la solicitud:', xhr); });
+                    const s = window.sciafSesion;
+                    if (xhr && xhr.responseURL && s && s.esIngreso && s.esIngreso(xhr.responseURL)) {
+                        falloCarga(p, carga, 401);
+                        return;
+                    }
+                    if (carga) carga.cerrar();
+                    $contenido.html(data);
+                    if (!$contenido.children().length) avisoPantallaVacia(p);
                 })
                 .fail(xhr => {
-                    if (xhr.status === 401 && window.Swal) {
-                        Swal.fire({
-                            title: 'Sesión expirada',
-                            text: 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
-                            icon: 'warning',
-                            confirmButtonText: 'Ir al login'
-                        }).then(r => { if (r.isConfirmed) window.location.href = '/'; });
-                    }
+                    if (xhr.statusText === 'abort') return;
+                    if (!vigente()) { descartar(); return; }
+                    console.error('No se pudo cargar la pantalla', p.url, xhr.status);
+                    falloCarga(p, carga, xhr.status);
                 });
         }
 
+        /** La carga falló de verdad: el preloader pasa a mostrar el motivo y Reintentar. */
+        function falloCarga(p, carga, status) {
+            p.cargada = false;
+            if (carga && carga.elemento && carga.elemento.isConnected) {
+                carga.error('No se pudo mostrar «' + p.titulo + '»', SciafPrecarga.motivo(status));
+            } else {
+                avisoPantallaVacia(p);
+            }
+        }
+
         /**
-         * Red de seguridad: si una pantalla no llegó a dibujarse (la petición falló, el
-         * servidor devolvió algo que no es un fragmento…), en vez de dejar el área vacía se
-         * muestra un aviso con la forma de reintentar.
+         * Red de seguridad: si una pantalla no llegó a dibujarse y tampoco hay una carga en
+         * curso, en vez de dejar el área vacía se muestra un aviso con la forma de reintentar.
+         * Mientras el preloader esté a la vista no se toca: él sabe si la carga sigue viva
+         * (y por qué tarda) o si falló.
          */
         function vigilarContenido(p) {
             setTimeout(() => {
                 if (pestanas[activa] !== p) return;
-                if ($contenido.children().length) return;
+                if (tieneContenido() || hayPrecarga()) return;
                 avisoPantallaVacia(p);
             }, 6000);
         }
 
         function avisoPantallaVacia(p) {
-                p.cargada = false;
-                $contenido.html(`
-                    <div class="card border-0 shadow-sm">
-                      <div class="card-body text-center py-5">
-                        <i class="ti ti-alert-triangle ti-lg text-warning d-block mb-2" style="font-size:2rem;"></i>
-                        <h5 class="mb-1">No se pudo mostrar «${escapar(p.titulo)}»</h5>
-                        <p class="text-muted mb-3">La pantalla no respondió. Puede reintentar o volver al inicio.</p>
-                        <button class="btn btn-primary btn-sm me-2" id="sciaf-reintentar">Reintentar</button>
-                        <button class="btn btn-outline-secondary btn-sm" id="sciaf-ir-inicio">Ir al inicio</button>
-                      </div>
-                    </div>`);
-                $('#sciaf-reintentar').on('click', () => {
-                    const i = pestanas.indexOf(p);
-                    if (p.url === INICIO) window.location.href = INICIO; else activar(i, true);
-                });
-                $('#sciaf-ir-inicio').on('click', () => {
-                    // Si se tiene el Inicio guardado se usa; si no, se recarga de verdad.
-                    const i = pestanas.findIndex(t => t.url === INICIO);
-                    if (i >= 0 && (inicioHtml || '').trim()) activar(i, true);
-                    else window.location.href = INICIO;
-                });
+            p.cargada = false;
+            const titulo = 'No se pudo mostrar «' + p.titulo + '»';
+            const texto = 'La pantalla llegó vacía o no se pudo dibujar. Puede reintentar o volver al inicio.';
+            if (window.SciafPrecarga) {
+                SciafPrecarga.montar($contenido, { titulo: p.titulo, demora: 0 })
+                    .error(titulo, texto, { alReintentar: () => recargarPestana(p), alInicio: irAlInicio });
+                return;
+            }
+            $contenido.html(`
+                <div class="card border-0 shadow-sm">
+                  <div class="card-body text-center py-5">
+                    <i class="ti ti-alert-triangle ti-lg text-warning d-block mb-2" style="font-size:2rem;"></i>
+                    <h5 class="mb-1">${escapar(titulo)}</h5>
+                    <p class="text-muted mb-3">${escapar(texto)}</p>
+                    <button class="btn btn-primary btn-sm me-2" id="sciaf-reintentar">Reintentar</button>
+                    <button class="btn btn-outline-secondary btn-sm" id="sciaf-ir-inicio">Ir al inicio</button>
+                  </div>
+                </div>`);
+            $('#sciaf-reintentar').on('click', () => recargarPestana(p));
+            $('#sciaf-ir-inicio').on('click', irAlInicio);
+        }
+
+        function recargarPestana(p) {
+            const i = pestanas.indexOf(p);
+            if (p.url === INICIO) window.location.href = INICIO;
+            else if (i >= 0) activar(i, true);
+        }
+
+        function irAlInicio() {
+            // Si se tiene el Inicio guardado se usa; si no, se recarga de verdad.
+            const i = pestanas.findIndex(t => t.url === INICIO);
+            if (i >= 0 && (inicioHtml || '').trim()) activar(i, true);
+            else window.location.href = INICIO;
         }
 
         function cerrar(i, silencioso) {
@@ -587,11 +621,31 @@
         }
 
         /* ── Utilidades ─────────────────────────────────────────────── */
+        /** Hay pantalla dibujada (no cuenta el preloader). */
+        function tieneContenido() { return $contenido.children().not('.sp-precarga').length > 0; }
+        /** Hay una carga a la vista (en curso o con su error). */
+        function hayPrecarga() { return $contenido.children('.sp-precarga').length > 0; }
+        /**
+         * Detiene el preloader del área antes de vaciarla o desprenderla.
+         * todo=false: solo el de la pestaña (hijo directo); los de adentro (una tabla o un
+         * modal cargando) viajan con la pantalla desprendida y siguen al volver.
+         */
+        function soltarPrecarga(todo) {
+            if (!window.SciafPrecarga) return;
+            if (todo) { SciafPrecarga.cerrarEn($contenido); return; }
+            $contenido.children('.sp-precarga').each(function () {
+                if (this.__sciafPrecarga) this.__sciafPrecarga.cerrar();
+                $(this).remove();
+            });
+        }
+        /** Espera a que la pantalla esté dibujada (o que su carga falle) para reponer lo escrito. */
         function esperarContenido() {
             return new Promise(resolve => {
                 const t0 = Date.now();
                 (function ver() {
-                    if ($contenido.children().length || Date.now() - t0 > 4000) return setTimeout(resolve, 250);
+                    const espera = Date.now() - t0;
+                    if (tieneContenido() || $contenido.children('.sp-error').length
+                        || (!hayPrecarga() && espera > 4000) || espera > 180000) return setTimeout(resolve, 250);
                     setTimeout(ver, 80);
                 })();
             });
@@ -637,7 +691,7 @@
             return new Promise(resolve => {
                 const t0 = Date.now();
                 (function ver() {
-                    if ($contenido.children().length || Date.now() - t0 > 1500) return resolve();
+                    if (tieneContenido() || Date.now() - t0 > 1500) return resolve();
                     setTimeout(ver, 80);
                 })();
             });
@@ -710,7 +764,8 @@
                 const html = $contenido.html() || '';
                 const info = {
                     ctx: document.body.dataset.ctx || '(sin data-ctx)',
-                    contenidoVacio: !$contenido.children().length,
+                    contenidoVacio: !tieneContenido(),
+                    cargando: hayPrecarga(),
                     contenidoLargo: html.length,
                     contenidoInicio: html.trim().substring(0, 120),
                     tienePaginaAnidada: $contenido.find('#contenido, #layout-menu').length > 0,

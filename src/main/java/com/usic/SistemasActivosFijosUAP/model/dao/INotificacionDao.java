@@ -51,6 +51,14 @@ public interface INotificacionDao extends JpaRepository<Notificacion, Long> {
     // Destinatarios de un comunicado con su estado de entrega/lectura
     List<Notificacion> findByComunicadoOrderByLeidaAscFechaCreacionDesc(Comunicado comunicado);
 
+    /**
+     * Lo mismo, con usuario y persona ya cargados: el control de lectura muestra el nombre
+     * de cada destinatario y, sin esto, eran 2 consultas más POR destinatario (N+1).
+     */
+    @Query("SELECT n FROM Notificacion n LEFT JOIN FETCH n.usuario u LEFT JOIN FETCH u.persona " +
+           "WHERE n.comunicado = :comunicado ORDER BY n.leida ASC, n.fechaCreacion DESC")
+    List<Notificacion> destinatariosConPersona(@Param("comunicado") Comunicado comunicado);
+
     long countByComunicado(Comunicado comunicado);
 
     long countByComunicadoAndEntregadaTrue(Comunicado comunicado);

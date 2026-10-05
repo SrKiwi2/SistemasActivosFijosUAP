@@ -1,87 +1,141 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Responsable de Entrega</h4>
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Responsable de entrega — plantilla de mantenimiento (docs/PLANTILLA_MODULOS.md)
+     Personas que figuran en el acta de asignación como quien entrega. Una sola está
+     "seleccionada" (la que sale en el acta). La tabla llega con la vista (un pedido).
+     Todo dentro de #modEntrega y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modEntrega">
 
-<div id="tablaRegistro"></div>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-user-check"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-adjustments-horizontal"></i> Clasificación contable <i class="ti ti-chevron-right"></i> Responsable de entrega
+        </nav>
+        <h1 class="sm-titulo">Responsable de entrega</h1>
+        <p class="sm-subtitulo">Quién figura como «entregué conforme» en el acta de asignación.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-total">—</strong> personas</span>
+        <span class="sm-dato" title="Quien sale hoy en el acta de asignación">
+            <i class="ti ti-file-certificate text-success"></i> <span class="js-en-acta">—</span></span>
+        <button type="button" class="sm-btn" data-accion="nuevo">
+            <i class="ti ti-user-plus"></i> Nueva persona
+        </button>
+    </div>
+</header>
 
-<div class="modal fade" id="modalFormulario" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content" id="contenidoModal"></div>
+<section class="sm-card">
+    <div class="sm-aviso sm-aviso-aviso m-3 mb-0 d-none js-sin-acta">
+        <i class="ti ti-alert-triangle"></i>
+        <div>No hay nadie seleccionado: el acta de asignación saldrá <strong>sin responsable de entrega</strong>.
+            Use <strong>Seleccionar</strong> en la persona que corresponda.</div>
+    </div>
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por nombre o cargo…"
+                autocomplete="off" aria-label="Buscar persona" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="sm-toolbar-espacio"></div>
+        <label class="sm-filas">
+            <i class="ti ti-list-numbers"></i> Filas
+            <select class="sm-select js-largo" aria-label="Filas por página">
+                <option value="auto" selected>Ajustar a pantalla</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="-1">Todas</option>
+            </select>
+        </label>
+    </div>
+
+    <!-- La tabla llega con la vista: sin segundo pedido al abrir -->
+    <div class="js-tabla">
+        <table th:replace="~{responsable_entrega/tabla_registro :: tabla}"></table>
+    </div>
+</section>
+
+<div class="modal fade" id="modalFormularioEntrega" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content sm-modal" id="contenidoModalEntrega"></div>
     </div>
 </div>
 
-<script>
-    $(document).ready(function () {
-        cargarTabla();
-    });
+</div>
 
-    function initDataTable() {
-        const $tbl = $('#data-table');
-        if (!$tbl.length) return;
-        if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
-        $tbl.DataTable({
-            destroy: true,
-            language: {
-                decimal: "",
-                emptyTable: "No hay registros",
-                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-                infoEmpty: "",
-                infoFiltered: "(filtrado de _MAX_ registros)",
-                infoPostFix: "",
-                thousands: ",",
-                lengthMenu: "Mostrar _MENU_ registros",
-                loadingRecords: "Cargando...",
-                processing: "Procesando...",
-                search: "Buscar:",
-                zeroRecords: "No se encontraron registros",
-                paginate: { first: "Primero", last: "Último", next: "Siguiente", previous: "Anterior" }
+<script>
+    (function () {
+        const URL = '/administracion/responsable-entrega';
+        const $raiz = $('#modEntrega');
+        const $cont = $raiz.find('.js-tabla');
+        const $modal = $raiz.find('#modalFormularioEntrega');
+        const esc = SciafModulo.escapar;
+
+        function iniciarTabla() {
+            SciafModulo.tabla({
+                tabla: $cont.find('table'),
+                buscador: $raiz.find('.js-buscar'),
+                largo: $raiz.find('.js-largo'),
+                total: $raiz.find('.js-total'),
+                // Quien figura en el acta primero, luego por nombre.
+                orden: [ [2, 'asc'], [0, 'asc'] ],
+                noOrdenables: [3],
+                altoFila: 64,
+                alDibujar: function (api) {
+                    let enActa = '';
+                    api.rows().nodes().each(function (tr) { if (tr.dataset.seleccionado === 'true') enActa = tr.dataset.nombre; });
+                    $raiz.find('.js-en-acta').text(enActa ? 'En el acta: ' + enActa : 'Nadie en el acta');
+                    $raiz.find('.js-sin-acta').toggleClass('d-none', !!enActa || api.rows().count() === 0);
+                }
+            });
+        }
+
+        function recargar() {
+            $cont.css('opacity', 0.55);
+            return SciafModulo.cargar($cont, URL + '/tabla-registros')
+                .then(iniciarTabla)
+                .catch(e => SciafModulo.avisarError(e, 'No se pudo cargar la tabla'))
+                .finally(() => $cont.css('opacity', 1));
+        }
+
+        function abrirFormulario(id) {
+            SciafModulo.abrirFormulario($modal, $raiz.find('#contenidoModalEntrega'),
+                id ? URL + '/formulario-edit/' + id : URL + '/formulario');
+        }
+        SciafModulo.alGuardarModal($modal, recargar);
+
+        $raiz.on('click', '[data-accion]', function () {
+            const caja = this.closest('[data-id]');
+            const id = caja ? caja.dataset.id : null;
+            const nombre = (this.closest('tr') || {}).dataset ? this.closest('tr').dataset.nombre : '';
+            switch (this.dataset.accion) {
+                case 'nuevo':  abrirFormulario(null); break;
+                case 'editar': abrirFormulario(id); break;
+                case 'seleccionar':
+                    SciafModulo.accion({
+                        url: URL + '/seleccionar/' + id,
+                        confirmacion: { titulo: '¿Seleccionar a esta persona?',
+                            texto: '<b>' + esc(nombre) + '</b> figurará en el acta de asignación como responsable de entrega.',
+                            aceptar: 'Sí, seleccionar' },
+                        alTerminar: recargar
+                    });
+                    break;
+                case 'eliminar': {
+                    const enActa = this.closest('tr').dataset.seleccionado === 'true';
+                    SciafModulo.eliminar({
+                        url: URL + '/eliminar/' + id,
+                        titulo: '¿Eliminar a esta persona?',
+                        html: 'Se eliminará a <b>' + esc(nombre) + '</b>.'
+                            + (enActa ? '<div class="alert alert-warning text-start mt-3 mb-0 small"><i class="ti ti-alert-triangle me-1"></i>'
+                                + 'Es quien figura en el acta: el acta quedará <b>sin responsable de entrega</b> hasta seleccionar a otra persona.</div>' : ''),
+                        alTerminar: recargar
+                    });
+                    break;
+                }
             }
         });
-    }
 
-    function cargarTabla(q) {
-        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/responsable-entrega/tabla-registros" + (q ? ('?q=' + encodeURIComponent(q)) : ''),
-            success: function (html) { $("#tablaRegistro").html(html); initDataTable(); },
-            error: function () { $("#tablaRegistro").html('<div class="alert alert-danger m-3">Error cargando tabla</div>'); },
-            complete: hideGlobalLoader
-        });
-    }
-
-    function cargarFormulario() {
-        cargarFormularioAlert("/administracion/responsable-entrega/formulario", "#contenidoModal", "#formulario");
-    }
-
-    function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/administracion/responsable-entrega/formulario-edit", "#contenidoModal", "#formulario");
-    }
-
-    function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/responsable-entrega/eliminar", cargarTabla);
-    }
-
-    function seleccionar(id) {
-        Swal.fire({
-            title: '¿Seleccionar este responsable?',
-            text: 'Será quien figure en el acta de asignación.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#0d6efd',
-            confirmButtonText: 'Sí, seleccionar',
-            cancelButtonText: 'Cancelar'
-        }).then(result => {
-            if (!result.isConfirmed) return;
-            $.ajax({
-                type: 'POST',
-                url: '/administracion/responsable-entrega/seleccionar/' + id,
-                success: function (res) {
-                    if (res.ok) {
-                        cargarTabla();
-                        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.msg, showConfirmButton: false, timer: 1600 });
-                    }
-                },
-                error: function () { Swal.fire('Error', 'No se pudo seleccionar', 'error'); }
-            });
-        });
-    }
+        iniciarTabla();
+    })();
 </script>

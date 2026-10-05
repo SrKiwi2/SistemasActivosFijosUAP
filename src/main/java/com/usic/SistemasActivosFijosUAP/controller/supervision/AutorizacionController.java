@@ -44,10 +44,14 @@ public class AutorizacionController {
         model.addAttribute("puedeRevisar", autorizacionService.puedeRevisar(u));
         model.addAttribute("esAdministrador", RolesSciaf.esAdministrador(u));
         model.addAttribute("revisor", revisor);
-        model.addAttribute("superUsuarios", usuarioDao.findAll().stream()
+        // listarParaGestion trae persona y rol en la misma consulta: antes findAll() y luego
+        // una consulta por usuario para saber su rol (N+1) al abrir la pantalla.
+        model.addAttribute("superUsuarios", usuarioDao.listarParaGestion().stream()
                 .filter(x -> RolesSciaf.SUPER_USUARIO.equals(RolesSciaf.rolDe(x)))
-                .filter(x -> !"ELIMINADO".equals(x.getEstado()) && !"INACTIVO".equals(x.getEstado()))
+                .filter(x -> !"INACTIVO".equals(x.getEstado()))
                 .toList());
+        // El listado llega con la vista: un solo pedido al abrir (/api/listado para refrescar).
+        model.addAttribute("inicial", listadoActual());
         return "supervision/autorizaciones";
     }
 
@@ -56,9 +60,13 @@ public class AutorizacionController {
     @ResponseBody
     public ResponseEntity<?> listado(HttpServletRequest request) {
         if (!RolesSciaf.esAdministrativo(request)) return ResponseEntity.status(403).build();
-        return ResponseEntity.ok(Map.of(
+        return ResponseEntity.ok(listadoActual());
+    }
+
+    private Map<String, Object> listadoActual() {
+        return Map.of(
                 "pendientes", autorizacionService.pendientes().stream().map(autorizacionService::aMapa).toList(),
-                "historial", autorizacionService.historial(100).stream().map(autorizacionService::aMapa).toList()));
+                "historial", autorizacionService.historial(100).stream().map(autorizacionService::aMapa).toList());
     }
 
     @ValidarUsuarioAutenticado

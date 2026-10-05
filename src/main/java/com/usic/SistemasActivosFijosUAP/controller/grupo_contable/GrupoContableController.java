@@ -1,7 +1,5 @@
 package com.usic.SistemasActivosFijosUAP.controller.grupo_contable;
 
-import java.io.File;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -9,18 +7,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
@@ -29,10 +23,8 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.GrupoContableDbf;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.SyncControl;
-import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
 
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -43,10 +35,17 @@ public class GrupoContableController {
     private final IGrupoContableService grupoContableService;
     private final JavaDbfService dbfService;
     private final SyncControlService syncControlService;
+    /** Sin VSIAF a la vista (laptop de desarrollo, montaje caído) la sincronización avisa en vez de leer 0 registros. */
+    private final com.usic.SistemasActivosFijosUAP.componet.VsiafDisponibilidad vsiaf;
 
+    /**
+     * La pantalla llega con la tabla y el estado de la sincronización ya armados: un solo
+     * pedido al abrir. /tabla-registros queda para recargar (después de sincronizar o por SSE).
+     */
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String inicioGrupoContable() {
+    public String inicioGrupoContable(Model model) throws Exception {
+        cargarTabla(null, model);
         return "grupoContable/vista";
     }
 
@@ -55,7 +54,11 @@ public class GrupoContableController {
     public String tablaRegistros(
             @RequestParam(name = "q", required = false) String q,
             Model model) throws Exception {
+        cargarTabla(q, model);
+        return "grupoContable/tabla_registro";
+    }
 
+    private void cargarTabla(String q, Model model) throws Exception {
         try {
             SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("grupo_contable");
             
@@ -104,7 +107,7 @@ public class GrupoContableController {
             model.addAttribute("listasGrupoContable", listasGrupoContable);
             model.addAttribute("id_encryptado", encryptedIds);
             model.addAttribute("sourceUsed", "db");
-            return "grupoContable/tabla_registro";
+            return;
         }
 
         // 2) Fallback: DBF montado
@@ -117,103 +120,6 @@ public class GrupoContableController {
         model.addAttribute("listasGrupoContable", listasGrupoContable);
         model.addAttribute("id_encryptado", encryptedIds);
         model.addAttribute("sourceUsed", "dbf");
-        return "grupoContable/tabla_registro";
-    }
-
-    @ValidarUsuarioAutenticado
-    @PostMapping("/formulario")
-    public String formularioGrupoContable(Model model, GrupoContable grupoContable) {
-        return "grupoContable/formulario";
-    }
-
-    @ValidarUsuarioAutenticado
-    @PostMapping("/formulario-edit/{id_grupo_contable}")
-    public String formularioEditGrupoContable(Model model, @PathVariable("id_grupo_contable") String idGrupoContable)
-            throws Exception {
-        Long id = Long.parseLong(Encriptar.decrypt(idGrupoContable));
-        model.addAttribute("grupoContable", grupoContableService.findById(id));
-        model.addAttribute("edit", "true");
-        return "grupoContable/formulario";
-    }
-
-    /* para ahcer registros al archivo dbf de windows */
-    @ValidarUsuarioAutenticado
-    @PostMapping("/registrar-grupoc")
-    public ResponseEntity<String> registrarGrupoContableBDF(GrupoContable grupoContable,
-            RedirectAttributes ra, HttpServletRequest request) {
-        try {
-            Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-            // 1) Datos del formulario
-            String nombre = grupoContable.getNombre();
-            String codigoStr = String.valueOf(grupoContable.getCodContable()).trim();
-
-            if (nombre == null || nombre.isBlank() || codigoStr.isBlank()) {
-                ra.addFlashAttribute("error", "Nombre y Código son obligatorios.");
-                return ResponseEntity.ok("Ha ocurrido un error en el registro");
-            }
-
-            short codcont = Short.parseShort(codigoStr);
-
-            // 2) Defaults (ajusta a tus reglas)
-            short vidautil = 5;
-            String observ = "";
-            boolean depreciar = true;
-            boolean actualizar = true;
-            LocalDate feult = LocalDate.now();
-            String usuar = (usuario.getUsuario());
-
-            // 3) Insertar en DBF
-            dbfService.insertCodcont(codcont, nombre, vidautil, observ, depreciar, actualizar, feult, usuar);
-
-            ra.addFlashAttribute("ok", "Registrado en CODCONT.DBF: " + codcont + " - " + nombre);
-        } catch (NumberFormatException nfe) {
-            ra.addFlashAttribute("error", "El código debe ser numérico (SmallInt).");
-        } catch (Exception e) {
-            ra.addFlashAttribute("error", "Error insertando en CODCONT.DBF: " + e.getMessage());
-        }
-        return ResponseEntity.ok("Se realizó el registro correctamente");
-    }
-
-    @PostMapping(value = "/modificar-grupoc")
-    public ResponseEntity<String> modificarGrupoContable(HttpServletRequest request, GrupoContable grupoContable,
-            RedirectAttributes redirectAttrs) {
-        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
-        grupoContable.setModificacionIdUsuario(usuario.getIdUsuario());
-        grupoContable.setEstado("ACTIVO");
-        grupoContableService.save(grupoContable);
-        return ResponseEntity.ok("Se realizó el registro correctamente");
-    }
-
-    @ValidarUsuarioAutenticado
-    @PostMapping("/eliminar/{id_grupo_contable}")
-    public ResponseEntity<String> eliminar(Model model, @PathVariable("id_grupo_contable") String idGrupoContable)
-            throws Exception {
-        Long id = Long.parseLong(Encriptar.decrypt(idGrupoContable));
-        GrupoContable grupoContable = grupoContableService.findById(id);
-        grupoContable.setEstado("ELIMINADO");
-        grupoContableService.save(grupoContable);
-        return ResponseEntity.ok("Registro Eliminado");
-    }
-
-    @ValidarUsuarioAutenticado
-    @PostMapping("/importar-dbf")
-    public ResponseEntity<String> importarDesdeDBF(@RequestParam("archivo") MultipartFile archivo) {
-        if (archivo.isEmpty()) {
-            return ResponseEntity.badRequest().body("Archivo no proporcionado.");
-        }
-
-        try {
-            // Convertir MultipartFile a File temporal
-            File tempFile = File.createTempFile("grupo_contable_", ".dbf");
-            archivo.transferTo(tempFile);
-
-            grupoContableService.importarDesdeDBF(tempFile);
-            return ResponseEntity.ok("Importación completada con éxito.");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error durante la importación: " + e.getMessage());
-        }
     }
 
     // En GrupoContableController
@@ -225,6 +131,9 @@ public class GrupoContableController {
             @RequestParam(name = "forzarCompleto", defaultValue = "false") boolean forzarCompleto) {
         
         long inicio = System.currentTimeMillis();
+        if (!vsiaf.dbf("sincronización manual")) {
+            return ResponseEntity.ok(Map.of("ok", false, "message", vsiaf.motivoDbf()));
+        }
         
         try {
             // Leer DBF
@@ -331,49 +240,6 @@ public class GrupoContableController {
                 g -> g,
                 (existing, replacement) -> existing
             ));
-    }
-
-    /**
-     * ENDPOINT AJAX para obtener info de sincronización
-     */
-    @GetMapping("/sync-info")
-    @ResponseBody
-    public ResponseEntity<?> obtenerInfoSync() {
-        try {
-            SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("grupo_contable");
-            
-            if (syncInfo != null) {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
-                
-                return ResponseEntity.ok(Map.of(
-                    "ultimaSincronizacion", syncInfo.getUltimaSincronizacion().format(formatter),
-                    "estado", syncInfo.getEstado(),
-                    "registrosProcesados", syncInfo.getRegistrosProcesados(),
-                    "registrosNuevos", syncInfo.getRegistrosNuevos(),
-                    "registrosActualizados", syncInfo.getRegistrosActualizados(),
-                    "duracionSegundos", syncInfo.getDuracionMs() / 1000.0
-                ));
-            }
-            
-            return ResponseEntity.ok(Map.of(
-                "ultimaSincronizacion", "Nunca sincronizado",
-                "estado", "PENDIENTE",
-                "registrosProcesados", 0,
-                "registrosNuevos", 0,
-                "registrosActualizados", 0,
-                "duracionSegundos", 0.0
-            ));
-            
-        } catch (Exception e) {
-            return ResponseEntity.ok(Map.of(
-                "ultimaSincronizacion", "Error al obtener info",
-                "estado", "ERROR",
-                "registrosProcesados", 0,
-                "registrosNuevos", 0,
-                "registrosActualizados", 0,
-                "duracionSegundos", 0.0
-            ));
-        }
     }
 
 }

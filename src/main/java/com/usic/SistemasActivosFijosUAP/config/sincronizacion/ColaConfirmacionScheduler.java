@@ -53,6 +53,11 @@ public class ColaConfirmacionScheduler {
     private final IDbfColaOrdenDao colaDao;
     private final IActivoDao activoDao;
     private final SseEmitterRegistry sseRegistry;
+    /**
+     * Sin la carpeta de la cola a la vista (laptop de desarrollo con la base de producción)
+     * NO se confirma nada: si no, las órdenes de producción se darían por "extraviadas".
+     */
+    private final com.usic.SistemasActivosFijosUAP.componet.VsiafDisponibilidad vsiaf;
 
     @Value("${legacy.dbf.path:/mnt/dbfwin}")
     private String dbfPath;
@@ -80,6 +85,7 @@ public class ColaConfirmacionScheduler {
     @Transactional
     public void confirmarOrdenes() {
         if (!"cola".equalsIgnoreCase(writeMode)) return;   // en modo bytes no hay worker que responda
+        if (!vsiaf.dbf("confirmación de la cola")) return;
 
         List<DbfColaOrden> pendientes = colaDao.findByEstadoOrderByIdOrdenAsc(
                 DbfColaOrden.ENCOLADA, PageRequest.of(0, Math.max(1, lote)));

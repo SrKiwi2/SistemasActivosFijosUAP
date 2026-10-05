@@ -1,64 +1,143 @@
-<div class="modal-header">
-    <h4 class="modal-title" th:text="${edit}? 'Modificar Persona' : 'Registrar Persona'"></h4>
-    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: persona/formulario.html  (va dentro de .modal-content.sm-modal)
+     El envío lo hace SciafModulo.formulario() y espera JSON { ok, msg }.
+     Al modificar, el controlador cambia solo C.I. y nombres: correo, extensión,
+     nacionalidad y género se conservan aunque este formulario no los muestre.
+     ══════════════════════════════════════════════════════════════ -->
+
+<div class="sm-modal-cab">
+    <div class="sm-cabecera-icono">
+        <i class="ti" th:classappend="${edit} ? 'ti-user-edit' : 'ti-user-plus'"></i>
+    </div>
+    <div>
+        <h5 class="sm-modal-titulo" th:text="${edit} ? 'Modificar persona' : 'Nueva persona'">Persona</h5>
+        <p class="sm-modal-sub"
+            th:text="${edit} ? 'Corrija el C.I. o los nombres de esta persona.' : 'Registre a una persona para luego crearle un usuario o asignarla como responsable.'">
+        </p>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
+
 <form id="formularioPersona" method="post"
-    th:action="${edit}? @{/administracion/persona/modificar-persona} : @{/administracion/persona/registrar-persona}" novalidate>
+    th:action="${edit} ? @{/administracion/persona/modificar-persona} : @{/administracion/persona/registrar-persona}"
+    novalidate>
+
+    <!-- ID (solo en edición) -->
     <input type="hidden" th:if="${edit != null}" th:field="${persona.idPersona}">
-    <div class="modal-body">
-        <div class="row">
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">C.I.</label>
-                <input type="text" th:field="${persona.ci}" class="form-control" placeholder="Introduzca un C.I."
-                    required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca una Contraseña.</div>
+
+    <div class="sm-modal-cuerpo">
+
+        <!-- Auditoría (solo edición) -->
+        <div th:if="${edit != null}" class="sm-auditoria">
+            <i class="ti ti-history"></i>
+            <span>
+                Registrada
+                <th:block th:if="${registradoPor != null}">por <strong th:text="${registradoPor}"></strong></th:block>
+                <th:block th:if="${persona.registro != null}" th:text="${'el ' + #dates.format(persona.registro, 'dd/MM/yyyy HH:mm')}"></th:block>
+                <th:block th:if="${modificadoPor != null}">
+                    · última modificación por <strong th:text="${modificadoPor}"></strong>
+                    <th:block th:if="${persona.modificacion != null}" th:text="${'el ' + #dates.format(persona.modificacion, 'dd/MM/yyyy HH:mm')}"></th:block>
+                </th:block>
+            </span>
+        </div>
+
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-id"></i> Identificación</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <label class="sm-label" for="perCi">C.I. <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-id-badge"></i>
+                            <input type="text" th:field="${persona.ci}" class="sm-input" id="perCi"
+                                placeholder="Ej: 1234567" required autocomplete="off" />
+                            <div class="invalid-feedback">Ingrese el C.I.</div>
+                        </div>
+                        <div class="sm-ayuda">No puede repetirse con otra persona registrada.</div>
+                    </div>
+                </div>
             </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserFirstName">Nombre</label>
-                <input type="text" th:field="${persona.nombre}" class="form-control" id="perNombre"
-                    placeholder="Introduzca un nombre" required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un Nombre.</div>
+        </div>
+
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-user"></i> Nombre</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="sm-label" for="perNombre">Nombre(s) <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-user"></i>
+                            <input type="text" th:field="${persona.nombre}" class="sm-input" id="perNombre"
+                                placeholder="Ej: JUAN CARLOS" required autocomplete="off" />
+                            <div class="invalid-feedback">Ingrese el nombre.</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="sm-label" for="perPaterno">Apellido paterno</label>
+                        <div class="sm-campo">
+                            <i class="ti ti-letter-p"></i>
+                            <input type="text" th:field="${persona.paterno}" class="sm-input" id="perPaterno"
+                                placeholder="Ej: MAMANI" autocomplete="off" />
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="sm-label" for="perMaterno">Apellido materno</label>
+                        <div class="sm-campo">
+                            <i class="ti ti-letter-m"></i>
+                            <input type="text" th:field="${persona.materno}" class="sm-input" id="perMaterno"
+                                placeholder="Ej: QUISPE" autocomplete="off" />
+                        </div>
+                    </div>
+                    <!-- Si esta persona llega a ser responsable, el VSIAF solo guarda 35 caracteres -->
+                    <div class="col-12" id="perContadorNombre"></div>
+                </div>
             </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Paterno</label>
-                <input type="text" th:field="${persona.paterno}" class="form-control" id="perPaterno"
-                    placeholder="Introduzca un apellido" />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca su primer apellido.</div>
-            </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Materno</label>
-                <input type="text" th:field="${persona.materno}" class="form-control" id="perMaterno"
-                    placeholder="Introduzca un apellido" />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca su segundo apellido.</div>
-            </div>
-            <!-- Si esta persona llega a ser responsable, el VSIAF solo guarda 35 caracteres -->
-            <div class="col-12" id="perContadorNombre"></div>
         </div>
     </div>
-    <div class="modal-footer">
-        <div class="row">
-            <div class="col-12">
-                <a type="submit" class="btn btn-secondary" style="color: white;" data-bs-dismiss="modal">Cancelar</a>
-                <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
 
-            </div>
-        </div>
+    <div class="sm-modal-pie">
+        <span class="sm-nota"><span class="sm-req">*</span> Campo obligatorio</span>
+        <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal" id="btnCancelarPersona">
+            <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button type="submit" class="sm-btn sm-btn-exito" id="btnGuardarPersona">
+            <i class="ti ti-device-floppy"></i>
+            <span th:text="${edit} ? 'Guardar cambios' : 'Registrar persona'">Guardar</span>
+        </button>
     </div>
 </form>
 
 <script>
-    manejarEnvioFormulario('#formularioPersona');
+    (function () {
+        const esEdicion = $('#formularioPersona input[name="idPersona"]').length > 0;
 
-    /* Aviso, no bloqueo: no toda persona termina siendo responsable, pero si lo es, el
-       nombre completo viaja al VSIAF en un solo campo de 35 caracteres. */
-    if (window.sciafContador) {
-        sciafContador.combinado(['#perNombre', '#perPaterno', '#perMaterno'], 35, {
-            etiqueta: 'Nombre completo (si llega a ser responsable, el VSIAF admite 35)',
-            contenedor: '#perContadorNombre'
+        /* Aviso, no bloqueo: no toda persona termina siendo responsable, pero si lo es, el
+           nombre completo viaja al VSIAF en un solo campo de 35 caracteres. */
+        if (window.sciafContador) {
+            sciafContador.combinado(['#perNombre', '#perPaterno', '#perMaterno'], 35, {
+                etiqueta: 'Nombre completo (si llega a ser responsable, el VSIAF admite 35)',
+                contenedor: '#perContadorNombre'
+            });
+        }
+
+        SciafModulo.formulario({
+            form: '#formularioPersona',
+            modal: '#modalFormularioPersona',
+            guardar: '#btnGuardarPersona',
+            cancelar: '#btnCancelarPersona',
+            textoGuardando: esEdicion ? 'Guardando…' : 'Registrando…',
+            msgExito: esEdicion ? 'Persona modificada' : 'Persona registrada',
+            // Si es responsable, el nombre / C.I. viaja también al VSIAF: si no llegó, que se vea.
+            alGuardar: function (res) {
+                if (res && res.vsiafOk === false) Swal.fire('Guardado, pero no llegó al VSIAF', res.msg, 'warning');
+            }
+            // La tabla la recarga la vista (SciafModulo.alGuardarModal en persona/vista.html).
         });
-    }
+
+        // Cursor listo para escribir (el modal puede estar ya abierto o terminando de abrirse).
+        const $modal = $('#modalFormularioPersona');
+        const $primero = esEdicion ? $('#perNombre') : $('#perCi');
+        if ($modal.hasClass('show')) $primero.trigger('focus');
+        else $modal.one('shown.bs.modal', function () { $primero.trigger('focus'); });
+    })();
 </script>

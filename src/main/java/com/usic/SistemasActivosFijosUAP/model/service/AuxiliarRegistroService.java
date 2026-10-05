@@ -164,7 +164,8 @@ public class AuxiliarRegistroService {
     /** Trim, espacios colapsados y recorte al ancho de NOMAUX. */
     public static String normalizarNombre(String nombre) {
         if (nombre == null) return "";
-        String n = nombre.trim().replaceAll("\\s+", " ");
+        // En MAYÚSCULAS, como el resto del catálogo del VSIAF (y la regla de la plantilla).
+        String n = nombre.trim().replaceAll("\\s+", " ").toUpperCase(java.util.Locale.ROOT);
         return n.length() > MAX_NOMBRE ? n.substring(0, MAX_NOMBRE) : n;
     }
 

@@ -1,276 +1,70 @@
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center gap-2">
-            <h5 class="mb-0">Registro Auxiliar</h5>
-        </div>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: auxiliar/tabla_registro.html — auxiliares (plantilla de mantenimiento).
+     · POST /administracion/auxiliar/tabla-registros lo devuelve: la vista lo pide al abrir
+       (con el preloader en la tarjeta) y para recargar.
+     · .js-sync-info: estado de la última sincronización (la vista lo pasa a su cabecera).
+     · Cada fila lleva data-* para los filtros (predio, grupo); los botones declaran
+       data-accion y los atiende la vista. Una fila sin id viene directo del VSIAF
+       (la base todavía no la tiene): es solo lectura.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="js-contenido" th:fragment="tabla">
+    <span class="js-sync-info d-none"
+          th:attr="data-ultima=${ultimaSincronizacion ?: 'Nunca'}, data-estado=${estadoSync ?: 'PENDIENTE'},
+                   data-procesados=${registrosProcesados ?: 0}, data-nuevos=${registrosNuevos ?: 0},
+                   data-actualizados=${registrosActualizados ?: 0}, data-duracion=${duracionUltimaSync ?: 0},
+                   data-origen=${sourceUsed}"></span>
 
-        <div class="d-flex gap-2 align-items-center">
-            <!-- ✅ Badge con información de última sincronización -->
-            <span class="badge bg-info" id="ultimaSync" data-bs-toggle="tooltip" data-bs-placement="bottom"
-                th:title="'Procesados: ' + (${registrosProcesados ?: 0}) + ' | Nuevos: ' + (${registrosNuevos ?: 0}) + ' | Actualizados: ' + (${registrosActualizados ?: 0}) + ' | Duración: ' + (${duracionUltimaSync ?: 0}) + 's'">
-                <i class="fa-solid fa-clock me-1"></i>
-                Última sync: <span th:text="${ultimaSincronizacion ?: 'Nunca'}">--</span>
-            </span>
-
-            <!-- ✅ Badge de estado -->
-            <span class="badge" id="estadoSyncBadge"
-                th:classappend="${estadoSync == 'COMPLETADO'} ? 'bg-success' : (${estadoSync == 'ERROR'} ? 'bg-danger' : 'bg-warning')"
-                th:text="${estadoSync ?: 'PENDIENTE'}">
-            </span>
-
-            <!-- ✅ Botón sincronización incremental -->
-            <button id="btnSyncAux" class="btn btn-outline-secondary btn-sm">
-                <i class="fa-solid fa-sync me-1"></i> Sincronizar
-            </button>
-
-            <!-- ✅ Botón sincronización completa -->
-            <button id="btnSyncCompleto" class="btn btn-outline-warning btn-sm" data-bs-toggle="tooltip"
-                data-bs-placement="bottom" title="Forzar sincronización completa (más lento)">
-                <i class="fa-solid fa-database me-1"></i> Sync Completo
-            </button>
-        </div>
-    </div>
-    <div class="card-datatable table-responsive pt-0">
-        <table class="datatables-basic table table-hover" id="data-table">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Entidad</th>
-                    <th>Unidad</th>
-                    <th>Código Contable</th>
-                    <th>Código Auxiliar</th>
-                    <th>Nombre Auxiliar</th>
-                    <th class="text-center">Opciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="auxiliar, index: ${listasAuxiliares}">
-                    <td th:text="${index.index + 1}"></td>
-                    <td>
-                        <span th:if="${auxiliar.predio?.entidad != null}"
-                            th:text="${auxiliar.predio.entidad.entidadCodigo}" class="badge bg-primary">
-                        </span>
-                        <span th:if="${auxiliar.predio?.entidad == null}" class="text-muted">
-                            —
-                        </span>
-                    </td>
-                    <td th:text="${auxiliar.predio?.unidad ?: '—'}"></td>
-                    <td>
-                        <span th:if="${auxiliar.grupoContable?.codContable != null}"
-                            th:text="${auxiliar.grupoContable.codContable}" class="badge bg-secondary">
-                        </span>
-                        <span th:if="${auxiliar.grupoContable?.codContable == null}" class="text-muted">
-                            —
-                        </span>
-                    </td>
-                    <td>
-                        <span class="badge bg-info" th:text="${auxiliar.codAux}"></span>
-                    </td>
-                    <td th:text="${auxiliar.nombre}"></td>
-                    <td class="text-center">
-                        <!-- ✅ Botones solo si tiene ID (existe en BD) -->
-                        <div th:if="${auxiliar.idAuxiliar != null}" class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-primary btn-editar-auxiliar"
-                                th:data-id="${id_encryptado[index.index]}" data-bs-toggle="modal"
-                                data-bs-target="#modalFormularioAuxiliar" title="Editar auxiliar">
-                                <i class="fa-solid fa-pen-to-square"></i>
-                            </button>
-                            <button type="button" class="btn btn-outline-info btn-reenviar-auxiliar"
-                                th:data-id="${id_encryptado[index.index]}" th:data-nombre="${auxiliar.nombre}"
-                                data-bs-toggle="tooltip"
+    <table class="table sm-tabla align-middle js-tabla-aux">
+        <thead>
+            <tr>
+                <th style="width:170px;">Predio</th>
+                <th style="width:120px;">Grupo</th>
+                <th style="width:110px;">Cód. aux.</th>
+                <th>Auxiliar</th>
+                <th class="text-end" style="width:250px;">Opciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="a, it : ${listasAuxiliares}"
+                th:with="ent=${a.predio != null and a.predio.entidad != null ? a.predio.entidad.entidadCodigo : ''},
+                         uni=${a.predio != null ? a.predio.unidad : ''},
+                         grp=${a.grupoContable != null ? a.grupoContable.codContable : null}"
+                th:attr="data-predio=${ent + ' · ' + uni}, data-grupo=${grp}">
+                <td th:attr="data-order=${ent + '-' + uni}">
+                    <span class="sm-codigo" th:text="${uni ?: '—'}"></span>
+                    <div class="sm-sub" th:if="${ent != ''}" th:text="'Entidad ' + ${ent}"></div>
+                </td>
+                <td th:attr="data-order=${grp ?: 0}">
+                    <span th:if="${grp != null}" class="sm-pastilla sm-pastilla-info py-0" th:text="${grp}"
+                          th:title="${a.grupoContable.nombre}"></span>
+                    <span th:if="${grp == null}" class="sm-sub">—</span>
+                </td>
+                <td th:attr="data-order=${a.codAux ?: 0}">
+                    <span class="sm-codigo" th:text="${a.codAux}"></span>
+                </td>
+                <td>
+                    <span class="sm-nombre" th:text="${a.nombre}"></span>
+                    <div class="sm-sub" th:if="${a.grupoContable != null and a.grupoContable.nombre != null}"
+                         th:text="${a.grupoContable.nombre}"></div>
+                </td>
+                <td class="text-end">
+                    <div class="sm-acciones" th:if="${a.idAuxiliar != null}"
+                         th:attr="data-id=${id_encryptado[it.index]}, data-nombre=${a.nombre}">
+                        <button type="button" class="sm-btn sm-btn-sm sm-btn-suave" data-accion="editar"
+                                title="Modificar nombre, predio o grupo (se actualiza también en el VSIAF)">
+                            <i class="ti ti-edit"></i> Editar</button>
+                        <button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-icono" data-accion="reenviar"
                                 title="Reenviar al VSIAF (si allá no aparece). No duplica si ya existe.">
-                                <i class="fa-solid fa-paper-plane"></i>
-                            </button>
-                            <button type="button" class="btn btn-danger btn-eliminar-auxiliar"
-                                th:data-id="${id_encryptado[index.index]}" th:data-nombre="${auxiliar.nombre}"
-                                title="Eliminar auxiliar">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
-                        </div>
-
-                        <!-- ✅ Si NO tiene ID (viene del DBF), mostrar mensaje -->
-                        <div th:if="${auxiliar.idAuxiliar == null}">
-                            <span class="badge bg-warning" data-bs-toggle="tooltip"
-                                title="Registro solo lectura desde DBF. Sincronice para poder editar.">
-                                <i class="fa-solid fa-lock"></i> Solo lectura
-                            </span>
-                        </div>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+                            <i class="ti ti-send"></i></button>
+                        <button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-peligro sm-btn-icono" data-accion="eliminar"
+                                title="Quitar del SCIAF">
+                            <i class="ti ti-trash"></i></button>
+                    </div>
+                    <span th:if="${a.idAuxiliar == null}" class="sm-pastilla sm-pastilla-aviso py-0"
+                          title="Viene directo del VSIAF: sincronice para poder editarlo">
+                        <i class="ti ti-lock"></i> Solo lectura</span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 </div>
-
-<script>
-
-    $(document).ready(function() {
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-    });
-
-    $(document).on('click', '.btn-editar-auxiliar', function() {
-        const idEncriptado = $(this).data('id');
-        cargarFormularioEdit(idEncriptado);
-    });
-
-    $(document).on('click', '.btn-eliminar-auxiliar', function() {
-        const idEncriptado = $(this).data('id');
-        const nombre = $(this).data('nombre');
-        eliminar(nombre, idEncriptado);
-    });
-
-    // Reenvío al VSIAF: para los auxiliares que quedaron sólo en la base porque el envío
-    // original falló. El worker inserta sólo si no existe, así que repetirlo es inocuo.
-    $(document).on('click', '.btn-reenviar-auxiliar', function () {
-        const idEncriptado = $(this).data('id');
-        const nombre = $(this).data('nombre');
-
-        Swal.fire({
-            title: '¿Reenviar al VSIAF?',
-            html: `Se va a mandar el auxiliar <strong>${nombre}</strong> al VSIAF.<br>
-                   <small class="text-muted">Si allá ya existe, no se duplica: queda como está.</small>`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, reenviar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (!result.isConfirmed) return;
-
-            showGlobalLoader({ texto: 'Enviando al VSIAF...' });
-            $.ajax({
-                type: 'POST',
-                url: '/administracion/auxiliar/reenviar-vsiaf/' + encodeURIComponent(idEncriptado),
-                success: function (res) {
-                    if (res.ok) Swal.fire('Enviado', res.msg, 'success');
-                    else Swal.fire('Error', res.msg || 'No se pudo enviar.', 'error');
-                },
-                error: function (xhr) {
-                    Swal.fire('Error', xhr.responseJSON?.msg || `Error (${xhr.status})`, 'error');
-                },
-                complete: hideGlobalLoader
-            });
-        });
-    });
-
-    $(document).on('click', '#btnSyncAux', function () {
-        sincronizar(false);
-    });
-
-    $(document).on('click', '#btnSyncCompleto', function () {
-        Swal.fire({
-            title: '¿Forzar sincronización completa?',
-            text: "Esto procesará todos los registros y puede tardar más tiempo",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, sincronizar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                sincronizar(true);
-            }
-        });
-    });
-
-    function sincronizar(forzarCompleto) {
-        showGlobalLoader({ texto: 'Sincronizando Auxiliares...' });
-
-        $.ajax({
-            type: 'POST',
-            url: '/administracion/auxiliar/sync-from-mounted',
-            data: { forzarCompleto: forzarCompleto },
-            success: function (res) {
-                const tiempoSegundos = (res.duracionMs / 1000).toFixed(2);
-                const msg = `
-                        <div class="text-start">
-                            <p><strong>✅ Sincronización exitosa</strong></p>
-                            <hr>
-                            <p><i class="fa-solid fa-file-import"></i> Total leídas: <strong>${res.totalLeidas}</strong></p>
-                            <p><i class="fa-solid fa-plus-circle text-success"></i> Insertados: <strong>${res.insertados}</strong></p>
-                            <p><i class="fa-solid fa-edit text-primary"></i> Actualizados: <strong>${res.actualizados}</strong></p>
-                            <p><i class="fa-solid fa-check-circle text-info"></i> Omitidos (sin cambios): <strong>${res.omitidos}</strong></p>
-                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin entidad: <strong>${res.sinEntidad}</strong></p>
-                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin predio: <strong>${res.sinPredio}</strong></p>
-                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin grupo: <strong>${res.sinGrupoContable}</strong></p>
-                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Duplicados en DBF: <strong>${res.duplicadosEnDbf}</strong></p>
-                            <p><i class="fa-solid fa-clock"></i> Tiempo: <strong>${tiempoSegundos}s</strong></p>
-                        </div>
-                    `;
-
-                Swal.fire({
-                    title: 'Completado',
-                    html: msg,
-                    icon: 'success',
-                    confirmButtonText: 'Aceptar'
-                });
-
-                // ✅ Actualizar badge
-                actualizarInfoSync();
-
-                cargarTabla();
-            },
-            error: function (xhr) {
-                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
-                Swal.fire('Error', msg, 'error');
-            },
-            complete: hideGlobalLoader
-        });
-    }
-
-    // ✅ Actualizar badges sin recargar página
-    function actualizarInfoSync() {
-        $.ajax({
-            type: 'GET',
-            url: '/administracion/auxiliar/sync-info',
-            success: function (info) {
-                $('#ultimaSync span').text(info.ultimaSincronizacion);
-
-                const tooltip = `Procesados: ${info.registrosProcesados || 0} | Nuevos: ${info.registrosNuevos || 0} | Actualizados: ${info.registrosActualizados || 0} | Duración: ${info.duracionSegundos || 0}s`;
-                $('#ultimaSync').attr('data-bs-original-title', tooltip);
-
-                const badgeEstado = $('#estadoSyncBadge');
-                badgeEstado.removeClass('bg-success bg-danger bg-warning');
-
-                if (info.estado === 'COMPLETADO') {
-                    badgeEstado.addClass('bg-success');
-                } else if (info.estado === 'ERROR') {
-                    badgeEstado.addClass('bg-danger');
-                } else {
-                    badgeEstado.addClass('bg-warning');
-                }
-
-                badgeEstado.text(info.estado);
-            }
-        });
-    }
-
-    $('#data-table').DataTable({
-        language: {
-            "sProcessing": "Procesando...",
-            "sLengthMenu": "Mostrar _MENU_ registros",
-            "sZeroRecords": "No se encontraron resultados",
-            "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
-            "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
-            "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
-            "sInfoPostFix": "",
-            "sSearch": "Buscar:",
-            "sUrl": "",
-            "sInfoThousands": ",",
-            "sLoadingRecords": "Cargando...",
-            "oPaginate": {
-                "sFirst": "Primero",
-                "sLast": "Último",
-                "sNext": "Siguiente",
-                "sPrevious": "Anterior"
-            },
-            "oAria": {
-                "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
-                "sSortDescending": ": Activar para ordenar la columna de manera descendente"
-            }
-        }
-    });
-</script>

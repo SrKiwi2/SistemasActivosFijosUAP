@@ -25,6 +25,8 @@ import lombok.extern.slf4j.Slf4j;
 public class DbfChangeDetectorService {
     
     private final ApplicationEventPublisher eventPublisher;
+    /** Sin VSIAF a la vista (laptop de desarrollo, montaje caído) no se lee nada. */
+    private final VsiafDisponibilidad vsiaf;
 
     @Value("${legacy.dbf.path:/mnt/dbfwin}")
     private String dbfBasePath;
@@ -73,6 +75,7 @@ public class DbfChangeDetectorService {
     @Scheduled(fixedDelayString = "${sync.poll.interval.ms:20000}",
                initialDelayString = "${sync.poll.initial.delay.ms:15000}")
     public void detectarCambios() {
+        if (!vsiaf.dbf("detector de cambios")) return;
         for (var entry : archivosMonitoreados.entrySet()) {
             if ("activo".equals(entry.getKey())) continue;
             verificarArchivo(entry.getKey(), entry.getValue());
@@ -82,6 +85,7 @@ public class DbfChangeDetectorService {
     @Scheduled(fixedDelayString = "${sync.poll.activo.interval.ms:60000}",
                initialDelayString = "30000")
     public void detectarCambiosActivo() {
+        if (!vsiaf.dbf("detector de cambios de activos")) return;
         verificarArchivo("activo", "ACTUAL.DBF");
     }
 

@@ -58,6 +58,20 @@ public interface IAuxiliarDao extends JpaRepository<Auxiliar, Long> {
     @Query("SELECT a FROM Auxiliar a ORDER BY a.nombre ASC")
     List<Auxiliar> listarTodo();
 
+    /**
+     * Para la tabla del módulo: sin los eliminados y con predio, entidad y grupo contable
+     * ya cargados (antes, una consulta por cada predio/entidad/grupo distinto al mostrar).
+     */
+    @Query("""
+        SELECT a FROM Auxiliar a
+        JOIN FETCH a.predio p
+        JOIN FETCH p.entidad
+        JOIN FETCH a.grupoContable
+        WHERE a.estado IS NULL OR a.estado <> 'ELIMINADO'
+        ORDER BY a.nombre ASC
+        """)
+    List<Auxiliar> listarParaTabla();
+
     @Query(value = "SELECT COALESCE(MAX(a.cod_aux), 0) + 1 FROM auxiliar a WHERE a.id_predio = :idPredio AND a.id_grupo_contable = :idGrupoContable", nativeQuery = true)
     Short findNextCodAux(@Param("idPredio") Long idPredio, @Param("idGrupoContable") Long idGrupoContable);
 

@@ -43,5 +43,20 @@ public class EstadoActivoServiceImpl implements IEstadoActivoService{
     public EstadoActivo buscarPorCodigo(String codigo) {
         return dao.buscarPorCodigo(codigo);
     }
+
+    @Override
+    public List<EstadoActivo> listarPorCodigo(String codigo) {
+        if (codigo == null || codigo.isBlank()) return List.of();
+        return dao.listarPorCodigo(codigo.trim().toUpperCase(java.util.Locale.ROOT));
+    }
+
+    @Override
+    public java.util.Map<Long, Long> activosPorEstado() {
+        java.util.Map<Long, Long> m = new java.util.HashMap<>();
+        for (Object[] f : dao.contarActivosPorEstado()) {
+            m.put(((Number) f[0]).longValue(), ((Number) f[1]).longValue());
+        }
+        return m;
+    }
     
 }

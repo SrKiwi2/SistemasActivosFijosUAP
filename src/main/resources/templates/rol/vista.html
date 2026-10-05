@@ -1,95 +1,150 @@
-<h4 class="py-3 mb-4"><span class="text-muted fw-light">Menú /</span> Rol</h4>
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Rol — primera pantalla con la plantilla de mantenimiento
+     (estilos: /assets/css/sciaf-modulo.css · comportamiento: /assets/js/sciaf-modulo.js)
+     Guía: docs/PLANTILLA_MODULOS.md
 
-<div id="tablaRegistro"></div>
+     Todo vive dentro de #modRol y el script no deja funciones globales: con varias
+     pestañas abiertas, los módulos comparten nombres (cargarTabla, eliminar…) e ids
+     (#data-table), y el último en cargarse le ganaba al resto.
+     La barra (buscador / filas) vive aquí y no en el fragmento de la tabla:
+     así sobrevive a cada recarga sin perder lo que el usuario escribió.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modRol">
 
-<!-- Modal estructurado correctamente -->
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-shield-lock"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-users"></i> Usuarios <i class="ti ti-chevron-right"></i> Roles
+        </nav>
+        <h1 class="sm-titulo">Roles del sistema</h1>
+        <p class="sm-subtitulo">Perfiles de acceso que se asignan a cada usuario.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-total">—</strong> roles activos</span>
+        <span class="sm-dato"><strong class="js-usuarios">—</strong> usuarios asignados</span>
+        <button type="button" class="sm-btn js-nuevo">
+            <i class="ti ti-plus"></i> Nuevo rol
+        </button>
+    </div>
+</header>
+
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar rol por nombre…"
+                autocomplete="off" aria-label="Buscar rol" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+        <div class="sm-toolbar-espacio"></div>
+        <label class="sm-filas">
+            <i class="ti ti-list-numbers"></i> Filas
+            <select class="sm-select js-largo" aria-label="Filas por página">
+                <option value="auto" selected>Ajustar a pantalla</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="-1">Todas</option>
+            </select>
+        </label>
+    </div>
+
+    <div class="js-tabla">
+        <div class="sm-cargando">
+            <div class="spinner-border text-primary" role="status"></div>
+            <div class="mt-2">Cargando roles…</div>
+        </div>
+    </div>
+</section>
+
+<!-- Modal del formulario (el contenido llega por AJAX) -->
 <div class="modal fade" id="modalFormularioRol" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content" id="contenidoModalRol"></div>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content sm-modal" id="contenidoModalRol"></div>
     </div>
 </div>
 
+</div>
+
 <script>
-    $(document).ready(function () {
-        cargarTabla();
+    (function () {
+        const URL = '/administracion/rol';
+        const $raiz = $('#modRol');
+        const $cont = $raiz.find('.js-tabla');
+        const $modal = $raiz.find('#modalFormularioRol');
+        const $contenidoModal = $raiz.find('#contenidoModalRol');
+
+        function cargarTabla() {
+            // En las recargas se deja la tabla actual a la vista (atenuada) en lugar de
+            // reemplazarla por un spinner: la pantalla no salta.
+            $cont.css('opacity', $cont.find('table').length ? 0.55 : 1);
+
+            $.ajax({
+                type: 'POST',
+                url: URL + '/tabla-registros',
+                success: function (html) {
+                    $cont.html(html).css('opacity', 1);
+                    SciafModulo.tabla({
+                        tabla: $cont.find('table'),
+                        buscador: $raiz.find('.js-buscar'),
+                        largo: $raiz.find('.js-largo'),
+                        total: $raiz.find('.js-total'),
+                        orden: [ [0, 'asc'] ],   // con espacios: dos corchetes juntos son sintaxis de Thymeleaf
+                        noOrdenables: [3],
+                        alDibujar: function (api) {
+                            let usuarios = 0;
+                            api.rows().nodes().each(function (tr) { usuarios += Number(tr.dataset.usuarios) || 0; });
+                            $raiz.find('.js-usuarios').text(usuarios);
+                        }
+                    });
+                },
+                error: function () {
+                    $cont.css('opacity', 1).html(
+                        '<div class="alert alert-danger m-3">No se pudo cargar la tabla de roles. ' +
+                        '<a href="#" class="js-reintentar">Reintentar</a></div>');
+                }
+            });
+        }
+
+        // Un solo pedido (sin el chequeo previo de sesión de fragment.js).
+        function abrirFormulario(id) {
+            SciafModulo.abrirFormulario($modal, $contenidoModal,
+                id ? URL + '/formulario-edit/' + id : URL + '/formulario');
+        }
+
+        function eliminar($b) {
+            const esc = SciafModulo.escapar;
+            const usuarios = Number($b.closest('tr').data('usuarios')) || 0;
+            let html = 'Se eliminará el rol <b>' + esc($b.data('nombre')) + '</b>.';
+            if (usuarios > 0) {
+                html += '<div class="alert alert-warning text-start mt-3 mb-0 small">' +
+                    '<i class="ti ti-alert-triangle me-1"></i> Tiene <b>' + usuarios + '</b> usuario(s) asignado(s), ' +
+                    'que quedarán con un rol eliminado. Conviene reasignarlos antes.</div>';
+            }
+            SciafModulo.eliminar({
+                url: URL + '/eliminar/' + $b.data('id'),
+                titulo: '¿Eliminar rol?',
+                html: html,
+                alTerminar: cargarTabla
+            });
+        }
+
+        // Al guardar el formulario se recarga ESTA tabla (no un cargarTabla global).
+        SciafModulo.alGuardarModal($modal, cargarTabla);
+
+        // Eventos delegados en la raíz: viajan con la pestaña y no chocan con otros módulos.
+        $raiz.on('click', '.js-nuevo', function () { abrirFormulario(null); });
+        $raiz.on('click', '.btn-editar-rol', function () { abrirFormulario($(this).data('id')); });
+        $raiz.on('click', '.btn-eliminar-rol', function () { eliminar($(this)); });
+        $raiz.on('click', '.js-reintentar', function (e) { e.preventDefault(); cargarTabla(); });
 
         // Auto-refresco por SSE si se usa en otros módulos
-        if (window.registrarTablaSse) window.registrarTablaSse('rol', function () { cargarTabla(); });
-    });
+        if (window.registrarTablaSse) window.registrarTablaSse('rol', cargarTabla);
 
-    // ── Inicialización DataTable con filtros por columna ──────────────────
-    function initDataTable() {
-        const $tbl = $('#data-table');
-        if ($.fn.DataTable.isDataTable($tbl)) $tbl.DataTable().destroy();
-
-        $tbl.DataTable({
-            destroy: true,
-            orderCellsTop: true,
-            language: {
-                sProcessing: "Procesando...",
-                sLengthMenu: "Mostrar _MENU_ registros",
-                sZeroRecords: "No se encontraron resultados",
-                sInfo: "Mostrando del _START_ al _END_ de _TOTAL_ registros",
-                sInfoEmpty: "Mostrando 0 de 0 registros",
-                sInfoFiltered: "(filtrado de _MAX_ registros)",
-                sSearch: "Buscar general:",
-                sLoadingRecords: "Cargando...",
-                oPaginate: {
-                    sFirst: "Primero",
-                    sLast: "Último",
-                    sNext: "Siguiente",
-                    sPrevious: "Anterior"
-                }
-            },
-            initComplete: function () {
-                // Inicializar tooltips de esta tabla
-                $tbl.find('[data-bs-toggle="tooltip"]').each(function (i, el) {
-                    bootstrap.Tooltip.getOrCreateInstance(el);
-                });
-            }
-        });
-    }
-
-    function cargarTabla() {
-        // Loader DENTRO de la tabla (no bloquea toda la pantalla)
-        $("#tablaRegistro").html(`
-            <div class="text-center text-muted py-5">
-                <div class="spinner-border text-primary" role="status"></div>
-                <div class="mt-2">Cargando roles…</div>
-            </div>
-        `);
-
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/rol/tabla-registros",
-            success: function (html) {
-                $("#tablaRegistro").html(html);
-                initDataTable();
-            },
-            error: function (xhr) {
-                $("#tablaRegistro").html(`<div class="alert alert-danger m-3">Error cargando tabla</div>`);
-            }
-        });
-    }
-
-    function cargarFormulario() {
-        cargarFormularioAlert("/administracion/rol/formulario", "#contenidoModalRol", "#formularioRol");
-    }
-
-    function cargarFormularioEdit(id) {
-        cargarFormularioEditAlert(id, "/administracion/rol/formulario-edit", "#contenidoModalRol", "#formularioRol");
-    }
-
-    function eliminar(nombre, id) {
-        eliminarRegistroAlert(nombre, id, "/administracion/rol/eliminar", cargarTabla);
-    }
-
-    // ── Delegación de eventos (una sola vez; el fragmento se recarga seguido) ──
-    $(document).off('click.rolMod', '.btn-editar-rol').on('click.rolMod', '.btn-editar-rol', function () {
-        cargarFormularioEdit($(this).data('id'));
-    });
-
-    $(document).off('click.rolMod', '.btn-eliminar-rol').on('click.rolMod', '.btn-eliminar-rol', function () {
-        eliminar($(this).data('nombre'), $(this).data('id'));
-    });
+        cargarTabla();
+    })();
 </script>

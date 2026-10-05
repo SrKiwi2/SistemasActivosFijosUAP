@@ -1,183 +1,39 @@
-<div class="card">
-    <div class="card-header d-flex justify-content-lg-between">
-        <h5>Registro Organo financiador</h5>
-        <div class="d-flex gap-2 align-items-center">
-            <!-- ✅ Badge con información de última sincronización -->
-            <span class="badge bg-info" id="ultimaSync" data-bs-toggle="tooltip" data-bs-placement="bottom"
-                th:title="'Procesados: ' + (${registrosProcesados ?: 0}) + ' | Nuevos: ' + (${registrosNuevos ?: 0}) + ' | Actualizados: ' + (${registrosActualizados ?: 0}) + ' | Duración: ' + (${duracionUltimaSync ?: 0}) + 's'">
-                <i class="fa-solid fa-clock me-1"></i>
-                Última sync: <span th:text="${ultimaSincronizacion ?: 'Nunca'}">--</span>
-            </span>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: organismoFinanciador/tabla_registro.html — organismos financiadores.
+     · Al abrir llega incluido en organismoFinanciador/vista.html (th:replace … :: tabla).
+       POST /administracion/organismo/tabla-registros lo devuelve para recargar.
+     · .js-sync-info: estado de la última sincronización (la vista lo pasa a la cabecera).
+     · Solo lectura: el catálogo es del VSIAF (ORGANISMO_FIN.DBF) y se trae sincronizando.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="js-contenido" th:fragment="tabla">
+    <span class="js-sync-info d-none"
+          th:attr="data-ultima=${ultimaSincronizacion ?: 'Nunca'}, data-estado=${estadoSync ?: 'PENDIENTE'},
+                   data-procesados=${registrosProcesados ?: 0}, data-nuevos=${registrosNuevos ?: 0},
+                   data-actualizados=${registrosActualizados ?: 0}, data-duracion=${duracionUltimaSync ?: 0},
+                   data-origen=${sourceUsed}"></span>
 
-            <!-- ✅ Badge de estado -->
-            <span class="badge" id="estadoSyncBadge"
-                th:classappend="${estadoSync == 'COMPLETADO'} ? 'bg-success' : (${estadoSync == 'ERROR'} ? 'bg-danger' : 'bg-warning')"
-                th:text="${estadoSync ?: 'PENDIENTE'}">
-            </span>
-
-            <!-- ✅ Botón sincronización incremental -->
-            <button id="btnSyncOF" class="btn btn-outline-secondary btn-sm">
-                <i class="fa-solid fa-sync me-1"></i> Sincronizar
-            </button>
-
-            <!-- ✅ Botón sincronización completa -->
-            <button id="btnSyncCompleto" class="btn btn-outline-warning btn-sm" data-bs-toggle="tooltip"
-                data-bs-placement="bottom" title="Forzar sincronización completa (más lento)">
-                <i class="fa-solid fa-database me-1"></i> Sync Completo
-            </button>
-        </div>
-    </div>
-    <div class="card-datatable table-responsive pt-0">
-        <table class="datatables-basic table table-hover" id="data-table">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Gestión</th>
-                    <th>Código OF</th>
-                    <th>Descripción</th>
-                    <th>Sigla</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="of, index: ${listasOrganismoFinanciero}">
-                    <td th:text="${index.index + 1}"></td>
-                    <td>
-                        <span class="badge bg-info" th:text="${of.gestion}"></span>
-                    </td>
-                    <td>
-                        <span class="badge bg-primary" th:text="${of.codOf}"></span>
-                    </td>
-                    <td th:text="${of.descripcion}"></td>
-                    <td>
-                        <span th:if="${of.sigla != null && !#strings.isEmpty(of.sigla)}" th:text="${of.sigla}"
-                            class="badge bg-secondary">
-                        </span>
-                        <span th:if="${of.sigla == null || #strings.isEmpty(of.sigla)}" class="text-muted">
-                            -
-                        </span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+    <table class="table sm-tabla align-middle js-tabla-of">
+        <thead>
+            <tr>
+                <th style="width:120px;">Gestión</th>
+                <th style="width:130px;">Código</th>
+                <th>Organismo financiador</th>
+                <th style="width:160px;">Sigla</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="of : ${listasOrganismoFinanciero}" th:attr="data-gestion=${of.gestion}">
+                <td th:attr="data-order=${of.gestion}">
+                    <span class="sm-pastilla sm-pastilla-info py-0" th:text="${of.gestion}"></span>
+                </td>
+                <td><span class="sm-codigo sm-mayus" th:text="${of.codOf}"></span></td>
+                <td class="sm-nombre" th:text="${of.descripcion}"></td>
+                <td>
+                    <span th:if="${of.sigla != null and !#strings.isEmpty(of.sigla)}" class="sm-pastilla py-0 sm-mayus"
+                          th:text="${of.sigla}"></span>
+                    <span th:unless="${of.sigla != null and !#strings.isEmpty(of.sigla)}" class="sm-sub">—</span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 </div>
-
-<script>
-
-    $(document).on('click', '#btnSyncOF', function () {
-        sincronizar(false);
-    });
-
-    $(document).on('click', '#btnSyncCompleto', function () {
-        Swal.fire({
-            title: '¿Forzar sincronización completa?',
-            text: "Esto procesará todos los registros y puede tardar más tiempo",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, sincronizar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                sincronizar(true);
-            }
-        });
-    });
-
-    function sincronizar(forzarCompleto) {
-        showGlobalLoader({ texto: 'Sincronizando Organismos Financiadores...' });
-
-        $.ajax({
-            type: 'POST',
-            url: '/administracion/organismo/sync-from-mounted',
-            data: { forzarCompleto: forzarCompleto },
-            success: function (res) {
-                const tiempoSegundos = (res.duracionMs / 1000).toFixed(2);
-                const msg = `
-                        <div class="text-start">
-                            <p><strong>✅ Sincronización exitosa</strong></p>
-                            <hr>
-                            <p><i class="fa-solid fa-file-import"></i> Total leídas: <strong>${res.totalLeidas}</strong></p>
-                            <p><i class="fa-solid fa-plus-circle text-success"></i> Insertados: <strong>${res.insertados}</strong></p>
-                            <p><i class="fa-solid fa-edit text-primary"></i> Actualizados: <strong>${res.actualizados}</strong></p>
-                            <p><i class="fa-solid fa-check-circle text-info"></i> Omitidos (sin cambios): <strong>${res.omitidos}</strong></p>
-                            <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Duplicados en DBF: <strong>${res.duplicadosEnDbf}</strong></p>
-                            <p><i class="fa-solid fa-clock"></i> Tiempo: <strong>${tiempoSegundos}s</strong></p>
-                        </div>
-                    `;
-
-                Swal.fire({
-                    title: 'Completado',
-                    html: msg,
-                    icon: 'success',
-                    confirmButtonText: 'Aceptar'
-                });
-
-                // ✅ Actualizar badge
-                actualizarInfoSync();
-
-                cargarTabla();
-            },
-            error: function (xhr) {
-                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
-                Swal.fire('Error', msg, 'error');
-            },
-            complete: hideGlobalLoader
-        });
-    }
-
-    // ✅ Actualizar badges sin recargar página
-    function actualizarInfoSync() {
-        $.ajax({
-            type: 'GET',
-            url: '/administracion/organismo/sync-info',
-            success: function (info) {
-                $('#ultimaSync span').text(info.ultimaSincronizacion);
-
-                const tooltip = `Procesados: ${info.registrosProcesados || 0} | Nuevos: ${info.registrosNuevos || 0} | Actualizados: ${info.registrosActualizados || 0} | Duración: ${info.duracionSegundos || 0}s`;
-                $('#ultimaSync').attr('data-bs-original-title', tooltip);
-
-                const badgeEstado = $('#estadoSyncBadge');
-                badgeEstado.removeClass('bg-success bg-danger bg-warning');
-
-                if (info.estado === 'COMPLETADO') {
-                    badgeEstado.addClass('bg-success');
-                } else if (info.estado === 'ERROR') {
-                    badgeEstado.addClass('bg-danger');
-                } else {
-                    badgeEstado.addClass('bg-warning');
-                }
-
-                badgeEstado.text(info.estado);
-            }
-        });
-    }
-
-    $('#data-table').DataTable({
-        language: {
-            "sProcessing": "Procesando...",
-            "sLengthMenu": "Mostrar _MENU_ registros",
-            "sZeroRecords": "No se encontraron resultados",
-            "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
-            "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
-            "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
-            "sInfoPostFix": "",
-            "sSearch": "Buscar:",
-            "sUrl": "",
-            "sInfoThousands": ",",
-            "sLoadingRecords": "Cargando...",
-            "oPaginate": {
-                "sFirst": "Primero",
-                "sLast": "Último",
-                "sNext": "Siguiente",
-                "sPrevious": "Anterior"
-            },
-            "oAria": {
-                "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
-                "sSortDescending": ": Activar para ordenar la columna de manera descendente"
-            }
-        }
-    });
-
-</script>

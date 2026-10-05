@@ -52,11 +52,6 @@ public interface IOpcionMenuService extends IServiceGenerico<OpcionMenu, Long> {
      */
     OpcionMenu guardarNodo(OpcionMenu nodo, Long idPadre);
 
-    /** Sube/baja un nodo intercambiando el orden con su hermano adyacente. */
-    void moverArriba(Long idOpcion);
-
-    void moverAbajo(Long idOpcion);
-
     /** Alterna el flag visible de un nodo (falla si es protegido y se quiere ocultar). */
     void alternarVisible(Long idOpcion);
 

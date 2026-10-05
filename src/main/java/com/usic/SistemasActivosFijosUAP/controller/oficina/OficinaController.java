@@ -4,7 +4,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -68,6 +67,8 @@ public class OficinaController {
     private final OficinaGestionService oficinaGestionService;
     private final AutorizacionService autorizacionService;
     private final ActividadService actividadService;
+    /** Sin VSIAF a la vista (laptop de desarrollo, montaje caído): la sincronización avisa en vez de leer 0 registros. */
+    private final com.usic.SistemasActivosFijosUAP.componet.VsiafDisponibilidad vsiaf;
 
     private static final Logger log = LoggerFactory.getLogger(OficinaController.class);
 
@@ -82,11 +83,25 @@ public class OficinaController {
 
     private static final String MSG_SOLO_ADMIN = "Solo un ADMINISTRADOR o SUPER USUARIO puede hacer esta operación.";
 
+    /**
+     * La pantalla llega sin la tabla: se pagina en el servidor (/api/datatables), con predio
+     * y entidad en la misma consulta. Antes se armaba entera en HTML y consultaba el predio y
+     * la entidad de cada oficina por separado.
+     */
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String inicio_oficina(Model model) {
+    public String inicio_oficina(Model model, HttpServletRequest request) {
         loadSyncInfo(model);
+        model.addAttribute("esAdmin", esAdmin(request));
+        model.addAttribute("predios", prediosOrdenados());
         return "oficina/vista";
+    }
+
+    /** Predios activos por unidad: para el filtro de la tabla y el formulario (son pocos). */
+    private List<Predio> prediosOrdenados() {
+        return predioServicio.listarPredios().stream()
+                .sorted(java.util.Comparator.comparing((Predio p) -> p.getUnidad() == null ? "" : p.getUnidad()))
+                .toList();
     }
 
     /**
@@ -97,11 +112,11 @@ public class OficinaController {
     private void loadSyncInfo(Model model) {
         try {
             SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("oficina");
-            
+
             if (syncInfo != null) {
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
                 String fechaFormateada = syncInfo.getUltimaSincronizacion().format(formatter);
-                
+
                 model.addAttribute("ultimaSincronizacion", fechaFormateada);
                 model.addAttribute("estadoSync", syncInfo.getEstado());
                 model.addAttribute("registrosProcesados", syncInfo.getRegistrosProcesados());
@@ -118,55 +133,80 @@ public class OficinaController {
         }
     }
 
+    /**
+     * Tabla paginada en el servidor. Por cada página: una consulta de filas, una de conteo,
+     * y para las filas visibles el estado en la cola del VSIAF, solicitudes pendientes,
+     * responsables y activos (consultas agrupadas, sin N+1).
+     */
     @ValidarUsuarioAutenticado
-    @PostMapping("/tabla-registros")
-    public String tablaRegistros_oficina(Model model, HttpServletRequest request,
-            @RequestParam(name = "q", required = false) String q,
-            @RequestParam(name = "gestion", required = false) Short gestionPreferida) {
+    @PostMapping(value = "/api/datatables", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, Object> apiDataTables(HttpServletRequest request,
+            @RequestParam(name = "draw", defaultValue = "1") int draw,
+            @RequestParam(name = "start", defaultValue = "0") int start,
+            @RequestParam(name = "length", defaultValue = "25") int length,
+            @RequestParam(name = "search[value]", required = false) String search,
+            @RequestParam(name = "idPredio", required = false) Long idPredio) {
 
-        try {
-            // Cargar SOLO de PostgreSQL (rápido). Ya NO se lee el DBF por CIFS en cada render:
-            // el cruce autoritativo BD↔DBF vive en el módulo Conciliación.
-            List<Oficina> listasOficinas = oficinaService.buscarPorQ(q);
+        boolean admin = esAdmin(request);
+        int size = (length < 0) ? 1000 : Math.max(1, length);
+        String q = "%" + String.join("%", (search == null ? "" : search.trim().toUpperCase()).split("\\s+")) + "%";
+        var pagina = oficinaDao.pagina(q.replaceAll("%+", "%"), idPredio != null ? idPredio : -1L,
+                org.springframework.data.domain.PageRequest.of(Math.max(start, 0) / size, size));
 
-            List<String> encryptedIds = new ArrayList<>();
-            if (listasOficinas != null) {
-                for (Oficina o : listasOficinas) {
-                    // "No en DBF" = registro creado en SCIAF aún NO subido/confirmado al VSIAF (pendiente_dbf).
-                    // Ya no se usa apiEstado (que espeja el DBF); el cruce real vive en Conciliación.
-                    o.setExisteEnDbf(!o.isPendienteDbf());
-                    encryptedIds.add(o.getIdOficina() == null ? "" : Encriptar.encrypt(Long.toString(o.getIdOficina())));
-                }
-            }
-
-            model.addAttribute("listasOficinas", listasOficinas);
-            model.addAttribute("id_encryptado", encryptedIds);
-            model.addAttribute("sourceUsed", "db");
-
-            // Estado real del envío al VSIAF (cola del worker) y quién registró / modificó.
-            Map<Long, Boolean> pendientes = new java.util.HashMap<>();
-            Set<Long> idsUsuarios = new HashSet<>();
-            if (listasOficinas != null) {
-                for (Oficina o : listasOficinas) {
-                    if (o.getIdOficina() == null) continue;
-                    pendientes.put(o.getIdOficina(), o.isPendienteDbf());
-                    idsUsuarios.add(o.getRegistroIdUsuario());
-                    idsUsuarios.add(o.getModificacionIdUsuario());
-                }
-            }
-            model.addAttribute("estadosVsiaf", vsiafApoyoService.estados(VsiafApoyoService.TABLA_OFICINA, pendientes));
-            model.addAttribute("conSolicitud", autorizacionService.idsConSolicitudPendiente(
-                    ActividadService.MOD_OFICINA, pendientes.keySet()));
-            // Auditoría: solo la ven ADMINISTRADOR / SUPER USUARIO (ni se manda a los demás).
-            model.addAttribute("nombresUsuario", esAdmin(request) ? vsiafApoyoService.nombresUsuario(idsUsuarios) : Map.of());
-
-        } catch (Exception e) {
-            log.error("Error cargando tabla oficinas", e);
-            model.addAttribute("error", "Error cargando datos: " + e.getMessage());
+        Map<Long, Boolean> pendientes = new java.util.HashMap<>();
+        Set<Long> idsUsuarios = new HashSet<>();
+        for (var f : pagina.getContent()) {
+            pendientes.put(f.getId(), Boolean.TRUE.equals(f.getPendienteDbf()));
+            idsUsuarios.add(f.getRegistroIdUsuario());
+            idsUsuarios.add(f.getModificacionIdUsuario());
         }
-        model.addAttribute("esAdmin", esAdmin(request));
-        loadSyncInfo(model);
-        return "oficina/tabla_registro";
+        Map<Long, VsiafApoyoService.EstadoVsiaf> estados = vsiafApoyoService.estados(VsiafApoyoService.TABLA_OFICINA, pendientes);
+        Set<Long> conSolicitud = autorizacionService.idsConSolicitudPendiente(ActividadService.MOD_OFICINA, pendientes.keySet());
+        Map<Long, Long> responsables = new java.util.HashMap<>(), activos = new java.util.HashMap<>();
+        if (!pendientes.isEmpty()) {
+            for (Object[] r : oficinaDao.responsablesPorOficina(pendientes.keySet())) responsables.put(((Number) r[0]).longValue(), ((Number) r[1]).longValue());
+            for (Object[] r : oficinaDao.activosPorOficina(pendientes.keySet())) activos.put(((Number) r[0]).longValue(), ((Number) r[1]).longValue());
+        }
+        Map<Long, String> nombres = admin ? vsiafApoyoService.nombresUsuario(idsUsuarios) : Map.of();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        java.time.ZoneId zona = java.time.ZoneId.systemDefault();
+
+        List<Map<String, Object>> data = new ArrayList<>(pagina.getNumberOfElements());
+        for (var f : pagina.getContent()) {
+            Map<String, Object> m = new java.util.HashMap<>();
+            String idEnc = "";
+            try { idEnc = Encriptar.encrypt(String.valueOf(f.getId())); } catch (Exception e) { /* fila sin acciones */ }
+            m.put("idEnc", idEnc);
+            m.put("codOfi", f.getCodOfi());
+            m.put("nombre", f.getNombre() == null ? "" : f.getNombre());
+            m.put("observ", f.getObserv() == null ? "" : f.getObserv());
+            m.put("unidad", f.getUnidad() == null ? "" : f.getUnidad());
+            m.put("entidad", f.getEntidadCodigo() == null ? "" : f.getEntidadCodigo());
+            m.put("esCustodia", Boolean.TRUE.equals(f.getEsCustodia()));
+            m.put("responsables", responsables.getOrDefault(f.getId(), 0L));
+            m.put("activos", activos.getOrDefault(f.getId(), 0L));
+            VsiafApoyoService.EstadoVsiaf est = estados.get(f.getId());
+            m.put("estadoVsiaf", est != null ? est.codigo() : VsiafApoyoService.EST_VSIAF);
+            m.put("estadoTexto", est != null ? est.texto() : "En VSIAF");
+            m.put("estadoDetalle", est != null ? est.detalle() : "Registrada en el VSIAF.");
+            m.put("solicitudPendiente", conSolicitud.contains(f.getId()));
+            if (admin) {
+                m.put("registradoPor", nombres.getOrDefault(f.getRegistroIdUsuario(), ""));
+                m.put("fechaRegistro", f.getRegistro() != null ? fmt.format(f.getRegistro().toInstant().atZone(zona)) : "");
+                m.put("modificadoPor", nombres.getOrDefault(f.getModificacionIdUsuario(), ""));
+                m.put("fechaModificacion", f.getModificacion() != null && f.getModificacionIdUsuario() != null
+                        ? fmt.format(f.getModificacion().toInstant().atZone(zona)) : "");
+            }
+            data.add(m);
+        }
+
+        Map<String, Object> res = new java.util.HashMap<>();
+        res.put("draw", draw);
+        res.put("recordsTotal", oficinaDao.contarActivas());
+        res.put("recordsFiltered", pagina.getTotalElements());
+        res.put("data", data);
+        return res;
     }
 
     // 🔴 MÉTODO DE CLAVE NORMALIZADA (AGRESIVO)
@@ -174,14 +214,14 @@ public class OficinaController {
         // 1. Manejo de nulos
         String e = (entidad == null) ? "" : entidad;
         String u = (unidad == null) ? "" : unidad;
-        
+
         // 2. Limpieza agresiva: Mayúsculas, Trim y eliminar espacios invisibles raros
         e = e.trim().toUpperCase().replaceAll("\\p{C}", ""); // Quita caracteres de control
         u = u.trim().toUpperCase().replaceAll("\\p{C}", "");
-        
+
         // 3. Código Numérico
         String c = (codOfi == null) ? "0" : String.valueOf(codOfi);
-        
+
         // 4. Retorno: "148|CUSP|1"
         return e + "|" + u + "|" + c;
     }
@@ -191,7 +231,7 @@ public class OficinaController {
     public String formulario_oficina(Model model,
             @RequestParam(name = "embebido", defaultValue = "false") boolean embebido) {
         model.addAttribute("oficina", new Oficina());
-        model.addAttribute("predios", predioServicio.findAll());
+        model.addAttribute("predios", prediosOrdenados());
         // Embebido = abierto desde el alta de responsable: ahí no tiene sentido ofrecer
         // registrar otro responsable junto con la oficina.
         model.addAttribute("embebido", embebido);
@@ -219,7 +259,7 @@ public class OficinaController {
             model.addAttribute("registradoPor", nombres.get(oficina.getRegistroIdUsuario()));
             model.addAttribute("modificadoPor", nombres.get(oficina.getModificacionIdUsuario()));
         }
-        model.addAttribute("predios", predioServicio.findAll());
+        model.addAttribute("predios", prediosOrdenados());
         model.addAttribute("edit", "true");
         // Con responsables o bienes, predio y código (la clave en el VSIAF) no se tocan.
         long responsables = oficinaDao.contarResponsablesVigentes(id);
@@ -273,8 +313,9 @@ public class OficinaController {
         }
 
         oficina.setPredio(predio);
-        oficina.setNombre(oficina.getNombre().trim());
-        oficina.setObserv(oficina.getObserv() != null && !oficina.getObserv().isBlank() ? oficina.getObserv().trim() : null);
+        // En MAYÚSCULAS, como las guarda el VSIAF.
+        oficina.setNombre(OficinaGestionService.mayus(oficina.getNombre()));
+        oficina.setObserv(OficinaGestionService.mayus(oficina.getObserv()));
         oficina.setEstado("ACTIVO");
         oficina.setFechaUlt(LocalDate.now());
         oficina.setUsuario(usuarioNombre);
@@ -485,6 +526,9 @@ public class OficinaController {
         if (!esAdmin(request)) {
             return ResponseEntity.status(403).body(Map.of("ok", false, "message", MSG_SOLO_ADMIN));
         }
+        if (!vsiaf.dbf("sincronización manual")) {
+            return ResponseEntity.ok(Map.of("ok", false, "message", vsiaf.motivoDbf()));
+        }
         return syncFromMounted(q, gestionPreferida, forzarCompleto);
     }
 
@@ -492,13 +536,13 @@ public class OficinaController {
     public ResponseEntity<?> syncFromMounted(String q, Short gestionPreferida, boolean forzarCompleto) {
 
         long inicio = System.currentTimeMillis();
-        
+
         try {
 
             var filas = dbfService.listarOficinaAll(q);
-            
+
             Map<String, Oficina> oficinasExistentes = cargarOficinasEnCache(gestionPreferida);
-            
+
             int inserted = 0, updated = 0, skipped = 0, sinEntidad = 0, sinPredio = 0;
             List<Oficina> batch = new ArrayList<>(500);
 
@@ -520,10 +564,10 @@ public class OficinaController {
 
                 String clave = predio.getIdPredio() + "-" + f.getCodOfi();
                 Oficina oficinaExistente = oficinasExistentes.get(clave);
-                
+
                 Oficina oficina;
                 boolean esNueva = (oficinaExistente == null);
-                
+
                 if (esNueva) {
                     oficina = new Oficina();
                     oficina.setPredio(predio);
@@ -547,10 +591,10 @@ public class OficinaController {
                 oficina.setNombre(nombreFinal);
                 oficina.setObserv(observ);
                 oficina.setFechaUlt(f.getFeult());
-                oficina.setUsuario(f.getUsuario() == null 
-                    ? null 
-                    : (f.getUsuario().length() > 60 
-                        ? f.getUsuario().substring(0, 60) 
+                oficina.setUsuario(f.getUsuario() == null
+                    ? null
+                    : (f.getUsuario().length() > 60
+                        ? f.getUsuario().substring(0, 60)
                         : f.getUsuario()));
                 oficina.setApiEstado(f.getApiEstado());
                 oficina.setEstado("ACTIVO");
@@ -558,7 +602,7 @@ public class OficinaController {
                 oficina.setPendienteDbf(false);
 
                 String nuevoHash = oficina.calcularHash();
-                
+
                 if (!esNueva && !forzarCompleto) {
                     if (nuevoHash.equals(oficina.getHashDatos())) {
                         skipped++;
@@ -577,7 +621,7 @@ public class OficinaController {
                     batch.clear();
                 }
             }
-            
+
             if (!batch.isEmpty()) {
                 oficinaService.saveAll(batch);
                 batch.clear();
@@ -597,11 +641,11 @@ public class OficinaController {
                 "duracionMs", duracion,
                 "mensaje", String.format("Sincronización completada en %.2f segundos", duracion / 1000.0)
             ));
-            
+
         } catch (Exception ex) {
 
             syncControlService.registrarError("oficina", ex.getMessage());
-            
+
             return ResponseEntity.internalServerError().body(Map.of(
                 "ok", false,
                 "message", "Error sincronizando OFICINA: " + ex.getMessage()
@@ -611,17 +655,17 @@ public class OficinaController {
 
     private Map<String, Oficina> cargarOficinasEnCache(Short gestion) {
         List<Oficina> todas;
-        
+
         if (gestion != null) {
             todas = oficinaService.findAll().stream()
-                .filter(o -> o.getPredio() != null && 
+                .filter(o -> o.getPredio() != null &&
                            o.getPredio().getEntidad() != null &&
                            gestion.equals(o.getPredio().getEntidad().getGestion()))
                 .collect(Collectors.toList());
         } else {
             todas = oficinaService.findAll();
         }
-        
+
         return todas.stream()
             .collect(Collectors.toMap(
                 o -> o.getPredio().getIdPredio() + "-" + o.getCodOfi(),
@@ -635,10 +679,10 @@ public class OficinaController {
     public ResponseEntity<?> obtenerInfoSync() {
         try {
             SyncControl syncInfo = syncControlService.obtenerInfoSincronizacion("oficina");
-            
+
             if (syncInfo != null) {
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
-                
+
                 return ResponseEntity.ok(Map.of(
                     "ultimaSincronizacion", syncInfo.getUltimaSincronizacion().format(formatter),
                     "estado", syncInfo.getEstado(),
@@ -648,7 +692,7 @@ public class OficinaController {
                     "duracionSegundos", syncInfo.getDuracionMs() / 1000.0
                 ));
             }
-            
+
             return ResponseEntity.ok(Map.of(
                 "ultimaSincronizacion", "Nunca sincronizado",
                 "estado", "PENDIENTE",
@@ -657,7 +701,7 @@ public class OficinaController {
                 "registrosActualizados", 0,
                 "duracionSegundos", 0.0
             ));
-            
+
         } catch (Exception e) {
             return ResponseEntity.ok(Map.of(
                 "ultimaSincronizacion", "Error al obtener info",

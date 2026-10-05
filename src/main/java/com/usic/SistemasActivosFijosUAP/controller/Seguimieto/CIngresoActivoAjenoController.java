@@ -35,13 +35,15 @@ public class CIngresoActivoAjenoController {
     @GetMapping("/modulo")
     public String moduloIngreso(Model model) {
         cargarFiltros(model);
+        // El seguimiento va incluido: la cabecera la pone el módulo, no la vista de seguimiento.
+        model.addAttribute("ingresoModulo", true);
         return "operaciones/ingreso/modulo";
     }
 
     private void cargarFiltros(Model model) {
         List<Oficina> oficinas = oficinaService.listarOficinas();
-        List<Responsable> responsables = responsableService.listarResponsables();
         model.addAttribute("oficinas", oficinas);
-        model.addAttribute("responsables", responsables);
+        // El filtro de responsable busca mientras se escribe (/api/responsables/buscar): antes
+        // se armaba con TODOS los responsables, consultando la persona de cada uno.
     }
 }

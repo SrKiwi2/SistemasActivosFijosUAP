@@ -1,695 +1,448 @@
-<!-- ═══════════════════════════════════════════════════════
-     FRAGMENTO: formulario_responsable.html
-     Cambios clave:
-       1. Select2 inicializado con setTimeout(100) → fix del "selecciona al abrir"
-       2. Rediseño: layout 2-columnas limpio, jerarquía clara
-       3. Secciones con línea lateral de color para distinguirlas visualmente
-       4. Búsqueda de persona con feedback mejorado
-     ═══════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: responsable/formulario.html  (va dentro de .modal-content.sm-modal)
+     El envío lo hace SciafModulo.formulario() (JSON { ok, msg }), con dos trámites
+     propios que resuelve "interceptar":
+       · requiereAutorizacion: quien no es administrador quiso cambiar oficina o código
+         → se pide el motivo y se reenvía como solicitud;
+       · requireConfirmacion (409): hay personas con nombre parecido y ninguna con ese C.I.
+         → se muestran y, si es otra persona, se registra igual (registrar-responsable-forzado).
+     Oficina y cargo se BUSCAN mientras se escribe (no viaja la lista entera).
+     En el VSIAF el nombre completo cabe en 35 caracteres y el cargo en 40.
+     ══════════════════════════════════════════════════════════════ -->
 
-<style>
-    /* ── Secciones del formulario ─────────────────────── */
-    .frm-section {
-        border: 1px solid #e9ecef;
-        border-radius: 10px;
-        overflow: hidden;
-        margin-bottom: 1rem;
-    }
-
-    .frm-section-header {
-        padding: 0.65rem 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.55rem;
-        font-size: 0.78rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .frm-section-body {
-        padding: 1rem 1rem 0.75rem;
-    }
-
-    .frm-section-header.sh-blue {
-        background: rgba(26, 86, 160, 0.06);
-        color: #1a56a0;
-        border-bottom: 1px solid rgba(26, 86, 160, 0.12);
-    }
-
-    .frm-section-header.sh-green {
-        background: rgba(25, 135, 84, 0.06);
-        color: #157347;
-        border-bottom: 1px solid rgba(25, 135, 84, 0.12);
-    }
-
-    .frm-section-header.sh-purple {
-        background: rgba(105, 108, 255, 0.06);
-        color: #696cff;
-        border-bottom: 1px solid rgba(105, 108, 255, 0.12);
-    }
-
-    /* ── Etiquetas ────────────────────────────────────── */
-    .frm-label {
-        font-size: 0.73rem;
-        font-weight: 700;
-        color: #566a7f;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-        margin-bottom: 0.3rem;
-        display: block;
-    }
-
-    /* ── Campo readonly (persona encontrada) ──────────── */
-    .input-persona[readonly] {
-        background: #f8f9fa;
-        color: #8592a3;
-        cursor: not-allowed;
-    }
-
-    /* ── Estado búsqueda persona ──────────────────────── */
-    .persona-status {
-        font-size: 0.78rem;
-        border-radius: 7px;
-        padding: 0.45rem 0.75rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        animation: fadeIn .2s ease;
-    }
-
-    .persona-status.found {
-        background: #d1fae5;
-        color: #065f46;
-        border: 1px solid #a7f3d0;
-    }
-
-    .persona-status.notfound {
-        background: #fef3c7;
-        color: #92400e;
-        border: 1px solid #fde68a;
-    }
-
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(3px);
-        }
-
-        to {
-            opacity: 1;
-            transform: none;
-        }
-    }
-
-    /* ── Select2 dentro del modal — solución definitiva ── */
-
-    /* Permite que el dropdown desborde el modal visualmente */
-    #modalFormularioResponsable .modal-content,
-    #modalFormularioResponsable .modal-body,
-    #modalFormularioResponsable .modal-dialog {
-        overflow: visible !important;
-    }
-
-    /* El modal-header y modal-footer NO deben ser visible o se rompe el diseño */
-    #modalFormularioResponsable .modal-header,
-    #modalFormularioResponsable .modal-footer {
-        overflow: hidden;
-    }
-
-    /* Select2 dentro del modal */
-    #modalFormularioResponsable .select2-container {
-        width: 100% !important;
-    }
-
-    #modalFormularioResponsable .select2-selection--single {
-        height: 36px !important;
-        border-radius: 0.375rem !important;
-        border-color: #d9dee3 !important;
-        display: flex !important;
-        align-items: center !important;
-    }
-
-    #modalFormularioResponsable .select2-selection__rendered {
-        line-height: 34px !important;
-        font-size: 0.855rem !important;
-        padding-left: 10px !important;
-    }
-
-    #modalFormularioResponsable .select2-selection__arrow {
-        height: 34px !important;
-    }
-
-    #modalFormularioResponsable .select2-results__option {
-        padding: 0.45rem 0.75rem;
-        font-size: 0.845rem;
-    }
-
-    #modalFormularioResponsable .select2-search__field {
-        border-radius: 5px !important;
-    }
-
-    /* Z-index: encima del modal backdrop (1050) pero sin irse a body */
-    #modalFormularioResponsable .select2-dropdown {
-        z-index: 1060 !important;
-        font-size: 0.845rem;
-    }
-
-    /* Fuerza apertura hacia abajo siempre */
-    #modalFormularioResponsable .select2-container--open .select2-dropdown--above {
-        top: calc(100% + 2px) !important;
-        bottom: auto !important;
-        border-radius: 0 0 6px 6px !important;
-        border-top: 1px solid #d9dee3;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-</style>
-
-<!-- ── Header ─────────────────────────────────────────── -->
-<div class="modal-header border-0 py-3 px-4" style="background:linear-gradient(90deg,rgba(26,86,160,0.07) 0%,transparent 100%);
-            border-bottom:2px solid #1a56a0 !important;">
-    <div class="d-flex align-items-center gap-2">
-        <div style="width:34px;height:34px;background:rgba(26,86,160,0.12);
-                    border-radius:8px;display:flex;align-items:center;justify-content:center;
-                    color:#1a56a0;font-size:1rem;flex-shrink:0;">
-            <i class="fa-solid fa-user-tie"></i>
-        </div>
-        <div>
-            <h6 class="modal-title fw-bold mb-0" style="color:#1a56a0;" id="modalTitle">
-                <span th:text="${responsable.idResponsable != null ? 'Editar Responsable' : 'Nuevo Responsable'}">
-                    Responsable
-                </span>
-            </h6>
-            <small class="text-muted" style="font-size:0.7rem;">
-                Complete los datos del funcionario y su asignación institucional
-            </small>
-        </div>
+<div class="sm-modal-cab">
+    <div class="sm-cabecera-icono">
+        <i class="ti" th:classappend="${responsable.idResponsable != null} ? 'ti-user-edit' : 'ti-user-plus'"></i>
     </div>
-    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+    <div>
+        <h5 class="sm-modal-titulo" th:text="${responsable.idResponsable != null} ? 'Modificar responsable' : 'Nuevo responsable'">Responsable</h5>
+        <p class="sm-modal-sub"
+           th:text="${responsable.idResponsable != null} ? 'Los cambios se guardan aquí y se envían al VSIAF.' : 'Busque a la persona por su C.I., elija la oficina y el cargo. Se registra aquí y en el VSIAF.'"></p>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar" id="btnCerrarResponsable"></button>
 </div>
 
-<!-- ── Body ───────────────────────────────────────────── -->
-<div class="modal-body px-4 pt-3 pb-2" style="background:#f8f9fb;">
-    <form id="formResponsable" autocomplete="off">
-        <input type="hidden" name="idResponsable" th:value="${responsable.idResponsable}">
+<form id="formResponsable" method="post" novalidate autocomplete="off"
+      th:action="${responsable.idResponsable != null} ? @{/administracion/responsable/modificar-responsable} : @{/administracion/responsable/registrar-responsable}">
 
-        <!-- Auditoría (solo edición) -->
-        <div th:if="${responsable.idResponsable != null and esAdmin == true}" class="small text-muted mb-2">
-            <i class="fa-solid fa-user-clock me-1"></i> Registrado
-            <th:block th:if="${registradoPor != null}">por <strong th:text="${registradoPor}"></strong></th:block>
-            <th:block th:if="${responsable.registro != null}" th:text="${'el ' + #dates.format(responsable.registro, 'dd/MM/yyyy HH:mm')}"></th:block>
-            <th:block th:if="${modificadoPor != null}">
-                · última modificación por <strong th:text="${modificadoPor}"></strong>
-                <th:block th:if="${responsable.modificacion != null}" th:text="${'el ' + #dates.format(responsable.modificacion, 'dd/MM/yyyy HH:mm')}"></th:block>
-            </th:block>
+    <input type="hidden" name="idResponsableEnc" th:if="${idEnc != null}" th:value="${idEnc}">
+
+    <div class="sm-modal-cuerpo">
+
+        <!-- Auditoría (solo edición, solo administradores) -->
+        <div th:if="${responsable.idResponsable != null and esAdmin == true}" class="sm-auditoria">
+            <i class="ti ti-history"></i>
+            <span>
+                Registrado
+                <th:block th:if="${registradoPor != null}">por <strong th:text="${registradoPor}"></strong></th:block>
+                <th:block th:if="${responsable.registro != null}" th:text="${'el ' + #dates.format(responsable.registro, 'dd/MM/yyyy HH:mm')}"></th:block>
+                <th:block th:if="${modificadoPor != null}">
+                    · última modificación por <strong th:text="${modificadoPor}"></strong>
+                    <th:block th:if="${responsable.modificacion != null}" th:text="${'el ' + #dates.format(responsable.modificacion, 'dd/MM/yyyy HH:mm')}"></th:block>
+                </th:block>
+            </span>
         </div>
 
-        <div th:if="${bloquearClave}" class="alert alert-info py-2 small mb-3">
-            <i class="fa-solid fa-lock me-1"></i> Tiene <strong th:text="${activosACargo}">0</strong> activo(s) a cargo...
+        <div th:if="${bloquearClave}" class="sm-aviso">
+            <i class="ti ti-lock"></i>
+            <div>Tiene <strong th:text="${activosACargo}">0</strong> activo(s) a cargo: la <b>oficina</b> y el
+                <b>código</b> no se pueden cambiar (en el VSIAF los bienes apuntan a esa clave). Para moverlo,
+                use una transferencia o registre un responsable nuevo.</div>
         </div>
 
-        <!-- SECCIÓN 1: Identificación -->
-        <div class="frm-section">
-            <div class="frm-section-header sh-blue">
-                <i class="fa-solid fa-id-card"></i> Identificación de la Persona
-            </div>
-            <div class="frm-section-body">
+        <!-- ── Persona ── -->
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-id"></i> Identificación de la persona</div>
+            <div class="sm-seccion-cuerpo">
                 <div class="row g-3">
-                    <!-- CORRECCIÓN: flex-wrap para que bajen de línea si no caben en móvil -->
-                    <div class="col-12">
-                        <label class="frm-label">C.I. / Documento <span class="text-danger">*</span></label>
-                        <div class="d-flex flex-wrap gap-2 align-items-center">
-                            <!-- flex-grow-1 para que el input ocupe el espacio disponible -->
-                            <input type="text" class="form-control form-control-sm flex-grow-1" id="txtCi" name="ci" maxlength="15"
-                                th:value="${responsable.persona?.ci}" placeholder="Número de carnet" style="min-width: 140px;" required>
-                            
-                            <select class="form-select form-select-sm" name="codExp" style="width: auto;" required>
-                                <option value="1" th:selected="${responsable.codExp == 1}">CHQ (1)</option>
-                                <option value="2" th:selected="${responsable.codExp == 2}">LPZ (2)</option>
-                                <option value="3" th:selected="${responsable.codExp == 3}">CBB (3)</option>
-                                <option value="4" th:selected="${responsable.codExp == 4}">ORU (4)</option>
-                                <option value="5" th:selected="${responsable.codExp == 5}">PTS (5)</option>
-                                <option value="6" th:selected="${responsable.codExp == 6}">TAR (6)</option>
-                                <option value="7" th:selected="${responsable.codExp == 7}">SCZ (7)</option>
-                                <option value="8" th:selected="${responsable.codExp == 8}">BEN (8)</option>
-                                <option value="9" th:selected="${responsable.codExp == 9}">PAN (9)</option>
-                            </select>
-                            
-                            <button class="btn btn-primary btn-sm px-3 flex-shrink-0" type="button" id="btnBuscarPersona">
-                                <i class="fa-solid fa-magnifying-glass me-1"></i> Buscar
-                            </button>
+                    <div class="col-12 col-md-7">
+                        <label class="sm-label" for="respCi">C.I. <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <div class="sm-input-grupo">
+                                <input type="text" class="sm-input" id="respCi" name="ci" maxlength="15"
+                                       th:value="${responsable.persona?.ci}" placeholder="Número de carnet" required />
+                                <button type="button" class="sm-btn sm-btn-neutro js-buscar-persona" title="Buscar a la persona por su C.I. (Enter)">
+                                    <i class="ti ti-search"></i> Buscar
+                                </button>
+                            </div>
+                            <div class="invalid-feedback">Ingrese el C.I.</div>
                         </div>
-                        <div id="personaStatus" class="mt-2 d-none"></div>
+                        <div class="sm-ayuda js-persona-estado"
+                             th:text="${responsable.idResponsable == null} ? 'Escriba el C.I. y pulse Buscar: si la persona ya existe se completan sus datos.' : ''"></div>
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <label class="sm-label" for="respExp">Expedido en <span class="sm-req">*</span></label>
+                        <select class="sm-select" id="respExp" name="codExp" required>
+                            <option value="1" th:selected="${responsable.codExp == 1}">CHQ · Chuquisaca</option>
+                            <option value="2" th:selected="${responsable.codExp == 2}">LPZ · La Paz</option>
+                            <option value="3" th:selected="${responsable.codExp == 3}">CBB · Cochabamba</option>
+                            <option value="4" th:selected="${responsable.codExp == 4}">ORU · Oruro</option>
+                            <option value="5" th:selected="${responsable.codExp == 5}">PTS · Potosí</option>
+                            <option value="6" th:selected="${responsable.codExp == 6}">TAR · Tarija</option>
+                            <option value="7" th:selected="${responsable.codExp == 7}">SCZ · Santa Cruz</option>
+                            <option value="8" th:selected="${responsable.codExp == 8}">BEN · Beni</option>
+                            <option value="9" th:selected="${responsable.codExp == 9}">PAN · Pando</option>
+                        </select>
                     </div>
 
                     <div class="col-12 col-md-4">
-                        <label class="frm-label">Nombres <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm input-persona" id="txtNombre" name="nombre" th:value="${responsable.persona?.nombre}" readonly required>
+                        <label class="sm-label" for="respNombre">Nombre(s) <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-user"></i>
+                            <input type="text" class="sm-input js-persona" id="respNombre" name="nombre"
+                                   th:value="${responsable.persona?.nombre}" required />
+                            <div class="invalid-feedback">Ingrese el nombre.</div>
+                        </div>
                     </div>
                     <div class="col-12 col-md-4">
-                        <label class="frm-label">Ap. Paterno <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm input-persona" id="txtPaterno" name="paterno" th:value="${responsable.persona?.paterno}" readonly required>
+                        <label class="sm-label" for="respPaterno">Apellido paterno <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-letter-p"></i>
+                            <input type="text" class="sm-input js-persona" id="respPaterno" name="paterno"
+                                   th:value="${responsable.persona?.paterno}" required />
+                            <div class="invalid-feedback">Ingrese el apellido paterno.</div>
+                        </div>
                     </div>
                     <div class="col-12 col-md-4">
-                        <label class="frm-label">Ap. Materno</label>
-                        <input type="text" class="form-control form-control-sm input-persona" id="txtMaterno" name="materno" th:value="${responsable.persona?.materno}" readonly>
+                        <label class="sm-label" for="respMaterno">Apellido materno</label>
+                        <div class="sm-campo">
+                            <i class="ti ti-letter-m"></i>
+                            <input type="text" class="sm-input js-persona" id="respMaterno" name="materno"
+                                   th:value="${responsable.persona?.materno}" />
+                        </div>
                     </div>
-                    <div class="col-12 col-md-8">
-                        <label class="frm-label">Correo Electrónico</label>
-                        <input type="email" class="form-control form-control-sm input-persona" name="correo" th:value="${responsable.persona?.correo}" placeholder="opcional@correo.com" readonly>
+                    <!-- El VSIAF guarda el nombre completo en un solo campo de 35 caracteres -->
+                    <div class="col-12" id="respContadorNombre"></div>
+                    <div class="col-12">
+                        <label class="sm-label" for="respCorreo">Correo electrónico</label>
+                        <div class="sm-campo">
+                            <i class="ti ti-mail"></i>
+                            <input type="email" class="sm-input js-persona" id="respCorreo" name="correo" data-sm-mayus="no"
+                                   th:value="${responsable.persona?.correo}" placeholder="opcional@uap.edu.bo" />
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- SECCIÓN 2: Asignación Institucional -->
-        <div class="frm-section">
-            <div class="frm-section-header sh-green">
-                <i class="fa-solid fa-building-user"></i> Asignación Institucional
-            </div>
-            <div class="frm-section-body">
+        <!-- ── Asignación ── -->
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-building"></i> Asignación institucional</div>
+            <div class="sm-seccion-cuerpo">
                 <div class="row g-3">
                     <div class="col-12">
-                        <label class="frm-label">Oficina <span class="text-danger">*</span></label>
-                        <div class="d-flex gap-2 align-items-center">
-                            <!-- CORRECCIÓN CLAVE: min-width: 0 evita que el select2 rompa el borde en móviles -->
-                            <div class="flex-grow-1" style="min-width: 0;">
-                                <select id="selectOficinaForm" name="idOficina" required th:disabled="${bloquearClave}">
-                                    <option value="">Buscar oficina…</option>
-                                    <option th:each="of : ${oficinas}" th:value="${of.idOficina}"
-                                        th:text="${of.predio.unidad + ' — ' + of.codOfi + ' | ' + of.nombre}"
-                                        th:selected="${responsable.oficina?.idOficina == of.idOficina}">
-                                    </option>
-                                </select>
+                        <label class="sm-label" for="respOficina">Oficina <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <div class="sm-input-grupo">
+                                <div class="flex-grow-1" style="min-width:0;">
+                                    <select id="respOficina" name="idOficina" required th:disabled="${bloquearClave}"
+                                            data-placeholder="Busque por unidad, código o nombre de la oficina">
+                                        <option value="">Busque la oficina…</option>
+                                        <option th:if="${responsable.oficina != null}" th:value="${responsable.oficina.idOficina}"
+                                                th:text="${oficinaTexto}" selected></option>
+                                    </select>
+                                </div>
+                                <button th:unless="${bloquearClave}" type="button" class="sm-btn sm-btn-exito sm-btn-icono js-nueva-oficina"
+                                        title="Registrar una oficina nueva"><i class="ti ti-plus"></i></button>
                             </div>
-                            <input th:if="${bloquearClave}" type="hidden" name="idOficina" th:value="${responsable.oficina?.idOficina}">
-                            <button th:unless="${bloquearClave}" class="btn btn-success btn-sm flex-shrink-0" type="button" id="btnNuevaOficina" title="Registrar nueva oficina">
-                                <i class="fa-solid fa-plus"></i>
-                            </button>
+                            <div class="invalid-feedback">Elija la oficina.</div>
                         </div>
+                        <input th:if="${bloquearClave}" type="hidden" name="idOficina" th:value="${responsable.oficina?.idOficina}">
                     </div>
 
                     <div class="col-12">
-                        <label class="frm-label">Cargo <span class="text-danger">*</span></label>
-                        <div class="d-flex gap-2 align-items-center">
-                            <!-- CORRECCIÓN CLAVE: min-width: 0 aquí también -->
-                            <div class="flex-grow-1" style="min-width: 0;">
-                                <select id="selectCargo" name="cargoApi" required>
-                                    <option value="">Seleccione o escriba un cargo…</option>
-                                    <option th:if="${responsable.cargo != null}" th:value="${responsable.cargo.nombre}" th:text="${responsable.cargo.nombre}" selected></option>
-                                </select>
-                            </div>
-                            <button class="btn btn-info text-white btn-sm flex-shrink-0 text-nowrap" type="button" id="btnNuevoCargo">
-                                <i class="fa-solid fa-plus me-1"></i> <span class="d-none d-sm-inline">Nuevo</span>
-                            </button>
+                        <label class="sm-label" for="respCargo">Cargo <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <select id="respCargo" name="cargoApi" required data-placeholder="Busque el cargo o escriba uno nuevo">
+                                <option value="">Busque el cargo…</option>
+                                <option th:if="${responsable.cargo != null}" th:value="${responsable.cargo.nombre}"
+                                        th:text="${responsable.cargo.nombre}" selected></option>
+                            </select>
+                            <div class="invalid-feedback">Elija o escriba el cargo.</div>
                         </div>
+                        <div class="sm-ayuda">Si no está en la lista, escríbalo y pulse Enter: se crea al guardar (máx. 40 caracteres).</div>
                     </div>
 
                     <div class="col-12 col-md-5">
-                        <label class="frm-label">Cód. Funcionario <span class="text-danger">*</span></label>
-                        <div class="input-group input-group-sm">
-                            <input type="text" class="form-control" id="txtCodFun" name="codigoFuncionario" th:value="${responsable.codigoFuncionario}" required th:readonly="${bloquearClave}">
-                            <button th:unless="${bloquearClave}" class="btn btn-outline-secondary" type="button" id="btnSugerir">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i>
-                            </button>
+                        <label class="sm-label" for="respCodFun">Código de funcionario <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <div class="sm-input-grupo">
+                                <input type="text" class="sm-input" id="respCodFun" name="codigoFuncionario" maxlength="6"
+                                       th:value="${responsable.codigoFuncionario}" required th:readonly="${bloquearClave}" />
+                                <button th:unless="${bloquearClave}" type="button" class="sm-btn sm-btn-neutro sm-btn-icono js-sugerir"
+                                        title="Siguiente código libre en la oficina"><i class="ti ti-wand"></i></button>
+                            </div>
+                            <div class="invalid-feedback">Ingrese el código.</div>
                         </div>
+                        <div class="sm-ayuda">Se sugiere solo al elegir la oficina. No puede repetirse en la misma oficina.</div>
                     </div>
-
                     <div class="col-12 col-md-7">
-                        <label class="frm-label">Código API <span class="text-muted fw-normal">(opcional)</span></label>
-                        <input type="text" class="form-control form-control-sm" name="codigoApi" th:value="${responsable.codigoApi}">
+                        <label class="sm-label" for="respCodApi">Código API <span class="text-muted fw-normal">(opcional)</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-hash"></i>
+                            <input type="text" class="sm-input" id="respCodApi" name="codigoApi" th:value="${responsable.codigoApi}" />
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </form>
-</div>
+    </div>
 
-<!-- /modal-body -->
-
-<!-- ── Footer ─────────────────────────────────────────── -->
-<div class="modal-footer border-0 bg-light py-2 px-4">
-    <small class="text-muted me-auto" style="font-size:0.72rem;">
-        <i class="fa-solid fa-circle-info me-1"></i>
-        Los campos marcados con <span class="text-danger">*</span> son obligatorios
-    </small>
-    <button type="button" class="btn btn-outline-secondary btn-sm px-4" data-bs-dismiss="modal">Cancelar</button>
-    <button type="button" class="btn btn-primary btn-sm px-4 fw-bold" id="btnGuardar">
-        <i class="fa-solid fa-floppy-disk me-1"></i> Guardar
-    </button>
-</div>
+    <div class="sm-modal-pie">
+        <span class="sm-nota"><span class="sm-req">*</span> Campo obligatorio</span>
+        <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal" id="btnCancelarResponsable">
+            <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button type="submit" class="sm-btn sm-btn-exito" id="btnGuardarResponsable">
+            <i class="ti ti-device-floppy"></i>
+            <span th:text="${responsable.idResponsable != null} ? 'Guardar cambios' : 'Registrar responsable'">Guardar</span>
+        </button>
+    </div>
+</form>
 
 <script>
-    /* ── Formulario de responsable ─────────────────────────
-       Select2 se inicializa con setTimeout(100) para evitar
-       que el evento de apertura del modal sea captado como
-       una selección inmediata (bug Bootstrap5 + Select2).
-       ────────────────────────────────────────────────────── */
     (function () {
+        const URL = '/administracion/responsable';
+        const $form = $('#formResponsable');
+        const $modal = $form.closest('.modal');
+        const esEdicion = $form.find('input[name="idResponsableEnc"]').length > 0;
+        const esc = SciafModulo.escapar;
+        const $ci = $('#respCi'), $estado = $form.find('.js-persona-estado');
+        const $persona = $form.find('.js-persona');
+        const $oficina = $('#respOficina'), $cargo = $('#respCargo'), $codFun = $('#respCodFun');
 
-        const $modal = $('#modalFormularioResponsable');
-        const esEdicion = !!(+$('input[name="idResponsable"]').val());
+        const idioma = {
+            noResults: () => 'Sin resultados',
+            searching: () => 'Buscando…',
+            errorLoading: () => 'No se pudo buscar',
+            inputTooShort: () => 'Escriba para buscar'
+        };
 
-        // En el VSIAF el nombre completo va en un solo campo de 35 caracteres: se muestra
-        // cuánto se lleva usado para que nadie se entere del recorte después.
-        const contadorNombre = window.sciafContador
-            ? sciafContador.combinado(['#txtNombre', '#txtPaterno', '#txtMaterno'], 35)
+        /* ── Oficina: busca mientras se escribe ────────────────────────── */
+        $oficina.select2({
+            dropdownParent: $modal,
+            width: '100%',
+            placeholder: $oficina.data('placeholder'),
+            allowClear: true,
+            language: idioma,
+            ajax: {
+                url: URL + '/api/oficinas/opciones',
+                dataType: 'json',
+                delay: 250,
+                data: p => ({ q: p.term || '' }),
+                processResults: data => ({ results: data }),
+                cache: true
+            }
+        });
+
+        /* ── Cargo: busca o se escribe uno nuevo (en MAYÚSCULAS, máx. 40) ── */
+        $cargo.select2({
+            dropdownParent: $modal,
+            width: '100%',
+            placeholder: $cargo.data('placeholder'),
+            allowClear: true,
+            tags: true,
+            language: idioma,
+            createTag: p => {
+                const t = (p.term || '').trim().toLocaleUpperCase('es');
+                return t ? { id: t, text: t, newTag: true } : null;
+            },
+            templateResult: d => d.newTag ? $('<span>').text('Nuevo cargo: ' + d.text) : d.text,
+            ajax: {
+                url: '/api/cargos/search',
+                dataType: 'json',
+                delay: 250,
+                data: p => ({ q: p.term || '' }),
+                processResults: data => ({ results: data.map(c => ({ id: c.nombre, text: c.nombre })) }),
+                cache: true
+            }
+        });
+        $form.on('select2:select select2:clear', 'select', function () { $(this).removeClass('is-invalid'); });
+
+        /* ── Persona por C.I. ─────────────────────────────────────────────
+           Alta: los datos de la persona se completan al encontrarla (y quedan de solo
+           lectura: se corrigen en Personas); si no existe, se escriben. Edición: libres. */
+        function bloquearPersona(si) {
+            $persona.prop('readonly', si);
+        }
+        if (!esEdicion) bloquearPersona(true);
+
+        let ciBuscado = esEdicion ? ($ci.val() || '').trim() : null;
+        async function buscarPersona() {
+            const ci = ($ci.val() || '').trim();
+            if (!ci) { $ci.addClass('is-invalid').trigger('focus'); return; }
+            const $b = $form.find('.js-buscar-persona');
+            const html = $b.html();
+            $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+            try {
+                const r = await SciafModulo.pedir(URL + '/api/personas/buscar-por-ci?ci=' + encodeURIComponent(ci), { metodo: 'GET' });
+                ciBuscado = ci;
+                if (r.ok) {
+                    const p = await r.json();
+                    $('#respNombre').val(p.nombre || '');
+                    $('#respPaterno').val(p.paterno || '');
+                    $('#respMaterno').val(p.materno || '');
+                    $persona.removeClass('is-invalid').trigger('input');
+                    if (!esEdicion) bloquearPersona(true);
+                    $estado.html('<span class="text-success"><i class="ti ti-circle-check"></i> Persona encontrada: datos completados.'
+                        + (esEdicion ? '' : ' Para corregirlos use el módulo Personas.') + '</span>');
+                    $oficina.select2('open');
+                } else if (r.status === 404) {
+                    if (!esEdicion) { $persona.val(''); bloquearPersona(false); }
+                    $estado.html('<span class="text-warning"><i class="ti ti-user-plus"></i> No está registrada: complete sus datos y se crea al guardar.</span>');
+                    $('#respNombre').trigger('focus');
+                } else {
+                    throw new Error(SciafPrecarga.motivo(r.status));
+                }
+            } catch (e) {
+                SciafModulo.avisarError(e, 'No se pudo buscar a la persona');
+            } finally {
+                $b.prop('disabled', false).html(html);
+            }
+        }
+        $form.on('click', '.js-buscar-persona', buscarPersona);
+        $ci.on('keydown', e => { if (e.key === 'Enter') buscarPersona(); });
+        // Cambiar el C.I. después de buscar obliga a buscar de nuevo (en el alta).
+        $ci.on('input', function () {
+            if (esEdicion || ciBuscado === null) return;
+            // Sin distinguir mayúsculas: la plantilla las convierte después de este aviso.
+            if ((this.value || '').trim().toUpperCase() !== ciBuscado.toUpperCase()) {
+                ciBuscado = null;
+                $persona.val('').trigger('input');
+                bloquearPersona(true);
+                $estado.text('Pulse Buscar para traer los datos de este C.I.');
+            }
+        });
+
+        /* ── Código de funcionario sugerido ─────────────────────────────── */
+        function sugerirCodigo(idOficina) {
+            if (!idOficina) { Swal.fire('Atención', 'Elija primero la oficina.', 'warning'); return; }
+            $.get(URL + '/obtener-siguiente-codigo-funcionario', { idOficina }, function (cod) {
+                $codFun.val(cod).removeClass('is-invalid').addClass('sm-nuevo');
+                setTimeout(() => $codFun.removeClass('sm-nuevo'), 900);
+            });
+        }
+        $oficina.on('select2:select', function () { if (!$codFun.prop('readonly')) sugerirCodigo(this.value); });
+        $form.on('click', '.js-sugerir', () => sugerirCodigo($oficina.val()));
+
+        /* ── Oficina nueva (formulario de Oficina embebido, encima de este) ── */
+        $form.on('click', '.js-nueva-oficina', function () {
+            const $modal2 = $('#modalFormularioOficina');
+            const $cont2 = $('#prediocontenidoModalOficina');
+            let idNueva = null;
+            $(document).off('oficina:registrada.respForm').one('oficina:registrada.respForm', (e, res) => { idNueva = res && res.id; });
+            $modal2.one('shown.bs.modal', function () {
+                $('.modal-backdrop').last().css('z-index', '1065');
+                $modal2.css('z-index', '1075');
+            });
+            $modal2.one('hidden.bs.modal', function () {
+                $(document).off('oficina:registrada.respForm');
+                if (!idNueva) return;
+                // La recién creada queda elegida (y con su primer código sugerido).
+                $.getJSON(URL + '/api/oficinas/opciones', { id: idNueva }, function (data) {
+                    if (!data.length) return;
+                    $oficina.append(new Option(data[0].text, data[0].id, true, true)).trigger('change');
+                    $oficina.removeClass('is-invalid');
+                    sugerirCodigo(data[0].id);
+                });
+            });
+            SciafModulo.abrirFormulario($modal2, $cont2, '/administracion/oficina/formulario', { embebido: true },
+                'Preparando el formulario de oficina…');
+        });
+
+        /* ── Nombre: 35 caracteres en el VSIAF ──────────────────────────── */
+        const contador = window.sciafContador
+            ? sciafContador.combinado(['#respNombre', '#respPaterno', '#respMaterno'], 35, { contenedor: '#respContadorNombre' })
             : null;
 
-        /* ── Modo edición: habilitar campos persona ──────── */
-        if (esEdicion) {
-            $('.input-persona').prop('readonly', false).css('background-color', '#fff');
-            $('#txtCi').prop('readonly', false);
+        function nombreCompleto() {
+            return [$('#respNombre').val(), $('#respPaterno').val(), $('#respMaterno').val()]
+                .map(v => (v || '').trim()).filter(Boolean).join(' ');
         }
 
-        setTimeout(function () {
-
-            // ── NO se necesita el handler focusin ──────────────────
-            // Con dropdownParent: $modal el dropdown está dentro del 
-            // modal → Bootstrap no roba el foco → se puede escribir.
-            // Limpiamos cualquier handler anterior por si quedó uno.
-            $(document).off('focusin.select2ModalFix');
-
-            // ── Select2 Oficina ─────────────────────────────────────
-            $('#selectOficinaForm').select2({
-                theme: 'bootstrap-5',
-                dropdownParent: $modal,          // ← de vuelta al modal
-                width: '100%',
-                placeholder: 'Buscar oficina…',
-                allowClear: true,
-                language: { noResults: () => 'Sin resultados', searching: () => 'Buscando…' }
-            });
-
-            // ── Select2 Cargo ───────────────────────────────────────
-            $('#selectCargo').select2({
-                theme: 'bootstrap-5',
-                dropdownParent: $modal,          // ← de vuelta al modal
-                width: '100%',
-                tags: true,
-                placeholder: 'Busque o escriba un cargo…',
-                allowClear: true,
-                language: { noResults: () => 'Sin resultados', searching: () => 'Buscando…' },
-                ajax: {
-                    url: '/api/cargos/search',
-                    dataType: 'json',
-                    delay: 250,
-                    data: params => ({ q: params.term }),
-                    processResults: data => ({
-                        results: data.map(c => ({ id: c.nombre, text: c.nombre }))
-                    }),
-                    cache: true
+        SciafModulo.formulario({
+            form: $form,
+            modal: $modal,
+            guardar: '#btnGuardarResponsable',
+            cancelar: '#btnCancelarResponsable',
+            textoGuardando: esEdicion ? 'Guardando…' : 'Registrando…',
+            msgExito: esEdicion ? 'Responsable modificado' : 'Responsable registrado',
+            validar: function () {
+                if (!esEdicion && ciBuscado === null && ($ci.val() || '').trim()) {
+                    Swal.fire('Busque a la persona', 'Pulse «Buscar» para ver si la persona con ese C.I. ya está registrada.', 'info');
+                    return false;
                 }
-            });
-
-            $modal.on('mousedown', '.select2-selection__clear', function (e) {
-                e.stopPropagation();
-            });
-
-        }, 100);
-
-        /* ── Buscar persona por CI ───────────────────────── */
-        $('#btnBuscarPersona').on('click', function () {
-            const ci = $('#txtCi').val().trim();
-            if (!ci) { Swal.fire('Atención', 'Ingrese el número de CI primero.', 'warning'); return; }
-
-            $(this).html('<i class="fa-solid fa-spinner fa-spin"></i>').prop('disabled', true);
-
-            $.ajax({
-                url: '/administracion/responsable/api/personas/buscar-por-ci',
-                data: { ci },
-                success: function (p) {
-                    $('#txtNombre').val(p.nombre);
-                    $('#txtPaterno').val(p.paterno);
-                    $('#txtMaterno').val(p.materno);
-                    $('.input-persona').prop('readonly', true).css('background-color', '#f8f9fa');
-                    $('#personaStatus')
-                        .removeClass('d-none')
-                        .html(`<div class="persona-status found">
-                               <i class="fa-solid fa-circle-check"></i>
-                               Persona encontrada — campos completados automáticamente.
-                           </div>`);
-                },
-                error: function () {
-                    $('.input-persona').val('').prop('readonly', false).css('background-color', '#fff');
-                    $('#txtNombre').focus();
-                    $('#personaStatus')
-                        .removeClass('d-none')
-                        .html(`<div class="persona-status notfound">
-                               <i class="fa-solid fa-pen"></i>
-                               Persona nueva — complete los datos manualmente.
-                           </div>`);
-                },
-                complete: function () {
-                    $('#btnBuscarPersona')
-                        .html('<i class="fa-solid fa-magnifying-glass me-1"></i> Buscar')
-                        .prop('disabled', false);
+                if (contador && contador.excede()) {
+                    // En un alta se corrige antes de guardar; en un registro viejo se avisa sin trabar.
+                    if (!esEdicion) { Swal.fire('Nombre demasiado largo', contador.mensaje(), 'warning'); return false; }
+                    Swal.fire({ toast: true, position: 'top-end', icon: 'warning', showConfirmButton: false, timer: 4000,
+                        title: 'El VSIAF recortará el nombre a 35 caracteres' });
                 }
-            });
-        });
-
-        /* ── Nueva oficina ───────────────────────────────── */
-        $('#btnNuevaOficina').on('click', function () {
-
-            showGlobalLoader({ texto: 'Cargando formulario de oficina…' });
-
-            $('#prediocontenidoModalOficina').load('/administracion/oficina/formulario?embebido=true', function (response, status) {
-                hideGlobalLoader();
-
-                if (status === 'error') {
-                    Swal.fire('Error', 'No se pudo cargar el formulario de oficina.', 'error');
-                    return;
+                if (($cargo.val() || '').trim().length > 40) {
+                    $cargo.addClass('is-invalid');
+                    Swal.fire('Cargo demasiado largo', 'El cargo no puede pasar de 40 caracteres (largo del campo en el VSIAF).', 'warning');
+                    return false;
                 }
-
-                const $modal2 = $('#modalFormularioOficina');
-
-                // ← shown.bs.modal (con N): dispara cuando la animación YA terminó
-                //   y el backdrop ya está en el DOM → z-index seguro
-                $modal2.one('shown.bs.modal', function () {
-                    $('.modal-backdrop').last().css('z-index', '1065');
-                    $modal2.css('z-index', '1075');
-                });
-
-                // El formulario de oficina avisa con el id de la recién creada: se preselecciona esa.
-                let idNueva = null;
-                $(document).off('oficina:registrada.respForm').one('oficina:registrada.respForm', function (e, res) {
-                    idNueva = res && res.id;
-                });
-
-                $modal2.modal('show');
-
-                $modal2.one('hidden.bs.modal', function () {
-                    $(document).off('oficina:registrada.respForm');
-                    if (idNueva) recargarSelectOficinas(idNueva);
-                });
-            });
-        });
-
-        function recargarSelectOficinas(idSeleccionar) {
-            showGlobalLoader({ texto: 'Actualizando lista de oficinas…' });
-
-            $.get('/administracion/responsable/api/oficinas/list-select', function (data) {
-                hideGlobalLoader();
-
-                const currentVal = $('#selectOficinaForm').val();
-
-                // 1) Destruir Select2 antes de tocar el DOM del <select>
-                if ($('#selectOficinaForm').hasClass('select2-hidden-accessible')) {
-                    $('#selectOficinaForm').select2('destroy');
+                return true;
+            },
+            confirmacion: function () {
+                const ofi = $oficina.find('option:selected').text() || '';
+                return {
+                    titulo: esEdicion ? '¿Guardar los cambios?' : '¿Registrar al responsable?',
+                    texto: '<b>' + esc(nombreCompleto()) + '</b><br>' + esc(ofi) + ' · ' + esc($cargo.val() || '')
+                        + '<br><small class="text-muted">Se guarda en el SCIAF y se envía al VSIAF.</small>',
+                    aceptar: esEdicion ? 'Sí, guardar' : 'Sí, registrar'
+                };
+            },
+            interceptar: function (res, api) {
+                // Cambiar oficina o código sin rol administrativo: va como solicitud con motivo.
+                if (res && res.requiereAutorizacion) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Requiere autorización',
+                        html: '<div class="text-start small mb-2">' + esc(res.msg) + '</div>'
+                            + '<div class="text-start small text-muted">El pedido le llega al revisor; no se aplica nada hasta que lo apruebe. '
+                            + 'Le avisaremos aquí mismo cuando lo resuelva.</div>',
+                        input: 'textarea',
+                        inputPlaceholder: 'Motivo del cambio (obligatorio)',
+                        inputValidator: v => !(v || '').trim() ? 'Indique el motivo' : undefined,
+                        showCancelButton: true,
+                        confirmButtonText: 'Enviar solicitud',
+                        cancelButtonText: 'Cancelar'
+                    }).then(r => r.isConfirmed
+                        ? api.reenviar(null, { solicitarAutorizacion: true, motivoSolicitud: r.value })
+                        : api.cancelar());
+                    return true;
                 }
-
-                // 2) Reconstruir opciones
-                let opts = '<option value="">Buscar oficina…</option>';
-                data.forEach(function (o) {
-                    const label = $('<div>').text(o.predio.unidad + ' — ' + o.codOfi + ' | ' + o.nombre).html();
-                    const sel   = String(o.idOficina) === String(currentVal) ? ' selected' : '';
-                    opts += `<option value="${o.idOficina}"${sel}>${label}</option>`;
-                });
-                $('#selectOficinaForm').html(opts);
-
-                // 3) Reinicializar Select2 con la misma config del setTimeout original
-                $('#selectOficinaForm').select2({
-                    theme: 'bootstrap-5',
-                    dropdownParent: $modal,       // $modal = modal principal (ya definido arriba en el IIFE)
-                    width: '100%',
-                    placeholder: 'Buscar oficina…',
-                    allowClear: true,
-                    language: {
-                        noResults: () => 'Sin resultados',
-                        searching: () => 'Buscando…'
-                    }
-                });
-
-                // 4) Preseleccionar la oficina recién creada y sugerir el primer código
-                if (idSeleccionar) {
-                    $('#selectOficinaForm').val(String(idSeleccionar)).trigger('change');
-                    sugerirCodigo(idSeleccionar);
+                // Personas con nombre parecido y ninguna con ese C.I.: confirmar antes de crear otra.
+                if (res && res.requireConfirmacion) {
+                    const lista = (res.personasCoincidentes || []).map(p =>
+                        '<li>' + esc(p.nombreCompleto) + ' <span class="text-muted">(C.I. ' + esc(p.ci || 'sin C.I.') + ')</span></li>').join('');
+                    Swal.fire({
+                        icon: 'question',
+                        title: 'Personas con nombre parecido',
+                        html: '<div class="text-start small">Ya están registradas:<ul class="mt-2">' + lista + '</ul>'
+                            + 'Si es otra persona, regístrela igual. Si es una de estas, cancele y búsquela por su C.I.</div>',
+                        showCancelButton: true,
+                        confirmButtonText: 'Es otra persona: registrar',
+                        cancelButtonText: 'Cancelar'
+                    }).then(r => r.isConfirmed ? api.reenviar(URL + '/registrar-responsable-forzado') : api.cancelar());
+                    return true;
                 }
-
-            }).fail(function () {
-                hideGlobalLoader();
-                Swal.fire('Error', 'No se pudieron actualizar las oficinas.', 'error');
-            });
-        }
-
-        /* ── Nuevo cargo ──────────────────────────────────
-           El diálogo se abre sobre el modal del formulario; que ahí se pueda escribir lo
-           resuelve sciaf-modales.js (Bootstrap le quitaba el foco al campo). */
-        $('#btnNuevoCargo').on('click', function () {
-            Swal.fire({
-                title: 'Nuevo Cargo',
-                input: 'text',
-                inputLabel: 'Nombre del cargo (máx. 40 caracteres)',
-                inputPlaceholder: 'Ej: DIRECTOR DE SISTEMAS',
-                inputAttributes: { maxlength: 40, autocapitalize: 'characters' },
-                showCancelButton: true,
-                confirmButtonText: 'Usar',
-                cancelButtonText: 'Cancelar',
-                didOpen: () => { const i = Swal.getInput(); if (i) i.focus(); },
-                preConfirm: val => {
-                    const t = (val || '').trim();
-                    if (!t) { Swal.showValidationMessage('Escriba un nombre de cargo'); return false; }
-                    // 40 es el largo del campo CARGO en RESP.DBF: más largo, el VSIAF lo corta.
-                    if (t.length > 40) { Swal.showValidationMessage('El cargo no puede pasar de 40 caracteres'); return false; }
-                    return t.toUpperCase();
+                return false;
+            },
+            alGuardar: function (res) {
+                if (res.solicitud) {
+                    Swal.fire({ icon: 'info', title: 'Solicitud enviada', text: res.msg, timer: 5000, showConfirmButton: false });
+                } else if (res.vsiafOk === false) {
+                    Swal.fire('Guardado, pero no llegó al VSIAF', res.msg, 'warning');
                 }
-            }).then(res => {
-                if (res.isConfirmed) {
-                    const opt = new Option(res.value, res.value, true, true);
-                    $('#selectCargo').append(opt).trigger('change');
-                }
-            });
-        });
-
-        /* ── Autogenerar código funcionario ─────────────── */
-        $('#selectOficinaForm').on('select2:select', function () {
-            sugerirCodigo($(this).val());
-        });
-        $('#btnSugerir').on('click', function () {
-            const id = $('#selectOficinaForm').val();
-            if (id) sugerirCodigo(id);
-            else Swal.fire('Atención', 'Seleccione una oficina primero.', 'warning');
-        });
-
-        function sugerirCodigo(idOficina) {
-            $.get('/administracion/responsable/obtener-siguiente-codigo-funcionario',
-                { idOficina }, function (cod) {
-                    $('#txtCodFun').val(cod)
-                        .addClass('bg-warning-subtle');
-                    setTimeout(() => $('#txtCodFun').removeClass('bg-warning-subtle'), 600);
-                });
-        }
-
-        /* ── Guardar ─────────────────────────────────────── */
-        let guardando = false;
-
-        $('#btnGuardar').on('click', function () {
-            if (guardando) return;                 // anti doble-click
-            if (!$('#formResponsable')[0].checkValidity()) {
-                $('#formResponsable')[0].reportValidity();
-                return;
             }
-            if (contadorNombre && contadorNombre.excede()) {
-                // En un alta se corrige antes de guardar; en una edición de un registro
-                // viejo se avisa, pero no se le traba el trabajo al usuario.
-                if (!esEdicion) { Swal.fire('Nombre demasiado largo', contadorNombre.mensaje(), 'warning'); return; }
-                Swal.fire({ toast: true, position: 'top-end', icon: 'warning',
-                    title: 'El VSIAF recortará el nombre a 35 caracteres',
-                    showConfirmButton: false, timer: 4000 });
-            }
-            const cargo = ($('#selectCargo').val() || '').trim();
-            if (cargo.length > 40) {
-                Swal.fire('Atención', 'El cargo no puede tener más de 40 caracteres (largo del campo en el VSIAF).', 'warning');
-                return;
-            }
-
-            const idEnc = $('input[name="idResponsableEnc"]').val();
-            const url = idEnc
-                ? '/administracion/responsable/modificar-responsable'
-                : '/administracion/responsable/registrar-responsable';
-            enviar(url, $('#formResponsable').serialize(), !!idEnc);
         });
 
-        function pedirAutorizacion(url, datos, msg) {
-            Swal.fire({
-                icon: 'info',
-                title: 'Requiere autorización',
-                html: `<div class="text-start small mb-2">${$('<div>').text(msg).html()}</div>
-                       <div class="text-start small text-muted">Su pedido le llega al revisor. No se aplica nada hasta que lo apruebe;
-                       le avisaremos aquí mismo cuando lo resuelva.</div>`,
-                input: 'textarea',
-                inputPlaceholder: 'Motivo del cambio (obligatorio)',
-                inputValidator: v => !(v || '').trim() ? 'Indique el motivo' : undefined,
-                showCancelButton: true,
-                confirmButtonText: 'Enviar solicitud',
-                cancelButtonText: 'Cancelar'
-            }).then(r => {
-                if (r.isConfirmed) enviar(url, datos + '&' + $.param({ solicitarAutorizacion: true, motivoSolicitud: r.value }), true);
-            });
-        }
-
-        function enviar(url, datos, esEdit) {
-            guardando = true;
-            $('#btnGuardar').prop('disabled', true);
-            showGlobalLoader({ texto: esEdit ? 'Actualizando responsable…' : 'Registrando responsable…' });
-
-            $.ajax({
-                type: 'POST',
-                url,
-                data: datos,
-                success: function (res) {
-                    terminar();
-                    if (res.requiereAutorizacion) { pedirAutorizacion(url, datos, res.msg); return; }
-                    if (res.ok && res.solicitud) {
-                        $modal.modal('hide');
-                        $('#data-table').DataTable().ajax.reload(null, false);
-                        Swal.fire({ icon: 'info', title: 'Solicitud enviada', text: res.msg, timer: 5000, showConfirmButton: false });
-                        return;
-                    }
-                    if (res.ok) {
-                        $modal.modal('hide');
-                        $('#data-table').DataTable().ajax.reload(null, false);
-                        if (res.vsiafOk === false) {
-                            Swal.fire('Guardado, pero no llegó al VSIAF', res.msg, 'warning');
-                        } else {
-                            Swal.fire({
-                                toast: true, position: 'top-end', icon: 'success',
-                                title: res.msg, showConfirmButton: false, timer: 4000
-                            });
-                        }
-                    } else {
-                        Swal.fire('Atención', res.msg, 'error');
-                    }
-                },
-                error: function (xhr) {
-                    terminar();
-                    // Personas con nombre parecido y ninguna con ese CI: preguntar antes de crear otra.
-                    if (xhr.status === 409 && xhr.responseJSON && xhr.responseJSON.requireConfirmacion) {
-                        const lista = (xhr.responseJSON.personasCoincidentes || [])
-                            .map(p => `<li>${$('<div>').text(p.nombreCompleto).html()} <span class="text-muted">(CI: ${$('<div>').text(p.ci || 'sin CI').html()})</span></li>`)
-                            .join('');
-                        Swal.fire({
-                            icon: 'question',
-                            title: 'Personas con nombre similar',
-                            html: `<div class="text-start small">Ya hay registradas:<ul class="mt-2">${lista}</ul>
-                                   Si es otra persona, créela igual. Si es una de estas, cancele y búsquela por su C.I.</div>`,
-                            showCancelButton: true,
-                            confirmButtonText: 'Es otra persona: crear',
-                            cancelButtonText: 'Cancelar'
-                        }).then(r => {
-                            if (r.isConfirmed) enviar('/administracion/responsable/registrar-responsable-forzado', datos, false);
-                        });
-                        return;
-                    }
-                    Swal.fire('Error', xhr.responseJSON?.msg || 'Error desconocido', 'error');
-                }
-            });
-        }
-
-        function terminar() {
-            guardando = false;
-            $('#btnGuardar').prop('disabled', false);
-            hideGlobalLoader();
-        }
-
+        // Cursor listo para escribir.
+        const $primero = esEdicion ? $('#respNombre') : $ci;
+        if ($modal.hasClass('show')) $primero.trigger('focus');
+        else $modal.one('shown.bs.modal', () => $primero.trigger('focus'));
     })();
 </script>

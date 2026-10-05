@@ -51,6 +51,12 @@ public class PersonaServiceImpl implements IPersonaService {
     }
 
     @Override
+    public List<Persona> listarPorCi(String ci) {
+        if (ci == null || ci.isBlank()) return List.of();
+        return personaDao.listarPorCi(ci.trim().toUpperCase(java.util.Locale.ROOT));
+    }
+
+    @Override
     public List<Persona> buscarPersonaPorNombrePaternoMaterno(String nombre, String paterno, String materno) {
         return personaDao.buscarPersonaPorNombrePaternoMaterno(nombre, paterno, materno);
     }

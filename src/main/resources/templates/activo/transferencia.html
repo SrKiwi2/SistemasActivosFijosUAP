@@ -13,24 +13,27 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-    .tf-wrap {
-        --bg-page: #f0f2f5;
-        --bg-panel: #ffffff;
-        --bg-input: #f4f6fa;
-        --bg-hover: #f0f4ff;
-        --border-soft: #e4e8f0;
-        --border-med: #c9d0e0;
-        --border-focus: #3b5bdb;
-        --txt-primary: #1a2340;
-        --txt-sub: #5a6a8a;
-        --txt-muted: #8a93a8;
-        --accent: #3b5bdb;
-        --accent-lt: rgba(59, 91, 219, .09);
-        --accent-hov: #2f4ac7;
-        --green: #12b76a;
-        --green-lt: rgba(18, 183, 106, .10);
-        --red: #f04438;
-        --red-lt: rgba(240, 68, 56, .10);
+    /* Colores de la plantilla (sciaf-modulo.css): la pantalla toma el mismo azul, bordes y
+       superficies que el resto del sistema, y funciona en modo oscuro. Van en .tf-pantalla
+       (no en .tf-wrap) porque la cabecera, los modales y los avisos también los usan. */
+    .tf-pantalla {
+        --bg-page: transparent;
+        --bg-panel: var(--sm-superficie);
+        --bg-input: var(--sm-superficie-2);
+        --bg-hover: rgba(var(--sm-primario-rgb), .06);
+        --border-soft: var(--sm-borde);
+        --border-med: var(--sm-borde-fuerte);
+        --border-focus: var(--sm-primario);
+        --txt-primary: var(--sm-texto);
+        --txt-sub: var(--sm-texto-2);
+        --txt-muted: var(--sm-texto-2);
+        --accent: var(--sm-primario);
+        --accent-lt: rgba(var(--sm-primario-rgb), .09);
+        --accent-hov: var(--sm-primario-borde);
+        --green: var(--sm-exito);
+        --green-lt: rgba(var(--sm-exito-rgb), .10);
+        --red: var(--sm-peligro);
+        --red-lt: rgba(var(--sm-peligro-rgb), .10);
         --amber: #f79009;
         --amber-lt: rgba(247, 144, 9, .12);
         --orange: #ea580c;
@@ -52,24 +55,20 @@
         color: var(--txt-primary);
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 56px);
+        height: calc(100vh - 210px);
+        min-height: 420px;
         overflow: hidden;
-        background: var(--bg-page);
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--sm-radio, 14px);
+        box-shadow: var(--sm-sombra-card);
         font-size: 14px;
     }
+    /* Indicador interna / externa en la cabecera */
+    .tf-pantalla .sm-cabecera .tf-tipo-badge { font-size: 12px; }
+    .tf-pantalla .tf-mayus { text-transform: uppercase; }
 
-    /* ── Topbar ─────────────────────────────────────────── */
-    .tf-topbar {
-        height: 54px; flex-shrink: 0; background: var(--bg-panel);
-        border-bottom: 1px solid var(--border-soft); box-shadow: var(--sh-sm);
-        display: flex; align-items: center; gap: 12px; padding: 0 22px; z-index: 20;
-    }
-    .tf-topbar-icon {
-        width: 32px; height: 32px; background: var(--accent); border-radius: 7px;
-        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
-    .tf-topbar-icon svg { width: 16px; height: 16px; color: #fff; }
-    .tf-topbar-title { font-size: 16px; font-weight: 600; }
+    /* Indicador interna / externa (en la cabecera) */
     .tf-tipo-badge {
         display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px; border-radius: 100px;
         font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
@@ -77,7 +76,6 @@
     }
     .tf-tipo-badge.interna { background: var(--accent-lt); color: var(--accent); }
     .tf-tipo-badge.externa { background: var(--orange-lt); color: var(--orange); }
-    .tf-topbar-clock { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--txt-muted); }
 
     /* ── Controles ──────────────────────────────────────── */
     .tf-controls {
@@ -230,7 +228,7 @@
     @keyframes tfRot { to { transform: rotate(360deg) } }
     .tf-toasts { position: fixed; bottom: 18px; right: 18px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
     .tf-toast {
-        background: #fff; border: 1px solid #e4e8f0; border-radius: 9px; padding: 12px 16px;
+        background: var(--bg-panel); border: 1px solid var(--border-soft); color: var(--txt-primary); border-radius: 9px; padding: 12px 16px;
         min-width: 280px; max-width: 360px; box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
         display: flex; align-items: flex-start; gap: 10px; pointer-events: all; animation: tfTIn .22s ease both;
         font-family: 'Inter', system-ui, sans-serif;
@@ -239,8 +237,8 @@
     .tf-toast-s { border-left: 4px solid #12b76a; }
     .tf-toast-e { border-left: 4px solid #f04438; }
     .tf-toast-w { border-left: 4px solid #f79009; }
-    .tf-toast-ti { font-size: 13.5px; font-weight: 600; color: #1a2340; margin-bottom: 3px; }
-    .tf-toast-ms { font-size: 13px; color: #5a6a8a; line-height: 1.5; }
+    .tf-toast-ti { font-size: 13.5px; font-weight: 600; color: var(--txt-primary); margin-bottom: 3px; }
+    .tf-toast-ms { font-size: 13px; color: var(--txt-sub); line-height: 1.5; }
     .tf-modal-bg {
         position: fixed; inset: 0; background: rgba(26, 35, 64, .45); backdrop-filter: blur(4px);
         z-index: 300; display: flex; align-items: center; justify-content: center; opacity: 0;
@@ -248,12 +246,15 @@
     }
     .tf-modal-bg.on { opacity: 1; pointer-events: all; }
     .tf-modal {
-        background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .2);
+        background: var(--bg-panel); color: var(--txt-primary); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .2);
         width: 520px; max-width: 96vw; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
     }
-    .tf-modal-head { padding: 16px 20px; border-bottom: 1px solid #e4e8f0; display: flex; align-items: center; gap: 10px; }
+    .tf-modal-head { padding: 16px 20px; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; gap: 10px; }
     .tf-modal-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 13px; overflow-y: auto; }
-    .tf-modal-foot { padding: 13px 20px; border-top: 1px solid #e4e8f0; display: flex; gap: 9px; justify-content: flex-end; }
+    .tf-modal-foot { padding: 13px 20px; border-top: 1px solid var(--border-soft); display: flex; gap: 9px; justify-content: flex-end; }
+    .tf-modal .tf-group { display: flex; flex-direction: column; gap: 5px; }
+    .tf-modal .tf-lbl { font-size: 12px; font-weight: 600; color: var(--txt-sub); }
+    .tf-modal .tf-input { width: 100%; }
 
     /* Select2 del módulo */
     .tf-wrap .select2-container { width: 100% !important; }
@@ -272,23 +273,27 @@
     @media (max-width: 900px) {
         .tf-wrap { height: auto; overflow: visible; }
         .tf-row { flex-direction: column; align-items: stretch; }
-        .tf-topbar-clock { display: none; }
     }
 </style>
 
-<div class="tf-wrap">
+<div class="tf-pantalla sm-pagina" id="modTransferencia">
 
-    <header class="tf-topbar">
-        <div class="tf-topbar-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-        </div>
-        <span class="tf-topbar-title">Transferencia de Activos Fijos</span>
-        <span class="tf-tipo-badge" id="tf-tipo">Sin determinar</span>
-        <span class="tf-topbar-clock" id="tf-clock">—</span>
-    </header>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-arrows-exchange"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-arrows-exchange"></i> Transferencias <i class="ti ti-chevron-right"></i> Transferencia de activos
+        </nav>
+        <h1 class="sm-titulo">Transferencia de activos</h1>
+        <p class="sm-subtitulo">Cargue los activos, elija el destino y transfiera. Si cambian de predio la transferencia es externa y se reubica su auxiliar.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="tf-tipo-badge" id="tf-tipo" title="Lo decide el destino: otro predio = externa">Sin determinar</span>
+        <span class="sm-dato"><i class="ti ti-clock"></i> <span id="tf-clock">—</span></span>
+    </div>
+</header>
+
+<div class="tf-wrap">
 
     <div class="tf-controls">
 
@@ -349,7 +354,7 @@
                     <option value="">— Seleccione predio —</option>
                     <th:block th:each="p : ${predios}">
                         <option th:value="${p.idPredio}" th:attr="data-unidad=${p.unidad}"
-                                th:text="${p.descrip} + ' - ' + ${p.codigo}"></option>
+                                th:text="${p.unidad + ' — ' + (p.descrip ?: '')}"></option>
                     </th:block>
                 </select>
             </div>
@@ -384,7 +389,7 @@
         <div class="tf-row">
             <div class="tf-group" style="min-width:210px;">
                 <span class="tf-lbl">Documento / referencia</span>
-                <input class="tf-input" type="text" id="tf-doc-ref" placeholder="Ej: NOTA-2025-015" />
+                <input class="tf-input tf-mayus" type="text" id="tf-doc-ref" placeholder="Ej: NOTA-2025-015" />
             </div>
 
             <div class="tf-group grow">
@@ -468,7 +473,7 @@
             <div style="display:flex;gap:12px;">
                 <div class="tf-group" style="flex:1;">
                     <span class="tf-lbl">C.I. <span style="color:var(--red)">*</span></span>
-                    <input class="tf-input" type="text" id="tf-nr-ci" placeholder="Ej: 12345678" maxlength="15" />
+                    <input class="tf-input tf-mayus" type="text" id="tf-nr-ci" placeholder="Ej: 12345678" maxlength="15" />
                 </div>
                 <div class="tf-group" style="flex:1;">
                     <span class="tf-lbl">Cód. funcionario <span style="color:var(--red)">*</span></span>
@@ -477,16 +482,16 @@
             </div>
             <div class="tf-group">
                 <span class="tf-lbl">Nombre(s) <span style="color:var(--red)">*</span></span>
-                <input class="tf-input" type="text" id="tf-nr-nombre" placeholder="Ej: Juan Carlos" />
+                <input class="tf-input tf-mayus" type="text" id="tf-nr-nombre" placeholder="Ej: JUAN CARLOS" />
             </div>
             <div style="display:flex;gap:12px;">
                 <div class="tf-group" style="flex:1;">
                     <span class="tf-lbl">Paterno <span style="color:var(--red)">*</span></span>
-                    <input class="tf-input" type="text" id="tf-nr-paterno" placeholder="Apellido paterno" />
+                    <input class="tf-input tf-mayus" type="text" id="tf-nr-paterno" placeholder="Apellido paterno" />
                 </div>
                 <div class="tf-group" style="flex:1;">
                     <span class="tf-lbl">Materno</span>
-                    <input class="tf-input" type="text" id="tf-nr-materno" placeholder="(Opcional)" />
+                    <input class="tf-input tf-mayus" type="text" id="tf-nr-materno" placeholder="(Opcional)" />
                 </div>
             </div>
             <div class="tf-group">
@@ -499,7 +504,7 @@
                     </button>
                 </div>
                 <div id="tf-nr-cargo-nuevo-wrap" style="display:none;gap:8px;align-items:center;margin-top:5px;">
-                    <input id="tf-nr-cargo-nuevo-txt" class="tf-input" style="flex:1;" placeholder="Nombre del nuevo cargo…" />
+                    <input id="tf-nr-cargo-nuevo-txt" class="tf-input tf-mayus" style="flex:1;" maxlength="40" placeholder="Nombre del nuevo cargo…" />
                     <button type="button" id="tf-nr-btn-cancelar-cargo" class="tf-btn tf-btn-ghost" style="height:44px;">✕</button>
                 </div>
             </div>
@@ -525,11 +530,13 @@
         </div>
         <div class="tf-modal-body" id="tf-res-body"></div>
         <div class="tf-modal-foot" style="align-items:center;">
-            <span id="tf-res-timer" style="font-size:12px;color:#8a93a8;margin-right:auto;"></span>
+            <span id="tf-res-timer" style="font-size:12px;color:var(--txt-muted);margin-right:auto;"></span>
             <button type="button" onclick="tfCerrarResultado()" class="tf-btn tf-btn-accent" style="height:42px;">Entendido</button>
         </div>
     </div>
 </div>
+
+</div><!-- /.tf-pantalla -->
 
 <script>
 (function () {
@@ -691,7 +698,7 @@
             <td><span class="tf-pill ${pill}">${x(estado)}</span></td>
             <td class="tf-mov"><span class="tf-meta">—</span></td>
             <td>
-                <button class="tf-rm" onclick="tfQuitar('${x(a.codigo)}')" title="Quitar">
+                <button type="button" class="tf-rm" data-codigo="${x(a.codigo)}" title="Quitar">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path d="M18 6 6 18M6 6l12 12"/>
                     </svg>
@@ -699,6 +706,9 @@
             </td>`;
         tb.appendChild(tr);
     }
+
+    // Delegado (el código viaja en data-codigo; antes iba dentro de un onclick entre comillas).
+    $('#tf-tbody').off('click.tfQuitar').on('click.tfQuitar', '.tf-rm', function () { window.tfQuitar(this.dataset.codigo); });
 
     window.tfQuitar = function (cod) {
         const tr = document.getElementById(`tf-r-${cod.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`);
@@ -856,7 +866,7 @@
                     idOficina: parseInt(ofId), idResponsable: parseInt(respId),
                     codigos: S.list.map(a => a.codigo),
                     tipo: tipo,
-                    documentoReferencia: docRef || null,
+                    documentoReferencia: docRef ? docRef.toLocaleUpperCase('es') : null,
                     observacion: obs || null
                 })
             });
@@ -1009,14 +1019,15 @@
     window.tfCerrarModal = function () { document.getElementById('tf-modal-bg').classList.remove('on'); };
 
     window.tfGuardarNuevoResp = async function () {
-        const ci = document.getElementById('tf-nr-ci').value.trim();
-        const nombre = document.getElementById('tf-nr-nombre').value.trim();
-        const paterno = document.getElementById('tf-nr-paterno').value.trim();
-        const materno = document.getElementById('tf-nr-materno').value.trim();
+        const may = id => document.getElementById(id).value.trim().toLocaleUpperCase('es');
+        const ci = may('tf-nr-ci');
+        const nombre = may('tf-nr-nombre');
+        const paterno = may('tf-nr-paterno');
+        const materno = may('tf-nr-materno');
         const codfunc = document.getElementById('tf-nr-codfunc').value.trim();
         const cargoNuevoVisible = document.getElementById('tf-nr-cargo-nuevo-wrap').style.display !== 'none';
         const cargo = cargoNuevoVisible
-            ? document.getElementById('tf-nr-cargo-nuevo-txt').value.trim()
+            ? may('tf-nr-cargo-nuevo-txt')
             : ($('#tf-nr-cargo').val() || '');
 
         if (!ci) { tfToast('w', 'Requerido', 'El C.I. es obligatorio.'); return; }
@@ -1042,7 +1053,7 @@
                 const conflicto = await r.json();
                 const forzar = await sciafConfirmar({
                     titulo: 'Ya existe una persona parecida',
-                    texto: `${conflicto.msg}<br><br>Si es la misma persona, cancele y búsquela por C.I. `
+                    texto: `${x(conflicto.msg || '').replace(/\n/g, '<br>')}<br><br>Si es la misma persona, cancele y búsquela por C.I. `
                          + `en vez de crearla otra vez.`,
                     aceptar: 'Es otra persona, crearla',
                     peligrosa: true
@@ -1131,6 +1142,18 @@
         c.appendChild(d);
         setTimeout(() => { d.style.cssText += 'opacity:0;transform:translateX(12px);transition:.3s'; setTimeout(() => d.remove(), 330); }, 4800);
     }
+
+    // La pantalla ocupa lo que queda de la ventana bajo la cabecera: la lista de activos
+    // desplaza por dentro y los controles quedan siempre a la vista.
+    function tfAjustarAlto() {
+        const w = document.querySelector('#modTransferencia .tf-wrap');
+        if (!w || !document.body.contains(w) || window.innerWidth < 900) { if (w) w.style.height = ''; return; }
+        const cont = document.getElementById('contenido');
+        const relleno = cont ? (parseFloat(getComputedStyle(cont).paddingBottom) || 0) : 16;
+        w.style.height = Math.max(420, window.innerHeight - w.getBoundingClientRect().top - relleno - 8) + 'px';
+    }
+    $(window).off('resize.tfAlto').on('resize.tfAlto', tfAjustarAlto);
+    setTimeout(tfAjustarAlto, 0);
 
     (function boot() {
         if (typeof $ !== 'undefined' && $.fn?.select2) { window.tfInitSelect2(); tfRestaurarBorrador(); }

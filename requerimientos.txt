@@ -1,22 +1,32 @@
-Requierimientos en modulo de faltantes:
-- una cosa mas.. una vez generado eso.. que se pueda visualizar e imprimir cuantas veces sea necesario..
-- otra cosa mas.. las reiterativas.. si ya se registro un faltante y se generó la notificación, que haya otra opcion de Generar Reiterativa:
-en este caso sería Notificación Reiterativa de activos fisicos faltantes
+Escrito para: el agente de Claude en tu otra máquina, que retoma el trabajo en este mismo proyecto.
 
-y que en la reiterativa mencione al documento al cual se esta reiterando kkk
-ejemplo:
-si la notificacion fue 001/2026
+Te dejé el contexto en el repo, en docs/HANDOFF_PLANTILLA_MODULOS.md, y lo agregué a la lista de traspasos de CLAUDE.md para que el otro agente lo encuentre solo. Tuve que ponerlo ahí porque mi memoria local no viaja con git. Por eso pasé al documento lo importante de ella, sin contraseñas.
 
-y la reiterativa 020/2026
+El documento cubre:
 
-entonces en la reiterativa debe mencional que antes se habia notificado y que la notificacion fue 001/2026
+Tu forma de trabajar:
+módulo por módulo y esperar tu orden;
+mayúsculas y sus excepciones;
+«solo lo visual» en las pantallas críticas;
+sin commits ni datos de prueba en la base;
+pasar el revisor al cerrar cada módulo.
+La plantilla: las piezas nuevas y dónde está la guía, docs/PLANTILLA_MODULOS.md.
+Los módulos migrados y lo último que hicimos (Bajas e Ingresos).
+Lo que quedó pendiente de tu decisión:
+elegir qué activos pasar en Asignación;
+el índice único de bajas;
+el firmante fijo del comprobante de ingreso;
+las conexiones extra de Faltantes y Mapa;
+el límite de 6 caracteres de los códigos.
+Las pantallas que faltan migrar.
+Las trampas que ya nos costaron tiempo y el contexto de infraestructura que no está en el código.
+Antes de subir, revisa esto: hay archivos nuevos que git todavía no rastrea, y las pantallas migradas no funcionan sin ellos. Usa git add -A para que entren todos:
 
-solo son 3 notificaciones que se debe realizar
+src/main/resources/static/assets/js/sciaf-modulo.js y sciaf-precarga.js
+src/main/resources/static/assets/css/sciaf-modulo.css y sciaf-precarga.css
+src/main/java/.../componet/VsiafDisponibilidad.java
+docs/PLANTILLA_MODULOS.md y docs/HANDOFF_PLANTILLA_MODULOS.md
+scripts/sql/custodia_faltantes_fase1.sql, que ya estaba sin rastrear desde antes
+Para arrancar en la otra máquina, después del git pull, puedes pegarle al agente:
 
-y seria la inicial NOTIFICACION DE FALTANTES
-
-luego si no responden a los dias establecidos, llegaria la NOTIFICAION REITERATIVA
-
-y si no responden a esa la ULTIMA NOTIFICACION REITERATIVA
-
-y ahi muere
+Continuamos la migración de pantallas a la plantilla del SCIAF. Lee primero docs/HANDOFF_PLANTILLA_MODULOS.md y docs/PLANTILLA_MODULOS.md, y respeta la forma de trabajar que describe el handoff. Después te digo cuál es el siguiente módulo.

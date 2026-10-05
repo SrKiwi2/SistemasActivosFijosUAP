@@ -78,6 +78,8 @@ public class EnvioCustodiaService {
     private final ActividadService actividadService;
     private final SseEmitterRegistry sse;
     private final PlatformTransactionManager txManager;
+    /** Sin VSIAF a la vista el ciclo automático se pausa (no despacha ni confirma traslados). */
+    private final com.usic.SistemasActivosFijosUAP.componet.VsiafDisponibilidad vsiaf;
 
     // ── Entrada: lo llama el registro del acta ─────────────────────────────
 
@@ -124,6 +126,7 @@ public class EnvioCustodiaService {
 
     @Scheduled(fixedDelayString = "${custodia.envio.interval.ms:30000}", initialDelay = 60000)
     public void ciclo() {
+        if (!vsiaf.dbf("envío de custodias")) return;
         try {
             List<Long> esperando = enTransaccion(() -> hallazgoDao.conEnvioEn(List.of(ESPERANDO_ALTA))
                     .stream().map(HallazgoInventario::getIdHallazgo).toList());

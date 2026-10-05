@@ -1,13 +1,12 @@
 package com.usic.SistemasActivosFijosUAP.controller.usuario;
 
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -28,13 +27,11 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IRolService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IUsuarioService;
 import com.usic.SistemasActivosFijosUAP.model.dto.usuario.UsuarioFilaDto;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
-import com.usic.SistemasActivosFijosUAP.model.service.GeneradorUsuarios;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ReglaNegocioException;
 import com.usic.SistemasActivosFijosUAP.model.service.seguridad.AuditoriaPermisosService;
 import com.usic.SistemasActivosFijosUAP.model.service.seguridad.GestionUsuariosService;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -53,9 +50,12 @@ public class UsuarioController {
     private final IPersonaService personaService;
     private final IRolService rolService;
     private final IOpcionMenuService opcionMenuService;
-    private final GeneradorUsuarios generadorUsuarios;
     private final GestionUsuariosService gestion;
     private final AuditoriaPermisosService auditoria;
+
+    /** Dirección del sistema que se le entrega al usuario nuevo (la misma de las actas). */
+    @Value("${sciaf.url.publica:https://sciaf.uap.edu.bo}")
+    private String urlPublica;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -66,14 +66,10 @@ public class UsuarioController {
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla-registros")
     public String tablaRegistros(Model model, HttpServletRequest request) {
+        // Los contadores (en línea, activos, …) y la lista de roles del filtro los arma la
+        // vista a partir de las filas (data-*), así siempre coinciden con lo que se ve.
         List<UsuarioFilaDto> filas = gestion.listar(RolesSciaf.usuarioDe(request));
         model.addAttribute("filas", filas);
-        model.addAttribute("total", filas.size());
-        model.addAttribute("activos", filas.stream().filter(f -> "ACTIVO".equals(f.getEstado())).count());
-        model.addAttribute("inactivos", filas.stream().filter(f -> !"ACTIVO".equals(f.getEstado())).count());
-        model.addAttribute("conectados", filas.stream().filter(UsuarioFilaDto::isConectado).count());
-        model.addAttribute("conFallidos", filas.stream().filter(f -> f.getFallidosRecientes() >= 3).count());
-        model.addAttribute("roles", rolService.listarRoles());
         return "usuario/tabla_registro";
     }
 
@@ -108,9 +104,17 @@ public class UsuarioController {
             @RequestParam("persona.idPersona") Long idPersona,
             @RequestParam("rol.idRol") Long idRol) {
         return ejecutar(request, () -> {
-            gestion.registrar(RolesSciaf.usuarioDe(request), nombreUsuario, password,
+            Usuario nuevo = gestion.registrar(RolesSciaf.usuarioDe(request), nombreUsuario, password,
                     confirmacion != null ? confirmacion : password, idPersona, idRol);
-            return Map.of("msg", "Se realizó el registro correctamente. Asígnele sus permisos con el botón «Permisos»");
+            // Datos tal como quedaron guardados, para armar el mensaje de bienvenida que el
+            // administrador copia y envía. La contraseña no se devuelve: la tiene el navegador.
+            Map<String, Object> r = new HashMap<>();
+            r.put("msg", "Se realizó el registro correctamente. Asígnele sus permisos con el botón «Permisos»");
+            r.put("usuario", nuevo.getUsuario());
+            r.put("nombre", nombreCompleto(nuevo));
+            r.put("rol", nuevo.getRol() != null ? nuevo.getRol().getNombre() : "");
+            r.put("enlace", urlPublica.endsWith("/") ? urlPublica : urlPublica + "/");
+            return r;
         });
     }
 
@@ -299,45 +303,14 @@ public class UsuarioController {
         });
     }
 
+    /** JSON { ok, msg } como el resto: lo usa SciafModulo.eliminar (sciaf-modulo.js). */
     @ValidarUsuarioAutenticado
     @PostMapping("/eliminar/{id_usuario}")
-    public ResponseEntity<String> eliminar(HttpServletRequest request, @PathVariable("id_usuario") String idUsuario) {
-        Usuario actor = RolesSciaf.usuarioDe(request);
-        if (!GestionUsuariosService.puedeGestionar(actor, request.getSession(false))) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("No tiene permiso para eliminar usuarios.");
-        }
-        try {
-            gestion.eliminar(actor, descifrar(idUsuario));
-            return ResponseEntity.ok("Registro Eliminado");
-        } catch (ReglaNegocioException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("No se pudo eliminar.");
-        }
-    }
-
-    /**
-     * Alta masiva de usuarios con contraseña simple (CSV). Estaba abierto a cualquiera,
-     * sin sesión: ahora exige ADMINISTRADOR.
-     */
-    @ValidarUsuarioAutenticado
-    @PostMapping("/generar-usuarios")
-    public void generarUsuarios(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        if (!RolesSciaf.esAdministrador(RolesSciaf.usuarioDe(request))) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Solo un ADMINISTRADOR puede generar usuarios.");
-            return;
-        }
-        List<String[]> credenciales = generadorUsuarios.generarUsuariosMasivos();
-
-        response.setContentType("text/csv");
-        response.setHeader("Content-Disposition", "attachment; filename=\"usuarios_generados.csv\"");
-
-        try (PrintWriter writer = response.getWriter()) {
-            writer.println("usuario,contrasena");
-            for (String[] credencial : credenciales) {
-                writer.printf("%s,%s\n", credencial[0], credencial[1]);
-            }
-        }
+    public ResponseEntity<Map<String, Object>> eliminar(HttpServletRequest request, @PathVariable("id_usuario") String idUsuario) {
+        return ejecutar(request, () -> {
+            gestion.eliminar(RolesSciaf.usuarioDe(request), descifrar(idUsuario));
+            return Map.of("msg", "Usuario eliminado");
+        });
     }
 
     // ── Apoyo ───────────────────────────────────────────────────────────────
@@ -371,6 +344,14 @@ public class UsuarioController {
             response.put("msg", "Error: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
+    }
+
+    /** Nombre completo sin "null" cuando falta un apellido. */
+    private static String nombreCompleto(Usuario u) {
+        if (u.getPersona() == null) return "";
+        var p = u.getPersona();
+        return String.join(" ", java.util.stream.Stream.of(p.getNombre(), p.getPaterno(), p.getMaterno())
+                .filter(s -> s != null && !s.isBlank()).toList()).toUpperCase(java.util.Locale.ROOT);
     }
 
     private Long descifrar(String idCifrado) {

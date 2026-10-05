@@ -1,39 +1,86 @@
-<div class="modal-header">
-    <h4 class="modal-title" th:text="${edit}? 'Modificar Municipio' : 'Registrar Municipio'"></h4>
-    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: municipio/formulario.html  (va dentro de .modal-content.sm-modal)
+     El envío lo hace SciafModulo.formulario() y espera JSON { ok, msg }.
+     Al modificar, el controlador cambia solo nombre y código del registro guardado.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-modal-cab">
+    <div class="sm-cabecera-icono">
+        <i class="ti" th:classappend="${edit} ? 'ti-edit' : 'ti-map-pin'"></i>
+    </div>
+    <div>
+        <h5 class="sm-modal-titulo" th:text="${edit} ? 'Modificar municipio' : 'Nuevo municipio'">Municipio</h5>
+        <p class="sm-modal-sub">Municipio al que se asignan los predios de la universidad.</p>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
+
 <form id="formularioMunicipio" method="post"
-    th:action="${edit}? @{/administracion/municipio/modificar-municipio} : @{/administracion/municipio/registrar-municipio}" novalidate>
-    <input type="hidden" th:if="${edit != null}" th:field="${municipio.idEntidad}">
-    <div class="modal-body">
-        <div class="row">
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Nombre Municipio</label>
-                <input type="text" th:field="${municipio.nombre}" class="form-control" placeholder="..."
-                    required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
-            </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Código Insitución</label>
-                <input type="text" th:field="${municipio.codigo}" class="form-control" placeholder="..."
-                    required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+    th:action="${edit} ? @{/administracion/municipio/modificar-municipio} : @{/administracion/municipio/registrar-municipio}" novalidate>
+    <input type="hidden" th:if="${edit != null}" th:field="${municipio.idMunicipio}">
+
+    <div class="sm-modal-cuerpo">
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-info-circle"></i> Datos del municipio</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="row g-3">
+                    <div class="col-12 col-md-4">
+                        <label class="sm-label" for="munCodigo">Código <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-hash"></i>
+                            <input type="text" th:field="${municipio.codigo}" id="munCodigo" class="sm-input"
+                                   placeholder="Ej: 09" maxlength="6" required autocomplete="off" />
+                            <div class="invalid-feedback">Ingrese el código.</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-8">
+                        <label class="sm-label" for="munNombre">Nombre <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-map-pin"></i>
+                            <input type="text" th:field="${municipio.nombre}" id="munNombre" class="sm-input"
+                                   placeholder="Ej: COBIJA" maxlength="255" required autocomplete="off" />
+                            <div class="invalid-feedback">Ingrese el nombre.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sm-ayuda mt-2">El código (letras y números, hasta 6) es la primera parte del código de cada activo:
+                    no puede repetirse, ni siquiera con un municipio eliminado, y no se cambia si ya hay predios que lo usan.</div>
             </div>
         </div>
     </div>
-    <div class="modal-footer">
-        <div class="row">
-            <div class="col-12">
-                <a type="submit" class="btn btn-secondary" style="color: white;" data-bs-dismiss="modal">Cancelar</a>
-                <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
 
-            </div>
-        </div>
+    <div class="sm-modal-pie">
+        <span class="sm-nota"><span class="sm-req">*</span> Campo obligatorio</span>
+        <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal" id="btnCancelarMunicipio">
+            <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button type="submit" class="sm-btn sm-btn-exito" id="btnGuardarMunicipio">
+            <i class="ti ti-device-floppy"></i>
+            <span th:text="${edit} ? 'Guardar cambios' : 'Registrar municipio'">Guardar</span>
+        </button>
     </div>
 </form>
 
 <script>
-    manejarEnvioFormulario('#formularioMunicipio');
+    (function () {
+        const esEdicion = $('#formularioMunicipio input[name="idMunicipio"]').length > 0;
+        // Solo letras y números: el código va dentro del código de los activos.
+        $('#munCodigo').on('input', function () {
+            const limpio = this.value.replace(/[^0-9A-Za-z]+/g, '');
+            if (limpio !== this.value) this.value = limpio;
+        });
+
+        SciafModulo.formulario({
+            form: '#formularioMunicipio',
+            modal: '#modalFormularioMunicipio',
+            guardar: '#btnGuardarMunicipio',
+            cancelar: '#btnCancelarMunicipio',
+            textoGuardando: esEdicion ? 'Guardando…' : 'Registrando…',
+            msgExito: esEdicion ? 'Municipio modificado' : 'Municipio registrado'
+            // La tabla la recarga la vista (SciafModulo.alGuardarModal).
+        });
+        const $modal = $('#modalFormularioMunicipio');
+        const $primero = esEdicion ? $('#munNombre') : $('#munCodigo');
+        if ($modal.hasClass('show')) $primero.trigger('focus');
+        else $modal.one('shown.bs.modal', () => $primero.trigger('focus'));
+    })();
 </script>

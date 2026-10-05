@@ -1,281 +1,75 @@
-<div class="card">
-    <div class="card-header d-flex justify-content-lg-between">
-        <h5>Registro Predio</h5>
-        <small class="text-muted" th:if="${sourceUsed=='dbf'}">(fuente: DBF)</small>
-        <small class="text-muted" th:if="${sourceUsed=='db'}">(fuente: BD)</small>
-        <div class="d-flex gap-2 align-items-center">
-            <!-- ✅ Badge con información de última sincronización -->
-            <span class="badge bg-info" id="ultimaSync" data-bs-toggle="tooltip" data-bs-placement="bottom"
-                th:title="'Procesados: ' + (${registrosProcesados ?: 0}) + ' | Nuevos: ' + (${registrosNuevos ?: 0}) + ' | Actualizados: ' + (${registrosActualizados ?: 0}) + ' | Duración: ' + (${duracionUltimaSync ?: 0}) + 's'">
-                <i class="fa-solid fa-clock me-1"></i>
-                Última sync: <span th:text="${ultimaSincronizacion ?: 'Nunca'}">--</span>
-            </span>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: predio/tabla_registro.html — predios (unidades administrativas del VSIAF).
+     · Al abrir llega incluido en predio/vista.html (th:replace … :: tabla).
+       POST /administracion/predio/tabla-registros lo devuelve para recargar.
+     · .js-sync-info: estado de la última sincronización (la vista lo pasa a la cabecera).
+     · data-config: si el predio tiene municipio y código (prefijo de los códigos de activo).
+     · Una fila sin id viene directo del VSIAF (la base todavía no la tiene): solo lectura.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="js-contenido" th:fragment="tabla">
+    <span class="js-sync-info d-none"
+          th:attr="data-ultima=${ultimaSincronizacion ?: 'Nunca'}, data-estado=${estadoSync ?: 'PENDIENTE'},
+                   data-procesados=${registrosProcesados ?: 0}, data-nuevos=${registrosNuevos ?: 0},
+                   data-actualizados=${registrosActualizados ?: 0}, data-duracion=${duracionUltimaSync ?: 0},
+                   data-origen=${sourceUsed}"></span>
 
-            <!-- ✅ Badge de estado -->
-            <span class="badge" id="estadoSyncBadge"
-                th:classappend="${estadoSync == 'COMPLETADO'} ? 'bg-success' : (${estadoSync == 'ERROR'} ? 'bg-danger' : 'bg-warning')"
-                th:text="${estadoSync ?: 'PENDIENTE'}">
-            </span>
-
-            <!-- ✅ Botón sincronización incremental -->
-            <button id="btnSyncPredio" class="btn btn-outline-secondary btn-sm">
-                <i class="fa-solid fa-sync me-1"></i> Sincronizar
-            </button>
-
-            <!-- ✅ Botón sincronización completa -->
-            <button id="btnSyncCompleto" class="btn btn-outline-warning btn-sm" data-bs-toggle="tooltip"
-                data-bs-placement="bottom" title="Forzar sincronización completa (más lento)">
-                <i class="fa-solid fa-database me-1"></i> Sync Completo
-            </button>
-        </div>
-    </div>
-</div>
-<div class="card-datatable table-responsive pt-0">
-    <table class="datatables-basic table table-hover" id="data-table">
+    <table class="table sm-tabla align-middle js-tabla-predios">
         <thead>
             <tr>
-                <th>#</th>
-                <th>Entidad</th>
-                <th>Unidad</th>
-                <th>Descripción</th>
-                <th>Ciudad</th>
-                <th>Estado</th>
-                <th class="text-center">Opciones</th>
+                <th style="width:110px;">Unidad</th>
+                <th>Predio</th>
+                <th style="width:230px;">Codificación de activos</th>
+                <th style="width:120px;">Oficinas</th>
+                <th style="width:120px;">En el VSIAF</th>
+                <th class="text-end" style="width:170px;">Opciones</th>
             </tr>
         </thead>
         <tbody>
-            <tr th:each="predio, index: ${listasPredios}">
-                <td th:text="${index.index + 1}"></td>
+            <tr th:each="p, it : ${listasPredios}"
+                th:with="conf=${p.municipio != null and p.codigo != null and !#strings.isEmpty(p.codigo)},
+                         nOf=${p.idPredio != null ? (oficinasPorPredio.get(p.idPredio) ?: 0) : 0}"
+                th:attr="data-config=${conf ? 'si' : 'no'}, data-oficinas=${nOf}">
+                <td><span class="sm-codigo sm-mayus" th:text="${p.unidad}"></span></td>
                 <td>
-                    <!-- Mostrar código de entidad con fallback -->
-                    <span th:if="${predio?.entidad != null}" 
-                          th:text="${predio.entidad.entidadCodigo}"
-                          class="badge bg-primary">
-                    </span>
-                    <span th:if="${predio?.entidad == null && predio?.codigo != null}" 
-                          th:text="${predio.codigo}"
-                          class="badge bg-secondary"
-                          data-bs-toggle="tooltip"
-                          title="Entidad no encontrada en BD">
-                    </span>
-                    <span th:if="${predio?.entidad == null && predio?.codigo == null}"
-                          class="text-muted">
-                        -
-                    </span>
-                </td>
-                <td th:text="${predio.unidad}"></td>
-                <td th:text="${predio.descrip}"></td>
-                <td>
-                    <span th:if="${predio.ciudad != null && !#strings.isEmpty(predio.ciudad)}"
-                          th:text="${predio.ciudad}">
-                    </span>
-                    <span th:if="${predio.ciudad == null || #strings.isEmpty(predio.ciudad)}"
-                          class="text-muted">
-                        -
-                    </span>
-                </td>
-                <td>
-                    <!-- Badge de estado con colores -->
-                    <span th:if="${predio.estadoUni != null}"
-                          class="badge"
-                          th:classappend="${predio.estadoUni == 1} ? 'bg-success' : 'bg-warning'"
-                          th:text="${predio.estadoUni == 1} ? 'Activo' : 'Inactivo'">
-                    </span>
-                    <span th:if="${predio.estadoUni == null}"
-                          class="text-muted">
-                        -
-                    </span>
-                </td>
-                <td class="text-center">
-                    <!-- ✅ SOLUCIÓN: Usar data-* attributes en lugar de th:onclick -->
-                    <div th:if="${predio.idPredio != null}" class="btn-group btn-group-sm" role="group">
-                        <button type="button" 
-                                class="btn btn-primary btn-editar-predio"
-                                th:data-id="${id_encryptado[index.index]}"
-                                data-bs-toggle="modal" 
-                                data-bs-target="#modalFormularioPredio"
-                                title="Editar predio">
-                            <i class="fa-solid fa-pen-to-square"></i>
-                        </button>
-                        <button type="button" 
-                                class="btn btn-danger btn-eliminar-predio"
-                                th:data-id="${id_encryptado[index.index]}"
-                                th:data-unidad="${predio.unidad}"
-                                title="Eliminar predio">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
+                    <span class="sm-nombre" th:text="${p.descrip ?: '—'}"></span>
+                    <div class="sm-sub">
+                        <th:block th:if="${p.ciudad != null and !#strings.isEmpty(p.ciudad)}" th:text="${p.ciudad}"></th:block>
+                        <th:block th:if="${p.entidad != null}"
+                                  th:text="${(p.ciudad != null and !#strings.isEmpty(p.ciudad) ? ' · ' : '') + 'Entidad ' + p.entidad.entidadCodigo + ' (' + p.entidad.gestion + ')'}"></th:block>
                     </div>
-                    
-                    <!-- Si NO tiene ID (viene del DBF), mostrar mensaje -->
-                    <div th:if="${predio.idPredio == null}">
-                        <span class="badge bg-warning" 
-                              data-bs-toggle="tooltip"
-                              title="Registro solo lectura desde DBF. Sincronice para poder editar.">
-                            <i class="fa-solid fa-lock"></i> Solo lectura
-                        </span>
+                </td>
+                <td th:attr="data-order=${conf ? p.municipio.codigo + '-' + p.codigo : ''}">
+                    <th:block th:if="${conf}">
+                        <span class="sm-pastilla sm-pastilla-activo py-0 sm-mayus" title="Prefijo de los códigos de activo"
+                              th:text="${p.municipio.codigo + '-' + p.codigo}"></span>
+                        <div class="sm-sub" th:text="${p.municipio.nombre}"></div>
+                    </th:block>
+                    <span th:unless="${conf}" class="sm-pastilla sm-pastilla-aviso py-0"
+                          title="Sin municipio o código: no se pueden registrar activos en sus oficinas">
+                        <i class="ti ti-alert-triangle"></i> Sin configurar</span>
+                </td>
+                <td th:attr="data-order=${nOf}">
+                    <span th:if="${nOf > 0}" class="sm-pastilla sm-pastilla-info py-0">
+                        <i class="ti ti-building"></i> <span th:text="${nOf}"></span></span>
+                    <span th:if="${nOf == 0}" class="sm-sub">—</span>
+                </td>
+                <td>
+                    <span th:if="${p.estadoUni == 1}" class="sm-pastilla sm-pastilla-activo py-0">Activo</span>
+                    <span th:if="${p.estadoUni != null and p.estadoUni != 1}" class="sm-pastilla sm-pastilla-inactivo py-0">Inactivo</span>
+                    <span th:if="${p.estadoUni == null}" class="sm-sub">—</span>
+                </td>
+                <td class="text-end">
+                    <div class="sm-acciones" th:if="${p.idPredio != null and esAdmin == true}"
+                         th:attr="data-id=${id_encryptado[it.index]}, data-nombre=${p.unidad}">
+                        <button type="button" class="sm-btn sm-btn-sm sm-btn-suave" data-accion="configurar"
+                                title="Municipio y código del predio (prefijo de los códigos de activo)">
+                            <i class="ti ti-settings"></i> Configurar</button>
                     </div>
+                    <span th:if="${p.idPredio == null}" class="sm-pastilla sm-pastilla-aviso py-0"
+                          title="Viene directo del VSIAF: sincronice para poder configurarlo">
+                        <i class="ti ti-lock"></i> Solo lectura</span>
                 </td>
             </tr>
         </tbody>
     </table>
 </div>
-</div>
-
-<script>
-    
-    $(document).ready(function() {
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-    });
-
-    $(document).on('click', '#btnSyncPredio', function () {
-        sincronizar(false);
-    });
-
-    $(document).on('click', '#btnSyncCompleto', function () {
-        Swal.fire({
-            title: '¿Forzar sincronización completa?',
-            text: "Esto procesará todos los registros y puede tardar más tiempo",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, sincronizar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                sincronizar(true);
-            }
-        });
-    });
-
-    function sincronizar(forzarCompleto) {
-        // Mostrar loading
-        Swal.fire({
-            title: 'Sincronizando Predios...',
-            html: 'Por favor espere',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/predio/sync-from-mounted",
-            data: { forzarCompleto: forzarCompleto },
-            success: function (res) {
-                const tiempoSegundos = (res.duracionMs / 1000).toFixed(2);
-                const msg = `
-                    <div class="text-start">
-                        <p><strong>✅ Sincronización de Predios exitosa</strong></p>
-                        <hr>
-                        <p><i class="fa-solid fa-file-import"></i> Total leídas: <strong>${res.totalLeidas}</strong></p>
-                        <p><i class="fa-solid fa-plus-circle text-success"></i> Insertados: <strong>${res.insertados}</strong></p>
-                        <p><i class="fa-solid fa-edit text-primary"></i> Actualizados: <strong>${res.actualizados}</strong></p>
-                        <p><i class="fa-solid fa-check-circle text-info"></i> Omitidos (sin cambios): <strong>${res.omitidos}</strong></p>
-                        <p><i class="fa-solid fa-exclamation-triangle text-warning"></i> Sin entidad en BD: <strong>${res.sinEntidadEnBD}</strong></p>
-                        <p><i class="fa-solid fa-clock"></i> Tiempo: <strong>${tiempoSegundos}s</strong></p>
-                    </div>
-                `;
-
-                Swal.fire({
-                    title: 'Completado',
-                    html: msg,
-                    icon: 'success',
-                    confirmButtonText: 'Aceptar'
-                });
-
-                // ✅ Actualizar badge dinámicamente
-                actualizarInfoSync();
-
-                // Recargar tabla
-                cargarTabla();
-            },
-            error: function (xhr) {
-                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
-                Swal.fire('Error en Sincronización', msg, 'error');
-            }
-        });
-    }
-
-    function actualizarInfoSync() {
-        $.ajax({
-            type: 'GET',
-            url: '/administracion/predio/sync-info',
-            success: function (info) {
-                // Actualizar fecha
-                $('#ultimaSync span').text(info.ultimaSincronizacion);
-
-                // Actualizar tooltip
-                const tooltip = `Procesados: ${info.registrosProcesados || 0} | Nuevos: ${info.registrosNuevos || 0} | Actualizados: ${info.registrosActualizados || 0} | Duración: ${info.duracionSegundos || 0}s`;
-                $('#ultimaSync').attr('data-bs-original-title', tooltip);
-
-                // Actualizar badge de estado
-                const badgeEstado = $('#estadoSyncBadge');
-                badgeEstado.removeClass('bg-success bg-danger bg-warning');
-
-                if (info.estado === 'COMPLETADO') {
-                    badgeEstado.addClass('bg-success');
-                } else if (info.estado === 'ERROR') {
-                    badgeEstado.addClass('bg-danger');
-                } else {
-                    badgeEstado.addClass('bg-warning');
-                }
-
-                badgeEstado.text(info.estado);
-            },
-            error: function (xhr) {
-                console.error('Error actualizando info de sync:', xhr);
-            }
-        });
-    }
-
-    $('#data-table').DataTable({
-        language: {
-            "sProcessing": "Procesando...",
-            "sLengthMenu": "Mostrar _MENU_ registros",
-            "sZeroRecords": "No se encontraron resultados",
-            "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
-            "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
-            "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
-            "sInfoPostFix": "",
-            "sSearch": "Buscar:",
-            "sUrl": "",
-            "sInfoThousands": ",",
-            "sLoadingRecords": "Cargando...",
-            "oPaginate": {
-                "sFirst": "Primero",
-                "sLast": "Último",
-                "sNext": "Siguiente",
-                "sPrevious": "Anterior"
-            },
-            "oAria": {
-                "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
-                "sSortDescending": ": Activar para ordenar la columna de manera descendente"
-            }
-        }
-    });
-
-    $(document).on('click', '#btnSyncPredio', function () {
-
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/predio/sync-from-mounted",
-            success: function (res) {
-                Swal.fire(
-                    'Importación completa',
-                    `Leídas: ${res.totalLeidas}<br>Insertados: ${res.insertados}<br>Actualizados: ${res.actualizados}<br>Sin entidad en BD: ${res.sinEntidadEnBD}`,
-                    'success'
-                );
-                cargarTabla();
-            },
-            error: function (xhr) {
-                const msg = xhr.responseJSON?.message || `Error (${xhr.status})`;
-                Swal.fire('Error', msg, 'error');
-            }
-        });
-    });
-</script>

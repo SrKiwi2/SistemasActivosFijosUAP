@@ -559,10 +559,21 @@
     }
 </style>
 
-<h4 class="py-3 mb-4">
-    <span class="text-muted fw-light">VISTA /</span> ACTIVOS PENDIENTES PARA SU APROBACIÓN
-    <small class="text-muted fs-6 fw-normal ms-2">— AGRUPADOS POR ASIGNACION</small>
-</h4>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-clock-exclamation"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-box"></i> Administración de activos <i class="ti ti-chevron-right"></i> Activos pendientes
+        </nav>
+        <h1 class="sm-titulo">Activos pendientes de aprobación</h1>
+        <p class="sm-subtitulo">Agrupados por asignación: complete sus datos, asígneles el documento y súbalos al VSIAF.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <button type="button" class="sm-btn sm-btn-neutro" id="pendBtnRecargar" title="Volver a cargar la lista">
+            <i class="ti ti-refresh"></i> Actualizar
+        </button>
+    </div>
+</header>
 
 <!-- ================================================ -->
 <!-- BARRA MASIVA FLOTANTE (oculta por defecto)        -->
@@ -1461,31 +1472,48 @@
         // ────────────────────────────────────────────────
         // CARGA DE TABLA
         // ────────────────────────────────────────────────
+        // Referencias tomadas al abrir la pantalla: el id #tablaRegistro también lo usa
+        // Registro de activos y, con las dos pestañas abiertas, un $('#tablaRegistro')
+        // podía escribir la tabla de pendientes en la otra pantalla.
+        const $tablaPend = $('#tablaRegistro');
+        const $bannerPend = $('#pendRefreshBanner');
+        function pendEnPantalla() { return document.body.contains($tablaPend[0]); }
+
         function cargarTabla() {
+            // Con la pestaña en segundo plano no se recarga: queda el aviso para cuando vuelva.
+            if (!pendEnPantalla()) {
+                $bannerPend.removeClass('d-none').addClass('d-flex');
+                return;
+            }
             _ignoreSseUntil = Date.now() + 3000;             // evita el eco SSE de mi propia recarga
-            $('#pendRefreshBanner').addClass('d-none').removeClass('d-flex');
-            showGlobalLoader({ texto: 'Cargando asignaciones...' });
+            $bannerPend.addClass('d-none').removeClass('d-flex');
+            // Primera carga: preloader dentro del área; las recargas conservan la tabla a la vista.
+            const primera = !$tablaPend.children().length || $tablaPend.children('.sp-precarga').length > 0;
+            const carga = primera
+                ? SciafPrecarga.montar($tablaPend, { compacta: true, texto: 'Cargando asignaciones…', alReintentar: cargarTabla })
+                : null;
+            if (!primera) showGlobalLoader({ texto: 'Cargando asignaciones...' });
             $.ajax({
                 type: 'POST',
                 url: '/administracion/activo/tabla-registros_pendientes',
                 success: function (html) {
-                    $('#tablaRegistro').html(html);
+                    if (carga) carga.cerrar();
+                    $tablaPend.html(html);
                     initLogicaMasiva();
                     // La tabla vuelve completa: hay que reindexar y reaplicar el filtro
                     // vigente, si no el texto del buscador quedaría mintiendo.
                     aplicarFiltroPendientes();
                     ajustarAnclajes();
                 },
-                error: function () {
-                    $('#tablaRegistro').html(
-                        `<div class="alert alert-danger m-3">
-                        <i class="fa-solid fa-triangle-exclamation me-2"></i>
-                        Error cargando datos. Recargue la página.
-                    </div>`
-                    );
+                error: function (xhr) {
+                    if (carga) {
+                        carga.error('No se pudieron cargar los pendientes', SciafPrecarga.motivo(xhr ? xhr.status : 0));
+                    } else {
+                        SciafModulo.avisarError(new Error(SciafPrecarga.motivo(xhr ? xhr.status : 0)), 'No se pudieron actualizar los pendientes');
+                    }
                 },
                 complete: function () {
-                    hideGlobalLoader();
+                    if (!primera) hideGlobalLoader();
                     $('#barraMasiva').addClass('d-none');
                 }
             });
@@ -1494,27 +1522,29 @@
         // ────────────────────────────────────────────────
         // ACTUALIZACIÓN EN VIVO (SSE) — refleja cambios de otros usuarios
         // ────────────────────────────────────────────────
+        /**
+         * Cambios de otros usuarios en vivo. Se escucha el evento que reemite la conexión SSE
+         * global del sistema (layout/head.html): antes esta pantalla abría su propia conexión,
+         * que ocupaba una de las pocas que el navegador permite por servidor y seguía abierta
+         * aunque se cerrara la pestaña.
+         */
         function iniciarSsePendientes() {
-            try {
-                if (window._pendientesSse) { try { window._pendientesSse.close(); } catch (e) {} }
-                const es = new EventSource('/api/eventos/stream');
-                window._pendientesSse = es;
-                es.addEventListener('pendientes-cambio', function () {
-                    if (Date.now() < _ignoreSseUntil) return;   // ignora el eco de mi propia acción
-                    const ocupado = document.querySelector('.modal.show') || $('.chk-item:checked').length > 0;
-                    if (ocupado) {
-                        // No interrumpir: solo avisar para que el usuario recargue cuando quiera
-                        $('#pendRefreshBanner').removeClass('d-none').addClass('d-flex');
-                    } else {
-                        clearTimeout(_sseReloadTimer);
-                        _sseReloadTimer = setTimeout(cargarTabla, 1200);
-                    }
-                });
-                // onerror: el navegador reintenta solo; no hacemos nada
-            } catch (e) {
-                /* SSE no disponible: la vista sigue funcionando con recarga manual */
-            }
+            if (window._pendientesSse) { try { window._pendientesSse.close(); } catch (e) {} window._pendientesSse = null; }
+            // Un solo oyente: al volver a abrir la pantalla, .off reemplaza el anterior.
+            $(document).off('sciaf:pendientes-cambio.pend').on('sciaf:pendientes-cambio.pend', function () {
+                if (Date.now() < _ignoreSseUntil) return;   // ignora el eco de mi propia acción
+                const ocupado = !pendEnPantalla() || document.querySelector('.modal.show') || $tablaPend.find('.chk-item:checked').length > 0;
+                if (ocupado) {
+                    // No interrumpir: solo avisar para que el usuario recargue cuando quiera
+                    $bannerPend.removeClass('d-none').addClass('d-flex');
+                } else {
+                    clearTimeout(_sseReloadTimer);
+                    _sseReloadTimer = setTimeout(cargarTabla, 1200);
+                }
+            });
         }
+
+        $('#pendBtnRecargar').off('click').on('click', function () { cargarTabla(); });
 
         $('#pendRefreshBtn').off('click').on('click', function () { cargarTabla(); });
         $('#pendRefreshClose').off('click').on('click', function () {

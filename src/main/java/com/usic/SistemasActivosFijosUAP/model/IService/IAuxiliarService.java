@@ -33,6 +33,9 @@ public interface IAuxiliarService extends IServiceGenerico<Auxiliar, Long> {
 
     List<Auxiliar> listarTodo();
 
+    /** Tabla del módulo: sin eliminados, con predio, entidad y grupo ya cargados. */
+    List<Auxiliar> listarParaTabla();
+
     Short getNextCodAux(Long idPredio, Long idGrupoContable);
 
     /**

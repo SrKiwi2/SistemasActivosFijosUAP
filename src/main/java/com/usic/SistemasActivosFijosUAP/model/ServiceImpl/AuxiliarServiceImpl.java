@@ -78,6 +78,12 @@ public class AuxiliarServiceImpl implements IAuxiliarService {
         return dao.listarTodo();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<Auxiliar> listarParaTabla() {
+        return dao.listarParaTabla();
+    }
+
     @Transactional(readOnly = true)
     public Optional<Auxiliar> findByPredio_IdPredioAndGrupoContable_IdGrupoContableAndCodAux(
             Long predioId, Long grupoId, Short codAux) {

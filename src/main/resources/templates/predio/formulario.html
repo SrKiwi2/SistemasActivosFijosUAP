@@ -1,53 +1,113 @@
-<div class="modal-header">
-    <h4 class="modal-title" th:text="${edit}? 'Modificar Predio' : 'Registrar Predio'"></h4>
-    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: predio/formulario.html  (va dentro de .modal-content.sm-modal)
+     Configuración de codificación del predio: municipio + código, que forman el prefijo de
+     los códigos de activo (municipio-predio-grupo). Lo demás del predio viene del VSIAF y
+     no se edita aquí. Envío con SciafModulo.formulario() → JSON { ok, msg }.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-modal-cab">
+    <div class="sm-cabecera-icono"><i class="ti ti-settings"></i></div>
+    <div>
+        <h5 class="sm-modal-titulo">Codificación del predio <span class="sm-mayus" th:text="${predio.unidad}"></span></h5>
+        <p class="sm-modal-sub" th:text="${predio.descrip}"></p>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
-<form id="formularioPredio" method="post"
-    th:action="${edit}? @{/administracion/predio/modificar-predio} : @{/administracion/predio/registrar-predio}" novalidate>
-    <input type="hidden" th:if="${edit != null}" th:field="${predio.idPredio}">
-    <div class="modal-body">
-        <div class="row">
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Nombre Predio</label>
-                <input type="text" th:field="${predio.nombre}" class="form-control" placeholder="..."
-                    required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
-            </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Descripción</label>
-                <input type="text" th:field="${predio.descripcion}" class="form-control" placeholder="..."
-                    required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
-            </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Prefijo</label>
-                <input type="text" th:field="${predio.prefijo}" class="form-control" placeholder="..."
-                    required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
-            </div>
-            <div class="col-12 col-md-4 mb-2">
-                <label class="form-label" for="modalEditUserLastName">Código predio</label>
-                <input type="text" th:field="${predio.codigo}" class="form-control" placeholder="..."
-                    required />
-                <div class="valid-feedback">Correcto!</div>
-                <div class="invalid-feedback">Porfavor Introduzca un dato valido.</div>
+
+<form id="formularioPredio" method="post" th:action="@{/administracion/predio/guardar-config}" novalidate>
+    <input type="hidden" name="idEnc" th:value="${idEnc}">
+
+    <div class="sm-modal-cuerpo">
+        <div th:if="${activosEnPredio > 0}" class="sm-aviso sm-aviso-aviso">
+            <i class="ti ti-alert-triangle"></i>
+            <div>Este predio ya tiene <strong th:text="${activosEnPredio}">0</strong> activo(s). Si cambia el municipio o el
+                código, <b>solo los activos nuevos</b> llevarán el prefijo nuevo: los ya registrados conservan su código.</div>
+        </div>
+
+        <div class="sm-seccion">
+            <div class="sm-seccion-cab"><i class="ti ti-barcode"></i> Prefijo de los códigos de activo</div>
+            <div class="sm-seccion-cuerpo">
+                <div class="row g-3">
+                    <div class="col-12 col-md-7">
+                        <label class="sm-label" for="preMunicipio">Municipio <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <select id="preMunicipio" name="idMunicipio" class="sm-select" required>
+                                <option value="">Elija el municipio…</option>
+                                <option th:each="m : ${municipios}" th:value="${m.idMunicipio}"
+                                        th:attr="data-codigo=${m.codigo}"
+                                        th:text="${m.nombre + ' (' + m.codigo + ')'}"
+                                        th:selected="${predio.municipio != null and predio.municipio.idMunicipio == m.idMunicipio}"></option>
+                            </select>
+                            <div class="invalid-feedback">Elija el municipio.</div>
+                        </div>
+                        <div class="sm-ayuda">¿No está? Regístrelo en Ámbito geográfico › Municipio.</div>
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <label class="sm-label" for="preCodigo">Código del predio <span class="sm-req">*</span></label>
+                        <div class="sm-campo">
+                            <i class="ti ti-hash"></i>
+                            <input type="text" id="preCodigo" name="codigo" class="sm-input" maxlength="6"
+                                   th:value="${predio.codigo}" placeholder="Ej: 01" required autocomplete="off" />
+                            <div class="invalid-feedback">Ingrese el código.</div>
+                        </div>
+                        <div class="sm-ayuda">Letras y números (hasta 6). No puede repetirse en el mismo municipio.</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="sm-ayuda">Así empezarán los códigos de activo de este predio:
+                            <span class="sm-pastilla sm-pastilla-info py-0 sm-mayus js-prefijo">—</span>
+                            <span class="sm-sub">(municipio-predio-grupo-correlativo)</span></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="modal-footer">
-        <div class="row">
-            <div class="col-12">
-                <a type="submit" class="btn btn-secondary" style="color: white;" data-bs-dismiss="modal">Cancelar</a>
-                <input type="submit" class="btn btn-success" th:value="${edit}? 'Guardar Cambios': 'Guardar Registro'">
 
-            </div>
-        </div>
+    <div class="sm-modal-pie">
+        <span class="sm-nota"><span class="sm-req">*</span> Campo obligatorio</span>
+        <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal" id="btnCancelarPredio">
+            <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button type="submit" class="sm-btn sm-btn-exito" id="btnGuardarPredio">
+            <i class="ti ti-device-floppy"></i> Guardar configuración
+        </button>
     </div>
 </form>
 
 <script>
-    manejarEnvioFormulario('#formularioPredio');
+    (function () {
+        const $form = $('#formularioPredio');
+        const $mun = $('#preMunicipio'), $cod = $('#preCodigo'), $prefijo = $form.find('.js-prefijo');
+
+        // Vista previa del prefijo mientras se elige / escribe.
+        function pintarPrefijo() {
+            const m = $mun.find('option:selected').data('codigo');
+            const c = ($cod.val() || '').trim().toUpperCase();
+            $prefijo.text(m && c ? m + '-' + c + '-…' : '—');
+        }
+        $mun.on('change', pintarPrefijo);
+        $cod.on('input', function () {
+            // Solo letras y números: el guion separa las partes del código del activo.
+            const limpio = this.value.replace(/[^0-9A-Za-z]+/g, '');
+            if (limpio !== this.value) this.value = limpio;
+            pintarPrefijo();
+        });
+        pintarPrefijo();
+
+        SciafModulo.formulario({
+            form: $form,
+            modal: '#modalFormularioPredio',
+            guardar: '#btnGuardarPredio',
+            cancelar: '#btnCancelarPredio',
+            textoGuardando: 'Guardando…',
+            msgExito: 'Predio configurado',
+            confirmacion: () => ({
+                titulo: '¿Guardar la codificación?',
+                texto: 'Los activos nuevos de este predio empezarán con <b>' + SciafModulo.escapar($prefijo.text().replace('-…', '')) + '</b>.',
+                aceptar: 'Sí, guardar'
+            })
+            // La tabla la recarga la vista (SciafModulo.alGuardarModal).
+        });
+        const $modal = $('#modalFormularioPredio');
+        if ($modal.hasClass('show')) $mun.trigger('focus');
+        else $modal.one('shown.bs.modal', () => $mun.trigger('focus'));
+    })();
 </script>

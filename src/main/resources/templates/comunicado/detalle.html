@@ -1,112 +1,189 @@
-<div class="modal-header">
-    <h5 class="modal-title">
-        <i class="ti ti-clipboard-check me-1 text-primary"></i>
-        Control de lectura
-    </h5>
-    <a type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></a>
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: comunicado/detalle.html — control de lectura de un comunicado.
+     (va dentro de .modal-content.sm-modal). La vista lo vuelve a pedir sola cuando
+     llega un acuse de lectura (SSE), así se ve avanzar sin cerrar el modal.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-modal-cab">
+    <div class="sm-cabecera-icono"><i class="ti ti-clipboard-check"></i></div>
+    <div class="min-w-0">
+        <h5 class="sm-modal-titulo">
+            <i th:if="${detalle.importante}" class="ti ti-star-filled text-warning" title="Importante"></i>
+            <span th:text="${detalle.titulo}"></span>
+        </h5>
+        <p class="sm-modal-sub">
+            <span th:text="${detalle.emisor}"></span> · <span th:text="${detalle.fechaEnvio}"></span>
+            · <span th:text="${detalle.alcanceDetalle}"></span>
+        </p>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
 </div>
 
-<div class="modal-body">
+<style>
+    #comDetalle .com-numeros { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; }
+    #comDetalle .com-numero {
+        padding: .75rem .9rem; border-radius: 12px; background: var(--sm-superficie);
+        border: 1px solid var(--sm-borde); box-shadow: inset 0 1px 0 var(--sm-brillo), 0 2px 0 var(--sm-borde);
+    }
+    #comDetalle .com-numero strong { display: block; font-size: 1.5rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    #comDetalle .com-numero span { font-size: .8rem; color: var(--sm-texto-2); }
+    #comDetalle .com-mensaje { white-space: pre-line; color: var(--sm-texto); }
+    #comDetalle .com-lista { max-height: calc(100vh - 470px); min-height: 160px; overflow-y: auto; }
+    #comDetalle .com-oculto { display: none !important; }
+    @media (max-width: 767.98px) { #comDetalle .com-numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
 
-    <!-- Resumen del comunicado -->
-    <div class="card border mb-3">
-        <div class="card-body py-3">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <h6 class="mb-1">
-                        <i th:if="${detalle.importante}" class="ti ti-star-filled text-warning me-1"></i>
-                        <span th:text="${detalle.titulo}"></span>
-                    </h6>
-                    <p class="mb-1 text-muted small" th:text="${detalle.mensaje}"></p>
-                </div>
-                <span class="badge bg-label-secondary" th:text="${detalle.tipo}"></span>
+<div class="modal-body sm-modal-cuerpo pb-3" id="comDetalle">
+
+    <!-- Mensaje -->
+    <div class="sm-seccion" th:if="${detalle.mensaje != null and !#strings.isEmpty(detalle.mensaje)}">
+        <div class="sm-seccion-cab">
+            <i class="ti ti-file-text"></i> Mensaje
+            <span class="sm-pastilla py-0 ms-auto" th:text="${detalle.tipo}"></span>
+        </div>
+        <div class="sm-seccion-cuerpo com-mensaje" th:text="${detalle.mensaje}"></div>
+    </div>
+
+    <!-- Números -->
+    <div class="com-numeros mb-3">
+        <div class="com-numero"><strong th:text="${detalle.totalDestinatarios}"></strong><span>Destinatarios</span></div>
+        <div class="com-numero"><strong class="text-info" th:text="${detalle.recibieron}"></strong><span>Lo recibieron</span></div>
+        <div class="com-numero"><strong class="text-success" th:text="${detalle.leyeron}"></strong><span>Confirmaron la lectura</span></div>
+        <div class="com-numero"><strong class="text-warning" th:text="${detalle.totalDestinatarios - detalle.leyeron}"></strong><span>Sin confirmar</span></div>
+    </div>
+
+    <div class="sm-progreso mb-3">
+        <div class="sm-progreso-barra" style="height:12px;"
+             th:classappend="${detalle.porcentajeLectura == 0} ? 'nulo' : (${detalle.porcentajeLectura < 60} ? 'bajo' : '')">
+            <span th:style="'width:' + ${detalle.porcentajeLectura} + '%'"></span>
+        </div>
+        <span class="sm-progreso-pct" th:text="${detalle.porcentajeLectura} + '% leído'"></span>
+    </div>
+
+    <!-- Destinatarios -->
+    <div class="sm-card">
+        <div class="sm-toolbar">
+            <div class="sm-buscador" style="flex-basis:260px;">
+                <i class="ti ti-search"></i>
+                <input type="text" class="sm-input js-det-buscar" placeholder="Buscar destinatario…" autocomplete="off">
             </div>
-            <div class="d-flex flex-wrap gap-3 mt-2 small text-muted">
-                <span><i class="ti ti-user me-1"></i>Emisor: <span th:text="${detalle.emisor}"></span></span>
-                <span><i class="ti ti-calendar me-1"></i><span th:text="${detalle.fechaEnvio}"></span></span>
-                <span><i class="ti ti-target me-1"></i><span th:text="${detalle.alcanceDetalle}"></span></span>
+            <div class="sm-segmento js-det-filtro" role="group" aria-label="Filtrar por estado">
+                <button type="button" class="activo" data-filtro="">Todos</button>
+                <button type="button" data-filtro="leida" data-tono="exito">Confirmaron</button>
+                <button type="button" data-filtro="sin-leer" data-tono="peligro">Sin confirmar</button>
+                <button type="button" data-filtro="sin-recibir">No lo recibieron</button>
+            </div>
+            <div class="sm-toolbar-grupo">
+                <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-det-copiar"
+                        title="Copia los nombres de quienes todavía no confirmaron, para recordarles">
+                    <i class="ti ti-copy"></i> Copiar pendientes
+                </button>
             </div>
         </div>
+        <div class="com-lista">
+            <table class="table sm-tabla align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:56px;">#</th>
+                        <th>Destinatario</th>
+                        <th style="width:190px;">Recibió</th>
+                        <th style="width:210px;">Lectura</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="d, it : ${detalle.destinatarios}" class="js-det-fila"
+                        th:attr="data-leida=${d.leida}, data-entregada=${d.entregada},
+                                 data-buscar=${#strings.toLowerCase(d.nombre + ' ' + d.usuario)}, data-nombre=${d.nombre}">
+                        <td class="sm-num" th:text="${it.index + 1}"></td>
+                        <td>
+                            <div class="sm-persona-texto">
+                                <span class="sm-nombre" th:text="${d.nombre}"></span>
+                                <span class="sm-sub"><code th:text="${d.usuario}"></code></span>
+                            </div>
+                        </td>
+                        <td>
+                            <span th:if="${d.entregada}" class="sm-pastilla sm-pastilla-info py-0">
+                                <i class="ti ti-check"></i> <span th:text="${d.fechaEntrega}"></span></span>
+                            <span th:unless="${d.entregada}" class="sm-pastilla py-0"><i class="ti ti-clock"></i> Pendiente</span>
+                        </td>
+                        <td>
+                            <span th:if="${d.leida}" class="sm-pastilla sm-pastilla-activo py-0">
+                                <i class="ti ti-checks"></i> <span th:text="${d.fechaLectura}"></span></span>
+                            <span th:unless="${d.leida}" class="sm-pastilla sm-pastilla-aviso py-0">Sin confirmar</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="sm-cargando py-4 d-none js-det-vacio">Nadie coincide con el filtro.</div>
+        </div>
     </div>
-
-    <!-- Tarjetas de estadísticas -->
-    <div class="row g-3 mb-3">
-        <div class="col-6 col-md-3">
-            <div class="card border text-center"><div class="card-body py-3">
-                <h4 class="mb-0" th:text="${detalle.totalDestinatarios}"></h4>
-                <small class="text-muted">Destinatarios</small>
-            </div></div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border text-center"><div class="card-body py-3">
-                <h4 class="mb-0 text-info" th:text="${detalle.recibieron}"></h4>
-                <small class="text-muted">Recibieron</small>
-            </div></div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border text-center"><div class="card-body py-3">
-                <h4 class="mb-0 text-success" th:text="${detalle.leyeron}"></h4>
-                <small class="text-muted">Confirmaron</small>
-            </div></div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border text-center"><div class="card-body py-3">
-                <h4 class="mb-0 text-warning" th:text="${detalle.totalDestinatarios - detalle.leyeron}"></h4>
-                <small class="text-muted">Sin leer</small>
-            </div></div>
-        </div>
-    </div>
-
-    <div class="d-flex align-items-center mb-3">
-        <div class="progress flex-grow-1" style="height:10px;">
-            <div class="progress-bar bg-success" role="progressbar"
-                 th:style="'width:' + ${detalle.porcentajeLectura} + '%'"
-                 th:aria-valuenow="${detalle.porcentajeLectura}"
-                 aria-valuemin="0" aria-valuemax="100"></div>
-        </div>
-        <span class="ms-2 fw-semibold" th:text="${detalle.porcentajeLectura} + '% leído'"></span>
-    </div>
-
-    <!-- Detalle por destinatario -->
-    <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Destinatario</th>
-                    <th>Usuario</th>
-                    <th class="text-center">Recibió</th>
-                    <th class="text-center">Confirmó lectura</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="d, it : ${detalle.destinatarios}">
-                    <td th:text="${it.index + 1}"></td>
-                    <td th:text="${d.nombre}"></td>
-                    <td><small class="text-muted" th:text="${d.usuario}"></small></td>
-                    <td class="text-center">
-                        <span th:if="${d.entregada}" class="text-info" th:title="${d.fechaEntrega}">
-                            <i class="ti ti-check"></i>
-                            <small th:text="${d.fechaEntrega}"></small>
-                        </span>
-                        <span th:unless="${d.entregada}" class="text-muted">
-                            <i class="ti ti-clock"></i> Pendiente
-                        </span>
-                    </td>
-                    <td class="text-center">
-                        <span th:if="${d.leida}" class="text-success" th:title="${d.fechaLectura}">
-                            <i class="ti ti-checks"></i>
-                            <small th:text="${d.fechaLectura}"></small>
-                        </span>
-                        <span th:unless="${d.leida}" class="badge bg-label-warning">No leído</span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
 </div>
 
-<div class="modal-footer">
-    <a type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</a>
+<div class="sm-modal-pie">
+    <span class="sm-nota"><i class="ti ti-bolt text-warning"></i> Se actualiza solo cuando alguien confirma la lectura.</span>
+    <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal"><i class="ti ti-x"></i> Cerrar</button>
 </div>
+
+<script>
+    (function () {
+        const $det = $('#comDetalle');
+        const filas = $det.find('.js-det-fila').get();
+        const norm = t => window.SciafCatalogos ? SciafCatalogos.normalizarTexto(t || '') : (t || '').toLowerCase();
+        const estado = { texto: '', filtro: '' };
+
+        function pasa(tr) {
+            const d = tr.dataset;
+            if (estado.texto && !norm(d.buscar).includes(estado.texto)) return false;
+            switch (estado.filtro) {
+                case 'leida':       return d.leida === 'true';
+                case 'sin-leer':    return d.leida !== 'true';
+                case 'sin-recibir': return d.entregada !== 'true';
+                default:            return true;
+            }
+        }
+
+        function aplicar() {
+            let visibles = 0;
+            filas.forEach(tr => { const ok = pasa(tr); tr.classList.toggle('com-oculto', !ok); if (ok) visibles++; });
+            $det.find('.js-det-vacio').toggleClass('d-none', visibles > 0 || !filas.length);
+        }
+
+        let espera = null;
+        $det.find('.js-det-buscar').on('input', function () {
+            clearTimeout(espera);
+            espera = setTimeout(() => { estado.texto = norm(this.value).trim(); aplicar(); }, 120);
+        });
+        $det.on('click', '.js-det-filtro button', function () {
+            const v = $(this).data('filtro') || '';
+            estado.filtro = (estado.filtro === v) ? '' : v;
+            $det.find('.js-det-filtro button').removeClass('activo')
+                .filter(function () { return ($(this).data('filtro') || '') === estado.filtro; }).addClass('activo');
+            aplicar();
+        });
+
+        /** Nombres de quienes no confirmaron, uno por línea, para pegarlos en un mensaje. */
+        $det.find('.js-det-copiar').on('click', function () {
+            const nombres = filas.filter(tr => tr.dataset.leida !== 'true').map(tr => '• ' + tr.dataset.nombre);
+            if (!nombres.length) {
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Todos confirmaron la lectura',
+                    showConfirmButton: false, timer: 2500 });
+                return;
+            }
+            const texto = 'Pendientes de confirmar (' + nombres.length + '):\n' + nombres.join('\n');
+            const listo = () => Swal.fire({ toast: true, position: 'top-end', icon: 'success',
+                title: nombres.length + ' nombre(s) copiados', showConfirmButton: false, timer: 2500 });
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(texto).then(listo);
+            } else {
+                const area = document.createElement('textarea');
+                area.value = texto;
+                document.body.appendChild(area);
+                area.select();
+                document.execCommand('copy');
+                area.remove();
+                listo();
+            }
+        });
+
+        aplicar();
+    })();
+</script>

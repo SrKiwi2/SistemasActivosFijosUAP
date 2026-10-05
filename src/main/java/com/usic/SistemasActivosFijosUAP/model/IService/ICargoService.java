@@ -15,4 +15,6 @@ public interface ICargoService extends IServiceGenerico<Cargo, Long>{
     Optional<Cargo> findFirstByNombreIgnoreCase(String nombre);
     Cargo buscarOCrearPorNombre(String nombre, Long idUsuarioRegistro);
     List<Cargo> buscarPorNombreLike(String nombre);
+    /** Hasta {@code max} nombres que contienen {@code texto} (todos si viene vacío), en orden. */
+    List<String> nombresParecidos(String texto, int max);
 }
