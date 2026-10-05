@@ -25,6 +25,9 @@ public interface IActaFaltanteDao extends JpaRepository<ActaFaltante, Long> {
     @Query(value = "select count(*) from (select pg_advisory_xact_lock(:clave)) t", nativeQuery = true)
     long turnoNumeracion(@Param("clave") long clave);
 
+    /** La reiterativa (no anulada) que reitera a esta notificación, si la hay. */
+    Optional<ActaFaltante> findFirstByActaAnteriorIdActaAndEstadoActaNotOrderByIdActaDesc(Long idActa, String estadoActa);
+
     /** Último correlativo de notificación de la gestión: NOT-AF-<b>007</b>/2026 → 7. */
     @Query(value = "select coalesce(max(cast(substring(numero from '^NOT-AF-([0-9]+)/') as integer)), 0)"
             + " from acta_faltante where numero like 'NOT-AF-%/' || :gestion", nativeQuery = true)

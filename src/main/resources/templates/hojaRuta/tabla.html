@@ -1,2 +1,41 @@
-86091
-
+<!-- Búsqueda y Seguimiento de hojas de ruta: la tabla (llega con la vista y se vuelve a pedir
+     a POST /administracion/hoja-ruta/seguimiento/tabla al cambiar gestión o unidad).
+     La última columna (descripción) va oculta: solo sirve para el buscador. -->
+<table th:fragment="tabla" class="table sm-tabla align-middle hrs-tabla">
+    <thead>
+        <tr>
+            <th>N° hoja</th>
+            <th>Tipo</th>
+            <th>Gestión</th>
+            <th>Solicitante</th>
+            <th>Dónde está</th>
+            <th>Estado</th>
+            <th>Descripción</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr th:each="f : ${filas}" class="hrs-fila" tabindex="0"
+            th:attr="data-id=${f.idHojaRuta},data-estado=${f.estadoActual}">
+            <td><span class="sm-codigo" th:text="${f.codigo}">—</span></td>
+            <td class="sm-mayus" th:text="${f.tipo ?: '—'}">—</td>
+            <td th:text="${f.gestion ?: '—'}">—</td>
+            <td>
+                <div class="sm-nombre" th:text="${f.solicitanteNombre ?: '—'}">—</div>
+                <div class="sm-sub sm-mayus" th:if="${f.solicitanteCargo}" th:text="${f.solicitanteCargo}"></div>
+            </td>
+            <td th:attr="data-order=${f.fechaUltimo != null ? f.fechaUltimo : ''}">
+                <div class="sm-mayus" th:text="${f.ubicacionActual ?: '—'}">—</div>
+                <div class="sm-sub" th:if="${f.fechaUltimo}"
+                     th:text="${#temporals.format(f.fechaUltimo, 'dd/MM/yyyy')} + ' · ' + ${f.movimientos} + (${f.movimientos == 1} ? ' movimiento' : ' movimientos')"></div>
+            </td>
+            <td>
+                <span class="sm-pastilla"
+                      th:classappend="${f.estadoActual == 'RECIBIDO'} ? 'sm-pastilla-activo'
+                                    : (${f.estadoActual == 'ENVIADO'} ? 'sm-pastilla-info'
+                                    : (${f.estadoActual == 'ARCHIVADO'} ? 'hrs-pastilla-archivado' : 'sm-pastilla-aviso'))"
+                      th:text="${f.estadoActual}">—</span>
+            </td>
+            <td th:text="${f.descripcion}"></td>
+        </tr>
+    </tbody>
+</table>

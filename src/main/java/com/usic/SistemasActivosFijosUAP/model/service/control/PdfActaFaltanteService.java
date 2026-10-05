@@ -186,7 +186,8 @@ public class PdfActaFaltanteService {
         }
 
         doc.addTitle((vistaPrevia ? "VISTA PREVIA — " : "")
-                + "Notificación de activos físicos faltantes " + acta.numeroImpreso());
+                + (acta.esReiterativa() ? "Notificación reiterativa de activos físicos faltantes "
+                                        : "Notificación de activos físicos faltantes ") + acta.numeroImpreso());
         doc.addAuthor("Sección de Activos Fijos - UAP");
         doc.addCreator("SCIAF");
         doc.open();
@@ -201,8 +202,9 @@ public class PdfActaFaltanteService {
         numero.setAlignment(Element.ALIGN_RIGHT);
         numero.setSpacingBefore(12);
         doc.add(numero);
+        // La fecha del papel es desde cuándo corre el plazo: la emisión o, si se cambió el plazo, ese día.
         Paragraph fecha = new Paragraph(nvl(acta.ciudad(), "Cobija") + ", "
-                + (acta.fechaEmision() != null ? acta.fechaEmision().format(FECHA_LARGA) : ""), N_NEGRITA);
+                + (acta.fechaDelDocumento() != null ? acta.fechaDelDocumento().format(FECHA_LARGA) : ""), N_NEGRITA);
         fecha.setAlignment(Element.ALIGN_RIGHT);
         fecha.setSpacingAfter(10);
         doc.add(fecha);
@@ -232,13 +234,22 @@ public class PdfActaFaltanteService {
         presente.setSpacingBefore(8);
         doc.add(presente);
 
-        Paragraph ref = new Paragraph("REF.: NOTIFICACIÓN DE ACTIVOS FÍSICOS FALTANTES", N_NEGRITA);
+        Paragraph ref = new Paragraph("REF.: " + acta.titulo(), N_NEGRITA);
         ref.setAlignment(Element.ALIGN_CENTER);
         ref.setSpacingBefore(8);
         ref.setSpacingAfter(8);
         doc.add(ref);
 
         doc.add(new Paragraph("De mi consideración:", N_NEGRITA));
+        if (acta.esReiterativa()) {
+            // Antes la reiterativa salía igual que la notificación original: no decía que reiteraba.
+            doc.add(parrafo("En atención a la **" + nvl(acta.reiteraA(), "notificación anterior") + "**"
+                    + (acta.reiteraAFecha() != null ? " de fecha " + acta.reiteraAFecha().format(FECHA_LARGA) : "")
+                    + ", y considerando que a la fecha no se regularizó la situación de los bienes detallados a "
+                    + "continuación, mediante la presente se le **reitera dicha notificación**"
+                    + (Integer.valueOf(2).equals(acta.numeroReiterativa())
+                            ? " con carácter de **segunda y última notificación**." : ".")));
+        }
         doc.add(parrafo("Mediante la presente, la **Sección de Activos Fijos** de la Universidad Amazónica de Pando, "
                 + "en el marco de las actividades de **control, verificación y actualización de los registros de "
                 + "activos fijos**, pone en su conocimiento los resultados de la verificación física realizada a los "

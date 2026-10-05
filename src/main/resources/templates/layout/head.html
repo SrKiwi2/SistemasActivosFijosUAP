@@ -120,6 +120,24 @@
                     $(document).trigger('sciaf:pendientes-cambio', [data]);
                 });
 
+                // Control de activos (Mapa de control y Faltantes): levantamientos que avanzan
+                // desde la APK y traslados a custodia. Antes cada pantalla abría su propio
+                // EventSource y no lo cerraba: con unas pocas aperturas se agotaban las
+                // conexiones del navegador y el resto del sistema quedaba esperando.
+                ['levantamiento-abierto', 'levantamiento-avance', 'levantamiento-cerrado',
+                 'faltantes-custodia'].forEach(function (nombre) {
+                    eventSource.addEventListener(nombre, function (e) {
+                        let data = {};
+                        try { data = JSON.parse(e.data); } catch (err) { /* sin datos */ }
+                        $(document).trigger('sciaf:' + nombre, [data]);
+                    });
+                });
+                // Estado de la conexión, para los indicadores «en vivo» de las pantallas.
+                eventSource.addEventListener('open', function () {
+                    window.sciafSseConectado = true;
+                    $(document).trigger('sciaf:sse-estado', [true]);
+                });
+
                 eventSource.addEventListener('sync-progreso', function (e) {
                     const data = JSON.parse(e.data);
                     if (data.tabla !== 'activo') return;
@@ -128,6 +146,8 @@
 
                 eventSource.onerror = function () {
                     console.warn('[SSE] Conexión perdida. Reconectando en', reconnectDelay, 'ms...');
+                    window.sciafSseConectado = false;
+                    $(document).trigger('sciaf:sse-estado', [false]);
                     eventSource.close();
                     clearTimeout(reconnectTimeout);
                     reconnectTimeout = setTimeout(() => {

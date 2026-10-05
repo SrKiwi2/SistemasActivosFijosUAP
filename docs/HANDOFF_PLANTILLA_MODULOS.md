@@ -49,10 +49,9 @@ En cada módulo, además:
 | `componet/VsiafDisponibilidad.java` | Pausa las tareas que tocan el VSIAF si el montaje no está, como en la laptop local. Propiedad `sciaf.vsiaf.modo` = `auto` / `desactivado` / `activo` |
 | `docs/PLANTILLA_MODULOS.md` | Guía completa: reglas, carga eficiente, preloader, contrato JSON y tabla de módulos migrados con sus notas |
 
-> ⚠️ **Despliegue:** esos archivos están **sin rastrear** (`??`). `layout/head.html` y
-> `layout/script.html` ya los cargan. Si se commitean las vistas sin ellos, las pantallas
-> migradas fallan (`ReferenceError: SciafModulo / SciafPrecarga`). Van **en el mismo commit**
-> (`git add -A`).
+> Despliegue: esos archivos ya están commiteados (`872ea44`, junto con las vistas migradas).
+> `layout/head.html` y `layout/script.html` los cargan; si alguna vez se separan, las pantallas
+> migradas fallan (`ReferenceError: SciafModulo / SciafPrecarga`).
 
 ---
 
@@ -82,8 +81,67 @@ resumen:
 - **Asignar activos:** `activo/asignacionActivos.html`, solo lo visual más bugs.
 - **Bajas e ingresos:** Baja de activos (`operaciones/baja/modulo.html`) e Ingreso de bienes
   ajenos (`operaciones/ingreso/modulo.html` + `seguimiento/ingreso/vista.html`).
+- **Control por responsable:** Mapa de control (rehecho como mosaico) y Faltantes (cáscara + bugs).
+- **Hojas de ruta:** Búsqueda y Seguimiento (`hojaRuta/seguimiento.html` + `hojaRuta/tabla.html`).
+  La página de Recepción (`hojaRuta/vista.html`) **no** se migró, por decisión del usuario: solo
+  se le corrigieron bugs.
 
-### Lo último que se hizo (05-oct)
+### Lo último (05-oct, madrugada): Faltantes — notificaciones por persona
+Pedido del usuario: ver el código de responsable, botones claros (imprimir la notificación
+vigente, emitir reiterativa con plazo nuevo, cambiar plazo) y un contador de plazo visible.
+Decisiones del usuario: las acciones son **por notificación** (una por persona con N bienes), no
+por bien; al **cambiar el plazo corre desde el día del cambio** (el papel sale con esa fecha, mismo
+número y bienes). Sin commitear; compila, renderiza, PDF de reiterativa generado offline.
+- **Pantalla:** cada persona muestra sus códigos de responsable y una tarjeta por notificación
+  vigente (siempre a la vista): N°, tipo (1ª/2ª reiterativa), pendientes, contador en días
+  hábiles y botones Imprimir · Emitir reiterativa · Cambiar plazo · ⋯ Corregir datos. Las filas
+  quedan con Resolver y Notificar falta.
+- **Servidor (`ActaFaltanteService`):** cambiar plazo y corregir datos re-emiten el mismo
+  documento con la MISMA foto de bienes (`contenidoReemitido`); la reiterativa es un documento
+  nuevo con todos los pendientes, pide plazo, conserva la oficina de origen y pasa a ser la
+  vigente; `notificacion.inicioPlazo` en el JSON dice desde cuándo corre el plazo; todo bajo el
+  turno de notificaciones y con los faltantes bloqueados; anular una reiterativa devuelve sus
+  faltantes a la anterior; una notificación reiterada no se anula y su QR dice «reiterada».
+- **PDF:** REF con el tipo («PRIMERA NOTIFICACIÓN REITERATIVA…») y párrafo «En atención a la
+  NOT… de fecha …, se le reitera…»; la fecha del papel es la del inicio del plazo.
+- **Bugs que había:** cambiar plazo/regenerar reescribían el documento con UN solo bien; la
+  reiterativa era por bien y no pedía plazo; el PDF de la reiterativa no decía que lo era; la 2ª
+  reiterativa era imposible desde la pantalla (faltaba numeroReiterativa en FaltanteDTO); el
+  contador contaba desde el traslado a custodia; cambiar plazo borraba documento/observación.
+- **En producción todavía no hay ninguna notificación NOT-AF** (solo 4 AR y 1 AF): no hubo datos
+  dañados.
+
+### Antes (05-oct, noche): Control por responsable
+Sin commitear ni probar en navegador con la app; compila, las plantillas renderizan y el mapa se
+vio en Chrome headless con los datos reales (consulta de solo lectura). Revisor pasado y aplicado.
+- **Decisión del usuario:** mantener las dos pantallas (Mapa detecta, Faltantes gestiona) y
+  rehacer el Mapa como **mosaico de bloques** (elegido entre mosaico / mapa geográfico / solo
+  mejorar los cuadros). Predios y oficinas NO tienen coordenadas: un mapa geográfico exigiría
+  cargarlas.
+- **Datos reales (05-oct):** 8 municipios, 14 predios, 857 oficinas (387 en Las Palmas), 31.403
+  bienes, 1 solo levantamiento en la historia → casi todo «sin levantar»; por eso el color
+  alternativo «concentración de bienes».
+- **head.html** reemite `levantamiento-*` y `faltantes-custodia` como `sciaf:<evento>` y
+  `sciaf:sse-estado`: el pendiente 4 de abajo quedó resuelto.
+
+### Antes (05-oct, tarde): Hojas de ruta
+Sin commitear y sin probar en navegador; compila (javac) y las plantillas renderizan con
+Thymeleaf offline. El `revisor` pasó y sus tres hallazgos se aplicaron.
+- **Alcance elegido por el usuario:** migrar Búsqueda y Seguimiento y corregir los bugs del
+  controlador (comunes a las dos pantallas) y de la página de Recepción, sin cambiarle el diseño.
+- **Seguimiento:** lista y detalle con trayectoria en la misma pantalla; llega con la vista;
+  solo ADMINISTRADOR / SUPER USUARIO (controlador → `supervision/sin_permiso`).
+- **Permisos del controlador:** leen RECEPCION + administrativos (`puedeLeer`); escriben
+  RECEPCION + ADMINISTRADOR (`puedeRegistrar`). Antes `/listar` respondía sin sesión.
+- **Datos:** listado sin filas repetidas y sin N+1 (dos consultas); estado actual = primer
+  movimiento por fecha, hora, id (también en `/seguimiento-hr` público); código sin distinguir
+  mayúsculas; altas bajo un turno `pg_advisory_xact_lock` (doble clic ya no duplica).
+- **Recepción:** XSS, fecha de mañana desde las 20:00, modal nuevo sin fecha, abre por id.
+- **Código muerto quitado:** `hojaRuta/formulario.html` (vacío), el contenido basura de
+  `hojaRuta/tabla.html` (ahora es el fragmento) y los métodos sin uso de los servicios y DAO de
+  hoja de ruta, movimiento, solicitante y unidad.
+
+### Antes (05-oct): Bajas e Ingresos
 **Bajas e Ingresos.**
 - **Vista de bajas borrada:** `seguimiento/baja/vista.html` estaba rota (otro modelo de bajas,
   endpoints inexistentes). La ruta `/administracion/baja/vista` ahora abre el módulo.
@@ -108,23 +166,28 @@ resumen:
      Allá se desaprueba aparte. Es así por diseño.
 3. **Ingreso:** el firmante del comprobante está fijo en el HTML (`LIC. VERONICA LAYME CORI`).
    Se ofreció pasarlo a la configuración.
-4. **Control de Activos:** Faltantes (`controlActivos/faltantes.html`) y Mapa
-   (`controlActivos/mapa.html`) abren su propio `EventSource('/api/eventos/stream')`. Cada uno
-   consume una de las ~6 conexiones del navegador por servidor.
-   - **Arreglo:** el mismo de Pendientes. `layout/head.html` reemite el evento como
-     `$(document).trigger('sciaf:<evento>')`, y la pantalla escucha ese evento en vez de abrir
-     una conexión.
+4. **Control de Activos:**
+   - ~~EventSource propio en Mapa y Faltantes~~: resuelto el 05-oct (head.html reemite).
+   - **Índice único** parcial `inventario(id_oficina) where estado_levantamiento='EN_EJECUCION'`:
+     cerraría de verdad la doble apertura simultánea de un levantamiento (hoy solo lo evita la
+     pantalla). DDL en producción: solo con permiso.
+   - **Feriados:** el contador de plazo cuenta lunes a viernes; no descuenta feriados.
 5. **`SyncOrchestrator.despacharSync`:** no tiene handler para entidad, predio, grupoContable ni
    organismoFinanciero, y en producción loguea «Sin handler de sync».
 6. **Transferencia Londra:** el usuario dijo «dejemos ese módulo» por ahora.
 7. **Pantallas que faltan migrar,** según `OpcionMenuSeeder`. El usuario elige el orden.
-   - Hoja de ruta › Búsqueda y Seguimiento.
-   - Control de activos › Mapa, Faltantes.
    - Movimientos › Asignaciones, Transferencias.
    - Historial › Historial activo, Seguimiento de activo (ruta), Historial de transferencias.
    - Consulta › Buscar/Filtrar activos, Reporte de asignaciones.
    - Conciliación › BD↔VSIAF, Revisión de correlativos.
    - Transferencia Londra.
+8. **Hojas de ruta:**
+   - **Duplicados viejos:** no hay índice único en `hoja_rutas (tipo, upper(codigo), gestion)`.
+     El turno cierra los nuevos, pero si ya hay repetidas en producción, el buscador manual de
+     Recepción abre la primera; desde la tabla se abre la exacta, por id. Revisar con una
+     consulta de solo lectura antes de ofrecer el índice (DDL, solo con permiso).
+   - **Página de Recepción:** sigue con su diseño propio (`style-hoja-ruta.css`,
+     boxicons, CDN). Migrarla a la plantilla queda ofrecido.
 
 ---
 
@@ -157,6 +220,11 @@ resumen:
 - **Maven:** `./mvnw.cmd -o -q compile` tarda varios minutos en esta laptop. Correrlo en segundo
   plano y verificar con `grep -E "ERROR|FIN"` sobre el log, porque una salida vacía no garantiza
   éxito.
+- **Compilar sin reiniciar la app:** si la app corre desde VS Code con devtools, compilar a
+  `target/classes` la reinicia, y el arranque escribe en la base de producción. En Linux se
+  compiló aparte con `./mvnw -o -q dependency:build-classpath -Dmdep.outputFile=cp.txt` y
+  `javac -proc:full -d <scratchpad>/out -cp "$(cat cp.txt)" @fuentes.txt`. Las plantillas se
+  validaron renderizándolas con `SpringTemplateEngine` + `FileTemplateResolver` y un modelo falso.
 - **Hibernate 6:** validado en esta sesión que funcionan `CAST(x AS String)`, `CONCAT` de varios
   argumentos y `:param = -1` con `Long`. Evitar `upper(trim(?1))` en parámetros: falló al
   arrancar.

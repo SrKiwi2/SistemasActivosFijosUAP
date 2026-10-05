@@ -1,476 +1,388 @@
-<!-- =====================================================================
-     SEGUIMIENTO DE HOJAS DE RUTA  (solo lectura)  ·  Fragmento SPA
-     Roles: ADMINISTRADOR + SUPER USUARIO (encargada)
-     Reutiliza:
-        POST /administracion/hoja-ruta/listar   (gestion, unidadOrigenId)
-        POST /administracion/hoja-ruta/buscar   (codigo, tipo, gestion)
-====================================================================== -->
-
-<!-- ── Panel "no autorizado" (defensa en profundidad, mismo mecanismo del sidebar) ── -->
-<div th:unless="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}"
-     style="padding:60px 20px;text-align:center;color:#6b7280;">
-    <div style="font-size:46px;">🔒</div>
-    <h4 style="margin-top:10px;color:#374151;">Acceso restringido</h4>
-    <p style="font-size:14px;">Este módulo está disponible solo para Administrador y Encargada de Activos Fijos.</p>
-</div>
-
-<!-- ── Módulo ── -->
-<div th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Hojas de ruta › Búsqueda y Seguimiento — plantilla de pantallas
+     (docs/PLANTILLA_MODULOS.md). Solo lectura, para ADMINISTRADOR y SUPER USUARIO (lo
+     valida el controlador; quien no lo es recibe supervision/sin_permiso).
+     El registro de hojas y movimientos es de Recepción (hojaRuta/vista.html).
+     Backend:
+       GET  /administracion/hoja-ruta/seguimiento         (vista + tabla de la gestión actual)
+       POST /administracion/hoja-ruta/seguimiento/tabla   (tabla: hojaRuta/tabla.html)
+       POST /administracion/hoja-ruta/buscar              (datos + trayectoria, por idHojaRuta)
+     Todo dentro de #modHojaRuta y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modHojaRuta">
 
 <style>
-/* ── TOKENS (scoped) ─────────────────────────────────────────────── */
-.hrs-wrap {
-    --bg-page:#f0f2f5; --bg-panel:#fff; --bg-input:#f4f6fa; --bg-hover:#f0f4ff;
-    --border-soft:#e4e8f0; --border-med:#c9d0e0; --border-focus:#1a56a0;
-    --txt:#1a2340; --txt-sub:#5a6a8a; --txt-muted:#9aa3b8;
-    --accent:#1a56a0; --accent-lt:rgba(26,86,160,.09); --accent-hov:#14406f;
-    --green:#12b76a; --green-lt:rgba(18,183,106,.12);
-    --blue:#2563b0;  --blue-lt:rgba(37,99,176,.12);
-    --amber:#b45309; --amber-lt:rgba(180,83,9,.12);
-    --gray:#64748b;  --gray-lt:rgba(100,116,139,.12);
-    --red:#f04438;
-    --mono:'JetBrains Mono','Fira Mono',monospace;
-    --r:8px; --sh:0 1px 3px rgba(0,0,0,.07); --t:.16s ease;
-}
-.hrs-wrap, .hrs-wrap * { box-sizing:border-box; }
-.hrs-wrap {
-    --topbar-h:56px;
-    font-family:'Inter',system-ui,sans-serif; color:var(--txt);
-    display:flex; flex-direction:column;
-    height:calc(100vh - var(--topbar-h)); overflow:hidden; background:var(--bg-page);
-}
+    /* Lista a la izquierda, la hoja elegida a la derecha. */
+    #modHojaRuta .hrs-cuerpo {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr);
+        gap: 1rem;
+        align-items: start;
+    }
+    #modHojaRuta .hrs-cuerpo > .sm-card { margin-bottom: 0; min-width: 0; }
 
-/* ── Topbar interna ── */
-.hrs-topbar {
-    height:46px; flex-shrink:0; background:var(--bg-panel);
-    border-bottom:1px solid var(--border-soft); box-shadow:var(--sh);
-    display:flex; align-items:center; gap:11px; padding:0 20px; z-index:20;
-}
-.hrs-topbar-icon {
-    width:26px; height:26px; background:var(--accent); border-radius:6px;
-    display:flex; align-items:center; justify-content:center; color:#fff; font-size:15px; flex-shrink:0;
-}
-.hrs-topbar-title { font-size:13px; font-weight:600; }
-.hrs-topbar-clock { margin-left:auto; font-family:var(--mono); font-size:10px; color:var(--txt-muted); letter-spacing:.4px; }
+    #modHojaRuta .hrs-tabla tbody tr.hrs-fila { cursor: pointer; }
+    #modHojaRuta .hrs-tabla tbody tr.hrs-fila:focus-visible { outline: 2px solid var(--sm-primario); outline-offset: -2px; }
+    #modHojaRuta .hrs-tabla tbody tr.hrs-sel > td { background: rgba(var(--sm-primario-rgb), 0.08); }
+    #modHojaRuta .hrs-tabla tbody tr.hrs-sel > td:first-child { box-shadow: inset 3px 0 0 var(--sm-primario); }
 
-/* ── Filtros ── */
-.hrs-filters {
-    flex-shrink:0; background:var(--bg-panel); border-bottom:1px solid var(--border-soft);
-    padding:11px 20px; display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;
-}
-.hrs-fg { display:flex; flex-direction:column; gap:4px; }
-.hrs-flabel { font-size:10px; font-weight:600; letter-spacing:.6px; text-transform:uppercase; color:var(--txt-muted); }
-.hrs-input, .hrs-sel {
-    background:var(--bg-input); border:1px solid var(--border-med); border-radius:6px;
-    color:var(--txt); font-size:12.5px; padding:6px 10px; outline:none; height:34px;
-    transition:border-color var(--t), box-shadow var(--t);
-}
-.hrs-input:focus, .hrs-sel:focus { border-color:var(--border-focus); box-shadow:0 0 0 3px var(--accent-lt); }
-.hrs-input--num { width:120px; }
-.hrs-sel { min-width:200px; }
-.hrs-search { margin-left:auto; position:relative; }
-.hrs-search input { padding-left:30px; width:240px; }
-.hrs-search .ico { position:absolute; left:9px; top:50%; transform:translateY(-50%); color:var(--txt-muted); font-size:14px; }
+    #modHojaRuta .hrs-pastilla-archivado {
+        background: var(--sm-superficie-3);
+        color: var(--sm-texto-2);
+        border-color: var(--sm-borde-fuerte);
+    }
 
-.hrs-btn {
-    display:inline-flex; align-items:center; gap:6px; border:none; border-radius:6px;
-    font-size:12.5px; font-weight:500; cursor:pointer; padding:0 14px; height:34px;
-    transition:all var(--t); white-space:nowrap;
-}
-.hrs-btn-primary { background:var(--accent); color:#fff; }
-.hrs-btn-primary:hover { background:var(--accent-hov); }
-.hrs-btn-ghost { background:var(--bg-input); color:var(--txt-sub); border:1px solid var(--border-med); }
-.hrs-btn-ghost:hover { border-color:var(--accent); color:var(--accent); }
+    /* ── Detalle ── */
+    #modHojaRuta .hrs-detalle-cuerpo { padding: 1rem 1.1rem; }
+    #modHojaRuta .hrs-det-cab {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.9rem;
+    }
+    #modHojaRuta .hrs-det-numero { font-size: 1.35rem; margin: 0.1rem 0 0; }
+    #modHojaRuta .hrs-campos {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem 1rem;
+    }
+    #modHojaRuta .hrs-campo-ancho { grid-column: 1 / -1; }
+    #modHojaRuta .hrs-campo-l {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        color: var(--sm-texto-2);
+    }
+    #modHojaRuta .hrs-campo-v { color: var(--sm-texto); word-break: break-word; }
 
-/* ── Cuerpo: dos columnas ── */
-.hrs-body { flex:1; display:flex; min-height:0; }
-.hrs-col-list {
-    width:46%; min-width:340px; display:flex; flex-direction:column;
-    border-right:1px solid var(--border-soft); background:var(--bg-page); min-height:0;
-}
-.hrs-col-detail { flex:1; display:flex; flex-direction:column; min-height:0; overflow-y:auto; }
+    /* ── Trayectoria ── */
+    #modHojaRuta .hrs-tl { list-style: none; margin: 0; padding: 0 0 0 1.6rem; position: relative; }
+    #modHojaRuta .hrs-tl::before {
+        content: '';
+        position: absolute;
+        left: 0.55rem;
+        top: 0.4rem;
+        bottom: 0.4rem;
+        width: 2px;
+        background: var(--sm-borde);
+    }
+    #modHojaRuta .hrs-ev { position: relative; padding-bottom: 0.8rem; }
+    #modHojaRuta .hrs-ev:last-child { padding-bottom: 0; }
+    #modHojaRuta .hrs-ev-punto {
+        position: absolute;
+        left: -1.35rem;
+        top: 0.55rem;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 3px solid var(--sm-superficie);
+        background: var(--sm-texto-2);
+        box-shadow: 0 0 0 1px var(--sm-borde);
+    }
+    #modHojaRuta .hrs-ev-punto[data-e="RECIBIDO"] { background: var(--sm-exito); }
+    #modHojaRuta .hrs-ev-punto[data-e="ENVIADO"] { background: var(--sm-primario); }
+    #modHojaRuta .hrs-ev-tarjeta {
+        background: var(--sm-superficie-2);
+        border: 1px solid var(--sm-borde);
+        border-radius: 10px;
+        padding: 0.6rem 0.75rem;
+    }
+    #modHojaRuta .hrs-ev-actual .hrs-ev-tarjeta {
+        border-color: var(--sm-primario-borde);
+        box-shadow: 0 0 0 2px rgba(var(--sm-primario-rgb), 0.12);
+    }
+    #modHojaRuta .hrs-ev-fila {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    #modHojaRuta .hrs-ev-fecha { font-size: 0.8rem; color: var(--sm-texto-2); font-variant-numeric: tabular-nums; }
+    #modHojaRuta .hrs-flujo { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.45rem; }
+    #modHojaRuta .hrs-unidad {
+        background: var(--sm-superficie);
+        border: 1px solid var(--sm-borde);
+        border-radius: 6px;
+        padding: 0.1rem 0.5rem;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    #modHojaRuta .hrs-obs { margin-top: 0.4rem; font-size: 0.85rem; color: var(--sm-texto-2); }
 
-.hrs-list-head {
-    flex-shrink:0; padding:9px 16px; display:flex; align-items:center; gap:8px;
-    border-bottom:1px solid var(--border-soft); background:var(--bg-panel); font-size:12px; color:var(--txt-sub);
-}
-.hrs-badge {
-    display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:19px;
-    padding:0 7px; border-radius:100px; font-family:var(--mono); font-size:10.5px; font-weight:700;
-    background:var(--accent-lt); color:var(--accent);
-}
-.hrs-list-scroll { flex:1; overflow-y:auto; min-height:0; }
-.hrs-list-scroll::-webkit-scrollbar { width:5px; }
-.hrs-list-scroll::-webkit-scrollbar-thumb { background:var(--border-med); border-radius:4px; }
-
-table.hrs-table { width:100%; border-collapse:collapse; font-size:12px; }
-.hrs-table thead th {
-    position:sticky; top:0; background:var(--bg-panel); z-index:2;
-    text-align:left; padding:8px 12px; font-size:10px; font-weight:700; letter-spacing:.5px;
-    text-transform:uppercase; color:var(--txt-muted); border-bottom:1px solid var(--border-soft);
-}
-.hrs-table tbody td { padding:9px 12px; border-bottom:1px solid var(--border-soft); vertical-align:middle; }
-.hrs-table tbody tr { cursor:pointer; transition:background var(--t); }
-.hrs-table tbody tr:hover { background:var(--bg-hover); }
-.hrs-table tbody tr.sel { background:var(--accent-lt); box-shadow:inset 3px 0 0 var(--accent); }
-.hrs-cod { font-family:var(--mono); font-weight:700; color:var(--accent); }
-.hrs-desc-cell { color:var(--txt-sub); max-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-
-/* ── Pills de estado ── */
-.hrs-pill {
-    display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:700; letter-spacing:.4px;
-    border-radius:100px; padding:3px 9px; text-transform:uppercase; white-space:nowrap;
-}
-.hrs-pill[data-e="RECIBIDO"] { background:var(--green-lt); color:var(--green); }
-.hrs-pill[data-e="ENVIADO"]  { background:var(--blue-lt);  color:var(--blue); }
-.hrs-pill[data-e="ARCHIVADO"]{ background:var(--gray-lt);  color:var(--gray); }
-.hrs-pill[data-e="SIN MOVIMIENTOS"], .hrs-pill[data-e="DESCONOCIDO"] { background:var(--gray-lt); color:var(--txt-muted); }
-
-/* ── Detalle ── */
-.hrs-empty {
-    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:10px; color:var(--txt-muted); text-align:center; padding:30px;
-}
-.hrs-empty-ico {
-    width:54px; height:54px; border:1.5px dashed var(--border-med); border-radius:50%;
-    display:flex; align-items:center; justify-content:center; font-size:24px;
-}
-.hrs-detail-inner { padding:18px 20px; display:none; }
-
-.hrs-card {
-    background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:var(--r);
-    box-shadow:var(--sh); padding:16px 18px; margin-bottom:16px;
-}
-.hrs-card-title {
-    display:flex; align-items:center; gap:8px; margin-bottom:14px;
-    font-size:13px; font-weight:700; color:var(--txt);
-}
-.hrs-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px 18px; }
-.hrs-field-l { font-size:10px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:var(--txt-muted); margin-bottom:2px; }
-.hrs-field-v { font-size:13px; color:var(--txt); word-break:break-word; }
-.hrs-field-full { grid-column:1 / -1; }
-
-/* ── Timeline ── */
-.hrs-tl-title { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; margin-bottom:12px; }
-.hrs-tl { position:relative; padding-left:26px; }
-.hrs-tl::before { content:''; position:absolute; left:9px; top:4px; bottom:4px; width:2px; background:var(--border-soft); }
-.hrs-ev { position:relative; padding:0 0 16px 6px; }
-.hrs-ev:last-child { padding-bottom:0; }
-.hrs-ev-dot {
-    position:absolute; left:-22px; top:2px; width:18px; height:18px; border-radius:50%;
-    border:3px solid var(--bg-page); display:flex; align-items:center; justify-content:center;
-}
-.hrs-ev-dot[data-e="RECIBIDO"] { background:var(--green); }
-.hrs-ev-dot[data-e="ENVIADO"]  { background:var(--blue); }
-.hrs-ev-dot[data-e="ARCHIVADO"]{ background:var(--gray); }
-.hrs-ev-dot[data-e="DESCONOCIDO"]{ background:var(--txt-muted); }
-.hrs-ev-card { background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:7px; padding:10px 13px; box-shadow:var(--sh); }
-.hrs-ev-card.actual { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-lt); }
-.hrs-ev-row1 { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px; }
-.hrs-ev-fecha { font-family:var(--mono); font-size:10px; color:var(--txt-muted); white-space:nowrap; }
-.hrs-flow { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:6px; }
-.hrs-flow-chip {
-    background:var(--bg-input); border:1px solid var(--border-soft); border-radius:5px; padding:2px 9px;
-    font-size:11px; color:var(--txt); max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-}
-.hrs-flow-arrow { color:var(--border-med); font-size:13px; }
-.hrs-ev-obs { font-size:11.5px; color:var(--txt-sub); line-height:1.5; }
-.hrs-ev-tag-actual { font-size:9px; font-weight:700; color:var(--accent); background:var(--accent-lt); padding:1px 7px; border-radius:100px; text-transform:uppercase; }
-
-/* ── Toasts ── */
-.hrs-toasts { position:fixed; bottom:18px; right:18px; z-index:9999; display:flex; flex-direction:column; gap:7px; }
-.hrs-toast {
-    background:var(--bg-panel); border:1px solid var(--border-soft); border-left-width:3px; border-radius:7px;
-    padding:10px 14px; min-width:240px; max-width:330px; box-shadow:0 4px 14px rgba(0,0,0,.12);
-    font-size:12px; animation:hrsTIn .22s ease both;
-}
-@keyframes hrsTIn { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:none} }
-.hrs-toast-s { border-left-color:var(--green); }
-.hrs-toast-e { border-left-color:var(--red); }
-.hrs-toast-w { border-left-color:var(--amber); }
-
-@media (max-width:820px) {
-    .hrs-body { flex-direction:column; }
-    .hrs-col-list { width:100%; min-width:0; max-height:42%; border-right:none; border-bottom:1px solid var(--border-soft); }
-    .hrs-grid { grid-template-columns:1fr; }
-    .hrs-search { margin-left:0; }
-    .hrs-search input { width:100%; }
-}
+    @media (max-width: 991.98px) {
+        #modHojaRuta .hrs-cuerpo { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 575.98px) {
+        #modHojaRuta .hrs-campos { grid-template-columns: minmax(0, 1fr); }
+    }
 </style>
 
-<div class="hrs-wrap">
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-zoom-check"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-file-description"></i> Hojas de ruta <i class="ti ti-chevron-right"></i> Búsqueda y seguimiento
+        </nav>
+        <h1 class="sm-titulo">Seguimiento de hojas de ruta</h1>
+        <p class="sm-subtitulo">Dónde está cada hoja y por dónde pasó. Se registran y mueven desde Recepción.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-total">—</strong> hojas</span>
+        <span class="sm-dato" title="Hojas que todavía no se archivaron"><strong class="js-tramite">—</strong> en trámite</span>
+    </div>
+</header>
 
-    <!-- Topbar -->
-    <header class="hrs-topbar">
-        <span class="hrs-topbar-icon">🗂️</span>
-        <span class="hrs-topbar-title">Seguimiento de Hojas de Ruta</span>
-        <span class="hrs-topbar-clock" id="hrs-clock">—</span>
-    </header>
+<div class="hrs-cuerpo">
 
-    <!-- Filtros -->
-    <div class="hrs-filters">
-        <div class="hrs-fg">
-            <label class="hrs-flabel">Gestión</label>
-            <input type="number" id="hrs-gestion" class="hrs-input hrs-input--num"
-                   placeholder="Ej: 2025" min="2000" max="2100" />
-        </div>
-        <div class="hrs-fg">
-            <label class="hrs-flabel">Unidad de Origen</label>
-            <select id="hrs-unidad" class="hrs-sel">
-                <option value="">Todas las unidades</option>
-                <option th:each="unidad : ${listaUnidades}"
-                        th:value="${unidad.idUnidad}" th:text="${unidad.nombre}"></option>
+    <section class="sm-card js-tarjeta-lista">
+        <div class="sm-toolbar">
+            <div class="sm-buscador">
+                <i class="ti ti-search"></i>
+                <input type="text" class="sm-input js-buscar" placeholder="Buscar N°, solicitante, unidad, descripción…"
+                       autocomplete="off" aria-label="Buscar hoja de ruta" />
+                <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+            </div>
+            <select class="sm-select js-gestion" style="width:auto;min-width:150px;" aria-label="Gestión">
+                <option value="">Todas las gestiones</option>
+                <option th:each="g : ${gestiones}" th:value="${g}" th:text="${'Gestión ' + g}"
+                        th:selected="${g == gestionInicial}"></option>
             </select>
-        </div>
-        <button class="hrs-btn hrs-btn-primary" onclick="hrsListar()">🔎 Buscar</button>
-        <button class="hrs-btn hrs-btn-ghost" onclick="hrsLimpiar()">Limpiar</button>
-
-        <div class="hrs-search">
-            <span class="ico">🔍</span>
-            <input type="text" id="hrs-filtro" class="hrs-input"
-                   placeholder="Filtrar código, solicitante, descripción…" autocomplete="off" />
-        </div>
-    </div>
-
-    <!-- Cuerpo -->
-    <div class="hrs-body">
-
-        <!-- Columna izquierda: listado -->
-        <div class="hrs-col-list">
-            <div class="hrs-list-head">
-                <i>📋</i> Hojas de Ruta
-                <span class="hrs-badge" id="hrs-total">0</span>
-                <span style="margin-left:auto;color:var(--txt-muted);font-size:10.5px;">clic en una fila para ver su trayectoria</span>
+            <div style="min-width:220px;" title="Hojas con algún movimiento que salió de esta unidad">
+                <select class="sm-select js-unidad" aria-label="Unidad de origen" style="width:100%;">
+                    <option value="">Todas las unidades</option>
+                    <option th:each="u : ${listaUnidades}" th:value="${u.idUnidad}" th:text="${u.nombre}"></option>
+                </select>
             </div>
-            <div class="hrs-list-scroll">
-                <table class="hrs-table">
-                    <thead>
-                        <tr>
-                            <th>Código</th>
-                            <th>Tipo</th>
-                            <th>Gestión</th>
-                            <th>Solicitante</th>
-                            <th>Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody id="hrs-tbody">
-                        <tr><td colspan="5" style="text-align:center;padding:28px;color:var(--txt-muted);">
-                            Presiona <strong>Buscar</strong> para cargar los registros.
-                        </td></tr>
-                    </tbody>
-                </table>
+            <div class="sm-segmento js-segmento" role="group" aria-label="Filtrar por estado">
+                <button type="button" class="activo" data-filtro="">Todas <span class="sm-cuenta" data-cuenta="todos">0</span></button>
+                <button type="button" data-filtro="RECIBIDO">Recibidas <span class="sm-cuenta" data-cuenta="RECIBIDO">0</span></button>
+                <button type="button" data-filtro="ENVIADO">Enviadas <span class="sm-cuenta" data-cuenta="ENVIADO">0</span></button>
+                <button type="button" data-filtro="ARCHIVADO">Archivadas <span class="sm-cuenta" data-cuenta="ARCHIVADO">0</span></button>
+            </div>
+            <div class="sm-toolbar-grupo">
+                <label class="sm-filas">
+                    <i class="ti ti-list-numbers"></i> Filas
+                    <select class="sm-select js-largo" aria-label="Filas por página">
+                        <option value="auto" selected>Ajustar a pantalla</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="-1">Todas</option>
+                    </select>
+                </label>
             </div>
         </div>
+        <div class="js-tabla"><th:block th:replace="~{hojaRuta/tabla :: tabla}"></th:block></div>
+    </section>
 
-        <!-- Columna derecha: detalle + timeline -->
-        <div class="hrs-col-detail">
-            <div class="hrs-empty" id="hrs-empty">
-                <div class="hrs-empty-ico">🧭</div>
-                <div style="font-size:13px;font-weight:600;color:var(--txt-sub);">Sin hoja de ruta seleccionada</div>
-                <div style="font-size:11.5px;line-height:1.6;">
-                    Busca por gestión o unidad, y selecciona una hoja de ruta<br>
-                    de la lista para ver sus datos y la línea de tiempo de movimientos.
-                </div>
-            </div>
-            <div class="hrs-detail-inner" id="hrs-detail">
-                <!-- Datos -->
-                <div class="hrs-card">
-                    <div class="hrs-card-title">📄 Datos de la Hoja de Ruta
-                        <span style="margin-left:auto;" class="hrs-pill" id="hrs-d-estado" data-e="SIN MOVIMIENTOS">—</span>
-                    </div>
-                    <div class="hrs-grid">
-                        <div><div class="hrs-field-l">Código</div><div class="hrs-field-v hrs-cod" id="hrs-d-codigo">—</div></div>
-                        <div><div class="hrs-field-l">Tipo</div><div class="hrs-field-v" id="hrs-d-tipo">—</div></div>
-                        <div><div class="hrs-field-l">Gestión</div><div class="hrs-field-v" id="hrs-d-gestion">—</div></div>
-                        <div><div class="hrs-field-l">Monto</div><div class="hrs-field-v" id="hrs-d-monto">—</div></div>
-                        <div><div class="hrs-field-l">Solicitante</div><div class="hrs-field-v" id="hrs-d-solicitante">—</div></div>
-                        <div><div class="hrs-field-l">N° Certificación</div><div class="hrs-field-v" id="hrs-d-certif">—</div></div>
-                        <div class="hrs-field-full"><div class="hrs-field-l">Descripción</div><div class="hrs-field-v" id="hrs-d-desc">—</div></div>
-                    </div>
-                </div>
-                <!-- Timeline -->
-                <div class="hrs-tl-title">🧭 Línea de Tiempo de Movimientos
-                    <span class="hrs-badge" id="hrs-mov-total" style="margin-left:6px;">0</span>
-                </div>
-                <div class="hrs-tl" id="hrs-tl"></div>
+    <section class="sm-card">
+        <div class="hrs-detalle-cuerpo js-detalle">
+            <div class="sm-vacio">
+                <i class="ti ti-route"></i>
+                <h6 class="mb-1">Ninguna hoja seleccionada</h6>
+                <p class="mb-0">Elija una hoja de la lista para ver sus datos y la trayectoria del documento.</p>
             </div>
         </div>
-    </div>
+    </section>
 </div>
 
-<div class="hrs-toasts" id="hrs-toasts"></div>
+</div>
 
 <script>
-(function () {
-    'use strict';
+    (function () {
+        'use strict';
 
-    const HRS = { rows: [], selKey: null };
+        const URL_BASE = '/administracion/hoja-ruta';
+        const $raiz = $('#modHojaRuta');
+        const $tarjeta = $raiz.find('.js-tarjeta-lista');
+        const $cont = $raiz.find('.js-tabla');
+        const $det = $raiz.find('.js-detalle');
+        const $gestion = $raiz.find('.js-gestion');
+        const $unidad = $raiz.find('.js-unidad');
+        // SciafModulo.escapar no escapa comillas: acá también se usa dentro de title="…".
+        const esc = function (t) { return SciafModulo.escapar(t).replace(/"/g, '&quot;'); };
 
-    /* Reloj */
-    clearInterval(window._hrsClock);
-    window._hrsClock = setInterval(() => {
-        const el = document.getElementById('hrs-clock');
-        if (el) el.textContent = new Date().toLocaleString('es-BO', { dateStyle:'short', timeStyle:'medium' });
-        else clearInterval(window._hrsClock);
-    }, 1000);
+        let api = null;
+        let filtroEstado = '';
+        let seleccionada = null;     // id de la hoja abierta en el detalle
+        let pedidoDetalle = 0;       // descarta respuestas de una hoja que ya no es la elegida
 
-    /* ── Helpers ── */
-    function esc(s){ return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-    function estadoNorm(e){ return (e||'SIN MOVIMIENTOS').toUpperCase(); }
-    function fmtMonto(m){
-        if (m==null||m==='') return '—';
-        const n = Number(m); if (isNaN(n)) return esc(m);
-        return n.toLocaleString('es-BO',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Bs';
-    }
-    function fmtFechaHora(f,h){
-        const fecha = f ? f : '—';
-        const hora  = h ? String(h).slice(0,5) : '';
-        return hora ? (fecha + ' · ' + hora) : fecha;
-    }
-    function toast(type,msg){
-        const c = document.getElementById('hrs-toasts'); if(!c) return;
-        const d = document.createElement('div');
-        d.className = 'hrs-toast hrs-toast-' + (type||'s');
-        d.innerHTML = esc(msg);
-        c.appendChild(d);
-        setTimeout(()=>{ d.style.cssText+='opacity:0;transform:translateX(12px);transition:.3s'; setTimeout(()=>d.remove(),320); }, 4200);
-    }
-
-    /* ── Listar (POST /listar) ── */
-    window.hrsListar = function () {
-        const gestion = document.getElementById('hrs-gestion').value.trim();
-        const unidad  = document.getElementById('hrs-unidad').value;
-        const tbody = document.getElementById('hrs-tbody');
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--txt-muted);">Cargando…</td></tr>';
-
-        $.post('/administracion/hoja-ruta/listar', {
-            gestion: gestion || '',
-            unidadOrigenId: unidad || ''
-        }).done(function (resp) {
-            if (!resp || !resp.ok) { toast('e', (resp && resp.msg) || 'No se pudieron cargar los registros'); HRS.rows=[]; renderTabla(); return; }
-            HRS.rows = resp.hojaRutas || [];
-            renderTabla();
-            if (!HRS.rows.length) toast('w','Sin resultados para el filtro indicado');
-        }).fail(function () { toast('e','Error de conexión al listar'); tbody.innerHTML=''; });
-    };
-
-    /* ── Render de tabla (con filtro de texto libre) ── */
-    function renderTabla() {
-        const q = (document.getElementById('hrs-filtro').value || '').toLowerCase().trim();
-        const tbody = document.getElementById('hrs-tbody');
-        const filtradas = !q ? HRS.rows : HRS.rows.filter(r =>
-            [r.codigo, r.tipo, r.gestion, r.solicitanteNombre, r.descripcion]
-            .some(v => (v==null?'':String(v)).toLowerCase().includes(q)));
-
-        document.getElementById('hrs-total').textContent = filtradas.length;
-
-        if (!filtradas.length) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:26px;color:var(--txt-muted);">Sin hojas de ruta que mostrar.</td></tr>';
-            return;
-        }
-        tbody.innerHTML = filtradas.map(r => {
-            const est = estadoNorm(r.estadoActual);
-            const key = r.tipo + '|' + r.codigo + '|' + r.gestion;
-            const selCls = (key === HRS.selKey) ? ' class="sel"' : '';
-            return `<tr${selCls} data-tipo="${esc(r.tipo)}" data-codigo="${esc(r.codigo)}" data-gestion="${esc(r.gestion)}">
-                <td class="hrs-cod">${esc(r.codigo)}</td>
-                <td>${esc(r.tipo)}</td>
-                <td>${esc(r.gestion)}</td>
-                <td>${esc(r.solicitanteNombre || '—')}</td>
-                <td><span class="hrs-pill" data-e="${esc(est)}">${esc(est)}</span></td>
-            </tr>`;
-        }).join('');
-
-        tbody.querySelectorAll('tr[data-codigo]').forEach(tr => {
-            tr.addEventListener('click', () => {
-                HRS.selKey = tr.dataset.tipo + '|' + tr.dataset.codigo + '|' + tr.dataset.gestion;
-                tbody.querySelectorAll('tr').forEach(t => t.classList.remove('sel'));
-                tr.classList.add('sel');
-                verDetalle(tr.dataset.tipo, tr.dataset.codigo, tr.dataset.gestion);
-            });
+        $unidad.select2({
+            dropdownParent: $raiz,
+            width: '100%',
+            placeholder: 'Todas las unidades',
+            allowClear: true,
+            language: { noResults: function () { return 'Sin resultados'; } }
         });
-    }
 
-    document.getElementById('hrs-filtro').addEventListener('input', renderTabla);
-    document.getElementById('hrs-gestion').addEventListener('keydown', e => { if (e.key==='Enter') hrsListar(); });
-
-    /* ── Detalle + timeline (POST /buscar) ── */
-    function verDetalle(tipo, codigo, gestion) {
-        $.post('/administracion/hoja-ruta/buscar', { codigo: codigo, tipo: tipo, gestion: gestion })
-        .done(function (resp) {
-            if (!resp || !resp.ok) { toast('e', (resp && resp.msg) || 'No se encontró la hoja de ruta'); return; }
-            pintarDetalle(resp);
-        }).fail(function () { toast('e','Error de conexión al buscar la hoja de ruta'); });
-    }
-
-    function pintarDetalle(resp) {
-        const hr = resp.hojaRuta || {};
-        const movs = resp.movimientos || [];
-        const estadoActual = estadoNorm(resp.movimientoActual);
-
-        document.getElementById('hrs-empty').style.display = 'none';
-        document.getElementById('hrs-detail').style.display = 'block';
-
-        document.getElementById('hrs-d-codigo').textContent     = hr.codigo || '—';
-        document.getElementById('hrs-d-tipo').textContent        = hr.tipo || '—';
-        document.getElementById('hrs-d-gestion').textContent     = hr.gestion || '—';
-        document.getElementById('hrs-d-monto').textContent       = fmtMonto(hr.monto);
-        document.getElementById('hrs-d-certif').textContent      = hr.certificacion || '—';
-        document.getElementById('hrs-d-desc').textContent        = hr.descripcion || '—';
-        const sol = hr.solicitanteNombre ? (hr.solicitanteNombre + (hr.solicitanteCargo ? ' — ' + hr.solicitanteCargo : '')) : '—';
-        document.getElementById('hrs-d-solicitante').textContent = sol;
-
-        const pill = document.getElementById('hrs-d-estado');
-        pill.textContent = estadoActual;
-        pill.setAttribute('data-e', estadoActual);
-
-        document.getElementById('hrs-mov-total').textContent = movs.length;
-
-        const tl = document.getElementById('hrs-tl');
-        if (!movs.length) {
-            tl.innerHTML = '<div style="color:var(--txt-muted);font-size:12px;padding:6px 0;">Esta hoja de ruta no tiene movimientos registrados.</div>';
-            return;
+        /* ── Tabla ─────────────────────────────────────────────────────── */
+        function contar() {
+            const c = { todos: 0, RECIBIDO: 0, ENVIADO: 0, ARCHIVADO: 0 };
+            api.rows().nodes().each(function (tr) {
+                c.todos++;
+                if (c[tr.dataset.estado] !== undefined) c[tr.dataset.estado]++;
+            });
+            Object.keys(c).forEach(function (k) { $raiz.find('[data-cuenta="' + k + '"]').text(c[k]); });
+            $raiz.find('.js-tramite').text(c.RECIBIDO + c.ENVIADO);
         }
-        // El primer movimiento es el actual (así lo entrega el backend)
-        tl.innerHTML = movs.map((m, i) => {
-            const est = estadoNorm(m.estado);
-            const actual = (i === 0);
-            const origen  = `<span class="hrs-flow-chip" title="${esc(m.origen)}">${esc(m.origen || '—')}</span>`;
-            const destino = `<span class="hrs-flow-chip" title="${esc(m.destino)}">${esc(m.destino || '—')}</span>`;
-            return `<div class="hrs-ev">
-                <div class="hrs-ev-dot" data-e="${esc(est)}"></div>
-                <div class="hrs-ev-card ${actual ? 'actual' : ''}">
-                    <div class="hrs-ev-row1">
-                        <span class="hrs-pill" data-e="${esc(est)}">${esc(est)}</span>
-                        <span style="display:flex;align-items:center;gap:7px;">
-                            ${actual ? '<span class="hrs-ev-tag-actual">actual</span>' : ''}
-                            <span class="hrs-ev-fecha">${esc(fmtFechaHora(m.fecha, m.hora))}</span>
-                        </span>
-                    </div>
-                    <div class="hrs-flow">${origen}<span class="hrs-flow-arrow">→</span>${destino}</div>
-                    ${m.observacion ? `<div class="hrs-ev-obs">📝 ${esc(m.observacion)}</div>` : ''}
-                </div>
-            </div>`;
-        }).join('');
-    }
 
-    /* ── Limpiar ── */
-    window.hrsLimpiar = function () {
-        document.getElementById('hrs-gestion').value = '';
-        document.getElementById('hrs-unidad').value = '';
-        document.getElementById('hrs-filtro').value = '';
-        HRS.rows = []; HRS.selKey = null;
-        document.getElementById('hrs-tbody').innerHTML =
-            '<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--txt-muted);">Presiona <strong>Buscar</strong> para cargar los registros.</td></tr>';
-        document.getElementById('hrs-total').textContent = '0';
-        document.getElementById('hrs-detail').style.display = 'none';
-        document.getElementById('hrs-empty').style.display = 'flex';
-    };
+        function iniciarTabla() {
+            api = SciafModulo.tabla({
+                tabla: $cont.find('table'),
+                buscador: $raiz.find('.js-buscar'),
+                largo: $raiz.find('.js-largo'),
+                total: $raiz.find('.js-total'),
+                orden: [],
+                altoFila: 62,
+                filtroFila: function (tr) { return !filtroEstado || tr.dataset.estado === filtroEstado; },
+                dt: {
+                    columnDefs: [ { targets: 6, visible: false } ],
+                    language: { sEmptyTable: 'No hay hojas de ruta con estos filtros.' }
+                }
+            });
+            if (!api) return;
+            contar();
+            if (seleccionada != null) {
+                $(api.rows().nodes()).filter('[data-id="' + seleccionada + '"]').addClass('hrs-sel');
+            }
+        }
 
-    /* Carga inicial automática (gestión actual) */
-    document.getElementById('hrs-gestion').value = new Date().getFullYear();
-    hrsListar();
-})();
+        // Cambiar gestión o unidad vuelve a pedir la tabla; mientras, los filtros quedan quietos
+        // (dos pedidos seguidos podían llegar al revés y dejar la tabla de la gestión anterior).
+        function recargar() {
+            $gestion.prop('disabled', true);
+            $unidad.prop('disabled', true);
+            $tarjeta.addClass('sm-procesando');
+            $cont.css('opacity', 0.55);
+            return SciafModulo.cargar($cont, URL_BASE + '/seguimiento/tabla', {
+                gestion: $gestion.val(),
+                unidadOrigenId: $unidad.val() || ''
+            }).then(iniciarTabla)
+                .catch(function (e) { SciafModulo.avisarError(e, 'No se pudo actualizar el listado'); })
+                .finally(function () {
+                    $gestion.prop('disabled', false);
+                    $unidad.prop('disabled', false);
+                    $tarjeta.removeClass('sm-procesando');
+                    $cont.css('opacity', 1);
+                });
+        }
+        $gestion.on('change', recargar);
+        $unidad.on('change', recargar);
+
+        $raiz.on('click', '.js-segmento button', function () {
+            filtroEstado = this.dataset.filtro || '';
+            $raiz.find('.js-segmento button').removeClass('activo');
+            $(this).addClass('activo');
+            if (api) api.draw();
+        });
+
+        /* ── Detalle ───────────────────────────────────────────────────── */
+        // AAAA-MM-DD → DD/MM/AAAA sin pasar por Date (en UTC daba el día anterior).
+        function fecha(f) {
+            const p = String(f || '').split('-');
+            return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : '—';
+        }
+        function hora(h) { return h ? String(h).slice(0, 5) : ''; }
+        function monto(m) {
+            if (m == null || m === '') return '—';
+            const n = Number(m);
+            return isNaN(n) ? esc(m) : n.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Bs';
+        }
+        function pastilla(e) {
+            const cls = e === 'RECIBIDO' ? 'sm-pastilla-activo' : e === 'ENVIADO' ? 'sm-pastilla-info'
+                : e === 'ARCHIVADO' ? 'hrs-pastilla-archivado' : 'sm-pastilla-aviso';
+            return '<span class="sm-pastilla ' + cls + '">' + esc(e) + '</span>';
+        }
+        function campo(etiqueta, valor, ancho) {
+            return '<div' + (ancho ? ' class="hrs-campo-ancho"' : '') + '><div class="hrs-campo-l">' + etiqueta
+                + '</div><div class="hrs-campo-v sm-mayus">' + valor + '</div></div>';
+        }
+
+        function htmlDetalle(res) {
+            const hr = res.hojaRuta || {};
+            const movs = res.movimientos || [];
+            const solicitante = hr.solicitanteNombre
+                ? esc(hr.solicitanteNombre) + (hr.solicitanteCargo ? '<div class="sm-sub sm-mayus">' + esc(hr.solicitanteCargo) + '</div>' : '')
+                : '—';
+
+            const trayectoria = movs.length
+                ? '<ol class="hrs-tl">' + movs.map(function (m, i) {
+                    return '<li class="hrs-ev' + (i === 0 ? ' hrs-ev-actual' : '') + '">'
+                        + '<span class="hrs-ev-punto" data-e="' + esc(m.estado) + '"></span>'
+                        + '<div class="hrs-ev-tarjeta">'
+                        + '<div class="hrs-ev-fila">' + pastilla(m.estado)
+                        + '<span class="hrs-ev-fecha">' + (i === 0 ? '<b class="text-primary me-1">ACTUAL</b>' : '')
+                        + fecha(m.fecha) + (hora(m.hora) ? ' · ' + hora(m.hora) : '') + '</span></div>'
+                        + '<div class="hrs-flujo"><span class="hrs-unidad" title="' + esc(m.origen) + '">' + esc(m.origen) + '</span>'
+                        + '<i class="ti ti-arrow-right sm-sub"></i>'
+                        + '<span class="hrs-unidad" title="' + esc(m.destino) + '">' + esc(m.destino) + '</span></div>'
+                        + (m.observacion ? '<div class="hrs-obs"><i class="ti ti-notes me-1"></i>' + esc(m.observacion) + '</div>' : '')
+                        + '</div></li>';
+                }).join('') + '</ol>'
+                : '<div class="sm-sub">Esta hoja de ruta no tiene movimientos registrados.</div>';
+
+            return '<div class="hrs-det-cab"><div>'
+                + '<div class="sm-sub sm-mayus">Hoja de ruta ' + esc(hr.tipo || '') + ' · Gestión ' + esc(hr.gestion || '—') + '</div>'
+                + '<h5 class="hrs-det-numero sm-codigo">N° ' + esc(hr.codigo || '—') + '</h5></div>'
+                + pastilla(res.movimientoActual || 'SIN MOVIMIENTOS') + '</div>'
+                + '<div class="sm-seccion"><div class="sm-seccion-cab"><i class="ti ti-file-description"></i> Datos</div>'
+                + '<div class="sm-seccion-cuerpo"><div class="hrs-campos">'
+                + campo('Solicitante', solicitante, true)
+                + campo('N° certificación', esc(hr.certificacion || '—'))
+                + campo('Monto', monto(hr.monto))
+                + campo('Descripción', esc(hr.descripcion || '—'), true)
+                + '</div></div></div>'
+                + '<div class="sm-seccion mb-0"><div class="sm-seccion-cab"><i class="ti ti-route"></i> Trayectoria'
+                + ' <span class="sm-sub ms-1">(' + movs.length + (movs.length === 1 ? ' movimiento' : ' movimientos') + ')</span></div>'
+                + '<div class="sm-seccion-cuerpo">' + trayectoria + '</div></div>';
+        }
+
+        function verDetalle(id) {
+            const n = ++pedidoDetalle;
+            const carga = SciafPrecarga.montar($det, {
+                compacta: true,
+                texto: 'Cargando trayectoria…',
+                alReintentar: function () { verDetalle(id); }
+            });
+            SciafModulo.pedirJson(URL_BASE + '/buscar', { datos: { idHojaRuta: id } }).then(function (res) {
+                if (n !== pedidoDetalle) return;
+                if (!res.ok) {
+                    carga.error('No se pudo abrir la hoja de ruta', res.msg || 'Intente de nuevo.');
+                    return;
+                }
+                carga.cerrar();
+                $det.html(htmlDetalle(res));
+                $det.scrollTop(0);
+            }, function (e) {
+                if (n !== pedidoDetalle) return;
+                carga.error(e && e.sesionPerdida ? 'La sesión se cerró' : 'No se pudo abrir la hoja de ruta',
+                    e && e.sesionPerdida ? SciafPrecarga.motivo(401) : ((e && e.message) || SciafPrecarga.motivo(0)));
+            });
+        }
+
+        function elegir(tr) {
+            const id = tr.dataset.id;
+            if (!id) return;
+            seleccionada = id;
+            if (api) $(api.rows().nodes()).removeClass('hrs-sel');
+            $(tr).addClass('hrs-sel');
+            verDetalle(id);
+            // En pantallas angostas el detalle queda debajo de la lista.
+            if (window.innerWidth < 992) $det[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        $raiz.on('click', 'tr.hrs-fila', function () { elegir(this); });
+        $raiz.on('keydown', 'tr.hrs-fila', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); elegir(this); }
+        });
+
+        SciafModulo.ajustarAlto($det, 12);
+        iniciarTabla();
+    })();
 </script>
-
-</div>

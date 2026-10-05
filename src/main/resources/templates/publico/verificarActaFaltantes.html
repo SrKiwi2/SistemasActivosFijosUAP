@@ -78,6 +78,11 @@
             <div><b th:text="${doc} + ' auténtica · faltantes resueltos'">Acta auténtica · faltantes resueltos</b>
                 Todos los bienes de este documento ya fueron aclarados.</div>
         </div>
+        <div th:if="${acta.integro and acta.estado == 'REITERADA'}" class="estado aviso">
+            <div class="ico">↻</div>
+            <div><b th:text="${doc} + ' auténtica · reiterada'">Notificación auténtica · reiterada</b>
+                <span th:text="'Sus faltantes pendientes pasaron a la ' + ${acta.reiteradaPor} + ', que es la notificación vigente.'"></span></div>
+        </div>
         <div th:if="${acta.integro and acta.estado == 'ANULADA'}" class="estado aviso">
             <div class="ico">⚠</div>
             <div><b th:text="${doc} + ' anulada'">Acta anulada</b>
@@ -92,7 +97,11 @@
                 <dt>Responsable</dt>       <dd th:text="${acta.personaNombre}"></dd>
                 <dt>C.I.</dt>              <dd th:text="${ciOculto} ?: '—'"></dd>
                 <dt>Cargo</dt>             <dd th:text="${acta.personaCargo} ?: '—'"></dd>
-                <dt>Fecha de emisión</dt>  <dd th:text="${#temporals.format(acta.fechaEmision, 'dd/MM/yyyy HH:mm')}"></dd>
+                <th:block th:if="${acta.esReiterativa()}">
+                <dt>Tipo</dt>              <dd th:text="${acta.titulo()}"></dd>
+                <dt>Reitera a</dt>         <dd th:text="${acta.reiteraA} ?: '—'"></dd>
+                </th:block>
+                <dt>Fecha de emisión</dt>  <dd th:text="${#temporals.format(acta.fechaDelDocumento(), 'dd/MM/yyyy HH:mm')}"></dd>
                 <dt>Documento</dt>         <dd th:text="${acta.documentoRespaldo} ?: '—'"></dd>
                 <dt>Bienes</dt>            <dd th:text="${acta.totalBienes}"></dd>
                 <th:block th:if="${acta.esNotificacion()}">

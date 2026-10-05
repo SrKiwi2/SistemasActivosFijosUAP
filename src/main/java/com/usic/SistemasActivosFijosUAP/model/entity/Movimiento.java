@@ -75,6 +75,17 @@ public class Movimiento extends AuditoriaConfig {
         return fecha != null ? fecha.toString() : "";
     }
 
+    /** El estado se guarda como número (1 RECIBIDO, 2 ENVIADO, 3 ARCHIVADO); esto es lo que se muestra. */
+    public static String textoEstado(String estado) {
+        if (estado == null) return "DESCONOCIDO";
+        switch (estado.trim()) {
+            case "1": return "RECIBIDO";
+            case "2": return "ENVIADO";
+            case "3": return "ARCHIVADO";
+            default: return "DESCONOCIDO";
+        }
+    }
+
     @Override
     public String toString() {
         return "Movimiento {" +

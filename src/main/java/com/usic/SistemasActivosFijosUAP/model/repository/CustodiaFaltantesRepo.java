@@ -111,7 +111,10 @@ public class CustodiaFaltantesRepo {
             rs.getLong("enviados"),
             rs.getLong("en_custodia"),
             rs.getLong("con_error"),
-            rs.getLong("resueltos"));
+            rs.getLong("resueltos"),
+            rs.getInt("numero_reiterativa"),
+            rs.getLong("vinculados"),
+            rs.getBoolean("reiterada"));
 
     /** Actas de faltantes, las más nuevas primero; de una persona si se indica. */
     public List<ActaResumenDTO> actas(Long idPersona, int tope) {
@@ -122,7 +125,11 @@ public class CustodiaFaltantesRepo {
                    count(*) filter (where h.estado_envio = 'ENVIADO' and h.estado_hallazgo = 'ABIERTO')        as enviados,
                    count(*) filter (where h.estado_hallazgo = 'EN_CUSTODIA')                                  as en_custodia,
                    count(*) filter (where h.estado_envio = 'ERROR' and h.estado_hallazgo = 'ABIERTO')          as con_error,
-                   count(*) filter (where h.estado_hallazgo = 'RESUELTO')                      as resueltos
+                   count(*) filter (where h.estado_hallazgo = 'RESUELTO')                      as resueltos,
+                   coalesce(af.numero_reiterativa, 0)                                        as numero_reiterativa,
+                   count(h.id_hallazgo)                                                      as vinculados,
+                   exists (select 1 from acta_faltante r
+                            where r.id_acta_anterior = af.id_acta and r.estado_acta <> 'ANULADA')    as reiterada
             from acta_faltante af
             left join hallazgo_inventario h on h.id_acta = af.id_acta
             where (cast(? as bigint) is null or af.id_persona = ?)

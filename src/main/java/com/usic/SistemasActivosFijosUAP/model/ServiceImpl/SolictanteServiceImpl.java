@@ -3,6 +3,7 @@ package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.ISolictanteService;
@@ -17,9 +18,10 @@ public class SolictanteServiceImpl implements ISolictanteService {
 
     private final ISolicitanteDao dao;
 
+    /** Por nombre: es como se buscan en las listas. */
     @Override
     public List<Solicitante> findAll() {
-        return dao.findAll();
+        return dao.findAll(Sort.by("nombre"));
     }
 
     @Override
@@ -38,18 +40,7 @@ public class SolictanteServiceImpl implements ISolictanteService {
     }
 
     @Override
-    public Optional<Solicitante> findByNombre(String nombre) {
-        return dao.findByNombre(nombre);
+    public Optional<Solicitante> buscarIgual(String nombre, String cargo) {
+        return dao.findFirstByNombreIgnoreCaseAndCargoIgnoreCase(nombre, cargo);
     }
-
-    @Override
-    public List<Solicitante> findByCargo(String cargo) {
-        return dao.findByCargo(cargo);
-    }
-
-    @Override
-    public List<Solicitante> findByNombreContaining(String nombre) {
-        return dao.findByNombreContaining(nombre);
-    }
-    
 }

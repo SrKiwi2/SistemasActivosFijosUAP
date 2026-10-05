@@ -1,1029 +1,1280 @@
-<!-- =====================================================================
-     CONTROL DE ACTIVOS POR RESPONSABLE · Mapa  ·  Fragmento SPA
-     Navegación: Predio -> Oficina -> Responsable -> Activos
-     Datos: /administracion/control-activos/mapa/**
-     Tiempo real: SSE /api/eventos/stream (levantamiento-abierto|avance|cerrado)
-     Módulo interno: no lee ni escribe VSIAF.
-====================================================================== -->
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Control por responsable › Mapa de control — plantilla de pantallas
+     (docs/PLANTILLA_MODULOS.md).
+     Mosaico de bloques: cada predio es un bloque dividido en sus oficinas; el tamaño es la
+     cantidad de bienes (o igual para todas) y el color, el estado de control (o la
+     concentración de bienes). Clic en un predio = zoom; clic en una oficina = su detalle,
+     sus responsables y el levantamiento. Módulo interno: no lee ni escribe el VSIAF.
+     Backend (/administracion/control-activos):
+       GET  /vista                              (vista + mosaico completo en JSON)
+       GET  /mapa/mosaico                       (recarga del mosaico: predios con sus oficinas)
+       GET  /mapa/oficinas/{id}/responsables    GET /responsables/{id}/activos
+       GET  /buscar?q=                          (bienes por código o descripción, con su ubicación)
+       POST /levantamientos · GET /levantamientos/{id} · PATCH …/detalle/{idDetalle} · POST …/cerrar
+       Informes Word: POST /informe/verificacion · GET /informe/{faltantes|acta|resumen}
+     Tiempo real: sciaf:levantamiento-{abierto|avance|cerrado} (los reemite layout/head.html;
+     antes la pantalla abría su propio EventSource y nunca lo cerraba).
+     Todo dentro de #modMapaControl y sin funciones globales.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modMapaControl">
 
 <style>
-    #ca-wrap .ca-tile {
-        position: relative; border: none; border-radius: 14px; cursor: pointer;
-        aspect-ratio: 1 / 1; display: flex; flex-direction: column;
-        justify-content: space-between; padding: 14px;
-        transition: transform .12s ease, box-shadow .12s ease;
-        border-left: 5px solid transparent; overflow: hidden;
+    #modMapaControl .mc-cuerpo {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 1rem;
+        align-items: start;
     }
-    #ca-wrap .ca-tile:hover { transform: translateY(-3px); box-shadow: 0 .5rem 1.2rem rgba(67,89,113,.18); }
-    #ca-wrap .ca-tile .ca-nom {
-        font-weight: 600; font-size: .92rem; line-height: 1.2;
-        display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    #modMapaControl .mc-cuerpo > .sm-card { margin-bottom: 0; min-width: 0; }
+
+    /* ── Barra de zoom + leyenda ── */
+    #modMapaControl .mc-barra {
+        display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+        flex-wrap: wrap; padding: .55rem .9rem; border-bottom: 1px solid var(--sm-borde);
     }
-    #ca-wrap .ca-tile .ca-sub { font-size: .7rem; color: #8592a3; text-transform: uppercase; letter-spacing: .3px; }
-    #ca-wrap .ca-tile .ca-mets { font-size: .75rem; color: #566a7f; line-height: 1.5; }
-    #ca-wrap .ca-tile .ca-mets b { font-size: .95rem; }
-
-    /* Color = estado de control. La vigencia va como bandera aparte, a propósito:
-       son dos ejes distintos y mezclarlos volvería el mapa ilegible. */
-    #ca-wrap .ca-SIN_LEVANTAR { background:#f5f6f8; border-left-color:#a7acb3; }
-    #ca-wrap .ca-EN_CURSO     { background:#fff8e6; border-left-color:#ffab00; }
-    #ca-wrap .ca-CONTROLADO   { background:#e8f8ef; border-left-color:#21a366; }
-    #ca-wrap .ca-CON_FALTANTES{ background:#fdeaec; border-left-color:#e0384a; }
-    /* Oficina de faltantes del predio: no es un ambiente que se recorre, es la custodia. */
-    #ca-wrap .ca-CUSTODIA     { background:#f1ecfb; border-left-color:#7e57c2; }
-    #ca-wrap .ca-flag-cus     { background:#7e57c2; color:#fff; }
-
-    #ca-wrap .ca-flag {
-        position:absolute; top:8px; right:8px; font-size:.62rem; font-weight:700;
-        padding:2px 7px; border-radius:20px; letter-spacing:.3px;
+    #modMapaControl .mc-migas { display: flex; align-items: center; gap: .3rem; font-weight: 600; flex-wrap: wrap; }
+    #modMapaControl .mc-migas button {
+        border: 0; background: transparent; padding: .1rem .35rem; border-radius: 6px;
+        color: var(--sm-primario); font-weight: 600; cursor: pointer;
     }
-    #ca-wrap .ca-flag-vig   { background:#d4f4e2; color:#0f6b40; }
-    #ca-wrap .ca-flag-noVig { background:#e4e6e8; color:#6b7280; }
-    #ca-wrap .ca-flag-anom  { background:#e0384a; color:#fff; }
+    #modMapaControl .mc-migas button:hover { background: rgba(var(--sm-primario-rgb), .1); }
+    #modMapaControl .mc-migas .mc-aqui { color: var(--sm-texto); padding: .1rem .35rem; }
+    #modMapaControl .mc-leyenda { display: flex; gap: .35rem; flex-wrap: wrap; }
+    #modMapaControl .mc-of-buscar { flex: 0 1 240px; }
+    #modMapaControl .mc-of-buscar .sm-input { height: 34px; }
+    #modMapaControl .mc-leyenda button {
+        display: inline-flex; align-items: center; gap: .35rem; border: 1px solid var(--sm-borde);
+        background: var(--sm-superficie); color: var(--sm-texto-2); border-radius: 999px;
+        padding: .15rem .6rem; font-size: .78rem; font-weight: 600; cursor: pointer;
+    }
+    #modMapaControl .mc-leyenda button.activo { border-color: var(--sm-primario); color: var(--sm-texto); box-shadow: 0 0 0 2px rgba(var(--sm-primario-rgb), .15); }
+    #modMapaControl .mc-leyenda i.mc-punto { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+    #modMapaControl .mc-escala { width: 90px; height: 10px; border-radius: 3px;
+        background: linear-gradient(90deg, rgba(var(--sm-primario-rgb), .08), rgba(var(--sm-primario-rgb), .95)); }
 
-    #ca-wrap .ca-bar { height:4px; border-radius:4px; background:#e7e9ec; margin-top:6px; overflow:hidden; }
-    #ca-wrap .ca-bar > span { display:block; height:100%; background:#ffab00; }
+    /* ── Lienzo del mosaico ── */
+    #modMapaControl .mc-lienzo {
+        position: relative; overflow: hidden; height: 560px; margin: .6rem;
+        border-radius: 10px; background: var(--sm-superficie-2);
+    }
+    #modMapaControl .mc-grupo, #modMapaControl .mc-celda {
+        position: absolute; left: 0; top: 0; box-sizing: border-box;
+        transition: transform .5s cubic-bezier(.2,.7,.2,1), width .5s cubic-bezier(.2,.7,.2,1),
+                    height .5s cubic-bezier(.2,.7,.2,1), opacity .35s ease, background-color .35s ease;
+    }
+    #modMapaControl .mc-grupo {
+        border-radius: 8px; background: var(--sm-superficie);
+        border: 1px solid var(--sm-borde-fuerte); cursor: zoom-in;
+    }
+    #modMapaControl .mc-grupo-cab {
+        height: 20px; padding: 0 .45rem; font-size: .72rem; font-weight: 700; line-height: 20px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase;
+        color: var(--sm-texto);
+    }
+    #modMapaControl .mc-grupo-cab small { font-weight: 600; color: var(--sm-texto-2); margin-left: .3rem; }
+    #modMapaControl .mc-grupo:hover { border-color: var(--sm-primario); }
+    #modMapaControl .mc-celda {
+        border-radius: 4px; overflow: hidden; cursor: pointer; padding: 3px 5px;
+        border: 1px solid rgba(0, 0, 0, .08); font-size: .72rem; line-height: 1.2;
+    }
+    #modMapaControl .mc-celda:hover { filter: brightness(1.08); box-shadow: inset 0 0 0 2px rgba(255,255,255,.8); z-index: 3; }
+    #modMapaControl .mc-celda.mc-sel { box-shadow: 0 0 0 3px var(--sm-primario), inset 0 0 0 2px #fff; z-index: 4; }
+    #modMapaControl .mc-celda .mc-c-cod { font-weight: 700; }
+    #modMapaControl .mc-celda .mc-c-nom {
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        text-transform: uppercase; opacity: .92;
+    }
+    #modMapaControl .mc-celda .mc-c-n { font-size: .68rem; opacity: .85; margin-top: 1px; }
+    #modMapaControl .mc-celda .mc-c-nom, #modMapaControl .mc-celda .mc-c-n,
+    #modMapaControl .mc-celda .mc-c-cod { display: none; }
+    #modMapaControl .mc-celda.mc-l1 .mc-c-cod { display: block; }
+    #modMapaControl .mc-celda.mc-l2 .mc-c-cod, #modMapaControl .mc-celda.mc-l2 .mc-c-n { display: block; }
+    #modMapaControl .mc-celda.mc-l2 .mc-c-nom { display: -webkit-box; }
+    #modMapaControl .mc-quieto .mc-celda, #modMapaControl .mc-quieto .mc-grupo { transition: none !important; }
+    #modMapaControl .mc-oculta { opacity: 0 !important; pointer-events: none; }
+    #modMapaControl .mc-tenue { opacity: .18; }
 
-    #ca-wrap .ca-legend span { font-size:.72rem; color:#697a8d; margin-right:14px; }
-    #ca-wrap .ca-legend i { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:4px; vertical-align:-1px; }
+    /* Color = estado de control (el dato que aporta el módulo). */
+    #modMapaControl .mc-e-SIN_LEVANTAR  { background: var(--sm-superficie-3); color: var(--sm-texto-2); }
+    #modMapaControl .mc-e-EN_CURSO      { background: #f59e0b; color: #fff; animation: mcPulso 1.6s ease-in-out infinite; }
+    #modMapaControl .mc-e-CONTROLADO    { background: var(--sm-exito); color: #fff; }
+    #modMapaControl .mc-e-CON_FALTANTES { background: var(--sm-peligro); color: #fff; }
+    #modMapaControl .mc-e-CUSTODIA      { background: #7e57c2; color: #fff; }
+    #modMapaControl .mc-vacia {
+        background: repeating-linear-gradient(45deg, var(--sm-superficie-2), var(--sm-superficie-2) 4px,
+                    var(--sm-superficie-3) 4px, var(--sm-superficie-3) 8px) !important;
+        color: var(--sm-texto-2) !important;
+    }
+    @keyframes mcPulso { 50% { filter: brightness(1.18); } }
+    #modMapaControl .mc-destello { animation: mcDestello 1.8s ease 2; }
+    @keyframes mcDestello { 50% { box-shadow: 0 0 0 4px #f59e0b, 0 0 18px #f59e0b; } }
 
-    #ca-wrap .ca-cod { font-family:'JetBrains Mono', monospace; font-weight:600; color:#1a56a0; font-size:.83rem; }
-    #ca-wrap .ca-crumb { cursor:pointer; color:#696cff; }
-    #ca-wrap .ca-crumb:hover { text-decoration:underline; }
-    #ca-wrap #ca-lev-tabla td { vertical-align:middle; font-size:.85rem; }
-    #ca-wrap .ca-sit-PENDIENTE  { background:#e9ecef; color:#5b6573; }
-    #ca-wrap .ca-sit-ENCONTRADO { background:#d4f4e2; color:#0f6b40; }
-    #ca-wrap .ca-sit-FALTANTE   { background:#f8d7da; color:#a3232f; }
+    /* Globo con el detalle al pasar el cursor */
+    .mc-globo {
+        position: fixed; z-index: 2000; pointer-events: none; max-width: 300px;
+        background: var(--sm-superficie, #fff); color: var(--sm-texto, #1f2937);
+        border: 1px solid var(--sm-borde, #e5e7eb); border-radius: 10px; padding: .55rem .7rem;
+        box-shadow: 0 10px 30px -10px rgba(15, 23, 42, .45); font-size: .8rem; display: none;
+    }
+    .mc-globo b.mc-g-tit { display: block; text-transform: uppercase; margin-bottom: .15rem; }
+    .mc-globo .mc-g-sub { color: var(--sm-texto-2, #6b7280); font-size: .74rem; }
+
+    /* ── Panel lateral ── */
+    #modMapaControl .mc-panel-cuerpo { padding: 1rem 1.05rem; }
+    #modMapaControl .mc-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+    #modMapaControl .mc-kpi {
+        background: var(--sm-superficie-2); border: 1px solid var(--sm-borde); border-radius: 10px; padding: .45rem .6rem;
+    }
+    #modMapaControl .mc-kpi b { display: block; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+    #modMapaControl .mc-kpi span { font-size: .74rem; color: var(--sm-texto-2); }
+    #modMapaControl .mc-avance { height: 8px; border-radius: 99px; background: var(--sm-superficie-3); overflow: hidden; }
+    #modMapaControl .mc-avance > span { display: block; height: 100%; background: var(--sm-exito); border-radius: 99px; }
+    #modMapaControl .mc-lista { list-style: none; margin: 0; padding: 0; }
+    #modMapaControl .mc-lista li {
+        display: flex; justify-content: space-between; align-items: center; gap: .5rem;
+        padding: .4rem .5rem; border-radius: 8px; cursor: pointer;
+    }
+    #modMapaControl .mc-lista li:hover { background: rgba(var(--sm-primario-rgb), .07); }
+    #modMapaControl .mc-lista .mc-li-nom { text-transform: uppercase; font-size: .84rem; font-weight: 600; }
+    #modMapaControl .mc-panel-tit { font-size: .74rem; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--sm-texto-2); margin: 1rem 0 .4rem; }
+
+    /* Barra de selección para el informe de verificación */
+    #modMapaControl .mc-barra-sel { position: sticky; bottom: 1rem; z-index: 10; margin-top: 1rem; }
+
+    #modMapaControl .mc-sit-PENDIENTE  { background: var(--sm-superficie-3); color: var(--sm-texto-2); }
+    #modMapaControl .mc-sit-ENCONTRADO { background: rgba(var(--sm-exito-rgb), .14); color: var(--sm-exito); }
+    #modMapaControl .mc-sit-FALTANTE   { background: rgba(var(--sm-peligro-rgb), .12); color: var(--sm-peligro); }
+
+    @media (max-width: 1199.98px) {
+        #modMapaControl .mc-cuerpo { grid-template-columns: minmax(0, 1fr); }
+    }
 </style>
 
-<div id="ca-wrap">
-
-    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
-        <div>
-            <h4 class="py-2 mb-1">
-                <span class="text-muted fw-light">Seguimiento y Consultas /</span> MAPA DE CONTROL
-            </h4>
-            <p class="text-muted mb-2" style="font-size:.9rem; max-width:820px;">
-                Buscá un bien por <b>código o descripción</b> y te decimos dónde está, o recorré
-                <b>municipio → predio → oficina → responsable → activos</b>. El color del cuadro dice qué tan
-                controlada está la ubicación; la <b>vigencia</b> del responsable va como etiqueta aparte.
-                Desde una oficina se abre el <b>levantamiento</b>: se marca lo que se encuentra y al cerrar,
-                lo que quedó sin revisar pasa a <b>faltante</b>.
-            </p>
-            <div class="ca-legend mb-2">
-                <span><i style="background:#a7acb3"></i>Sin levantar</span>
-                <span><i style="background:#ffab00"></i>En curso</span>
-                <span><i style="background:#21a366"></i>Controlado</span>
-                <span><i style="background:#e0384a"></i>Con faltantes</span>
-                <span><i style="background:#7e57c2"></i>Oficina de faltantes</span>
-            </div>
-        </div>
-        <div class="d-flex gap-2">
-            <!-- Informes de contexto: se habilitan según dónde estés parado en el mapa -->
-            <button type="button" class="btn btn-sm btn-outline-primary d-none" id="ca-btn-resumen"
-                    title="Resumen de control de todas las oficinas de este predio">
-                <i class="ti ti-report-analytics me-1"></i> Resumen del predio
-            </button>
-            <button type="button" class="btn btn-sm btn-outline-danger" id="ca-btn-faltantes"
-                    title="Informe de faltantes y observaciones del alcance actual">
-                <i class="ti ti-alert-triangle me-1"></i> Informe de faltantes
-            </button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="ca-btn-refrescar">
-                <i class="ti ti-refresh me-1"></i> Refrescar
-            </button>
-            <span class="badge bg-label-secondary align-self-center" id="ca-sse" title="Conexión en vivo">
-                <i class="ti ti-plug-off me-1"></i> sin conexión
-            </span>
-        </div>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-layout-grid"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-map-search"></i> Control por responsable <i class="ti ti-chevron-right"></i> Mapa de control
+        </nav>
+        <h1 class="sm-titulo">Mapa de control</h1>
+        <p class="sm-subtitulo">Cada bloque es una oficina dentro de su predio. Clic en un predio para acercarse;
+            clic en una oficina para ver sus responsables y levantarla.</p>
     </div>
-
-    <!-- Buscador: la vía principal. Con 31.000 bienes y predios de 385 oficinas,
-         recorrer el árbol sirve para explorar, no para encontrar algo puntual. -->
-    <div class="card shadow-sm mb-3" id="ca-buscador">
-        <div class="card-body py-3">
-            <div class="input-group">
-                <span class="input-group-text bg-white"><i class="ti ti-search"></i></span>
-                <input type="text" class="form-control form-control-lg border-start-0" id="ca-q"
-                       placeholder="Buscar por código o descripción — ej.: 01-01-08-00003, impresora, pupitre"
-                       autocomplete="off">
-                <button class="btn btn-outline-secondary d-none" type="button" id="ca-q-limpiar"
-                        title="Limpiar y volver al mapa">
-                    <i class="ti ti-x"></i>
-                </button>
-            </div>
-            <div class="form-text mt-2" id="ca-q-hint">
-                Escribí al menos 2 caracteres. Cada resultado muestra dónde está el bien.
-            </div>
-        </div>
-    </div>
-
-    <!-- Migas -->
-    <nav class="mb-3" id="ca-migas-wrap">
-        <ol class="breadcrumb mb-0" id="ca-migas">
-            <li class="breadcrumb-item"><span class="ca-crumb" data-nivel="municipios">Municipios</span></li>
-        </ol>
-    </nav>
-
-    <!-- Filtro del nivel oficinas: aparece solo ahí, donde un predio puede tener 385 -->
-    <div class="mb-3 d-none" id="ca-filtro-oficinas">
-        <div class="input-group input-group-sm" style="max-width:420px;">
-            <span class="input-group-text"><i class="ti ti-filter"></i></span>
-            <input type="text" class="form-control" id="ca-of-filtro"
-                   placeholder="Filtrar oficinas por nombre o número…" autocomplete="off">
-            <span class="input-group-text text-muted" id="ca-of-conteo">—</span>
-        </div>
-    </div>
-
-    <!-- Resultados del buscador -->
-    <div id="ca-busqueda" style="display:none;"></div>
-
-    <!-- Barra de selección: aparece sola cuando hay bienes tildados -->
-    <div class="d-none" id="ca-barra-sel"
-         style="position:sticky; bottom:1rem; z-index:10;">
-        <div class="alert alert-primary d-flex align-items-center gap-3 py-2 mb-0 shadow">
-            <i class="ti ti-checkbox fs-5"></i>
-            <span><strong id="ca-sel-n">0</strong> bien(es) seleccionado(s)</span>
-            <button type="button" class="btn btn-sm btn-primary ms-auto" id="ca-btn-informe">
-                <i class="ti ti-file-text me-1"></i> Informe de verificación (Word)
-            </button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="ca-sel-limpiar">
-                Quitar selección
-            </button>
-        </div>
-    </div>
-
-    <div id="ca-loading" class="text-center py-5" style="display:none;">
-        <div class="spinner-border text-primary" role="status"></div>
-        <div class="text-muted mt-2" style="font-size:.85rem;">Cargando…</div>
-    </div>
-
-    <div id="ca-vacio" class="text-center text-muted py-5" style="display:none;">
-        <div style="font-size:40px;">🗺️</div>
-        <p class="mt-2 mb-0" id="ca-vacio-txt">No hay nada que mostrar en este nivel.</p>
-    </div>
-
-    <!-- Cuadrícula de tiles (niveles 0 a 3) -->
-    <div class="row g-3" id="ca-tiles"></div>
-
-    <div class="text-center mt-3 d-none" id="ca-mas-wrap">
-        <button type="button" class="btn btn-outline-primary" id="ca-mas">
-            <i class="ti ti-chevron-down me-1"></i> Mostrar más
-            <span class="text-muted ms-1" id="ca-mas-restantes"></span>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato" title="Bienes vigentes, también los que siguen en oficinas dadas de baja"><strong class="js-k-bienes">—</strong> bienes</span>
+        <span class="sm-dato" title="Oficinas con al menos un levantamiento"><strong class="js-k-avance">—</strong> levantadas</span>
+        <span class="sm-dato" title="Faltantes abiertos o en custodia"><strong class="js-k-faltantes">—</strong> faltantes</span>
+        <span class="sm-dato js-vivo" title="Los levantamientos de la APK se ven acá al instante">
+            <i class="ti ti-plug-off"></i> <span class="js-vivo-txt">sin conexión</span>
+        </span>
+        <button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-informe-faltantes"
+                title="Informe de faltantes (Word) del alcance que se está mirando">
+            <i class="ti ti-alert-triangle"></i> Informe de faltantes
         </button>
     </div>
+</header>
 
-    <!-- Nivel 4: activos del responsable -->
-    <div id="ca-activos" style="display:none;">
-        <div class="card shadow-sm">
-            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div>
-                    <h6 class="mb-0" id="ca-act-nombre">—</h6>
-                    <small class="text-muted" id="ca-act-sub">—</small>
-                    <small class="d-block text-muted d-none" id="ca-act-hint" style="font-size:.75rem;">
-                        <i class="ti ti-info-circle"></i>
-                        Para marcar faltantes u observaciones, abrí el levantamiento de la oficina.
-                    </small>
-                </div>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-dark" id="ca-btn-acta"
-                            title="Acta de responsabilidad con membrete y firmas, de todos sus bienes">
-                        <i class="ti ti-file-certificate me-1"></i> Acta de responsabilidad
-                    </button>
-                    <button type="button" class="btn btn-sm btn-primary" id="ca-btn-levantar-of">
-                        <i class="ti ti-clipboard-check me-1"></i> Levantar esta oficina
-                    </button>
-                </div>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-hover mb-0" id="ca-tabla-activos">
-                    <thead>
-                        <tr>
-                            <th style="width:40px;">
-                                <input type="checkbox" class="form-check-input" id="ca-chk-todos-act"
-                                       title="Seleccionar todos">
-                            </th>
-                            <th>Código</th>
-                            <th>Descripción</th>
-                            <th>Auxiliar</th>
-                            <th>Estado</th>
-                            <th>Control</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
+<section class="sm-card mb-3">
+    <div class="sm-toolbar">
+        <div class="sm-buscador" style="flex:1 1 320px;">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-q" autocomplete="off" aria-label="Buscar bien"
+                   placeholder="¿Dónde está este bien? Código o descripción — ej.: 01-01-08-00003, impresora" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+        </div>
+        <select class="sm-select js-municipio" style="width:auto;min-width:170px;" aria-label="Municipio">
+            <option value="">Todos los municipios</option>
+        </select>
+        <div class="sm-segmento js-color" role="group" aria-label="Color">
+            <button type="button" class="activo" data-v="control" title="Color por estado de control"><i class="ti ti-shield-check"></i> Control</button>
+            <button type="button" data-v="bienes" title="Color por cantidad de bienes"><i class="ti ti-flame"></i> Bienes</button>
+        </div>
+        <div class="sm-segmento js-tamano" role="group" aria-label="Tamaño">
+            <button type="button" class="activo" data-v="bienes" title="Tamaño de cada oficina según sus bienes"><i class="ti ti-box-multiple"></i> Por bienes</button>
+            <button type="button" data-v="igual" title="Todas las oficinas del mismo tamaño"><i class="ti ti-layout-grid"></i> Igual</button>
+        </div>
+        <div class="sm-toolbar-grupo">
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-refrescar" title="Volver a traer el mapa">
+                <i class="ti ti-refresh"></i>
+            </button>
         </div>
     </div>
+</section>
 
-    <!-- Levantamiento -->
-    <div class="modal fade" id="ca-modal-lev" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <div>
-                        <h5 class="modal-title mb-0" id="ca-lev-titulo">Levantamiento</h5>
-                        <small class="text-muted" id="ca-lev-sub">—</small>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row g-2 mb-3">
-                        <div class="col-6 col-md-3"><div class="card bg-label-secondary"><div class="card-body py-2 text-center">
-                            <div class="fw-bold fs-5" id="ca-lev-esperados">0</div><small>Esperados</small></div></div></div>
-                        <div class="col-6 col-md-3"><div class="card bg-label-success"><div class="card-body py-2 text-center">
-                            <div class="fw-bold fs-5" id="ca-lev-encontrados">0</div><small>Encontrados</small></div></div></div>
-                        <div class="col-6 col-md-3"><div class="card bg-label-warning"><div class="card-body py-2 text-center">
-                            <div class="fw-bold fs-5" id="ca-lev-pendientes">0</div><small>Sin revisar</small></div></div></div>
-                        <div class="col-6 col-md-3"><div class="card bg-label-danger"><div class="card-body py-2 text-center">
-                            <div class="fw-bold fs-5" id="ca-lev-faltantes">0</div><small>Faltantes</small></div></div></div>
-                    </div>
-
-                    <div class="alert alert-warning py-2" style="font-size:.83rem;" id="ca-lev-aviso">
-                        <i class="ti ti-info-circle me-1"></i>
-                        Marcá <b>Encontrado</b> lo que esté físicamente en la oficina. Al cerrar, todo lo que
-                        quede <b>sin revisar</b> se registra como faltante a nombre de su responsable.
-                    </div>
-
-                    <input type="text" class="form-control form-control-sm mb-2" id="ca-lev-filtro"
-                           placeholder="Filtrar por código, descripción o responsable…">
-
-                    <div class="table-responsive" style="max-height:52vh;">
-                        <table class="table table-sm table-hover" id="ca-lev-tabla">
-                            <thead class="sticky-top bg-white">
-                                <tr>
-                                    <th>Código</th>
-                                    <th>Descripción</th>
-                                    <th>Responsable</th>
-                                    <th style="width:110px;">Situación</th>
-                                    <th style="width:190px;">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="modal-footer justify-content-between">
-                    <small class="text-muted" id="ca-lev-pie">—</small>
-                    <div>
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Seguir después</button>
-                        <button type="button" class="btn btn-danger" id="ca-btn-cerrar-lev">
-                            <i class="ti ti-lock me-1"></i> Cerrar levantamiento
-                        </button>
-                    </div>
-                </div>
+<div class="mc-cuerpo">
+    <section class="sm-card js-tarjeta">
+        <div class="mc-barra">
+            <div class="mc-migas js-migas"></div>
+            <div class="sm-buscador mc-of-buscar" title="Resalta las oficinas que coinciden; Enter abre la única que coincide">
+                <i class="ti ti-door"></i>
+                <input type="text" class="sm-input js-of-q" autocomplete="off" aria-label="Buscar oficina"
+                       placeholder="Oficina: N° o nombre…" />
+                <button type="button" class="sm-buscador-limpiar js-of-limpiar" title="Limpiar"><i class="ti ti-x"></i></button>
             </div>
+            <div class="mc-leyenda js-leyenda"></div>
         </div>
-    </div>
-
-    <script th:inline="none">
-    (function () {
-        var BASE = '/administracion/control-activos';
-
-        // Nivel actual del mapa y lo que hace falta para volver atrás.
-        var ctx = { nivel: 'municipios', municipio: null, predio: null, oficina: null, responsable: null };
-
-        // Nivel oficinas: se pintan de a tandas. Campus Las Palmas tiene 385 oficinas y
-        // volcarlas todas de golpe da una pantalla que no se puede recorrer.
-        var TANDA_OFICINAS = 60;
-        var oficinasCargadas = [];   // lo que trajo el server para el predio actual
-        var oficinasMostradas = 0;
-        var levActual = null;   // levantamiento abierto en el modal
-        var modalLev = null;
-
-        var $tiles = $('#ca-tiles'), $activos = $('#ca-activos'),
-            $loading = $('#ca-loading'), $vacio = $('#ca-vacio');
-
-        function esc(s) {
-            return (s == null ? '' : String(s))
-                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        }
-        function num(n) { return (n == null ? 0 : Number(n)).toLocaleString('es-BO'); }
-        function fmtFecha(s) {
-            if (!s) return '—';
-            var d = new Date(s);
-            return isNaN(d) ? '—' : d.toLocaleDateString('es-BO') + ' ' +
-                d.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' });
-        }
-        function aviso(t, m, i) { if (window.Swal) Swal.fire(t, m, i || 'info'); else alert(m); }
-        function pedir(cfg) {
-            $loading.show(); $vacio.hide();
-            return $.ajax(cfg).always(function () { $loading.hide(); });
-        }
-        function errorDe(xhr, porDefecto) {
-            return (xhr && xhr.responseJSON && xhr.responseJSON.message) || porDefecto;
-        }
-
-        // ── Migas ────────────────────────────────────────────────────────
-        function migas() {
-            var h = '<li class="breadcrumb-item"><span class="ca-crumb" data-nivel="municipios">Municipios</span></li>';
-            if (ctx.municipio) {
-                h += '<li class="breadcrumb-item"><span class="ca-crumb" data-nivel="predios">' +
-                     esc(ctx.municipio.nombre) + '</span></li>';
-            }
-            if (ctx.predio) {
-                h += '<li class="breadcrumb-item"><span class="ca-crumb" data-nivel="oficinas">' +
-                     esc(ctx.predio.nombre) + '</span></li>';
-            }
-            if (ctx.oficina) {
-                h += '<li class="breadcrumb-item"><span class="ca-crumb" data-nivel="responsables">' +
-                     esc(ctx.oficina.nombre) + '</span></li>';
-            }
-            if (ctx.responsable) {
-                h += '<li class="breadcrumb-item active">' + esc(ctx.responsable.nombre) + '</li>';
-            }
-            $('#ca-migas').html(h);
-            // migas() la llaman todos los niveles, así que es el único lugar donde hace
-            // falta enganchar la visibilidad de los botones de informe.
-            refrescarBotonesInforme();
-        }
-
-        $(document).on('click', '#ca-wrap .ca-crumb', function () {
-            var n = $(this).data('nivel');
-            if (n === 'municipios') {
-                ctx.municipio = ctx.predio = ctx.oficina = ctx.responsable = null; verMunicipios();
-            }
-            else if (n === 'predios') { ctx.predio = ctx.oficina = ctx.responsable = null; verPredios(); }
-            else if (n === 'oficinas') { ctx.oficina = ctx.responsable = null; verOficinas(ctx.predio.id); }
-            else if (n === 'responsables') { ctx.responsable = null; verResponsables(ctx.oficina.id); }
-        });
-
-        // ── Tiles ────────────────────────────────────────────────────────
-        function tile(clase, datos, cuerpo, bandera) {
-            return '<div class="col-6 col-sm-4 col-md-3 col-xl-2">' +
-                   '<div class="card ca-tile ca-' + clase + '" ' + datos + '>' +
-                   (bandera || '') + cuerpo + '</div></div>';
-        }
-
-        function verMunicipios() {
-            ctx.nivel = 'municipios'; migas(); $activos.hide(); filtroOficinas(false); ocultarMas();
-            pedir({ url: BASE + '/mapa/municipios', type: 'GET' })
-            .done(function (data) {
-                if (!data.length) return vaciar('No hay municipios con predios activos.');
-                $tiles.html(data.map(function (m) {
-                    // Los predios sin municipio se navegan por bandera, no por id: el id
-                    // viene nulo justamente porque no tienen a quién apuntar.
-                    var datos = 'data-t="municipio" data-nombre="' + esc(m.nombre) + '"' +
-                                (m.sinMunicipio ? ' data-sin="1"' : ' data-id="' + m.idMunicipio + '"');
-                    var bandera = m.sinMunicipio
-                        ? '<span class="ca-flag ca-flag-anom" title="Estos predios no tienen municipio cargado">SIN MUNICIPIO</span>'
-                        : '';
-                    return tile(m.estadoControl, datos,
-                        '<div><div class="ca-sub">' + esc(m.codigo || 'Municipio') + '</div>' +
-                        '<div class="ca-nom">' + esc(m.nombre) + '</div></div>' +
-                        '<div class="ca-mets">' +
-                            '<b>' + num(m.predios) + '</b> predios · <b>' + num(m.oficinas) + '</b> ofic.<br>' +
-                            '<b>' + num(m.activos) + '</b> activos' +
-                            (m.faltantesAbiertos > 0
-                                ? ' · <span class="text-danger fw-bold">' + num(m.faltantesAbiertos) + ' faltan</span>'
-                                : '') +
-                        '</div>', bandera);
-                }).join('')).show();
-            })
-            .fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudo cargar el mapa.'), 'error'); });
-        }
-
-        function verPredios() {
-            ctx.nivel = 'predios'; migas(); $activos.hide(); filtroOficinas(false); ocultarMas();
-            var url = BASE + '/mapa/predios';
-            if (ctx.municipio) {
-                url += ctx.municipio.sin ? '?sinMunicipio=true' : '?idMunicipio=' + ctx.municipio.id;
-            }
-            pedir({ url: url, type: 'GET' })
-            .done(function (data) {
-                if (!data.length) return vaciar('No hay predios activos registrados.');
-                $tiles.html(data.map(function (p) {
-                    return tile(p.estadoControl,
-                        'data-id="' + p.idPredio + '" data-nombre="' + esc(p.descrip) + '" data-t="predio"',
-                        '<div><div class="ca-sub">' + esc(p.unidad || '') + '</div>' +
-                        '<div class="ca-nom">' + esc(p.descrip) + '</div></div>' +
-                        '<div class="ca-mets">' +
-                            '<b>' + num(p.oficinas) + '</b> oficinas · <b>' + num(p.responsables) + '</b> resp.<br>' +
-                            '<b>' + num(p.activos) + '</b> activos' +
-                            (p.faltantesAbiertos > 0
-                                ? ' · <span class="text-danger fw-bold">' + num(p.faltantesAbiertos) + ' faltan</span>'
-                                : '') +
-                        '</div>');
-                }).join('')).show();
-            })
-            .fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudo cargar el mapa.'), 'error'); });
-        }
-
-        function verOficinas(idPredio) {
-            ctx.nivel = 'oficinas'; migas(); $activos.hide();
-            pedir({ url: BASE + '/mapa/predios/' + idPredio + '/oficinas', type: 'GET' })
-            .done(function (data) {
-                if (!data.length) { filtroOficinas(false); return vaciar('Este predio no tiene oficinas activas.'); }
-                oficinasCargadas = data;
-                $('#ca-of-filtro').val('');
-                filtroOficinas(true);
-                pintarOficinas();
-            })
-            .fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudieron cargar las oficinas.'), 'error'); });
-        }
-
-        /** Muestra u oculta la barra de filtro propia del nivel oficinas. */
-        function filtroOficinas(visible) {
-            $('#ca-filtro-oficinas').toggleClass('d-none', !visible);
-        }
-
-        function ocultarMas() { $('#ca-mas-wrap').addClass('d-none'); }
-
-        /** Oficinas que pasan el filtro escrito (nombre o número). */
-        function oficinasFiltradas() {
-            var q = ($('#ca-of-filtro').val() || '').trim().toLowerCase();
-            if (!q) return oficinasCargadas;
-            return oficinasCargadas.filter(function (o) {
-                return (o.nombre || '').toLowerCase().indexOf(q) !== -1 ||
-                       String(o.codOfi || '').toLowerCase().indexOf(q) !== -1;
-            });
-        }
-
-        /**
-         * Pinta la tanda siguiente de oficinas.
-         * @param acumular true para agregar debajo de lo ya pintado ("Mostrar más"),
-         *                 false para empezar de cero (entrar al nivel o cambiar el filtro)
-         */
-        function pintarOficinas(acumular) {
-            var lista = oficinasFiltradas();
-            if (!acumular) oficinasMostradas = 0;
-
-            var hasta = Math.min(oficinasMostradas + TANDA_OFICINAS, lista.length);
-            var html = lista.slice(oficinasMostradas, hasta).map(tileOficina).join('');
-            oficinasMostradas = hasta;
-
-            if (acumular) $tiles.append(html);
-            else $tiles.html(html);
-
-            if (!lista.length) {
-                $tiles.hide(); ocultarMas();
-                $('#ca-vacio-txt').text('Ninguna oficina coincide con el filtro.'); $vacio.show();
-            } else {
-                $vacio.hide(); $tiles.show();
-            }
-
-            var restantes = lista.length - oficinasMostradas;
-            $('#ca-mas-wrap').toggleClass('d-none', restantes <= 0);
-            $('#ca-mas-restantes').text(restantes > 0 ? '(' + num(restantes) + ' más)' : '');
-            $('#ca-of-conteo').text(lista.length === oficinasCargadas.length
-                ? num(lista.length)
-                : num(lista.length) + ' de ' + num(oficinasCargadas.length));
-        }
-
-        $('#ca-of-filtro').on('input', function () { pintarOficinas(false); });
-        $('#ca-mas').on('click', function () { pintarOficinas(true); });
-
-        function tileOficina(o) {
-                    if (o.esCustodia) {
-                        // Sus activos son bienes en custodia y sus responsables, las personas con faltantes.
-                        return tile('CUSTODIA',
-                            'data-id="' + o.idOficina + '" data-nombre="' + esc(o.nombre) + '" data-t="oficina" data-lev="" data-custodia="1"',
-                            '<div><div class="ca-sub">Of. ' + esc(o.codOfi) + '</div>' +
-                            '<div class="ca-nom">' + esc(o.nombre) + '</div></div>' +
-                            '<div class="ca-mets">' +
-                                '<b>' + num(o.activos) + '</b> en custodia<br>' +
-                                '<b>' + num(o.responsables) + '</b> persona' + (o.responsables === 1 ? '' : 's') +
-                            '</div>',
-                            '<span class="ca-flag ca-flag-cus">FALTANTES</span>');
-                    }
-                    var barra = (o.idLevantamientoEnCurso)
-                        ? '<div class="ca-bar"><span style="width:' + o.porcentajeAvance + '%"></span></div>'
-                        : '';
-                    var bandera = o.idLevantamientoEnCurso
-                        ? '<span class="ca-flag ca-flag-vig">EN CURSO</span>' : '';
-                    return tile(o.estadoControl,
-                        'data-id="' + o.idOficina + '" data-nombre="' + esc(o.nombre) +
-                        '" data-t="oficina" data-lev="' + (o.idLevantamientoEnCurso || '') + '"',
-                        '<div><div class="ca-sub">Of. ' + esc(o.codOfi) + '</div>' +
-                        '<div class="ca-nom">' + esc(o.nombre) + '</div></div>' +
-                        '<div class="ca-mets">' +
-                            '<b>' + num(o.activos) + '</b> activos · <b>' + num(o.responsables) + '</b> resp.' +
-                            (o.faltantesAbiertos > 0
-                                ? '<br><span class="text-danger fw-bold">' + num(o.faltantesAbiertos) + ' faltantes</span>'
-                                : (o.ultimoLevantamiento
-                                    ? '<br><span style="font-size:.68rem;">últ. ' + fmtFecha(o.ultimoLevantamiento) + '</span>'
-                                    : '')) +
-                            barra +
-                        '</div>', bandera);
-        }
-
-        function verResponsables(idOficina) {
-            ctx.nivel = 'responsables'; migas(); $activos.hide(); filtroOficinas(false); ocultarMas();
-            pedir({ url: BASE + '/mapa/oficinas/' + idOficina + '/responsables', type: 'GET' })
-            .done(function (data) {
-                if (!data.length) return vaciar('Esta oficina no tiene responsables registrados.');
-                $tiles.html(data.map(function (r) {
-                    // Un responsable dado de baja que todavía figura como custodio es
-                    // la inconsistencia que este módulo existe para sacar a la luz.
-                    var bandera = r.anomalia
-                        ? '<span class="ca-flag ca-flag-anom" title="No vigente pero con activos a su nombre">SIN VIGENCIA</span>'
-                        : (r.vigente ? '<span class="ca-flag ca-flag-vig">VIGENTE</span>'
-                                     : '<span class="ca-flag ca-flag-noVig">INACTIVO</span>');
-                    return tile(r.anomalia ? 'CON_FALTANTES' : r.estadoControl,
-                        'data-id="' + r.idResponsable + '" data-nombre="' + esc(r.nombre) + '" data-t="responsable"',
-                        '<div><div class="ca-sub">' + esc(r.codigoFuncionario || '') + '</div>' +
-                        '<div class="ca-nom">' + esc(r.nombre || 'Sin persona asociada') + '</div></div>' +
-                        '<div class="ca-mets">' +
-                            '<b>' + num(r.activos) + '</b> activos' +
-                            (r.faltantesAbiertos > 0
-                                ? '<br><span class="text-danger fw-bold">' + num(r.faltantesAbiertos) + ' faltantes</span>' : '') +
-                            (r.observacionesAbiertas > 0
-                                ? '<br><span class="text-warning fw-bold">' + num(r.observacionesAbiertas) + ' observados</span>' : '') +
-                        '</div>', bandera);
-                }).join('')).show();
-            })
-            .fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudieron cargar los responsables.'), 'error'); });
-        }
-
-        function verActivos(idResponsable) {
-            ctx.nivel = 'activos'; migas(); $tiles.hide().empty(); filtroOficinas(false); ocultarMas();
-            pedir({ url: BASE + '/responsables/' + idResponsable + '/activos', type: 'GET' })
-            .done(function (data) {
-                $('#ca-act-nombre').text(ctx.responsable.nombre);
-                $('#ca-act-sub').text(
-                    (ctx.oficina ? ctx.oficina.nombre + ' · ' : '') +
-                    data.length + ' activo(s) a su nombre');
-
-                // Marcar faltantes/observaciones se hace SIEMPRE dentro del levantamiento
-                // de una oficina, nunca suelto desde acá: el levantamiento es por oficina
-                // y al cerrarlo lo no revisado pasa a faltante, así que marcar por fuera
-                // dejaría hallazgos sin la sesión que los explica. Si no hay oficina en
-                // contexto el botón se esconde en vez de quedar inerte.
-                // La oficina de faltantes no se recorre: sus bienes ya son faltantes registrados.
-                var levantable = ctx.oficina && !ctx.oficina.custodia;
-                $('#ca-btn-levantar-of').toggleClass('d-none', !levantable);
-                $('#ca-act-hint').toggleClass('d-none', !levantable);
-
-                $('#ca-tabla-activos tbody').html(data.length ? data.map(function (a, i) {
-                    var ctrl = a.faltanteAbierto
-                        ? '<span class="badge bg-label-danger">FALTANTE</span>'
-                        : (a.observadoAbierto ? '<span class="badge bg-label-warning">OBSERVADO</span>'
-                                              : '<span class="badge bg-label-secondary">—</span>');
-                    return '<tr><td>' +
-                           '<input type="checkbox" class="form-check-input ca-chk" value="' + a.idActivo + '"' +
-                             (seleccion.has(String(a.idActivo)) ? ' checked' : '') + '></td>' +
-                           '<td><span class="ca-cod">' + esc(a.codigo) + '</span></td>' +
-                           '<td>' + esc(a.descripcion) + '</td>' +
-                           '<td>' + esc(a.auxiliar || '—') + '</td>' +
-                           '<td>' + esc(a.estadoActivo || '—') + '</td>' +
-                           '<td>' + ctrl + '</td></tr>';
-                }).join('') : '<tr><td colspan="6" class="text-center text-muted py-4">' +
-                              'Este responsable no tiene activos a su nombre.</td></tr>');
-                $activos.show();
-            })
-            .fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudieron cargar los activos.'), 'error'); });
-        }
-
-        function vaciar(txt) {
-            $tiles.hide().empty(); $('#ca-vacio-txt').text(txt); $vacio.show();
-        }
-
-        // ── Navegación ───────────────────────────────────────────────────
-        $(document).on('click', '#ca-wrap .ca-tile', function () {
-            var $t = $(this), id = $t.data('id'), nombre = $t.data('nombre'), tipo = $t.data('t');
-            if (tipo === 'municipio')   {
-                ctx.municipio = { id: id, nombre: nombre, sin: $t.data('sin') === 1 };
-                ctx.predio = ctx.oficina = ctx.responsable = null;
-                verPredios();
-            }
-            else if (tipo === 'predio') { ctx.predio = { id: id, nombre: nombre }; verOficinas(id); }
-            else if (tipo === 'oficina'){ ctx.oficina = { id: id, nombre: nombre, lev: $t.data('lev'), custodia: $t.data('custodia') === 1 }; verResponsables(id); }
-            else                        { ctx.responsable = { id: id, nombre: nombre }; verActivos(id); }
-        });
-
-        $('#ca-btn-refrescar').on('click', function () { recargarNivel(); });
-
-        function recargarNivel() {
-            if (ctx.nivel === 'municipios')        verMunicipios();
-            else if (ctx.nivel === 'predios')      verPredios();
-            else if (ctx.nivel === 'oficinas')     verOficinas(ctx.predio.id);
-            else if (ctx.nivel === 'responsables') verResponsables(ctx.oficina.id);
-            else if (ctx.nivel === 'activos')      verActivos(ctx.responsable.id);
-        }
-
-        // ── Levantamiento ────────────────────────────────────────────────
-        $('#ca-btn-levantar-of').on('click', function () {
-            if (!ctx.oficina) return;
-            abrirLevantamiento(ctx.oficina.id);
-        });
-
-        function abrirLevantamiento(idOficina) {
-            $.ajax({
-                url: BASE + '/levantamientos', type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ idOficina: idOficina })
-            })
-            .done(function (lev) { pintarLevantamiento(lev); mostrarModal(); })
-            .fail(function (xhr) { aviso('No se pudo abrir', errorDe(xhr, 'Error al abrir el levantamiento.'), 'error'); });
-        }
-
-        function mostrarModal() {
-            if (!modalLev) modalLev = new bootstrap.Modal(document.getElementById('ca-modal-lev'));
-            modalLev.show();
-        }
-
-        function pintarLevantamiento(lev) {
-            levActual = lev;
-            var cerrado = lev.estado !== 'EN_EJECUCION';
-
-            $('#ca-lev-titulo').text(lev.numeroInventario + ' · ' + lev.oficina);
-            $('#ca-lev-sub').text(lev.predio + ' · abierto ' + fmtFecha(lev.fechaInicio) +
-                                  (lev.ejecutor ? ' por ' + lev.ejecutor : ''));
-            $('#ca-lev-esperados').text(num(lev.totalEsperados));
-            $('#ca-lev-encontrados').text(num(lev.totalEncontrados));
-            $('#ca-lev-pendientes').text(num(lev.totalPendientes));
-            $('#ca-lev-faltantes').text(num(lev.totalFaltantes));
-            $('#ca-lev-pie').text(cerrado
-                ? 'Cerrado el ' + fmtFecha(lev.fechaFin)
-                : lev.totalPendientes + ' sin revisar — al cerrar pasan a faltante');
-
-            $('#ca-btn-cerrar-lev').prop('disabled', cerrado);
-            $('#ca-lev-aviso').toggle(!cerrado);
-
-            $('#ca-lev-tabla tbody').html(lev.detalle.map(function (d) {
-                var acciones = cerrado ? '<span class="text-muted" style="font-size:.78rem;">—</span>' :
-                    '<div class="btn-group btn-group-sm">' +
-                      '<button class="btn btn-outline-success ca-marcar" data-id="' + d.idDetalle +
-                        '" data-s="ENCONTRADO" title="Está en la oficina"><i class="ti ti-check"></i></button>' +
-                      '<button class="btn btn-outline-danger ca-marcar" data-id="' + d.idDetalle +
-                        '" data-s="FALTANTE" title="No está"><i class="ti ti-x"></i></button>' +
-                      '<button class="btn btn-outline-secondary ca-observar" data-id="' + d.idDetalle +
-                        '" title="Anotar novedad"><i class="ti ti-message-2"></i></button>' +
-                    '</div>';
-                var obs = d.observacion
-                    ? '<div class="text-warning" style="font-size:.74rem;"><i class="ti ti-alert-circle"></i> ' +
-                      esc(d.observacion) + (d.estadoObservado ? ' (' + esc(d.estadoObservado) + ')' : '') + '</div>'
-                    : '';
-                return '<tr data-fila="' + d.idDetalle + '">' +
-                       '<td><span class="ca-cod">' + esc(d.codigo) + '</span></td>' +
-                       '<td>' + esc(d.descripcion) + obs + '</td>' +
-                       '<td style="font-size:.78rem;">' + esc(d.responsable || '—') + '</td>' +
-                       '<td><span class="badge ca-sit-' + d.situacion + '">' + d.situacion + '</span></td>' +
-                       '<td>' + acciones + '</td></tr>';
-            }).join(''));
-        }
-
-        function recargarLevantamiento() {
-            if (!levActual) return;
-            $.get(BASE + '/levantamientos/' + levActual.idInventario)
-                .done(pintarLevantamiento)
-                .fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudo refrescar.'), 'error'); });
-        }
-
-        $(document).on('click', '#ca-wrap .ca-marcar', function () {
-            marcar($(this).data('id'), $(this).data('s'), null, null);
-        });
-
-        $(document).on('click', '#ca-wrap .ca-observar', function () {
-            var id = $(this).data('id');
-            if (!window.Swal) {
-                var t = prompt('Novedad del activo (roto, incompleto, etc.):');
-                if (t) marcar(id, 'ENCONTRADO', t, null);
-                return;
-            }
-            Swal.fire({
-                title: 'Anotar novedad',
-                input: 'textarea',
-                inputLabel: 'Se registra como hallazgo al cerrar el levantamiento',
-                inputPlaceholder: 'Ej.: está roto, le falta una rueda, el serial no coincide…',
-                showCancelButton: true, confirmButtonText: 'Guardar', cancelButtonText: 'Cancelar'
-            }).then(function (r) {
-                if (r.isConfirmed && r.value && r.value.trim()) marcar(id, 'ENCONTRADO', r.value.trim(), null);
-            });
-        });
-
-        function marcar(idDetalle, situacion, observacion, idEstado) {
-            if (!levActual) return;
-            $.ajax({
-                url: BASE + '/levantamientos/' + levActual.idInventario + '/detalle/' + idDetalle,
-                type: 'PATCH', contentType: 'application/json',
-                data: JSON.stringify({
-                    situacion: situacion,
-                    observacion: observacion,
-                    idEstadoObservado: idEstado,
-                    fecha: new Date().toISOString().slice(0, 19)
-                })
-            })
-            .done(function () { recargarLevantamiento(); })
-            .fail(function (xhr) { aviso('No se pudo marcar', errorDe(xhr, 'Error al registrar la marca.'), 'error'); });
-        }
-
-        $('#ca-lev-filtro').on('input', function () {
-            var q = $(this).val().toLowerCase();
-            $('#ca-lev-tabla tbody tr').each(function () {
-                $(this).toggle($(this).text().toLowerCase().indexOf(q) !== -1);
-            });
-        });
-
-        $('#ca-btn-cerrar-lev').on('click', function () {
-            if (!levActual) return;
-            var pend = levActual.totalPendientes;
-            var texto = pend > 0
-                ? pend + ' activo(s) quedaron sin revisar y se registrarán como FALTANTES a nombre de su responsable.'
-                : 'No quedan activos sin revisar.';
-
-            function ejecutar() {
-                $.ajax({
-                    url: BASE + '/levantamientos/' + levActual.idInventario + '/cerrar',
-                    type: 'POST', contentType: 'application/json', data: JSON.stringify({})
-                })
-                .done(function (r) {
-                    aviso('Levantamiento cerrado',
-                        r.encontrados + ' encontrados · ' + r.faltantes + ' faltantes · ' +
-                        r.observados + ' con novedad', 'success');
-                    if (modalLev) modalLev.hide();
-                    recargarNivel();
-                })
-                .fail(function (xhr) { aviso('No se pudo cerrar', errorDe(xhr, 'Error al cerrar.'), 'error'); });
-            }
-
-            if (!window.Swal) { if (confirm(texto + '\n\n¿Cerrar?')) ejecutar(); return; }
-            Swal.fire({
-                title: '¿Cerrar el levantamiento?', html: texto, icon: 'warning',
-                showCancelButton: true, confirmButtonText: 'Sí, cerrar',
-                cancelButtonText: 'Cancelar', confirmButtonColor: '#e0384a'
-            }).then(function (r) { if (r.isConfirmed) ejecutar(); });
-        });
-
-        // ── Tiempo real ──────────────────────────────────────────────────
-        // Lo que hace la app en campo tiene que verse acá sin recargar.
-        (function sse() {
-            if (!window.EventSource) return;
-            var es = new EventSource('/api/eventos/stream');
-
-            es.onopen = function () {
-                $('#ca-sse').removeClass('bg-label-secondary').addClass('bg-label-success')
-                            .html('<i class="ti ti-plug-connected me-1"></i> en vivo');
-            };
-            es.onerror = function () {
-                $('#ca-sse').removeClass('bg-label-success').addClass('bg-label-secondary')
-                            .html('<i class="ti ti-plug-off me-1"></i> sin conexión');
-            };
-
-            ['levantamiento-abierto', 'levantamiento-avance', 'levantamiento-cerrado'].forEach(function (ev) {
-                es.addEventListener(ev, function (e) {
-                    var d; try { d = JSON.parse(e.data); } catch (x) { return; }
-
-                    // Si el modal muestra justo ese levantamiento, refrescarlo.
-                    if (levActual && d.idInventario === levActual.idInventario) recargarLevantamiento();
-
-                    // Y repintar el nivel del mapa al que le toca.
-                    if (ctx.nivel === 'municipios') verMunicipios();
-                    else if (ctx.nivel === 'predios') verPredios();
-                    else if (ctx.nivel === 'oficinas' && ctx.predio && d.idPredio === ctx.predio.id) verOficinas(ctx.predio.id);
-                    else if (ctx.nivel === 'responsables' && ctx.oficina && d.idOficina === ctx.oficina.id) verResponsables(ctx.oficina.id);
-                });
-            });
-
-            $(window).on('beforeunload', function () { es.close(); });
-        })();
-
-        // ── Selección para informes ──────────────────────────────────────
-        // Sobrevive a cambiar de nivel o de búsqueda a propósito: se puede juntar
-        // bienes de varias oficinas y recién al final sacar un informe con todos.
-        var seleccion = new Set();
-
-        function refrescarBarraSel() {
-            $('#ca-sel-n').text(num(seleccion.size));
-            $('#ca-barra-sel').toggleClass('d-none', seleccion.size === 0);
-        }
-
-        $(document).on('change', '#ca-wrap .ca-chk', function () {
-            var id = String($(this).val());
-            if (this.checked) seleccion.add(id); else seleccion.delete(id);
-            refrescarBarraSel();
-        });
-
-        // "Seleccionar todo" alcanza solo a lo que está a la vista, que es lo que el
-        // usuario puede comprobar; tildar a ciegas 852 resultados no sería honesto.
-        $(document).on('change', '#ca-chk-todos-busq, #ca-chk-todos-act', function () {
-            var marcar = this.checked;
-            $(this).closest('table').find('.ca-chk').each(function () {
-                this.checked = marcar;
-                var id = String($(this).val());
-                if (marcar) seleccion.add(id); else seleccion.delete(id);
-            });
-            refrescarBarraSel();
-        });
-
-        $('#ca-sel-limpiar').on('click', function () {
-            seleccion.clear();
-            $('#ca-wrap .ca-chk, #ca-chk-todos-busq, #ca-chk-todos-act').prop('checked', false);
-            refrescarBarraSel();
-        });
-
-        $('#ca-btn-informe').on('click', function () {
-            if (!seleccion.size) return;
-            var $btn = $(this).prop('disabled', true);
-
-            // Descarga por fetch y no por navegación: el endpoint es POST (la lista de
-            // ids puede ser larga) y así se puede mostrar el error si algo falla, en vez
-            // de dejar al usuario en una pantalla en blanco.
-            fetch(BASE + '/informe/verificacion', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ idsActivos: Array.from(seleccion).map(Number) })
-            })
-            .then(function (r) {
-                if (!r.ok) return r.json().then(function (j) { throw new Error(j.message || 'No se pudo generar.'); });
-                return r.blob();
-            })
-            .then(function (blob) {
-                var url = URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = url;
-                a.download = 'verificacion_bienes.docx';
-                document.body.appendChild(a); a.click(); a.remove();
-                URL.revokeObjectURL(url);
-            })
-            .catch(function (e) { aviso('No se pudo generar', e.message, 'error'); })
-            .finally(function () { $btn.prop('disabled', false); });
-        });
-
-        // ── Informes de contexto ─────────────────────────────────────────
-        // Van con el alcance donde estás parado: lo que se imprime es lo que se ve.
-
-        /** Descarga un .docx de una URL GET, mostrando el error si el server lo rechaza. */
-        function descargarWord(url, nombre, $btn) {
-            if ($btn) $btn.prop('disabled', true);
-            fetch(url)
-                .then(function (r) {
-                    if (!r.ok) return r.json().then(function (j) {
-                        throw new Error(j.message || 'No se pudo generar el informe.');
-                    });
-                    return r.blob();
-                })
-                .then(function (blob) {
-                    var u = URL.createObjectURL(blob);
-                    var a = document.createElement('a');
-                    a.href = u; a.download = nombre;
-                    document.body.appendChild(a); a.click(); a.remove();
-                    URL.revokeObjectURL(u);
-                })
-                .catch(function (e) { aviso('No se pudo generar', e.message, 'warning'); })
-                .finally(function () { if ($btn) $btn.prop('disabled', false); });
-        }
-
-        /** El botón de resumen solo tiene sentido con un predio elegido. */
-        function refrescarBotonesInforme() {
-            $('#ca-btn-resumen').toggleClass('d-none', !ctx.predio);
-        }
-
-        $('#ca-btn-acta').on('click', function () {
-            if (!ctx.responsable) return;
-            descargarWord(BASE + '/informe/acta?idResponsable=' + ctx.responsable.id,
-                          'acta_responsabilidad.docx', $(this));
-        });
-
-        $('#ca-btn-resumen').on('click', function () {
-            if (!ctx.predio) return;
-            descargarWord(BASE + '/informe/resumen?idPredio=' + ctx.predio.id,
-                          'resumen_control.docx', $(this));
-        });
-
-        $('#ca-btn-faltantes').on('click', function () {
-            // Se manda el alcance del nivel actual; sin nada elegido, son todos los predios.
-            var p = [];
-            if (ctx.responsable) p.push('idResponsable=' + ctx.responsable.id);
-            else if (ctx.oficina) p.push('idOficina=' + ctx.oficina.id);
-            else if (ctx.predio)  p.push('idPredio=' + ctx.predio.id);
-            descargarWord(BASE + '/informe/faltantes' + (p.length ? '?' + p.join('&') : ''),
-                          'faltantes.docx', $(this));
-        });
-
-        // ── Buscador ─────────────────────────────────────────────────────
-        var $busq = $('#ca-busqueda'), tmrBusq = null, ultimaBusq = '';
-
-        /** Vuelve del modo búsqueda al mapa, sin perder dónde estabas parado. */
-        function salirDeBusqueda() {
-            ultimaBusq = '';
-            $busq.hide().empty();
-            $('#ca-q-limpiar').addClass('d-none');
-            $('#ca-q-hint').text('Escribí al menos 2 caracteres. Cada resultado muestra dónde está el bien.');
-            $('#ca-migas-wrap').show();
-            recargarNivel();
-        }
-
-        $('#ca-q').on('input', function () {
-            var q = $(this).val().trim();
-            $('#ca-q-limpiar').toggleClass('d-none', q.length === 0);
-            clearTimeout(tmrBusq);
-            if (q.length === 0) { salirDeBusqueda(); return; }
-            if (q.length < 2) {
-                $('#ca-q-hint').text('Escribí al menos 2 caracteres.');
-                return;
-            }
-            tmrBusq = setTimeout(function () { buscar(q); }, 300);
-        });
-
-        $('#ca-q-limpiar').on('click', function () {
-            $('#ca-q').val('').focus();
-            salirDeBusqueda();
-        });
-
-        function buscar(q) {
-            ultimaBusq = q;
-            $tiles.hide(); $activos.hide(); $vacio.hide();
-            filtroOficinas(false); ocultarMas();
-            $('#ca-migas-wrap').hide();
-            $busq.show().html('<div class="text-center py-4 text-muted">' +
-                '<div class="spinner-border spinner-border-sm me-2"></div>Buscando…</div>');
-
-            $.get(BASE + '/buscar', { q: q })
-            .done(function (r) {
-                // Llegó tarde: el usuario ya siguió escribiendo y hay otra búsqueda en curso.
-                if (q !== ultimaBusq) return;
-                pintarBusqueda(r, q);
-            })
-            .fail(function (xhr) {
-                if (q !== ultimaBusq) return;
-                $busq.html('<div class="alert alert-danger mb-0">' +
-                    esc(errorDe(xhr, 'No se pudo buscar.')) + '</div>');
-            });
-        }
-
-        function pintarBusqueda(r, q) {
-            var filas = (r && r.resultados) || [];
-            if (!filas.length) {
-                $busq.html('<div class="text-center text-muted py-5">' +
-                    '<div style="font-size:40px;">🔍</div>' +
-                    '<p class="mt-2 mb-0">Ningún activo coincide con <b>' + esc(q) + '</b>.</p></div>');
-                $('#ca-q-hint').text('Sin resultados.');
-                return;
-            }
-
-            $('#ca-q-hint').html(r.truncado
-                ? 'Mostrando <b>' + num(filas.length) + '</b> de <b>' + num(r.total) +
-                  '</b> — afiná la búsqueda para ver el resto.'
-                : '<b>' + num(r.total) + '</b> resultado(s).');
-
-            var html = '<div class="card shadow-sm"><div class="table-responsive">' +
-                '<table class="table table-hover mb-0"><thead><tr>' +
-                '<th style="width:36px;"><input type="checkbox" class="form-check-input" id="ca-chk-todos-busq" ' +
-                    'title="Seleccionar todo lo que se ve"></th>' +
-                '<th>Código</th><th>Descripción</th><th>Ubicación</th><th>Estado</th><th>Control</th>' +
-                '</tr></thead><tbody>';
-
-            filas.forEach(function (a) {
-                var control = a.faltanteAbierto
-                    ? '<span class="badge bg-label-danger">FALTANTE</span>'
-                    : (a.observadoAbierto ? '<span class="badge bg-label-warning">OBSERVADO</span>'
-                                          : '<span class="text-muted">—</span>');
-                // La ubicación es clickeable: encontrar el bien y poder saltar a su
-                // oficina es la mitad del trabajo de este buscador.
-                var ruta = [a.municipio, a.predio, a.oficina, a.responsable]
-                    .map(function (x, i) {
-                        var faltaTxt = ['(sin municipio)', '(sin predio)', '(sin oficina)', '(sin responsable)'][i];
-                        return x ? esc(x) : '<span class="text-danger">' + faltaTxt + '</span>';
-                    }).join(' <span class="text-muted">›</span> ');
-
-                html += '<tr>' +
-                    '<td><input type="checkbox" class="form-check-input ca-chk" value="' + a.idActivo + '"' +
-                        (seleccion.has(String(a.idActivo)) ? ' checked' : '') + '></td>' +
-                    '<td><span class="fw-semibold" style="font-family:JetBrains Mono,monospace;">' +
-                        esc(a.codigo) + '</span></td>' +
-                    '<td style="max-width:320px;">' + esc(a.descripcion || '') + '</td>' +
-                    '<td style="font-size:.82rem;">' + ruta +
-                        (a.idResponsable
-                            // Se arrastra TODA la ruta, no solo el responsable: sin la
-                            // oficina no se puede levantar ni marcar nada al llegar, que
-                            // es justo lo que se viene a hacer después de encontrar el bien.
-                            ? '<br><a href="#" class="ca-ir" data-resp="' + a.idResponsable +
-                              '" data-nombre="' + esc(a.responsable || '') +
-                              '" data-ofi="' + (a.idOficina || '') + '" data-ofi-nom="' + esc(a.oficina || '') +
-                              '" data-pred="' + (a.idPredio || '') + '" data-pred-nom="' + esc(a.predio || '') +
-                              '" data-mun="' + (a.idMunicipio || '') + '" data-mun-nom="' + esc(a.municipio || '') +
-                              '" style="font-size:.78rem;"><i class="ti ti-map-pin"></i> ver todo lo de este responsable</a>'
-                            : '') +
-                    '</td>' +
-                    '<td>' + esc(a.estadoActivo || '—') + '</td>' +
-                    '<td>' + control + '</td>' +
-                    '</tr>';
-            });
-
-            $busq.html(html + '</tbody></table></div></div>');
-        }
-
-        /** Saltar desde un resultado al nivel de activos de ese responsable. */
-        $(document).on('click', '#ca-wrap .ca-ir', function (e) {
-            e.preventDefault();
-            var $a = $(this);
-            $('#ca-q').val(''); $('#ca-q-limpiar').addClass('d-none');
-            ultimaBusq = '';
-            $busq.hide().empty();
-            $('#ca-migas-wrap').show();
-
-            // Se reconstruye el contexto completo con lo que traía el resultado, así el
-            // usuario cae parado en el mismo lugar que si hubiera bajado por el mapa:
-            // migas navegables y la oficina lista para levantar.
-            // camelCase y no 'mun-nom': jQuery normaliza data-mun-nom a .data('munNom').
-            ctx.municipio = $a.data('mun')  ? { id: $a.data('mun'),  nombre: $a.data('munNom'),  sin: false } : null;
-            ctx.predio    = $a.data('pred') ? { id: $a.data('pred'), nombre: $a.data('predNom') } : null;
-            ctx.oficina   = $a.data('ofi')  ? { id: $a.data('ofi'),  nombre: $a.data('ofiNom'), lev: '' } : null;
-            ctx.responsable = { id: $a.data('resp'), nombre: $a.data('nombre') };
-            verActivos(ctx.responsable.id);
-        });
-
-        verMunicipios();
-    })();
-    </script>
+        <div class="mc-lienzo js-lienzo" role="application" aria-label="Mosaico de predios y oficinas"></div>
+        <div class="js-busqueda p-3 d-none"></div>
+    </section>
+
+    <section class="sm-card">
+        <div class="mc-panel-cuerpo js-panel"></div>
+    </section>
 </div>
+
+<div class="mc-barra-sel d-none js-barra-sel">
+    <div class="sm-aviso mb-0 d-flex align-items-center gap-3 flex-wrap" style="box-shadow:var(--sm-sombra-card);">
+        <i class="ti ti-checkbox"></i>
+        <span><strong class="js-sel-n">0</strong> bien(es) seleccionado(s) para el informe</span>
+        <button type="button" class="sm-btn sm-btn-sm ms-auto js-informe-verif">
+            <i class="ti ti-file-text"></i> Informe de verificación (Word)
+        </button>
+        <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-sel-limpiar">Quitar selección</button>
+    </div>
+</div>
+
+<!-- Datos del mosaico: llegan con la vista (un solo pedido al abrir). -->
+<script type="application/json" class="js-datos" th:utext="${mosaicoJson}">[]</script>
+
+<!-- ═══ Bienes de un responsable ═══ -->
+<div class="modal fade" id="mcModalBienes" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content sm-modal">
+            <div class="sm-modal-cab">
+                <div class="sm-cabecera-icono"><i class="ti ti-user"></i></div>
+                <div>
+                    <h5 class="sm-modal-titulo sm-mayus js-b-nombre">—</h5>
+                    <p class="sm-modal-sub js-b-sub">—</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="sm-modal-cuerpo">
+                <div class="d-flex gap-2 flex-wrap mb-2">
+                    <button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-b-acta"
+                            title="Acta de responsabilidad con membrete y firmas, de todos sus bienes">
+                        <i class="ti ti-file-certificate"></i> Acta de responsabilidad
+                    </button>
+                    <button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-b-faltantes">
+                        <i class="ti ti-alert-triangle"></i> Sus faltantes (Word)
+                    </button>
+                    <button type="button" class="sm-btn sm-btn-sm ms-auto js-b-levantar">
+                        <i class="ti ti-clipboard-check"></i> Levantar la oficina
+                    </button>
+                </div>
+                <div class="sm-ayuda mb-2 js-b-ayuda"><i class="ti ti-info-circle"></i>
+                    Para marcar faltantes u observaciones, abra el levantamiento de la oficina.</div>
+                <div class="table-responsive">
+                    <table class="table sm-tabla align-middle mb-0">
+                        <thead><tr>
+                            <th style="width:40px;"><input type="checkbox" class="form-check-input js-b-todos" title="Seleccionar todos"></th>
+                            <th>Código</th><th>Descripción</th><th>Auxiliar</th><th>Estado</th><th>Control</th>
+                        </tr></thead>
+                        <tbody class="js-b-cuerpo"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="sm-modal-pie">
+                <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal"><i class="ti ti-x"></i> Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ Levantamiento ═══ -->
+<div class="modal fade" id="mcModalLev" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content sm-modal">
+            <div class="sm-modal-cab">
+                <div class="sm-cabecera-icono"><i class="ti ti-clipboard-check"></i></div>
+                <div>
+                    <h5 class="sm-modal-titulo js-l-titulo">Levantamiento</h5>
+                    <p class="sm-modal-sub js-l-sub">—</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="sm-modal-cuerpo">
+                <div class="mc-kpis mb-3" style="grid-template-columns:repeat(4,minmax(0,1fr));">
+                    <div class="mc-kpi"><b class="js-l-esperados">0</b><span>Esperados</span></div>
+                    <div class="mc-kpi"><b class="js-l-encontrados text-success">0</b><span>Encontrados</span></div>
+                    <div class="mc-kpi"><b class="js-l-pendientes" style="color:#b45309;">0</b><span>Sin revisar</span></div>
+                    <div class="mc-kpi"><b class="js-l-faltantes text-danger">0</b><span>Faltantes</span></div>
+                </div>
+                <div class="sm-aviso sm-aviso-aviso mb-2 js-l-aviso">
+                    <i class="ti ti-info-circle"></i>
+                    <div>Marque <b>Encontrado</b> lo que esté físicamente en la oficina. Al cerrar, todo lo que quede
+                        <b>sin revisar</b> se registra como faltante a nombre de su responsable.</div>
+                </div>
+                <div class="sm-buscador mb-2">
+                    <i class="ti ti-search"></i>
+                    <input type="text" class="sm-input js-l-filtro" placeholder="Filtrar por código, descripción o responsable…" autocomplete="off" />
+                </div>
+                <div class="table-responsive">
+                    <table class="table sm-tabla align-middle mb-0">
+                        <thead><tr>
+                            <th>Código</th><th>Descripción</th><th>Responsable</th>
+                            <th style="width:120px;">Situación</th><th style="width:150px;">Acción</th>
+                        </tr></thead>
+                        <tbody class="js-l-cuerpo"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="sm-modal-pie">
+                <span class="sm-nota me-auto js-l-pie">—</span>
+                <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal"><i class="ti ti-player-pause"></i> Seguir después</button>
+                <button type="button" class="sm-btn sm-btn-peligro js-l-cerrar"><i class="ti ti-lock"></i> Cerrar levantamiento</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div>
+
+<script th:inline="none">
+(function () {
+    'use strict';
+
+    const BASE = '/administracion/control-activos';
+    const $raiz = $('#modMapaControl');
+    const lienzo = $raiz.find('.js-lienzo')[0];
+    const $lienzo = $(lienzo);
+    const $panel = $raiz.find('.js-panel');
+    const $busq = $raiz.find('.js-busqueda');
+    const modalBienes = document.getElementById('mcModalBienes');
+    const modalLev = document.getElementById('mcModalLev');
+
+    const esc = function (t) { return SciafModulo.escapar(t).replace(/"/g, '&quot;'); };
+    const num = function (n) { return Number(n || 0).toLocaleString('es-BO'); };
+    // LocalDateTime sin zona («2026-08-26T09:14:00»): new Date lo toma como hora local.
+    function fecha(s) {
+        if (!s) return '—';
+        const d = new Date(s);
+        return isNaN(d) ? '—' : d.toLocaleDateString('es-BO') + ' ' +
+            d.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' });
+    }
+    // Hora LOCAL del navegador en ISO sin zona (toISOString es UTC: marcaba 4 horas adelante).
+    function ahoraLocal() {
+        const d = new Date(), z = n => String(n).padStart(2, '0');
+        return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' +
+            z(d.getHours()) + ':' + z(d.getMinutes()) + ':' + z(d.getSeconds());
+    }
+    function msgDe(r, porDefecto) { return (r && (r.message || r.msg)) || porDefecto; }
+    function getJson(url, datos) {
+        const qs = datos ? '?' + $.param(datos) : '';
+        return SciafModulo.pedirJson(url + qs, { metodo: 'GET' });
+    }
+    function enPantalla() { return document.body.contains($raiz[0]); }
+
+    const ESTADOS = {
+        SIN_LEVANTAR:  { txt: 'Sin levantar', color: 'var(--sm-superficie-3)', borde: 'var(--sm-borde-fuerte)' },
+        EN_CURSO:      { txt: 'En curso', color: '#f59e0b' },
+        CONTROLADO:    { txt: 'Controlado', color: 'var(--sm-exito)' },
+        CON_FALTANTES: { txt: 'Con faltantes', color: 'var(--sm-peligro)' },
+        CUSTODIA:      { txt: 'Oficina de faltantes', color: '#7e57c2' }
+    };
+    function estadoDe(o) { return o.esCustodia ? 'CUSTODIA' : o.estadoControl; }
+
+    /* ══ Estado de la pantalla ═══════════════════════════════════════════ */
+    let predios = [];                    // MosaicoPredioDTO[]
+    const oficinas = new Map();          // idOficina → { o, p }
+    const vista = {
+        idPredio: null,                  // null = toda la universidad
+        municipio: '',                   // filtro del nivel general
+        color: 'control',
+        tamano: 'bienes',
+        filtro: null,                    // estado de la leyenda que se resalta
+        qOf: '',                         // texto del buscador de oficinas
+        sel: null                        // oficina elegida (panel)
+    };
+    let maxBienes = 1;
+    let pendienteRecarga = false;
+
+    /* ══ Squarified treemap (Bruls et al.) ═══════════════════════════════
+       Reparte un rectángulo entre los elementos según su valor, buscando que cada
+       pedazo sea lo más cuadrado posible: así se leen los nombres. */
+    function squarify(items, x, y, w, h) {
+        const res = [];
+        const total = items.reduce((s, i) => s + i.valor, 0);
+        if (!items.length) return res;
+        if (!total || w <= 0 || h <= 0) { items.forEach(i => res.push({ item: i, x: x, y: y, w: 0, h: 0 })); return res; }
+        const k = (w * h) / total;
+        const cola = items.map(i => ({ item: i, area: i.valor * k })).sort((a, b) => b.area - a.area);
+        let fila = [], rx = x, ry = y, rw = w, rh = h;
+        function peor(f, lado) {
+            let s = 0, mx = 0, mn = Infinity;
+            f.forEach(e => { s += e.area; mx = Math.max(mx, e.area); mn = Math.min(mn, e.area); });
+            const s2 = s * s, l2 = lado * lado;
+            return Math.max(l2 * mx / s2, s2 / (l2 * mn));
+        }
+        function colocar(f) {
+            const s = f.reduce((a, e) => a + e.area, 0);
+            if (rw >= rh) {
+                const ancho = s / rh; let yy = ry;
+                f.forEach(e => { const alto = e.area / ancho; res.push({ item: e.item, x: rx, y: yy, w: ancho, h: alto }); yy += alto; });
+                rx += ancho; rw -= ancho;
+            } else {
+                const alto = s / rw; let xx = rx;
+                f.forEach(e => { const an = e.area / alto; res.push({ item: e.item, x: xx, y: ry, w: an, h: alto }); xx += an; });
+                ry += alto; rh -= alto;
+            }
+        }
+        while (cola.length) {
+            const lado = Math.min(rw, rh), c = cola[0];
+            if (!fila.length || peor(fila.concat([c]), lado) <= peor(fila, lado)) { fila.push(c); cola.shift(); }
+            else { colocar(fila); fila = []; }
+        }
+        if (fila.length) colocar(fila);
+        return res;
+    }
+
+    function valorOficina(o) { return vista.tamano === 'igual' ? 1 : Math.max(o.activos, 1); }
+
+    function prediosVisibles() {
+        return predios.filter(p => !vista.municipio || String(p.idMunicipio == null ? 'sin' : p.idMunicipio) === vista.municipio);
+    }
+
+    /** Posiciones de todo (grupos = predios, celdas = oficinas) en el nivel general. */
+    function layoutGeneral(W, H) {
+        const pos = { grupos: new Map(), celdas: new Map() };
+        const lista = prediosVisibles();
+        const totalP = lista.reduce((s, p) => s + p.oficinas.reduce((a, o) => a + valorOficina(o), 0), 0) || 1;
+        // Un piso para que los predios chicos no queden reducidos a una línea.
+        const items = lista.map(p => ({
+            p: p, valor: Math.max(p.oficinas.reduce((a, o) => a + valorOficina(o), 0), totalP * 0.012)
+        }));
+        squarify(items, 0, 0, W, H).forEach(g => {
+            const pad = 3;
+            const r = { x: g.x + pad / 2, y: g.y + pad / 2, w: Math.max(0, g.w - pad), h: Math.max(0, g.h - pad) };
+            pos.grupos.set(g.item.p.idPredio, r);
+            const cab = (r.h > 44 && r.w > 70) ? 20 : 0;
+            const ix = r.x + 2, iy = r.y + cab + 2, iw = Math.max(0, r.w - 4), ih = Math.max(0, r.h - cab - 4);
+            squarify(g.item.p.oficinas.map(o => ({ o: o, valor: valorOficina(o) })), ix, iy, iw, ih)
+                .forEach(c => pos.celdas.set(c.item.o.idOficina, c));
+        });
+        return pos;
+    }
+
+    /** Las oficinas de un predio ocupando todo el lienzo. */
+    function layoutPredio(p, W, H) {
+        const pos = new Map();
+        squarify(p.oficinas.map(o => ({ o: o, valor: valorOficina(o) })), 0, 0, W, H)
+            .forEach(c => pos.set(c.item.o.idOficina, c));
+        return pos;
+    }
+
+    /* ══ Dibujo ═══════════════════════════════════════════════════════════ */
+    const nodosGrupo = new Map(), nodosCelda = new Map();
+
+    function construir() {
+        $lienzo.empty();
+        nodosGrupo.clear(); nodosCelda.clear();
+        oficinas.clear();
+        maxBienes = 1;
+        const frag = document.createDocumentFragment();
+        predios.forEach(p => {
+            const g = document.createElement('div');
+            g.className = 'mc-grupo';
+            g.dataset.predio = p.idPredio;
+            g.innerHTML = '<div class="mc-grupo-cab">' + esc(p.descrip) +
+                '<small>' + num(p.oficinas.length) + ' of.</small></div>';
+            g.title = 'Acercarse a ' + p.descrip;
+            frag.appendChild(g);
+            nodosGrupo.set(p.idPredio, g);
+            p.oficinas.forEach(o => {
+                oficinas.set(o.idOficina, { o: o, p: p });
+                maxBienes = Math.max(maxBienes, o.activos);
+                const c = document.createElement('div');
+                c.dataset.id = o.idOficina;
+                frag.appendChild(c);
+                nodosCelda.set(o.idOficina, c);
+                pintarCelda(o);
+            });
+        });
+        lienzo.appendChild(frag);
+    }
+
+    /** Contenido y color de una celda (no su posición). */
+    function pintarCelda(o) {
+        const c = nodosCelda.get(o.idOficina);
+        if (!c) return;
+        const est = estadoDe(o);
+        let cls = 'mc-celda';
+        let estilo = '';
+        if (vista.color === 'control') {
+            cls += ' mc-e-' + est;
+        } else if (!o.activos) {
+            cls += ' mc-vacia';
+        } else {
+            const t = Math.log(1 + o.activos) / Math.log(1 + maxBienes);
+            estilo = 'background-color:rgba(var(--sm-primario-rgb),' + (0.1 + 0.85 * t).toFixed(3) + ');color:' + (t > 0.5 ? '#fff' : 'var(--sm-texto)') + ';';
+        }
+        if (vista.color === 'control' && !o.activos && est === 'SIN_LEVANTAR') cls += ' mc-vacia';
+        if (vista.sel === o.idOficina) cls += ' mc-sel';
+        c.className = cls + (c.dataset.l ? ' ' + c.dataset.l : '') + (c.dataset.vis === '0' ? ' mc-oculta' : '') + (atenuada(o) ? ' mc-tenue' : '');
+        c.style.backgroundColor = '';
+        c.style.color = '';
+        if (estilo) c.style.cssText += estilo;
+        c.innerHTML = '<div class="mc-c-cod">' + esc(o.codOfi) + '</div>' +
+            '<div class="mc-c-nom">' + esc(o.nombre) + '</div>' +
+            '<div class="mc-c-n">' + num(o.activos) + ' bienes' + (o.faltantesAbiertos ? ' · ' + num(o.faltantesAbiertos) + ' falt.' : '') + '</div>';
+    }
+
+    function coincideOficina(o) {
+        const q = vista.qOf;
+        return String(o.codOfi) === q || (o.nombre || '').toLocaleUpperCase('es').indexOf(q) !== -1;
+    }
+
+    function atenuada(o) {
+        if (vista.qOf && !coincideOficina(o)) return true;
+        if (!vista.filtro) return false;
+        if (vista.color === 'control') return estadoDe(o) !== vista.filtro;
+        return vista.filtro === 'sin' ? o.activos > 0 : o.activos === 0;
+    }
+
+    function poner(n, r, visible) {
+        n.style.transform = 'translate(' + r.x.toFixed(1) + 'px,' + r.y.toFixed(1) + 'px)';
+        n.style.width = Math.max(0, r.w - 1).toFixed(1) + 'px';
+        n.style.height = Math.max(0, r.h - 1).toFixed(1) + 'px';
+        n.dataset.vis = visible ? '1' : '0';
+        n.classList.toggle('mc-oculta', !visible);
+    }
+
+    function nivelEtiqueta(r) {
+        return (r.w >= 78 && r.h >= 46) ? 'mc-l2' : (r.w >= 34 && r.h >= 18) ? 'mc-l1' : '';
+    }
+
+    /** Ubica todo según el zoom actual (con transición: el zoom se ve como un acercamiento). */
+    function distribuir() {
+        const W = lienzo.clientWidth, H = lienzo.clientHeight;
+        if (!W || !H) return;                         // pestaña oculta: se hace al volver
+        const gen = layoutGeneral(W, H);
+        const P = vista.idPredio != null ? predios.find(p => p.idPredio === vista.idPredio) : null;
+
+        if (!P) {
+            nodosGrupo.forEach((n, id) => {
+                const r = gen.grupos.get(id);
+                if (r) poner(n, r, true); else n.classList.add('mc-oculta');
+            });
+            nodosCelda.forEach((n, id) => {
+                const r = gen.celdas.get(id);
+                n.dataset.l = r ? nivelEtiqueta(r) : '';
+                if (r) poner(n, r, true); else { n.dataset.vis = '0'; n.classList.add('mc-oculta'); }
+                const of = oficinas.get(id);
+                if (of) pintarCelda(of.o);
+            });
+            return;
+        }
+
+        // Zoom: el bloque del predio pasa a ocupar el lienzo; lo demás se aleja con la misma
+        // escala (sale del cuadro) y se desvanece.
+        const R = gen.grupos.get(P.idPredio) || { x: 0, y: 0, w: W, h: H };
+        const sx = W / (R.w || 1), sy = H / (R.h || 1);
+        const lejos = r => ({ x: (r.x - R.x) * sx, y: (r.y - R.y) * sy, w: r.w * sx, h: r.h * sy });
+        const dentro = layoutPredio(P, W, H);
+        nodosGrupo.forEach((n, id) => {
+            const r = gen.grupos.get(id);
+            poner(n, r ? lejos(r) : { x: 0, y: 0, w: W, h: H }, false);
+        });
+        nodosCelda.forEach((n, id) => {
+            const r = dentro.get(id);
+            if (r) {
+                n.dataset.l = nivelEtiqueta(r);
+                poner(n, r, true);
+            } else {
+                const g = gen.celdas.get(id);
+                n.dataset.l = '';
+                poner(n, g ? lejos(g) : { x: W / 2, y: H / 2, w: 0, h: 0 }, false);
+            }
+            const of = oficinas.get(id);
+            if (of) pintarCelda(of.o);
+        });
+    }
+
+    /* ══ Encabezados: migas, leyenda, indicadores ═════════════════════════ */
+    function pintarMigas() {
+        const P = vista.idPredio != null ? predios.find(p => p.idPredio === vista.idPredio) : null;
+        let h = P ? '<button type="button" data-ir="general"><i class="ti ti-building-community"></i> Universidad</button>'
+                  : '<span class="mc-aqui"><i class="ti ti-building-community"></i> Universidad</span>';
+        if (P) h += '<i class="ti ti-chevron-right sm-sub"></i><span class="mc-aqui sm-mayus">' + esc(P.descrip) + '</span>';
+        $raiz.find('.js-migas').html(h);
+    }
+
+    function pintarLeyenda() {
+        let h = '';
+        if (vista.color === 'control') {
+            Object.keys(ESTADOS).forEach(k => {
+                const e = ESTADOS[k];
+                h += '<button type="button" data-f="' + k + '"' + (vista.filtro === k ? ' class="activo"' : '') + '>' +
+                    '<i class="mc-punto" style="background:' + e.color + ';' + (e.borde ? 'border:1px solid ' + e.borde : '') + '"></i>' + e.txt + '</button>';
+            });
+        } else {
+            h += '<span class="d-inline-flex align-items-center gap-2 sm-sub">pocos <span class="mc-escala"></span> muchos</span>' +
+                '<button type="button" data-f="sin"' + (vista.filtro === 'sin' ? ' class="activo"' : '') + '><i class="mc-punto mc-vacia"></i>Sin bienes</button>';
+        }
+        $raiz.find('.js-leyenda').html(h);
+    }
+
+    function alcance() {
+        const P = vista.idPredio != null ? predios.find(p => p.idPredio === vista.idPredio) : null;
+        const lista = [];
+        (P ? [P] : prediosVisibles()).forEach(p => p.oficinas.forEach(o => lista.push(o)));
+        return { P: P, lista: lista };
+    }
+
+    function pintarIndicadores() {
+        const t = { bienes: 0, of: 0, lev: 0, falt: 0 };
+        predios.forEach(p => t.bienes += (p.bienesOficinasInactivas || 0));
+        predios.forEach(p => p.oficinas.forEach(o => {
+            t.bienes += o.activos;
+            t.falt += o.faltantesAbiertos;
+            if (o.esCustodia) return;
+            t.of++;
+            if (o.levantamientosTotales > 0) t.lev++;
+        }));
+        $raiz.find('.js-k-bienes').text(num(t.bienes));
+        $raiz.find('.js-k-avance').text(num(t.lev) + ' de ' + num(t.of));
+        $raiz.find('.js-k-faltantes').text(num(t.falt));
+    }
+
+    /* ══ Panel lateral ════════════════════════════════════════════════════ */
+    function filaLista(o, extra) {
+        return '<li data-ir-oficina="' + o.idOficina + '"><span><span class="mc-li-nom">' + esc(o.codOfi) + ' · ' + esc(o.nombre) + '</span>' +
+            '<span class="d-block sm-sub sm-mayus">' + esc(o.predio || '') + '</span></span>' + extra + '</li>';
+    }
+
+    function panelResumen() {
+        const a = alcance();
+        const t = { bienes: 0, of: 0, lev: 0, falt: 0, vacias: 0 };
+        a.lista.forEach(o => {
+            t.bienes += o.activos; t.falt += o.faltantesAbiertos;
+            if (o.esCustodia) return;
+            t.of++;
+            if (o.levantamientosTotales > 0) t.lev++;
+            if (!o.activos) t.vacias++;
+        });
+        const pct = t.of ? Math.round(t.lev * 100 / t.of) : 0;
+        // Bienes vigentes que siguen en oficinas dadas de baja: no se dibujan, se avisan.
+        const enInactivas = (a.P ? [a.P] : prediosVisibles()).reduce((s, p) => s + (p.bienesOficinasInactivas || 0), 0);
+        const conFaltantes = a.lista.filter(o => o.faltantesAbiertos > 0 && !o.esCustodia)
+            .sort((x, y) => y.faltantesAbiertos - x.faltantesAbiertos).slice(0, 8);
+        const enCurso = a.lista.filter(o => o.idLevantamientoEnCurso);
+        const masBienes = a.lista.filter(o => !o.esCustodia && o.levantamientosTotales === 0)
+            .sort((x, y) => y.activos - x.activos).slice(0, 6);
+
+        const titulo = a.P ? a.P.descrip : (vista.municipio ? $raiz.find('.js-municipio option:selected').text() : 'Resumen general');
+        let h = '<div class="sm-sub sm-mayus">' + (a.P ? 'Predio' : (vista.municipio ? 'Municipio' : 'Toda la universidad')) + '</div>' +
+            '<h5 class="sm-mayus mb-3">' + esc(titulo) + '</h5>' +
+            '<div class="mc-kpis">' +
+            '<div class="mc-kpi"><b>' + num(t.bienes) + '</b><span>bienes</span></div>' +
+            '<div class="mc-kpi"><b>' + num(t.of) + '</b><span>oficinas</span></div>' +
+            '<div class="mc-kpi"><b class="text-danger">' + num(t.falt) + '</b><span>faltantes abiertos</span></div>' +
+            '<div class="mc-kpi"><b>' + num(t.vacias) + '</b><span>oficinas sin bienes</span></div></div>' +
+            '<div class="mc-panel-tit">Oficinas levantadas · ' + num(t.lev) + ' de ' + num(t.of) + ' (' + pct + '%)</div>' +
+            '<div class="mc-avance"><span style="width:' + pct + '%"></span></div>' +
+            (enInactivas ? '<div class="sm-aviso sm-aviso-aviso mt-3 mb-0"><i class="ti ti-alert-circle"></i><div><b>' + num(enInactivas) +
+                '</b> bien(es) vigentes siguen en oficinas dadas de baja: no aparecen en el mosaico. Conviene trasladarlos.</div></div>' : '');
+
+        if (a.P) {
+            h += '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave w-100 mt-3 js-resumen-predio">' +
+                '<i class="ti ti-report-analytics"></i> Resumen de control del predio (Word)</button>';
+        }
+        if (enCurso.length) {
+            h += '<div class="mc-panel-tit"><i class="ti ti-player-play"></i> Levantamientos en curso</div><ul class="mc-lista">' +
+                enCurso.map(o => filaLista(o, '<span class="sm-pastilla sm-pastilla-aviso">' + o.porcentajeAvance + '%</span>')).join('') + '</ul>';
+        }
+        if (conFaltantes.length) {
+            h += '<div class="mc-panel-tit"><i class="ti ti-alert-triangle"></i> Con más faltantes</div><ul class="mc-lista">' +
+                conFaltantes.map(o => filaLista(o, '<span class="sm-pastilla sm-pastilla-peligro">' + num(o.faltantesAbiertos) + '</span>')).join('') + '</ul>';
+        }
+        if (masBienes.length) {
+            h += '<div class="mc-panel-tit"><i class="ti ti-target-arrow"></i> Por dónde empezar: más bienes sin levantar</div><ul class="mc-lista">' +
+                masBienes.map(o => filaLista(o, '<span class="sm-sub">' + num(o.activos) + '</span>')).join('') + '</ul>';
+        }
+        $panel.html(h);
+    }
+
+    let pedidoResp = 0;
+    function panelOficina(id) {
+        const of = oficinas.get(id);
+        if (!of) { panelResumen(); return; }
+        const o = of.o, est = estadoDe(o), e = ESTADOS[est];
+        const pctUlt = o.ultimoEsperados ? Math.round((o.ultimoEncontrados || 0) * 100 / o.ultimoEsperados) : 0;
+        let acciones = '';
+        if (!o.esCustodia) {
+            acciones = '<button type="button" class="sm-btn sm-btn-sm w-100 js-levantar">' +
+                (o.idLevantamientoEnCurso ? '<i class="ti ti-player-play"></i> Continuar levantamiento (' + o.porcentajeAvance + '%)'
+                                          : '<i class="ti ti-clipboard-check"></i> Levantar esta oficina') + '</button>';
+        }
+        $panel.html(
+            '<button type="button" class="sm-btn sm-btn-sm sm-btn-neutro mb-2 js-volver-resumen"><i class="ti ti-arrow-left"></i> Resumen</button>' +
+            '<div class="d-flex justify-content-between align-items-start gap-2">' +
+              '<div><div class="sm-sub sm-mayus">' + esc(of.p.descrip) + ' · Of. ' + esc(o.codOfi) + '</div>' +
+              '<h5 class="sm-mayus mb-2">' + esc(o.nombre) + '</h5></div>' +
+              '<span class="sm-pastilla" style="background:' + e.color + ';color:' + (est === 'SIN_LEVANTAR' ? 'var(--sm-texto-2)' : '#fff') + ';">' + e.txt + '</span>' +
+            '</div>' +
+            '<div class="mc-kpis mb-2">' +
+              '<div class="mc-kpi"><b>' + num(o.activos) + '</b><span>' + (o.esCustodia ? 'bienes en custodia' : 'bienes') + '</span></div>' +
+              '<div class="mc-kpi"><b>' + num(o.responsables) + '</b><span>' + (o.esCustodia ? 'personas' : 'responsables') + '</span></div>' +
+              '<div class="mc-kpi"><b class="text-danger">' + num(o.faltantesAbiertos) + '</b><span>faltantes</span></div>' +
+              '<div class="mc-kpi"><b>' + num(o.levantamientosTotales) + '</b><span>levantamientos</span></div>' +
+            '</div>' +
+            (o.ultimoLevantamiento
+                ? '<div class="sm-sub mb-1">Último levantamiento: <b>' + fecha(o.ultimoLevantamiento) + '</b> · ' +
+                  num(o.ultimoEncontrados) + ' de ' + num(o.ultimoEsperados) + ' encontrados</div>' +
+                  '<div class="mc-avance mb-3"><span style="width:' + pctUlt + '%"></span></div>'
+                : '<div class="sm-sub mb-3">' + (o.esCustodia ? 'Oficina de faltantes del predio: no se recorre.' : 'Nunca se levantó.') + '</div>') +
+            acciones +
+            '<div class="mc-panel-tit">' + (o.esCustodia ? 'Personas con bienes en custodia' : 'Responsables') + '</div>' +
+            '<div class="js-responsables"></div>');
+
+        const $lista = $panel.find('.js-responsables');
+        const n = ++pedidoResp;
+        const carga = SciafPrecarga.montar($lista, { compacta: true, texto: 'Cargando responsables…', alReintentar: () => panelOficina(id) });
+        getJson(BASE + '/mapa/oficinas/' + id + '/responsables').then(lista => {
+            if (n !== pedidoResp) return;
+            if (lista && lista.ok === false) { carga.error('No se pudieron cargar', msgDe(lista, '')); return; }
+            carga.cerrar();
+            if (!lista.length) { $lista.html('<div class="sm-sub">Esta oficina no tiene responsables registrados.</div>'); return; }
+            $lista.html('<ul class="mc-lista">' + lista.map(r => {
+                // Un responsable no vigente que todavía tiene bienes a su nombre es la anomalía
+                // que este módulo existe para mostrar.
+                const marca = r.anomalia ? '<span class="sm-pastilla sm-pastilla-peligro" title="No vigente pero con bienes a su nombre">Sin vigencia</span>'
+                    : (r.vigente ? '' : '<span class="sm-pastilla" style="background:var(--sm-superficie-3);color:var(--sm-texto-2);">Inactivo</span>');
+                return '<li data-resp="' + r.idResponsable + '" data-nombre="' + esc(r.nombre || 'Sin persona asociada') + '">' +
+                    '<span><span class="mc-li-nom">' + esc(r.nombre || 'Sin persona asociada') + '</span>' +
+                    '<span class="d-block sm-sub">' + esc(r.codigoFuncionario || '') + ' · ' + num(r.activos) + ' bienes' +
+                    (r.faltantesAbiertos ? ' · <span class="text-danger fw-bold">' + num(r.faltantesAbiertos) + ' falt.</span>' : '') +
+                    (r.observacionesAbiertas ? ' · <span style="color:#b45309;" class="fw-bold">' + num(r.observacionesAbiertas) + ' obs.</span>' : '') +
+                    '</span></span>' + marca + '</li>';
+            }).join('') + '</ul>');
+        }, e => {
+            if (n !== pedidoResp) return;
+            carga.error('No se pudieron cargar', e && e.sesionPerdida ? SciafPrecarga.motivo(401) : (e && e.message) || SciafPrecarga.motivo(0));
+        });
+    }
+
+    function pintarPanel() {
+        if (vista.sel != null && oficinas.has(vista.sel)) panelOficina(vista.sel);
+        else panelResumen();
+    }
+
+    /* ══ Navegación ═══════════════════════════════════════════════════════ */
+    function irPredio(idPredio) {
+        vista.idPredio = idPredio;
+        pintarMigas(); distribuir();
+        if (vista.sel == null) panelResumen();
+    }
+    function irGeneral() {
+        vista.idPredio = null;
+        vista.sel = null;
+        pintarMigas(); distribuir(); panelResumen();
+    }
+    function elegir(idOficina) {
+        const of = oficinas.get(idOficina);
+        if (!of) return;
+        const ant = vista.sel;
+        vista.sel = idOficina;
+        if (ant != null && oficinas.has(ant)) pintarCelda(oficinas.get(ant).o);
+        if (vista.idPredio !== of.p.idPredio) irPredio(of.p.idPredio);
+        else pintarCelda(of.o);
+        panelOficina(idOficina);
+    }
+
+    $lienzo.on('click', '.mc-celda', function () {
+        elegir(Number(this.dataset.id));
+    });
+    $lienzo.on('click', '.mc-grupo', function () {
+        vista.sel = null;
+        irPredio(Number(this.dataset.predio));
+        panelResumen();
+    });
+    $raiz.on('click', '[data-ir="general"]', irGeneral);
+    $raiz.on('click', '[data-ir-oficina]', function () { elegir(Number(this.dataset.irOficina)); });
+    $raiz.on('click', '.js-volver-resumen', function () {
+        const ant = vista.sel; vista.sel = null;
+        if (ant != null && oficinas.has(ant)) pintarCelda(oficinas.get(ant).o);
+        panelResumen();
+    });
+    $raiz.on('keydown', function (e) {
+        if (e.key !== 'Escape' || $(e.target).is('input, textarea, select') || $('.modal.show').length) return;
+        if (vista.sel != null) $raiz.find('.js-volver-resumen').trigger('click');
+        else if (vista.idPredio != null) irGeneral();
+    });
+
+    $raiz.on('click', '.js-color button', function () {
+        vista.color = this.dataset.v; vista.filtro = null;
+        $raiz.find('.js-color button').removeClass('activo'); $(this).addClass('activo');
+        pintarLeyenda(); oficinas.forEach(of => pintarCelda(of.o));
+    });
+    $raiz.on('click', '.js-tamano button', function () {
+        vista.tamano = this.dataset.v;
+        $raiz.find('.js-tamano button').removeClass('activo'); $(this).addClass('activo');
+        distribuir();
+    });
+    $raiz.on('click', '.js-leyenda button', function () {
+        vista.filtro = vista.filtro === this.dataset.f ? null : this.dataset.f;
+        pintarLeyenda(); oficinas.forEach(of => pintarCelda(of.o));
+    });
+    let esperaOf = null;
+    function buscarOficina() {
+        vista.qOf = ($raiz.find('.js-of-q').val() || '').trim().toLocaleUpperCase('es');
+        $raiz.find('.mc-of-buscar').toggleClass('con-texto', !!vista.qOf);
+        oficinas.forEach(of => pintarCelda(of.o));
+    }
+    $raiz.on('input', '.js-of-q', function () { clearTimeout(esperaOf); esperaOf = setTimeout(buscarOficina, 150); });
+    $raiz.on('keydown', '.js-of-q', function (e) {
+        if (e.key === 'Escape' && this.value) { e.preventDefault(); this.value = ''; buscarOficina(); return; }
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        buscarOficina();
+        // En el predio a la vista (o en todos, en el nivel general): si coincide una sola, se abre.
+        const lista = [], visibles = new Set(prediosVisibles().map(p => p.idPredio));
+        oficinas.forEach(of => {
+            const enVista = vista.idPredio == null ? visibles.has(of.p.idPredio) : of.p.idPredio === vista.idPredio;
+            if (enVista && vista.qOf && coincideOficina(of.o)) lista.push(of.o);
+        });
+        if (lista.length === 1) elegir(lista[0].idOficina);
+        else if (lista.length > 1) Swal.fire({ toast: true, position: 'top-end', icon: 'info', timer: 2500, showConfirmButton: false,
+            title: num(lista.length) + ' oficinas coinciden: están resaltadas' });
+        else Swal.fire({ toast: true, position: 'top-end', icon: 'warning', timer: 2500, showConfirmButton: false,
+            title: 'Ninguna oficina coincide' });
+    });
+    $raiz.on('click', '.js-of-limpiar', function () { $raiz.find('.js-of-q').val('').trigger('focus'); buscarOficina(); });
+
+    $raiz.on('change', '.js-municipio', function () {
+        vista.municipio = this.value;
+        vista.idPredio = null; vista.sel = null;
+        pintarMigas(); distribuir(); panelResumen();
+    });
+
+    /* ── Globo al pasar el cursor ── */
+    $('body > .mc-globo').remove();   // el de una apertura anterior de la pantalla
+    const globo = document.createElement('div');
+    globo.className = 'mc-globo';
+    document.body.appendChild(globo);
+    $lienzo.on('mousemove', '.mc-celda', function (e) {
+        const of = oficinas.get(Number(this.dataset.id));
+        if (!of) return;
+        const o = of.o, e2 = ESTADOS[estadoDe(o)];
+        globo.innerHTML = '<b class="mc-g-tit">' + esc(o.codOfi) + ' · ' + esc(o.nombre) + '</b>' +
+            '<div class="mc-g-sub">' + esc(of.p.descrip) + '</div>' +
+            '<div class="mt-1">' + num(o.activos) + ' bienes · ' + num(o.responsables) + ' resp.</div>' +
+            '<div>' + e2.txt + (o.faltantesAbiertos ? ' · <b class="text-danger">' + num(o.faltantesAbiertos) + ' faltantes</b>' : '') +
+            (o.idLevantamientoEnCurso ? ' · avance ' + o.porcentajeAvance + '%' : '') + '</div>' +
+            (o.ultimoLevantamiento ? '<div class="mc-g-sub">Últ. levantamiento ' + fecha(o.ultimoLevantamiento) + '</div>' : '');
+        globo.style.display = 'block';
+        const x = Math.min(e.clientX + 14, window.innerWidth - globo.offsetWidth - 8);
+        const y = Math.min(e.clientY + 14, window.innerHeight - globo.offsetHeight - 8);
+        globo.style.left = x + 'px'; globo.style.top = y + 'px';
+    });
+    $lienzo.on('mouseleave', '.mc-celda', function () { globo.style.display = 'none'; });
+    $lienzo.on('mouseleave', function () { globo.style.display = 'none'; });
+
+    /* ══ Datos ════════════════════════════════════════════════════════════ */
+    function aplicarDatos(lista) {
+        predios = Array.isArray(lista) ? lista : [];
+        // Municipios para el filtro (los predios sin municipio, con su propia opción).
+        const $m = $raiz.find('.js-municipio'), elegido = vista.municipio, vistos = new Map();
+        predios.forEach(p => vistos.set(p.idMunicipio == null ? 'sin' : String(p.idMunicipio), p.municipio));
+        $m.find('option:not(:first)').remove();
+        vistos.forEach((nombre, clave) => $m.append($('<option>').val(clave).text(nombre)));
+        if (elegido && vistos.has(elegido)) $m.val(elegido); else vista.municipio = '';
+
+        if (vista.idPredio != null && !predios.some(p => p.idPredio === vista.idPredio)) vista.idPredio = null;
+        if (vista.sel != null && !predios.some(p => p.oficinas.some(o => o.idOficina === vista.sel))) vista.sel = null;
+        // Celdas nuevas: se ubican sin transición (si no, «vuelan» desde la esquina).
+        lienzo.classList.add('mc-quieto');
+        construir();
+        pintarIndicadores(); pintarLeyenda(); pintarMigas();
+        distribuir();
+        requestAnimationFrame(() => requestAnimationFrame(() => lienzo.classList.remove('mc-quieto')));
+        pintarPanel();
+    }
+
+    // Si llega otro aviso mientras una recarga está en vuelo, se vuelve a recargar al terminar:
+    // la consulta en vuelo pudo empezar antes del cambio (un cierre de la APK se perdía).
+    let recargando = null, otraVez = false, destacarLuego = null;
+    function recargar(destacar) {
+        if (recargando) { otraVez = true; destacarLuego = destacar || destacarLuego; return recargando; }
+        $raiz.find('.js-tarjeta').addClass('sm-procesando');
+        recargando = getJson(BASE + '/mapa/mosaico').then(lista => {
+            if (lista && lista.ok === false) { Swal.fire('No se pudo actualizar el mapa', msgDe(lista, ''), 'warning'); return; }
+            aplicarDatos(lista);
+            if (destacar && nodosCelda.has(destacar)) {
+                const n = nodosCelda.get(destacar);
+                n.classList.remove('mc-destello'); void n.offsetWidth; n.classList.add('mc-destello');
+            }
+        }, e => SciafModulo.avisarError(e, 'No se pudo actualizar el mapa'))
+          .finally(() => {
+              recargando = null;
+              $raiz.find('.js-tarjeta').removeClass('sm-procesando');
+              if (otraVez) { otraVez = false; const d = destacarLuego; destacarLuego = null; recargar(d); }
+          });
+        return recargando;
+    }
+    $raiz.on('click', '.js-refrescar', () => recargar());
+
+    /* ── Alto del lienzo: lo que queda de ventana; en el celular, fijo ── */
+    function ajustarAlto() {
+        if (!enPantalla()) return;
+        let h = 520;
+        if (window.innerWidth >= 768) {
+            const tope = lienzo.getBoundingClientRect().top;
+            const contenido = document.getElementById('contenido');
+            const relleno = contenido ? (parseFloat(getComputedStyle(contenido).paddingBottom) || 0) : 16;
+            h = Math.max(380, window.innerHeight - tope - relleno - 22);
+        }
+        lienzo.style.height = h + 'px';
+        $panel.css({ maxHeight: window.innerWidth >= 1200 ? (h + 48) + 'px' : '', overflowY: window.innerWidth >= 1200 ? 'auto' : '' });
+    }
+    // Cambia de tamaño al redimensionar la ventana y también al volver a la pestaña
+    // (desprendida mide 0): en los dos casos se reubica todo.
+    let esperaRO = null;
+    const ro = new ResizeObserver(() => {
+        clearTimeout(esperaRO);
+        esperaRO = setTimeout(() => {
+            if (!enPantalla()) return;
+            // Cambio de tamaño: se reubica sin animación (la animación es para el zoom).
+            lienzo.classList.add('mc-quieto');
+            ajustarAlto(); distribuir();
+            requestAnimationFrame(() => requestAnimationFrame(() => lienzo.classList.remove('mc-quieto')));
+            if (pendienteRecarga) { pendienteRecarga = false; recargar(); }
+        }, 120);
+    });
+    ro.observe(lienzo);
+    $(window).off('resize.mapaCtl').on('resize.mapaCtl', () => { if (enPantalla()) ajustarAlto(); });
+
+    /* ══ Tiempo real (reemitido por layout/head.html) ═════════════════════ */
+    function estadoVivo(conectado) {
+        $raiz.find('.js-vivo i').attr('class', conectado ? 'ti ti-plug-connected text-success' : 'ti ti-plug-off');
+        $raiz.find('.js-vivo-txt').text(conectado ? 'en vivo' : 'sin conexión');
+    }
+    estadoVivo(!!window.sciafSseConectado);
+    let esperaSse = null, ultimaOficina = null;
+    $(document).off('.mapaCtl')
+        .on('sciaf:sse-estado.mapaCtl', (e, conectado) => estadoVivo(conectado))
+        .on('sciaf:levantamiento-abierto.mapaCtl sciaf:levantamiento-avance.mapaCtl sciaf:levantamiento-cerrado.mapaCtl', (e, d) => {
+            d = d || {};
+            if (!enPantalla()) { pendienteRecarga = true; return; }
+            if (levActual && d.idInventario === levActual.idInventario) recargarLevantamiento();
+            ultimaOficina = d.idOficina || ultimaOficina;
+            // Varios lotes seguidos de la APK: una sola recarga.
+            clearTimeout(esperaSse);
+            esperaSse = setTimeout(() => { recargar(ultimaOficina); ultimaOficina = null; }, 700);
+        });
+
+    /* ══ Bienes de un responsable ═════════════════════════════════════════ */
+    let bienesDe = null;   // { id, nombre, idOficina }
+    $panel.on('click', '[data-resp]', function () {
+        abrirBienes(Number(this.dataset.resp), this.dataset.nombre, vista.sel);
+    });
+
+    function abrirBienes(idResp, nombre, idOficina) {
+        bienesDe = { id: idResp, nombre: nombre, idOficina: idOficina };
+        const of = idOficina != null ? oficinas.get(idOficina) : null;
+        $(modalBienes).find('.js-b-nombre').text(nombre || '—');
+        $(modalBienes).find('.js-b-sub').text(of ? of.p.descrip + ' · ' + of.o.nombre : '');
+        const levantable = of && !of.o.esCustodia;
+        $(modalBienes).find('.js-b-levantar, .js-b-ayuda').toggleClass('d-none', !levantable);
+        const $cuerpo = $(modalBienes).find('.js-b-cuerpo').html('<tr><td colspan="6"><div class="js-b-carga"></div></td></tr>');
+        const carga = SciafPrecarga.montar($cuerpo.find('.js-b-carga'), { compacta: true, texto: 'Cargando bienes…' });
+        bootstrap.Modal.getOrCreateInstance(modalBienes).show();
+        getJson(BASE + '/responsables/' + idResp + '/activos').then(data => {
+            if (data && data.ok === false) { carga.error('No se pudieron cargar', msgDe(data, '')); return; }
+            carga.cerrar();
+            $(modalBienes).find('.js-b-sub').text((of ? of.p.descrip + ' · ' + of.o.nombre + ' · ' : '') + num(data.length) + ' bien(es) a su nombre');
+            $(modalBienes).find('.js-b-todos').prop('checked', false);
+            $cuerpo.html(data.length ? data.map(a => {
+                const ctrl = a.faltanteAbierto ? '<span class="sm-pastilla sm-pastilla-peligro">Faltante</span>'
+                    : (a.observadoAbierto ? '<span class="sm-pastilla sm-pastilla-aviso">Observado</span>' : '<span class="sm-sub">—</span>');
+                return '<tr><td><input type="checkbox" class="form-check-input js-chk" value="' + Number(a.idActivo) + '"' +
+                    (seleccion.has(String(a.idActivo)) ? ' checked' : '') + '></td>' +
+                    '<td><span class="sm-codigo">' + esc(a.codigo) + '</span></td>' +
+                    '<td class="sm-mayus">' + esc(a.descripcion) + '</td>' +
+                    '<td class="sm-mayus">' + esc(a.auxiliar || '—') + '</td>' +
+                    '<td class="sm-mayus">' + esc(a.estadoActivo || '—') + '</td><td>' + ctrl + '</td></tr>';
+            }).join('') : '<tr><td colspan="6" class="text-center sm-sub py-4">Este responsable no tiene bienes a su nombre.</td></tr>');
+        }, e => carga.error('No se pudieron cargar', e && e.sesionPerdida ? SciafPrecarga.motivo(401) : (e && e.message) || SciafPrecarga.motivo(0)));
+    }
+
+    $(modalBienes).on('click', '.js-b-acta', function () {
+        if (bienesDe) descargarWord(BASE + '/informe/acta?idResponsable=' + bienesDe.id, 'acta_responsabilidad.docx', $(this));
+    });
+    $(modalBienes).on('click', '.js-b-faltantes', function () {
+        if (bienesDe) descargarWord(BASE + '/informe/faltantes?idResponsable=' + bienesDe.id, 'faltantes.docx', $(this));
+    });
+    $(modalBienes).on('click', '.js-b-levantar', function () {
+        if (!bienesDe || bienesDe.idOficina == null) return;
+        bootstrap.Modal.getOrCreateInstance(modalBienes).hide();
+        abrirLevantamiento(bienesDe.idOficina);
+    });
+
+    /* ══ Selección para el informe de verificación ════════════════════════
+       Sobrevive a cambiar de oficina o de búsqueda a propósito: se juntan bienes de
+       varios lugares y al final se saca un solo informe. */
+    const seleccion = new Set();
+    function barraSel() {
+        $raiz.find('.js-sel-n').text(num(seleccion.size));
+        $raiz.find('.js-barra-sel').toggleClass('d-none', seleccion.size === 0);
+    }
+    function alTildar() {
+        const id = String(this.value);
+        if (this.checked) seleccion.add(id); else seleccion.delete(id);
+        barraSel();
+    }
+    $(modalBienes).on('change', '.js-chk', alTildar);
+    $busq.on('change', '.js-chk', alTildar);
+    // «Todos» alcanza solo a lo que está a la vista: tildar a ciegas no sería honesto.
+    $(modalBienes).add($busq).on('change', '.js-b-todos, .js-q-todos', function () {
+        const marcar = this.checked;
+        $(this).closest('table').find('.js-chk').each(function () {
+            this.checked = marcar;
+            if (marcar) seleccion.add(String(this.value)); else seleccion.delete(String(this.value));
+        });
+        barraSel();
+    });
+    $raiz.on('click', '.js-sel-limpiar', function () {
+        seleccion.clear();
+        $(modalBienes).add($busq).find('.js-chk, .js-b-todos, .js-q-todos').prop('checked', false);
+        barraSel();
+    });
+    $raiz.on('click', '.js-informe-verif', function () {
+        if (!seleccion.size) return;
+        const $b = $(this).prop('disabled', true);
+        SciafModulo.pedir(BASE + '/informe/verificacion', { json: { idsActivos: Array.from(seleccion).map(Number) } })
+            .then(r => r.ok ? r.blob() : r.json().then(j => { throw new Error(msgDe(j, 'No se pudo generar.')); }))
+            .then(blob => bajar(blob, 'verificacion_bienes.docx'))
+            .catch(e => { if (!e.sesionPerdida) Swal.fire('No se pudo generar', e.message, 'error'); })
+            .finally(() => $b.prop('disabled', false));
+    });
+
+    /* ══ Informes Word ════════════════════════════════════════════════════ */
+    function bajar(blob, nombre) {
+        const u = URL.createObjectURL(blob), a = document.createElement('a');
+        a.href = u; a.download = nombre;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(u), 1000);
+    }
+    function descargarWord(url, nombre, $btn) {
+        if ($btn) $btn.prop('disabled', true);
+        SciafModulo.pedir(url, { metodo: 'GET' })
+            .then(r => r.ok ? r.blob() : r.json().then(j => { throw new Error(msgDe(j, 'No se pudo generar el informe.')); }))
+            .then(blob => bajar(blob, nombre))
+            .catch(e => { if (!e.sesionPerdida) Swal.fire('No se pudo generar', e.message, 'warning'); })
+            .finally(() => { if ($btn) $btn.prop('disabled', false); });
+    }
+    // Con el alcance que se está mirando: oficina elegida, predio o toda la universidad.
+    $raiz.on('click', '.js-informe-faltantes', function () {
+        const p = vista.sel != null ? 'idOficina=' + vista.sel : (vista.idPredio != null ? 'idPredio=' + vista.idPredio : '');
+        descargarWord(BASE + '/informe/faltantes' + (p ? '?' + p : ''), 'faltantes.docx', $(this));
+    });
+    $panel.on('click', '.js-resumen-predio', function () {
+        if (vista.idPredio != null) descargarWord(BASE + '/informe/resumen?idPredio=' + vista.idPredio, 'resumen_control.docx', $(this));
+    });
+
+    /* ══ Levantamiento ════════════════════════════════════════════════════ */
+    let levActual = null;
+    $panel.on('click', '.js-levantar', function () { if (vista.sel != null) abrirLevantamiento(vista.sel); });
+
+    // Siempre se pregunta (el «en curso» de la pantalla puede estar desactualizado: si en el
+    // servidor ya se cerró, «continuar» abre uno nuevo) y no se manda dos veces.
+    let abriendo = false;
+    function abrirLevantamiento(idOficina) {
+        if (abriendo) return;
+        const of = oficinas.get(idOficina);
+        const enCurso = of && of.o.idLevantamientoEnCurso;
+        const nombre = esc(of ? of.o.nombre : 'la oficina');
+        sciafConfirmar(enCurso ? {
+            titulo: '¿Continuar el levantamiento?',
+            texto: 'Se retoma el levantamiento abierto de <b>' + nombre + '</b>. Si ya se cerró (por ejemplo desde la APK), se abre uno nuevo.',
+            aceptar: 'Sí, continuar'
+        } : {
+            titulo: '¿Abrir el levantamiento?',
+            texto: 'Se congela la lista de bienes esperados de <b>' + nombre + '</b>. ' +
+                'Después se marca lo que se encuentra; al cerrar, lo que quede sin revisar pasa a faltante.',
+            aceptar: 'Sí, abrir'
+        }).then(si => {
+            if (!si || abriendo) return;
+            abriendo = true;
+            const $botones = $panel.find('.js-levantar').add($(modalBienes).find('.js-b-levantar')).prop('disabled', true);
+            SciafModulo.pedirJson(BASE + '/levantamientos', { json: { idOficina: idOficina } }).then(lev => {
+                if (lev && lev.ok === false) { Swal.fire('No se pudo abrir', msgDe(lev, 'Error al abrir el levantamiento.'), 'warning'); return; }
+                pintarLevantamiento(lev);
+                bootstrap.Modal.getOrCreateInstance(modalLev).show();
+                if (!enCurso) recargar(idOficina);   // la oficina pasa a «en curso» en el mosaico
+            }, e => SciafModulo.avisarError(e, 'No se pudo abrir el levantamiento'))
+              .finally(() => { abriendo = false; $botones.prop('disabled', false); });
+        });
+    }
+
+    function pintarLevantamiento(lev) {
+        levActual = lev;
+        const cerrado = lev.estado !== 'EN_EJECUCION';
+        const $m = $(modalLev);
+        $m.find('.js-l-titulo').text(lev.numeroInventario + ' · ' + lev.oficina);
+        $m.find('.js-l-sub').text(lev.predio + ' · abierto ' + fecha(lev.fechaInicio) + (lev.ejecutor ? ' por ' + lev.ejecutor : ''));
+        $m.find('.js-l-esperados').text(num(lev.totalEsperados));
+        $m.find('.js-l-encontrados').text(num(lev.totalEncontrados));
+        $m.find('.js-l-pendientes').text(num(lev.totalPendientes));
+        $m.find('.js-l-faltantes').text(num(lev.totalFaltantes));
+        $m.find('.js-l-pie').text(cerrado ? 'Cerrado el ' + fecha(lev.fechaFin) : num(lev.totalPendientes) + ' sin revisar — al cerrar pasan a faltante');
+        $m.find('.js-l-cerrar').prop('disabled', cerrado);
+        $m.find('.js-l-aviso').toggleClass('d-none', cerrado);
+        $m.find('.js-l-cuerpo').html((lev.detalle || []).map(d => {
+            const acciones = cerrado ? '<span class="sm-sub">—</span>' :
+                '<div class="d-flex gap-1">' +
+                '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-marcar" data-id="' + Number(d.idDetalle) + '" data-s="ENCONTRADO" title="Está en la oficina"><i class="ti ti-check"></i></button>' +
+                '<button type="button" class="sm-btn sm-btn-sm sm-btn-peligro js-marcar" data-id="' + Number(d.idDetalle) + '" data-s="FALTANTE" title="No está"><i class="ti ti-x"></i></button>' +
+                '<button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-observar" data-id="' + Number(d.idDetalle) + '" title="Anotar novedad"><i class="ti ti-message-2"></i></button></div>';
+            const obs = d.observacion
+                ? '<div class="small" style="color:#b45309;"><i class="ti ti-alert-circle"></i> ' + esc(d.observacion) + (d.estadoObservado ? ' (' + esc(d.estadoObservado) + ')' : '') + '</div>' : '';
+            return '<tr><td><span class="sm-codigo">' + esc(d.codigo) + '</span></td>' +
+                '<td class="sm-mayus">' + esc(d.descripcion) + obs + '</td>' +
+                '<td class="sm-mayus small">' + esc(d.responsable || '—') + '</td>' +
+                '<td><span class="sm-pastilla mc-sit-' + esc(d.situacion) + '">' + esc(d.situacion) + '</span></td>' +
+                '<td>' + acciones + '</td></tr>';
+        }).join(''));
+        filtrarLev();
+    }
+
+    function recargarLevantamiento() {
+        if (!levActual) return;
+        getJson(BASE + '/levantamientos/' + levActual.idInventario).then(lev => {
+            if (lev && lev.ok === false) return;
+            pintarLevantamiento(lev);
+        }, () => { /* el próximo evento lo vuelve a intentar */ });
+    }
+
+    function marcar(idDetalle, situacion, observacion) {
+        if (!levActual) return;
+        SciafModulo.pedirJson(BASE + '/levantamientos/' + levActual.idInventario + '/detalle/' + idDetalle, {
+            metodo: 'PATCH',
+            json: { situacion: situacion, observacion: observacion, idEstadoObservado: null, fecha: ahoraLocal() }
+        }).then(r => {
+            if (r && r.ok === false) { Swal.fire('No se pudo marcar', msgDe(r, 'Error al registrar la marca.'), 'warning'); return; }
+            recargarLevantamiento();
+        }, e => SciafModulo.avisarError(e, 'No se pudo marcar'));
+    }
+
+    $(modalLev).on('click', '.js-marcar', function () { marcar(this.dataset.id, this.dataset.s, null); });
+    $(modalLev).on('click', '.js-observar', function () {
+        const id = this.dataset.id;
+        Swal.fire({
+            title: 'Anotar novedad', input: 'textarea',
+            inputLabel: 'Se registra como hallazgo al cerrar el levantamiento',
+            inputPlaceholder: 'Ej.: está roto, le falta una rueda, el serial no coincide…',
+            showCancelButton: true, confirmButtonText: 'Guardar', cancelButtonText: 'Cancelar'
+        }).then(r => { if (r.isConfirmed && r.value && r.value.trim()) marcar(id, 'ENCONTRADO', r.value.trim()); });
+    });
+
+    function filtrarLev() {
+        const q = ($(modalLev).find('.js-l-filtro').val() || '').toLowerCase();
+        $(modalLev).find('.js-l-cuerpo tr').each(function () { $(this).toggle(!q || $(this).text().toLowerCase().indexOf(q) !== -1); });
+    }
+    $(modalLev).on('input', '.js-l-filtro', filtrarLev);
+
+    $(modalLev).on('click', '.js-l-cerrar', function () {
+        if (!levActual) return;
+        const pend = levActual.totalPendientes;
+        sciafConfirmar({
+            titulo: '¿Cerrar el levantamiento?',
+            texto: pend > 0 ? '<b>' + num(pend) + '</b> bien(es) quedaron sin revisar y se registrarán como <b>FALTANTES</b> a nombre de su responsable.'
+                            : 'No quedan bienes sin revisar.',
+            aceptar: 'Sí, cerrar', peligrosa: pend > 0
+        }).then(si => {
+            if (!si) return;
+            const $b = $(this).prop('disabled', true);
+            const idOficina = levActual.idOficina;
+            SciafModulo.pedirJson(BASE + '/levantamientos/' + levActual.idInventario + '/cerrar', { json: {} }).then(r => {
+                if (r && r.ok === false) { Swal.fire('No se pudo cerrar', msgDe(r, 'Error al cerrar.'), 'warning'); $b.prop('disabled', false); return; }
+                bootstrap.Modal.getOrCreateInstance(modalLev).hide();
+                Swal.fire('Levantamiento cerrado', num(r.encontrados) + ' encontrados · ' + num(r.faltantes) + ' faltantes · ' + num(r.observados) + ' con novedad', 'success');
+                recargar(idOficina);
+            }, e => { $b.prop('disabled', false); SciafModulo.avisarError(e, 'No se pudo cerrar'); });
+        });
+    });
+    $(modalLev).on('hidden.bs.modal', () => { levActual = null; $(modalLev).find('.js-l-filtro').val(''); });
+
+    /* ══ Buscador de bienes ═══════════════════════════════════════════════ */
+    const $q = $raiz.find('.js-q');
+    let esperaQ = null, ultimaQ = '';
+
+    function modoBusqueda(si) {
+        $lienzo.toggleClass('d-none', si);
+        $raiz.find('.mc-barra').toggleClass('d-none', si);
+        $busq.toggleClass('d-none', !si);
+        if (!si) { $busq.empty(); ultimaQ = ''; ajustarAlto(); distribuir(); }
+    }
+
+    $q.on('input', function () {
+        const q = this.value.trim();
+        $(this).closest('.sm-buscador').toggleClass('con-texto', !!this.value);
+        clearTimeout(esperaQ);
+        if (!q) { modoBusqueda(false); return; }
+        if (q.length < 2) return;
+        esperaQ = setTimeout(() => buscar(q), 300);
+    }).on('keydown', function (e) {
+        if (e.key === 'Escape' && this.value) { e.preventDefault(); this.value = ''; $(this).trigger('input'); }
+    });
+    $raiz.find('.sm-buscador-limpiar').on('click', () => { $q.val('').trigger('input').trigger('focus'); });
+
+    function buscar(q) {
+        ultimaQ = q;
+        modoBusqueda(true);
+        const carga = SciafPrecarga.montar($busq, { compacta: true, texto: 'Buscando…' });
+        getJson(BASE + '/buscar', { q: q }).then(r => {
+            if (q !== ultimaQ) return;   // llegó tarde: ya se escribió otra cosa
+            if (r && r.ok === false) { carga.error('No se pudo buscar', msgDe(r, '')); return; }
+            carga.cerrar();
+            pintarBusqueda(r || {}, q);
+        }, e => { if (q === ultimaQ) carga.error('No se pudo buscar', (e && e.message) || SciafPrecarga.motivo(0)); });
+    }
+
+    function pintarBusqueda(r, q) {
+        const filas = r.resultados || [];
+        if (!filas.length) {
+            $busq.html('<div class="sm-vacio"><i class="ti ti-search-off"></i>Ningún bien coincide con <b>' + esc(q) + '</b>.</div>');
+            return;
+        }
+        let h = '<div class="sm-sub mb-2">' + (r.truncado
+            ? 'Mostrando <b>' + num(filas.length) + '</b> de <b>' + num(r.total) + '</b>: afine la búsqueda para ver el resto.'
+            : '<b>' + num(r.total) + '</b> resultado(s).') + '</div>' +
+            '<div class="table-responsive"><table class="table sm-tabla align-middle mb-0"><thead><tr>' +
+            '<th style="width:36px;"><input type="checkbox" class="form-check-input js-q-todos" title="Seleccionar lo que se ve"></th>' +
+            '<th>Código</th><th>Descripción</th><th>Dónde está</th><th>Estado</th><th>Control</th></tr></thead><tbody>';
+        filas.forEach(a => {
+            const ctrl = a.faltanteAbierto ? '<span class="sm-pastilla sm-pastilla-peligro">Faltante</span>'
+                : (a.observadoAbierto ? '<span class="sm-pastilla sm-pastilla-aviso">Observado</span>' : '<span class="sm-sub">—</span>');
+            const ruta = [a.municipio, a.predio, a.oficina, a.responsable].map((x, i) => x ? esc(x)
+                : '<span class="text-danger">' + ['(sin municipio)', '(sin predio)', '(sin oficina)', '(sin responsable)'][i] + '</span>')
+                .join(' <span class="sm-sub">›</span> ');
+            // Con responsable alcanza: un bien «(sin oficina)» es justo la anomalía que hay que poder seguir.
+            const ir = a.idResponsable
+                ? '<br><a href="#" class="js-ver-mapa small" data-ofi="' + Number(a.idOficina || 0) + '" data-resp="' + Number(a.idResponsable) +
+                  '" data-nombre="' + esc(a.responsable || '') + '"><i class="ti ti-map-pin"></i> Ver en el mapa</a>' : '';
+            h += '<tr><td><input type="checkbox" class="form-check-input js-chk" value="' + Number(a.idActivo) + '"' +
+                (seleccion.has(String(a.idActivo)) ? ' checked' : '') + '></td>' +
+                '<td><span class="sm-codigo">' + esc(a.codigo) + '</span></td>' +
+                '<td class="sm-mayus" style="max-width:320px;">' + esc(a.descripcion || '') + '</td>' +
+                '<td class="sm-mayus small">' + ruta + ir + '</td>' +
+                '<td class="sm-mayus">' + esc(a.estadoActivo || '—') + '</td><td>' + ctrl + '</td></tr>';
+        });
+        $busq.html(h + '</tbody></table></div>');
+    }
+
+    // Del resultado al mapa: acerca el predio, elige la oficina y abre los bienes de su responsable.
+    $busq.on('click', '.js-ver-mapa', function (e) {
+        e.preventDefault();
+        const idOf = Number(this.dataset.ofi), idResp = Number(this.dataset.resp), nombre = this.dataset.nombre;
+        $q.val('').closest('.sm-buscador').removeClass('con-texto');
+        modoBusqueda(false);
+        if (oficinas.has(idOf)) elegir(idOf);
+        abrirBienes(idResp, nombre, oficinas.has(idOf) ? idOf : null);
+    });
+
+    /* ══ Arranque ═════════════════════════════════════════════════════════ */
+    let inicial = [];
+    try { inicial = JSON.parse($raiz.find('.js-datos').text() || '[]'); } catch (e) { inicial = []; }
+    ajustarAlto();
+    aplicarDatos(inicial);
+})();
+</script>

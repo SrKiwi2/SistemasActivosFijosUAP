@@ -51,5 +51,11 @@ public record FaltanteDTO(
         /** Histórico regularizado sin oficina de origen conocida (apunta a la oficina de faltantes). */
         boolean       origenNoRegistrado,
         /** Plazo en días hábiles de la notificación (extraído del contenido JSON del acta). */
-        Integer       plazoDias
+        Integer       plazoDias,
+        /** Desde cuándo corre ese plazo: la emisión o el último cambio de plazo. */
+        LocalDateTime inicioPlazo,
+        /** 1 o 2 si la notificación vigente es una reiterativa; 0 si es la original. */
+        int           numeroReiterativa,
+        /** Faltantes pendientes de toda la notificación (sin los filtros de la pantalla). */
+        long          pendientesActa
 ) {}

@@ -1,4 +1,20 @@
 let hojaRutaActual = null;
+
+// Texto seguro para meter en HTML: los datos (descripción, solicitante, unidades) llegan crudos.
+function esc(s) {
+    return s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Fecha y hora LOCALES para los campos (toISOString es UTC: en Bolivia, desde las 20:00
+// daba la fecha de mañana).
+function fechaLocal(d) {
+    const z = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+}
+function horaLocal(d) {
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
 // Theme
 const savedTheme = localStorage.getItem('theme') || 'light';
 document.documentElement.setAttribute('data-theme', savedTheme);
@@ -76,20 +92,29 @@ function validarFiltros() {
     }
 }
 
-function buscarHojaRuta() {
-    const tipo = $("#filtroTipo").val();
-    const gestion = $("#filtroGestion").val();
-    const codigo = $("#filtroCodigo").val().trim();
-
-    if (!tipo || !gestion || !codigo) {
-        Swal.fire("Atención", "Complete todos los filtros de búsqueda", "warning");
-        return;
+// Con idHojaRuta abre esa hoja exacta (fila de la tabla, volver a mostrar la que se acaba de
+// guardar); sin él busca por los filtros. Antes todo iba por tipo + N° + gestión: si había dos
+// hojas iguales se abría siempre la primera y el movimiento o la edición caían en la que no era,
+// y al cambiarle el N° a una hoja la pantalla ya no la encontraba.
+function buscarHojaRuta(idHojaRuta) {
+    let datos;
+    if (idHojaRuta) {
+        datos = { idHojaRuta: idHojaRuta };
+    } else {
+        const tipo = $("#filtroTipo").val();
+        const gestion = $("#filtroGestion").val();
+        const codigo = $("#filtroCodigo").val().trim();
+        if (!tipo || !gestion || !codigo) {
+            Swal.fire("Atención", "Complete todos los filtros de búsqueda", "warning");
+            return;
+        }
+        datos = { tipo, gestion, codigo };
     }
 
     $.ajax({
         type: "POST",
         url: "/administracion/hoja-ruta/buscar",
-        data: { tipo, gestion, codigo },
+        data: datos,
         success: function (response) {
             if (response.ok) {
                 hojaRutaActual = response.hojaRuta;
@@ -108,23 +133,23 @@ function mostrarResultados(data) {
     let htmlDatos = `
           <div class="row g-2">
             <div class="col-md-12">
-              <p style="margin-bottom: 0.5rem;"><strong class="text-primary-color">Código:</strong> ${hr.codigo}</p>
-              <p style="margin-bottom: 0.5rem;"><strong class="text-primary-color">Tipo:</strong> <span class="badge bg-label-info">${hr.tipo}</span></p>
-              <p style="margin-bottom: 0.5rem;"><strong class="text-primary-color">Gestión:</strong> ${hr.gestion}</p>
+              <p style="margin-bottom: 0.5rem;"><strong class="text-primary-color">Código:</strong> ${esc(hr.codigo)}</p>
+              <p style="margin-bottom: 0.5rem;"><strong class="text-primary-color">Tipo:</strong> <span class="badge bg-label-info">${esc(hr.tipo)}</span></p>
+              <p style="margin-bottom: 0.5rem;"><strong class="text-primary-color">Gestión:</strong> ${esc(hr.gestion)}</p>
             </div>
             <div class="col-md-12"><hr style="border-color: var(--border-color); margin: 0.5rem 0;"></div>
             <div class="col-md-12">
-              <p style="margin-bottom: 0.5rem;"><strong>Solicitante:</strong> ${hr.solicitanteNombre}</p>
-              <p style="margin-bottom: 0.5rem;"><strong>Cargo:</strong> ${hr.solicitanteCargo}</p>
+              <p style="margin-bottom: 0.5rem;"><strong>Solicitante:</strong> ${esc(hr.solicitanteNombre)}</p>
+              <p style="margin-bottom: 0.5rem;"><strong>Cargo:</strong> ${esc(hr.solicitanteCargo)}</p>
             </div>
             <div class="col-md-12"><hr style="border-color: var(--border-color); margin: 0.5rem 0;"></div>
             <div class="col-md-12">
               <p style="margin-bottom: 0.5rem;"><strong>Descripción:</strong></p>
-              <p class="text-muted">${hr.descripcion}</p>
+              <p class="text-muted">${esc(hr.descripcion)}</p>
             </div>
         `;
 
-    if (hr.certificacion) htmlDatos += `<div class="col-md-12"><p style="margin-bottom: 0.5rem;"><strong>N° Certificación:</strong> ${hr.certificacion}</p></div>`;
+    if (hr.certificacion) htmlDatos += `<div class="col-md-12"><p style="margin-bottom: 0.5rem;"><strong>N° Certificación:</strong> ${esc(hr.certificacion)}</p></div>`;
     if (hr.monto) htmlDatos += `<div class="col-md-12"><p style="margin-bottom: 0.5rem;"><strong>Monto:</strong> Bs. ${parseFloat(hr.monto).toFixed(2)}</p></div>`;
 
     htmlDatos += `</div>`;
@@ -138,17 +163,17 @@ function mostrarResultados(data) {
         data.movimientos.forEach((mov) => {
             const estadoBadge = getEstadoBadge(mov.estado);
             const fecha = mov.fecha ? formatearFecha(mov.fecha) : "Sin fecha";
-            const hora = mov.hora || "Sin hora";
+            const hora = mov.hora ? esc(mov.hora) : "Sin hora";
 
             htmlMovimientos += `
               <tr>
                 <td>${estadoBadge}</td>
                 <td>${fecha}</td>
                 <td>${hora}</td>
-                <td><small>${mov.origen}</small></td>
-                <td><small>${mov.destino}</small></td>
+                <td><small>${esc(mov.origen)}</small></td>
+                <td><small>${esc(mov.destino)}</small></td>
                 <td>
-                  <button class="btn btn-sm btn-icon btn-outline-primary" onclick="editarMovimiento(${mov.idMovimiento})" title="Editar">
+                  <button class="btn btn-sm btn-icon btn-outline-primary" onclick="editarMovimiento(${Number(mov.idMovimiento)})" title="Editar">
                     <i class='bx bx-edit'></i>
                   </button>
                 </td>
@@ -166,7 +191,7 @@ function getEstadoBadge(estado) {
         ENVIADO: '<span class="badge bg-label-warning"><i class="bx bx-send"></i> ENVIADO</span>',
         ARCHIVADO: '<span class="badge bg-label-secondary"><i class="bx bx-archive"></i> ARCHIVADO</span>',
     };
-    return badges[estado] || '<span class="badge bg-label-secondary">' + estado + "</span>";
+    return badges[estado] || '<span class="badge bg-label-secondary">' + esc(estado) + "</span>";
 }
 
 function formatearFecha(fecha) {
@@ -178,6 +203,11 @@ function abrirModalNuevaHojaRuta() {
     $("#formHojaRuta")[0].reset();
     $("#idHojaRuta").val("");
     $("#tituloModalHojaRuta").text("Nueva Hoja de Ruta");
+    // reset() deja los campos como en el HTML (vacíos): se vuelven a poner los de hoy.
+    const ahora = new Date();
+    $("#hrFecha").val(fechaLocal(ahora));
+    $("#hrHora").val(horaLocal(ahora));
+    $("#hrGestion").val(ahora.getFullYear());
 
     // Mostrar campos y restaurar required
     $("#hrUnidadOrigen").closest(".col-md-6").show();
@@ -223,12 +253,23 @@ function editarHojaRuta() {
 }
 
 
+// Mientras se guarda, el botón queda bloqueado: un doble clic o Enter dos veces mandaba dos
+// pedidos y registraba la hoja (o el movimiento, o el solicitante) dos veces.
+function bloquearEnvio(form) {
+    const $btn = $(form).find('[type="submit"]');
+    if ($btn.prop('disabled')) return null;
+    $btn.prop('disabled', true);
+    return () => $btn.prop('disabled', false);
+}
+
 $("#formHojaRuta").on("submit", function (e) {
     e.preventDefault();
     if (!this.checkValidity()) {
         $(this).addClass("was-validated");
         return;
     }
+    const liberar = bloquearEnvio(this);
+    if (!liberar) return;
     const idHojaRuta = $("#idHojaRuta").val();
     const url = idHojaRuta ? "/administracion/hoja-ruta/modificar" : "/administracion/hoja-ruta/registrar";
 
@@ -241,15 +282,17 @@ $("#formHojaRuta").on("submit", function (e) {
                 Swal.fire("Éxito", response.msg, "success");
                 cerrarModal("modalHojaRuta");
                 if (idHojaRuta) {
-                    buscarHojaRuta();
+                    buscarHojaRuta(idHojaRuta);
                 } else {
                     $("#formHojaRuta")[0].reset();
                 }
+                cargarTablaHojaRutas();   // que la hoja nueva (o el cambio) se vea en el listado
             } else {
                 Swal.fire("Error", response.msg, "error");
             }
         },
-        error: () => Swal.fire("Error", "Ocurrió un error al guardar", "error")
+        error: (xhr) => Swal.fire("Error", (xhr.responseJSON && xhr.responseJSON.msg) || "Ocurrió un error al guardar", "error"),
+        complete: liberar
     });
 });
 
@@ -262,8 +305,8 @@ function abrirModalNuevoMovimiento() {
     $("#idMovimiento").val("");
     $("#movHojaRutaId").val(hojaRutaActual.idHojaRuta);
     const hoy = new Date();
-    $("#movFecha").val(hoy.toISOString().split("T")[0]);
-    $("#movHora").val(hoy.toTimeString().substring(0, 5));
+    $("#movFecha").val(fechaLocal(hoy));
+    $("#movHora").val(horaLocal(hoy));
     $("#tituloModalMovimiento").text("Nuevo Movimiento");
     $("#modalMovimiento").addClass("show");
     setTimeout(() => inicializarSelect2EnModal('modalMovimiento'), 200);
@@ -303,6 +346,8 @@ $("#formMovimiento").on("submit", function (e) {
         $(this).addClass("was-validated");
         return;
     }
+    const liberar = bloquearEnvio(this);
+    if (!liberar) return;
     $.ajax({
         type: "POST",
         url: "/administracion/hoja-ruta/movimiento/guardar",
@@ -311,12 +356,14 @@ $("#formMovimiento").on("submit", function (e) {
             if (response.ok) {
                 Swal.fire("Éxito", response.msg, "success");
                 cerrarModal("modalMovimiento");
-                buscarHojaRuta();
+                buscarHojaRuta(hojaRutaActual && hojaRutaActual.idHojaRuta);
+                cargarTablaHojaRutas();
             } else {
                 Swal.fire("Error", response.msg, "error");
             }
         },
-        error: () => Swal.fire("Error", "Ocurrió un error al guardar", "error")
+        error: (xhr) => Swal.fire("Error", (xhr.responseJSON && xhr.responseJSON.msg) || "Ocurrió un error al guardar", "error"),
+        complete: liberar
     });
 });
 
@@ -334,6 +381,8 @@ $("#formNuevoSolicitante").on("submit", function (e) {
         $(this).addClass("was-validated");
         return;
     }
+    const liberar = bloquearEnvio(this);
+    if (!liberar) return;
 
     $.ajax({
         type: "POST",
@@ -386,7 +435,8 @@ $("#formNuevoSolicitante").on("submit", function (e) {
                     container: 'swal-on-top'
                 }
             });
-        }
+        },
+        complete: liberar
     });
 });
 
@@ -404,7 +454,7 @@ function recargarSolicitantes(idNuevo) {
                 // Agregar opciones
                 response.solicitantes.forEach(function (sol) {
                     $("#hrSolicitante").append(
-                        `<option value="${sol.idSolicitante}">${sol.nombre} - ${sol.cargo}</option>`
+                        $('<option>').val(sol.idSolicitante).text(sol.nombre + ' - ' + sol.cargo)
                     );
                 });
 
@@ -587,7 +637,7 @@ function renderizarTablaHR() {
         const busqueda = $('#hrBusquedaLibre').val().trim();
         mostrarEstadoVacioHR(
             'bx-search-alt',
-            busqueda ? `Sin resultados para "<strong>${busqueda}</strong>"` : 'No hay registros con los filtros aplicados'
+            busqueda ? `Sin resultados para "<strong>${esc(busqueda)}</strong>"` : 'No hay registros con los filtros aplicados'
         );
         return;
     }
@@ -598,23 +648,22 @@ function renderizarTablaHR() {
     paginados.forEach((hr, idx) => {
         const numFila = inicio + idx + 1;
         html += `
-                <tr class="animated" style="animation-delay:${idx * 0.025}s"
-                    onclick="seleccionarDesdeTabla(this, '${escaparJS(hr.tipo)}', '${escaparJS(hr.codigo)}', ${hr.gestion})"
-                    title="Ver detalle de ${escaparAttr(hr.codigo)}">
+                <tr class="animated hr-fila" style="animation-delay:${idx * 0.025}s"
+                    data-id="${Number(hr.idHojaRuta)}" data-tipo="${esc(hr.tipo)}" data-codigo="${esc(hr.codigo)}" data-gestion="${esc(hr.gestion)}"
+                    title="Ver detalle de ${esc(hr.codigo)}">
                     <td style="text-align:center; color:var(--text-muted,#9ca3af); font-size:0.72rem;">${numFila}</td>
-                    <td><span class="hr-codigo">${hr.codigo || '-'}</span></td>
+                    <td><span class="hr-codigo">${esc(hr.codigo || '-')}</span></td>
                     <td>${renderTipoChip(hr.tipo)}</td>
-                    <td style="font-weight:700; font-size:0.8rem;">${hr.gestion || '-'}</td>
+                    <td style="font-weight:700; font-size:0.8rem;">${esc(hr.gestion || '-')}</td>
                     <td>
-                        <span class="hr-solicitante-nombre">${hr.solicitanteNombre || '-'}</span>
-                        <span class="hr-solicitante-cargo">${hr.solicitanteCargo || ''}</span>
+                        <span class="hr-solicitante-nombre">${esc(hr.solicitanteNombre || '-')}</span>
+                        <span class="hr-solicitante-cargo">${esc(hr.solicitanteCargo || '')}</span>
                     </td>
                     <td>
-                        <span class="hr-descripcion" title="${escaparAttr(hr.descripcion)}">${hr.descripcion || '-'}</span>
+                        <span class="hr-descripcion" title="${esc(hr.descripcion)}">${esc(hr.descripcion || '-')}</span>
                     </td>
                     <td style="text-align:center;">
-                        <button class="btn-ver-hr"
-                            onclick="event.stopPropagation(); seleccionarDesdeTabla(this.closest('tr'), '${escaparJS(hr.tipo)}', '${escaparJS(hr.codigo)}', ${hr.gestion})">
+                        <button type="button" class="btn-ver-hr">
                             <i class='bx bx-show'></i> Ver
                         </button>
                     </td>
@@ -669,7 +718,11 @@ function cambiarPaginaHR(p) {
 }
 
 // ----- SELECCIONAR DESDE TABLA -----
-function seleccionarDesdeTabla(fila, tipo, codigo, gestion) {
+// Clic en la fila o en «Ver»: los datos van en data-* de la fila.
+$(document).on('click', '#cuerpoTablaHR tr.hr-fila', function () {
+    seleccionarDesdeTabla(this, this.dataset.tipo, this.dataset.codigo, this.dataset.gestion, this.dataset.id);
+});
+function seleccionarDesdeTabla(fila, tipo, codigo, gestion, idHojaRuta) {
     // Resaltar fila
     if (hrFilaSeleccionada) hrFilaSeleccionada.classList.remove('selected-row');
     fila.classList.add('selected-row');
@@ -681,7 +734,7 @@ function seleccionarDesdeTabla(fila, tipo, codigo, gestion) {
 
     setTimeout(() => {
         $('#filtroCodigo').val(codigo);
-        buscarHojaRuta();
+        buscarHojaRuta(idHojaRuta);   // por id: la fila exacta, aunque haya otra hoja con el mismo N°
         const target = document.getElementById('contenedorResultados');
         if (target) {
             target.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -712,17 +765,6 @@ function mostrarEstadoVacioHR(icon, msg) {
 }
 
 // ----- HELPERS RENDER -----
-function renderEstadoPill(estado) {
-    const map = {
-        'RECIBIDO': ['recibido', 'bx-check-circle', 'RECIBIDO'],
-        'ENVIADO': ['enviado', 'bx-send', 'ENVIADO'],
-        'ARCHIVADO': ['archivado', 'bx-archive', 'ARCHIVADO'],
-        'SIN MOVIMIENTO': ['sin-mov', 'bx-minus-circle', 'SIN MOV.'],
-    };
-    const [cls, ico, lbl] = map[estado] || ['sin-mov', 'bx-question-mark', estado || '—'];
-    return `<span class="estado-pill ${cls}"><i class='bx ${ico}'></i>${lbl}</span>`;
-}
-
 function renderTipoChip(tipo) {
     const map = {
         'RECTORADO': 'rectorado',
@@ -730,23 +772,14 @@ function renderTipoChip(tipo) {
         'PEDIDO': 'pedido',
     };
     const cls = map[tipo] || '';
-    return `<span class="tipo-chip ${cls}">${tipo || '—'}</span>`;
-}
-
-// Escapar para usar dentro de atributo onclick="..."
-function escaparJS(str) {
-    return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-}
-
-function escaparAttr(str) {
-    return (str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    return `<span class="tipo-chip ${cls}">${esc(tipo || '—')}</span>`;
 }
 
 $(document).ready(function () {
     $("#filtroTipo, #filtroGestion").on("change", validarFiltros);
     const hoy = new Date();
-    $("#hrFecha, #movFecha").val(hoy.toISOString().split("T")[0]);
-    $("#hrHora, #movHora").val(hoy.toTimeString().substring(0, 5));
+    $("#hrFecha, #movFecha").val(fechaLocal(hoy));
+    $("#hrHora, #movHora").val(horaLocal(hoy));
     $("#hrGestion").val(hoy.getFullYear());
     cargarTablaHojaRutas()
 });

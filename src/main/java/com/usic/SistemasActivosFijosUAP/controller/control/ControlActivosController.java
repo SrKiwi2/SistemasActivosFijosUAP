@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -22,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.AbrirLevantamientoRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.ActivoUbicacionDTO;
@@ -58,6 +61,7 @@ public class ControlActivosController {
 
     private final ControlActivosService servicio;
     private final WordControlActivosService wordServicio;
+    private final ObjectMapper objectMapper;
 
     /** Capacidad para cerrar hallazgos. Sin ella se puede mirar, no resolver. */
     private static final String PERMISO_RESOLVER = "opcion_control_resolver";
@@ -67,16 +71,33 @@ public class ControlActivosController {
 
     // ── Vistas ───────────────────────────────────────────────────────────────
 
+    /**
+     * Mapa de control (mosaico). La vista llega con el mosaico completo como JSON dentro de
+     * la página: un solo pedido al abrir. El «<» se escapa para que un nombre de oficina no
+     * pueda cerrar el bloque de datos.
+     */
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String vistaMapa() {
+    public String vistaMapa(Model model) throws JsonProcessingException {
+        model.addAttribute("mosaicoJson",
+                objectMapper.writeValueAsString(servicio.mosaico()).replace("<", "\\u003c"));
         return "controlActivos/mapa";
     }
 
+    /** Faltantes. Llega con los predios del filtro (antes, un pedido aparte y pesado). */
     @ValidarUsuarioAutenticado
     @GetMapping("/faltantes/vista")
-    public String vistaFaltantes() {
+    public String vistaFaltantes(Model model) {
+        model.addAttribute("predios", servicio.prediosParaFiltro());
         return "controlActivos/faltantes";
+    }
+
+    /** Oficinas de un predio para el filtro de Faltantes (sin conteos). */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/faltantes/oficinas")
+    @ResponseBody
+    public ResponseEntity<?> oficinasFiltro(@RequestParam Long idPredio) {
+        return ResponseEntity.ok(servicio.oficinasParaFiltro(idPredio));
     }
 
     // ── Mapa ─────────────────────────────────────────────────────────────────
@@ -207,6 +228,14 @@ public class ControlActivosController {
         headers.setContentType(MediaType.parseMediaType(DOCX_MIME));
         headers.setContentDisposition(ContentDisposition.attachment().filename(nombre).build());
         return new ResponseEntity<>(docx, headers, HttpStatus.OK);
+    }
+
+    /** Mosaico completo del mapa (predios con sus oficinas), en una respuesta. */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/mapa/mosaico")
+    @ResponseBody
+    public ResponseEntity<?> mosaico() {
+        return ResponseEntity.ok(servicio.mosaico());
     }
 
     @ValidarUsuarioAutenticado

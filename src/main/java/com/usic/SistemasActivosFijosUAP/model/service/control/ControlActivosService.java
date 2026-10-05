@@ -2,7 +2,9 @@ package com.usic.SistemasActivosFijosUAP.model.service.control;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,6 +28,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.control.FaltanteDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.LevantamientoDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.MarcaRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.MarcasLoteRequest;
+import com.usic.SistemasActivosFijosUAP.model.dto.control.MosaicoPredioDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.ResolverHallazgoRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.ResumenCierreDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.ResumenMarcasDTO;
@@ -110,6 +113,50 @@ public class ControlActivosService {
      */
     public List<TilePredioDTO> mapaPredios(Long idMunicipio, boolean sinMunicipio) {
         return repo.tilesPredio(idMunicipio, sinMunicipio);
+    }
+
+    /**
+     * Mosaico del Mapa de control: todos los predios activos con sus oficinas, en dos
+     * consultas. Los predios sin oficinas activas también van (con la lista vacía).
+     */
+    public List<MosaicoPredioDTO> mosaico() {
+        Map<Long, List<TileOficinaDTO>> porPredio = new HashMap<>();
+        for (TileOficinaDTO o : repo.oficinasMosaico()) {
+            porPredio.computeIfAbsent(o.idPredio(), k -> new ArrayList<>()).add(o);
+        }
+        List<MosaicoPredioDTO> lista = new ArrayList<>();
+        for (Object[] p : repo.prediosMosaico()) {
+            Long id = (Long) p[0];
+            lista.add(new MosaicoPredioDTO(id, (String) p[1], (String) p[2], (Long) p[3], (String) p[4],
+                    (Long) p[5], porPredio.getOrDefault(id, List.of())));
+        }
+        return lista;
+    }
+
+    /** Predios activos (id, unidad, nombre) para los filtros. */
+    public List<Map<String, Object>> prediosParaFiltro() {
+        List<Map<String, Object>> lista = new ArrayList<>();
+        for (Object[] p : repo.prediosMosaico()) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("idPredio", p[0]);
+            m.put("descrip", p[1]);
+            m.put("unidad", p[2]);
+            lista.add(m);
+        }
+        return lista;
+    }
+
+    /** Oficinas de un predio (id, número, nombre), sin las de faltantes, para los filtros. */
+    public List<Map<String, Object>> oficinasParaFiltro(Long idPredio) {
+        List<Map<String, Object>> lista = new ArrayList<>();
+        for (Object[] o : repo.oficinasParaFiltro(idPredio)) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("idOficina", o[0]);
+            m.put("codOfi", o[1]);
+            m.put("nombre", o[2]);
+            lista.add(m);
+        }
+        return lista;
     }
 
     public List<TileOficinaDTO> mapaOficinas(Long idPredio) {

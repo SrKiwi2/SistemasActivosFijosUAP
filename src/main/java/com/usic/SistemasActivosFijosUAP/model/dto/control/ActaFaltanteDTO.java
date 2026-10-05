@@ -22,7 +22,7 @@ public record ActaFaltanteDTO(
         LocalDate     fechaDocumento,
         String        observacion,
         int           totalBienes,
-        /** VIGENTE | ANULADA | RESUELTA */
+        /** VIGENTE | ANULADA | RESUELTA | REITERADA */
         String        estado,
         String        motivoAnulacion,
         LocalDateTime fechaAnulacion,
@@ -38,7 +38,16 @@ public record ActaFaltanteDTO(
         /** Responsable de Activos Fijos que firma, según la configuración de la gestión al emitir. */
         String        firmante,
         /** Unidad organizacional del destinatario (su oficina con más bienes notificados). */
-        String        unidad
+        String        unidad,
+        /** Desde cuándo corre el plazo (y fecha del papel): la emisión, o el último cambio de plazo. */
+        LocalDateTime inicioPlazo,
+        /** 1 o 2 si es una notificación reiterativa; null si es la notificación original. */
+        Integer       numeroReiterativa,
+        /** La notificación que reitera, como va en el papel, y su fecha. */
+        String        reiteraA,
+        LocalDateTime reiteraAFecha,
+        /** Solo si el estado es REITERADA: la reiterativa que la reemplazó. */
+        String        reiteradaPor
 ) {
 
     public boolean esRegularizacion() {
@@ -50,8 +59,22 @@ public record ActaFaltanteDTO(
         return plazoDias != null;
     }
 
+    public boolean esReiterativa() {
+        return numeroReiterativa != null && numeroReiterativa > 0;
+    }
+
+    /** Fecha que lleva el papel: desde cuándo corre el plazo (si se cambió, la del cambio). */
+    public LocalDateTime fechaDelDocumento() {
+        return inicioPlazo != null ? inicioPlazo : fechaEmision;
+    }
+
     /** Título del documento según su tipo. */
     public String titulo() {
+        if (esReiterativa()) {
+            return numeroReiterativa == 1
+                    ? "PRIMERA NOTIFICACIÓN REITERATIVA DE ACTIVOS FÍSICOS FALTANTES"
+                    : "SEGUNDA Y ÚLTIMA NOTIFICACIÓN REITERATIVA DE ACTIVOS FÍSICOS FALTANTES";
+        }
         if (esNotificacion()) return "NOTIFICACIÓN DE ACTIVOS FÍSICOS FALTANTES";
         return esRegularizacion() ? "ACTA DE REGULARIZACIÓN DE FALTANTES" : "ACTA DE FALTANTES";
     }

@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.model.dto;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,6 +20,11 @@ public class HojaRutaTablaDTO {
     private String descripcion;
     private String certificacion;
     private BigDecimal monto;
+    /** RECIBIDO / ENVIADO / ARCHIVADO del último movimiento, o SIN MOVIMIENTOS. */
     private String estadoActual;
-    private String unidadOrigenNombre;
+    /** Unidad destino del último movimiento: dónde está el documento ahora. */
+    private String ubicacionActual;
+    /** Fecha del último movimiento. */
+    private LocalDate fechaUltimo;
+    private int movimientos;
 }

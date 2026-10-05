@@ -12,195 +12,220 @@
 ====================================================================== -->
 
 <style>
-    #cf-wrap .cf-grupo { border:none; border-radius:0px; margin-bottom:14px; }
+    /* Colores atados a los tokens de la plantilla (--sm-*): también en modo oscuro. */
+    #cf-wrap .cf-pestanas { margin-bottom: 1rem; }
+    #cf-wrap .cf-pestanas button.active { color: var(--sm-primario); background: var(--sm-superficie);
+        box-shadow: 0 1px 0 var(--sm-borde-fuerte), 0 3px 8px -4px rgba(15, 23, 42, 0.3); }
+    #cf-wrap .cf-pestanas button.active .sm-cuenta { color: #fff; background: var(--sm-peligro); border-color: var(--sm-peligro); }
+    #cf-wrap .cf-filtro-lbl { font-size: .72rem; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--sm-texto-2); }
+
+    #cf-wrap .cf-grupo { margin-bottom: .75rem; }
     #cf-wrap .cf-grupo-head {
         display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
-        gap:8px; cursor:pointer; padding:12px 16px; border-left:5px solid #e0384a; border-radius:0px;
+        gap:8px; cursor:pointer; padding:.75rem 1rem; border-left:5px solid var(--sm-peligro);
     }
-    #cf-wrap .cf-grupo-head.todo-resuelto { border-left-color:#21a366; }
+    #cf-wrap .cf-grupo-head:hover { background: var(--sm-brillo); }
+    #cf-wrap .cf-grupo-head.todo-resuelto { border-left-color: var(--sm-exito); }
     #cf-wrap .cf-grupo-head.en-custodia   { border-left-color:#7e57c2; }
-    #cf-wrap .cf-nom { font-weight:600; font-size:.95rem; }
-    #cf-wrap .cf-sub { font-size:.75rem; color:#8592a3; }
-    #cf-wrap .cf-cod { font-family:'JetBrains Mono', monospace; font-weight:600; color:#1a56a0; font-size:.83rem; }
-    #cf-wrap table td { vertical-align:middle; font-size:.85rem; }
-    #cf-wrap .cf-card .num { font-size:1.6rem; font-weight:700; line-height:1; }
-    #cf-wrap .cf-card .lbl { font-size:.72rem; text-transform:uppercase; letter-spacing:.4px; color:#8592a3; }
-    #cf-wrap .badge-FALTANTE      { background:#f8d7da; color:#a3232f; }
-    #cf-wrap .badge-OBSERVADO     { background:#fff3cd; color:#8a6d00; }
-    #cf-wrap .badge-SOBRANTE      { background:#cfe2ff; color:#1a56a0; }
-    #cf-wrap .badge-SIN_CODIFICAR { background:#e9ecef; color:#5b6573; }
-    #cf-wrap .est-abierto  { background:#fdeaec; color:#a3232f; }
-    #cf-wrap .est-custodia { background:#efe7fb; color:#5b3a9c; }
-    #cf-wrap .est-camino   { background:#fff4dc; color:#8a5a00; }
-    #cf-wrap .est-error    { background:#e0384a; color:#fff; }
-    #cf-wrap .est-ok       { background:#d4f4e2; color:#0f6b40; }
-    #cf-wrap .est-gris     { background:#e9ecef; color:#5b6573; }
+    #cf-wrap .cf-grupo-head .cf-chevron { transition: transform .2s ease; color: var(--sm-texto-2); }
+    #cf-wrap .cf-grupo-head:not(.collapsed) .cf-chevron { transform: rotate(90deg); }
+    #cf-wrap .cf-nom { font-weight:700; font-size:.98rem; text-transform: uppercase; }
+    #cf-wrap .cf-sub { font-size:.78rem; color: var(--sm-texto-2); }
+    #cf-wrap .cf-cod { font-variant-numeric: tabular-nums; font-weight:700; color: var(--sm-primario); font-size:.85rem; white-space: nowrap; }
+    #cf-wrap table td { vertical-align:middle; }
+    #cf-wrap .badge-FALTANTE      { background: rgba(var(--sm-peligro-rgb), .12); color: var(--sm-peligro); }
+    #cf-wrap .badge-OBSERVADO     { background: rgba(245, 158, 11, .14); color: #b45309; }
+    #cf-wrap .badge-SOBRANTE      { background: rgba(var(--sm-primario-rgb), .12); color: var(--sm-primario); }
+    #cf-wrap .badge-SIN_CODIFICAR { background: var(--sm-superficie-3); color: var(--sm-texto-2); }
+    #cf-wrap .est-abierto  { background: rgba(var(--sm-peligro-rgb), .1); color: var(--sm-peligro); }
+    #cf-wrap .est-custodia { background: rgba(126, 87, 194, .14); color:#7e57c2; }
+    #cf-wrap .est-camino   { background: rgba(245, 158, 11, .14); color:#b45309; }
+    #cf-wrap .est-error    { background: var(--sm-peligro); color:#fff; }
+    #cf-wrap .est-ok       { background: rgba(var(--sm-exito-rgb), .14); color: var(--sm-exito); }
+    #cf-wrap .est-gris     { background: var(--sm-superficie-3); color: var(--sm-texto-2); }
     #cf-wrap .cf-resuelto td { opacity:.6; }
-    #cf-wrap .cf-fila-predio td  { background:#58658c; color:#fff; font-weight:600; font-size:.8rem; padding:5px 12px; }
-    #cf-wrap .cf-fila-oficina td { background:#f1f3f7; font-weight:600; font-size:.8rem; padding:5px 12px; }
+    #cf-wrap .cf-fila-predio td,
+    #cf-reg .cf-fila-predio td  { background: rgba(var(--sm-primario-rgb), .85); color:#fff; font-weight:700; font-size:.8rem; padding:5px 12px; }
+    #cf-wrap .cf-fila-oficina td,
+    #cf-reg .cf-fila-oficina td { background: var(--sm-superficie-3); color: var(--sm-texto); font-weight:600; font-size:.8rem; padding:5px 12px; }
+    #cf-reg .cf-fila-predio td  { position:sticky; top:0; z-index:1; }
     #cf-reg .cf-persona-item { cursor:pointer; }
-    #cf-reg .cf-persona-item:hover { background:#f5f5ff; }
-    #cf-reg .cf-bienes { max-height:48vh; overflow:auto; border:1px solid #e7e9ee; border-radius:8px; }
-    #cf-reg .cf-bienes table td { font-size:.82rem; vertical-align:middle; }
-    #cf-reg .cf-fila-predio td  { background:#58658c; color:#fff; font-weight:600; font-size:.78rem; position:sticky; top:0; }
-    #cf-reg .cf-fila-oficina td { background:#f1f3f7; font-weight:600; font-size:.78rem; }
-    #cf-reg .cf-cod { font-family:'JetBrains Mono', monospace; font-weight:600; color:#1a56a0; font-size:.8rem; }
+    #cf-reg .cf-persona-item:hover { background: rgba(var(--sm-primario-rgb), .07); }
+    #cf-reg .cf-bienes { max-height:48vh; overflow:auto; border:1px solid var(--sm-borde); border-radius:10px; }
+    #cf-reg .cf-bienes table td { font-size:.84rem; vertical-align:middle; }
+    #cf-reg .cf-cod { font-variant-numeric: tabular-nums; font-weight:700; color: var(--sm-primario); font-size:.82rem; }
     #cf-reg tr.no-sel td { opacity:.55; }
-    #cf-wrap .badge-plazo-vencido { background:#f8d7da; color:#a3232f; }
-    #cf-wrap .badge-plazo-alerta { background:#fff3cd; color:#8a6d00; }
-    #cf-wrap .badge-plazo-ok { background:#d4f4e2; color:#0f6b40; }
-    #cf-wrap .badge-plazo-activo { background:#d4f4e2; color:#0f6b40; font-weight:600; }
-    #cf-wrap .badge-plazo-falta { background:#fff3cd; color:#8a6d00; font-weight:600; }
+    /* Código del responsable (una persona tiene uno por oficina) */
+    #cf-wrap .cf-resp-cod { display:inline-flex; align-items:center; gap:.2rem; font-weight:700; color: var(--sm-primario);
+        background: rgba(var(--sm-primario-rgb), .08); border-radius:6px; padding:0 .4rem; font-variant-numeric: tabular-nums; }
+
+    /* Notificación vigente de la persona: siempre a la vista, con su contador y sus botones */
+    #cf-wrap .cf-notifs { padding: 0 1rem .75rem 2.6rem; display:flex; flex-direction:column; gap:.5rem; }
+    #cf-wrap .cf-notif {
+        display:grid; grid-template-columns: minmax(200px, 1fr) minmax(240px, auto) auto; align-items:center; gap:.75rem 1rem;
+        border:1px solid var(--sm-borde); border-radius:12px; padding:.6rem .85rem; background: var(--sm-superficie-2);
+    }
+    #cf-wrap .cf-notif-doc { display:flex; align-items:center; gap:.6rem; }
+    #cf-wrap .cf-notif-doc > i { font-size:1.5rem; color: var(--sm-primario); }
+    #cf-wrap .cf-notif-num { font-weight:700; }
+    #cf-wrap .cf-notif-acciones { display:flex; gap:.4rem; flex-wrap:wrap; justify-content:flex-end; }
+
+    /* Contador del plazo */
+    .cf-contador { display:inline-flex; align-items:center; gap:.55rem; border-radius:12px; padding:.4rem .75rem;
+        border:1px solid transparent; line-height:1.15; }
+    .cf-contador > i { font-size:1.6rem; }
+    .cf-contador b { display:block; font-size:1.02rem; }
+    .cf-contador small { display:block; font-size:.74rem; opacity:.85; }
+    .cf-plazo-ok      { background: rgba(var(--sm-exito-rgb), .12); color: var(--sm-exito); border-color: rgba(var(--sm-exito-rgb), .3); }
+    .cf-plazo-alerta  { background: rgba(245, 158, 11, .14); color:#b45309; border-color: rgba(245, 158, 11, .4); }
+    .cf-plazo-vencido { background: rgba(var(--sm-peligro-rgb), .1); color: var(--sm-peligro); border-color: rgba(var(--sm-peligro-rgb), .35); }
+    .cf-modal-plazo { display:flex; flex-direction:column; gap:.35rem; }
+    html.dark-style #cf-wrap .est-camino, html.dark-style #cf-wrap .badge-OBSERVADO,
+    html.dark-style .cf-plazo-alerta { color:#fbbf24; }
+    @media (max-width: 991.98px) {
+        #cf-wrap .cf-notifs { padding-left: 1rem; }
+        #cf-wrap .cf-notif { grid-template-columns: 1fr; }
+        #cf-wrap .cf-notif-acciones { justify-content:flex-start; }
+    }
 </style>
 
-<div id="cf-wrap">
+<div class="sm-pagina" id="cf-wrap">
 
-    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
-        <div>
-            <h4 class="py-2 mb-1">
-                <span class="text-muted fw-light">Seguimiento y Consultas /</span> FALTANTES
-            </h4>
-            <p class="text-muted mb-2" style="font-size:.9rem; max-width:860px;">
-                Agrupado por <b>persona</b>, luego por predio y oficina de donde falta el bien. Al
-                <b>registrar</b> los faltantes se emite la <b>notificación</b> al responsable (con el plazo en días
-                hábiles para que informe) y los bienes pasan a la
-                oficina de faltantes de su predio. Al <b>resolver</b>, si el bien apareció vuelve a su
-                responsable; si se justificó o va a baja, queda en custodia pendiente de baja.
-            </p>
-        </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <button type="button" class="btn btn-sm btn-danger" id="cf-btn-registrar">
-                <i class="ti ti-file-alert me-1"></i> Registrar faltantes
-            </button>
-            <div class="btn-group">
-                <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
-                    <i class="ti ti-report me-1"></i> Reportes
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="#" id="cf-rep-predio"><i class="ti ti-building-warehouse me-1"></i> Custodia por predio…</a></li>
-                    <li><a class="dropdown-item" href="#" id="cf-rep-consolidado"><i class="ti ti-users me-1"></i> Consolidado por persona…</a></li>
-                </ul>
-            </div>
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="cf-btn-refrescar">
-                <i class="ti ti-refresh me-1"></i> Refrescar
-            </button>
-            <button type="button" class="btn btn-sm btn-success" id="cf-btn-excel">
-                <i class="ti ti-file-spreadsheet me-1"></i> Exportar Excel
-            </button>
-        </div>
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-alert-triangle"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-map-search"></i> Control por responsable <i class="ti ti-chevron-right"></i> Faltantes
+        </nav>
+        <h1 class="sm-titulo">Faltantes</h1>
+        <p class="sm-subtitulo">Por persona, predio y oficina de origen. Registrar emite la notificación con plazo y pasa los
+            bienes a la oficina de faltantes del predio; resolver los devuelve o los deja pendientes de baja.</p>
     </div>
-
-    <!-- Resumen -->
-    <div class="row g-3 mb-3">
-        <div class="col-6 col-md-3"><div class="card cf-card shadow-sm"><div class="card-body py-3">
-            <div class="num text-danger" id="cf-n-abiertos">—</div><div class="lbl">Abiertos</div></div></div></div>
-        <div class="col-6 col-md-3"><div class="card cf-card shadow-sm"><div class="card-body py-3">
-            <div class="num" style="color:#5b3a9c" id="cf-n-custodia">—</div><div class="lbl">En custodia</div></div></div></div>
-        <div class="col-6 col-md-3"><div class="card cf-card shadow-sm"><div class="card-body py-3">
-            <div class="num text-success" id="cf-n-resueltos">—</div><div class="lbl">Resueltos</div></div></div></div>
-        <div class="col-6 col-md-3"><div class="card cf-card shadow-sm"><div class="card-body py-3">
-            <div class="num text-dark" id="cf-n-personas">—</div><div class="lbl">Personas afectadas</div></div></div></div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato" title="Faltantes sin registrar o en traslado"><strong class="text-danger" id="cf-n-abiertos">—</strong> abiertos</span>
+        <span class="sm-dato"><strong style="color:#7e57c2" id="cf-n-custodia">—</strong> en custodia</span>
+        <span class="sm-dato"><strong class="text-success" id="cf-n-resueltos">—</strong> resueltos</span>
+        <span class="sm-dato" title="Personas con algo pendiente"><strong id="cf-n-personas">—</strong> personas</span>
+        <button type="button" class="sm-btn sm-btn-peligro" id="cf-btn-registrar">
+            <i class="ti ti-file-alert"></i> Registrar faltantes
+        </button>
     </div>
+</header>
 
-    <ul class="nav nav-tabs mb-3" role="tablist">
-        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#cf-tab-faltantes" type="button">
-            <i class="ti ti-list-details me-1"></i> Faltantes</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cf-tab-actas" type="button" id="cf-tab-actas-btn">
-            <i class="ti ti-file-certificate me-1"></i> Notificaciones y actas</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cf-tab-conc" type="button" id="cf-tab-conc-btn">
-            <i class="ti ti-scale me-1"></i> Conciliación <span class="badge bg-danger ms-1 d-none" id="cf-conc-badge"></span></button></li>
-    </ul>
+<div class="sm-segmento cf-pestanas" role="tablist" aria-label="Secciones">
+    <button type="button" class="active" data-bs-toggle="tab" data-bs-target="#cf-tab-faltantes" role="tab">
+        <i class="ti ti-list-details"></i> Faltantes</button>
+    <button type="button" data-bs-toggle="tab" data-bs-target="#cf-tab-actas" role="tab" id="cf-tab-actas-btn">
+        <i class="ti ti-file-certificate"></i> Notificaciones y actas</button>
+    <button type="button" data-bs-toggle="tab" data-bs-target="#cf-tab-conc" role="tab" id="cf-tab-conc-btn">
+        <i class="ti ti-scale"></i> Conciliación <span class="sm-cuenta d-none" id="cf-conc-badge"></span></button>
+</div>
 
-    <div class="tab-content p-0">
-        <!-- ── Faltantes ─────────────────────────────────────────────── -->
-        <div class="tab-pane fade show active" id="cf-tab-faltantes">
-            <div class="card shadow-sm mb-3"><div class="card-body py-3">
-                <div class="row g-2 align-items-end">
-                    <div class="col-md-3">
-                        <label class="form-label mb-1" style="font-size:.78rem;">Predio</label>
-                        <select class="form-select form-select-sm" id="cf-f-predio"><option value="">Todos</option></select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label mb-1" style="font-size:.78rem;">Oficina de origen</label>
-                        <select class="form-select form-select-sm" id="cf-f-oficina"><option value="">Todas</option></select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label mb-1" style="font-size:.78rem;">Tipo</label>
-                        <select class="form-select form-select-sm" id="cf-f-tipo">
-                            <option value="">Todos</option>
-                            <option value="FALTANTE" selected>Faltante</option>
-                            <option value="OBSERVADO">Con novedad</option>
-                            <option value="SOBRANTE">Sobrante</option>
-                            <option value="SIN_CODIFICAR">Sin codificar</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label mb-1" style="font-size:.78rem;">Estado</label>
-                        <select class="form-select form-select-sm" id="cf-f-estado">
-                            <option value="PENDIENTES" selected>Pendientes</option>
-                            <option value="ABIERTO">Abiertos</option>
-                            <option value="EN_CUSTODIA">En custodia</option>
-                            <option value="RESUELTO">Resueltos</option>
-                            <option value="">Todos</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <button class="btn btn-sm btn-primary w-100" id="cf-btn-filtrar">
-                            <i class="ti ti-filter me-1"></i> Filtrar
+<div class="tab-content p-0">
+    <!-- ── Faltantes ─────────────────────────────────────────────── -->
+    <div class="tab-pane fade show active" id="cf-tab-faltantes" role="tabpanel">
+        <section class="sm-card mb-3 js-cf-tarjeta">
+            <div class="sm-toolbar">
+                <label class="d-flex flex-column gap-1" style="min-width:200px;">
+                    <span class="cf-filtro-lbl">Predio</span>
+                    <select class="sm-select" id="cf-f-predio">
+                        <option value="">Todos</option>
+                        <option th:each="p : ${predios}" th:value="${p.idPredio}"
+                                th:text="${(p.unidad != null ? p.unidad + ' — ' : '') + p.descrip}"></option>
+                    </select>
+                </label>
+                <label class="d-flex flex-column gap-1" style="min-width:220px;">
+                    <span class="cf-filtro-lbl">Oficina de origen</span>
+                    <select class="sm-select" id="cf-f-oficina"><option value="">Todas</option></select>
+                </label>
+                <label class="d-flex flex-column gap-1">
+                    <span class="cf-filtro-lbl">Tipo</span>
+                    <select class="sm-select" id="cf-f-tipo">
+                        <option value="">Todos</option>
+                        <option value="FALTANTE" selected>Faltante</option>
+                        <option value="OBSERVADO">Con novedad</option>
+                        <option value="SOBRANTE">Sobrante</option>
+                        <option value="SIN_CODIFICAR">Sin codificar</option>
+                    </select>
+                </label>
+                <label class="d-flex flex-column gap-1">
+                    <span class="cf-filtro-lbl">Estado</span>
+                    <select class="sm-select" id="cf-f-estado">
+                        <option value="PENDIENTES" selected>Pendientes</option>
+                        <option value="ABIERTO">Abiertos</option>
+                        <option value="EN_CUSTODIA">En custodia</option>
+                        <option value="RESUELTO">Resueltos</option>
+                        <option value="">Todos</option>
+                    </select>
+                </label>
+                <div class="sm-toolbar-grupo align-self-end">
+                    <button type="button" class="sm-btn sm-btn-sm" id="cf-btn-filtrar"><i class="ti ti-filter"></i> Filtrar</button>
+                    <div class="btn-group">
+                        <button type="button" class="sm-btn sm-btn-sm sm-btn-suave dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="ti ti-report"></i> Reportes
                         </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#" id="cf-rep-predio"><i class="ti ti-building-warehouse me-1"></i> Custodia por predio…</a></li>
+                            <li><a class="dropdown-item" href="#" id="cf-rep-consolidado"><i class="ti ti-users me-1"></i> Consolidado por persona…</a></li>
+                        </ul>
                     </div>
+                    <button type="button" class="sm-btn sm-btn-sm sm-btn-exito" id="cf-btn-excel"><i class="ti ti-file-spreadsheet"></i> Excel</button>
+                    <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro" id="cf-btn-refrescar" title="Volver a cargar"><i class="ti ti-refresh"></i></button>
                 </div>
-            </div></div>
-
-            <div id="cf-loading" class="text-center py-5" style="display:none;">
-                <div class="spinner-border text-primary" role="status"></div>
             </div>
-            <div id="cf-vacio" class="text-center text-muted py-5" style="display:none;">
-                <div style="font-size:40px;">✅</div>
-                <h6 class="mt-2">Sin hallazgos con estos filtros</h6>
-                <p class="mb-0" style="font-size:.86rem;">No hay nada pendiente de revisar en este alcance.</p>
+        </section>
+
+        <div id="cf-loading"></div>
+        <div id="cf-vacio" class="sm-card" style="display:none;">
+            <div class="sm-vacio">
+                <i class="ti ti-circle-check text-success"></i>
+                <h6 class="mt-1">Sin hallazgos con estos filtros</h6>
+                <p class="mb-0">No hay nada pendiente de revisar en este alcance.</p>
             </div>
-            <div id="cf-grupos"></div>
         </div>
-
-        <!-- ── Actas ─────────────────────────────────────────────────── -->
-        <div class="tab-pane fade" id="cf-tab-actas">
-            <div class="card shadow-sm"><div class="card-body">
-                <div class="d-flex gap-2 mb-2 flex-wrap">
-                    <input type="text" class="form-control form-control-sm" id="cf-actas-filtro" style="max-width:320px;"
-                           placeholder="Filtrar por N°, persona o C.I.">
-                    <span class="text-muted align-self-center" style="font-size:.8rem;" id="cf-actas-conteo"></span>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead><tr>
-                            <th>N° de documento</th><th>Fecha</th><th>Persona</th><th class="text-center">Bienes</th>
-                            <th>Estado</th><th>Traslado a custodia</th><th class="text-end">Acciones</th>
-                        </tr></thead>
-                        <tbody id="cf-actas-cuerpo"></tbody>
-                    </table>
-                </div>
-            </div></div>
-        </div>
-
-        <!-- ── Conciliación ──────────────────────────────────────────── -->
-        <div class="tab-pane fade" id="cf-tab-conc">
-            <p class="text-muted mb-3" style="font-size:.86rem; max-width:860px;">
-                Lo que no cierra entre los faltantes y dónde está cada bien. Se recalcula al abrir la pestaña.
-            </p>
-            <div id="cf-conc-cuerpo"></div>
-        </div>
+        <div id="cf-grupos"></div>
     </div>
+
+    <!-- ── Notificaciones y actas ────────────────────────────────── -->
+    <div class="tab-pane fade" id="cf-tab-actas" role="tabpanel">
+        <section class="sm-card">
+            <div class="sm-toolbar">
+                <div class="sm-buscador">
+                    <i class="ti ti-search"></i>
+                    <input type="text" class="sm-input" id="cf-actas-filtro" placeholder="Filtrar por N°, persona o C.I." autocomplete="off">
+                </div>
+                <span class="sm-sub" id="cf-actas-conteo"></span>
+            </div>
+            <div class="table-responsive">
+                <table class="table sm-tabla align-middle mb-0">
+                    <thead><tr>
+                        <th>N° de documento</th><th>Fecha</th><th>Persona</th><th class="text-center">Bienes</th>
+                        <th>Estado</th><th>Traslado a custodia</th><th class="text-end">Acciones</th>
+                    </tr></thead>
+                    <tbody id="cf-actas-cuerpo"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- ── Conciliación ──────────────────────────────────────────── -->
+    <div class="tab-pane fade" id="cf-tab-conc" role="tabpanel">
+        <p class="sm-sub mb-3" style="max-width:860px;">
+            Lo que no cierra entre los faltantes y dónde está cada bien. Se recalcula al abrir la pestaña.
+        </p>
+        <div id="cf-conc-cuerpo"></div>
+    </div>
+</div>
 
     <!-- ── Registro de faltantes ─────────────────────────────────────── -->
     <div class="modal fade" id="cf-reg" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="ti ti-file-alert me-1 text-danger"></i> Registrar faltantes</h5>
+            <div class="modal-content sm-modal">
+                <div class="sm-modal-cab">
+                    <h5 class="sm-modal-titulo"><i class="ti ti-file-alert me-1 text-danger"></i> Registrar faltantes</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <div class="modal-body">
+                <div class="sm-modal-cuerpo">
                     <!-- Paso 1: persona -->
                     <div id="cf-reg-paso1">
                         <label class="form-label mb-1">Persona responsable</label>
@@ -216,7 +241,7 @@
                                 <div class="fw-semibold" id="cf-reg-persona-nombre"></div>
                                 <div class="text-muted" style="font-size:.8rem;" id="cf-reg-persona-sub"></div>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="cf-reg-cambiar">
+                            <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro" id="cf-reg-cambiar">
                                 <i class="ti ti-arrow-back-up me-1"></i> Otra persona
                             </button>
                         </div>
@@ -255,14 +280,14 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <div class="sm-modal-pie">
+                    <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">Cancelar</button>
                     <!-- Vista previa: arma la notificación con lo elegido, sin registrar nada -->
-                    <button type="button" class="btn btn-outline-primary" id="cf-reg-previa" disabled
+                    <button type="button" class="sm-btn sm-btn-suave" id="cf-reg-previa" disabled
                             title="Ver cómo saldrá la notificación. No registra nada, no saca número ni toca el VSIAF.">
                         <i class="ti ti-eye me-1"></i> Vista previa
                     </button>
-                    <button type="button" class="btn btn-danger" id="cf-reg-guardar" disabled>
+                    <button type="button" class="sm-btn sm-btn-peligro" id="cf-reg-guardar" disabled>
                         <i class="ti ti-file-certificate me-1"></i> Registrar y emitir notificación
                     </button>
                 </div>
@@ -270,24 +295,26 @@
 </div>
 </div>
 
-    <!-- ── Notificar plazo (actualizar notificación existente) ──────── -->
+    <!-- ── Cambiar el plazo de la notificación vigente ──────────────── -->
     <div class="modal fade" id="cf-notif-plazo" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title"><i class="ti ti-clock me-1"></i> Actualizar plazo de notificación</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            <div class="modal-content sm-modal">
+                <div class="sm-modal-cab">
+                    <div class="sm-cabecera-icono"><i class="ti ti-clock-edit"></i></div>
+                    <div>
+                        <h5 class="sm-modal-titulo">Cambiar el plazo</h5>
+                        <p class="sm-modal-sub" id="np-sub">—</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <div class="fw-semibold" id="np-bien-codigo"></div>
-                        <div class="text-muted small" id="np-bien-desc"></div>
-                        <div class="text-muted small" id="np-acta-ref"></div>
+                <div class="sm-modal-cuerpo">
+                    <div class="cf-modal-plazo mb-3">
+                        <span class="cf-filtro-lbl">Plazo actual</span>
+                        <div id="np-actual"></div>
                     </div>
                     <div class="row g-2">
                         <div class="col-md-4">
-                            <label class="form-label mb-1" style="font-size:.8rem;" for="np-plazo">
-                                Nuevo plazo para responder <span class="text-danger">*</span></label>
+                            <label class="sm-label" for="np-plazo">Nuevo plazo <span class="sm-req">*</span></label>
                             <div class="input-group input-group-sm">
                                 <input type="number" class="form-control" id="np-plazo" min="1" max="90" step="1"
                                        inputmode="numeric" placeholder="Ej. 5">
@@ -295,133 +322,135 @@
                             </div>
                             <div class="invalid-feedback">Ingrese un plazo entre 1 y 90 días hábiles.</div>
                         </div>
+                        <div class="col-md-8">
+                            <div class="sm-aviso small mb-0 h-100"><i class="ti ti-info-circle"></i>
+                                <div>El nuevo plazo <b>corre desde hoy</b>: la notificación se vuelve a emitir con la fecha de
+                                hoy, el mismo número y los mismos bienes. Hay que imprimirla y entregarla de nuevo.</div></div>
+                        </div>
                         <div class="col-md-4">
-                            <label class="form-label mb-1" style="font-size:.8rem;">Documento de respaldo</label>
+                            <label class="sm-label" for="np-doc">Documento de respaldo</label>
                             <input type="text" class="form-control form-control-sm" id="np-doc" maxlength="120"
                                    placeholder="Informe, nota o memorándum (opcional)">
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label mb-1" style="font-size:.8rem;">Fecha del documento</label>
+                        <div class="col-md-3">
+                            <label class="sm-label" for="np-fecha-doc">Fecha del documento</label>
                             <input type="date" class="form-control form-control-sm" id="np-fecha-doc">
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label mb-1" style="font-size:.8rem;">Observación</label>
+                        <div class="col-md-5">
+                            <label class="sm-label" for="np-obs">Observación</label>
                             <input type="text" class="form-control form-control-sm" id="np-obs" maxlength="500"
-                                   placeholder="Motivo del nuevo plazo (opcional)">
+                                   placeholder="Vacío: se conserva la actual">
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-outline-primary" id="np-previa" disabled
+                <div class="sm-modal-pie">
+                    <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="sm-btn sm-btn-suave" id="np-previa" disabled
                             title="Ver cómo saldrá la notificación con el nuevo plazo. No registra nada.">
-                        <i class="ti ti-eye me-1"></i> Vista previa
+                        <i class="ti ti-eye"></i> Vista previa
                     </button>
-                    <button type="button" class="btn btn-warning" id="np-guardar" disabled>
-                        <i class="ti ti-file-certificate me-1"></i> Actualizar notificación
+                    <button type="button" class="sm-btn" id="np-guardar" disabled>
+                        <i class="ti ti-clock-edit"></i> Cambiar plazo
                     </button>
                 </div>
             </div>
-</div>
-</div>
+        </div>
+    </div>
 
-    <!-- ── Regenerar notificación (SIN cambiar plazo) ───────────────────── -->
+    <!-- ── Corregir datos de la notificación (sin cambiar el plazo) ───── -->
     <div class="modal fade" id="cf-regenerar-notif" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-info text-dark">
-                    <h5 class="modal-title"><i class="ti ti-file-refresh me-1"></i> Regenerar notificación</h5>
+            <div class="modal-content sm-modal">
+                <div class="sm-modal-cab">
+                    <div class="sm-cabecera-icono"><i class="ti ti-edit"></i></div>
+                    <div>
+                        <h5 class="sm-modal-titulo">Corregir datos de la notificación</h5>
+                        <p class="sm-modal-sub" id="rn-sub">—</p>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <div class="fw-semibold" id="rn-bien-codigo"></div>
-                        <div class="text-muted small" id="rn-bien-desc"></div>
-                        <div class="text-muted small" id="rn-acta-ref"></div>
-                        <div class="text-muted small fw-semibold" id="rn-plazo-info"></div>
-                    </div>
+                <div class="sm-modal-cuerpo">
                     <div class="row g-2">
                         <div class="col-md-4">
-                            <label class="form-label mb-1" style="font-size:.8rem;">Documento de respaldo</label>
+                            <label class="sm-label" for="rn-doc">Documento de respaldo</label>
                             <input type="text" class="form-control form-control-sm" id="rn-doc" maxlength="120"
                                    placeholder="Informe, nota o memorándum (opcional)">
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label mb-1" style="font-size:.8rem;">Fecha del documento</label>
+                        <div class="col-md-3">
+                            <label class="sm-label" for="rn-fecha-doc">Fecha del documento</label>
                             <input type="date" class="form-control form-control-sm" id="rn-fecha-doc">
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label mb-1" style="font-size:.8rem;">Observación</label>
+                        <div class="col-md-5">
+                            <label class="sm-label" for="rn-obs">Observación</label>
                             <input type="text" class="form-control form-control-sm" id="rn-obs" maxlength="500"
-                                   placeholder="Motivo de la regeneración / info adicional (opcional)">
+                                   placeholder="Vacío: se conserva la actual">
                         </div>
                     </div>
-                    <div class="alert alert-warning py-2 small mt-2 mb-0">
-                        <i class="ti ti-info-circle me-1"></i>
-                        <b>El plazo NO se modifica.</b> Solo se actualizan los campos de arriba. 
-                        Queda registrado en auditoría quién regeneró y qué cambió.
-                    </div>
+                    <div class="sm-aviso sm-aviso-aviso small mt-2 mb-0"><i class="ti ti-info-circle"></i>
+                        <div><b>El plazo y su fecha no cambian.</b> Solo se corrigen estos datos en el documento (lo que se
+                        deja vacío se conserva); queda en la auditoría quién lo hizo.</div></div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-outline-primary" id="rn-previa" disabled
-                            title="Ver cómo saldrá la notificación regenerada. No registra nada.">
-                        <i class="ti ti-eye me-1"></i> Vista previa
-                    </button>
-                    <button type="button" class="btn btn-info" id="rn-guardar">
-                        <i class="ti ti-file-refresh me-1"></i> Regenerar notificación
-                    </button>
+                <div class="sm-modal-pie">
+                    <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="sm-btn sm-btn-suave" id="rn-previa"><i class="ti ti-eye"></i> Vista previa</button>
+                    <button type="button" class="sm-btn" id="rn-guardar"><i class="ti ti-device-floppy"></i> Guardar corrección</button>
                 </div>
             </div>
-</div>
-</div>
+        </div>
+    </div>
 
-    <!-- ── Generar Reiterativa ────────────────────────────────────────────── -->
+    <!-- ── Emitir la reiterativa (documento nuevo, plazo nuevo) ─────────── -->
     <div class="modal fade" id="cf-generar-reiterativa" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="ti ti-repeat me-1"></i> Generar notificación reiterativa</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <div class="fw-semibold" id="gr-bien-codigo"></div>
-                        <div class="text-muted small" id="gr-bien-desc"></div>
-                        <div class="text-muted small" id="gr-acta-anterior-ref"></div>
-                        <div class="text-muted small fw-semibold" id="gr-tipo-reiterativa"></div>
+            <div class="modal-content sm-modal">
+                <div class="sm-modal-cab">
+                    <div class="sm-cabecera-icono"><i class="ti ti-repeat"></i></div>
+                    <div>
+                        <h5 class="sm-modal-titulo" id="gr-titulo">Emitir reiterativa</h5>
+                        <p class="sm-modal-sub" id="gr-sub">—</p>
                     </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="sm-modal-cuerpo">
+                    <div class="cf-modal-plazo mb-3">
+                        <span class="cf-filtro-lbl">Plazo de la notificación que se reitera</span>
+                        <div id="gr-actual"></div>
+                    </div>
+                    <div class="sm-aviso small mb-3" id="gr-explica"></div>
                     <div class="row g-2">
                         <div class="col-md-4">
-                            <label class="form-label mb-1" style="font-size:.8rem;">Documento de respaldo</label>
+                            <label class="sm-label" for="gr-plazo">Plazo de la reiterativa <span class="sm-req">*</span></label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" class="form-control" id="gr-plazo" min="1" max="90" step="1"
+                                       inputmode="numeric" placeholder="Ej. 3">
+                                <span class="input-group-text">días hábiles</span>
+                            </div>
+                            <div class="invalid-feedback">Ingrese un plazo entre 1 y 90 días hábiles.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="sm-label" for="gr-doc">Documento de respaldo</label>
                             <input type="text" class="form-control form-control-sm" id="gr-doc" maxlength="120"
                                    placeholder="Informe, nota o memorándum (opcional)">
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label mb-1" style="font-size:.8rem;">Fecha del documento</label>
+                        <div class="col-md-4">
+                            <label class="sm-label" for="gr-fecha-doc">Fecha del documento</label>
                             <input type="date" class="form-control form-control-sm" id="gr-fecha-doc">
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label mb-1" style="font-size:.8rem;">Observación</label>
+                        <div class="col-12">
+                            <label class="sm-label" for="gr-obs">Observación</label>
                             <input type="text" class="form-control form-control-sm" id="gr-obs" maxlength="500"
-                                   placeholder="Motivo de la reiterativa / info adicional (opcional)">
+                                   placeholder="Información adicional (opcional)">
                         </div>
                     </div>
-                    <div class="alert alert-info py-2 small mt-2 mb-0">
-                        <i class="ti ti-info-circle me-1"></i>
-                        <b>Se crea una NUEVA notificación</b> con correlativo continuo (ej: NOT-AF-020/2026).<br>
-                        El PDF mencionará: "Esta notificación reiterativa hace referencia a la notificación NOT:SCIAF:AF N° 001/2026".<br>
-                        <b>Máximo 2 reiterativas permitidas</b> (inicial + 2 reiterativas = 3 notificaciones totales).
-                    </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-outline-primary" id="gr-previa" disabled
-                            title="Ver cómo saldrá la notificación reiterativa. No registra nada.">
-                        <i class="ti ti-eye me-1"></i> Vista previa
+                <div class="sm-modal-pie">
+                    <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="sm-btn sm-btn-suave" id="gr-previa" disabled
+                            title="Ver cómo saldrá la reiterativa. No registra nada.">
+                        <i class="ti ti-eye"></i> Vista previa
                     </button>
-                    <button type="button" class="btn btn-primary" id="gr-guardar">
-                        <i class="ti ti-repeat me-1"></i> Generar reiterativa
+                    <button type="button" class="sm-btn sm-btn-peligro" id="gr-guardar" disabled>
+                        <i class="ti ti-repeat"></i> Emitir reiterativa
                     </button>
                 </div>
             </div>
@@ -441,7 +470,9 @@
         }
         function fmtFecha(s) {
             if (!s) return '—';
-            var d = new Date(s);
+            // Solo fecha (AAAA-MM-DD): new Date la toma en UTC y en Bolivia mostraba el día anterior.
+            var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s));
+            var d = m ? new Date(+m[1], m[2] - 1, +m[3]) : new Date(s);
             return isNaN(d) ? '—' : d.toLocaleDateString('es-BO');
         }
         function fmtFechaHora(s) {
@@ -461,95 +492,173 @@
         function numDoc(n) { return n && n.indexOf('NOT-AF-') === 0 ? 'NOT:SCIAF:AF N° ' + n.substring(7) : (n || ''); }
 
         // ── Filtros de ubicación ─────────────────────────────────────────
-        $.get(BASE + '/mapa/predios').done(function (ps) {
-            $('#cf-f-predio').append(ps.map(function (p) {
-                return '<option value="' + p.idPredio + '">' + esc(p.descrip) + '</option>';
-            }).join(''));
-        });
-
+        // Los predios llegan con la vista. Antes se pedían a /mapa/predios y las oficinas a
+        // /mapa/predios/{id}/oficinas: los conteos del mapa (seis por oficina, 387 oficinas
+        // en Las Palmas) solo para llenar un desplegable.
         $('#cf-f-predio').on('change', function () {
             var id = $(this).val();
             var $of = $('#cf-f-oficina').html('<option value="">Todas</option>');
             if (!id) return;
-            $.get(BASE + '/mapa/predios/' + id + '/oficinas').done(function (os) {
-                $of.append(os.filter(function (o) { return !o.esCustodia; }).map(function (o) {
+            $.get(BASE + '/faltantes/oficinas', { idPredio: id }).done(function (os) {
+                $of.append(os.map(function (o) {
                     return '<option value="' + o.idOficina + '">' + esc(o.codOfi) + ' · ' + esc(o.nombre) + '</option>';
                 }).join(''));
             });
         });
 
         // ── Faltantes ────────────────────────────────────────────────────
+        // Primera carga con el preloader; las siguientes con la barra fina de la tarjeta y los
+        // grupos a la vista (atenuados), sin saltos.
+        var primeraCarga = true;
         function cargar() {
-            $('#cf-loading').show(); $('#cf-vacio').hide(); $('#cf-grupos').empty();
+            var carga = null;
+            $('#cf-vacio').hide();
+            if (primeraCarga) {
+                carga = SciafPrecarga.montar(document.getElementById('cf-loading'),
+                    { compacta: true, texto: 'Cargando faltantes…', alReintentar: cargar });
+            } else {
+                $('#cf-wrap .js-cf-tarjeta').addClass('sm-procesando');
+                $('#cf-grupos').css('opacity', 0.55);
+            }
             $.get(BASE + '/faltantes', {
                 idPredio:  $('#cf-f-predio').val()  || null,
                 idOficina: $('#cf-f-oficina').val() || null,
                 tipo:      $('#cf-f-tipo').val()    || null,
                 estado:    $('#cf-f-estado').val()  || null
             })
-            .done(function (res) { datos = res || []; pintar(); })
-            .fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudieron cargar los hallazgos.'), 'error'); })
-            .always(function () { $('#cf-loading').hide(); });
+            .done(function (res) {
+                if (carga) carga.cerrar();
+                primeraCarga = false;
+                datos = res || [];
+                pintar();
+            })
+            .fail(function (xhr) {
+                if (carga) carga.error('No se pudieron cargar los hallazgos', errorDe(xhr, SciafPrecarga.motivo(xhr.status)));
+                else aviso('Error', errorDe(xhr, 'No se pudieron cargar los hallazgos.'), 'error');
+            })
+            .always(function () {
+                $('#cf-wrap .js-cf-tarjeta').removeClass('sm-procesando');
+                $('#cf-grupos').css('opacity', 1);
+            });
         }
 
         /** Estado del faltante, incluido el paso del traslado a la custodia. */
         function estadoDe(h) {
             if (h.estadoHallazgo === 'RESUELTO') return '<span class="badge est-ok">Resuelto</span>';
             if (h.estadoHallazgo === 'EN_CUSTODIA') return '<span class="badge est-custodia">En custodia</span>';
-            
-            // Mostrar contador de plazo si hay acta con plazo
-            var plazoHtml = '';
-            if (h.plazoDias != null && h.fechaEnvioCustodia) {
-                plazoHtml = ' <span class="badge badge-plazo" data-plazo-dias="' + h.plazoDias + '" data-fecha-inicio="' + h.fechaEnvioCustodia + '" style="font-size:.7rem;"></span>';
-            }
-            
             var msg = h.mensajeEnvio ? ' title="' + esc(h.mensajeEnvio) + '"' : '';
             switch (h.estadoEnvio) {
-                case 'ESPERANDO_ALTA': return '<span class="badge est-camino"' + msg + '>Preparando custodia</span>' + plazoHtml;
-                case 'ENVIADO':        return '<span class="badge est-camino"' + msg + '>Trasladando en VSIAF</span>' + plazoHtml;
-                case 'ERROR':          return '<span class="badge est-error"' + msg + '>Error de traslado <i class="ti ti-info-circle"></i></span>' + plazoHtml;
+                case 'ESPERANDO_ALTA': return '<span class="badge est-camino"' + msg + '>Preparando custodia</span>';
+                case 'ENVIADO':        return '<span class="badge est-camino"' + msg + '>Trasladando en VSIAF</span>';
+                case 'ERROR':          return '<span class="badge est-error"' + msg + '>Error de traslado <i class="ti ti-info-circle"></i></span>';
             }
-            return '<span class="badge est-abierto">Abierto · sin registrar</span>' + plazoHtml;
+            return '<span class="badge est-abierto">Abierto · sin notificar</span>';
         }
 
-        /** Actualiza todos los contadores de plazo en la vista. */
+        // ── Plazo en días hábiles ────────────────────────────────────────
+        /**
+         * El plazo de la notificación es en días HÁBILES y corre desde la fecha del documento (la
+         * emisión, o el día en que se cambió el plazo). Antes el contador sumaba días corridos
+         * desde el traslado a custodia: una notificación de 5 días hábiles enviada un viernes
+         * figuraba vencida el miércoles, y si el traslado tardaba, no había contador. Se cuenta de
+         * lunes a viernes desde el día siguiente; los feriados no se descuentan (no hay calendario).
+         */
+        function soloDia(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+        function esHabil(d) { var w = d.getDay(); return w !== 0 && w !== 6; }
+        function finPlazoHabil(inicio, dias) {
+            var d = soloDia(inicio), n = 0;
+            while (n < dias) { d.setDate(d.getDate() + 1); if (esHabil(d)) n++; }
+            return d;
+        }
+        /** Días hábiles d con desde < d <= hasta. */
+        function habilesEntre(desde, hasta) {
+            var d = soloDia(desde), fin = soloDia(hasta), n = 0;
+            while (d < fin) { d.setDate(d.getDate() + 1); if (esHabil(d)) n++; }
+            return n;
+        }
+        var DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+        function fmtDia(d) {
+            return DIAS[d.getDay()] + ' ' + String(d.getDate()).padStart(2, '0') + '/' +
+                   String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+        }
+
+        /** {clase, icono, texto, vence} del plazo; null si no hay plazo o fecha. */
+        function estadoPlazo(plazoDias, inicioStr) {
+            if (!plazoDias || !inicioStr) return null;
+            var inicio = new Date(inicioStr);
+            if (isNaN(inicio)) return null;
+            var fin = finPlazoHabil(inicio, plazoDias), hoy = soloDia(new Date());
+            if (hoy > fin) {
+                var pasados = habilesEntre(fin, hoy);
+                return { clase: 'cf-plazo-vencido', icono: 'ti-alarm-off', vence: fin,
+                         texto: 'Plazo vencido' + (pasados > 0 ? ' hace ' + pasados + ' día(s) hábil(es)' : '') };
+            }
+            if (hoy.getTime() === fin.getTime()) {
+                return { clase: 'cf-plazo-alerta', icono: 'ti-alarm', texto: 'Vence hoy', vence: fin };
+            }
+            var quedan = habilesEntre(hoy, fin);
+            return { clase: quedan <= 2 ? 'cf-plazo-alerta' : 'cf-plazo-ok', icono: quedan <= 2 ? 'ti-alarm' : 'ti-hourglass-high',
+                     texto: 'Quedan ' + quedan + ' día' + (quedan === 1 ? '' : 's') + ' hábil' + (quedan === 1 ? '' : 'es'), vence: fin };
+        }
+
+        function contadorHtml(n) {
+            return '<span class="cf-contador" data-plazo-dias="' + Number(n.plazoDias) + '" data-fecha-inicio="' +
+                   esc(n.inicioPlazo || '') + '"></span>';
+        }
+
+        /** Repinta todos los contadores (tarjetas y modales). */
         function actualizarContadoresPlazo() {
-            $('#cf-wrap .badge-plazo').each(function () {
-                var $b = $(this);
-                var plazoDias = parseInt($b.data('plazo-dias'), 10);
-                var fechaInicioStr = $b.data('fecha-inicio');
-                if (!plazoDias || !fechaInicioStr) return;
-                var inicio = new Date(fechaInicioStr);
-                var fin = new Date(inicio.getTime() + plazoDias * 24 * 60 * 60 * 1000);
-                var ahora = new Date();
-                var diffDias = Math.ceil((fin - ahora) / (24 * 60 * 60 * 1000));
-                var icono, texto, clase;
-                if (diffDias < 0) {
-                    icono = 'ti ti-alert-circle';
-                    texto = 'Vencido hace ' + Math.abs(diffDias) + ' día(s)';
-                    clase = 'badge-plazo-vencido';
-                } else if (diffDias === 0) {
-                    icono = 'ti ti-alert-circle';
-                    texto = 'Vence hoy';
-                    clase = 'badge-plazo-alerta';
-                } else if (diffDias <= 2) {
-                    icono = 'ti ti-clock';
-                    texto = 'Quedan ' + diffDias + ' día(s)';
-                    clase = 'badge-plazo-alerta';
-                } else {
-                    icono = 'ti ti-calendar-check';
-                    texto = 'Quedan ' + diffDias + ' día(s)';
-                    clase = 'badge-plazo-ok';
-                }
-                $b.removeClass('badge-plazo-vencido badge-plazo-alerta badge-plazo-ok')
-                  .addClass(clase)
-                  .html('<i class="' + icono + ' me-1"></i>' + texto);
+            $('.cf-contador').each(function () {
+                var $c = $(this);
+                var e = estadoPlazo(parseInt($c.attr('data-plazo-dias'), 10), $c.attr('data-fecha-inicio'));
+                if (!e) { $c.attr('class', 'cf-contador').html('<span class="cf-sub">Sin plazo</span>'); return; }
+                $c.attr('class', 'cf-contador ' + e.clase)
+                  .html('<i class="ti ' + e.icono + '"></i><span><b>' + esc(e.texto) + '</b>' +
+                        '<small>' + (e.clase === 'cf-plazo-vencido' ? 'venció el ' : 'vence el ') + esc(fmtDia(e.vence)) +
+                        ' · ' + Number($c.attr('data-plazo-dias')) + ' día(s) hábil(es) desde el ' +
+                        esc(fmtDia(soloDia(new Date($c.attr('data-fecha-inicio'))))) + '</small></span>');
             });
+        }
+
+        // ── Lista agrupada por persona ───────────────────────────────────
+        var notifs = {};   // idActa → notificación vigente (para los botones de su tarjeta)
+
+        /** Tarjeta de una notificación vigente: documento, contador y lo que se puede hacer con ella. */
+        function tarjetaNotif(n) {
+            var esNot = n.plazoDias != null;
+            var acciones = '<button type="button" class="sm-btn sm-btn-sm cf-n-imprimir" title="Abrir el documento vigente para imprimirlo">' +
+                           '<i class="ti ti-printer"></i> Imprimir ' + (esNot ? 'notificación' : 'acta') + '</button>';
+            if (esNot) {
+                var ultima = n.numeroReiterativa >= 2;
+                acciones +=
+                    '<button type="button" class="sm-btn sm-btn-sm sm-btn-peligro cf-n-reiterativa"' + (ultima ? ' disabled' : '') +
+                        ' title="' + (ultima ? 'Ya se emitió la segunda y última reiterativa'
+                                             : 'Documento nuevo que reitera esta notificación, con un plazo nuevo') + '">' +
+                        '<i class="ti ti-repeat"></i> ' + (n.numeroReiterativa === 0 ? 'Emitir reiterativa'
+                            : (n.numeroReiterativa === 1 ? 'Emitir última reiterativa' : 'Sin más reiterativas')) + '</button>' +
+                    '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave cf-n-plazo" title="Cambiar el plazo de esta notificación (corre desde hoy)">' +
+                        '<i class="ti ti-clock-edit"></i> Cambiar plazo</button>' +
+                    '<div class="btn-group"><button type="button" class="sm-btn sm-btn-sm sm-btn-neutro dropdown-toggle" ' +
+                        'data-bs-toggle="dropdown" aria-expanded="false" title="Más acciones"><i class="ti ti-dots"></i></button>' +
+                        '<ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item cf-n-corregir" href="#">' +
+                        '<i class="ti ti-edit me-1"></i> Corregir datos del documento</a></li></ul></div>';
+            }
+            var tipo = !esNot ? 'Acta' : (n.numeroReiterativa === 1 ? '1ª reiterativa'
+                     : n.numeroReiterativa === 2 ? '2ª y última reiterativa' : 'Notificación');
+            return '<div class="cf-notif" data-acta="' + Number(n.idActa) + '">' +
+                '<div class="cf-notif-doc"><i class="ti ti-file-certificate"></i><div>' +
+                    '<div class="cf-notif-num">' + esc(numDoc(n.numeroActa)) +
+                    ' <span class="badge ' + (n.numeroReiterativa ? 'est-error' : 'bg-label-primary') + '">' + tipo + '</span></div>' +
+                    '<div class="cf-sub">' + n.pendientes + ' bien(es) pendiente(s)' +
+                    (n.enTraslado ? ' · ' + n.enTraslado + ' en traslado a custodia' : '') + '</div></div></div>' +
+                (esNot ? '<div class="cf-notif-plazo">' + contadorHtml(n) + '</div>' : '') +
+                '<div class="cf-notif-acciones">' + acciones + '</div></div>';
         }
 
         function pintar() {
             var abiertos = 0, custodia = 0, resueltos = 0;
             var personas = {}, orden = [];
+            notifs = {};
 
             datos.forEach(function (h) {
                 if (h.estadoHallazgo === 'RESUELTO') resueltos++;
@@ -560,10 +669,25 @@
                 var k = h.idPersona ? 'p' + h.idPersona : (h.idResponsable ? 'r' + h.idResponsable : 'sin');
                 if (!personas[k]) {
                     personas[k] = { idPersona: h.idPersona, nombre: h.responsable || 'Sin responsable asignado',
-                                    ci: h.ci, filas: [] };
+                                    ci: h.ci, filas: [], notifs: [] };
                     orden.push(k);
                 }
-                personas[k].filas.push(h);
+                var g = personas[k];
+                g.filas.push(h);
+                // La notificación vigente es la de los faltantes que siguen pendientes.
+                if (h.idActa && h.estadoHallazgo !== 'RESUELTO') {
+                    var n = notifs[h.idActa];
+                    if (!n) {
+                        // Pendientes de TODA la notificación (lo da el servidor): con un filtro por oficina
+                        // o estado, contar las filas visibles daba menos de los que mueve la reiterativa.
+                        n = notifs[h.idActa] = { idActa: h.idActa, numeroActa: h.numeroActa, plazoDias: h.plazoDias,
+                            inicioPlazo: h.inicioPlazo, numeroReiterativa: h.numeroReiterativa || 0,
+                            persona: g.nombre, pendientes: h.pendientesActa || 0, enTraslado: 0,
+                            documentoRespaldo: h.documentoRespaldo || '', fechaDocumento: h.fechaDocumento || '' };
+                        g.notifs.push(n);
+                    }
+                    if (h.estadoEnvio === 'ENVIADO' || h.estadoEnvio === 'ESPERANDO_ALTA') n.enTraslado++;
+                }
             });
 
             $('#cf-n-abiertos').text(abiertos);
@@ -573,18 +697,21 @@
                 return personas[k].filas.some(function (f) { return f.estadoHallazgo !== 'RESUELTO'; });
             }).length);
 
-            if (!datos.length) { $('#cf-vacio').show(); return; }
+            if (!datos.length) { $('#cf-grupos').empty(); $('#cf-vacio').show(); return; }
 
-            var html = orden.map(function (k, i) {
+            var html = orden.map(function (k) {
                 var g = personas[k];
                 var pendientes = g.filas.filter(function (f) { return f.estadoHallazgo !== 'RESUELTO'; }).length;
                 var sinRegistrar = g.filas.filter(function (f) {
-                    return f.estadoHallazgo === 'ABIERTO' && !f.estadoEnvio && f.tipoHallazgo === 'FALTANTE';
+                    return f.estadoHallazgo === 'ABIERTO' && !f.estadoEnvio && !f.idActa && f.tipoHallazgo === 'FALTANTE';
                 }).length;
                 var enCustodia = g.filas.filter(function (f) { return f.estadoHallazgo === 'EN_CUSTODIA'; }).length;
-                var predios = {}, oficinas = {};
-                g.filas.forEach(function (f) { predios[f.idPredio] = 1; oficinas[f.idOficina] = 1; });
-                var id = 'cf-g-' + i;
+                var predios = {}, oficinas = {}, codigos = [];
+                g.filas.forEach(function (f) {
+                    predios[f.idPredio] = 1; oficinas[f.idOficina] = 1;
+                    if (f.codigoFuncionario && codigos.indexOf(f.codigoFuncionario) === -1) codigos.push(f.codigoFuncionario);
+                });
+                var id = 'cf-g-' + k;   // por persona (no por posición): sobrevive a la recarga
 
                 var filas = '', predioAct = null, oficinaAct = null;
                 g.filas.forEach(function (h) {
@@ -602,22 +729,28 @@
                                     ? 'Oficina de origen no registrada <span class="fw-normal text-muted">(ya estaban en ' +
                                       esc(h.oficina) + ')</span>'
                                     : 'Oficina ' + esc(h.codOfi) + ' — ' + esc(h.oficina)) +
-                                 ' · ' + nO + '</td></tr>';
+                                 ' · ' + nO +
+                                 (h.codigoFuncionario ? ' <span class="cf-resp-cod" title="Código del responsable en esta oficina">' +
+                                    '<i class="ti ti-id-badge-2"></i> ' + esc(h.codigoFuncionario) + '</span>' : '') +
+                                 '</td></tr>';
                     }
                     filas += filaHallazgo(h);
                 });
 
                 var cabClase = pendientes === 0 ? 'todo-resuelto' : (enCustodia === pendientes ? 'en-custodia' : '');
                 var botonRegistrar = (g.idPersona && sinRegistrar > 0)
-                    ? '<button class="btn btn-sm btn-danger cf-registrar-persona" data-id="' + g.idPersona +
+                    ? '<button class="sm-btn sm-btn-sm sm-btn-peligro cf-registrar-persona" data-id="' + g.idPersona +
                       '" data-nombre="' + esc(g.nombre) + '" data-ci="' + esc(g.ci || '') + '">' +
-                      '<i class="ti ti-file-alert me-1"></i>Registrar ' + sinRegistrar + '</button>' : '';
+                      '<i class="ti ti-file-alert me-1"></i>Notificar ' + sinRegistrar + '</button>' : '';
 
-                return '<div class="card cf-grupo shadow-sm">' +
+                return '<div class="sm-card cf-grupo">' +
                     '<div class="cf-grupo-head ' + cabClase + ' collapsed" data-bs-toggle="collapse" data-bs-target="#' + id + '">' +
-                        '<div><div class="cf-nom">' + esc(g.nombre) + '</div>' +
-                        '<div class="cf-sub">C.I. ' + esc(g.ci || 's/d') + ' · ' + Object.keys(predios).length +
-                        ' predio(s) · ' + Object.keys(oficinas).length + ' oficina(s)</div></div>' +
+                        '<div class="d-flex align-items-center gap-2"><i class="ti ti-chevron-right cf-chevron"></i><div>' +
+                        '<div class="cf-nom">' + esc(g.nombre) + '</div>' +
+                        '<div class="cf-sub">C.I. ' + esc(g.ci || 's/d') +
+                        (codigos.length ? ' · <span class="cf-resp-cod" title="Código(s) de responsable de esta persona">' +
+                            '<i class="ti ti-id-badge-2"></i> Cód. resp. ' + codigos.map(esc).join(' · ') + '</span>' : '') +
+                        ' · ' + Object.keys(predios).length + ' predio(s) · ' + Object.keys(oficinas).length + ' oficina(s)</div></div></div>' +
                         '<div class="d-flex gap-2 align-items-center flex-wrap">' +
                             (pendientes > 0
                                 ? '<span class="badge bg-danger">' + pendientes + ' pendiente(s)</span>'
@@ -627,91 +760,49 @@
                             botonRegistrar +
                         '</div>' +
                     '</div>' +
+                    // Las notificaciones vigentes quedan a la vista aunque el grupo esté cerrado.
+                    (g.notifs.length ? '<div class="cf-notifs">' + g.notifs.map(tarjetaNotif).join('') + '</div>' : '') +
                     '<div class="collapse" id="' + id + '"><div class="table-responsive">' +
-                    '<table class="table table-hover mb-0"><thead><tr>' +
+                    '<table class="table sm-tabla align-middle mb-0"><thead><tr>' +
                         '<th>Código</th><th>Descripción</th><th>Tipo</th>' +
-                        '<th>Estado</th><th>Acta / origen</th><th></th>' +
+                        '<th>Estado</th><th>Notificación / origen</th><th></th>' +
                     '</tr></thead><tbody>' + filas + '</tbody></table></div></div></div>';
             }).join('');
 
+            // Los grupos que estaban abiertos siguen abiertos después de recargar.
+            var abiertosG = $('#cf-grupos .collapse.show').map(function () { return this.id; }).get();
             $('#cf-grupos').html(html);
+            abiertosG.forEach(function (gid) {
+                var el = document.getElementById(gid);
+                if (!el) return;
+                el.classList.add('show');
+                $('#cf-grupos [data-bs-target="#' + gid + '"]').removeClass('collapsed');
+            });
             actualizarContadoresPlazo();
         }
 
+        /** Fila de un bien: lo que se hace con ESE bien (resolverlo, o notificarlo si todavía no). */
         function filaHallazgo(h) {
             var resuelto = h.estadoHallazgo === 'RESUELTO';
-            var tienePlazo = h.plazoDias != null && h.fechaEnvioCustodia;
-            var numeroActaStr = h.numeroActa || '';
-            
-            // Badge visual para identificar faltantes con/sin plazo
-            var badgePlazo = '';
-            if (tienePlazo) {
-                badgePlazo = '<span class="badge badge-plazo-activo" data-plazo-dias="' + h.plazoDias + '" data-fecha-inicio="' + h.fechaEnvioCustodia + '" title="Faltante con plazo de ' + h.plazoDias + ' días hábiles"><i class="ti ti-clock me-1"></i>Con plazo</span>';
-            } else if (h.idActa && !tienePlazo && (h.estadoHallazgo === 'ABIERTO' || h.estadoHallazgo === 'EN_CUSTODIA')) {
-                badgePlazo = '<span class="badge badge-plazo-falta" title="Faltante registrado SIN plazo"><i class="ti ti-alert-circle me-1"></i>Sin plazo</span>';
-            }
-            
             var acciones;
             if (resuelto) {
                 // Resuelto dentro de un acta: no se reabre (si vuelve a faltar, va en un acta nueva).
-                acciones = h.idActa ? '' : '<button class="btn btn-sm btn-outline-secondary cf-reabrir" data-id="' +
+                acciones = h.idActa ? '' : '<button class="sm-btn sm-btn-sm sm-btn-neutro cf-reabrir" data-id="' +
                            h.idHallazgo + '" title="Reabrir"><i class="ti ti-rotate"></i></button>';
             } else if (h.estadoEnvio === 'ENVIADO' || h.estadoEnvio === 'ESPERANDO_ALTA') {
                 acciones = '<span class="text-muted" style="font-size:.75rem;">en traslado…</span>';
             } else {
-                acciones = '<button class="btn btn-sm btn-outline-success cf-resolver" data-id="' + h.idHallazgo +
+                acciones = '<button class="sm-btn sm-btn-sm sm-btn-suave cf-resolver" data-id="' + h.idHallazgo +
                            '"><i class="ti ti-check me-1"></i>Resolver</button>';
-                
-                // Botón "Regenerar notificación" (sin cambiar plazo) - para faltantes con acta
-                if (h.idActa && (h.estadoHallazgo === 'ABIERTO' || h.estadoHallazgo === 'EN_CUSTODIA')) {
-                    acciones += ' <button class="btn btn-sm btn-outline-info cf-regenerar-notif ms-1" ' +
-                                'data-id-hallazgo="' + h.idHallazgo + '" ' +
-                                'data-id-acta="' + h.idActa + '" ' +
-                                'data-codigo="' + esc(h.codigo || '') + '" ' +
-                                'data-descripcion="' + esc(h.descripcion || '') + '" ' +
-                                'data-numero-acta="' + esc(numeroActaStr) + '" ' +
-                                'data-tiene-plazo="' + (tienePlazo ? '1' : '0') + '" ' +
-                                'title="Regenerar PDF de notificación (actualiza campos opcionales, NO cambia el plazo)"><i class="ti ti-file-refresh me-1"></i>Regenerar</button>';
-                    
-                    // Botón "Generar Reiterativa" - para faltantes con acta que pueden tener reiterativa
-                    // Se verifica en el backend el límite (máx 2 reiterativas)
-                    var reiterativaLabel = (h.numeroReiterativa || 0) === 0 ? 'Generar 1ª Reiterativa' : 
-                                          (h.numeroReiterativa === 1 ? 'Generar Última Reiterativa' : 'Máx. alcanzado');
-                    var reiterativaDisabled = (h.numeroReiterativa || 0) >= 2 ? ' disabled' : '';
-                    var reiterativaTitle = (h.numeroReiterativa || 0) >= 2 
-                        ? 'Ya se generaron 2 reiterativas (máximo permitido)'
-                        : 'Generar notificación reiterativa (continúa el correlativo y referencia a la anterior)';
-                    acciones += ' <button class="btn btn-sm btn-outline-primary cf-generar-reiterativa ms-1"' + reiterativaDisabled + ' ' +
-                                'data-id-hallazgo="' + h.idHallazgo + '" ' +
-                                'data-id-acta-anterior="' + h.idActa + '" ' +
-                                'data-codigo="' + esc(h.codigo || '') + '" ' +
-                                'data-descripcion="' + esc(h.descripcion || '') + '" ' +
-                                'data-numero-acta-anterior="' + esc(numeroActaStr) + '" ' +
-                                'data-numero-reiterativa="' + (h.numeroReiterativa || 0) + '" ' +
-                                'title="' + reiterativaTitle + '"><i class="ti ti-repeat me-1"></i>' + reiterativaLabel + '</button>';
-                    
-                    // Botón "Actualizar plazo" - solo si ya tiene plazo
-                    if (tienePlazo) {
-                        acciones += ' <button class="btn btn-sm btn-outline-warning cf-notificar-plazo ms-1" ' +
-                                    'data-id-hallazgo="' + h.idHallazgo + '" ' +
-                                    'data-id-acta="' + h.idActa + '" ' +
-                                    'data-codigo="' + esc(h.codigo || '') + '" ' +
-                                    'data-descripcion="' + esc(h.descripcion || '') + '" ' +
-                                    'data-numero-acta="' + esc(numeroActaStr) + '" ' +
-                                    'title="Cambiar el plazo de la notificación existente"><i class="ti ti-clock me-1"></i>Actualizar plazo</button>';
-                    }
-                }
-                
-                // === NUEVO BOTÓN "Notificar falta" ===
-                // Para faltantes ABIERTOS sin acta (primer registro)
+                // Faltante ABIERTO todavía sin notificación: se notifica desde acá (la primera vez).
                 if (h.estadoHallazgo === 'ABIERTO' && !h.estadoEnvio && !h.idActa) {
-                    acciones += ' <button class="btn btn-sm btn-outline-danger cf-registrar-fila ms-1" ' +
+                    acciones += ' <button class="sm-btn sm-btn-sm sm-btn-peligro cf-registrar-fila ms-1" ' +
                                 'data-id-persona="' + (h.idPersona || '') + '" ' +
                                 'data-nombre="' + esc(h.responsable || '') + '" ' +
                                 'data-ci="' + esc(h.ci || '') + '" ' +
                                 'data-id-activo="' + (h.idActivo || '') + '" ' +
                                 'data-codigo="' + esc(h.codigo || '') + '" ' +
-                                'title="Generar la notificación de faltante por primera vez"><i class="ti ti-printer me-1"></i>Notificar falta</button>';
+                                'title="Emitir la notificación de faltante por primera vez"><i class="ti ti-file-alert me-1"></i>Notificar falta</button>';
                 }
             }
             var detalleRes = resuelto
@@ -724,18 +815,12 @@
                 ? '<a href="' + pdfActa(h.idActa) + '" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i> ' +
                   esc(numDoc(h.numeroActa)) + '</a><br><span class="text-muted">' + esc(puerta) + '</span>'
                 : esc(h.numeroInventario || 'Registro directo') + '<br><span class="text-muted">' + fmtFecha(h.fechaDeteccion) + '</span>';
-            
-            // Columna Estado incluye badge de plazo + estado + countdown
-            var estadoHtml = estadoDe(h);
-            if (badgePlazo) {
-                estadoHtml = badgePlazo + ' ' + estadoHtml;
-            }
-            
+
             return '<tr class="' + (resuelto ? 'cf-resuelto' : '') + '">' +
                    '<td><span class="cf-cod">' + esc(h.codigo || '—') + '</span></td>' +
                    '<td>' + esc(h.descripcion || '—') + detalleRes + '</td>' +
-                   '<td><span class="badge badge-' + h.tipoHallazgo + '">' + esc(h.tipoHallazgo) + '</span></td>' +
-                   '<td>' + estadoHtml + '</td>' +
+                   '<td><span class="badge badge-' + esc(h.tipoHallazgo) + '">' + esc(h.tipoHallazgo) + '</span></td>' +
+                   '<td>' + estadoDe(h) + '</td>' +
                    '<td style="font-size:.78rem;">' + origen + '</td>' +
                    '<td class="text-end">' + acciones + '</td></tr>';
         }
@@ -907,7 +992,7 @@
 
         function seccionConc(titulo, color, lista, ayuda) {
             if (!lista.length) return '';
-            return '<div class="card shadow-sm mb-3"><div class="card-header py-2 d-flex justify-content-between align-items-center">' +
+            return '<div class="sm-card mb-3"><div class="card-header py-2 d-flex justify-content-between align-items-center">' +
                 '<b>' + esc(titulo) + '</b><span class="badge bg-' + color + '">' + lista.length + '</span></div>' +
                 '<div class="card-body py-2"><p class="text-muted mb-2" style="font-size:.8rem;">' + esc(ayuda) + '</p>' +
                 '<div class="table-responsive" style="max-height:360px; overflow:auto;"><table class="table table-sm mb-0"><thead><tr>' +
@@ -923,7 +1008,7 @@
         /** Históricos: ya están en una oficina de faltantes (así en el VSIAF) pero sin acta en el SCIAF. */
         function seccionHistoricos(grupos, total) {
             if (!total) return '';
-            return '<div class="card shadow-sm mb-3"><div class="card-header py-2 d-flex justify-content-between align-items-center">' +
+            return '<div class="sm-card mb-3"><div class="card-header py-2 d-flex justify-content-between align-items-center">' +
                 '<b>Bienes en la oficina de faltantes sin acta (históricos)</b><span class="badge bg-secondary">' + total + '</span></div>' +
                 '<div class="card-body py-2"><p class="text-muted mb-2" style="font-size:.8rem;">Ya son faltantes en el VSIAF (están en la ' +
                 'oficina de faltantes) pero no tienen acta en el SCIAF. <b>Regularizar</b> los registra como faltantes en custodia de la ' +
@@ -934,7 +1019,7 @@
                         esc(g.ci || 's/d') + ' · ' + esc(g.unidad) + ' · Of. ' + esc(g.codOfi) + ' ' + esc(g.oficina) + '</span>' +
                         '<div style="font-size:.78rem;" class="text-muted">' + g.bienes.length + ' bien(es) · ' +
                         g.bienes.filter(function (b) { return b.oficinaOrigen; }).length + ' con oficina de origen en el historial</div></div>' +
-                        '<button class="btn btn-sm btn-outline-primary cf-regularizar" data-i="' + i + '">' +
+                        '<button class="sm-btn sm-btn-sm sm-btn-neutro cf-regularizar" data-i="' + i + '">' +
                         '<i class="ti ti-file-certificate me-1"></i>Regularizar</button></div>';
                 }).join('') + '</div></div>';
         }
@@ -1027,7 +1112,11 @@
             }
             $('#cf-actas-cuerpo').html(lista.map(function (a) {
                 var resuelta = a.estadoActa === 'VIGENTE' && a.totalBienes > 0 && a.resueltos === a.totalBienes;
+                // Sus faltantes pasaron a una reiterativa: el papel sigue valiendo, pero ya no es la vigente.
+                // Tiene una reiterativa no anulada (lo dice el servidor): ya no es la vigente ni se anula.
+                var reiterada = a.estadoActa === 'VIGENTE' && a.reiterada;
                 var estado = a.estadoActa === 'ANULADA' ? '<span class="badge est-gris">Anulada</span>'
+                           : reiterada ? '<span class="badge est-camino">Reiterada</span>'
                            : resuelta ? '<span class="badge est-ok">Resuelta</span>'
                            : '<span class="badge bg-label-primary">Vigente</span>';
                 var avance = a.estadoActa === 'ANULADA' ? '—' : [
@@ -1037,21 +1126,25 @@
                     a.conError   ? '<span class="badge est-error">' + a.conError + ' con error</span>' : '',
                     a.resueltos  ? '<span class="badge est-ok">' + a.resueltos + ' resueltos</span>' : ''
                 ].filter(Boolean).join(' ') || '—';
-                var acciones = '<a class="btn btn-sm btn-outline-primary" href="' + pdfActa(a.idActa) +
+                var acciones = '<a class="sm-btn sm-btn-sm sm-btn-neutro" href="' + pdfActa(a.idActa) +
                                '" target="_blank" rel="noopener" title="Descargar / imprimir"><i class="ti ti-printer"></i></a>';
                 if (a.conError > 0 && a.estadoActa === 'VIGENTE') {
-                    acciones += ' <button class="btn btn-sm btn-outline-warning cf-acta-reintentar" data-id="' + a.idActa +
+                    acciones += ' <button class="sm-btn sm-btn-sm sm-btn-neutro cf-acta-reintentar" data-id="' + a.idActa +
                                 '" data-numero="' + esc(numDoc(a.numero)) + '" title="Reintentar el traslado"><i class="ti ti-reload"></i></button>';
                 }
                 // Una regularización no movió nada: se anula mientras no haya resueltos.
                 var esReg = (a.numero || '').indexOf('AR-') === 0;
-                if (a.estadoActa === 'VIGENTE' && !a.resueltos && (esReg || (!a.enCustodia && !a.enviados))) {
-                    acciones += ' <button class="btn btn-sm btn-outline-danger cf-acta-anular" data-id="' + a.idActa +
+                // Una reiterativa tampoco movió nada: al anularla, sus faltantes vuelven a la que reiteraba.
+                if (a.estadoActa === 'VIGENTE' && !a.resueltos && !reiterada &&
+                    (esReg || a.numeroReiterativa > 0 || (!a.enCustodia && !a.enviados))) {
+                    acciones += ' <button class="sm-btn sm-btn-sm sm-btn-peligro cf-acta-anular" data-id="' + a.idActa +
                                 '" data-numero="' + esc(numDoc(a.numero)) + '" title="Anular"><i class="ti ti-ban"></i></button>';
                 }
                 return '<tr>' +
                     '<td><span class="cf-cod">' + esc(numDoc(a.numero)) + '</span>' +
-                    (esReg ? '<br><span class="badge bg-label-info" style="font-size:.68rem;">Regularización</span>' : '') + '</td>' +
+                    (esReg ? '<br><span class="badge bg-label-info" style="font-size:.68rem;">Regularización</span>' : '') +
+                    (a.numeroReiterativa ? '<br><span class="badge est-error" style="font-size:.68rem;">' +
+                        (a.numeroReiterativa === 1 ? '1ª reiterativa' : '2ª y última reiterativa') + '</span>' : '') + '</td>' +
                     '<td style="font-size:.8rem;">' + fmtFechaHora(a.fechaEmision) + '<br><span class="text-muted">' + esc(a.usuarioEmision || '') + '</span></td>' +
                     '<td>' + esc(a.personaNombre) + '<br><span class="text-muted" style="font-size:.78rem;">C.I. ' + esc(a.personaCi || 's/d') + '</span></td>' +
                     '<td class="text-center">' + a.totalBienes + '</td>' +
@@ -1082,7 +1175,8 @@
             Swal.fire({
                 title: 'Anular el acta ' + numero,
                 html: '<p class="mb-2" style="font-size:.9rem;">El acta queda como <b>ANULADA</b> (no se borra: la verificación '
-                    + 'por QR lo mostrará). Sus faltantes vuelven a quedar sin registrar.</p>'
+                    + 'por QR lo mostrará). Sus faltantes vuelven a quedar sin registrar; si es una <b>reiterativa</b>, '
+                    + 'vuelven a la notificación que reiteraba.</p>'
                     + '<textarea id="sw-motivo" class="form-control" rows="3" placeholder="Motivo de la anulación"></textarea>',
                 icon: 'warning', showCancelButton: true, focusCancel: true,
                 confirmButtonText: 'Anular acta', cancelButtonText: 'Cancelar',
@@ -1124,7 +1218,7 @@
         }
 
         $('#cf-btn-registrar').on('click', function () { abrirRegistro(null); });
-        
+
         $(document).on('click.cf', '#cf-wrap .cf-registrar-persona', function (e) {
             e.stopPropagation();   // que no colapse la tarjeta
             var $b = $(this);
@@ -1181,10 +1275,10 @@
             $.get(CUS + '/personas/' + p.idPersona + '/bienes').done(function (bs) {
                 reg.bienes = bs || [];
                 reg.sel = {};
-                
+
                 if (reg.filtroUnico) {
                     reg.bienes.forEach(function (b) {
-                        if ((reg.filtroUnico.idActivo && b.idActivo == reg.filtroUnico.idActivo) || 
+                        if ((reg.filtroUnico.idActivo && b.idActivo == reg.filtroUnico.idActivo) ||
                             (reg.filtroUnico.codigo && b.codigo == reg.filtroUnico.codigo)) {
                             reg.sel[b.idActivo] = true;
                         }
@@ -1419,7 +1513,8 @@
                 });
                 var wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hoja), 'Faltantes');
-                XLSX.writeFile(wb, 'faltantes_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+                var hoy = new Date(), z = function (n) { return String(n).padStart(2, '0'); };
+                XLSX.writeFile(wb, 'faltantes_' + hoy.getFullYear() + '-' + z(hoy.getMonth() + 1) + '-' + z(hoy.getDate()) + '.xlsx');
             });
         });
 
@@ -1430,355 +1525,61 @@
             if ($('#cf-tab-conc').hasClass('active')) cargarConciliacion();
         });
 
-        // ── Regenerar notificación (SIN cambiar plazo) ──────────────────────
-        var rn = { idHallazgo: null, idActa: null, numeroActa: '', codigo: '', descripcion: '', plazoActual: null };
-        var rnPreviaEnCurso = false;
+        // ── Acciones sobre la notificación vigente de una persona ───────────
+        // Se hacen sobre la NOTIFICACIÓN COMPLETA (todos sus bienes), desde su tarjeta. Antes
+        // estaban en cada fila y trabajaban con ese único bien: cambiar el plazo reescribía el
+        // documento con un solo bien y la reiterativa emitía un documento por bien.
+        var notifActual = null;   // la notificación del modal abierto
 
-        function modalRegenerarNotif() {
-            return bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-regenerar-notif'));
+        function notifDe(el) { return notifs[$(el).closest('[data-acta]').attr('data-acta')]; }
+
+        function tipoNotif(n) {
+            return n.numeroReiterativa === 1 ? '1ª reiterativa'
+                 : n.numeroReiterativa === 2 ? '2ª y última reiterativa' : 'Notificación';
+        }
+        function subNotif(n) {
+            return numDoc(n.numeroActa) + ' · ' + tipoNotif(n) + ' · ' + n.persona + ' · ' +
+                   n.pendientes + ' bien(es) pendiente(s)';
         }
 
-        function abrirRegenerarNotif(idHallazgo, idActa, codigo, descripcion, numeroActa, tienePlazo) {
-            rn.idHallazgo = idHallazgo;
-            rn.idActa = idActa;
-            rn.codigo = codigo;
-            rn.descripcion = descripcion;
-            rn.numeroActa = numeroActa;
-            rn.plazoActual = tienePlazo;
-            $('#rn-doc, #rn-fecha-doc, #rn-obs').val('');
-            $('#rn-previa').html('<i class="ti ti-eye me-1"></i> Vista previa');
-            $('#rn-bien-codigo').text('Código: ' + codigo);
-            $('#rn-bien-desc').text(descripcion);
-            $('#rn-acta-ref').text('Acta: ' + numDoc(numeroActa));
-            $('#rn-plazo-info').text(tienePlazo 
-                ? 'Plazo actual: ' + rn.plazoActual + ' día(s) hábil(es) — NO se modificará'
-                : 'Este faltante NO tiene plazo asignado — se mantendrá así');
-            modalRegenerarNotif().show();
-            setTimeout(function () { $('#rn-doc').trigger('focus'); }, 300);
+        /** Texto del plazo para las confirmaciones. */
+        function frasePlazo(n) {
+            var e = estadoPlazo(n.plazoDias, n.inicioPlazo);
+            if (!e) return 'sin plazo';
+            return e.texto + (e.vence ? ' (vence el ' + fmtDia(e.vence) + ')' : '');
         }
 
-        function datosRegenerarNotif() {
-            return {
-                idHallazgo: rn.idHallazgo,
-                idActa: rn.idActa,
-                documentoRespaldo: $('#rn-doc').val() || null,
-                fechaDocumento: $('#rn-fecha-doc').val() || null,
-                observacion: $('#rn-obs').val() || null
-            };
-        }
-
-        $(document).on('click.cf', '#cf-wrap .cf-regenerar-notif', function (e) {
-            e.stopPropagation();
-            var $b = $(this);
-            abrirRegenerarNotif($b.data('id-hallazgo'), $b.data('id-acta'),
-                                $b.data('codigo'), $b.data('descripcion'), $b.data('numero-acta'),
-                                $b.data('tiene-plazo') === '1');
-        });
-
-        $('#rn-guardar').on('click', function () {
-            var datos = datosRegenerarNotif();
-            var $b = $('#rn-guardar').prop('disabled', true);
-            var textoPlazo = rn.plazoActual 
-                ? 'El plazo actual de <b>' + rn.plazoActual + ' día(s) hábil(es)</b> NO se modifica.'
-                : 'Este faltante no tiene plazo asignado (no se agregará).';
-            confirmar({
-                titulo: '¿Regenerar la notificación?',
-                texto: 'Se actualizan los campos opcionales (documento, fecha, observación) en la notificación ' +
-                       'para el bien <b>' + esc(rn.codigo) + '</b> (acta ' + esc(numDoc(rn.numeroActa)) + ').<br>' +
-                       textoPlazo + '<br>' +
-                       'El bien ya está en custodia (no se envía al VSIAF). Se regenera el PDF.<br>' +
-                       '<b>Queda registrado en auditoría quién hizo el cambio y qué campos modificó.</b>',
-                aceptar: 'Regenerar notificación',
-                peligrosa: false
-            }).then(function (si) {
-                if (!si) { $b.prop('disabled', false); return; }
-                $.ajax({
-                    url: CUS + '/actas/regenerar-notificacion', type: 'POST', contentType: 'application/json',
-                    data: JSON.stringify(datos)
-                })
-                .done(function (r) {
-                    modalRegenerarNotif().hide();
-                    cargar();
-                    if (window.Swal) {
-                        Swal.fire({
-                            title: 'Notificación regenerada', icon: 'success', html: esc(r.message),
-                            showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir notificación',
-                            cancelButtonText: 'Cerrar'
-                        }).then(function (x) { if (x.isConfirmed) window.open(pdfActa(r.idActa), '_blank'); });
-                    } else {
-                        window.open(pdfActa(r.idActa), '_blank');
-                    }
-                })
-                .fail(function (xhr) {
-                    aviso('No se regeneró', '<div style="text-align:left; white-space:pre-line;">' +
-                          esc(errorDe(xhr, 'Error al regenerar la notificación.')) + '</div>', 'error');
-                })
-                .always(function () { $b.prop('disabled', false); });
-            });
-        });
-
-        $('#rn-previa').on('click', function () {
-            if (rnPreviaEnCurso) return;
-            var $b = $(this);
-            rnPreviaEnCurso = true;
-            $('#rn-guardar, #rn-previa').prop('disabled', true);
-            $b.html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generando…');
-            fetch(CUS + '/actas/regenerar-notificacion/vista-previa', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                body: JSON.stringify(datosRegenerarNotif()),
-                cache: 'no-store'
-            }).then(function (r) {
-                if (window.sciafSesion && window.sciafSesion.perdida(r)) return;
-                var tipo = r.headers.get('Content-Type') || '';
-                if (r.ok && tipo.indexOf('application/pdf') === 0) {
-                    return r.blob().then(function (blob) { mostrarVistaPrevia(blob); });
-                }
-                return r.json().catch(function () { return {}; }).then(function (j) {
-                    aviso('No se pudo generar la vista previa', '<div style="text-align:left; white-space:pre-line;">' +
-                          esc(j.message || ('El servidor respondió ' + r.status + '.')) + '</div>', 'error');
-                });
-            }).catch(function () {
-                aviso('No se pudo generar la vista previa', 'Sin conexión con el servidor.', 'error');
-            }).then(function () {
-                rnPreviaEnCurso = false;
-                $b.html('<i class="ti ti-eye me-1"></i> Vista previa');
-                $('#rn-guardar, #rn-previa').prop('disabled', false);
-            });
-        });
-
-        // ── Generar Reiterativa ─────────────────────────────────────────────
-        var gr = { idHallazgo: null, idActaAnterior: null, numeroActaAnterior: '', codigo: '', descripcion: '', numeroReiterativa: 0 };
-        var grPreviaEnCurso = false;
-
-        function modalGenerarReiterativa() {
-            return bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-generar-reiterativa'));
-        }
-
-        function abrirGenerarReiterativa(idHallazgo, idActaAnterior, codigo, descripcion, numeroActaAnterior, numeroReiterativa) {
-            gr.idHallazgo = idHallazgo;
-            gr.idActaAnterior = idActaAnterior;
-            gr.codigo = codigo;
-            gr.descripcion = descripcion;
-            gr.numeroActaAnterior = numeroActaAnterior;
-            gr.numeroReiterativa = numeroReiterativa;
-            $('#gr-doc, #gr-fecha-doc, #gr-obs').val('');
-            $('#gr-previa').html('<i class="ti ti-eye me-1"></i> Vista previa');
-            $('#gr-bien-codigo').text('Código: ' + codigo);
-            $('#gr-bien-desc').text(descripcion);
-            $('#gr-acta-anterior-ref').text('Reitera a: ' + numDoc(numeroActaAnterior));
-            var siguiente = numeroReiterativa + 1;
-            var label = siguiente === 1 ? 'PRIMERA REITERATIVA' : 'ÚLTIMA NOTIFICACIÓN REITERATIVA';
-            $('#gr-tipo-reiterativa').text('Tipo: ' + label + ' (será la #' + siguiente + ')');
-            modalGenerarReiterativa().show();
-            setTimeout(function () { $('#gr-doc').trigger('focus'); }, 300);
-        }
-
-        function datosGenerarReiterativa() {
-            return {
-                idHallazgo: gr.idHallazgo,
-                idActaAnterior: gr.idActaAnterior,
-                numeroReiterativa: gr.numeroReiterativa + 1, // La siguiente en secuencia
-                documentoRespaldo: $('#gr-doc').val() || null,
-                fechaDocumento: $('#gr-fecha-doc').val() || null,
-                observacion: $('#gr-obs').val() || null
-            };
-        }
-
-        $(document).on('click.cf', '#cf-wrap .cf-generar-reiterativa', function (e) {
-            e.stopPropagation();
-            var $b = $(this);
-            if ($b.prop('disabled')) return;
-            abrirGenerarReiterativa($b.data('id-hallazgo'), $b.data('id-acta-anterior'),
-                                    $b.data('codigo'), $b.data('descripcion'), $b.data('numero-acta-anterior'),
-                                    parseInt($b.data('numero-reiterativa'), 10) || 0);
-        });
-
-        $('#gr-guardar').on('click', function () {
-            var datos = datosGenerarReiterativa();
-            var $b = $('#gr-guardar').prop('disabled', true);
-            var siguiente = gr.numeroReiterativa + 1;
-            var label = siguiente === 1 ? 'PRIMERA REITERATIVA' : 'ÚLTIMA NOTIFICACIÓN REITERATIVA';
-            confirmar({
-                titulo: '¿Generar ' + label + '?',
-                texto: 'Se crea una <b>nueva notificación</b> con correlativo continuo para el bien <b>' + esc(gr.codigo) + '</b>.<br>' +
-                       'Reitera a la notificación <b>' + esc(numDoc(gr.numeroActaAnterior)) + '</b>.<br>' +
-                       'El bien ya está en custodia (no se envía al VSIAF). Se genera PDF con referencia a la anterior.<br>' +
-                       '<b>Queda registrado en auditoría quién generó la reiterativa.</b>',
-                aceptar: 'Generar ' + label,
-                peligrosa: false
-            }).then(function (si) {
-                if (!si) { $b.prop('disabled', false); return; }
-                $.ajax({
-                    url: CUS + '/actas/generar-reiterativa', type: 'POST', contentType: 'application/json',
-                    data: JSON.stringify(datos)
-                })
-                .done(function (r) {
-                    modalGenerarReiterativa().hide();
-                    cargar();
-                    if (window.Swal) {
-                        Swal.fire({
-                            title: label + ' generada', icon: 'success', html: esc(r.message),
-                            showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir notificación',
-                            cancelButtonText: 'Cerrar'
-                        }).then(function (x) { if (x.isConfirmed) window.open(pdfActa(r.idActa), '_blank'); });
-                    } else {
-                        window.open(pdfActa(r.idActa), '_blank');
-                    }
-                })
-                .fail(function (xhr) {
-                    aviso('No se generó', '<div style="text-align:left; white-space:pre-line;">' +
-                          esc(errorDe(xhr, 'Error al generar la reiterativa.')) + '</div>', 'error');
-                })
-                .always(function () { $b.prop('disabled', false); });
-            });
-        });
-
-        $('#gr-previa').on('click', function () {
-            if (grPreviaEnCurso) return;
-            var $b = $(this);
-            grPreviaEnCurso = true;
-            $('#gr-guardar, #gr-previa').prop('disabled', true);
-            $b.html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generando…');
-            fetch(CUS + '/actas/generar-reiterativa/vista-previa', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                body: JSON.stringify(datosGenerarReiterativa()),
-                cache: 'no-store'
-            }).then(function (r) {
-                if (window.sciafSesion && window.sciafSesion.perdida(r)) return;
-                var tipo = r.headers.get('Content-Type') || '';
-                if (r.ok && tipo.indexOf('application/pdf') === 0) {
-                    return r.blob().then(function (blob) { mostrarVistaPrevia(blob); });
-                }
-                return r.json().catch(function () { return {}; }).then(function (j) {
-                    aviso('No se pudo generar la vista previa', '<div style="text-align:left; white-space:pre-line;">' +
-                          esc(j.message || ('El servidor respondió ' + r.status + '.')) + '</div>', 'error');
-                });
-            }).catch(function () {
-                aviso('No se pudo generar la vista previa', 'Sin conexión con el servidor.', 'error');
-            }).then(function () {
-                grPreviaEnCurso = false;
-                $b.html('<i class="ti ti-eye me-1"></i> Vista previa');
-                $('#gr-guardar, #gr-previa').prop('disabled', false);
-            });
-        });
-
-        // ── Notificar plazo (actualizar notificación existente) ──────
-        var np = { idHallazgo: null, idActa: null };
-        var npPreviaEnCurso = false;
-
-        function modalNotificarPlazo() {
-            return bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-notif-plazo'));
-        }
-
-        function abrirNotificarPlazo(idHallazgo, idActa, codigo, descripcion, numeroActa) {
-            np.idHallazgo = idHallazgo;
-            np.idActa = idActa;
-            np.numeroActa = numeroActa; // Guardar el número de acta string
-            np.codigo = codigo; // Guardar código para mensajes
-            $('#np-plazo, #np-doc, #np-fecha-doc, #np-obs').val('');
-            $('#np-plazo').removeClass('is-invalid');
-            $('#np-previa').html('<i class="ti ti-eye me-1"></i> Vista previa');
-            $('#np-bien-codigo').text('Código: ' + codigo);
-            $('#np-bien-desc').text(descripcion);
-            $('#np-acta-ref').text('Acta actual: ' + numDoc(numeroActa));
-            modalNotificarPlazo().show();
-            setTimeout(function () { $('#np-plazo').trigger('focus'); }, 300);
-        }
-
-        function leerPlazoNP() {
-            var txt = ($('#np-plazo').val() || '').trim();
+        function leerPlazoDe($input) {
+            var txt = ($input.val() || '').trim();
             var n = parseInt(txt, 10);
             if (!/^\d+$/.test(txt) || n < 1 || n > 90) {
-                $('#np-plazo').addClass('is-invalid').trigger('focus');
+                $input.addClass('is-invalid').trigger('focus');
                 aviso('Falta el plazo', 'Escriba en cuántos <b>días hábiles</b> debe responder la persona (de 1 a 90).', 'warning');
                 return null;
             }
-            $('#np-plazo').removeClass('is-invalid');
+            $input.removeClass('is-invalid');
             return n;
         }
-
-        function datosNotificarPlazo(plazo) {
-            return {
-                idHallazgo: np.idHallazgo,
-                idActa: np.idActa,
-                plazoDias: plazo,
-                documentoRespaldo: $('#np-doc').val() || null,
-                fechaDocumento: $('#np-fecha-doc').val() || null,
-                observacion: $('#np-obs').val() || null
-            };
+        function plazoValido($input) {
+            var n = parseInt($input.val(), 10);
+            return !isNaN(n) && n >= 1 && n <= 90;
         }
 
-        $(document).on('click.cf', '#cf-wrap .cf-notificar-plazo', function (e) {
-            e.stopPropagation();
-            var $b = $(this);
-            abrirNotificarPlazo($b.data('id-hallazgo'), $b.data('id-acta'),
-                                $b.data('codigo'), $b.data('descripcion'), $b.data('numero-acta'));
-        });
-
-        $('#np-plazo').on('input', function () {
-            var n = parseInt($(this).val(), 10);
-            $('#np-guardar, #np-previa').prop('disabled', isNaN(n) || n < 1 || n > 90 || npPreviaEnCurso);
-        });
-
-        $('#np-guardar').on('click', function () {
-            var plazo = leerPlazoNP();
-            if (plazo === null) return;
-            var datos = datosNotificarPlazo(plazo);
-            var $b = $('#np-guardar').prop('disabled', true);
-            confirmar({
-                titulo: '¿Actualizar la notificación con nuevo plazo?',
-                texto: 'Se actualiza el plazo a <b>' + plazo + ' día(s) hábil(es)</b> en la notificación ' +
-                       'para el bien <b>' + esc(np.codigo) + '</b> (acta ' + esc(numDoc(np.numeroActa)) + ').<br>' +
-                       'El bien ya está en custodia (no se envía al VSIAF). Se regenera el PDF con el nuevo plazo.',
-                aceptar: 'Actualizar notificación',
-                peligrosa: false
-            }).then(function (si) {
-                if (!si) { $b.prop('disabled', false); return; }
-                $.ajax({
-                    url: CUS + '/actas/notificar-plazo', type: 'POST', contentType: 'application/json',
-                    data: JSON.stringify(datos)
-                })
-                .done(function (r) {
-                    modalNotificarPlazo().hide();
-                    cargar();
-                    if (window.Swal) {
-                        Swal.fire({
-                            title: 'Notificación actualizada', icon: 'success', html: esc(r.message),
-                            showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir notificación',
-                            cancelButtonText: 'Cerrar'
-                        }).then(function (x) { if (x.isConfirmed) window.open(pdfActa(r.idActa), '_blank'); });
-                    } else {
-                        window.open(pdfActa(r.idActa), '_blank');
-                    }
-                })
-                .fail(function (xhr) {
-                    aviso('No se actualizó', '<div style="text-align:left; white-space:pre-line;">' +
-                          esc(errorDe(xhr, 'Error al actualizar la notificación.')) + '</div>', 'error');
-                })
-                .always(function () { $b.prop('disabled', false); });
-            });
-        });
-
-        $('#np-previa').on('click', function () {
-            var plazo = leerPlazoNP();
-            if (plazo === null || npPreviaEnCurso) return;
-            var $b = $(this);
-            npPreviaEnCurso = true;
-            $('#np-guardar, #np-previa').prop('disabled', true);
-            $b.html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generando…');
-            fetch(CUS + '/actas/notificar-plazo/vista-previa', {
+        /** Vista previa en PDF (no registra nada). */
+        var previaEnCursoN = false;
+        function vistaPreviaN(url, datos, $b, alTerminar) {
+            if (previaEnCursoN) return;
+            previaEnCursoN = true;
+            var html = $b.html();
+            $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generando…');
+            fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                body: JSON.stringify(datosNotificarPlazo(plazo)),
-                cache: 'no-store'
+                body: JSON.stringify(datos), cache: 'no-store'
             }).then(function (r) {
                 if (window.sciafSesion && window.sciafSesion.perdida(r)) return;
                 var tipo = r.headers.get('Content-Type') || '';
-                if (r.ok && tipo.indexOf('application/pdf') === 0) {
-                    return r.blob().then(function (blob) { mostrarVistaPrevia(blob); });
-                }
+                if (r.ok && tipo.indexOf('application/pdf') === 0) return r.blob().then(mostrarVistaPrevia);
                 return r.json().catch(function () { return {}; }).then(function (j) {
                     aviso('No se pudo generar la vista previa', '<div style="text-align:left; white-space:pre-line;">' +
                           esc(j.message || ('El servidor respondió ' + r.status + '.')) + '</div>', 'error');
@@ -1786,30 +1587,190 @@
             }).catch(function () {
                 aviso('No se pudo generar la vista previa', 'Sin conexión con el servidor.', 'error');
             }).then(function () {
-                npPreviaEnCurso = false;
-                $b.html('<i class="ti ti-eye me-1"></i> Vista previa');
-                $('#np-guardar, #np-previa').prop('disabled', false);
+                previaEnCursoN = false;
+                $b.html(html);
+                if (alTerminar) alTerminar();
+            });
+        }
+
+        /** Registra la acción y ofrece abrir el documento para imprimirlo. */
+        function ejecutarN(url, datos, $b, $modal, tituloOk) {
+            $b.prop('disabled', true);
+            return $.ajax({ url: url, type: 'POST', contentType: 'application/json', data: JSON.stringify(datos) })
+            .done(function (r) {
+                bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
+                cargar();
+                if ($('#cf-tab-actas').hasClass('active')) cargarActas();
+                Swal.fire({
+                    title: tituloOk, icon: 'success', html: esc(r.message),
+                    showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir para imprimir',
+                    cancelButtonText: 'Cerrar'
+                }).then(function (x) { if (x.isConfirmed) window.open(pdfActa(r.idActa), '_blank'); });
+            })
+            .fail(function (xhr) {
+                aviso('No se completó', '<div style="text-align:left; white-space:pre-line;">' +
+                      esc(errorDe(xhr, 'Error al guardar.')) + '</div>', 'error');
+            })
+            .always(function () { $b.prop('disabled', false); });
+        }
+
+        // Imprimir: abre el documento VIGENTE (si hubo reiterativa, la reiterativa).
+        $(document).on('click.cf', '#cf-wrap .cf-n-imprimir', function () {
+            var n = notifDe(this);
+            if (n) window.open(pdfActa(n.idActa), '_blank');
+        });
+
+        // ── Cambiar el plazo ──
+        $(document).on('click.cf', '#cf-wrap .cf-n-plazo', function () {
+            var n = notifDe(this);
+            if (!n) return;
+            notifActual = n;
+            $('#np-sub').text(subNotif(n));
+            $('#np-actual').html(contadorHtml(n));
+            $('#np-plazo, #np-obs').val('');
+            $('#np-doc').val(n.documentoRespaldo);
+            $('#np-fecha-doc').val(n.fechaDocumento);
+            $('#np-plazo').removeClass('is-invalid');
+            $('#np-guardar, #np-previa').prop('disabled', true);
+            actualizarContadoresPlazo();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-notif-plazo')).show();
+            setTimeout(function () { $('#np-plazo').trigger('focus'); }, 300);
+        });
+        $('#np-plazo').on('input', function () {
+            $('#np-guardar, #np-previa').prop('disabled', !plazoValido($(this)) || previaEnCursoN);
+        });
+        function datosNP(plazo) {
+            return { idActa: notifActual.idActa, plazoDias: plazo,
+                     documentoRespaldo: $('#np-doc').val() || null, fechaDocumento: $('#np-fecha-doc').val() || null,
+                     observacion: $('#np-obs').val() || null };
+        }
+        $('#np-previa').on('click', function () {
+            var plazo = leerPlazoDe($('#np-plazo'));
+            if (plazo === null || !notifActual) return;
+            vistaPreviaN(CUS + '/actas/notificar-plazo/vista-previa', datosNP(plazo), $(this),
+                function () { $('#np-guardar, #np-previa').prop('disabled', !plazoValido($('#np-plazo'))); });
+        });
+        $('#np-guardar').on('click', function () {
+            var plazo = leerPlazoDe($('#np-plazo'));
+            if (plazo === null || !notifActual) return;
+            var n = notifActual, $b = $(this);
+            confirmar({
+                titulo: '¿Cambiar el plazo?',
+                texto: 'La <b>' + esc(numDoc(n.numeroActa)) + '</b> tiene ' + esc(frasePlazo(n)) + '.<br><br>' +
+                       'Pasa a <b>' + plazo + ' día(s) hábil(es) desde hoy</b>. La notificación se vuelve a emitir con la ' +
+                       'fecha de hoy, el mismo número y los mismos bienes del documento: hay que imprimirla y entregarla de nuevo.',
+                aceptar: 'Cambiar plazo'
+            }).then(function (si) {
+                if (si) ejecutarN(CUS + '/actas/notificar-plazo', datosNP(plazo), $b, $('#cf-notif-plazo'), 'Plazo cambiado');
+            });
+        });
+
+        // ── Corregir datos (sin cambiar el plazo) ──
+        $(document).on('click.cf', '#cf-wrap .cf-n-corregir', function (e) {
+            e.preventDefault();
+            var n = notifDe(this);
+            if (!n) return;
+            notifActual = n;
+            $('#rn-sub').text(subNotif(n));
+            $('#rn-obs').val('');
+            $('#rn-doc').val(n.documentoRespaldo);
+            $('#rn-fecha-doc').val(n.fechaDocumento);
+            $('#rn-guardar, #rn-previa').prop('disabled', false);
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-regenerar-notif')).show();
+            setTimeout(function () { $('#rn-doc').trigger('focus'); }, 300);
+        });
+        function datosRN() {
+            return { idActa: notifActual.idActa, documentoRespaldo: $('#rn-doc').val() || null,
+                     fechaDocumento: $('#rn-fecha-doc').val() || null, observacion: $('#rn-obs').val() || null };
+        }
+        $('#rn-previa').on('click', function () {
+            if (notifActual) vistaPreviaN(CUS + '/actas/regenerar-notificacion/vista-previa', datosRN(), $(this),
+                function () { $('#rn-previa').prop('disabled', false); });
+        });
+        $('#rn-guardar').on('click', function () {
+            if (!notifActual) return;
+            var n = notifActual, $b = $(this);
+            confirmar({
+                titulo: '¿Corregir la notificación?',
+                texto: 'Se corrigen el documento de respaldo, su fecha y la observación de la <b>' + esc(numDoc(n.numeroActa)) +
+                       '</b>. El plazo y su fecha <b>no cambian</b>.',
+                aceptar: 'Guardar corrección'
+            }).then(function (si) {
+                if (si) ejecutarN(CUS + '/actas/regenerar-notificacion', datosRN(), $b, $('#cf-regenerar-notif'), 'Notificación corregida');
+            });
+        });
+
+        // ── Reiterativa ──
+        $(document).on('click.cf', '#cf-wrap .cf-n-reiterativa', function () {
+            var n = notifDe(this);
+            if (!n || n.numeroReiterativa >= 2) return;
+            notifActual = n;
+            var siguiente = n.numeroReiterativa + 1;
+            $('#gr-titulo').text(siguiente === 1 ? 'Emitir la primera reiterativa' : 'Emitir la segunda y última reiterativa');
+            $('#gr-sub').text(subNotif(n));
+            $('#gr-actual').html(contadorHtml(n));
+            $('#gr-explica').html('<i class="ti ti-info-circle"></i><div>Se emite un <b>documento nuevo</b>, con el siguiente número, ' +
+                'que <b>reitera a la ' + esc(numDoc(n.numeroActa)) + '</b> y lleva sus <b>' + n.pendientes + ' bien(es) pendiente(s)</b>. ' +
+                'Desde ese momento es la notificación vigente de la persona y el nuevo plazo corre desde hoy.' +
+                (siguiente === 2 ? '<br><b>Es la última:</b> después de esta no se emiten más reiterativas.' : '') + '</div>');
+            $('#gr-plazo, #gr-doc, #gr-fecha-doc, #gr-obs').val('');
+            $('#gr-plazo').removeClass('is-invalid');
+            $('#gr-guardar, #gr-previa').prop('disabled', true);
+            actualizarContadoresPlazo();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-generar-reiterativa')).show();
+            setTimeout(function () { $('#gr-plazo').trigger('focus'); }, 300);
+        });
+        $('#gr-plazo').on('input', function () {
+            $('#gr-guardar, #gr-previa').prop('disabled', !plazoValido($(this)) || previaEnCursoN);
+        });
+        function datosGR(plazo) {
+            return { idActaAnterior: notifActual.idActa, numeroReiterativa: notifActual.numeroReiterativa + 1,
+                     plazoDias: plazo, documentoRespaldo: $('#gr-doc').val() || null,
+                     fechaDocumento: $('#gr-fecha-doc').val() || null, observacion: $('#gr-obs').val() || null };
+        }
+        $('#gr-previa').on('click', function () {
+            var plazo = leerPlazoDe($('#gr-plazo'));
+            if (plazo === null || !notifActual) return;
+            vistaPreviaN(CUS + '/actas/generar-reiterativa/vista-previa', datosGR(plazo), $(this),
+                function () { $('#gr-guardar, #gr-previa').prop('disabled', !plazoValido($('#gr-plazo'))); });
+        });
+        $('#gr-guardar').on('click', function () {
+            var plazo = leerPlazoDe($('#gr-plazo'));
+            if (plazo === null || !notifActual) return;
+            var n = notifActual, $b = $(this), siguiente = n.numeroReiterativa + 1;
+            confirmar({
+                titulo: siguiente === 1 ? '¿Emitir la primera reiterativa?' : '¿Emitir la segunda y última reiterativa?',
+                texto: 'Se emite un documento nuevo que reitera a la <b>' + esc(numDoc(n.numeroActa)) + '</b> (' +
+                       esc(frasePlazo(n)) + '), con sus <b>' + n.pendientes + ' bien(es) pendiente(s)</b> y un plazo de <b>' +
+                       plazo + ' día(s) hábil(es) desde hoy</b>.',
+                aceptar: 'Emitir reiterativa', peligrosa: true
+            }).then(function (si) {
+                if (si) ejecutarN(CUS + '/actas/generar-reiterativa', datosGR(plazo), $b, $('#cf-generar-reiterativa'), 'Reiterativa emitida');
             });
         });
 
         // ── Tiempo real: el traslado a custodia avanza solo ──────────────
-        (function sse() {
-            if (!window.EventSource) return;
-            var es = new EventSource('/api/eventos/stream');
-            var espera = null;
-            es.addEventListener('faltantes-custodia', function () {
-                if (!document.getElementById('cf-wrap')) { es.close(); return; }
-                clearTimeout(espera);
-                espera = setTimeout(function () {
-                    cargar();
-                    if ($('#cf-tab-actas').hasClass('active')) cargarActas();
-                }, 800);
-            });
-            $(window).on('beforeunload', function () { es.close(); });
-        })();
+        // El evento lo reemite layout/head.html. Antes la pantalla abría su propio EventSource
+        // cada vez que se abría: las conexiones del navegador al servidor se agotaban.
+        var raiz = document.getElementById('cf-wrap');
+        var pendienteSse = false, esperaSse = null;
+        function alCambiarCustodia() {
+            if (!document.body.contains(raiz)) { pendienteSse = true; return; }   // pestaña oculta
+            clearTimeout(esperaSse);
+            esperaSse = setTimeout(function () {
+                cargar();
+                if ($('#cf-tab-actas').hasClass('active')) cargarActas();
+            }, 800);
+        }
+        $(document).off('.cfSse').on('sciaf:faltantes-custodia.cfSse', alCambiarCustodia);
+        $(raiz).on('mouseenter', function () { if (pendienteSse) { pendienteSse = false; alCambiarCustodia(); } });
 
-        // Actualizar contadores de plazo cada minuto
-        setInterval(actualizarContadoresPlazo, 60000);
+        // Contadores de plazo cada minuto. Uno solo: antes cada apertura sumaba otro intervalo
+        // que seguía corriendo aunque la pantalla se cerrara.
+        clearInterval(window.__cfPlazoIntervalo);
+        window.__cfPlazoIntervalo = setInterval(function () {
+            if (document.body.contains(raiz)) actualizarContadoresPlazo();
+        }, 60000);
         actualizarContadoresPlazo();
 
         cargar();

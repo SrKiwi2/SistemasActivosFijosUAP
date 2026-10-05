@@ -146,7 +146,10 @@ public final class CustodiaDTOs {
             String     observacion
     ) {}
 
-    /** Pedido para re-emitir la notificación de un faltante con un nuevo plazo. */
+    /**
+     * Pedido para cambiar el plazo de una notificación vigente (la notificación completa: se
+     * identifica por {@code idActa}; {@code idHallazgo} ya no se usa). El plazo corre desde hoy.
+     */
     public record NotificarPlazoRequest(
             Long           idHallazgo,
             Long           idActa,
@@ -156,7 +159,7 @@ public final class CustodiaDTOs {
             String         observacion
     ) {}
 
-    /** Pedido para regenerar la notificación SIN cambiar el plazo (solo campos opcionales). */
+    /** Pedido para corregir los datos de una notificación vigente SIN cambiar el plazo (por {@code idActa}). */
     public record RegenerarNotificacionRequest(
             Long           idHallazgo,
             Long           idActa,
@@ -165,14 +168,20 @@ public final class CustodiaDTOs {
             String         observacion
     ) {}
 
-    /** Pedido para generar una notificación reiterativa. */
+    /**
+     * Pedido para emitir la reiterativa de una notificación vigente ({@code idActaAnterior}):
+     * documento nuevo con todos sus bienes pendientes y un plazo nuevo (obligatorio).
+     * {@code numeroReiterativa} es la que la pantalla cree que sigue (1 o 2): si no coincide, se
+     * rechaza (otra pestaña pudo emitirla antes). {@code idHallazgo} ya no se usa.
+     */
     public record GenerarReiterativaRequest(
             Long           idHallazgo,
             Long           idActaAnterior,
-            Integer        numeroReiterativa, // 1 = primera reiterativa, 2 = última
+            Integer        numeroReiterativa,
             String         documentoRespaldo,
             java.time.LocalDate fechaDocumento,
-            String         observacion
+            String         observacion,
+            Integer        plazoDias
     ) {}
 
     public record Conciliacion(

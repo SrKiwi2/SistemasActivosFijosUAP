@@ -231,6 +231,96 @@ public class ControlActivosRepo {
                 ACTIVO, ACTIVO, ABIERTO, EN_CUSTODIA, FALTANTE, "EN_EJECUCION", idPredio, ACTIVO);
     }
 
+    // ── Mosaico: todas las oficinas de todos los predios ────────────────────
+
+    /**
+     * Las oficinas activas de todos los predios activos, con los mismos números que
+     * {@link #tilesOficina}, para dibujar el mosaico completo de una vez.
+     *
+     * <p>Acá no van subconsultas correlacionadas: serían seis por cada una de las ~860
+     * oficinas. Cada conteo se agrupa una sola vez por oficina (CTE) y se une. Agrupar
+     * cada tabla por separado mantiene los totales correctos, igual que las subconsultas.
+     */
+    public List<TileOficinaDTO> oficinasMosaico() {
+        String sql = """
+            with act as (select a.id_oficina, count(*) as n from activo a
+                          where a._estado = ? group by a.id_oficina),
+                 res as (select r.id_oficina, count(*) as n from responsable r
+                          where r._estado = ? group by r.id_oficina),
+                 fal as (select %s as id_oficina, count(*) as n
+                           from hallazgo_inventario h
+                           left join inventario i on i.id_inventario = h.id_inventario
+                          where h.estado_hallazgo in (?, ?) and h.tipo_hallazgo = ?
+                          group by 1),
+                 inv as (select i.id_oficina, count(*) as n,
+                                max(case when i.estado_levantamiento = ? then i.id_inventario end) as en_curso
+                           from inventario i group by i.id_oficina),
+                 ult as (select distinct on (i.id_oficina) i.id_oficina, i.fecha_inicio,
+                                i.total_activos_encontrados, i.total_activos_esperados
+                           from inventario i
+                          order by i.id_oficina, i.fecha_inicio desc)
+            select o.id_oficina, o.cod_ofi, o.nombre, o.es_custodia,
+                   p.id_predio, p.descrip as predio,
+                   coalesce(res.n, 0) as responsables,
+                   coalesce(act.n, 0) as activos,
+                   coalesce(fal.n, 0) as faltantes,
+                   coalesce(inv.n, 0) as levantamientos,
+                   inv.en_curso       as id_en_curso,
+                   ult.fecha_inicio              as ultimo_levantamiento,
+                   ult.total_activos_encontrados as ultimo_encontrados,
+                   ult.total_activos_esperados   as ultimo_esperados
+            from oficina o
+            join predio p   on p.id_predio = o.id_predio
+            left join act   on act.id_oficina = o.id_oficina
+            left join res   on res.id_oficina = o.id_oficina
+            left join fal   on fal.id_oficina = o.id_oficina
+            left join inv   on inv.id_oficina = o.id_oficina
+            left join ult   on ult.id_oficina = o.id_oficina
+            where o._estado = ? and p._estado = ?
+            order by p.id_predio, o.cod_ofi
+            """.formatted(OFICINA_HALLAZGO);
+        return jdbc.query(sql, MAPPER_OFICINA,
+                ACTIVO, ACTIVO, ABIERTO, EN_CUSTODIA, FALTANTE, EN_EJECUCION, ACTIVO, ACTIVO);
+    }
+
+    /**
+     * Predios activos con su municipio, para agrupar el mosaico (los sin municipio, al final).
+     * Incluye los bienes vigentes que siguen en oficinas dadas de baja: el mosaico solo dibuja
+     * oficinas activas, y esos bienes no pueden quedar fuera de la vista sin aviso.
+     */
+    public List<Object[]> prediosMosaico() {
+        return jdbc.query("""
+            select p.id_predio, p.descrip, p.unidad, p.id_municipio,
+                   coalesce(m.nombre, 'Sin municipio asignado') as municipio,
+                   (select count(*) from activo a
+                      join oficina o on o.id_oficina = a.id_oficina
+                     where o.id_predio = p.id_predio and o._estado is distinct from ? and a._estado = ?) as bienes_of_inactivas
+            from predio p
+            left join municipio m on m.id_municipio = p.id_municipio
+            where p._estado = ?
+            order by (p.id_municipio is null), municipio, p.descrip
+            """, (rs, n) -> new Object[] {
+                rs.getLong("id_predio"), rs.getString("descrip"), rs.getString("unidad"),
+                rs.getObject("id_municipio", Long.class), rs.getString("municipio"),
+                rs.getLong("bienes_of_inactivas") }, ACTIVO, ACTIVO, ACTIVO);
+    }
+
+    /**
+     * Oficinas de un predio para el filtro de Faltantes: solo id, número y nombre (sin las
+     * oficinas de faltantes). Antes el filtro pedía {@link #tilesOficina}, con seis conteos
+     * por oficina, para llenar un desplegable.
+     */
+    public List<Object[]> oficinasParaFiltro(Long idPredio) {
+        return jdbc.query("""
+            select o.id_oficina, o.cod_ofi, o.nombre
+            from oficina o
+            where o.id_predio = ? and o._estado = ? and not o.es_custodia
+            order by o.cod_ofi
+            """, (rs, n) -> new Object[] {
+                rs.getLong("id_oficina"), rs.getObject("cod_ofi", Short.class), rs.getString("nombre") },
+            idPredio, ACTIVO);
+    }
+
     // ── Nivel 3: responsables de una oficina ─────────────────────────────────
 
     private static final RowMapper<TileResponsableDTO> MAPPER_RESPONSABLE = (rs, n) -> new TileResponsableDTO(
@@ -450,6 +540,7 @@ public class ControlActivosRepo {
         Timestamp env = rs.getTimestamp("fecha_envio_custodia");
         java.sql.Date doc = rs.getDate("fecha_documento");
         Integer plazo = rs.getObject("plazo_dias", Integer.class);
+        Timestamp inicio = rs.getTimestamp("inicio_plazo");
         return new FaltanteDTO(
                 rs.getLong("id_hallazgo"),
                 rs.getString("tipo_hallazgo"),
@@ -489,7 +580,10 @@ public class ControlActivosRepo {
                 rs.getString("estado_envio"),
                 rs.getString("mensaje_envio"),
                 rs.getBoolean("origen_en_custodia"),
-                plazo);
+                plazo,
+                inicio == null ? null : inicio.toLocalDateTime(),
+                rs.getInt("numero_reiterativa"),
+                rs.getLong("pendientes_acta"));
     };
 
     /**
@@ -517,7 +611,14 @@ public class ControlActivosRepo {
                    o.es_custodia as origen_en_custodia,
                    case when af.contenido is not null
                         then (af.contenido::json -> 'notificacion' ->> 'plazoDiasHabiles')::int
-                        else null end as plazo_dias
+                        else null end as plazo_dias,
+                   -- Desde cuándo corre el plazo: el último cambio de plazo o la emisión. Antes la
+                   -- pantalla contaba desde el traslado a custodia (otra fecha, y a veces ninguna).
+                   coalesce((af.contenido::json -> 'notificacion' ->> 'inicioPlazo')::timestamp,
+                            af.fecha_emision) as inicio_plazo,
+                   coalesce(af.numero_reiterativa, 0) as numero_reiterativa,
+                   (select count(*) from hallazgo_inventario hp
+                     where hp.id_acta = h.id_acta and hp.estado_hallazgo in ('ABIERTO', 'EN_CUSTODIA')) as pendientes_acta
             from hallazgo_inventario h
             left join inventario i     on i.id_inventario  = h.id_inventario
             join oficina o             on o.id_oficina     = %s

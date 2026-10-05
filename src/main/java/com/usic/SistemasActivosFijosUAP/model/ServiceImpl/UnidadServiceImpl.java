@@ -3,6 +3,7 @@ package com.usic.SistemasActivosFijosUAP.model.ServiceImpl;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IUnidadService;
@@ -17,9 +18,10 @@ public class UnidadServiceImpl implements IUnidadService {
     
     private final IUnidadDao dao;
 
+    /** Por nombre: es como se buscan en las listas. */
     @Override
     public List<Unidad> findAll() {
-        return dao.findAll();
+        return dao.findAll(Sort.by("nombre"));
     }
 
     @Override
@@ -39,12 +41,6 @@ public class UnidadServiceImpl implements IUnidadService {
 
     @Override
     public Optional<Unidad> findByNombre(String nombre) {
-        return dao.findByNombre(nombre);
+        return dao.findFirstByNombreOrderByIdUnidadAsc(nombre);
     }
-
-    @Override
-    public List<Unidad> findByNombreContaining(String nombre) {
-        return dao.findByNombreContaining(nombre);
-    }
-    
 }
