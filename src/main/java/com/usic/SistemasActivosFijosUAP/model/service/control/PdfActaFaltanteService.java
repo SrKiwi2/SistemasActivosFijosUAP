@@ -399,6 +399,7 @@ public class PdfActaFaltanteService {
         pie.add(new Chunk("Código de verificación: ", N_PIE_B));
         pie.add(new Chunk(vistaPrevia ? "— (vista previa: sin código, no tiene validez)" : nvl(acta.huella(), "—"), N_PIE));
 
+        t.addCell(c);
         // 2. Agregamos SOLO la firma al documento flotante
         doc.add(t);
 
