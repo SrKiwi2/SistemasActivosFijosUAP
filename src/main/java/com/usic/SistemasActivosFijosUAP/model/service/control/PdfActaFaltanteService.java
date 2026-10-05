@@ -146,8 +146,8 @@ public class PdfActaFaltanteService {
     private static final Font N_NEGRITA = new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD);
     private static final Font N_TABLA_CAB = new Font(Font.FontFamily.HELVETICA, 8, Font.BOLD);
     private static final Font N_TABLA  = new Font(Font.FontFamily.HELVETICA, 8);
-    private static final Font N_PIE    = new Font(Font.FontFamily.HELVETICA, 8);
-    private static final Font N_PIE_B  = new Font(Font.FontFamily.HELVETICA, 8, Font.BOLD);
+    private static final Font N_PIE    = new Font(Font.FontFamily.HELVETICA, 7);
+    private static final Font N_PIE_B  = new Font(Font.FontFamily.HELVETICA, 7, Font.BOLD);
     private static final float ALTO_FIRMA_NOTIFICACION = 110f;
     private static final BaseColor AMBAR = new BaseColor(176, 92, 0);
     private static final Font N_VISTA_PREVIA = new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, AMBAR);
@@ -390,16 +390,25 @@ public class PdfActaFaltanteService {
             c.addElement(p);
         }
         Paragraph pie = new Paragraph();
-        pie.setSpacingBefore(14);
+        // 1. setLeading define el alto de línea (interlineado). Disminuye este valor para apegar más el texto (ej. 8f o 9f).
+        pie.setLeading(9f); 
         pie.add(new Chunk("C.c.: ", N_PIE_B));
         pie.add(new Chunk("Archivo – Sección de Activos Fijos\n", N_PIE));
         pie.add(new Chunk("Documento generado por: ", N_PIE_B));
         pie.add(new Chunk("Sistema de Control Interno de Activos Fijos – SCIAF\n", N_PIE));
         pie.add(new Chunk("Código de verificación: ", N_PIE_B));
         pie.add(new Chunk(vistaPrevia ? "— (vista previa: sin código, no tiene validez)" : nvl(acta.huella(), "—"), N_PIE));
-        c.addElement(pie);
-        t.addCell(c);
+
+        // 2. Agregamos SOLO la firma al documento flotante
         doc.add(t);
+
+        // 3. Posicionamos el bloque "pie" de forma absoluta justo encima del margen inferior (arriba del QR)
+        PdfContentByte cb = writer.getDirectContent();
+        ColumnText ct = new ColumnText(cb);
+        // Se define un rectángulo invisible al fondo de la hoja (doc.bottom() es donde empieza el área del QR)
+        ct.setSimpleColumn(doc.left(), doc.bottom(), doc.right(), doc.bottom() + 40); 
+        ct.addElement(pie);
+        ct.go();
     }
 
     private static final String[] UNIDADES = { "cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete",
