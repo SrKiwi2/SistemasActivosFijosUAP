@@ -3495,8 +3495,6 @@
                     $root.find('#codigo').val(codFinal);
                     $root.find('#buscarCodigo').val(codFinal);
                     Swal.fire('Código actualizado', res.msg, 'success').then(() => {
-                        switchView('VIEW_SINGLE');
-                        lockSingleForm(true);
                         if (typeof cargarTabla === 'function') cargarTabla();
                     });
                 } else {
