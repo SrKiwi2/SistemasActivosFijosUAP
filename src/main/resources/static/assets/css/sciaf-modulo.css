@@ -835,6 +835,13 @@ html:not([dir=rtl]) .modal .sm-modal-cab .btn-close:active { transform: translat
     padding: 1.2rem 1.4rem 0.6rem;
     background: var(--sm-superficie-2);
 }
+/* modal-dialog-scrollable solo da scroll a .modal-body. Sin esto, un cuerpo largo empuja el
+   pie fuera de la pantalla y .sm-modal (overflow: hidden) lo recorta: los botones no se ven. */
+.modal-dialog-scrollable .sm-modal-cuerpo {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
 
 .sm-auditoria {
     display: flex;

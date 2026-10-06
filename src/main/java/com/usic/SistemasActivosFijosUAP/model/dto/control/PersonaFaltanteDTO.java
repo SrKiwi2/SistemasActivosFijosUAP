@@ -12,5 +12,9 @@ public record PersonaFaltanteDTO(
         long   oficinas,
         long   predios,
         /** Faltantes sin aclarar (abiertos o en custodia). */
-        long   faltantesPendientes
+        long   faltantesPendientes,
+        /** Cargo que aporta más bienes (una persona tiene uno por oficina). */
+        String cargoPrincipal,
+        /** Oficina que aporta más bienes. */
+        String oficinaPrincipal
 ) {}

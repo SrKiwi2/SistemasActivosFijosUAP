@@ -51,10 +51,27 @@
     #cf-reg .cf-fila-predio td  { position:sticky; top:0; z-index:1; }
     #cf-reg .cf-persona-item { cursor:pointer; }
     #cf-reg .cf-persona-item:hover { background: rgba(var(--sm-primario-rgb), .07); }
-    #cf-reg .cf-bienes { max-height:48vh; overflow:auto; border:1px solid var(--sm-borde); border-radius:10px; }
+    #cf-reg .cf-bienes { max-height:40vh; overflow:auto; border:1px solid var(--sm-borde); border-radius:10px; }
     #cf-reg .cf-bienes table td { font-size:.84rem; vertical-align:middle; }
     #cf-reg .cf-cod { font-variant-numeric: tabular-nums; font-weight:700; color: var(--sm-primario); font-size:.82rem; }
     #cf-reg tr.no-sel td { opacity:.55; }
+    /* Registro guiado: pasos numerados, ayudas y tarjetas de decisión */
+    #cf-reg .cf-paso-tit { font-weight:700; font-size:.9rem; color: var(--sm-texto); margin-bottom:.4rem; display:flex; align-items:center; gap:.45rem; }
+    #cf-reg .cf-paso-num { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%;
+                           background: var(--sm-primario); color:#fff; font-size:.75rem; font-weight:700; flex:0 0 auto; }
+    #cf-reg .cf-ayuda { font-size:.8rem; color: var(--sm-texto-2); }
+    #cf-reg .cf-tarjeta { border:1px solid var(--sm-borde); border-radius:10px; padding:.65rem .8rem; margin-bottom:.6rem; background: var(--sm-superficie); }
+    #cf-reg .cf-tarjeta.cf-ok      { border-left:4px solid var(--sm-exito); }
+    #cf-reg .cf-tarjeta.cf-info    { border-left:4px solid var(--sm-primario); }
+    #cf-reg .cf-tarjeta.cf-atencion{ border-left:4px solid #f59e0b; background: rgba(245, 158, 11, .06); }
+    #cf-reg .cf-tarjeta.cf-falta   { border-left:4px solid var(--sm-peligro); background: rgba(var(--sm-peligro-rgb), .05); }
+    #cf-reg .cf-opcion { display:flex; gap:.55rem; align-items:flex-start; padding:.45rem .55rem; border:1px solid var(--sm-borde);
+                         border-radius:8px; margin-top:.4rem; cursor:pointer; font-size:.84rem; background: var(--sm-superficie); }
+    #cf-reg .cf-opcion:hover { border-color: var(--sm-primario); }
+    #cf-reg .cf-opcion.cf-marcada { border-color: var(--sm-primario); background: rgba(var(--sm-primario-rgb), .07); }
+    #cf-reg .cf-opcion.cf-deshabilitada { opacity:.55; cursor:not-allowed; }
+    #cf-reg .cf-opcion input { margin-top:.2rem; }
+    #cf-reg .cf-opcion small { display:block; color: var(--sm-texto-2); }
     /* Código del responsable (una persona tiene uno por oficina) */
     #cf-wrap .cf-resp-cod { display:inline-flex; align-items:center; gap:.2rem; font-weight:700; color: var(--sm-primario);
         background: rgba(var(--sm-primario-rgb), .08); border-radius:6px; padding:0 .4rem; font-variant-numeric: tabular-nums; }
@@ -228,9 +245,14 @@
                 <div class="sm-modal-cuerpo">
                     <!-- Paso 1: persona -->
                     <div id="cf-reg-paso1">
-                        <label class="form-label mb-1">Persona responsable</label>
+                        <div class="cf-paso-tit"><span class="cf-paso-num">1</span> ¿De quién son los bienes que faltan?</div>
                         <input type="text" class="form-control" id="cf-reg-buscar" autocomplete="off"
-                               placeholder="Nombre y apellidos, o C.I. (mínimo 2 caracteres)">
+                               placeholder="Escriba el nombre y apellidos, o el C.I. (mínimo 2 letras)">
+                        <div class="cf-ayuda mt-1">
+                            <i class="ti ti-info-circle me-1"></i>Si la misma persona aparece dos veces (por ejemplo, una
+                            con C.I. y otra <b>sin C.I.</b>), elija cualquiera de las dos: en el paso siguiente el sistema
+                            le preguntará si son la misma persona y juntará sus bienes.
+                        </div>
                         <div class="list-group mt-2" id="cf-reg-personas"></div>
                     </div>
 
@@ -238,13 +260,34 @@
                     <div id="cf-reg-paso2" style="display:none;">
                         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
                             <div>
+                                <div class="cf-paso-tit mb-1"><span class="cf-paso-num">1</span> Persona</div>
                                 <div class="fw-semibold" id="cf-reg-persona-nombre"></div>
                                 <div class="text-muted" style="font-size:.8rem;" id="cf-reg-persona-sub"></div>
+                                <!-- Otros registros de la misma persona sumados (uno con C.I. y otro sin) -->
+                                <div id="cf-reg-vinculadas" class="mt-1"></div>
                             </div>
                             <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro" id="cf-reg-cambiar">
-                                <i class="ti ti-arrow-back-up me-1"></i> Otra persona
+                                <i class="ti ti-arrow-back-up me-1"></i> Elegir otra persona
                             </button>
                         </div>
+                        <!-- El sistema avisa solo si encuentra otro registro con el mismo nombre -->
+                        <div id="cf-reg-sugerencias"></div>
+                        <div class="mb-2">
+                            <a href="#" id="cf-reg-sumar" class="small">
+                                <i class="ti ti-user-search me-1"></i>¿Esta persona tiene otro registro con otro nombre
+                                escrito distinto? Búsquelo aquí</a>
+                        </div>
+                        <div id="cf-reg-sumar-panel" class="border rounded p-2 mb-2" style="display:none;">
+                            <div class="small text-muted mb-1">
+                                Busque el otro registro de <b>esta misma persona</b>. Sus bienes se suman a esta
+                                notificación, que sale a nombre del registro que tiene C.I.
+                            </div>
+                            <input type="text" class="form-control form-control-sm" id="cf-reg-sumar-buscar" autocomplete="off"
+                                   placeholder="Nombre y apellidos, o C.I. (mínimo 2 letras)">
+                            <div class="list-group mt-2" id="cf-reg-sumar-lista"></div>
+                        </div>
+
+                        <div class="cf-paso-tit mt-3"><span class="cf-paso-num">2</span> Marque los bienes que faltan</div>
                         <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
                             <input type="text" class="form-control form-control-sm" id="cf-reg-filtro" style="max-width:300px;"
                                    placeholder="Filtrar por código o descripción">
@@ -253,6 +296,11 @@
                         <div class="cf-bienes mb-3">
                             <table class="table table-sm mb-0"><tbody id="cf-reg-bienes"></tbody></table>
                         </div>
+
+                        <!-- A quién de la oficina de faltantes de cada predio se entregan los bienes -->
+                        <div id="cf-reg-destinos" class="mb-3"></div>
+
+                        <div class="cf-paso-tit"><span class="cf-paso-num" id="cf-reg-num-datos">3</span> Datos de la notificación</div>
                         <div class="row g-2">
                             <!-- Plazo de la notificación: obligatorio, sin valor por defecto (lo decide Activos Fijos) -->
                             <div class="col-md-3">
@@ -1197,15 +1245,31 @@
         });
 
         // ── Registro de faltantes ───────────────────────────────────────
-        var reg = { persona: null, bienes: [], sel: {}, filtroUnico: null };
+        // persona: a nombre de quién sale la notificación. vinculadas: otros registros de la misma
+        // persona que se sumaron (la sincronización con el VSIAF a veces la parte en dos).
+        // destinos: id del predio → valor elegido en su oficina de faltantes.
+        function regVacio(filtroUnico) {
+            return { persona: null, vinculadas: [], bienes: [], sel: {}, filtroUnico: filtroUnico || null,
+                     destinos: {}, opciones: [], clavePredios: null, cargandoDestinos: false,
+                     textos: {}, porDefecto: {}, sugeridos: [], descartados: {} };
+        }
+        var reg = regVacio();
         var tBuscar = null;
 
         function modalRegistro() {
             return bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-reg'));
         }
 
+        function limpiarExtrasRegistro() {
+            $('#cf-reg-vinculadas, #cf-reg-destinos, #cf-reg-sumar-lista, #cf-reg-sugerencias').empty();
+            $('#cf-reg-num-datos').text('3');
+            $('#cf-reg-sumar-buscar').val('');
+            $('#cf-reg-sumar-panel').hide();
+        }
+
         function abrirRegistro(persona, filtroUnico) {
-            reg = { persona: null, bienes: [], sel: {}, filtroUnico: filtroUnico || null };
+            reg = regVacio(filtroUnico);
+            limpiarExtrasRegistro();
             $('#cf-reg-buscar').val(''); $('#cf-reg-personas').empty();
             $('#cf-reg-doc, #cf-reg-fecha-doc, #cf-reg-obs, #cf-reg-filtro, #cf-reg-plazo').val('');
             $('#cf-reg-plazo').removeClass('is-invalid');
@@ -1251,8 +1315,10 @@
                         return '<div class="list-group-item cf-persona-item" data-i="' + i + '">' +
                             '<div class="d-flex justify-content-between"><b>' + esc(p.nombre) + '</b>' +
                             (p.faltantesPendientes ? '<span class="badge bg-danger">' + p.faltantesPendientes + ' faltante(s)</span>' : '') +
-                            '</div><div class="text-muted" style="font-size:.78rem;">C.I. ' + esc(p.ci || 's/d') + ' · ' +
-                            p.bienes + ' bien(es) en ' + p.oficinas + ' oficina(s) de ' + p.predios + ' predio(s)</div></div>';
+                            '</div><div class="text-muted" style="font-size:.78rem;">' + ciHtml(p.ci) +
+                            (p.cargoPrincipal ? ' · ' + esc(p.cargoPrincipal) : '') +
+                            (p.oficinaPrincipal ? ' · ' + esc(p.oficinaPrincipal) : '') +
+                            ' · ' + p.bienes + ' bien(es) en ' + p.oficinas + ' oficina(s) de ' + p.predios + ' predio(s)</div></div>';
                     }).join(''));
                     $('#cf-reg-personas .cf-persona-item').on('click', function () { elegirPersona(ps[$(this).data('i')], false); });
                 });
@@ -1260,20 +1326,57 @@
         });
 
         $('#cf-reg-cambiar').on('click', function () {
-            reg = { persona: null, bienes: [], sel: {}, filtroUnico: reg.filtroUnico };
+            reg = regVacio(reg.filtroUnico);
+            limpiarExtrasRegistro();
             actualizarConteo();
             $('#cf-reg-paso2').hide(); $('#cf-reg-paso1').show();
             $('#cf-reg-buscar').trigger('focus');
         });
 
+        function pintarPrincipal() {
+            var p = reg.persona;
+            $('#cf-reg-persona-nombre').text(p.nombre);
+            $('#cf-reg-persona-sub').html(ciHtml(p.ci) +
+                (p.cargoPrincipal ? ' · ' + esc(p.cargoPrincipal) : '') +
+                (p.oficinaPrincipal ? ' · ' + esc(p.oficinaPrincipal) : ''));
+            $('#cf-reg-vinculadas').html(reg.vinculadas.length
+                ? '<div class="small mt-1" style="color:var(--sm-exito);"><i class="ti ti-link me-1"></i>Se juntó con su otro registro: ' +
+                  'la notificación sale a nombre del registro con C.I. e incluye también estos bienes.</div>' +
+                  reg.vinculadas.map(function (v) {
+                      return '<div class="small text-muted ms-3">· ' + esc(v.nombre) + ' — ' + ciHtml(v.ci) +
+                             ' <a href="#" class="cf-quitar-vinculada ms-2 text-danger" data-id="' + v.idPersona +
+                             '" title="Separar: quitar este registro y sus bienes">no es la misma, quitar</a></div>';
+                  }).join('')
+                : '');
+        }
+
+        /** Los bienes de un registro, marcados con el registro del que vienen. */
+        function bienesDe(p) {
+            return $.get(CUS + '/personas/' + p.idPersona + '/bienes').then(function (bs) {
+                (bs || []).forEach(function (b) { b.idPersonaReg = p.idPersona; });
+                return bs || [];
+            });
+        }
+
+        /** Predio → oficina → código, como los agrupa la tabla (los registros sumados vienen aparte). */
+        function ordenarBienes() {
+            reg.bienes.sort(function (a, b) {
+                return String(a.predio || '').localeCompare(String(b.predio || '')) ||
+                       ((a.codOfi || 0) - (b.codOfi || 0)) ||
+                       String(a.codigo || '').localeCompare(String(b.codigo || ''));
+            });
+        }
+
         function elegirPersona(p, preseleccionar) {
             reg.persona = p;
-            $('#cf-reg-persona-nombre').text(p.nombre);
-            $('#cf-reg-persona-sub').text('C.I. ' + (p.ci || 's/d'));
+            reg.vinculadas = [];
+            pintarPrincipal();
+            $('#cf-reg-sugerencias').empty();
+            detectarOtrosRegistros();
             $('#cf-reg-paso1').hide(); $('#cf-reg-paso2').show();
             $('#cf-reg-bienes').html('<tr><td class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></td></tr>');
-            $.get(CUS + '/personas/' + p.idPersona + '/bienes').done(function (bs) {
-                reg.bienes = bs || [];
+            bienesDe(p).done(function (bs) {
+                reg.bienes = bs;
                 reg.sel = {};
 
                 if (reg.filtroUnico) {
@@ -1335,6 +1438,383 @@
 
         $('#cf-reg-filtro').on('input', pintarBienes);
 
+        // ── Otros registros de la misma persona ──────────────────────────
+        // Arreglo temporal: la sincronización con el VSIAF a veces deja a una persona dos veces
+        // (una con C.I. y otra sin). Al elegirla, el sistema busca solo si hay otro registro con su
+        // mismo nombre y pregunta si es la misma persona; si lo es, sus bienes van en la misma
+        // notificación, a nombre del registro con C.I., y a un solo responsable en faltantes.
+
+        function ciNorm(ci) { return String(ci || '').replace(/[.\-\s]/g, '').toUpperCase(); }
+        function nombreNorm(n) {
+            return String(n || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+        }
+        /** "C.I. 123" o una marca visible de que no tiene. */
+        function ciHtml(ci) { return ci ? 'C.I. ' + esc(ci) : '<span class="badge est-camino">Sin C.I.</span>'; }
+        function ciTexto(ci) { return ci ? 'C.I. ' + ci : 'sin C.I.'; }
+        function detallePersona(p) {
+            return ciHtml(p.ci) + (p.cargoPrincipal ? ' · ' + esc(p.cargoPrincipal) : '') +
+                   (p.oficinaPrincipal ? ' · ' + esc(p.oficinaPrincipal) : '') +
+                   (p.bienes != null ? ' · ' + p.bienes + ' bien(es)' : '');
+        }
+        function idsDelPedido() {
+            return [reg.persona.idPersona].concat(reg.vinculadas.map(function (v) { return v.idPersona; }));
+        }
+        /** Dos C.I. distintos son dos personas distintas: no se pueden juntar. */
+        function cisChocan(v) {
+            var cis = [reg.persona].concat(reg.vinculadas, [v]).map(function (p) { return ciNorm(p.ci); }).filter(Boolean);
+            return cis.some(function (c) { return c !== cis[0]; });
+        }
+
+        function detectarOtrosRegistros() {
+            var $s = $('#cf-reg-sugerencias');
+            if (!reg.persona) { $s.empty(); return; }
+            var idPrincipal = reg.persona.idPersona;
+            $.get(CUS + '/personas', { q: reg.persona.nombre }).done(function (ps) {
+                if (!reg.persona || reg.persona.idPersona !== idPrincipal && idsDelPedido().indexOf(idPrincipal) === -1) return;
+                var ya = idsDelPedido(), nom = nombreNorm(reg.persona.nombre);
+                var otros = (ps || []).filter(function (p) {
+                    return ya.indexOf(p.idPersona) === -1 && !reg.descartados[p.idPersona] &&
+                           nombreNorm(p.nombre) === nom && !cisChocan(p);
+                });
+                reg.sugeridos = otros;
+                $s.html(otros.map(function (p, i) {
+                    return '<div class="cf-tarjeta cf-atencion">' +
+                        '<div class="fw-semibold"><i class="ti ti-users me-1"></i>Esta persona parece estar registrada dos veces</div>' +
+                        '<div class="small mt-1">Encontramos otro registro con el mismo nombre: <b>' + esc(p.nombre) + '</b> · ' +
+                        detallePersona(p) + '.<br>Suele pasar cuando en el VSIAF la misma persona se cargó una vez con C.I. y otra sin C.I.</div>' +
+                        '<div class="small mt-2 fw-semibold">¿Es la misma persona?</div>' +
+                        '<div class="d-flex gap-2 mt-1 flex-wrap">' +
+                        '<button type="button" class="sm-btn sm-btn-sm sm-btn-exito cf-sug-si" data-i="' + i + '">' +
+                        '<i class="ti ti-check me-1"></i>Sí, es la misma: incluir también sus bienes</button>' +
+                        '<button type="button" class="sm-btn sm-btn-sm sm-btn-neutro cf-sug-no" data-i="' + i + '">' +
+                        '<i class="ti ti-x me-1"></i>No, es otra persona</button></div></div>';
+                }).join(''));
+            });
+        }
+
+        $('#cf-reg').on('click', '.cf-sug-si', function () {
+            var p = reg.sugeridos[$(this).data('i')];
+            if (p) sumarRegistro(p, true);
+        });
+        $('#cf-reg').on('click', '.cf-sug-no', function () {
+            var p = reg.sugeridos[$(this).data('i')];
+            if (p) reg.descartados[p.idPersona] = true;
+            $(this).closest('.cf-tarjeta').remove();
+        });
+
+        // Búsqueda a mano, para cuando el otro registro tiene el nombre escrito distinto.
+        var tSumar = null;
+        $('#cf-reg-sumar').on('click', function (e) {
+            e.preventDefault();
+            $('#cf-reg-sumar-panel').toggle();
+            if ($('#cf-reg-sumar-panel').css('display') !== 'none') {
+                if (!$('#cf-reg-sumar-buscar').val()) $('#cf-reg-sumar-buscar').val(reg.persona.nombre).trigger('input');
+                $('#cf-reg-sumar-buscar').trigger('focus');
+            }
+        });
+
+        $('#cf-reg-sumar-buscar').on('input', function () {
+            var q = $(this).val().trim();
+            clearTimeout(tSumar);
+            if (q.length < 2) { $('#cf-reg-sumar-lista').empty(); return; }
+            tSumar = setTimeout(function () {
+                $.get(CUS + '/personas', { q: q }).done(function (ps) {
+                    var ya = idsDelPedido();
+                    ps = (ps || []).filter(function (p) { return ya.indexOf(p.idPersona) === -1; });
+                    if (!ps.length) {
+                        $('#cf-reg-sumar-lista').html('<div class="text-muted p-2" style="font-size:.85rem;">No hay otro registro que coincida.</div>');
+                        return;
+                    }
+                    $('#cf-reg-sumar-lista').html(ps.map(function (p, i) {
+                        return '<div class="list-group-item cf-persona-item cf-sumar-item" data-i="' + i + '">' +
+                            '<b>' + esc(p.nombre) + '</b><div class="text-muted" style="font-size:.78rem;">' + detallePersona(p) + '</div></div>';
+                    }).join(''));
+                    $('#cf-reg-sumar-lista .cf-sumar-item').on('click', function () { sumarRegistro(ps[$(this).data('i')], false); });
+                });
+            }, 300);
+        });
+
+        /** @param confirmado ya dijo que es la misma persona (desde el aviso automático) */
+        function sumarRegistro(v, confirmado) {
+            if (cisChocan(v)) {
+                aviso('Es otra persona', esc(v.nombre) + ' tiene otro C.I. (' + esc(v.ci) + '). Dos C.I. distintos son dos personas ' +
+                      'distintas: no se pueden juntar en una notificación.', 'warning');
+                return;
+            }
+            var mismoNombre = nombreNorm(v.nombre) === nombreNorm(reg.persona.nombre);
+            ((confirmado || mismoNombre) ? Promise.resolve(true) : confirmar({
+                titulo: '¿Es la misma persona?',
+                texto: 'Los nombres no son iguales:<br><b>' + esc(reg.persona.nombre) + '</b><br><b>' + esc(v.nombre) + '</b><br><br>' +
+                       'Júntelos solo si es <b>la misma persona</b> registrada dos veces.',
+                aceptar: 'Sí, es la misma persona'
+            })).then(function (si) {
+                if (!si) return;
+                // La notificación sale a nombre del registro con C.I.
+                if (ciNorm(v.ci) && !ciNorm(reg.persona.ci)) {
+                    reg.vinculadas.push(reg.persona);
+                    reg.persona = v;
+                } else {
+                    reg.vinculadas.push(v);
+                }
+                pintarPrincipal();
+                $('#cf-reg-sumar-panel').hide();
+                $('#cf-reg-sumar-lista').empty(); $('#cf-reg-sumar-buscar').val('');
+                bienesDe(v).done(function (bs) {
+                    reg.bienes = reg.bienes.concat(bs);
+                    ordenarBienes();
+                    reg.clavePredios = null;   // cambiaron las personas: se vuelve a consultar el destino
+                    pintarBienes();
+                    detectarOtrosRegistros();
+                }).fail(function (xhr) {
+                    aviso('Error', errorDe(xhr, 'No se pudieron cargar los bienes del otro registro.'), 'error');
+                });
+            });
+        }
+
+        $('#cf-reg').on('click', '.cf-quitar-vinculada', function (e) {
+            e.preventDefault();
+            var id = Number($(this).data('id'));
+            reg.vinculadas = reg.vinculadas.filter(function (v) { return v.idPersona !== id; });
+            reg.bienes = reg.bienes.filter(function (b) {
+                if (b.idPersonaReg === id) { delete reg.sel[b.idActivo]; return false; }
+                return true;
+            });
+            reg.descartados[id] = true;   // no volver a sugerirlo enseguida
+            reg.clavePredios = null;
+            pintarPrincipal();
+            pintarBienes();
+            detectarOtrosRegistros();
+        });
+
+        // ── Paso 3: a quién se entregan los bienes en la oficina de faltantes ──
+
+        var tDestinos = null;
+        function programarDestinos() {
+            var predios = [];
+            seleccionados().forEach(function (b) { if (predios.indexOf(b.idPredio) === -1) predios.push(b.idPredio); });
+            predios.sort(function (a, b) { return a - b; });
+            var personas = reg.persona ? idsDelPedido().join(',') : '';
+            var clave = personas + '|' + predios.join(',');
+            if (clave === reg.clavePredios) return;
+            // Si cambiaron las personas juntadas, lo respondido en el paso 3 ya no vale: quien era
+            // "el otro registro" puede ser ahora un homónimo. Se vuelve a preguntar.
+            if (personas !== reg.clavePersonas) { reg.destinos = {}; reg.clavePersonas = personas; }
+            reg.clavePredios = clave;
+            clearTimeout(tDestinos);
+            if (!predios.length) {
+                reg.opciones = []; reg.cargandoDestinos = false;
+                $('#cf-reg-destinos').empty(); $('#cf-reg-num-datos').text('3');
+                return;
+            }
+            reg.cargandoDestinos = true;
+            $('#cf-reg-num-datos').text('4');
+            $('#cf-reg-destinos').html(tituloDestinos() + '<div class="small text-muted"><span class="spinner-border spinner-border-sm me-1"></span>' +
+                                       'Revisando la oficina de faltantes…</div>');
+            tDestinos = setTimeout(function () {
+                $.get(CUS + '/destinos-custodia', {
+                    idPersona: reg.persona.idPersona,
+                    vinculadas: reg.vinculadas.map(function (v) { return v.idPersona; }).join(','),
+                    predios: predios.join(',')
+                }).done(function (ops) {
+                    if (clave !== reg.clavePredios) return;   // llegó tarde: ya cambió la selección
+                    reg.opciones = ops || [];
+                    pintarDestinos();
+                }).fail(function (xhr) {
+                    if (clave !== reg.clavePredios) return;
+                    reg.opciones = [];
+                    reg.clavePredios = null;
+                    $('#cf-reg-destinos').html(tituloDestinos() + '<div class="small text-danger">' +
+                        esc(errorDe(xhr, 'No se pudo revisar la oficina de faltantes.')) + '</div>');
+                }).always(function () {
+                    if (clave === reg.clavePredios || reg.clavePredios === null) reg.cargandoDestinos = false;
+                });
+            }, 250);
+        }
+
+        function tituloDestinos() {
+            return '<div class="cf-paso-tit"><span class="cf-paso-num">3</span> ¿A quién se le entregan los bienes en la oficina de faltantes?</div>' +
+                   '<div class="cf-ayuda mb-2">Los bienes que faltan pasan a la <b>oficina de faltantes</b> de su predio, a nombre de ' +
+                   'la persona responsable. Revise que sea la persona correcta.</div>';
+        }
+
+        function datosCandidato(c) {
+            return '<b>' + esc(c.nombre) + '</b> · ' + ciHtml(c.ci) + ' · código ' + esc(c.codigo) + (c.cargo ? ' · ' + esc(c.cargo) : '');
+        }
+
+        /** Una opción que se marca con un clic (toda la caja es clicable). */
+        function opcionHtml(idPredio, valor, html, ayuda, habilitada) {
+            return '<label class="cf-opcion' + (habilitada === false ? ' cf-deshabilitada' : '') + '">' +
+                   '<input type="radio" class="form-check-input cf-destino-op" name="cf-dest-' + idPredio + '" data-predio="' + idPredio +
+                   '" value="' + valor + '"' + (habilitada === false ? ' disabled' : '') + '>' +
+                   '<span>' + html + (ayuda ? '<small>' + ayuda + '</small>' : '') + '</span></label>';
+        }
+
+        function pintarDestinos() {
+            var P = '<b>' + esc(reg.persona.nombre) + '</b>';
+            reg.textos = {};
+            $('#cf-reg-destinos').html(tituloDestinos() + reg.opciones.map(function (o) {
+                var donde = '<b>Predio ' + esc(o.unidad) + '</b> <span class="text-muted">· ' + esc(o.oficina) + '</span>';
+                var textos = reg.textos[o.idPredio] = {};
+                if (o.creaOficina) {
+                    textos[''] = 'se crea la oficina de faltantes y se registra a ' + reg.persona.nombre;
+                    return '<div class="cf-tarjeta cf-info"><div>' + donde + '</div><div class="small mt-1">' +
+                        '<i class="ti ti-circle-check me-1"></i><b>No necesita hacer nada.</b> Este predio todavía no tiene oficina de ' +
+                        'faltantes: el sistema la crea y registra ahí a ' + P + '.</div></div>';
+                }
+                var misma = o.candidatos.filter(function (c) { return c.coincidencia === 'MISMA_PERSONA'; })[0];
+                var parecidos = o.candidatos.filter(function (c) {
+                    return c.coincidencia === 'OTRO_REGISTRO' || c.coincidencia === 'MISMO_NOMBRE';
+                });
+                var otros = o.candidatos.filter(function (c) { return c.coincidencia === 'OTRO'; });
+                var clase, cuerpo, porDefecto;
+
+                if (misma) {
+                    porDefecto = misma.elegible ? String(misma.idResponsable) : 'auto';
+                    textos[porDefecto] = misma.nombre + ' (ya está en la oficina de faltantes)';
+                    clase = 'cf-ok';
+                    cuerpo = '<div class="small mt-1"><i class="ti ti-circle-check me-1"></i><b>No necesita hacer nada.</b> ' + P +
+                        ' ya está registrado en esta oficina (código ' + esc(misma.codigo) + '): los bienes se le suman.' +
+                        (misma.elegible ? '' : ' <span class="text-muted">Su registro todavía se está confirmando en el VSIAF; el traslado se hace cuando termine.</span>') +
+                        '</div>';
+                } else if (parecidos.length) {
+                    porDefecto = o.sugerido ? String(o.sugerido) : '';
+                    clase = 'cf-atencion';
+                    cuerpo = '<div class="small mt-1"><i class="ti ti-alert-triangle me-1"></i><b>Ya hay alguien con el mismo nombre en esta oficina.</b> ' +
+                        'Indique si es la misma persona:</div>' +
+                        parecidos.map(function (c) {
+                            textos[String(c.idResponsable)] = c.nombre + ' (' + ciTexto(c.ci) + ', código ' + c.codigo + '), que ya está en la oficina';
+                            return opcionHtml(o.idPredio, c.idResponsable,
+                                '<b>Sí, es la misma persona.</b> Entregar los bienes a ' + datosCandidato(c) + '.',
+                                c.elegible
+                                    ? (c.coincidencia === 'OTRO_REGISTRO' ? 'Es el otro registro que usted juntó en el paso 1.'
+                                                                           : 'Elija esto si es la misma persona aunque el C.I. falte o no coincida.')
+                                    : 'Todavía no está confirmado en el VSIAF: espere unos minutos y vuelva a abrir este registro.',
+                                c.elegible);
+                        }).join('') +
+                        opcionHtml(o.idPredio, 'nuevo', '<b>No, es otra persona</b> que se llama igual.',
+                                   'Se registra a ' + esc(reg.persona.nombre) + ' por separado en esta oficina.', true);
+                    textos['nuevo'] = 'registrar a ' + reg.persona.nombre + ' por separado (es otra persona con el mismo nombre)';
+                } else {
+                    porDefecto = 'auto';
+                    textos['auto'] = 'registrar a ' + reg.persona.nombre + ' en la oficina de faltantes';
+                    clase = 'cf-info';
+                    cuerpo = '<div class="small mt-1"><i class="ti ti-circle-check me-1"></i><b>No necesita hacer nada.</b> Se registra a ' + P +
+                        ' en esta oficina y se le entregan los bienes.</div>';
+                }
+
+                // Excepción: ya está en la oficina pero con otro nombre. Va escondida para no confundir.
+                if (otros.length) {
+                    var volver = parecidos.length && !misma ? '' : opcionHtml(o.idPredio, porDefecto, 'Dejarlo como dice arriba.', null, true);
+                    cuerpo += '<div class="mt-2"><a href="#" class="small cf-ver-otros" data-predio="' + o.idPredio + '">' +
+                        '<i class="ti ti-list-search me-1"></i>¿Ya está en esta oficina con el nombre escrito distinto? Elegirlo de la lista</a>' +
+                        '<div class="cf-otros" data-predio="' + o.idPredio + '" style="display:none;">' + volver +
+                        otros.map(function (c) {
+                            textos[String(c.idResponsable)] = c.nombre + ' (' + ciTexto(c.ci) + ', código ' + c.codigo + ')';
+                            return opcionHtml(o.idPredio, c.idResponsable, 'Entregar a ' + datosCandidato(c) + '.',
+                                c.elegible ? 'Solo si es la misma persona con el nombre escrito distinto.'
+                                           : 'Todavía no está confirmado en el VSIAF.', c.elegible);
+                        }).join('') + '</div></div>';
+                }
+
+                // Se respeta lo que ya eligió, si sigue siendo una opción.
+                reg.porDefecto[o.idPredio] = porDefecto;
+                var previo = reg.destinos[o.idPredio];
+                if (previo !== undefined && textos[previo] !== undefined) porDefecto = previo;
+                reg.destinos[o.idPredio] = porDefecto;
+                return '<div class="cf-tarjeta ' + clase + '" data-predio="' + o.idPredio + '"><div>' + donde + '</div>' + cuerpo +
+                       '<div class="small mt-1 cf-destino-aviso" data-predio="' + o.idPredio + '"></div></div>';
+            }).join(''));
+            reg.opciones.forEach(function (o) {
+                // Si ya había elegido a alguien de la lista escondida, se muestra abierta.
+                if (esDeLaLista(o.idPredio, reg.destinos[o.idPredio])) {
+                    $('#cf-reg-destinos .cf-otros[data-predio="' + o.idPredio + '"]').show();
+                }
+                marcarDestino(o.idPredio);
+            });
+        }
+
+        function esDeLaLista(idPredio, v) {
+            var o = reg.opciones.filter(function (x) { return x.idPredio === idPredio; })[0];
+            return !!o && o.candidatos.some(function (c) { return c.coincidencia === 'OTRO' && String(c.idResponsable) === String(v); });
+        }
+
+        function marcarDestino(idPredio) {
+            var v = reg.destinos[idPredio];
+            var $radios = $('#cf-reg-destinos .cf-destino-op[data-predio="' + idPredio + '"]');
+            var marcado = false;
+            $radios.each(function () {
+                var $lista = $(this).closest('.cf-otros');
+                var visible = !$lista.length || $lista.css('display') !== 'none';
+                this.checked = !marcado && visible && String(this.value) === String(v);
+                if (this.checked) marcado = true;
+                $(this).closest('.cf-opcion').toggleClass('cf-marcada', this.checked);
+            });
+            var o = reg.opciones.filter(function (x) { return x.idPredio === idPredio; })[0];
+            var $a = $('#cf-reg-destinos .cf-destino-aviso[data-predio="' + idPredio + '"]');
+            var $t = $('#cf-reg-destinos .cf-tarjeta[data-predio="' + idPredio + '"]');
+            if (!o) return;
+            var c = o.candidatos.filter(function (x) { return String(x.idResponsable) === String(v); })[0];
+            $t.toggleClass('cf-falta', v === '');
+            if (v === '') {
+                $a.html('<span class="text-danger fw-semibold">Marque una de las opciones para poder continuar.</span>');
+            } else if (c && c.coincidencia === 'OTRO') {
+                $a.html('<span class="text-warning fw-semibold">Ojo: el nombre no coincide con ' + esc(reg.persona.nombre) +
+                        '. Elíjalo solo si es la misma persona.</span>');
+            } else {
+                $a.empty();
+            }
+        }
+
+        $('#cf-reg').on('change', '.cf-destino-op', function () {
+            var idPredio = Number($(this).data('predio'));
+            reg.destinos[idPredio] = this.value;
+            marcarDestino(idPredio);
+        });
+        $('#cf-reg').on('click', '.cf-ver-otros', function (e) {
+            e.preventDefault();
+            var idPredio = Number($(this).data('predio'));
+            var $lista = $('#cf-reg-destinos .cf-otros[data-predio="' + idPredio + '"]').toggle();
+            // Al cerrar la lista se vuelve a lo sugerido: no queda elegido alguien que no se ve.
+            if ($lista.css('display') === 'none' && esDeLaLista(idPredio, reg.destinos[idPredio])) {
+                reg.destinos[idPredio] = reg.porDefecto[idPredio];
+            }
+            marcarDestino(idPredio);
+        });
+
+        /** Destino listo en cada predio elegido; si no, avisa y devuelve false. */
+        function destinosListos() {
+            if (reg.cargandoDestinos) {
+                aviso('Un momento', 'Todavía se está revisando la oficina de faltantes de cada predio.', 'info');
+                return false;
+            }
+            var falta = reg.opciones.filter(function (o) { return !o.creaOficina && reg.destinos[o.idPredio] === ''; })[0];
+            if (falta) {
+                var t = $('#cf-reg-destinos .cf-tarjeta[data-predio="' + falta.idPredio + '"]')[0];
+                if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                aviso('Falta una respuesta', 'En el <b>paso 3</b> (predio <b>' + esc(falta.unidad) + '</b>) indique si la persona que ' +
+                      'ya está en la oficina de faltantes es la misma o es otra persona.', 'warning');
+                return false;
+            }
+            return true;
+        }
+
+        function destinosDelPedido() {
+            return reg.opciones.filter(function (o) { return !o.creaOficina; }).map(function (o) {
+                var v = reg.destinos[o.idPredio];
+                if (v === 'nuevo') return { idPredio: o.idPredio, crearNuevo: true };
+                if (/^\d+$/.test(String(v))) return { idPredio: o.idPredio, idResponsableCustodia: Number(v) };
+                return null;   // 'auto': el sistema asegura la custodia de la persona
+            }).filter(Boolean);
+        }
+
+        function resumenDestinos() {
+            return reg.opciones.map(function (o) {
+                var t = reg.textos && reg.textos[o.idPredio] || {};
+                var txt = o.creaOficina ? t[''] : t[reg.destinos[o.idPredio]];
+                return '<b>' + esc(o.unidad) + '</b> → ' + esc(txt || '');
+            }).join('<br>');
+        }
+
         $('#cf-reg').on('change', '.cf-sel-bien', function () {
             var id = $(this).data('id');
             if (this.checked) reg.sel[id] = true; else delete reg.sel[id];
@@ -1360,6 +1840,7 @@
             var n = seleccionados().length;
             $('#cf-reg-conteo').text(n + ' seleccionado(s)');
             $('#cf-reg-guardar, #cf-reg-previa').prop('disabled', n === 0 || previaEnCurso);
+            programarDestinos();
         }
 
         function leerPlazo() {
@@ -1381,7 +1862,9 @@
                 documentoRespaldo: $('#cf-reg-doc').val() || null,
                 fechaDocumento: $('#cf-reg-fecha-doc').val() || null,
                 observacion: $('#cf-reg-obs').val() || null,
-                plazoDias: plazo
+                plazoDias: plazo,
+                idsPersonasVinculadas: reg.vinculadas.map(function (v) { return v.idPersona; }),
+                destinos: destinosDelPedido()
             };
         }
 
@@ -1390,15 +1873,19 @@
             if (!sel.length || !reg.persona) return;
             var plazo = leerPlazo();
             if (plazo === null) return;
+            if (!destinosListos()) return;
             var predios = {};
             sel.forEach(function (b) { predios[b.unidad] = (predios[b.unidad] || 0) + 1; });
             var resumen = Object.keys(predios).map(function (u) { return '<b>' + esc(u) + '</b>: ' + predios[u]; }).join(' · ');
+            var vinc = reg.vinculadas.length
+                ? '<br><br>Incluye los bienes de ' + reg.vinculadas.length + ' registro(s) más de la misma persona.' : '';
 
             confirmar({
                 titulo: '¿Registrar ' + sel.length + ' faltante(s) de ' + esc(reg.persona.nombre) + '?',
                 texto: 'Se emite la <b>notificación de faltantes</b> con un plazo de <b>' + plazo + ' día(s) hábil(es)</b> ' +
                        'para responder, y los bienes se trasladan a la oficina de faltantes de su predio ' +
-                       '(si el predio no tiene, se crea). El traslado se envía al <b>VSIAF</b>.<br><br>' + resumen,
+                       '(si el predio no tiene, se crea). El traslado se envía al <b>VSIAF</b>.<br><br>' + resumen + vinc +
+                       '<br><br><b>Destino:</b><br>' + resumenDestinos(),
                 aceptar: 'Registrar y emitir notificación',
                 peligrosa: true
             }).then(function (si) {
@@ -1435,6 +1922,7 @@
             if (previaEnCurso || !sel.length || !reg.persona) return;
             var plazo = leerPlazo();
             if (plazo === null) return;
+            if (!destinosListos()) return;
             var $b = $(this);
             previaEnCurso = true;
             actualizarConteo();

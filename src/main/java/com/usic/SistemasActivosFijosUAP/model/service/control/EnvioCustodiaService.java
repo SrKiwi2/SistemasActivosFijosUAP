@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import org.springframework.scheduling.annotation.Scheduled;
@@ -88,7 +89,16 @@ public class EnvioCustodiaService {
      * pueda. Nunca lanza: lo que falle queda anotado en el hallazgo y lo retoma el ciclo.
      */
     public void iniciar(Collection<Long> idsHallazgo, Usuario autor) {
-        prepararCustodias(idsHallazgo, autor);
+        iniciar(idsHallazgo, autor, Set.of());
+    }
+
+    /**
+     * @param conHomonimoPermitido faltantes cuyo predio puede recibir a la persona aunque en la
+     *                             oficina de faltantes haya alguien con su mismo nombre (quien
+     *                             registró indicó que es otra persona). Vale solo en este intento.
+     */
+    public void iniciar(Collection<Long> idsHallazgo, Usuario autor, Set<Long> conHomonimoPermitido) {
+        prepararCustodias(idsHallazgo, autor, conHomonimoPermitido);
         despachar(idsHallazgo);
     }
 
@@ -131,7 +141,7 @@ public class EnvioCustodiaService {
             List<Long> esperando = enTransaccion(() -> hallazgoDao.conEnvioEn(List.of(ESPERANDO_ALTA))
                     .stream().map(HallazgoInventario::getIdHallazgo).toList());
             if (!esperando.isEmpty()) {
-                prepararCustodias(esperando, null);
+                prepararCustodias(esperando, null, Set.of());
                 despachar(esperando);
             }
             if (actualDbfWriterService.esModoCola()) confirmarTraslados();
@@ -142,10 +152,19 @@ public class EnvioCustodiaService {
 
     // ── Paso 1: custodia del predio ─────────────────────────────────────────
 
-    /** A cada faltante sin custodia asignada le busca (o crea) la de su responsable. */
-    private void prepararCustodias(Collection<Long> idsHallazgo, Usuario autor) {
-        Map<Long, List<Long>> porResponsable = enTransaccion(() -> {
-            Map<Long, List<Long>> m = new LinkedHashMap<>();
+    /**
+     * Cada grupo de faltantes que comparte custodia: el responsable original (da el predio y
+     * el cargo) y la persona que queda en la oficina de faltantes (la de la notificación).
+     */
+    private record Grupo(Long idResponsable, Long idPersonaDestino, boolean permitirHomonimo) {}
+
+    /**
+     * A cada faltante sin custodia asignada le busca (o crea) la de la persona de su
+     * notificación. Los que ya traen custodia (elegida a mano al registrar) no se tocan.
+     */
+    private void prepararCustodias(Collection<Long> idsHallazgo, Usuario autor, Set<Long> conHomonimoPermitido) {
+        Map<Grupo, List<Long>> porGrupo = enTransaccion(() -> {
+            Map<Grupo, List<Long>> m = new LinkedHashMap<>();
             for (HallazgoInventario h : hallazgoDao.findAllById(idsHallazgo)) {
                 if (!ESPERANDO_ALTA.equals(h.getEstadoEnvio())) continue;
                 if (h.getResponsableCustodia() != null) continue;
@@ -153,15 +172,20 @@ public class EnvioCustodiaService {
                     anotar(List.of(h.getIdHallazgo()), ERROR, "El faltante no tiene a quién imputarse.");
                     continue;
                 }
-                m.computeIfAbsent(h.getResponsable().getIdResponsable(), k -> new ArrayList<>())
+                Long idPersonaActa = h.getActa() != null && h.getActa().getPersona() != null
+                        ? h.getActa().getPersona().getIdPersona() : null;
+                m.computeIfAbsent(new Grupo(h.getResponsable().getIdResponsable(), idPersonaActa,
+                                conHomonimoPermitido.contains(h.getIdHallazgo())), k -> new ArrayList<>())
                         .add(h.getIdHallazgo());
             }
             return m;
         });
 
-        porResponsable.forEach((idResponsable, ids) -> {
+        porGrupo.forEach((grupo, ids) -> {
+            Long idResponsable = grupo.idResponsable();
             try {
-                CustodiaFaltantesService.Custodia c = custodiaService.asegurar(idResponsable, autor);
+                CustodiaFaltantesService.Custodia c = custodiaService.asegurar(idResponsable,
+                        grupo.idPersonaDestino(), grupo.permitirHomonimo(), autor);
                 enTransaccion(() -> {
                     Responsable custodio = responsableService.findById(c.idResponsable());
                     for (HallazgoInventario h : hallazgoDao.bloquear(ids)) {
@@ -207,14 +231,28 @@ public class EnvioCustodiaService {
         });
     }
 
-    /** El alta de la custodia no salió: se suelta para que el próximo ciclo la vuelva a pedir. */
+    /**
+     * El alta de la custodia no salió: se suelta para que el próximo ciclo la vuelva a pedir.
+     * Una custodia elegida a mano que es de otra persona que la de la notificación no se
+     * suelta: el alta automática no la encontraría y daría de alta a otro.
+     */
     private void reprepararCustodia(List<Long> ids) {
         enTransaccion(() -> {
             for (HallazgoInventario h : hallazgoDao.bloquear(ids)) {
-                if (ESPERANDO_ALTA.equals(h.getEstadoEnvio())) {
-                    h.setResponsableCustodia(null);
-                    h.setMensajeEnvio("La custodia no se pudo enviar al VSIAF; se reintenta solo.");
+                if (!ESPERANDO_ALTA.equals(h.getEstadoEnvio())) continue;
+                Responsable custodio = h.getResponsableCustodia();
+                Long idPersonaActa = h.getActa() != null && h.getActa().getPersona() != null
+                        ? h.getActa().getPersona().getIdPersona() : null;
+                Long idPersonaCustodio = custodio != null && custodio.getPersona() != null
+                        ? custodio.getPersona().getIdPersona() : null;
+                if (idPersonaActa != null && !Objects.equals(idPersonaActa, idPersonaCustodio)) {
+                    h.setEstadoEnvio(ERROR);
+                    h.setMensajeEnvio("La custodia elegida al registrar no está en el VSIAF. Anule la notificación "
+                            + "y regístrela eligiendo otro destino.");
+                    continue;
                 }
+                h.setResponsableCustodia(null);
+                h.setMensajeEnvio("La custodia no se pudo enviar al VSIAF; se reintenta solo.");
             }
             return null;
         });

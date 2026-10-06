@@ -36,7 +36,9 @@ public class CustodiaFaltantesRepo {
             rs.getLong("bienes"),
             rs.getLong("oficinas"),
             rs.getLong("predios"),
-            rs.getLong("faltantes"));
+            rs.getLong("faltantes"),
+            rs.getString("cargo_principal"),
+            rs.getString("oficina_principal"));
 
     /**
      * Personas con bienes a cargo cuyo nombre contiene todas las palabras buscadas, o cuyo
@@ -62,13 +64,35 @@ public class CustodiaFaltantesRepo {
                    count(distinct o.id_predio)   as predios,
                    (select count(*) from hallazgo_inventario h
                       join responsable rh on rh.id_responsable = h.id_responsable
-                     where rh.id_persona = pe.id_persona and %s)   as faltantes
+                     where rh.id_persona = pe.id_persona and %s)   as faltantes,
+                   cpp.cargo_principal,
+                   opp.oficina_principal
             from persona pe
             join responsable r on r.id_persona   = pe.id_persona and not r.es_custodia
             join activo a      on a.id_responsable = r.id_responsable and a._estado = 'ACTIVO'
             join oficina o     on o.id_oficina   = a.id_oficina and not o.es_custodia
+            left join lateral (
+                select c.nombre as cargo_principal
+                from responsable r2
+                join cargo c on c.id_cargo = r2.id_cargo
+                join activo a2 on a2.id_responsable = r2.id_responsable and a2._estado = 'ACTIVO'
+                where r2.id_persona = pe.id_persona and not r2.es_custodia
+                group by c.nombre
+                order by count(*) desc
+                limit 1
+            ) cpp on true
+            left join lateral (
+                select trim(concat_ws(' ', o2.cod_ofi, '—', o2.nombre)) as oficina_principal
+                from responsable r3
+                join activo a3 on a3.id_responsable = r3.id_responsable and a3._estado = 'ACTIVO'
+                join oficina o2 on o2.id_oficina = a3.id_oficina and not o2.es_custodia
+                where r3.id_persona = pe.id_persona and not r3.es_custodia
+                group by o2.id_oficina, o2.cod_ofi, o2.nombre
+                order by count(*) desc
+                limit 1
+            ) opp on true
             where ((%s) or pe.ci like ?)
-            group by pe.id_persona, pe.nombre, pe.paterno, pe.materno, pe.ci
+            group by pe.id_persona, pe.nombre, pe.paterno, pe.materno, pe.ci, cpp.cargo_principal, opp.oficina_principal
             order by nombre
             limit ?
             """.formatted(PENDIENTE, porNombre);

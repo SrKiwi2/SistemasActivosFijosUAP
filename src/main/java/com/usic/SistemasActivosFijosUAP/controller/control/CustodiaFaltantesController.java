@@ -1,6 +1,7 @@
 package com.usic.SistemasActivosFijosUAP.controller.control;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -68,6 +69,18 @@ public class CustodiaFaltantesController {
     @GetMapping("/personas/{idPersona}/bienes")
     public ResponseEntity<?> bienes(@PathVariable Long idPersona) {
         return ResponseEntity.ok(actaService.bienesDePersona(idPersona));
+    }
+
+    /**
+     * Quién está ya en la oficina de faltantes de cada predio y a quién se sugiere mandar los
+     * bienes. {@code vinculadas}: otros registros de la misma persona que se sumaron.
+     */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/destinos-custodia")
+    public ResponseEntity<?> destinosCustodia(@RequestParam Long idPersona,
+                                              @RequestParam(required = false) List<Long> vinculadas,
+                                              @RequestParam(required = false) List<Long> predios) {
+        return ResponseEntity.ok(actaService.opcionesCustodia(idPersona, vinculadas, predios));
     }
 
     @ValidarUsuarioAutenticado

@@ -7,8 +7,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -91,6 +93,7 @@ public class ActaFaltanteService {
     private final IConfiguracionGestionDao configuracionDao;
     private final CustodiaFaltantesRepo repo;
     private final EnvioCustodiaService envioService;
+    private final CustodiaFaltantesService custodiaService;
     private final ActividadService actividadService;
     private final PlatformTransactionManager txManager;
 
@@ -115,6 +118,32 @@ public class ActaFaltanteService {
         return repo.actas(idPersona, 300);
     }
 
+    /**
+     * Para cada predio, quién está ya en su oficina de faltantes y a quién se sugiere mandar
+     * los bienes. Solo lee.
+     */
+    public List<CustodiaFaltantesService.OpcionesPredio> opcionesCustodia(Long idPersona, List<Long> idsVinculadas,
+                                                                         List<Long> idsPredios) {
+        if (idPersona == null) throw new ReglaNegocioException("Indique la persona.");
+        return soloLectura(() -> {
+            Persona principal = personaDao.findById(idPersona)
+                    .orElseThrow(() -> new ReglaNegocioException("La persona no existe."));
+            Set<Long> idsPersonas = personasDelPedido(idPersona, idsVinculadas);
+            return (idsPredios == null ? List.<Long>of() : idsPredios).stream()
+                    .filter(Objects::nonNull).distinct()
+                    .map(idPredio -> custodiaService.opciones(idPredio, principal, idsPersonas))
+                    .toList();
+        });
+    }
+
+    /** El principal y los otros registros de la misma persona que se sumaron. */
+    private static Set<Long> personasDelPedido(Long idPersona, List<Long> idsVinculadas) {
+        Set<Long> s = new LinkedHashSet<>();
+        s.add(idPersona);
+        if (idsVinculadas != null) idsVinculadas.stream().filter(Objects::nonNull).forEach(s::add);
+        return s;
+    }
+
     // ── Registro ────────────────────────────────────────────────────────────
 
     /**
@@ -128,17 +157,24 @@ public class ActaFaltanteService {
 
         actividadService.registrar(autor, ActividadService.MOD_ACTIVO, ActividadService.ACC_REGISTRO,
                 creada.numero(), "Registró la notificación de faltantes " + numero + " de " + creada.persona()
-                        + ": " + creada.idsHallazgo().size() + " bien(es)", creada.idsHallazgo().size(), creada.idActa());
+                        + ": " + creada.idsHallazgo().size() + " bien(es)" + creada.detalle(),
+                creada.idsHallazgo().size(), creada.idActa());
 
         // La notificación ya existe pase lo que pase con el VSIAF: lo que falle queda en cada faltante.
-        envioService.iniciar(creada.idsHallazgo(), autor);
+        envioService.iniciar(creada.idsHallazgo(), autor, creada.conHomonimoPermitido());
 
         return new Registro(creada.idActa(), numero, creada.idsHallazgo().size(),
                 "Notificación " + numero + " registrada con " + creada.idsHallazgo().size()
                         + " bien(es). El traslado a la custodia se aplica en el VSIAF en unos segundos.");
     }
 
-    private record Creada(Long idActa, String numero, String persona, List<Long> idsHallazgo) {}
+    /**
+     * @param conHomonimoPermitido faltantes cuyo predio puede recibir a la persona aunque haya
+     *                             alguien con su nombre en la oficina de faltantes
+     * @param detalle              para el monitoreo: registros sumados y destinos elegidos a mano
+     */
+    private record Creada(Long idActa, String numero, String persona, List<Long> idsHallazgo,
+                          Set<Long> conHomonimoPermitido, String detalle) {}
 
     private Creada crearActa(RegistrarFaltantesRequest req, Usuario autor) {
         Preparado p = preparar(req, "No se registró nada. Revise estos bienes:");
@@ -167,6 +203,8 @@ public class ActaFaltanteService {
         acta.setHashContenido(sha256(acta.getContenido()));
 
         List<Long> idsHallazgo = new ArrayList<>();
+        Set<Long> conHomonimoPermitido = new HashSet<>();
+        Set<Long> reactivados = new HashSet<>();
         for (Activo a : ordenados) {
             HallazgoInventario h = previos.get(a.getIdActivo());
             if (h == null) {
@@ -189,17 +227,49 @@ public class ActaFaltanteService {
             h.setFechaDocumento(acta.getFechaDocumento());
             h.setEstadoEnvio(EnvioCustodiaService.ESPERANDO_ALTA);
             h.setMensajeEnvio(null);
+            // Destino elegido a mano: el ciclo de envío no busca ni crea custodia para este faltante.
+            CustodiaFaltantesService.Destino destino = p.destinos().get(a.getOficina().getPredio().getIdPredio());
+            if (destino != null && destino.custodio() != null) {
+                Responsable custodio = destino.custodio();
+                if (reactivados.add(custodio.getIdResponsable())) custodiaService.reactivarSiHaceFalta(custodio, autor);
+                h.setResponsableCustodia(custodio);
+            }
             hallazgoDao.save(h);
             idsHallazgo.add(h.getIdHallazgo());
+            if (destino != null && destino.permitirHomonimo()) conHomonimoPermitido.add(h.getIdHallazgo());
         }
         hallazgoDao.flush();
 
         log.info("[ACTA-FALTANTES] {} emitida para {} con {} bien(es)", acta.getNumero(), acta.getPersonaNombre(), ordenados.size());
-        return new Creada(acta.getIdActa(), acta.getNumero(), acta.getPersonaNombre(), idsHallazgo);
+        return new Creada(acta.getIdActa(), acta.getNumero(), acta.getPersonaNombre(), idsHallazgo,
+                conHomonimoPermitido, detalleMonitoreo(p));
     }
 
-    /** Lo validado y ordenado para emitir: lo usan igual el registro y la vista previa. */
-    private record Preparado(Persona persona, List<Activo> ordenados, Map<Long, HallazgoInventario> previos) {}
+    /** Lo que se salió de lo normal, para que quede en el monitoreo. */
+    private String detalleMonitoreo(Preparado p) {
+        List<String> partes = new ArrayList<>();
+        if (p.idsPersonas().size() > 1) {
+            partes.add("sumó otro(s) registro(s) de la misma persona: id_persona "
+                    + p.idsPersonas().stream().filter(id -> !id.equals(p.persona().getIdPersona()))
+                            .map(String::valueOf).collect(Collectors.joining(", ")));
+        }
+        p.destinos().values().stream().filter(d -> d.custodio() != null)
+                .map(d -> d.custodio().getIdResponsable()).distinct()
+                .forEach(id -> partes.add("custodia elegida: responsable " + id));
+        if (p.destinos().values().stream().anyMatch(CustodiaFaltantesService.Destino::permitirHomonimo)) {
+            partes.add("indicó que es otra persona que el homónimo de la oficina de faltantes");
+        }
+        return partes.isEmpty() ? "" : " (" + String.join("; ", partes) + ")";
+    }
+
+    /**
+     * Lo validado y ordenado para emitir: lo usan igual el registro y la vista previa.
+     *
+     * @param idsPersonas el principal y los otros registros de la misma persona
+     * @param destinos    id del predio → a quién de su oficina de faltantes van los bienes
+     */
+    private record Preparado(Persona persona, List<Activo> ordenados, Map<Long, HallazgoInventario> previos,
+                             Set<Long> idsPersonas, Map<Long, CustodiaFaltantesService.Destino> destinos) {}
 
     /**
      * Valida el pedido y los bienes (solo lee) y los ordena como van en el documento.
@@ -220,6 +290,8 @@ public class ActaFaltanteService {
         }
         Persona persona = personaDao.findById(req.idPersona())
                 .orElseThrow(() -> new ReglaNegocioException("La persona no existe."));
+        Set<Long> idsPersonas = personasDelPedido(persona.getIdPersona(), req.idsPersonasVinculadas());
+        validarVinculadas(persona, idsPersonas);
 
         Map<Long, Activo> activos = activoDao.findAllById(ids).stream()
                 .collect(Collectors.toMap(Activo::getIdActivo, Function.identity()));
@@ -228,7 +300,7 @@ public class ActaFaltanteService {
         for (Long id : ids) {
             Activo a = activos.get(id);
             if (a == null) { problemas.add("#" + id + ": no existe"); continue; }
-            String p = problemaParaRegistrar(a, persona);
+            String p = problemaParaRegistrar(a, persona, idsPersonas);
             if (p == null) {
                 List<HallazgoInventario> pend = hallazgoDao.pendientesDelActivo(id);
                 if (!pend.isEmpty()) {
@@ -253,7 +325,69 @@ public class ActaFaltanteService {
                         .thenComparing(a -> a.getOficina().getCodOfi(), Comparator.nullsLast(Short::compareTo))
                         .thenComparing(Activo::getCodigo, Comparator.nullsLast(String::compareTo)))
                 .toList();
-        return new Preparado(persona, ordenados, previos);
+
+        // A quién de la oficina de faltantes de cada predio van los bienes.
+        Map<Long, RegistrarFaltantesRequest.DestinoCustodia> elegidos = new HashMap<>();
+        if (req.destinos() != null) {
+            req.destinos().stream().filter(d -> d != null && d.idPredio() != null)
+                    .forEach(d -> elegidos.put(d.idPredio(), d));
+        }
+        Map<Long, CustodiaFaltantesService.Destino> destinos = new LinkedHashMap<>();
+        for (Activo a : ordenados) {
+            var predio = a.getOficina().getPredio();
+            if (destinos.containsKey(predio.getIdPredio())) continue;
+            try {
+                destinos.put(predio.getIdPredio(), custodiaService.resolverDestino(predio.getIdPredio(), persona,
+                        idsPersonas, elegidos.get(predio.getIdPredio())));
+            } catch (ReglaNegocioException e) {
+                problemas.add("Predio " + predio.getUnidad() + ": " + e.getMessage());
+            }
+        }
+        if (!problemas.isEmpty()) {
+            throw new ReglaNegocioException(encabezado + "\n• " + String.join("\n• ", problemas));
+        }
+        return new Preparado(persona, ordenados, previos, idsPersonas, destinos);
+    }
+
+    /**
+     * Los registros sumados existen y la notificación sale a nombre del que tiene C.I.
+     * (acordado con Activos Fijos: no debe quedar en faltantes un responsable sin C.I.).
+     */
+    private void validarVinculadas(Persona principal, Set<Long> idsPersonas) {
+        if (idsPersonas.size() == 1) return;
+        String ciPrincipal = ciLimpio(principal.getCi());
+        for (Long id : idsPersonas) {
+            if (id.equals(principal.getIdPersona())) continue;
+            Persona otra = personaDao.findById(id)
+                    .orElseThrow(() -> new ReglaNegocioException("Uno de los registros sumados ya no existe (id " + id + ")."));
+            String ciOtra = ciLimpio(otra.getCi());
+            if (ciOtra != null && ciPrincipal == null) {
+                throw new ReglaNegocioException("La notificación debe salir a nombre del registro con C.I.: "
+                        + otra.getNombreCompleto() + " (C.I. " + otra.getCi() + ").");
+            }
+            if (ciOtra != null && !ciOtra.equals(ciPrincipal)) {
+                throw new ReglaNegocioException(otra.getNombreCompleto() + " tiene otro C.I. (" + otra.getCi()
+                        + "): es otra persona y no se puede sumar a esta notificación.");
+            }
+            // La pantalla ya pide confirmar si los nombres difieren; acá se frena lo que no tiene
+            // relación. Dos palabras en común toleran el nombre recortado del VSIAF (35 letras).
+            if (palabrasEnComun(principal, otra) < 2) {
+                throw new ReglaNegocioException(otra.getNombreCompleto() + " no se parece a " + principal.getNombreCompleto()
+                        + ": no se puede sumar como otro registro de la misma persona.");
+            }
+        }
+    }
+
+    private static long palabrasEnComun(Persona a, Persona b) {
+        Set<String> pa = new HashSet<>(java.util.Arrays.asList(CustodiaFaltantesService.nombreNormalizado(a).split(" ")));
+        return java.util.Arrays.stream(CustodiaFaltantesService.nombreNormalizado(b).split(" "))
+                .filter(w -> w.length() > 1 && pa.contains(w)).distinct().count();
+    }
+
+    private static String ciLimpio(String ci) {
+        if (ci == null) return null;
+        String s = ci.replaceAll("[.\\-\\s]", "").toUpperCase(java.util.Locale.ROOT);
+        return s.isEmpty() ? null : s;
     }
 
     /** El acta en memoria con los datos de la persona y del pedido (sin número, sin contenido, sin guardar). */
@@ -706,12 +840,15 @@ public class ActaFaltanteService {
         return s == null ? "—" : s;
     }
 
-    /** Por qué este bien no puede ir en un acta de esta persona; null si puede. */
-    private String problemaParaRegistrar(Activo a, Persona persona) {
+    /**
+     * Por qué este bien no puede ir en un acta de esta persona; null si puede.
+     *
+     * @param idsPersonas la persona y los otros registros suyos que se sumaron
+     */
+    private String problemaParaRegistrar(Activo a, Persona persona, Set<Long> idsPersonas) {
         if (!Activo.ESTADO_ACTIVO.equals(a.getEstado())) return "no está vigente";
         Responsable r = a.getResponsable();
-        if (r == null || r.getPersona() == null
-                || !Objects.equals(r.getPersona().getIdPersona(), persona.getIdPersona())) {
+        if (r == null || r.getPersona() == null || !idsPersonas.contains(r.getPersona().getIdPersona())) {
             return "no está a cargo de " + persona.getNombreCompleto();
         }
         Oficina o = a.getOficina();
@@ -914,7 +1051,7 @@ public class ActaFaltanteService {
 
         log.info("[ACTA-FALTANTES] {} (regularización) para {} con {} bien(es)", acta.getNumero(),
                 acta.getPersonaNombre(), ordenados.size());
-        return new Creada(acta.getIdActa(), acta.getNumero(), acta.getPersonaNombre(), idsHallazgo);
+        return new Creada(acta.getIdActa(), acta.getNumero(), acta.getPersonaNombre(), idsHallazgo, Set.of(), "");
     }
 
     private static String numeroDe(String tipo, LocalDateTime fecha, Long id) {

@@ -404,3 +404,42 @@ Botón **Vista previa** en el modal "Registrar faltantes" (pide el plazo, igual 
 `datosNotificacion`, `contenido`) que el registro, en un `TransactionTemplate` de solo lectura
 que además se deshace; no toma el turno de numeración ni llama a `EnvioCustodiaService`.
 Mismo permiso que registrar (`exigirPermiso`).
+
+## Arreglo temporal: misma persona en dos registros (06-oct-2026)
+
+**Problema.** La sincronización de RESP.DBF crea dos `persona` para el mismo funcionario
+cuando en el VSIAF tiene filas con C.I. y filas sin C.I. (`ResponsableController.syncFromMounted`:
+con C.I. busca solo por C.I.; sin C.I. busca por nombre). El alta automática de custodia busca
+por `id_persona`, así que habría dado de alta a "los dos Richard" en la oficina de faltantes.
+Acordado con ING. Saul: por ahora se resuelve **a mano en el registro**; la limpieza de la base
+(unificar personas, corregir la sync) queda para después.
+
+**Qué hace ahora el registro de faltantes** (sin cambio de esquema):
+- Paso 2: "Sumar otro registro de esta persona" junta los bienes de otro `id_persona` en la
+  misma notificación. La notificación sale **a nombre del registro con C.I.** (decisión del
+  usuario). El servidor rechaza un registro con otro C.I. o con un nombre sin al menos dos
+  palabras en común.
+- Por cada predio se elige a quién de la oficina de faltantes van los bienes
+  (`GET /custodia/destinos-custodia`). Se preselecciona solo a la misma persona o a un registro
+  sumado; un homónimo (mismo nombre, otra persona) se elige a mano o se marca "Es otra persona"
+  (`crearNuevo`). Solo se puede elegir a quien esté confirmado en el VSIAF (o en cola).
+- El elegido se guarda en `hallazgo.id_responsable_custodia` al registrar; el ciclo de envío
+  salta los que ya lo traen. Si su oficina era una "FALTANTES…" sin marcar, se adopta.
+- El alta automática usa la persona **del acta** y se niega a crear si en la oficina hay alguien
+  con el mismo nombre (barrera `exigirSinHomonimo`), salvo `crearNuevo`. El permiso de
+  `crearNuevo` vale solo para el primer intento (no hay dónde guardarlo sin esquema): si ese
+  intento falla por algo transitorio, el faltante queda en ERROR y hay que reintentar o anular.
+- La vista Faltantes agrupa por `coalesce(acta.id_persona, responsable.id_persona)`.
+- **Pantalla guiada (pedido del usuario: que lo entienda cualquiera):** pasos numerados (1 Persona,
+  2 Bienes, 3 A quién se entregan, 4 Datos). Al elegir a la persona, el sistema busca solo otro
+  registro con el mismo nombre y pregunta "¿Es la misma persona? Sí / No". El paso 3 dice "No
+  necesita hacer nada" cuando no hay decisión, y si hay homónimo pregunta con opciones de un clic.
+  Si cambian las personas juntadas, el paso 3 se vuelve a preguntar (no se arrastra la respuesta).
+- **Botones del pie ocultos:** `modal-dialog-scrollable` solo da scroll a `.modal-body`;
+  `.sm-modal-cuerpo` no lo tenía y `.sm-modal` recorta. Arreglado en `sciaf-modulo.css` para todos
+  los modales con ese patrón (también mapa, menú, usuario, ingreso).
+- Sin probar en vivo. Prueba del modal con navegador simulado (jsdom, 19 comprobaciones) y
+  capturas con Chrome sin pantalla, en el scratchpad de la sesión, fuera del repo.
+
+**Pendiente conocido:** el reporte consolidado por persona y el contador de faltantes del
+buscador siguen agrupando por la persona del responsable (los del registro sin C.I. salen aparte).

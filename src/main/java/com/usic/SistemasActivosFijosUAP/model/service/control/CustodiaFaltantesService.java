@@ -1,10 +1,16 @@
 package com.usic.SistemasActivosFijosUAP.model.service.control;
 
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -14,7 +20,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IOficinaDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IPersonasDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IPredioDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
+import com.usic.SistemasActivosFijosUAP.model.dto.control.RegistrarFaltantesRequest;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
@@ -58,6 +67,8 @@ public class CustodiaFaltantesService {
 
     private final IOficinaDao oficinaDao;
     private final IResposableDao responsableDao;
+    private final IPersonasDao personaDao;
+    private final IPredioDao predioDao;
     private final IResponsableService responsableService;
     private final VsiafApoyoService vsiafApoyoService;
     private final ActividadService actividadService;
@@ -74,6 +85,37 @@ public class CustodiaFaltantesService {
     /** Lo que hizo la transacción, para decidir qué encolar después de confirmarla. */
     private record Alta(Long idOficina, Long idResponsable, boolean oficinaNueva, boolean oficinaAdoptada,
                         boolean responsableNuevo) {}
+
+    // Por qué un responsable de la oficina de faltantes aparece como candidato.
+    public static final String MISMA_PERSONA = "MISMA_PERSONA";
+    /** Otro registro de la misma persona (el que quien registra sumó a la notificación). */
+    public static final String OTRO_REGISTRO = "OTRO_REGISTRO";
+    /** Otra persona con el mismo nombre: duplicado de la sincronización o un homónimo real. */
+    public static final String MISMO_NOMBRE = "MISMO_NOMBRE";
+    public static final String OTRO = "OTRO";
+
+    /** Alguien que ya está en la oficina de faltantes del predio. */
+    public record Candidato(Long idResponsable, Long idPersona, String nombre, String ci, String cargo,
+                            String codigo, String coincidencia, String estadoVsiaf, boolean elegible) {}
+
+    /**
+     * Destinos posibles en la oficina de faltantes de un predio, para que quien registra elija.
+     *
+     * @param sugerido         candidato preseleccionado; null = alta automática
+     * @param requiereEleccion hay alguien con el mismo nombre u otro registro de la persona:
+     *                         no se da de alta a nadie sin que se elija
+     */
+    public record OpcionesPredio(Long idPredio, String unidad, String predio, String oficina, boolean creaOficina,
+                                 boolean principalYaEsta, List<Candidato> candidatos, Long sugerido,
+                                 boolean requiereEleccion) {}
+
+    /**
+     * A quién van los bienes de un predio.
+     *
+     * @param custodio         elegido a mano; null = el ciclo de envío asegura la custodia de la persona
+     * @param permitirHomonimo el alta automática puede crear a la persona aunque haya alguien con su nombre
+     */
+    public record Destino(Responsable custodio, boolean permitirHomonimo) {}
 
     // ── Consulta ────────────────────────────────────────────────────────────
 
@@ -117,6 +159,170 @@ public class CustodiaFaltantesService {
         });
     }
 
+    // ── Elección manual del destino ─────────────────────────────────────────
+    //
+    // Arreglo temporal: la sincronización con el VSIAF a veces parte a una persona en dos
+    // (un registro con C.I. y otro sin). Sin esto, cada registro tendría su propio responsable
+    // en la oficina de faltantes. Mientras se limpia la base, quien registra elige a quién van.
+
+    /**
+     * Quién está ya en la oficina de faltantes del predio y qué se sugiere, sin tocar nada.
+     *
+     * @param principal   a nombre de quién sale la notificación
+     * @param idsPersonas el principal y los otros registros de la misma persona
+     */
+    public OpcionesPredio opciones(Long idPredio, Persona principal, Set<Long> idsPersonas) {
+        return enTransaccion(() -> {
+            Predio predio = predioDao.findById(idPredio)
+                    .orElseThrow(() -> new ReglaNegocioException("El predio no existe."));
+            Oficina oficina = buscarOficina(idPredio);
+            if (oficina == null) {
+                return new OpcionesPredio(idPredio, unidad(predio), predio.getDescrip(), nombreOficinaNueva(predio),
+                        true, false, List.of(), null, false);
+            }
+            List<Candidato> candidatos = candidatos(oficina, principal, idsPersonas);
+            boolean principalYaEsta = candidatos.stream().anyMatch(c -> MISMA_PERSONA.equals(c.coincidencia()));
+            List<Candidato> parecidos = candidatos.stream().filter(c -> esParecido(c.coincidencia())).toList();
+            Long sugerido = null;
+            if (principalYaEsta) {
+                sugerido = candidatos.stream().filter(c -> MISMA_PERSONA.equals(c.coincidencia()) && c.elegible())
+                        .map(Candidato::idResponsable).findFirst().orElse(null);
+            } else {
+                // Solo otro registro que quien registra ya indicó como la misma persona. Uno del
+                // mismo nombre puede ser un homónimo real: ese se elige a mano, nunca por defecto.
+                sugerido = parecidos.stream().filter(c -> OTRO_REGISTRO.equals(c.coincidencia()) && c.elegible())
+                        .map(Candidato::idResponsable).findFirst().orElse(null);
+            }
+            return new OpcionesPredio(idPredio, unidad(predio), predio.getDescrip(),
+                    OficinaGestionService.referencia(oficina), false, principalYaEsta, candidatos, sugerido,
+                    !principalYaEsta && !parecidos.isEmpty());
+        });
+    }
+
+    /**
+     * Valida lo que eligió quien registra para un predio y dice a quién van los bienes.
+     * Corre dentro de la transacción del registro (y de la vista previa).
+     *
+     * @param eleccion null = sin elegir
+     * @throws ReglaNegocioException si la elección no vale o hace falta elegir
+     */
+    public Destino resolverDestino(Long idPredio, Persona principal, Set<Long> idsPersonas,
+                                   RegistrarFaltantesRequest.DestinoCustodia eleccion) {
+        Oficina oficina = buscarOficina(idPredio);
+        Long idElegido = eleccion != null ? eleccion.idResponsableCustodia() : null;
+        boolean crearNuevo = eleccion != null && Boolean.TRUE.equals(eleccion.crearNuevo());
+        if (oficina == null) {
+            if (idElegido != null) {
+                throw new ReglaNegocioException("el predio todavía no tiene oficina de faltantes: no hay a quién elegir.");
+            }
+            return new Destino(null, false);   // se crea la oficina y la persona, como siempre
+        }
+        List<Candidato> candidatos = candidatos(oficina, principal, idsPersonas);
+
+        if (idElegido != null) {
+            Candidato c = candidatos.stream().filter(x -> idElegido.equals(x.idResponsable())).findFirst()
+                    .orElseThrow(() -> new ReglaNegocioException("el responsable elegido no está en la oficina de faltantes "
+                            + OficinaGestionService.referencia(oficina) + "."));
+            if (!c.elegible()) {
+                // Sin confirmar, el ciclo de envío podría soltarlo y dar de alta a otro.
+                throw new ReglaNegocioException(c.nombre() + " todavía no está confirmado en el VSIAF ("
+                        + c.estadoVsiaf() + "). Espere a que el VSIAF lo confirme o elija otro.");
+            }
+            return new Destino(responsableService.findByIdWithRelations(idElegido), false);
+        }
+
+        if (candidatos.stream().anyMatch(c -> MISMA_PERSONA.equals(c.coincidencia()))) {
+            return new Destino(null, false);   // ya está: el alta automática lo encuentra
+        }
+        List<Candidato> parecidos = candidatos.stream().filter(c -> esParecido(c.coincidencia())).toList();
+        if (parecidos.isEmpty()) return new Destino(null, false);
+
+        Candidato mismoRegistro = parecidos.stream().filter(c -> OTRO_REGISTRO.equals(c.coincidencia()))
+                .findFirst().orElse(null);
+        if (mismoRegistro != null) {
+            throw new ReglaNegocioException("en la oficina de faltantes " + OficinaGestionService.referencia(oficina)
+                    + " ya está " + describir(mismoRegistro) + ", que usted indicó como la misma persona: elíjalo como destino.");
+        }
+        if (!crearNuevo) {
+            throw new ReglaNegocioException("en la oficina de faltantes " + OficinaGestionService.referencia(oficina)
+                    + " ya está " + describir(parecidos.get(0)) + ", con el mismo nombre. Elija si los bienes van a "
+                    + "esa persona o marque que es otra persona.");
+        }
+        return new Destino(null, true);
+    }
+
+    /**
+     * Deja vigente al responsable elegido a mano: si su oficina es una "FALTANTES…" hecha a mano
+     * en el VSIAF que todavía no se marcó, se adopta (como en el alta automática); si él se dio
+     * de baja en el SCIAF al quedar vacío, se reactiva.
+     */
+    public void reactivarSiHaceFalta(Responsable custodio, Usuario autor) {
+        Oficina oficina = custodio.getOficina();
+        if (oficina != null && !oficina.isEsCustodia()) adoptar(oficina, autor);
+        if (custodio.isEsCustodia() && "ACTIVO".equals(custodio.getEstado())) return;
+        custodio.setEsCustodia(true);
+        custodio.setEstado("ACTIVO");
+        tocar(custodio, autor);
+        responsableDao.saveAndFlush(custodio);
+    }
+
+    /** Los de la oficina, con su coincidencia y su estado en el VSIAF: los parecidos primero. */
+    private List<Candidato> candidatos(Oficina oficina, Persona principal, Set<Long> idsPersonas) {
+        List<Responsable> filas = responsableDao.findByOficinaIdOficina(oficina.getIdOficina());
+        Map<Long, Boolean> pendientes = new HashMap<>();
+        filas.forEach(r -> pendientes.put(r.getIdResponsable(), r.isPendienteDbf()));
+        Map<Long, VsiafApoyoService.EstadoVsiaf> estados =
+                vsiafApoyoService.estados(VsiafApoyoService.TABLA_RESP, pendientes);
+
+        Set<String> nombres = new HashSet<>();
+        nombres.add(nombreNormalizado(principal));
+        for (Long id : idsPersonas) {
+            personaDao.findById(id).ifPresent(p -> nombres.add(nombreNormalizado(p)));
+        }
+
+        List<Candidato> out = new ArrayList<>();
+        for (Responsable r : filas) {
+            Persona p = r.getPersona();
+            Long idP = p != null ? p.getIdPersona() : null;
+            String coincidencia;
+            if (idP != null && idP.equals(principal.getIdPersona())) coincidencia = MISMA_PERSONA;
+            else if (idP != null && idsPersonas.contains(idP))       coincidencia = OTRO_REGISTRO;
+            else if (p != null && nombres.contains(nombreNormalizado(p))) coincidencia = MISMO_NOMBRE;
+            else                                                       coincidencia = OTRO;
+            VsiafApoyoService.EstadoVsiaf e = estados.get(r.getIdResponsable());
+            String codigo = e != null ? e.codigo() : VsiafApoyoService.EST_VSIAF;
+            boolean elegible = VsiafApoyoService.EST_VSIAF.equals(codigo) || VsiafApoyoService.EST_EN_COLA.equals(codigo);
+            out.add(new Candidato(r.getIdResponsable(), idP, p != null ? nombreCompleto(p) : r.getCodigoFuncionario(),
+                    p != null ? p.getCi() : null, r.getCargo() != null ? r.getCargo().getNombre() : null,
+                    r.getCodigoFuncionario(), coincidencia, e != null ? e.texto() : "En el VSIAF", elegible));
+        }
+        List<String> orden = List.of(MISMA_PERSONA, OTRO_REGISTRO, MISMO_NOMBRE, OTRO);
+        out.sort(Comparator.comparing((Candidato c) -> orden.indexOf(c.coincidencia()))
+                .thenComparing(Candidato::nombre, Comparator.nullsLast(String::compareTo)));
+        return out;
+    }
+
+    private static boolean esParecido(String coincidencia) {
+        return OTRO_REGISTRO.equals(coincidencia) || MISMO_NOMBRE.equals(coincidencia);
+    }
+
+    private static String describir(Candidato c) {
+        return c.nombre() + " (C.I. " + (c.ci() != null && !c.ci().isBlank() ? c.ci() : "s/d")
+                + ", código " + c.codigo() + ")";
+    }
+
+    private static String nombreCompleto(Persona p) {
+        return java.util.stream.Stream.of(p.getNombre(), p.getPaterno(), p.getMaterno())
+                .filter(s -> s != null && !s.isBlank()).map(String::trim)
+                .collect(java.util.stream.Collectors.joining(" "));
+    }
+
+    /** Para comparar nombres: sin tildes, en mayúsculas y con un solo espacio. */
+    static String nombreNormalizado(Persona p) {
+        String s = Normalizer.normalize(nombreCompleto(p), Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        return s.toUpperCase(java.util.Locale.ROOT).replaceAll("\\s+", " ").trim();
+    }
+
     private static int gravedad(VsiafApoyoService.EstadoVsiaf e) {
         if (e == null) return 0;
         return switch (e.codigo()) {
@@ -138,15 +344,27 @@ public class CustodiaFaltantesService {
      * @throws ReglaNegocioException si el responsable no se puede llevar a custodia
      */
     public Custodia asegurar(Long idResponsableOriginal, Usuario autor) {
+        return asegurar(idResponsableOriginal, null, false, autor);
+    }
+
+    /**
+     * @param idPersonaDestino quién queda en la oficina de faltantes; null = la persona del
+     *                         responsable original. Es la de la notificación: si quien registró
+     *                         sumó otro registro de la misma persona, sus bienes van a la principal
+     * @param permitirHomonimo dar de alta aunque en la oficina haya alguien con el mismo nombre
+     *                         (quien registró indicó que es otra persona)
+     */
+    public Custodia asegurar(Long idResponsableOriginal, Long idPersonaDestino, boolean permitirHomonimo,
+                             Usuario autor) {
         Alta alta;
         try {
-            alta = enTransaccion(() -> prepararAlta(idResponsableOriginal, autor));
+            alta = enTransaccion(() -> prepararAlta(idResponsableOriginal, idPersonaDestino, permitirHomonimo, autor));
         } catch (DataIntegrityViolationException carrera) {
             // Otro pedido creó la misma oficina o el mismo responsable al mismo tiempo
             // (los índices únicos lo frenaron): ahora ya existe y se reutiliza.
             log.info("[CUSTODIA] Alta concurrente para el responsable {}; se reintenta: {}",
                     idResponsableOriginal, carrera.getMostSpecificCause().getMessage());
-            alta = enTransaccion(() -> prepararAlta(idResponsableOriginal, autor));
+            alta = enTransaccion(() -> prepararAlta(idResponsableOriginal, idPersonaDestino, permitirHomonimo, autor));
         }
         Alta hecha = alta;
         Custodia custodia = enTransaccion(() -> enviarAlVsiaf(hecha, autor));
@@ -154,8 +372,13 @@ public class CustodiaFaltantesService {
         return custodia;
     }
 
-    private Alta prepararAlta(Long idResponsableOriginal, Usuario autor) {
+    private Alta prepararAlta(Long idResponsableOriginal, Long idPersonaDestino, boolean permitirHomonimo,
+                              Usuario autor) {
         Responsable original = cargarOriginal(idResponsableOriginal);
+        Persona persona = idPersonaDestino != null
+                ? personaDao.findById(idPersonaDestino)
+                        .orElseThrow(() -> new ReglaNegocioException("La persona de la notificación ya no existe."))
+                : original.getPersona();
         Predio predio = original.getOficina().getPredio();
 
         boolean oficinaNueva = false;
@@ -173,9 +396,10 @@ public class CustodiaFaltantesService {
         }
 
         boolean responsableNuevo = false;
-        Responsable custodio = responsableDe(oficina, original.getPersona());
+        Responsable custodio = responsableDe(oficina, persona);
         if (custodio == null) {
-            custodio = nuevoResponsable(oficina, original, autor);
+            if (!permitirHomonimo) exigirSinHomonimo(oficina, persona);
+            custodio = nuevoResponsable(oficina, original, persona, autor);
             responsableNuevo = true;
         } else if (!custodio.isEsCustodia() || !"ACTIVO".equals(custodio.getEstado())) {
             // Ya estuvo (y se dio de baja en el SCIAF al quedar vacío): en el VSIAF la fila sigue.
@@ -223,15 +447,37 @@ public class CustodiaFaltantesService {
         return o;
     }
 
+    /**
+     * Barrera contra el duplicado: si en la oficina ya hay alguien con el mismo nombre (otro
+     * registro de la misma persona, típico de la sincronización), no se da de alta un segundo.
+     * Quien registra elige a quién van los bienes o indica que es otra persona.
+     */
+    private void exigirSinHomonimo(Oficina oficina, Persona persona) {
+        String nombre = nombreNormalizado(persona);
+        responsableDao.findByOficinaIdOficina(oficina.getIdOficina()).stream()
+                .filter(r -> r.getPersona() != null
+                        && !Objects.equals(r.getPersona().getIdPersona(), persona.getIdPersona())
+                        && nombre.equals(nombreNormalizado(r.getPersona())))
+                .findFirst()
+                .ifPresent(r -> {
+                    throw new ReglaNegocioException("En la oficina de faltantes " + OficinaGestionService.referencia(oficina)
+                            + " ya está " + nombreCompleto(r.getPersona()) + " (C.I. "
+                            + (r.getPersona().getCi() != null && !r.getPersona().getCi().isBlank() ? r.getPersona().getCi() : "s/d")
+                            + ", código " + r.getCodigoFuncionario() + ") con el mismo nombre. No se dio de alta a otro. "
+                            + "Pulse Reintentar; si vuelve a fallar, anule esta notificación y regístrela de nuevo "
+                            + "eligiendo a quién van los bienes.");
+                });
+    }
+
     /** La misma persona, con su cargo real, como responsable dentro de la oficina de faltantes. */
-    private Responsable nuevoResponsable(Oficina oficina, Responsable original, Usuario autor) {
+    private Responsable nuevoResponsable(Oficina oficina, Responsable original, Persona persona, Usuario autor) {
         int codigo = siguienteCodResp(oficina);
         if (codigo > ResponsableAltaService.MAX_COD_RESP) {
             throw new ReglaNegocioException("La oficina de faltantes " + OficinaGestionService.referencia(oficina)
                     + " ya no tiene códigos de responsable libres.");
         }
         Responsable r = new Responsable();
-        r.setPersona(original.getPersona());
+        r.setPersona(persona);
         r.setOficina(oficina);
         r.setCargo(original.getCargo());
         r.setCodigoFuncionario(String.valueOf(codigo));
@@ -244,7 +490,7 @@ public class CustodiaFaltantesService {
         if (autor != null) r.setRegistroIdUsuario(autor.getIdUsuario());
         responsableDao.saveAndFlush(r);
         log.info("[CUSTODIA] {} registrado en la oficina de faltantes {} (código {})",
-                original.getPersona().getNombreCompleto(), OficinaGestionService.referencia(oficina), codigo);
+                nombreCompleto(persona), OficinaGestionService.referencia(oficina), codigo);
         return r;
     }
 

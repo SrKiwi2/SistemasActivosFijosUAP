@@ -625,8 +625,10 @@ public class ControlActivosRepo {
             join predio p              on p.id_predio      = o.id_predio
             left join activo a         on a.id_activo      = h.id_activo
             left join responsable r    on r.id_responsable = h.id_responsable
-            left join persona pe       on pe.id_persona    = r.id_persona
             left join acta_faltante af on af.id_acta       = h.id_acta
+            -- La persona de la notificación, si la hay: quien registró pudo sumar otro registro
+            -- de la misma persona (uno con C.I. y otro sin) y así sale una sola vez.
+            left join persona pe       on pe.id_persona    = coalesce(af.id_persona, r.id_persona)
             where coalesce(h.estado_hallazgo, '') <> 'ANULADO'
             """.formatted(OFICINA_HALLAZGO));
 
