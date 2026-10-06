@@ -289,8 +289,15 @@
 
                         <div class="cf-paso-tit mt-3"><span class="cf-paso-num">2</span> Marque los bienes que faltan</div>
                         <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
-                            <input type="text" class="form-control form-control-sm" id="cf-reg-filtro" style="max-width:300px;"
-                                   placeholder="Filtrar por código o descripción">
+                            <!-- Oficina: se puede elegir de la lista o escribir su código o nombre -->
+                            <div id="cf-reg-f-oficina-wrap" style="width:380px; max-width:100%;">
+                                <select class="form-select form-select-sm" id="cf-reg-f-oficina" style="width:100%;"
+                                        title="Ver solo los bienes de una oficina">
+                                    <option value="">Todas las oficinas</option>
+                                </select>
+                            </div>
+                            <input type="text" class="form-control form-control-sm" id="cf-reg-filtro" style="max-width:260px;"
+                                   placeholder="Buscar bien por código o descripción">
                             <span class="badge bg-danger" id="cf-reg-conteo">0 seleccionados</span>
                         </div>
                         <div class="cf-bienes mb-3">
@@ -1251,7 +1258,7 @@
         function regVacio(filtroUnico) {
             return { persona: null, vinculadas: [], bienes: [], sel: {}, filtroUnico: filtroUnico || null,
                      destinos: {}, opciones: [], clavePredios: null, cargandoDestinos: false,
-                     textos: {}, porDefecto: {}, sugeridos: [], descartados: {} };
+                     textos: {}, porDefecto: {}, sugeridos: [], descartados: {}, filtroOficina: '' };
         }
         var reg = regVacio();
         var tBuscar = null;
@@ -1262,6 +1269,7 @@
 
         function limpiarExtrasRegistro() {
             $('#cf-reg-vinculadas, #cf-reg-destinos, #cf-reg-sumar-lista, #cf-reg-sugerencias').empty();
+            $('#cf-reg-f-oficina-wrap').hide();
             $('#cf-reg-num-datos').text('3');
             $('#cf-reg-sumar-buscar').val('');
             $('#cf-reg-sumar-panel').hide();
@@ -1391,6 +1399,7 @@
                         if (b.seleccionable && b.idHallazgo && b.estadoHallazgo === 'ABIERTO') reg.sel[b.idActivo] = true;
                     });
                 }
+                pintarFiltroOficinas();
                 pintarBienes();
             }).fail(function (xhr) {
                 $('#cf-reg-bienes').html('<tr><td class="text-danger p-3">' + esc(errorDe(xhr, 'No se pudieron cargar los bienes.')) + '</td></tr>');
@@ -1400,6 +1409,7 @@
         function pintarBienes() {
             var q = ($('#cf-reg-filtro').val() || '').trim().toLowerCase();
             var lista = reg.bienes.filter(function (b) {
+                if (reg.filtroOficina && String(b.idOficina) !== String(reg.filtroOficina)) return false;
                 return !q || (b.codigo || '').toLowerCase().indexOf(q) !== -1 || (b.descripcion || '').toLowerCase().indexOf(q) !== -1;
             });
             if (!lista.length) {
@@ -1437,6 +1447,69 @@
         }
 
         $('#cf-reg-filtro').on('input', pintarBienes);
+
+        // ── Filtro por oficina ──────────────────────────────────────────
+        // Las oficinas salen de los bienes cargados (de la persona y de sus registros juntados),
+        // agrupadas por predio. Se elige de la lista o se escribe el código o el nombre.
+
+        function pintarFiltroOficinas() {
+            var $s = $('#cf-reg-f-oficina');
+            var por = {}, orden = [];
+            reg.bienes.forEach(function (b) {
+                if (!por[b.idOficina]) { por[b.idOficina] = { b: b, n: 0 }; orden.push(b.idOficina); }
+                por[b.idOficina].n++;
+            });
+            if (reg.filtroOficina && !por[reg.filtroOficina]) reg.filtroOficina = '';
+            var html = '<option value="">Todas las oficinas (' + orden.length + ')</option>', predio = null;
+            orden.forEach(function (id) {
+                var b = por[id].b;
+                if (b.idPredio !== predio) {
+                    if (predio !== null) html += '</optgroup>';
+                    predio = b.idPredio;
+                    html += '<optgroup label="Predio ' + esc(b.unidad) + ' — ' + esc(b.predio) + '">';
+                }
+                html += '<option value="' + id + '" data-cod="' + esc(b.codOfi) + '" data-busca="' +
+                        esc(('oficina ' + b.codOfi + ' ' + (b.oficina || '')).toLowerCase()) + '">Oficina ' + esc(b.codOfi) + ' — ' +
+                        esc(b.oficina) + ' · ' + por[id].n + ' bien(es)</option>';
+            });
+            if (predio !== null) html += '</optgroup>';
+            if ($.fn.select2 && $s.hasClass('select2-hidden-accessible')) $s.select2('destroy');
+            $s.html(html).val(reg.filtroOficina || '');
+            // Con una sola oficina el filtro no aporta nada.
+            $('#cf-reg-f-oficina-wrap').toggle(orden.length > 1);
+            if ($.fn.select2) {
+                $s.select2({
+                    dropdownParent: $('#cf-reg'), width: '100%',
+                    placeholder: 'Todas las oficinas',
+                    language: { noResults: function () { return 'Ninguna oficina coincide'; } },
+                    matcher: coincideOficina
+                });
+            }
+        }
+
+        /** Coincide por el texto (código, nombre o predio) o por el código escrito con o sin ceros: 12 = 012. */
+        function coincideOficina(params, data) {
+            var t = $.trim(params.term || '').toLowerCase();
+            if (!t) return data;
+            if (data.children) {
+                if (String(data.text).toLowerCase().indexOf(t) !== -1) return data;   // el predio
+                var hijos = data.children.filter(function (c) { return coincideOficina(params, c); });
+                if (!hijos.length) return null;
+                var copia = $.extend({}, data, true);
+                copia.children = hijos;
+                return copia;
+            }
+            // Solo código y nombre: el "· N bien(es)" del texto no cuenta (escribir 1 no debe traerlas todas).
+            var busca = data.element ? $(data.element).attr('data-busca') : null;
+            if (String(busca != null ? busca : data.text).toLowerCase().indexOf(t) !== -1) return data;
+            var cod = data.element ? $(data.element).data('cod') : null;
+            return (/^\d+$/.test(t) && cod !== undefined && cod !== null && cod !== '' && Number(t) === Number(cod)) ? data : null;
+        }
+
+        $('#cf-reg-f-oficina').on('change', function () {
+            reg.filtroOficina = $(this).val() || '';
+            pintarBienes();
+        });
 
         // ── Otros registros de la misma persona ──────────────────────────
         // Arreglo temporal: la sincronización con el VSIAF a veces deja a una persona dos veces
@@ -1563,6 +1636,7 @@
                     reg.bienes = reg.bienes.concat(bs);
                     ordenarBienes();
                     reg.clavePredios = null;   // cambiaron las personas: se vuelve a consultar el destino
+                    pintarFiltroOficinas();
                     pintarBienes();
                     detectarOtrosRegistros();
                 }).fail(function (xhr) {
@@ -1582,6 +1656,7 @@
             reg.descartados[id] = true;   // no volver a sugerirlo enseguida
             reg.clavePredios = null;
             pintarPrincipal();
+            pintarFiltroOficinas();
             pintarBienes();
             detectarOtrosRegistros();
         });
@@ -1837,8 +1912,10 @@
         var previaEnCurso = false;
 
         function actualizarConteo() {
-            var n = seleccionados().length;
-            $('#cf-reg-conteo').text(n + ' seleccionado(s)');
+            var sel = seleccionados(), n = sel.length;
+            // Con una oficina filtrada, lo marcado en otras sigue elegido: que se vea.
+            var fuera = reg.filtroOficina ? sel.filter(function (b) { return String(b.idOficina) !== String(reg.filtroOficina); }).length : 0;
+            $('#cf-reg-conteo').text(n + ' seleccionado(s)' + (fuera ? ' · ' + fuera + ' en otras oficinas' : ''));
             $('#cf-reg-guardar, #cf-reg-previa').prop('disabled', n === 0 || previaEnCurso);
             programarDestinos();
         }

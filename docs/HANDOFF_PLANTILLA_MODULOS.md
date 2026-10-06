@@ -1,8 +1,36 @@
-# Handoff — Migración de pantallas a la plantilla (sesión del 03 al 05-oct-2026)
+# Handoff — Migración de pantallas a la plantilla (sesiones del 03 al 06-oct-2026)
+
+> **Para el agente que retoma:** lee este archivo completo, después `docs/PLANTILLA_MODULOS.md`
+> (la guía técnica) y `CLAUDE.md`. Lo más reciente está en la sección 3, «06-oct». El estado
+> real de git está en la sección 0. Si algo de aquí contradice al código, manda el código:
+> verifícalo antes de actuar.
 
 Este documento es el contexto para continuar en otra máquina. Lo que vivía solo en la memoria
 local del agente está resumido al final («Contexto que no está en el código»). La guía técnica
 de la plantilla es **`docs/PLANTILLA_MODULOS.md`**: léela antes de tocar una pantalla.
+
+---
+
+## 0. Estado de git (06-oct-2026, 17:30)
+
+- **Commiteado** (lo commitea el usuario, no el agente): toda la migración del 03 al 05-oct
+  (`872ea44`, `ffc6243`, `88f7db6`, `e338d6b`, `3aef829`, `3981f3b`) y, el 06-oct, `25fc66d`.
+  Ese commit incluye el arreglo de personas duplicadas en Faltantes, el registro guiado y el
+  arreglo del scroll de los modales en `sciaf-modulo.css`. Donde más abajo diga «sin
+  commitear» para trabajo del 05-oct, ya no es así.
+- **Sin commitear:**
+  - el **filtro por oficina** del registro de faltantes (`controlActivos/faltantes.html`);
+  - la nota en `docs/HANDOFF_CUSTODIA_FALTANTES.md`;
+  - este archivo y `docs/PLANTILLA_MODULOS.md`.
+- **Nunca commitear:**
+  - `application.properties`: es la config real de producción (`legacy.dbf.write.mode=cola`);
+  - `application-dev.properties` y `.env`: perfil local;
+  - `AGENTS.md` y `tools/Instalar-Worker-Tarea.ps1`.
+- **Commit y push solo si el usuario lo pide.** Su despliegue es commit → push → `git pull` en
+  producción → reiniciar: cada commit puede llegar a producción.
+- **Dos carpetas de documentos:** `docs/` (los handoffs) y `DOCS/`, en mayúsculas, con
+  `analisis-duplicado-richard-rojas.md`, que escribió otro asistente. Su sección 5.1 propone un
+  `DELETE FROM persona`: **no seguirla**, ver la sección 3 «06-oct».
 
 ---
 
@@ -49,6 +77,13 @@ En cada módulo, además:
 | `componet/VsiafDisponibilidad.java` | Pausa las tareas que tocan el VSIAF si el montaje no está, como en la laptop local. Propiedad `sciaf.vsiaf.modo` = `auto` / `desactivado` / `activo` |
 | `docs/PLANTILLA_MODULOS.md` | Guía completa: reglas, carga eficiente, preloader, contrato JSON y tabla de módulos migrados con sus notas |
 
+> **Versión portable para otros proyectos (06-oct):** `~/Documentos/RRHH KEVIN/SISTEMAS/PlantillaModulos/`
+> (y `PlantillaModulos.zip` al lado), fuera de este repo. Trae los CSS y JS con nombres
+> `plantilla-*` (publican `PlantillaModulo`/`PlantillaPrecarga` y también los nombres `Sciaf*`),
+> logo, latido y mensajes del preloader configurables, modo oscuro de Bootstrap 5.3, un ejemplo
+> que funciona sin servidor (`ejemplo/index.html`) y un esqueleto Spring + Thymeleaf. Su README
+> dice qué cambió respecto de estos archivos: si se mejora la plantilla aquí, llevar el cambio allá.
+
 > Despliegue: esos archivos ya están commiteados (`872ea44`, junto con las vistas migradas).
 > `layout/head.html` y `layout/script.html` los cargan; si alguna vez se separan, las pantallas
 > migradas fallan (`ReferenceError: SciafModulo / SciafPrecarga`).
@@ -86,7 +121,71 @@ resumen:
   La página de Recepción (`hojaRuta/vista.html`) **no** se migró, por decisión del usuario: solo
   se le corrigieron bugs.
 
-### Lo último (05-oct, madrugada): Faltantes — notificaciones por persona
+### Lo último (06-oct): Faltantes — registro de faltantes (modal `#cf-reg`)
+
+Tres pedidos del usuario sobre el modal «Registrar faltantes» de `controlActivos/faltantes.html`.
+Compila. Se probó con un navegador simulado (jsdom, 30 comprobaciones) y con capturas de Chrome
+sin pantalla usando el CSS real. **No se probó en vivo**: el usuario lo prueba solo con la
+**Vista previa**, porque «Registrar» mueve bienes en el VSIAF real.
+
+**1. La misma persona aparece dos veces (caso «Richard Rojas López», uno con C.I. y otro sin).**
+- **Causa:** la sincronización de RESP.DBF (`ResponsableController.syncFromMounted`, l. 543-608).
+  Con C.I. busca la persona solo por C.I. y, si no la encuentra, crea otra. Sin C.I. la busca por
+  nombre. Si en el VSIAF el funcionario tiene filas con y sin C.I., quedan **dos `persona`**.
+  - Además `esCiValido` solo acepta dígitos: un «4567890 LP» se trata como «sin C.I.».
+  - Y la caché por nombre se pisa entre homónimos.
+- **Consecuencia que vio ING. Saul (encargado de Activos Fijos):** el alta automática de custodia
+  busca por `id_persona` y habría dado de alta a «los dos Richard» en la oficina de faltantes.
+- **Decisión (usuario + Saul): arreglo temporal y manual en el registro.** No se tocan la base
+  ni la sincronización. La notificación sale **a nombre del registro con C.I.**
+- **Servidor** (detalle en `docs/HANDOFF_CUSTODIA_FALTANTES.md`, «Arreglo temporal»):
+  - `RegistrarFaltantesRequest` suma `idsPersonasVinculadas` y `destinos` (por predio:
+    `idResponsableCustodia` o `crearNuevo`).
+  - `CustodiaFaltantesService` suma `opciones`, `resolverDestino`, la barrera
+    `exigirSinHomonimo` y `asegurar(…, idPersonaDestino, permitirHomonimo, …)`.
+  - `EnvioCustodiaService` agrupa por la persona del acta y salta los faltantes que ya traen
+    custodia elegida.
+  - La vista Faltantes agrupa por `coalesce(acta.id_persona, responsable.id_persona)`.
+  - Endpoint nuevo: `GET /administracion/control-activos/custodia/destinos-custodia`.
+  - El `revisor` pasó. Se aplicaron sus hallazgos: nunca preseleccionar a un homónimo, adoptar
+    la oficina «FALTANTES…» sin marcar y validar en el servidor que los nombres se parezcan.
+
+**2. «Que lo entienda cualquiera»: registro guiado por pasos.**
+- Pasos numerados: 1 Persona · 2 Marque los bienes que faltan · 3 ¿A quién se le entregan los
+  bienes en la oficina de faltantes? · 4 Datos de la notificación.
+- Al elegir a la persona, el sistema **busca solo** otro registro con el mismo nombre y
+  pregunta: «Esta persona parece estar registrada dos veces… ¿Es la misma persona? [Sí, incluir
+  también sus bienes] [No, es otra persona]». Con C.I. distintos no se sugiere.
+- Paso 3 con tarjetas:
+  - verde o azul con «No necesita hacer nada» cuando no hay decisión;
+  - ámbar con opciones de un clic («Sí, es la misma persona» / «No, es otra persona») si hay un
+    homónimo;
+  - rojo si falta responder; «Registrar» lleva a la tarjeta.
+  - El caso raro («ya está con el nombre escrito distinto») queda escondido detrás de un enlace.
+- Si cambian las personas juntadas, el paso 3 **se vuelve a preguntar**. Así una respuesta vieja
+  no apunta a un homónimo: lo encontró la prueba.
+- CSS propio en el `<style>` de la vista: `.cf-paso-tit`, `.cf-paso-num`, `.cf-ayuda`,
+  `.cf-tarjeta` (`.cf-ok`, `.cf-info`, `.cf-atencion`, `.cf-falta`), `.cf-opcion`.
+  **Patrón reutilizable** para otros formularios con decisiones; ver `PLANTILLA_MODULOS.md`,
+  «Modales con decisiones».
+
+**3. Filtro por oficina en el paso 2 (sin commitear).**
+- Un select2 (`#cf-reg-f-oficina`) con las oficinas de los bienes cargados: agrupadas por
+  predio, con su cantidad de bienes, y solo si hay más de una.
+- Se escribe el código (`12` = `012`), el nombre o el predio. El `matcher` propio ignora el
+  «· N bien(es)» del texto.
+- Lo marcado en otras oficinas sigue elegido y el contador lo dice: «· N en otras oficinas».
+
+**4. Bug de la plantilla, global: los botones del pie de un modal largo no se veían.**
+- `modal-dialog-scrollable` de Bootstrap solo da scroll a `.modal-body`. `.sm-modal-cuerpo` no
+  lo tenía, y `.sm-modal` (`overflow: hidden`) recortaba el pie.
+- **Arreglado en `sciaf-modulo.css`** con
+  `.modal-dialog-scrollable .sm-modal-cuerpo { flex:1 1 auto; min-height:0; overflow-y:auto; }`.
+- Afecta para bien a todos los modales con ese patrón: `controlActivos/mapa.html`,
+  `menu/vista.html`, `usuario/vista.html` y `operaciones/ingreso/modulo.html`. **No se
+  revisaron uno por uno:** conviene mirarlos.
+
+### Antes (05-oct, madrugada): Faltantes — notificaciones por persona
 Pedido del usuario: ver el código de responsable, botones claros (imprimir la notificación
 vigente, emitir reiterativa con plazo nuevo, cambiar plazo) y un contador de plazo visible.
 Decisiones del usuario: las acciones son **por notificación** (una por persona con N bienes), no
@@ -181,7 +280,22 @@ Thymeleaf offline. El `revisor` pasó y sus tres hallazgos se aplicaron.
    - Consulta › Buscar/Filtrar activos, Reporte de asignaciones.
    - Conciliación › BD↔VSIAF, Revisión de correlativos.
    - Transferencia Londra.
-8. **Hojas de ruta:**
+8. **Personas duplicadas (solución de fondo, propuesta y no hecha).** El arreglo del 06-oct es
+   temporal. Lo propuesto al usuario, sin respuesta todavía:
+   - medir cuántos casos hay con la consulta de nombres repetidos que está en el chat y en
+     `DOCS/analisis-duplicado-richard-rojas.md`, sección 4;
+   - corregir la sincronización: normalizar el C.I. con extensión o complemento y, si una fila
+     con C.I. coincide con **una única** persona sin C.I. del mismo nombre, completarle el C.I.
+     en vez de crear otra. Es lo que ya hace el alta manual en
+     `ResponsableAltaService` l. 135-141;
+   - una pantalla «Unificar personas» (solo administradores): mueve los responsables, marca la
+     persona sobrante como FUSIONADA, **sin borrar**, y opcionalmente completa el C.I. en el
+     VSIAF con `propagarPersona`. Cuidado con `uk_resp_custodia_persona`.
+   - Pendientes menores del arreglo temporal:
+     - el reporte consolidado por persona y el contador del buscador siguen agrupando por la
+       persona del responsable;
+     - el permiso «Es otra persona» (`crearNuevo`) solo vale en el primer intento.
+9. **Hojas de ruta:**
    - **Duplicados viejos:** no hay índice único en `hoja_rutas (tipo, upper(codigo), gestion)`.
      El turno cierra los nuevos, pero si ya hay repetidas en producción, el buscador manual de
      Recepción abre la primera; desde la tabla se abre la exacta, por id. Revisar con una
@@ -207,6 +321,20 @@ Thymeleaf offline. El `revisor` pasó y sus tres hallazgos se aplicaron.
   sistema mientras estaban abiertas.
   - Acotarlas a su contenedor, por ejemplo `.aa-pantalla`, y mapear los colores a `--sm-*`.
   - Abrir sus desplegables con `dropdownParent` dentro de la pantalla.
+- **Modales largos:** con `modal-dialog-scrollable`, el cuerpo es `.sm-modal-cuerpo` y no
+  `.modal-body`. Desde el 06-oct `sciaf-modulo.css` lo resuelve. Si un modal vuelve a perder el
+  pie, revisar que el cuerpo tenga esa clase y que nada le ponga `overflow: visible`.
+- **select2 dentro de un modal:** siempre con `dropdownParent` del modal, por ejemplo
+  `$('#cf-reg')`. Si no, el desplegable queda detrás del modal o no recibe el foco. Antes de
+  rearmar las opciones, `select2('destroy')`.
+- **Pruebas de pantalla sin tocar la base (se usó el 06-oct):**
+  - **jsdom** en el scratchpad (`npm i jsdom@24`): carga el HTML de la vista, el jQuery y el
+    select2 de `static/assets/vendor/libs`, y simula `$.ajax` y `fetch` con datos falsos.
+    `SciafPrecarga` se simula con un objeto vacío.
+  - **Ojo:** jsdom no calcula el diseño. `:visible` siempre da falso; usar
+    `css('display') !== 'none'`.
+  - Para ver el diseño: página estática con `core.css`, `theme-default.css` y
+    `sciaf-modulo.css` por `file://`, más `google-chrome --headless=new --screenshot`.
 - **Fechas `AAAA-MM-DD`:** `new Date('2026-03-01')` las lee en UTC, y en Bolivia (UTC-4) da el
   día anterior. `toISOString()` da la fecha de **mañana** después de las 20:00. Construir las
   fechas locales a mano.
@@ -242,6 +370,21 @@ Thymeleaf offline. El `revisor` pasó y sus tres hallazgos se aplicaron.
 
 ## 6. Contexto que no está en el código (venía de la memoria local)
 
+- **Máquinas.** Se trabaja en dos:
+  - **la laptop Windows** de las sesiones del 03 al 05-oct: Git Bash, CRLF, `mvnw.cmd`;
+  - **un equipo Linux** (06-oct):
+    - repo en `~/Documentos/RRHH KEVIN/SISTEMAS/SistemasActivosFijosUAP`;
+    - usar `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64`: el JDK 25 por defecto falla con
+      Lombok;
+    - la app suele estar **corriendo desde VS Code** en el 9696, con perfil `dev`
+      (`application-dev.properties` lee las plantillas de `src/`; `.env` tiene
+      `SPRING_PROFILES_ACTIVE=dev`);
+    - para compilar sin reiniciarla, se copia `src`, `pom.xml`, `mvnw` y `.mvn` al scratchpad y
+      se corre `./mvnw -o -q compile` ahí;
+    - las plantillas y el CSS se ven al recargar con Ctrl+F5; los cambios en Java exigen
+      reiniciar la app;
+    - las lecturas directas a la base desde el agente (psql) fueron denegadas por los permisos:
+      pasarle al usuario el SQL de solo lectura.
 - **La laptop de desarrollo** usa la **base de producción** (`application.properties`: `bd_a3`,
   no `bd_a4`). No tiene los montajes del VSIAF (`/mnt/dbfwin`, `/mnt/vsiaf_transferencias`).
   - `VsiafDisponibilidad` pausa ahí las tareas DBF.
@@ -282,3 +425,6 @@ Thymeleaf offline. El `revisor` pasó y sus tres hallazgos se aplicaron.
      en el servidor con VSIAF, Transferencia/Asignación para pantallas propias de solo lo visual;
    - compilar, pasar el `revisor`, corregir;
    - actualizar `docs/PLANTILLA_MODULOS.md` y **este handoff**.
+4. Si el usuario retoma Faltantes: lo pendiente es que pruebe en vivo con la Vista previa y que
+   decida sobre la solución de fondo de las personas duplicadas (sección 4, punto 8).
+   `docs/HANDOFF_CUSTODIA_FALTANTES.md` tiene el detalle del servidor.

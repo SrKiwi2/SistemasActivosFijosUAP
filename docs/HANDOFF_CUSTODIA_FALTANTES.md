@@ -435,10 +435,13 @@ Acordado con ING. Saul: por ahora se resuelve **a mano en el registro**; la limp
   registro con el mismo nombre y pregunta "¿Es la misma persona? Sí / No". El paso 3 dice "No
   necesita hacer nada" cuando no hay decisión, y si hay homónimo pregunta con opciones de un clic.
   Si cambian las personas juntadas, el paso 3 se vuelve a preguntar (no se arrastra la respuesta).
+- **Filtro por oficina (paso 2):** select2 con las oficinas de los bienes cargados, agrupadas por
+  predio, con cuántos bienes tiene cada una. Se escribe el código (12 = 012) o el nombre. Lo marcado
+  en otras oficinas sigue elegido y el contador lo dice ("· N en otras oficinas"). Solo pantalla.
 - **Botones del pie ocultos:** `modal-dialog-scrollable` solo da scroll a `.modal-body`;
   `.sm-modal-cuerpo` no lo tenía y `.sm-modal` recorta. Arreglado en `sciaf-modulo.css` para todos
   los modales con ese patrón (también mapa, menú, usuario, ingreso).
-- Sin probar en vivo. Prueba del modal con navegador simulado (jsdom, 19 comprobaciones) y
+- Sin probar en vivo. Prueba del modal con navegador simulado (jsdom, 30 comprobaciones) y
   capturas con Chrome sin pantalla, en el scratchpad de la sesión, fuera del repo.
 
 **Pendiente conocido:** el reporte consolidado por persona y el contador de faltantes del

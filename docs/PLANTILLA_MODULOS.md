@@ -195,13 +195,52 @@ correo, extensión, nacionalidad, género y la auditoría de registro).
 | Bajas e ingresos › Ingreso de bienes ajenos | propia (ia-) + plantilla | modulo con la plantilla; seguimiento (ia-) con tokens acotados (antes :root), cabecera solo cuando se abre sola (ingresoModulo). Bugs: fecha de retiro +3 meses mal calculada por zona horaria y usada en el PDF (ahora la calcula el servidor); fechas del seguimiento un día antes; filtro de responsables con TODOS + N+1; datos de Londra sin escapar; sin sesión → NPE |
 | Hojas de ruta › Búsqueda y Seguimiento | navegador + detalle | hojaRuta/seguimiento.html (lista a la izquierda, hoja elegida con su trayectoria a la derecha) + fragmento hojaRuta/tabla.html; llega con la vista (gestión actual); gestión y unidad vuelven a pedir la tabla, estado con segmento y contadores; columna nueva «Dónde está» (destino del último movimiento). Solo ADMINISTRADOR / SUPER USUARIO, validado en el controlador. Bugs: listado repetía cada hoja por cada movimiento (JOIN sin DISTINCT) y hacía 3-4 consultas por hoja; estado salía «1/2/3»; «estado actual» con dos movimientos el mismo día al azar (ahora fecha, hora, id); /listar respondía sin sesión; /buscar de una hoja inexistente daba 500; registrar no era transaccional; doble clic duplicaba hojas y solicitantes (turno pg_advisory_xact_lock + botón bloqueado); escrituras abiertas a cualquier rol (ahora RECEPCION y ADMINISTRADOR) y lecturas a cualquier sesión con el permiso. La página de **Recepción** (hojaRuta/vista.html + script-hoja-ruta.js) conserva su diseño: solo bugs (XSS en descripción/solicitante/unidades, fecha de mañana desde las 20:00, modal nuevo sin fecha/hora/gestión, abría por tipo+N°+gestión en vez de por id) |
 | Control por responsable › Mapa de control | mosaico (treemap) | REHECHO a pedido del usuario («visual, dinámico»): cada predio es un bloque dividido en sus oficinas (tamaño = bienes o igual; color = estado de control o concentración de bienes), clic = zoom animado al predio, clic en oficina = panel con datos, responsables y levantamiento; globo al pasar el cursor; buscador de bienes y de oficinas; leyenda que filtra. El mosaico completo (14 predios, ~860 oficinas) llega con la vista como JSON (`/mapa/mosaico`, CTEs agrupadas, ~100 ms) y el zoom es en el navegador. Conserva levantamiento, informes Word, selección para verificación y tiempo real. Bugs: abría su propio EventSource en cada apertura y no lo cerraba (agotaba las conexiones del navegador → todo el sistema «cargando»); la marca web mandaba la hora UTC como local (4 h adelante: le ganaba a marcas posteriores de la APK); los conteos del mapa eran 6 subconsultas por oficina |
-| Control por responsable › Faltantes | grupos por persona | tarjeta por NOTIFICACIÓN vigente de cada persona (códigos de responsable, contador de plazo en días hábiles, Imprimir / Reiterativa con plazo / Cambiar plazo desde hoy / Corregir datos); acciones por notificación, no por bien (ver handoff). Antes: cáscara de la plantilla (cabecera con totales, pestañas en segmento, filtros en barra, modales sm-), lógica de notificaciones/custodia intacta. Bugs: contador de plazo en días corridos (el plazo es en días HÁBILES: vencía antes que el papel); setInterval y EventSource acumulados por apertura; modal Regenerar decía siempre «sin plazo» (`.data()` convierte a número y se comparaba con '1'); Vista previa de Regenerar y Reiterativa nunca se habilitaba; filtros de predio/oficina pedían los conteos del mapa (ahora llegan con la vista / `/faltantes/oficinas`); los grupos abiertos se cerraban al recargar |
+| Control por responsable › Faltantes | grupos por persona | 06-oct: el modal «Registrar faltantes» quedó guiado por pasos, junta los registros duplicados de una persona, pregunta a quién se entregan los bienes en la oficina de faltantes y filtra por oficina con select2 (ver «Modales con decisiones» y el handoff). Antes: tarjeta por NOTIFICACIÓN vigente de cada persona (códigos de responsable, contador de plazo en días hábiles, Imprimir / Reiterativa con plazo / Cambiar plazo desde hoy / Corregir datos); acciones por notificación, no por bien (ver handoff). Antes: cáscara de la plantilla (cabecera con totales, pestañas en segmento, filtros en barra, modales sm-), lógica de notificaciones/custodia intacta. Bugs: contador de plazo en días corridos (el plazo es en días HÁBILES: vencía antes que el papel); setInterval y EventSource acumulados por apertura; modal Regenerar decía siempre «sin plazo» (`.data()` convierte a número y se comparaba con '1'); Vista previa de Regenerar y Reiterativa nunca se habilitaba; filtros de predio/oficina pedían los conteos del mapa (ahora llegan con la vista / `/faltantes/oficinas`); los grupos abiertos se cerraban al recargar |
 | Gestión de Menú | árbol | llega con la vista; filtro por marca (oculto, bloqueado, permiso, URL rota); papelera y ayuda en modales; **sin mayúsculas** (`mayusculas:false`) porque son textos del menú lateral |
 
 Persona ↔ VSIAF: el VSIAF copia nombre y C.I. en cada fila de RESP.DBF. Editar una persona (en Personas
 o desde uno de sus responsables) manda el UPDATE a **todos** sus responsables activos que ya están en el
 VSIAF (`ResponsableGestionService.propagarPersona`); los pendientes o rechazados viajan con el dato nuevo
 al reenviarse.
+
+## Modales largos (scroll)
+
+Un modal con mucho contenido usa `modal-dialog modal-xl modal-dialog-scrollable`. Bootstrap solo
+le da scroll a `.modal-body`; la plantilla lo hace también con `.sm-modal-cuerpo`
+(`sciaf-modulo.css`, desde el 06-oct). Así la cabecera y el `.sm-modal-pie`, con los botones,
+quedan siempre a la vista, y el cuerpo se desplaza. No ponerle `overflow: visible` al cuerpo.
+Una tabla larga dentro del modal lleva su propio `max-height` (unos 40vh) para no empujar lo que
+viene después.
+
+## Modales con decisiones (pasos guiados)
+
+Referencia: el modal `#cf-reg` de `controlActivos/faltantes.html` (06-oct). El usuario pidió que
+**cualquier persona, aunque no sea del área, entienda qué hacer**. El patrón:
+
+- **Pasos numerados**: `.cf-paso-tit` con `.cf-paso-num` («1 ¿De quién son los bienes que
+  faltan?», «2 Marque…»). Debajo, una ayuda corta (`.cf-ayuda`) que dice cuándo usar cada cosa.
+- **El sistema detecta y pregunta**: no esperar a que la persona sepa qué botón usar. Si algo
+  pide una decisión, como un registro duplicado, mostrar una tarjeta que lo explique en una
+  frase, diga por qué pasa y pregunte con botones de respuesta («Sí, es la misma…» /
+  «No, es otra persona»).
+- **Tarjetas por estado** (`.cf-tarjeta`): `.cf-ok` o `.cf-info` dicen «**No necesita hacer
+  nada.**» y qué hará el sistema; `.cf-atencion` pide una decisión; `.cf-falta` (rojo) marca lo
+  que falta responder.
+- **Opciones de un clic** en vez de un `<select>` con textos técnicos: `label.cf-opcion` con el
+  radio adentro, una frase en negrita y una ayuda en `<small>`. Las opciones no disponibles van
+  deshabilitadas, diciendo por qué.
+- **Nada peligroso preseleccionado**: si la respuesta equivocada mueve datos a otra persona, la
+  opción empieza vacía y «Registrar» no avanza. Lleva a la tarjeta con `scrollIntoView` y un
+  aviso que dice en qué paso falta.
+- **Los casos raros, escondidos** detrás de un enlace («¿Ya está con el nombre escrito distinto?»).
+- Si cambia algo que invalida una respuesta, en el ejemplo las personas juntadas, **se vuelve a
+  preguntar**: no arrastrar la respuesta vieja.
+- El diálogo de confirmación final resume lo decidido («Destino: CULP → …»).
+
+**Filtros dentro de un modal:** un select2 con `dropdownParent` del modal y un `matcher` propio
+si el texto de la opción trae datos que no deben buscarse (conteos). El código de oficina se
+compara también como número (`12` = `012`). Si filtrar oculta algo ya marcado, el contador lo
+dice («· N en otras oficinas»).
 
 ## Botones
 
