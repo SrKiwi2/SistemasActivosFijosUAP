@@ -1342,3 +1342,162 @@ tr.sm-nuevo > td { animation: smNuevo 2.6s ease; }
     .sm-btn:active,
     .sm-campo > .sm-input:focus { transform: none !important; }
 }
+
+/* ══ Modales multi-tab (Asignaciones) — estilos con contraste fijo ════════════ */
+.sm-modal-xl .modal-dialog { max-width: 1360px; }
+.sm-modal-xl .modal-content { height: 86vh; max-height: 880px; display: flex; flex-direction: column; }
+.sm-modal-xl .modal-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 0; }
+.sm-modal-xl #modalTabs { flex: 0 0 auto; border-bottom: 1px solid #e2e8f0; }
+.sm-modal-xl .tab-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+/* Header modal: badges legibles sobre cualquier color */
+.sm-modal-xl .modal-header { padding: 1.1rem 1.5rem; }
+.sm-modal-xl .modal-title { font-size: 1.3rem; }
+.sm-modal-xl .modal-header small { font-size: .85rem; }
+.sm-modal-xl .modal-header .badge {
+    background: rgba(255, 255, 255, .22) !important;
+    color: #fff !important;
+    border: 1px solid rgba(255, 255, 255, .45);
+    font-size: .8rem !important;
+}
+.sm-modal-xl .modal-header .btn-close { flex-shrink: 0; margin-left: .75rem; }
+
+/* Pestañas: más grandes y con contraste explícito */
+.sm-modal-xl #modalTabs .nav-link {
+    font-size: 1rem;
+    font-weight: 600;
+    padding: .9rem 1.4rem;
+    color: #64748b !important;
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: transparent !important;
+}
+.sm-modal-xl #modalTabs .nav-link i { font-size: 1.15rem; }
+.sm-modal-xl #modalTabs .nav-link.active {
+    color: #0d6efd !important;
+    border-bottom-color: #0d6efd;
+}
+.sm-modal-xl #modalTabs .nav-link .badge { font-size: .72rem; }
+
+/* Tarjetas info: colores fijos en hex (no clases opacity del theme) */
+.info-card {
+    border: 1px solid #e2e8f0;
+    border-radius: .6rem;
+    background: #fff;
+    height: 100%;
+    overflow: hidden;
+}
+.info-card-header {
+    padding: .85rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    font-weight: 700;
+    font-size: 1.02rem;
+    color: #fff !important;
+}
+.info-card-header.doc  { background: #0d6efd; }
+.info-card-header.resp { background: #198754; }
+.info-card-header .btn {
+    font-size: .82rem;
+    padding: .35rem .8rem;
+    font-weight: 600;
+    border-color: rgba(255,255,255,.7);
+    color: #fff;
+}
+.info-card-header .btn:hover { background: rgba(255,255,255,.18); color: #fff; }
+.info-card-body { padding: 1.1rem 1.25rem; }
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: .55rem 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: .95rem;
+}
+.info-row:last-child { border-bottom: none; padding-bottom: 0; }
+.info-row .lbl { color: #64748b; font-weight: 600; flex-shrink: 0; }
+.info-row .val { color: #1e293b; font-weight: 700; text-align: right; }
+.obs-box {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: .6rem;
+    padding: 1rem 1.25rem;
+    display: flex;
+    gap: .75rem
+    align-items: flex-start;
+}
+.obs-box i { color: #b45309; font-size: 1.3rem; }
+.obs-box strong { color: #92400e; font-size: .78rem; letter-spacing: .04em; }
+.obs-box span { color: #451a03; font-size: .95rem; }
+
+/* Tarjetas resumen pestaña Activos */
+.stat-card { border-radius: .6rem; padding: 1.1rem; text-align: center; height: 100%; }
+.stat-card .stat-label {
+    font-size: .78rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: #475569;
+}
+.stat-card .stat-value { font-size: 1.6rem; font-weight: 800; margin-top: .3rem; line-height: 1.1; }
+.stat-card.c-indigo { background: #eef2ff; }
+.stat-card.c-indigo .stat-value { color: #4338ca; }
+.stat-card.c-slate  { background: #f1f5f9; }
+.stat-card.c-slate  .stat-value { color: #334155; font-size: 1.05rem; }
+.stat-card.c-green  { background: #ecfdf5; }
+.stat-card.c-green  .stat-value { color: #047857; }
+
+/* Tarjetas Auditoría */
+.audit-card { border-radius: .6rem; padding: 1.5rem; height: 100%; }
+.audit-card.c-blue  { background: #eff6ff; border: 1px solid #bfdbfe; }
+.audit-card.c-amber { background: #fff7ed; border: 1px solid #fed7aa; }
+.audit-card .audit-title {
+    display: flex; align-items: center; gap: .5rem;
+    font-weight: 700; font-size: 1rem; margin-bottom: 1.1rem;
+}
+.audit-card.c-blue .audit-title  { color: #1d4ed8; }
+.audit-card.c-amber .audit-title { color: #c2410c; }
+.audit-card .audit-title i { font-size: 1.3rem; }
+.audit-card .info-row { border-bottom-color: rgba(0,0,0,.06); font-size: 1rem; }
+
+/* Historial */
+.hist-icon {
+    width: 2.5rem; height: 2.5rem; border-radius: .5rem;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; flex-shrink: 0;
+}
+.hist-icon.c-primary   { background: #dbeafe; color: #1d4ed8; }
+.hist-icon.c-success   { background: #d1fae5; color: #047857; }
+.hist-icon.c-warning   { background: #fef3c7; color: #b45309; }
+.hist-icon.c-secondary { background: #e2e8f0; color: #475569; }
+.hist-icon.c-danger    { background: #fee2e2; color: #b91c1c; }
+.hist-card { border: 1px solid #e2e8f0; border-radius: .6rem; background: #fff; }
+.hist-card .hist-titulo { font-size: .95rem; font-weight: 700; color: #1e293b; }
+.hist-card .hist-meta { font-size: .8rem; color: #64748b; }
+.hist-card .hist-frase { font-size: .92rem; color: #334155; }
+
+/* Tabla activos en modal: descripción clamp 2 líneas */
+#tabla-activos-modal { font-size: .88rem; }
+#tabla-activos-modal .descripcion-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+#tabla-activos-modal thead th { position: sticky; top: 0; z-index: 1; font-size: .82rem; }
+
+/* Modales secundarios: textos y botones más grandes */
+.modal-editar .modal-header { padding: 1.1rem 1.5rem; }
+.modal-editar .modal-title { font-size: 1.15rem; }
+.modal-editar .form-label { font-size: .88rem; font-weight: 600; color: #334155; }
+.modal-editar .modal-footer .btn { font-size: .95rem; padding: .55rem 1.3rem; font-weight: 600; }
+
+/* Modal footer */
+.sm-modal-pie { padding: 1rem 1.5rem; }
+.sm-modal-pie .btn { font-size: .95rem; padding: .55rem 1.3rem; font-weight: 600; }
+
+/* Z-index para modales apilados (evita que queden detrás del modal padre) */
+#modalVerDetalleActivo, #modalCorregirActivo, #modalSepararActa,
+#modalTrasladar, #modalIncorporar, #modalEditarCabecera, #modalEditarReporte {
+    z-index: 1100;
+}

@@ -156,7 +156,24 @@ public final class CustodiaDTOs {
             Integer        plazoDias,
             String         documentoRespaldo,
             java.time.LocalDate fechaDocumento,
-            String         observacion
+            String         observacion,
+            /**
+             * Nombre del responsable para el documento (permite agregar título profesional:
+             * Ing., Lic., MsC., etc.). Si es null o vacío, se mantiene el nombre actual del acta.
+             * <b>No actualiza la base de datos</b>, solo se refleja en el PDF/acta generado.
+             */
+            String         personaNombreOverride,
+            /**
+             * Cargo del responsable para el documento. Si es null o vacío, se mantiene el cargo actual del acta.
+             * <b>No actualiza la base de datos</b>.
+             */
+            String         personaCargoOverride,
+            /**
+             * Unidad/oficina del responsable para el documento (p.ej. unidad funcional).
+             * Si es null o vacío, se mantiene la unidad actual del acta.
+             * <b>No actualiza la base de datos</b>.
+             */
+            String         personaUnidadOverride
     ) {}
 
     /** Pedido para corregir los datos de una notificación vigente SIN cambiar el plazo (por {@code idActa}). */
@@ -165,7 +182,24 @@ public final class CustodiaDTOs {
             Long           idActa,
             String         documentoRespaldo,
             java.time.LocalDate fechaDocumento,
-            String         observacion
+            String         observacion,
+            /**
+             * Nombre del responsable para el documento (permite agregar título profesional:
+             * Ing., Lic., MsC., etc.). Si es null o vacío, se mantiene el nombre actual del acta.
+             * <b>No actualiza la base de datos</b>, solo se refleja en el PDF/acta generado.
+             */
+            String         personaNombreOverride,
+            /**
+             * Cargo del responsable para el documento. Si es null o vacío, se mantiene el cargo actual del acta.
+             * <b>No actualiza la base de datos</b>.
+             */
+            String         personaCargoOverride,
+            /**
+             * Unidad/oficina del responsable para el documento (p.ej. unidad funcional).
+             * Si es null o vacío, se mantiene la unidad actual del acta.
+             * <b>No actualiza la base de datos</b>.
+             */
+            String         personaUnidadOverride
     ) {}
 
     /**
@@ -181,7 +215,24 @@ public final class CustodiaDTOs {
             String         documentoRespaldo,
             java.time.LocalDate fechaDocumento,
             String         observacion,
-            Integer        plazoDias
+            Integer        plazoDias,
+            /**
+             * Nombre del responsable para el documento (permite agregar título profesional:
+             * Ing., Lic., MsC., etc.). Si es null o vacío, se usa el nombre del acta anterior.
+             * <b>No actualiza la base de datos</b>, solo se refleja en el PDF/acta generado.
+             */
+            String         personaNombreOverride,
+            /**
+             * Cargo del responsable para el documento. Si es null o vacío, se usa el cargo del acta anterior.
+             * <b>No actualiza la base de datos</b>.
+             */
+            String         personaCargoOverride,
+            /**
+             * Unidad/oficina del responsable para el documento (p.ej. unidad funcional).
+             * Si es null o vacío, se usa la unidad del acta anterior.
+             * <b>No actualiza la base de datos</b>.
+             */
+            String         personaUnidadOverride
     ) {}
 
     public record Conciliacion(

@@ -23,7 +23,24 @@ public record RegistrarFaltantesRequest(
          */
         List<Long> idsPersonasVinculadas,
         /** A quién de la oficina de faltantes de cada predio van los bienes; ver {@link DestinoCustodia}. */
-        List<DestinoCustodia> destinos
+        List<DestinoCustodia> destinos,
+        /**
+         * Nombre del responsable para el documento (permite agregar título profesional:
+         * Ing., Lic., MsC., etc.). Si es null o vacío, se usa el nombre de la persona en BD.
+         * <b>No actualiza la base de datos</b>, solo se refleja en el PDF/acta generado.
+         */
+        String     personaNombreOverride,
+        /**
+         * Cargo del responsable para el documento. Si es null o vacío, se usa el cargo
+         * calculado de los bienes notificados. <b>No actualiza la base de datos</b>.
+         */
+        String     personaCargoOverride,
+        /**
+         * Unidad/oficina del responsable para el documento (p.ej. unidad funcional).
+         * Si es null o vacío, se usa la unidad calculada (oficina con más bienes).
+         * <b>No actualiza la base de datos</b>.
+         */
+        String     personaUnidadOverride
 ) {
 
     /**

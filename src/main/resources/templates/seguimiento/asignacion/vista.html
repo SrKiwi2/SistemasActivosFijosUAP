@@ -1,2530 +1,467 @@
-<!-- /seguimiento/asignacion/vista.html -->
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Asignación de Activos — plantilla de mantenimiento (sm-*)
+     Estilos: /assets/css/sciaf-modulo.css · Comportamiento: /assets/js/sciaf-modulo.js
+     Guía: docs/PLANTILLA_MODULOS.md
 
-<style>
-    /* Centrado perfecto para Boxicons dentro de Avatares y Botones */
-    .avatar i {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        width: 100%;
-    }
-    .btn i.bx {
-        vertical-align: middle; /* Alinea el ícono con el texto del botón */
-        line-height: 1;
-    }
+     Todo vive dentro de #modAsignacion y el script no deja funciones globales.
+     La barra (buscador / filas) vive aquí y no en el fragmento de la tabla:
+     así sobrevive a cada recarga sin perder lo que el usuario escribió.
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modAsignacion">
 
-    /*
-        Modal de detalle: alto FIJO sin importar la pestaña activa. Con
-        modal-dialog-scrollable el alto era el del contenido de cada pestaña (con un
-        tope), así que Información General dejaba un hueco vacío y Activos Asignados se
-        salía del viewport por arriba y por abajo. Acá el header y las pestañas quedan
-        fijos por flex, y solo el contenido de la pestaña activa hace scroll interno.
-    */
-    #modalDetalleAsignacion .modal-dialog { max-width: 1360px; }
-    #modalDetalleAsignacion .modal-content { height: 86vh; max-height: 880px; display: flex; flex-direction: column; }
-    #modalDetalleAsignacion .modal-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 0; }
-    #modalDetalleAsignacion #modalTabs { flex: 0 0 auto; }
-    #modalDetalleAsignacion .tab-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-clipboard"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-route"></i> Seguimiento <i class="ti ti-chevron-right"></i> Asignación de Activos
+        </nav>
+        <h1 class="sm-titulo">Asignación de Activos</h1>
+        <p class="sm-subtitulo">Actas de asignación, reasignación y devolución de bienes.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <button type="button" class="sm-btn js-nueva-acta" title="Crear acta desde Activos pendientes">
+            <i class="ti ti-plus"></i> Nueva acta
+        </button>
+    </div>
+</header>
 
-    /* Header: los badges no se pisan con el botón cerrar, y se leen sobre cualquier
-       color de header (antes "NUEVA" en bg-primary quedaba invisible sobre el header
-       azul). */
-    #modalDetalleAsignacion .modal-header { padding: 1.1rem 1.5rem; }
-    #modalDetalleAsignacion .modal-header .modal-title { font-size: 1.3rem; }
-    #modalDetalleAsignacion .modal-header small { font-size: .85rem; }
-    #modalDetalleAsignacion .modal-header .badge {
-        background: rgba(255, 255, 255, .22) !important;
-        color: #fff !important;
-        border: 1px solid rgba(255, 255, 255, .45);
-        font-size: .8rem !important;
-    }
-    #modalDetalleAsignacion .modal-header .btn-close { flex-shrink: 0; margin-left: .75rem; }
-    #modalDetalleAsignacion .modal-header .header-badges { min-width: 0; flex-shrink: 1; }
-
-    /* ─── Pestañas: más grandes y con contraste explícito (no depende del theme) ─── */
-    #modalDetalleAsignacion #modalTabs { border-bottom: 1px solid #e2e8f0; }
-    #modalDetalleAsignacion #modalTabs .nav-link {
-        font-size: 1rem;
-        font-weight: 600;
-        padding: .9rem 1.4rem;
-        color: #64748b !important;
-        border: none;
-        border-bottom: 3px solid transparent;
-        background: transparent !important;
-    }
-    #modalDetalleAsignacion #modalTabs .nav-link i.bx { font-size: 1.15rem; }
-    #modalDetalleAsignacion #modalTabs .nav-link.active {
-        color: #0d6efd !important;
-        border-bottom-color: #0d6efd;
-    }
-    #modalDetalleAsignacion #modalTabs .nav-link .badge { font-size: .72rem; }
-
-    /* ─── Tarjetas de información: colores fijos en hex, no clases de opacidad del
-           theme (bg-opacity-10 / bg-label-*), que en este proyecto venían dejando el
-           texto casi invisible sobre su propio fondo. ─── */
-    #modalDetalleAsignacion .info-card {
-        border: 1px solid #e2e8f0;
-        border-radius: .6rem;
-        background: #fff;
-        height: 100%;
-        overflow: hidden;
-    }
-    #modalDetalleAsignacion .info-card-header {
-        padding: .85rem 1.25rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: .75rem;
-        font-weight: 700;
-        font-size: 1.02rem;
-        color: #fff !important;
-    }
-    #modalDetalleAsignacion .info-card-header.doc  { background: #0d6efd; }
-    #modalDetalleAsignacion .info-card-header.resp { background: #198754; }
-    #modalDetalleAsignacion .info-card-header .btn {
-        font-size: .82rem;
-        padding: .35rem .8rem;
-        font-weight: 600;
-        border-color: rgba(255,255,255,.7);
-        color: #fff;
-    }
-    #modalDetalleAsignacion .info-card-header .btn:hover { background: rgba(255,255,255,.18); color: #fff; }
-    #modalDetalleAsignacion .info-card-body { padding: 1.1rem 1.25rem; }
-    #modalDetalleAsignacion .info-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 1rem;
-        padding: .55rem 0;
-        border-bottom: 1px solid #f1f5f9;
-        font-size: .95rem;
-    }
-    #modalDetalleAsignacion .info-row:last-child { border-bottom: none; padding-bottom: 0; }
-    #modalDetalleAsignacion .info-row .lbl { color: #64748b; font-weight: 600; flex-shrink: 0; }
-    #modalDetalleAsignacion .info-row .val { color: #1e293b; font-weight: 700; text-align: right; }
-    #modalDetalleAsignacion .obs-box {
-        background: #fffbeb;
-        border: 1px solid #fde68a;
-        border-radius: .6rem;
-        padding: 1rem 1.25rem;
-        display: flex;
-        gap: .75rem;
-        align-items: flex-start;
-    }
-    #modalDetalleAsignacion .obs-box i { color: #b45309; font-size: 1.3rem; }
-    #modalDetalleAsignacion .obs-box strong { color: #92400e; font-size: .78rem; letter-spacing: .04em; }
-    #modalDetalleAsignacion .obs-box span { color: #451a03; font-size: .95rem; }
-
-    /* ─── Tarjetas resumen de la pestaña Activos ─── */
-    #modalDetalleAsignacion .stat-card { border-radius: .6rem; padding: 1.1rem; text-align: center; height: 100%; }
-    #modalDetalleAsignacion .stat-card .stat-label {
-        font-size: .78rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: .04em; color: #475569;
-    }
-    #modalDetalleAsignacion .stat-card .stat-value { font-size: 1.6rem; font-weight: 800; margin-top: .3rem; line-height: 1.1; }
-    #modalDetalleAsignacion .stat-card.c-indigo { background: #eef2ff; }
-    #modalDetalleAsignacion .stat-card.c-indigo .stat-value { color: #4338ca; }
-    #modalDetalleAsignacion .stat-card.c-slate  { background: #f1f5f9; }
-    #modalDetalleAsignacion .stat-card.c-slate  .stat-value { color: #334155; font-size: 1.05rem; }
-    #modalDetalleAsignacion .stat-card.c-green  { background: #ecfdf5; }
-    #modalDetalleAsignacion .stat-card.c-green  .stat-value { color: #047857; }
-
-    /* ─── Tarjetas de Auditoría: más grandes y con color propio para llenar el
-           espacio del modal de forma útil, no vacía ─── */
-    #modalDetalleAsignacion .audit-card { border-radius: .6rem; padding: 1.5rem; height: 100%; }
-    #modalDetalleAsignacion .audit-card.c-blue  { background: #eff6ff; border: 1px solid #bfdbfe; }
-    #modalDetalleAsignacion .audit-card.c-amber { background: #fff7ed; border: 1px solid #fed7aa; }
-    #modalDetalleAsignacion .audit-card .audit-title {
-        display: flex; align-items: center; gap: .5rem;
-        font-weight: 700; font-size: 1rem; margin-bottom: 1.1rem;
-    }
-    #modalDetalleAsignacion .audit-card.c-blue .audit-title  { color: #1d4ed8; }
-    #modalDetalleAsignacion .audit-card.c-amber .audit-title { color: #c2410c; }
-    #modalDetalleAsignacion .audit-card .audit-title i { font-size: 1.3rem; }
-    #modalDetalleAsignacion .audit-card .info-row { border-bottom-color: rgba(0,0,0,.06); font-size: 1rem; }
-
-    /* Historial: reemplaza bg-label-* (theme) por colores fijos con buen contraste */
-    #modalDetalleAsignacion .hist-icon {
-        width: 2.5rem; height: 2.5rem; border-radius: .5rem;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.2rem; flex-shrink: 0;
-    }
-    #modalDetalleAsignacion .hist-icon.c-primary   { background: #dbeafe; color: #1d4ed8; }
-    #modalDetalleAsignacion .hist-icon.c-success   { background: #d1fae5; color: #047857; }
-    #modalDetalleAsignacion .hist-icon.c-warning   { background: #fef3c7; color: #b45309; }
-    #modalDetalleAsignacion .hist-icon.c-secondary { background: #e2e8f0; color: #475569; }
-    #modalDetalleAsignacion .hist-icon.c-danger    { background: #fee2e2; color: #b91c1c; }
-    #modalDetalleAsignacion .hist-card { border: 1px solid #e2e8f0; border-radius: .6rem; background: #fff; }
-    #modalDetalleAsignacion .hist-card .hist-titulo { font-size: .95rem; font-weight: 700; color: #1e293b; }
-    #modalDetalleAsignacion .hist-card .hist-meta { font-size: .8rem; color: #64748b; }
-    #modalDetalleAsignacion .hist-card .hist-frase { font-size: .92rem; color: #334155; }
-
-    /* Botones del header de las tarjetas y del footer: más grandes, ya no btn-sm */
-    #modalDetalleAsignacion .modal-footer { padding: 1rem 1.5rem; }
-    #modalDetalleAsignacion .modal-footer .btn { font-size: .95rem; padding: .55rem 1.3rem; font-weight: 600; }
-
-    /* Tabla de bienes: descripción recortada a 2 líneas (el texto completo queda en el
-       title, como tooltip nativo) — sin esto una descripción larga estiraba la fila a
-       150-200px y 50 bienes no entraban ni de cerca en el modal. */
-    #tabla-activos-modal { font-size: .88rem; }
-    #tabla-activos-modal .descripcion-clamp {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-    #tabla-activos-modal thead th { position: sticky; top: 0; z-index: 1; font-size: .82rem; }
-
-    /* ─── Modales secundarios (Editar cabecera / Editar reporte): texto y botones
-           más grandes, ya no form-control-sm/btn-sm ─── */
-    #modalEditarReporte .modal-header, #modalEditarCabecera .modal-header { padding: 1.1rem 1.5rem; }
-    #modalEditarReporte .modal-title, #modalEditarCabecera .modal-title { font-size: 1.15rem; }
-    #modalEditarReporte .form-label, #modalEditarCabecera .form-label { font-size: .88rem; font-weight: 600; color: #334155; }
-    #modalEditarReporte .modal-footer .btn, #modalEditarCabecera .modal-footer .btn {
-        font-size: .95rem; padding: .55rem 1.3rem; font-weight: 600;
-    }
-
-    /*
-        Bug preexistente encontrado al probar en navegador (no lo causó este rediseño):
-        el tema fija el z-index de TODO ".modal" en 1090, así que Bootstrap no distingue
-        entre el modal padre y uno abierto arriba — gana el que esté después en el DOM.
-        #modalDetalleAsignacion queda al final del archivo, así que CUALQUIERA de estos
-        modales (todos se abren sin cerrar el detalle) renderizaba invisible detrás
-        suyo: Separar, Trasladar, Incorporar, Editar cabecera, Editar reporte, Corregir
-        y Ver detalle. #modalEditarReporte se agregó después y le faltaba este mismo
-        arreglo — por eso se abría tapado por el modal principal.
-    */
-    #modalVerDetalleActivo, #modalCorregirActivo, #modalSepararActa,
-    #modalTrasladar, #modalIncorporar, #modalEditarCabecera, #modalEditarReporte {
-        z-index: 1100;
-    }
-</style>
- 
-<h4 class="py-3 mb-4">
-    <span class="text-muted fw-light">Seguimiento /</span> Asignación de Activos
-</h4>
-
-<!--
-    Las tarjetas de resumen viven ahora dentro del fragmento de la tabla: sus números los
-    calcula el servidor sobre el conjunto filtrado completo. Contarlas acá, recorriendo
-    las filas del DOM, daría los totales de la página visible.
--->
-
-<!-- Panel de filtros -->
-<div class="card mb-4 border-0 shadow-sm">
-    <div class="card-body py-3">
-        <div class="row g-2 align-items-end">
-
-            <div class="col-12 col-md-4">
-                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-buscar">BUSCAR</label>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text"><i class="bx bx-search"></i></span>
-                    <input type="text" id="filtro-buscar" class="form-control form-control-sm"
-                        placeholder="N° de acta, preventivo, responsable o código de bien">
-                    <button class="btn btn-outline-secondary" type="button" title="Borrar la búsqueda"
-                            onclick="quitarFiltro('buscar')"><i class="bx bx-x"></i></button>
-                </div>
-            </div>
-
-            <!-- Es el filtro que define de qué trata esta pantalla, por eso va primero. -->
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-sinc">EN EL VSIAF</label>
-                <select id="filtro-sinc" class="form-select form-select-sm" onchange="cargarTabla(true)">
-                    <option value="SUBIDAS">Subidas (todas)</option>
-                    <option value="COMPLETAS">Solo completas</option>
-                    <option value="PARCIALES">Solo parciales</option>
-                    <option value="TODAS">Incluir las no subidas</option>
-                </select>
-            </div>
-
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-gestion">GESTIÓN</label>
-                <select id="filtro-gestion" class="form-select form-select-sm" onchange="cargarTabla(true)">
-                    <option value="">Todas</option>
-                    <option th:each="g : ${gestiones}" th:value="${g}" th:text="${g}">2026</option>
-                </select>
-            </div>
-
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-mes">MES</label>
-                <select id="filtro-mes" class="form-select form-select-sm" onchange="cargarTabla(true)">
-                    <option value="">Todos</option>
-                    <option value="1">Enero</option>
-                    <option value="2">Febrero</option>
-                    <option value="3">Marzo</option>
-                    <option value="4">Abril</option>
-                    <option value="5">Mayo</option>
-                    <option value="6">Junio</option>
-                    <option value="7">Julio</option>
-                    <option value="8">Agosto</option>
-                    <option value="9">Septiembre</option>
-                    <option value="10">Octubre</option>
-                    <option value="11">Noviembre</option>
-                    <option value="12">Diciembre</option>
-                </select>
-            </div>
-
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-desde">DESDE</label>
-                <input type="date" id="filtro-desde" class="form-control form-control-sm" onchange="cargarTabla(true)">
-            </div>
-
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-hasta">HASTA</label>
-                <input type="date" id="filtro-hasta" class="form-control form-control-sm" onchange="cargarTabla(true)">
-            </div>
+<section class="sm-card">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar N° acta, documento, responsable, código de bien…" autocomplete="off" aria-label="Buscar acta">
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
         </div>
 
-        <div class="row g-2 align-items-end mt-1">
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-tipo">TIPO</label>
-                <!--
-                    Sin "Separación" todavía: la base tiene un CHECK que solo admite
-                    NUEVA, REASIGNACION y DEVOLUCION. Ofrecer una opción que jamás puede
-                    devolver nada es el mismo defecto que tenían estos combos antes.
-                    Se agrega en la Fase 3, junto con la ampliación del CHECK.
-                -->
-                <select id="filtro-tipo" class="form-select form-select-sm" onchange="cargarTabla(true)">
-                    <option value="">Todos</option>
-                    <option value="NUEVA">Nueva</option>
-                    <option value="REASIGNACION">Reasignación</option>
-                    <option value="DEVOLUCION">Devolución</option>
-                </select>
-            </div>
+        <!-- Filtros exactos (reemplazan filtros por columna en thead) -->
+        <div class="sm-toolbar-filtro">
+            <select class="sm-select js-filtro-sinc" aria-label="Estado en VSIAF">
+                <option value="SUBIDAS">Subidas (todas)</option>
+                <option value="COMPLETAS">Solo completas</option>
+                <option value="PARCIALES">Solo parciales</option>
+                <option value="TODAS">Incluir no subidas</option>
+            </select>
+        </div>
+        <div class="sm-toolbar-filtro">
+            <select class="sm-select js-filtro-gestion" aria-label="Gestión">
+                <option value="">Todas las gestiones</option>
+                <option th:each="g : ${gestiones}" th:value="${g}" th:text="${g}">2026</option>
+            </select>
+        </div>
+        <div class="sm-toolbar-filtro">
+            <select class="sm-select js-filtro-mes" aria-label="Mes">
+                <option value="">Todos los meses</option>
+                <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+        </div>
+        <div class="sm-toolbar-filtro">
+            <select class="sm-select js-filtro-tipo" aria-label="Tipo de acta">
+                <option value="">Todos los tipos</option>
+                <option value="NUEVA">Nueva</option>
+                <option value="REASIGNACION">Reasignación</option>
+                <option value="DEVOLUCION">Devolución</option>
+            </select>
+        </div>
+        <div class="sm-toolbar-filtro">
+            <select class="sm-select js-filtro-estado" aria-label="Estado del acta">
+                <option value="">Todos los estados</option>
+                <option value="ACTIVA">Activa</option>
+                <option value="ANULADA">Anulada</option>
+                <option value="DEVUELTA">Devuelta</option>
+            </select>
+        </div>
+        <div class="sm-toolbar-filtro">
+            <select class="sm-select js-filtro-grupo" aria-label="Grupo contable">
+                <option value="">Todos los grupos</option>
+                <option th:each="g : ${gruposContables}" th:value="${g.idGrupoContable}" th:text="${g.nombre}">Muebles</option>
+            </select>
+        </div>
 
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-estado">ESTADO</label>
-                <select id="filtro-estado" class="form-select form-select-sm" onchange="cargarTabla(true)">
-                    <option value="">Todos</option>
-                    <option value="ACTIVA">Activa</option>
-                    <option value="ANULADA">Anulada</option>
-                    <option value="DEVUELTA">Devuelta</option>
-                </select>
-            </div>
+        <div class="sm-toolbar-filtro" style="max-width:160px">
+            <input type="date" class="sm-input js-filtro-desde" placeholder="Desde" aria-label="Fecha desde">
+        </div>
+        <div class="sm-toolbar-filtro" style="max-width:160px">
+            <input type="date" class="sm-input js-filtro-hasta" placeholder="Hasta" aria-label="Fecha hasta">
+        </div>
 
-            <!-- El grupo contable es del BIEN, no del acta: filtra las actas que tengan
-                 al menos un bien de ese grupo. -->
-            <div class="col-6 col-md-3">
-                <label class="form-label mb-1 small fw-semibold text-muted" for="filtro-grupo">GRUPO CONTABLE</label>
-                <select id="filtro-grupo" class="form-select form-select-sm" onchange="cargarTabla(true)">
-                    <option value="">Todos</option>
-                    <option th:each="g : ${gruposContables}"
-                            th:value="${g.idGrupoContable}" th:text="${g.nombre}">Muebles</option>
-                </select>
-            </div>
+        <div class="sm-toolbar-filtro">
+            <label class="form-check form-switch m-0">
+                <input class="form-check-input js-filtro-error" type="checkbox" aria-label="Solo con error VSIAF">
+                <span class="form-check-label small ms-1">Solo error VSIAF</span>
+            </label>
+        </div>
 
-            <div class="col-12 col-md-4 d-flex align-items-center pb-1">
-                <div class="form-check form-switch mb-0">
-                    <input class="form-check-input" type="checkbox" id="filtro-error" onchange="cargarTabla(true)">
-                    <label class="form-check-label small" for="filtro-error">
-                        Solo actas con error de VSIAF
-                    </label>
-                </div>
-            </div>
+        <div class="sm-toolbar-espacio"></div>
 
-            <div class="col-12 col-md-4 d-flex justify-content-md-end gap-2">
-                <button class="btn btn-sm btn-outline-secondary" onclick="limpiarFiltros()">
-                    <i class="bx bx-x me-1"></i>Limpiar
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="cargarTabla()">
-                    <i class="bx bx-refresh me-1"></i>Actualizar
-                </button>
-                <button class="btn btn-sm btn-outline-success" onclick="exportarExcel()"
-                        title="Descarga en Excel las actas que cumplen el filtro actual">
-                    <i class="bx bx-file-blank me-1"></i>Exportar Excel
-                </button>
-            </div>
+        <label class="sm-filas">
+            <i class="ti ti-list-numbers"></i> Filas
+            <select class="sm-select js-largo" aria-label="Filas por página">
+                <option value="auto" selected>Ajustar a pantalla</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="-1">Todas</option>
+            </select>
+        </label>
+
+        <div class="d-flex gap-1">
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-limpiar" title="Limpiar filtros">
+                <i class="ti ti-filter-x"></i> Limpiar
+            </button>
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-actualizar" title="Actualizar">
+                <i class="ti ti-refresh"></i> Actualizar
+            </button>
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-exito js-exportar" title="Exportar a Excel">
+                <i class="ti ti-file-spreadsheet"></i> Excel
+            </button>
         </div>
     </div>
-</div>
 
-<!-- Contenedor principal de tabla -->
-<div id="tablaRegistro"></div>
+    <!-- Contenedor de la tabla: el fragmento tabla_registro se carga aquí -->
+    <div class="js-tabla"></div>
+</section>
 
-<!-- ======================= MODAL VER DETALLE DEL ACTIVO (solo lectura) ======================= -->
-<!--
-    La fila de la tabla va recortada a propósito (ver #tabla-activos-modal): acá está el
-    dato completo, para cualquier usuario, no solo para quien puede corregir. Se llena
-    con lo que ya viajó en /detalles-json — sin pedir nada nuevo al servidor.
--->
-<div class="modal fade" id="modalVerDetalleActivo" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
+<!-- ======================= MODALES (fragmentos separados) ======================= -->
+<!-- Cada modal se carga por AJAX cuando se necesita; aquí solo el contenedor vacío -->
 
-            <div class="modal-header bg-primary text-white py-3">
-                <div>
-                    <h6 class="modal-title mb-0 fw-bold"><i class="bx bx-box me-1"></i>Detalle del activo</h6>
-                    <small class="opacity-75" id="ver-det-codigo">—</small>
-                </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-
-            <div class="modal-body p-4" id="ver-det-body">
-                <!-- Se llena en JS al abrir -->
-            </div>
-
-            <div class="modal-footer py-2">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
-                    <i class="bx bx-x me-1"></i>Cerrar
-                </button>
-                <button type="button" class="btn btn-sm btn-warning btn-corregir d-none" id="ver-det-btn-corregir">
-                    <i class="bx bx-edit-alt me-1"></i>Corregir este activo
-                </button>
-            </div>
-
-        </div>
-    </div>
-</div>
-
-<!-- ======================= MODAL CORREGIR ACTIVO REGISTRADO ======================= -->
-<div class="modal fade" id="modalCorregirActivo" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-
-            <div class="modal-header bg-warning py-3">
-                <div>
-                    <h6 class="modal-title mb-0 fw-bold text-dark">
-                        <i class="bx bx-edit-alt me-1"></i>Corregir activo
-                    </h6>
-                    <small class="text-dark opacity-75" id="corr-codigo">—</small>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-
-            <div class="modal-body p-4">
-                <!-- Aviso: esto reescribe el VSIAF -->
-                <div class="alert alert-warning py-2 d-flex gap-2 align-items-start" style="font-size:.83rem">
-                    <i class="bx bx-info-circle fs-5"></i>
-                    <div>
-                        Si el activo ya está en el VSIAF, al guardar se <b>envía la corrección
-                        al sistema legacy</b>. El <b>código no se modifica acá</b>: es la llave con
-                        la que se ubica el registro. Para cambiarlo se usa el cambio urgente de
-                        código, que pide contraseña y motivo.
-                    </div>
-                </div>
-
-                <div id="corr-body">
-                    <div class="text-center py-4 text-muted">
-                        <div class="spinner-border spinner-border-sm me-2"></div>Cargando datos…
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-footer py-2">
-                <span class="text-muted small me-auto" id="corr-footer-info"></span>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-sm btn-warning" id="btn-guardar-correccion" disabled>
-                    <i class="bx bx-save me-1"></i>Guardar corrección
-                </button>
-            </div>
-
-        </div>
-    </div>
-</div>
-
-<!-- ======================= MODAL SEPARAR ACTA ======================= -->
-<div class="modal fade" id="modalSepararActa" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-
-            <div class="modal-header bg-primary text-white py-3">
-                <div>
-                    <h6 class="modal-title mb-0 fw-bold"><i class="bx bx-git-branch me-1"></i>Separar bienes a un acta nueva</h6>
-                    <small class="opacity-75" id="sep-resumen">—</small>
-                </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-
-            <div class="modal-body p-4">
-                <!--
-                    Este aviso existe porque la intuición dice lo contrario: separar suena
-                    a que se toca el sistema legacy, y frena a la gente. El VSIAF no conoce
-                    el concepto de acta; solo se entera si cambian datos del bien.
-                -->
-                <div class="alert alert-info py-2 d-flex gap-2 align-items-start" style="font-size:.83rem">
-                    <i class="bx bx-info-circle fs-5"></i>
-                    <div>
-                        El acta original <b>conserva sus bienes</b>, con los separados marcados como trasladados:
-                        el papel ya firmado sigue coincidiendo. Al VSIAF solo se envía algo si cambia el
-                        <b>responsable</b> o la <b>oficina</b> de los bienes.
-                    </div>
-                </div>
-
-                <h6 class="text-muted small fw-semibold mt-3">DOCUMENTO DE LA NUEVA ACTA</h6>
-                <div class="row g-2">
-                    <div class="col-md-7">
-                        <label class="form-label small mb-1" for="sep-config">Tipo de documento</label>
-                        <select id="sep-config" class="form-select form-select-sm">
-                            <option value="">Cargando…</option>
-                        </select>
-                    </div>
-                    <div class="col-md-5">
-                        <label class="form-label small mb-1" for="sep-nrodoc">Número de documento</label>
-                        <input type="text" id="sep-nrodoc" class="form-control form-control-sm fw-bold"
-                               placeholder="Ej: 5243">
-                        <div class="form-text" style="font-size:.72rem">Es el número que identifica al acta.</div>
-                    </div>
-                </div>
-
-                <h6 class="text-muted small fw-semibold mt-4">DESTINO DE LOS BIENES</h6>
-                <div class="row g-2">
-                    <div class="col-md-6">
-                        <label class="form-label small mb-1" for="sep-oficina">Oficina</label>
-                        <select id="sep-oficina" class="form-select form-select-sm"></select>
-                        <div class="form-text" style="font-size:.72rem">
-                            Solo oficinas del mismo predio: cambiar de predio es una transferencia.
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label small mb-1" for="sep-responsable">Responsable</label>
-                        <select id="sep-responsable" class="form-select form-select-sm"></select>
-                    </div>
-                </div>
-
-                <h6 class="text-muted small fw-semibold mt-4">MOTIVO</h6>
-                <textarea id="sep-motivo" class="form-control form-control-sm" rows="3"
-                          placeholder="Por qué se separan estos bienes. Queda en el historial del acta."></textarea>
-                <div class="form-text" style="font-size:.72rem">Mínimo 10 caracteres.</div>
-
-                <div class="mt-3 d-none" id="sep-avisos"></div>
-            </div>
-
-            <div class="modal-footer py-2">
-                <span class="text-muted small me-auto" id="sep-footer-info"></span>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-sm btn-primary" id="btn-confirmar-separar">
-                    <i class="bx bx-git-branch me-1"></i>Separar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ======================= MODAL TRASLADAR A OTRA ACTA ======================= -->
-<div class="modal fade" id="modalTrasladar" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-warning py-3">
-                <div>
-                    <h6 class="modal-title mb-0 fw-bold text-dark"><i class="bx bx-transfer me-1"></i>Trasladar a otra acta</h6>
-                    <small class="text-dark opacity-75" id="tras-resumen">—</small>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-
-            <div class="modal-body p-4">
-                <!-- No existe "quitar": el bien siempre queda en un acta. -->
-                <div class="alert alert-secondary py-2 d-flex gap-2 align-items-start" style="font-size:.83rem">
-                    <i class="bx bx-info-circle fs-5"></i>
-                    <div>
-                        Un bien siempre pertenece a un acta: por eso no se lo "quita", se lo <b>traslada</b>.
-                        Su línea acá queda marcada como trasladada, con el destino anotado.
-                    </div>
-                </div>
-
-                <h6 class="text-muted small fw-semibold mt-3">ACTA DE DESTINO</h6>
-                <div class="input-group input-group-sm mb-2">
-                    <span class="input-group-text"><i class="bx bx-search"></i></span>
-                    <input type="text" id="tras-buscar" class="form-control form-control-sm"
-                           placeholder="N° de acta o documento (ej: ASG-2026-541)">
-                </div>
-                <div id="tras-resultados" class="list-group list-group-flush border rounded"
-                     style="max-height:220px; overflow-y:auto"></div>
-
-                <!-- Escape valve para cuando no hay una acta clara a dónde mandar el bien. -->
-                <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-2" id="btn-regularizacion">
-                    <i class="bx bx-folder-open me-1"></i>Enviar a regularización de esta gestión
-                </button>
-
-                <div class="alert alert-primary py-2 mt-2 mb-0 d-none" id="tras-elegida"></div>
-
-                <div class="form-check form-switch mt-3">
-                    <input class="form-check-input" type="checkbox" id="tras-adoptar">
-                    <label class="form-check-label small" for="tras-adoptar">
-                        Que los bienes tomen el <b>responsable y la oficina</b> del acta destino
-                        <span class="d-block text-muted" style="font-size:.75rem">
-                            Si lo dejás sin marcar, solo cambian de acta y no se envía nada al VSIAF.
-                        </span>
-                    </label>
-                </div>
-
-                <h6 class="text-muted small fw-semibold mt-4">MOTIVO</h6>
-                <textarea id="tras-motivo" class="form-control form-control-sm" rows="3"
-                          placeholder="Por qué se mueven estos bienes. Queda en el historial de las dos actas."></textarea>
-                <div class="form-text" style="font-size:.72rem">Mínimo 10 caracteres.</div>
-
-                <div class="mt-3 d-none" id="tras-avisos"></div>
-            </div>
-
-            <div class="modal-footer py-2">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-sm btn-warning" id="btn-confirmar-trasladar" disabled>
-                    <i class="bx bx-transfer me-1"></i>Trasladar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ======================= MODAL INCORPORAR BIENES ======================= -->
-<div class="modal fade" id="modalIncorporar" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-success text-white py-3">
-                <div>
-                    <h6 class="modal-title mb-0 fw-bold"><i class="bx bx-import me-1"></i>Incorporar bienes a esta acta</h6>
-                    <small class="opacity-75" id="inc-resumen">—</small>
-                </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-
-            <div class="modal-body p-4">
-                <div class="alert alert-secondary py-2 d-flex gap-2 align-items-start" style="font-size:.83rem">
-                    <i class="bx bx-info-circle fs-5"></i>
-                    <div>
-                        Para el caso de los bienes que <b>se olvidaron de incluir</b>. Cada bien sale del acta
-                        donde está hoy —se muestra cuál— y su línea allá queda marcada como trasladada.
-                        <span class="d-block mt-1">Un bien que nunca tuvo documento se asigna desde
-                        <b>Activos pendientes</b>, no desde acá.</span>
-                    </div>
-                </div>
-
-                <h6 class="text-muted small fw-semibold mt-3">BUSCAR BIENES</h6>
-                <div class="input-group input-group-sm mb-2">
-                    <span class="input-group-text"><i class="bx bx-search"></i></span>
-                    <input type="text" id="inc-buscar" class="form-control form-control-sm"
-                           placeholder="Código o descripción del bien (mínimo 3 caracteres)">
-                </div>
-                <div id="inc-resultados" class="list-group list-group-flush border rounded"
-                     style="max-height:260px; overflow-y:auto"></div>
-
-                <div class="form-check form-switch mt-3">
-                    <input class="form-check-input" type="checkbox" id="inc-adoptar">
-                    <label class="form-check-label small" for="inc-adoptar">
-                        Que los bienes tomen el <b>responsable y la oficina</b> de esta acta
-                        <span class="d-block text-muted" style="font-size:.75rem">
-                            Sin marcar, solo cambian de acta y no se envía nada al VSIAF.
-                        </span>
-                    </label>
-                </div>
-
-                <h6 class="text-muted small fw-semibold mt-4">MOTIVO</h6>
-                <textarea id="inc-motivo" class="form-control form-control-sm" rows="3"
-                          placeholder="Por qué se incorporan. Queda en el historial de las dos actas."></textarea>
-                <div class="form-text" style="font-size:.72rem">Mínimo 10 caracteres.</div>
-
-                <div class="mt-3 d-none" id="inc-avisos"></div>
-            </div>
-
-            <div class="modal-footer py-2">
-                <span class="text-muted small me-auto" id="inc-contador">Ningún bien seleccionado</span>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-sm btn-success" id="btn-confirmar-incorporar" disabled>
-                    <i class="bx bx-import me-1"></i>Incorporar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ======================= MODAL EDITAR CABECERA ======================= -->
-<div class="modal fade" id="modalEditarCabecera" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-
-            <div class="modal-header bg-success text-white py-3">
-                <div>
-                    <h6 class="modal-title mb-0 fw-bold"><i class="bx bx-edit me-1"></i>Editar cabecera del acta</h6>
-                    <small class="opacity-75" id="cab-resumen">—</small>
-                </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-
-            <div class="modal-body p-4">
-                <div class="alert alert-info py-2 d-flex gap-2 align-items-start" style="font-size:.83rem">
-                    <i class="bx bx-info-circle fs-5"></i>
-                    <div>
-                        Esto corrige el <b>responsable</b> y/o la <b>oficina</b> que dice el papel. No mueve
-                        bienes ni crea un acta nueva.
-                    </div>
-                </div>
-
-                <div id="cab-sin-predio" class="alert alert-warning py-2 d-none" style="font-size:.83rem">
-                    Esta acta no tiene un predio definido, así que no se puede listar oficinas para elegir.
-                    Usá <b>Separar</b> o <b>Trasladar</b> sobre algún bien para fijarlo primero.
-                </div>
-
-                <h6 class="text-muted fw-semibold mt-3 mb-2">DATOS DE LA CABECERA</h6>
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label" for="cab-oficina">Oficina</label>
-                        <select id="cab-oficina" class="form-select"></select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="cab-responsable">Responsable</label>
-                        <select id="cab-responsable" class="form-select"></select>
-                    </div>
-                </div>
-
-                <div class="form-check form-switch mt-3">
-                    <input class="form-check-input" type="checkbox" id="cab-propagar">
-                    <label class="form-check-label" for="cab-propagar">
-                        Que los bienes <b>vigentes</b> de esta acta tomen este responsable y esta oficina
-                        <span class="d-block text-muted" style="font-size:.8rem">
-                            Sin marcar, solo cambia la cabecera y no se envía nada al VSIAF.
-                        </span>
-                    </label>
-                </div>
-
-                <h6 class="text-muted fw-semibold mt-4 mb-2">MOTIVO</h6>
-                <textarea id="cab-motivo" class="form-control" rows="3"
-                          placeholder="Por qué se corrige la cabecera. Queda en el historial del acta."></textarea>
-                <div class="form-text">Mínimo 10 caracteres.</div>
-
-                <div class="mt-3 d-none" id="cab-avisos"></div>
-            </div>
-
-            <div class="modal-footer py-3">
-                <span class="text-muted me-auto" id="cab-footer-info"></span>
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" id="btn-confirmar-cabecera">
-                    <i class="bx bx-edit me-1"></i>Guardar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ======================= MODAL EDITAR DATOS DE REPORTE ======================= -->
-<!--
-    Hoja de ruta, certificación, quién sistematizó el acta, comprobante y observación:
-    datos administrativos para el reporte Excel. No tocan bienes ni VSIAF, por eso es un
-    modal aparte y más liviano que "Editar cabecera" — sirve también para completar actas
-    viejas o ya subidas al VSIAF, donde el modal de Pendientes ya no aparece.
--->
-<div class="modal fade" id="modalEditarReporte" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-
-            <div class="modal-header bg-primary text-white py-3">
-                <h5 class="modal-title mb-0 fw-bold" style="color: white;"><i class="bx bx-spreadsheet me-2" style="color: white;"></i>Datos de reporte del acta</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-
-            <div class="modal-body p-4">
-                <p class="text-muted mb-4" style="font-size:.9rem">
-                    Se usan en el reporte Excel de asignaciones. No afectan a los bienes ni al VSIAF.
-                    <span class="d-block mt-1">
-                        "Sistematizado por" no se pide acá: es quien registró el acta en el sistema —
-                        ya se muestra solo en <b>Datos del Documento</b>.
-                    </span>
-                </p>
-
-                <div class="row g-4">
-                    <div class="col-md-4">
-                        <label class="form-label" for="rep-hoja-ruta">Hoja de Ruta / ARD</label>
-                        <input type="text" id="rep-hoja-ruta" class="form-control form-control-lg" placeholder="Ej: 90">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label" for="rep-certificacion">Certificación</label>
-                        <input type="text" id="rep-certificacion" class="form-control form-control-lg" placeholder="Ej: 6">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label d-block">Comprobante</label>
-                        <div class="btn-group w-100" role="group">
-                            <input type="radio" class="btn-check" name="rep-comprobante" id="rep-comprobante-si" value="true">
-                            <label class="btn btn-outline-success" for="rep-comprobante-si"><i class="bx bx-check me-1"></i>SI</label>
-                            <input type="radio" class="btn-check" name="rep-comprobante" id="rep-comprobante-no" value="false">
-                            <label class="btn btn-outline-danger" for="rep-comprobante-no"><i class="bx bx-x me-1"></i>NO</label>
-                        </div>
-                    </div>
-
-                    <div class="col-12">
-                        <label class="form-label" for="rep-observacion">Observación</label>
-                        <textarea id="rep-observacion" class="form-control" rows="3"
-                                  placeholder="Ej: el activo llegó en la gestión 2025 pero se canceló el 2026"></textarea>
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-footer py-3">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btn-confirmar-reporte">
-                    <i class="bx bx-save me-1"></i>Guardar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ======================= MODAL DETALLE ASIGNACIÓN ======================= -->
+<!-- Modal DETALLE DE ACTA (multi-tab) -->
 <div class="modal fade" id="modalDetalleAsignacion" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-
-            <!-- Header -->
-            <div class="modal-header bg-primary text-white py-3 flex-nowrap">
-                <div class="d-flex align-items-center gap-3 min-width-0" style="min-width:0">
-                    <div class="avatar bg-white bg-opacity-25 rounded-2 p-2 flex-shrink-0">
-                        <i class="bx bx-clipboard fs-4 text-white"></i>
-                    </div>
-                    <div class="text-truncate">
-                        <h5 class="modal-title mb-0 fw-bold text-truncate" id="modal-numero-asignacion">—</h5>
-                        <small class="opacity-75" id="modal-fecha-asignacion">—</small>
-                    </div>
-                </div>
-                <div class="d-flex align-items-center gap-2 ms-auto header-badges">
-                    <span class="badge fs-6 px-3 py-2 text-truncate" id="modal-badge-tipo">—</span>
-                    <span class="badge fs-6 px-3 py-2" id="modal-badge-estado">—</span>
-                </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-
-            <!-- Body -->
-            <div class="modal-body p-0">
-                <!-- Tabs -->
-                <ul class="nav nav-tabs nav-tabs-bordered px-4 pt-3" id="modalTabs">
-                    <li class="nav-item">
-                        <a class="nav-link active d-flex align-items-center gap-1" data-bs-toggle="tab"
-                            href="#tab-general">
-                            <i class="bx bx-info-circle"></i> Información General
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab" href="#tab-activos">
-                            <i class="bx bx-box"></i> Activos Asignados
-                            <span class="badge bg-primary rounded-pill ms-1" id="badge-num-activos">0</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab" href="#tab-historial"
-                           id="tab-historial-link">
-                            <i class="bx bx-git-branch"></i> Historial
-                            <span class="badge bg-secondary rounded-pill ms-1 d-none" id="badge-num-movimientos">0</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab" href="#tab-auditoria">
-                            <i class="bx bx-time-five"></i> Auditoría
-                        </a>
-                    </li>
-                </ul>
-
-                <div class="tab-content p-4">
-
-                    <!-- TAB GENERAL -->
-                    <div class="tab-pane fade show active" id="tab-general">
-                        <div class="row g-4">
-
-                            <!-- Columna izquierda: Datos del documento -->
-                            <div class="col-md-6">
-                                <div class="info-card">
-                                    <div class="info-card-header doc">
-                                        <span><i class="bx bx-file-blank me-1"></i>Datos del Documento</span>
-                                        <button type="button" class="btn btn-sm btn-outline-light"
-                                                id="btn-editar-reporte"
-                                                onclick="abrirModalEditarReporte()"
-                                                title="Hoja de ruta, certificación y comprobante — para el reporte Excel">
-                                            <i class="bx bx-edit me-1"></i>Datos de reporte
-                                        </button>
-                                    </div>
-                                    <div class="info-card-body">
-                                        <div class="info-row"><span class="lbl">N° Asignación</span><span class="val text-primary" id="d-numero">—</span></div>
-                                        <div class="info-row"><span class="lbl">Código Documento</span><span class="val" id="d-codigo-doc">—</span></div>
-                                        <div class="info-row"><span class="lbl">Código Completo</span><span class="val" id="d-codigo-completo">—</span></div>
-                                        <div class="info-row"><span class="lbl">Fecha Asignación</span><span class="val" id="d-fecha">—</span></div>
-                                        <div class="info-row"><span class="lbl">Tipo</span><span class="val" id="d-tipo">—</span></div>
-                                        <div class="info-row"><span class="lbl">Estado</span><span class="val" id="d-estado">—</span></div>
-                                        <div class="info-row"><span class="lbl">Doc. Referencia</span><span class="val" id="d-doc-referencia">—</span></div>
-                                        <div class="info-row"><span class="lbl">Hoja de Ruta / ARD</span><span class="val" id="d-hoja-ruta">—</span></div>
-                                        <div class="info-row"><span class="lbl">Certificación</span><span class="val" id="d-certificacion">—</span></div>
-                                        <div class="info-row"><span class="lbl">Sistematizado por</span><span class="val" id="d-sistematizado-por">—</span></div>
-                                        <div class="info-row"><span class="lbl">Comprobante</span><span class="val" id="d-comprobante">—</span></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Columna derecha: Responsables -->
-                            <div class="col-md-6">
-                                <div class="info-card">
-                                    <div class="info-card-header resp">
-                                        <span><i class="bx bx-user-check me-1"></i>Responsables</span>
-                                        <button type="button" class="btn btn-sm btn-outline-light d-none"
-                                                id="btn-editar-cabecera"
-                                                onclick="abrirModalEditarCabecera()">
-                                            <i class="bx bx-edit me-1"></i>Editar
-                                        </button>
-                                    </div>
-                                    <div class="info-card-body">
-                                        <!-- Solo aplica a actas que vienen de otra (separación/traslado): en
-                                             una acta NUEVA no hay origen, y mostrar "—" ahí es puro ruido. -->
-                                        <div class="info-row d-none" id="fila-resp-origen">
-                                            <span class="lbl">Resp. Origen</span><span class="val" id="d-resp-origen">—</span>
-                                        </div>
-                                        <div class="info-row"><span class="lbl">Resp. Destino</span><span class="val" id="d-resp-destino">—</span></div>
-                                        <div class="info-row"><span class="lbl">Oficina Destino</span><span class="val" id="d-oficina-destino">—</span></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Observación -->
-                            <div class="col-12" id="container-observacion" style="display:none">
-                                <div class="obs-box">
-                                    <i class="bx bx-comment-detail"></i>
-                                    <div>
-                                        <strong class="d-block mb-1">OBSERVACIÓN</strong>
-                                        <span id="d-observacion"></span>
-                                    </div>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-
-                    <!-- TAB ACTIVOS -->
-                    <div class="tab-pane fade" id="tab-activos">
- 
-                        <!-- Resumen superior -->
-                        <div class="row g-3 mb-3">
-                            <div class="col-6 col-md-3">
-                                <div class="stat-card c-indigo">
-                                    <div class="stat-label">Total Activos</div>
-                                    <div class="stat-value" id="resumen-total-activos">0</div>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <div class="stat-card c-slate">
-                                    <div class="stat-label">Estado en el VSIAF</div>
-                                    <div class="stat-value" id="resumen-sync">—</div>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <div class="stat-card c-green">
-                                    <div class="stat-label">Costo total (Bs.)</div>
-                                    <div class="stat-value" id="resumen-costo" style="font-variant-numeric: tabular-nums;">0,00</div>
-                                    <div class="text-warning d-none" id="resumen-costo-aviso"
-                                        style="font-size:0.72rem; font-weight:700;"></div>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3 d-flex align-items-center justify-content-end">
-                                <input type="text" id="buscar-activo" class="form-control"
-                                    placeholder="Buscar activo..." style="max-width:240px">
-                            </div>
-                        </div>
-
-                        <!--
-                            Barra de selección. Aparece solo cuando hay bienes marcados:
-                            una barra siempre visible con botones inertes invita a tocarlos
-                            y a descubrir recién ahí que faltaba elegir algo.
-                        -->
-                        <div class="alert alert-primary d-none align-items-center gap-3 py-2 mb-3"
-                             id="barra-seleccion">
-                            <i class="bx bx-check-square fs-5"></i>
-                            <span><strong id="sel-cantidad">0</strong> bien(es) seleccionado(s)</span>
-                            <button class="btn btn-sm btn-primary ms-auto" onclick="abrirModalSeparar()">
-                                <i class="bx bx-git-branch me-1"></i>Separar a un acta nueva
-                            </button>
-                            <button class="btn btn-sm btn-warning" onclick="abrirModalTrasladar()">
-                                <i class="bx bx-transfer me-1"></i>Trasladar a otra acta
-                            </button>
-                            <button class="btn btn-sm btn-info text-white" id="btn-subir-vsiaf-lote">
-                                <i class="bx bx-upload me-1"></i>Subir al VSIAF
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="limpiarSeleccion()">
-                                Quitar selección
-                            </button>
-                        </div>
-
-                        <!-- Para los bienes que se olvidaron de incluir en el acta. -->
-                        <div class="d-flex justify-content-end mb-2 col-seleccion d-none" id="fila-incorporar">
-                            <button class="btn btn-sm btn-outline-success" onclick="abrirModalIncorporar()">
-                                <i class="bx bx-import me-1"></i>Incorporar bienes a esta acta
-                            </button>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-hover table-sm align-middle" id="tabla-activos-modal">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="text-center col-seleccion d-none" style="width:36px">
-                                            <input type="checkbox" class="form-check-input" id="chk-todos"
-                                                   title="Seleccionar todos">
-                                        </th>
-                                        <th class="text-center" style="width:40px">#</th>
-                                        <th>Código</th>
-                                        <th style="min-width:260px">Descripción</th>
-                                        <th>Responsable</th>
-                                        <th>Oficina</th>
-                                        <th class="text-end">Costo (Bs.)</th>
-                                        <th class="text-center">Estado</th>
-                                        <th class="text-center">VSIAF</th>
-                                        <th class="text-center" style="width:110px">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbody-activos">
-                                    <tr>
-                                        <td colspan="12" class="text-center text-muted py-4">Sin activos registrados</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- TAB HISTORIAL -->
-                    <div class="tab-pane fade" id="tab-historial">
-                        <div id="historial-acta">
-                            <div class="text-center py-4 text-muted">
-                                <div class="spinner-border spinner-border-sm me-2"></div>Cargando historial…
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB AUDITORÍA -->
-                    <div class="tab-pane fade" id="tab-auditoria">
-                        <div class="row g-4">
-                            <div class="col-md-6">
-                                <div class="audit-card c-blue">
-                                    <div class="audit-title"><i class="bx bx-plus-circle"></i>Registro del acta</div>
-                                    <div class="info-row"><span class="lbl">Fecha de registro</span><span class="val" id="aud-fecha-reg">—</span></div>
-                                    <div class="info-row"><span class="lbl">Usuario</span><span class="val" id="aud-usuario-reg">—</span></div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="audit-card c-amber">
-                                    <div class="audit-title"><i class="bx bx-edit"></i>Última modificación</div>
-                                    <div class="info-row"><span class="lbl">Fecha de modificación</span><span class="val" id="aud-fecha-mod">—</span></div>
-                                    <div class="info-row"><span class="lbl">Usuario</span><span class="val" id="aud-usuario-mod">—</span></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-
-            <!-- Footer del modal -->
-            <div class="modal-footer bg-light border-top">
-                <a id="btn-modal-word" href="#" target="_blank" class="btn btn-primary">
-                    <i class="bx bxs-file-doc me-1"></i>Descargar Word
-                </a>
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                    <i class="bx bx-x me-1"></i>Cerrar
-                </button>
-            </div>
-
-        </div>
+        <div class="modal-content sm-modal" id="contenidoModalDetalle"></div>
     </div>
 </div>
-<!-- ====================================================================== -->
+
+<!-- Modal VER DETALLE ACTIVO (solo lectura) -->
+<div class="modal fade" id="modalVerDetalleActivo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content sm-modal" id="contenidoModalVerDetalle"></div>
+    </div>
+</div>
+
+<!-- Modal CORREGIR ACTIVO -->
+<div class="modal fade" id="modalCorregirActivo" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content sm-modal" id="contenidoModalCorregir"></div>
+    </div>
+</div>
+
+<!-- Modal SEPARAR ACTA -->
+<div class="modal fade" id="modalSepararActa" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content sm-modal" id="contenidoModalSeparar"></div>
+    </div>
+</div>
+
+<!-- Modal TRASLADAR -->
+<div class="modal fade" id="modalTrasladar" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content sm-modal" id="contenidoModalTrasladar"></div>
+    </div>
+</div>
+
+<!-- Modal INCORPORAR -->
+<div class="modal fade" id="modalIncorporar" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content sm-modal" id="contenidoModalIncorporar"></div>
+    </div>
+</div>
+
+<!-- Modal EDITAR CABECERA -->
+<div class="modal fade" id="modalEditarCabecera" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content sm-modal" id="contenidoModalEditarCabecera"></div>
+    </div>
+</div>
+
+<!-- Modal EDITAR REPORTE -->
+<div class="modal fade" id="modalEditarReporte" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content sm-modal" id="contenidoModalEditarReporte"></div>
+    </div>
+</div>
+
+</div>
 
 <script>
-    /* ══════════════════════════════════════════════════════════════════════════
-       Estado del listado
+    (function () {
+        const URL = '/administracion/asignacion';
+        const $raiz = $('#modAsignacion');
+        const $cont = $raiz.find('.js-tabla');
+        const $modalDetalle = $raiz.find('#modalDetalleAsignacion');
+        const $contenidoDetalle = $raiz.find('#contenidoModalDetalle');
 
-       Orden, página y tamaño viven acá y viajan al servidor en cada carga. La tabla
-       ya no trae todas las actas: pedirle al navegador que ordene o cuente lo que
-       tiene a la vista daría respuestas referidas a 25 registros, no al filtro.
-       ══════════════════════════════════════════════════════════════════════════ */
-    /*
-        var, no const/let: este bloque se re-ejecuta cada vez que el menú carga esta
-        página por AJAX (fragment.js / script.html inyectan el HTML con $(...).html(),
-        que corre los <script> de nuevo en el MISMO scope global de la ventana — el
-        documento nunca se recarga). Con const/let, la segunda vez que se entra acá
-        el intérprete tira "Identifier ha sido declarado" al llegar a esta línea y
-        aborta TODO el script sin ejecutar una sola línea más — incluido el
-        $(document).ready(...) de más abajo que llama a cargarTabla(). Por eso la
-        tabla cargaba bien la primera vez y se quedaba vacía la segunda, sin error
-        visible en pantalla (sí en la consola del navegador). var no tiene ese
-        problema: declarar la misma var dos veces nunca es un error, así que cada
-        entrada a la página arranca con estado limpio, que es lo que se quiere.
-    */
-    var estadoTabla = { orden: 'fecha', desc: true, pagina: 0, tamano: 25 };
-
-    /* Columnas donde lo primero que se quiere ver es lo más alto o lo más reciente. */
-    var ORDEN_DESCENDENTE_PRIMERO = ['fecha', 'activos', 'costo'];
-
-    var temporizadorBusqueda = null;
-
-    $(document).ready(function () {
-        restaurarDesdeUrl();
-        inicializarFiltros();
-        cargarTabla();
-    });
-
-    function cargarTabla(reiniciarPagina) {
-        if (reiniciarPagina) estadoTabla.pagina = 0;
-
-        const filtros = obtenerParametrosFiltro();
-        const params = Object.assign({}, filtros, estadoTabla);
-        sincronizarUrl(filtros);
-
-        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
-        $.ajax({
-            type: 'POST',
-            url: "/administracion/asignacion/tabla_activos_nuevos",
-            data: params,
-            success: function (response) {
-                $("#tablaRegistro").html(response);
-            },
-            error: function () {
-                $("#tablaRegistro").html(`
-        <div class="alert alert-danger d-flex align-items-center gap-2 m-0">
-          <i class="bx bx-error-circle fs-4"></i>
-          <div>
-            Ocurrió un error al cargar los registros.
-            <button class="btn btn-sm btn-outline-danger ms-2" onclick="cargarTabla()">
-              <i class="bx bx-refresh me-1"></i>Reintentar
-            </button>
-          </div>
-        </div>`);
-            },
-            complete: function () { hideGlobalLoader(); }
-        });
-    }
-
-    function obtenerParametrosFiltro() {
-        return {
-            buscar: $('#filtro-buscar').val() || '',
-            sincronizacion: $('#filtro-sinc').val() || 'SUBIDAS',
-            gestion: $('#filtro-gestion').val() || '',
-            desde: $('#filtro-desde').val() || '',
-            hasta: $('#filtro-hasta').val() || '',
-            tipo: $('#filtro-tipo').val() || '',
-            estado: $('#filtro-estado').val() || '',
-            mes: $('#filtro-mes').val() || '',
-            idGrupoContable: $('#filtro-grupo').val() || '',
-            soloConError: $('#filtro-error').is(':checked')
+        // Referencias a los otros modales (se usan desde el detalle)
+        const modales = {
+            verDetalle: { modal: $raiz.find('#modalVerDetalleActivo'), cont: $raiz.find('#contenidoModalVerDetalle') },
+            corregir:   { modal: $raiz.find('#modalCorregirActivo'),   cont: $raiz.find('#contenidoModalCorregir') },
+            separar:    { modal: $raiz.find('#modalSepararActa'),    cont: $raiz.find('#contenidoModalSeparar') },
+            trasladar:  { modal: $raiz.find('#modalTrasladar'),      cont: $raiz.find('#contenidoModalTrasladar') },
+            incorporar: { modal: $raiz.find('#modalIncorporar'),     cont: $raiz.find('#contenidoModalIncorporar') },
+            editarCab:  { modal: $raiz.find('#modalEditarCabecera'), cont: $raiz.find('#contenidoModalEditarCabecera') },
+            editarRep:  { modal: $raiz.find('#modalEditarReporte'),  cont: $raiz.find('#contenidoModalEditarReporte') }
         };
-    }
 
-    /** Descarga el Excel de las actas que cumplen el filtro actual (mismo orden que la tabla). */
-    function exportarExcel() {
-        const params = Object.assign({}, obtenerParametrosFiltro(), {
-            orden: estadoTabla.orden,
-            desc: estadoTabla.desc
+        // Estado de la tabla (orden, página, tamaño) — var para re-entrada por AJAX
+        var estadoTabla = { orden: 'fecha', desc: true, pagina: 0, tamano: 25 };
+        var ORDEN_DESC_PRIMERO = ['fecha', 'activos', 'costo'];
+        var temporizadorBusqueda = null;
+        var _asigActual = null;
+        var _cabeceraActual = null;
+
+        $(document).ready(function () {
+            restaurarDesdeUrl();
+            inicializarFiltros();
+            cargarTabla();
         });
-        window.location.href = '/administracion/asignacion/exportar-excel?' + $.param(params);
-    }
 
-    /* -------- Orden y paginación (las llama la tabla) -------- */
+        // ═══════════════════════════════════════════════════════════════
+        // TABLA — SciafModulo.tabla() en modo CLIENT-SIDE sobre HTML del servidor
+        // ═══════════════════════════════════════════════════════════════
+        function iniciarTabla() {
+            const $table = $cont.find('table');
+            if (!$table.length) return;
 
-    function ordenarPor(columna) {
-        if (estadoTabla.orden === columna) {
-            estadoTabla.desc = !estadoTabla.desc;
-        } else {
-            estadoTabla.orden = columna;
-            estadoTabla.desc = ORDEN_DESCENDENTE_PRIMERO.includes(columna);
-        }
-        // Cambiar el orden reordena TODO el conjunto, no la página: hay que volver
-        // a la primera o se estaría mirando el medio de un listado nuevo.
-        estadoTabla.pagina = 0;
-        cargarTabla();
-    }
+            SciafModulo.tabla({
+                tabla: $table,
+                buscador: $raiz.find('.js-buscar'),
+                largo: $raiz.find('.js-largo'),
+                filtros: [
+                    { selector: $raiz.find('.js-filtro-sinc'),   columna: 7 },
+                    { selector: $raiz.find('.js-filtro-gestion'), columna: -1 },
+                    { selector: $raiz.find('.js-filtro-mes'),    columna: -1 },
+                    { selector: $raiz.find('.js-filtro-tipo'),   columna: -1 },
+                    { selector: $raiz.find('.js-filtro-estado'), columna: -1 },
+                    { selector: $raiz.find('.js-filtro-grupo'),  columna: -1 },
+                    { selector: $raiz.find('.js-filtro-desde'),  columna: -1 },
+                    { selector: $raiz.find('.js-filtro-hasta'),  columna: -1 },
+                    { selector: $raiz.find('.js-filtro-error'),  columna: -1 }
+                ],
+                orden: [ [1, 'desc'] ],
+                noOrdenables: [8],
+            });
 
-    function irAPagina(n) {
-        if (n < 0) return;
-        estadoTabla.pagina = n;
-        cargarTabla();
-    }
+            // Click en fila → abrir detalle
+            $cont.off('click.asigRow').on('click.asigRow', '.asig-row', function (e) {
+                if ($(e.target).closest('a, button, .btn, .chk-bien, #chk-todos').length) return;
+                const id = $(this).data('idAsignacionActivo');
+                if (id) abrirModalDetalle(id);
+            });
 
-    function cambiarTamano(n) {
-        estadoTabla.tamano = parseInt(n, 10) || 25;
-        estadoTabla.pagina = 0;
-        cargarTabla();
-    }
-
-    /* -------- Filtros -------- */
-
-    function inicializarFiltros() {
-        // Con debounce en vez de exigir Enter: se escribe y la tabla responde sola,
-        // sin disparar una consulta por tecla.
-        $('#filtro-buscar').on('input', function () {
-            clearTimeout(temporizadorBusqueda);
-            temporizadorBusqueda = setTimeout(() => cargarTabla(true), 350);
-        });
-        $('#filtro-buscar').on('keypress', function (e) {
-            if (e.which === 13) { clearTimeout(temporizadorBusqueda); cargarTabla(true); }
-        });
-    }
-
-    function limpiarFiltros() {
-        $('#filtro-buscar, #filtro-desde, #filtro-hasta').val('');
-        $('#filtro-tipo, #filtro-estado, #filtro-gestion, #filtro-mes, #filtro-grupo').val('');
-        $('#filtro-sinc').val('SUBIDAS');
-        $('#filtro-error').prop('checked', false);
-        cargarTabla(true);
-    }
-
-    /** Quita un filtro puntual desde su chip, sin tocar los demás. */
-    function quitarFiltro(cual) {
-        switch (cual) {
-            case 'buscar':         $('#filtro-buscar').val(''); break;
-            case 'sincronizacion': $('#filtro-sinc').val('SUBIDAS'); break;
-            case 'soloConError':   $('#filtro-error').prop('checked', false); break;
-            case 'gestion':        $('#filtro-gestion').val(''); break;
-            case 'tipo':           $('#filtro-tipo').val(''); break;
-            case 'estado':         $('#filtro-estado').val(''); break;
-            case 'fechas':         $('#filtro-desde, #filtro-hasta').val(''); break;
-            case 'mes':            $('#filtro-mes').val(''); break;
-            case 'idGrupoContable':$('#filtro-grupo').val(''); break;
-        }
-        cargarTabla(true);
-    }
-
-    /* Las tarjetas son también accesos directos al filtro que describen. */
-    function filtrarPorSincronizacion(valor) {
-        $('#filtro-sinc').val(valor);
-        $('#filtro-error').prop('checked', false);
-        cargarTabla(true);
-    }
-
-    function filtrarSoloConError() {
-        $('#filtro-error').prop('checked', true);
-        cargarTabla(true);
-    }
-
-    /* -------- Filtros en la URL --------
-       Para que recargar la página no pierda lo que se estaba mirando y el enlace
-       se pueda pasar a otra persona tal cual. */
-
-    function sincronizarUrl(filtros) {
-        const q = new URLSearchParams();
-        Object.entries(filtros).forEach(([clave, valor]) => {
-            if (valor === '' || valor === false || valor === null || valor === undefined) return;
-            if (clave === 'sincronizacion' && valor === 'SUBIDAS') return;   // es el valor por defecto
-            q.set(clave, valor);
-        });
-        const cadena = q.toString();
-        history.replaceState(null, '', cadena ? ('?' + cadena) : location.pathname);
-    }
-
-    function restaurarDesdeUrl() {
-        const q = new URLSearchParams(location.search);
-        if (q.has('buscar'))  $('#filtro-buscar').val(q.get('buscar'));
-        if (q.has('desde'))   $('#filtro-desde').val(q.get('desde'));
-        if (q.has('hasta'))   $('#filtro-hasta').val(q.get('hasta'));
-        if (q.has('tipo'))    $('#filtro-tipo').val(q.get('tipo'));
-        if (q.has('estado'))  $('#filtro-estado').val(q.get('estado'));
-        if (q.has('gestion')) $('#filtro-gestion').val(q.get('gestion'));
-        if (q.has('mes'))     $('#filtro-mes').val(q.get('mes'));
-        if (q.has('idGrupoContable')) $('#filtro-grupo').val(q.get('idGrupoContable'));
-        if (q.has('sincronizacion')) $('#filtro-sinc').val(q.get('sincronizacion'));
-        if (q.get('soloConError') === 'true') $('#filtro-error').prop('checked', true);
-    }
-
-    /* -------- ABRIR MODAL -------- */
-    function abrirModalAsignacion(id) {
-        const $row = $(`#asig-row-${id}`);
-        const data = $row.data();
-
-        // Header
-        $('#modal-numero-asignacion').text(data.numero || '—');
-        $('#modal-fecha-asignacion').text(formatearFecha(data.fecha) || '—');
-
-        // Badges tipo y estado
-        const coloresTipo = { NUEVA: 'bg-primary', REASIGNACION: 'bg-warning text-dark', DEVOLUCION: 'bg-secondary',
-            SEPARACION: 'bg-info text-dark', REGULARIZACION: 'bg-dark' };
-        const coloresEstado = { ACTIVA: 'bg-success', ANULADA: 'bg-danger', DEVUELTA: 'bg-info', MODIFICADA: 'bg-warning text-dark' };
-        $('#modal-badge-tipo').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresTipo[data.tipo] || 'bg-secondary')).text(data.tipo || '—');
-        $('#modal-badge-estado').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresEstado[data.estado] || 'bg-secondary')).text(data.estado || '—');
-
-        // Tab general
-        $('#d-numero').text(data.numero || '—');
-        $('#d-codigo-doc').text(data.codigoDoc || '—');
-        $('#d-codigo-completo').html(`<span class="fw-bold text-primary">${data.codigoCompleto || '—'}</span>`);
-        $('#d-fecha').text(formatearFecha(data.fecha) || '—');
-        $('#d-tipo').html(renderBadgeTipo(data.tipo));
-        $('#d-estado').html(renderBadgeEstado(data.estado));
-        $('#d-doc-referencia').text(data.docRef || '—');
-        $('#fila-resp-origen').toggleClass('d-none', !data.respOrigen);
-        $('#d-resp-origen').text(conCod(data.respOrigenCod, data.respOrigen));
-        $('#d-resp-destino').text(conCod(data.respDestinoCod, data.respDestino));
-        $('#d-oficina-destino').text(conCod(data.oficinaCod, data.oficina));
-
-        // Observación
-        if (data.observacion && data.observacion.trim() !== '') {
-            $('#d-observacion').text(data.observacion);
-            $('#container-observacion').show();
-        } else {
-            $('#container-observacion').hide();
+            // Checkboxes de selección (para barra de acciones en el modal detalle)
+            $cont.off('change.selBien').on('change.selBien', '.chk-bien', actualizarBarraSeleccion);
+            $cont.off('change.selTodos').on('change.selTodos', '#chk-todos', function () {
+                $cont.find('.chk-bien').prop('checked', this.checked);
+                actualizarBarraSeleccion();
+            });
         }
 
-        // Auditoría
-        $('#aud-fecha-reg').text(formatearFechaHora(data.fechaReg) || '—');
-        $('#aud-usuario-reg').text(data.usuarioReg || '—');
-        $('#aud-fecha-mod').text(formatearFechaHora(data.fechaMod) || '—');
-        $('#aud-usuario-mod').text(data.usuarioMod || '—');
+        // ═══════════════════════════════════════════════════════════════
+        // CARGAR TABLA — usa SciafPrecarga + SciafModulo.cargar (HTML fragment)
+        // ═══════════════════════════════════════════════════════════════
+        function cargarTabla(reiniciarPagina) {
+            if (reiniciarPagina) estadoTabla.pagina = 0;
 
-        // Botón Word: el acta de regularización no tiene responsable (es un cajón, a
-        // propósito) y el documento de asignación exige uno para firmar — no hay nada
-        // que imprimir ahí.
-        if (data.tipo === 'REGULARIZACION') {
-            $('#btn-modal-word').addClass('disabled').removeAttr('href')
-                .attr('title', 'El acta de regularización no tiene responsable: no hay acta que imprimir.');
-        } else {
-            $('#btn-modal-word').removeClass('disabled').removeAttr('title')
-                .attr('href', `/administracion/asignacion/asignaciones/${id}/word`);
-        }
+            const params = Object.assign({}, obtenerParametrosFiltro(), estadoTabla);
+            sincronizarUrl(obtenerParametrosFiltro());
 
-        // Cargar activos e historial
-        cargarActivosModal(id);
-        cargarHistorialActa(id);
-
-        // Volver al primer tab
-        $('#modalTabs .nav-link.active').removeClass('active show');
-        $('#modalTabs .nav-link:first').addClass('active show');
-        $('#tab-general').addClass('show active');
-        $('#tab-activos, #tab-historial, #tab-auditoria').removeClass('show active');
-
-        new bootstrap.Modal(document.getElementById('modalDetalleAsignacion')).show();
-    }
-
-    /* Formato de moneda boliviano: 1.234,56 */
-    function fmtBs(n) {
-        if (n === null || n === undefined || n === '') return null;
-        const v = Number(n);
-        if (isNaN(v)) return null;
-        return v.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-
-    function cargarActivosModal(idAsignacionActivo) {
-        window._detallePorActivo = {};
-        $('#tbody-activos').html(`
-            <tr><td colspan="12" class="text-center py-4">
-            <div class="spinner-border spinner-border-sm text-primary me-2"></div>
-            Cargando activos...
-            </td></tr>`);
-
-        $.ajax({
-            type: 'GET',
-            url: `/administracion/asignacion/asignaciones/${idAsignacionActivo}/detalles-json`,
-            success: function (resp) {
-                // El endpoint devuelve { ok, puedeEditar, detalles, resumen }.
-                const detalles = resp?.detalles || [];
-                const resumen  = resp?.resumen || {};
-                // Lo decide el servidor según el rol. El botón es solo la interfaz:
-                // la barrera de verdad está en el endpoint que aplica la corrección.
-                const puedeEditar = resp?.puedeEditar === true;
-                _asigActual = idAsignacionActivo;
-                _cabeceraActual = resp?.cabecera || null;
-                window._puedeEditarActual = puedeEditar;
-                pintarDatosReporte(_cabeceraActual);
-                // Acciones siempre visible: "Ver detalle" es para cualquiera, Corregir
-                // y Subir VSIAF ya vienen condicionados por fila más abajo.
-                $('#btn-editar-cabecera').toggleClass('d-none', !puedeEditar);
-
-                // ── Tarjetas de resumen ──
-                $('#badge-num-activos, #resumen-total-activos').text(resumen.total ?? detalles.length ?? 0);
-
-                const subidos = resumen.subidos ?? 0;
-                const pendientes = resumen.pendientes ?? 0;
-                const enCola = resumen.enCola ?? 0;
-                const conError = resumen.conError ?? 0;
-                $('#resumen-sync').html(
-                    (subidos === 0 && pendientes === 0)
-                        ? '<span class="text-muted">—</span>'
-                        : `<span class="text-success">${subidos} subido${subidos !== 1 ? 's' : ''}</span>`
-                          + (pendientes > 0 ? ` <span class="text-muted">/</span> <span class="text-warning">${pendientes} pend.</span>` : '')
-                          // Encolado y rechazado se muestran aparte: un activo "subido"
-                          // con la orden en error significa que los dos sistemas difieren.
-                          + (enCola > 0 ? ` <span class="text-muted">/</span> <span class="text-info" title="Esperando al worker del VSIAF">${enCola} en cola</span>` : '')
-                          + (conError > 0 ? ` <span class="text-muted">/</span> <span class="text-danger fw-bold" title="El VSIAF rechazó el cambio: los dos sistemas están distintos">${conError} con error</span>` : '')
-                );
-
-                $('#resumen-costo').text(fmtBs(resumen.costoTotal) ?? '0,00');
-                const sinCosto = resumen.sinCosto ?? 0;
-                $('#resumen-costo-aviso')
-                    .toggleClass('d-none', sinCosto === 0)
-                    .text(sinCosto > 0 ? `parcial · ${sinCosto} sin costo` : '');
-
-                if (detalles.length === 0) {
-                    $('#tbody-activos').html(
-                        '<tr><td colspan="12" class="text-center text-muted py-4">Sin activos registrados</td></tr>'
-                    );
-                    return;
-                }
-
-                let html = '';
-
-                detalles.forEach(function (d, i) {
-                    // Badge de estado
-                    const estadoVal  = (d.estadoActivo || '').toUpperCase();
-                    const estadoCls  = estadoVal === 'BUENO' || estadoVal === 'NUEVO'
-                        ? 'bg-success'
-                        : (estadoVal === 'REGULAR' || estadoVal === 'DETERIORADO'
-                            ? 'bg-warning text-dark'
-                            : (estadoVal === 'MALO' || estadoVal === 'OBSOLETO'
-                                ? 'bg-danger'
-                                : 'bg-secondary'));
-    
-                    // Fecha formateada dd/MM/yyyy
-                    let fechaFmt = '—';
-                    if (d.fechaAdquisicion && d.fechaAdquisicion !== '—') {
-                        try {
-                            const partes = d.fechaAdquisicion.split('-'); // ISO: YYYY-MM-DD
-                            if (partes.length === 3) {
-                                fechaFmt = `${partes[2]}/${partes[1]}/${partes[0]}`;
-                            }
-                        } catch (_) { fechaFmt = d.fechaAdquisicion; }
-                    }
-    
-                    // Estado de sincronización con el VSIAF (distinto del estado físico).
-                    //
-                    // Se leen dos cosas: `estadoRegistro` dice si el activo se dio por
-                    // subido, y `sincVsiaf` dice qué contestó el worker VFPOLEDB. Antes
-                    // solo existía la primera, así que "En VSIAF" aparecía apenas se
-                    // encolaba la orden, aunque el worker estuviera caído o la rechazara.
-                    const sync = (d.estadoRegistro || '—').toUpperCase();
-                    const conf = (d.sincVsiaf || '').toUpperCase();
-                    const motivo = escHtml(d.sincVsiafMensaje || 'El VSIAF rechazó el último cambio enviado.');
-
-                    let syncBadge;
-                    if (conf === 'ERROR') {
-                        syncBadge = `<span class="badge bg-danger" title="${motivo}"><i class="bx bx-error-circle"></i> Error VSIAF</span>`;
-                    } else if (conf === 'EN_COLA') {
-                        syncBadge = '<span class="badge bg-info text-dark" title="La orden está escrita y espera al worker del VSIAF. Se confirma sola en cuanto la procese."><i class="bx bx-loader-circle"></i> En cola</span>';
-                    } else if (conf === 'CONFIRMADO') {
-                        syncBadge = '<span class="badge bg-success" title="El worker confirmó la escritura en el VSIAF"><i class="bx bx-check-double"></i> En VSIAF</span>';
-                    } else if (sync === 'ACTIVO') {
-                        // Sin confirmación guardada: son los activos subidos antes de que
-                        // se llevara registro de la cola. Se muestra lo que sabemos.
-                        syncBadge = '<span class="badge bg-success" title="Subido antes de que se registrara la confirmación de la cola: no hay acuse guardado."><i class="bx bx-check"></i> En VSIAF</span>';
-                    } else if (sync === 'PENDIENTE') {
-                        syncBadge = '<span class="badge bg-warning text-dark" title="Todavía no se subió al VSIAF"><i class="bx bx-time-five"></i> Pendiente</span>';
-                    } else if (sync === 'CANCELADO') {
-                        syncBadge = '<span class="badge bg-secondary">Cancelado</span>';
-                    } else if (sync === '—') {
-                        syncBadge = '<span class="text-muted">—</span>';
-                    } else {
-                        syncBadge = `<span class="badge bg-secondary">${escHtml(sync)}</span>`;
-                    }
-
-                    // Costo: el del acta. Si el activo cambió de costo después, se avisa.
-                    const costoFmt = fmtBs(d.costo);
-                    const costoActualFmt = fmtBs(d.costoActual);
-                    const difiere = costoFmt !== null && costoActualFmt !== null && costoFmt !== costoActualFmt;
-                    const costoCell = costoFmt === null
-                        ? '<span class="text-warning small fst-italic" title="Sin costo cargado">falta</span>'
-                        : `<span style="font-variant-numeric: tabular-nums;">${costoFmt}</span>`
-                          + (difiere
-                              ? ` <i class="bx bx-info-circle text-warning" title="En el acta: ${costoFmt} · Costo actual del activo: ${costoActualFmt}"></i>`
-                              : '');
-
-                    // Ver detalle: para cualquiera, con lo que ya se tiene en memoria —
-                    // no hace falta otro viaje al servidor para mostrar todos los campos.
-                    if (d.idActivo) window._detallePorActivo[d.idActivo] = d;
-                    const btnVerDetalle = d.idActivo
-                        ? `<button type="button" class="btn btn-sm btn-icon btn-outline-primary py-0 px-1 btn-ver-detalle-activo"
-                                   data-idactivo="${d.idActivo}" title="Ver todos los datos de este activo">
-                               <i class="bx bx-show small"></i>
-                           </button>`
-                        : '';
-
-                    // Corregir: solo para roles autorizados y estados corregibles.
-                    const btnCorregir = (puedeEditar && d.editable && d.idEnc)
-                        ? `<button type="button" class="btn btn-sm btn-icon btn-outline-warning py-0 px-1 btn-corregir"
-                                   data-idenc="${escHtml(d.idEnc)}" data-codigo="${escHtml(d.codigo)}"
-                                   title="Corregir los datos de este activo">
-                               <i class="bx bx-edit-alt small"></i>
-                           </button>`
-                        : '';
-
-                    // Reintento manual: solo tiene sentido para bienes ya publicados en
-                    // el VSIAF (ACTIVO). Un PENDIENTE se publica desde Activos pendientes.
-                    const btnSubirVsiaf = (puedeEditar && d.idActivo && sync === 'ACTIVO')
-                        ? `<button type="button" class="btn btn-sm btn-icon btn-outline-info py-0 px-1 btn-subir-vsiaf"
-                                   data-idactivo="${d.idActivo}" data-codigo="${escHtml(d.codigo)}"
-                                   title="Reintentar la subida de este bien al VSIAF">
-                               <i class="bx bx-upload small"></i>
-                           </button>`
-                        : '';
-
-                    const accionesCell = `${btnVerDetalle} ${btnCorregir} ${btnSubirVsiaf}`;
-
-                    // Solo se pueden separar bienes vigentes en esta acta. Un bien ya
-                    // trasladado sigue en la lista como historia, pero no se mueve otra vez.
-                    const casilla = puedeEditar && d.idActivo
-                        ? `<input type="checkbox" class="form-check-input chk-bien" value="${d.idActivo}"
-                                  data-predio="${d.idPredio ?? ''}">`
-                        : '';
-
-                    html += `<tr>
-                        <td class="text-center col-seleccion ${puedeEditar ? '' : 'd-none'}">${casilla}</td>
-                        <td class="text-center text-muted small">${i + 1}</td>
-                        <td><code class="small fw-semibold text-primary">${escHtml(d.codigo)}</code></td>
-                        <td class="descripcion-clamp" style="font-size:0.82rem" title="${escHtml(d.descripcion)}">${escHtml(d.descripcion)}</td>
-                        <td class="small text-truncate" style="max-width:160px">${escHtml(conCod(d.responsableCod, d.responsable))}</td>
-                        <td class="small text-truncate" style="max-width:160px">
-                            ${escHtml(conCod(d.oficinaCod, d.oficina))}
-                            <div class="text-muted" style="font-size:0.7rem">${escHtml(d.predio)}</div>
-                        </td>
-                        <td class="text-end small">${costoCell}</td>
-                        <td class="text-center">
-                            ${estadoVal !== '—'
-                                ? `<span class="badge ${estadoCls}">${escHtml(d.estadoActivo)}</span>`
-                                : '<span class="text-muted">—</span>'}
-                        </td>
-                        <td class="text-center" style="font-size:0.72rem">${syncBadge}</td>
-                        <td class="text-center">${accionesCell}</td>
-                    </tr>`;
-                });
-
-                $('#tbody-activos').html(html);
-                $('#tabla-activos-modal .col-seleccion').toggleClass('d-none', !puedeEditar);
-                // El botón de incorporar vive fuera de la tabla, así que se conmuta aparte.
-                $('#fila-incorporar').toggleClass('d-none', !puedeEditar);
-                limpiarSeleccion();
-
-                // Búsqueda en tiempo real dentro del modal
-                $('#buscar-activo').off('input.modalBusq').on('input.modalBusq', function () {
-                    const q = $(this).val().toLowerCase();
-                    $('#tabla-activos-modal tbody tr').each(function () {
-                        $(this).toggle($(this).text().toLowerCase().indexOf(q) > -1);
+            const api = $cont.find('table').DataTable();
+            if (api) {
+                // Recarga: atenuar tabla actual, cargar HTML nuevo, reinicializar
+                $cont.css('opacity', 0.55);
+                SciafModulo.cargar($cont, URL + '/tabla-registros-fragment', params)
+                    .then(function () {
+                        $cont.css('opacity', 1);
+                        iniciarTabla();
+                    })
+                    .catch(function (e) {
+                        $cont.css('opacity', 1);
+                        SciafModulo.avisarError(e, 'No se pudo recargar');
                     });
-                });
-            },
-            error: function (xhr) {
-                const msg = xhr.responseJSON?.msg || 'Error al cargar activos';
-                $('#tbody-activos').html(
-                    `<tr><td colspan="12" class="text-center text-danger py-3">
-                        <i class="bx bx-error-circle me-1"></i>${msg}
-                    </td></tr>`
-                );
+            } else {
+                // Primera carga: preloader dentro de la tarjeta
+                SciafPrecarga.durante($cont, SciafModulo.cargar($cont, URL + '/tabla-registros-fragment', params), {
+                    texto: 'Cargando actas…',
+                    tituloError: 'No se pudo cargar la tabla',
+                    alReintentar: () => cargarTabla(true)
+                }).then(iniciarTabla).catch(() => {});
             }
-        });
-    }
-    
-    /* Helper: escapa HTML para evitar XSS en los datos */
-    /* ══════════════════════════════════════════════════════════════════════════
-       SEPARAR ACTA
-
-       El acta original conserva sus líneas —las separadas quedan marcadas como
-       trasladadas— y la nueva recibe líneas propias. Así el papel ya firmado sigue
-       coincidiendo con el sistema, que es la condición que puso la coordinación.
-       ══════════════════════════════════════════════════════════════════════════ */
-
-    var _configsSeparar = [];
-
-    function bienesSeleccionados() {
-        return $('#tabla-activos-modal .chk-bien:checked').map(function () {
-            return parseInt(this.value, 10);
-        }).get();
-    }
-
-    function actualizarBarraSeleccion() {
-        const n = bienesSeleccionados().length;
-        $('#sel-cantidad').text(n);
-        $('#barra-seleccion').toggleClass('d-none', n === 0).toggleClass('d-flex', n > 0);
-
-        const total = $('#tabla-activos-modal .chk-bien').length;
-        $('#chk-todos').prop('checked', n > 0 && n === total)
-                       .prop('indeterminate', n > 0 && n < total);
-    }
-
-    function limpiarSeleccion() {
-        $('#tabla-activos-modal .chk-bien, #chk-todos').prop('checked', false);
-        $('#chk-todos').prop('indeterminate', false);
-        actualizarBarraSeleccion();
-    }
-
-    $(document).off('change.selBien').on('change.selBien', '.chk-bien', actualizarBarraSeleccion);
-    $(document).off('change.selTodos').on('change.selTodos', '#chk-todos', function () {
-        $('#tabla-activos-modal .chk-bien').prop('checked', this.checked);
-        actualizarBarraSeleccion();
-    });
-
-    async function abrirModalSeparar() {
-        const seleccion = bienesSeleccionados();
-        if (seleccion.length === 0) return;
-
-        const total = $('#tabla-activos-modal .chk-bien').length;
-        if (seleccion.length === total) {
-            Swal.fire('No se puede', 'Si separás todos los bienes, el acta original queda vacía. '
-                + 'Para cambiarle los datos, editá la cabecera del acta.', 'warning');
-            return;
         }
 
-        $('#sep-resumen').text(`${seleccion.length} de ${total} bienes del acta`);
-        $('#sep-nrodoc, #sep-motivo').val('');
-        $('#sep-avisos').addClass('d-none').empty();
-        $('#sep-footer-info').text('');
-        $('#btn-confirmar-separar').prop('disabled', false);
-
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalSepararActa')).show();
-
-        // Los combos se llenan con el predio de los bienes elegidos: la oficina destino
-        // debe ser del mismo predio, porque el auxiliar del bien depende de él.
-        const predio = $('#tabla-activos-modal .chk-bien:checked').first().data('predio');
-
-        const [configs, oficinas] = await Promise.all([
-            getJson('/api/configuracion/listar'),
-            predio ? getJson(`/api/buscar_oficinas?predioId=${predio}`) : []
-        ]);
-
-        _configsSeparar = configs || [];
-        $('#sep-config').html('<option value="">— Elegí el tipo —</option>' +
-            _configsSeparar.map(c => `<option value="${c.idConfig}">${escHtml(c.prefijoDocumento)} — ${escHtml(c.ciudad ?? '')} (${c.gestion})</option>`).join(''));
-
-        $('#sep-oficina').html('<option value="">— Mantener la del acta original —</option>' +
-            (oficinas || []).map(o => `<option value="${o.idOficina ?? o.id}">${escHtml(
-                ((o.codigo ?? o.codOfi) != null ? (o.codigo ?? o.codOfi) + ' — ' : '') + (o.nombre ?? ''))}</option>`).join(''));
-
-        $('#sep-responsable').html('<option value="">— Mantener el del acta original —</option>');
-    }
-
-    /* Al elegir oficina se recargan sus responsables: son los que pueden recibir los bienes. */
-    $(document).off('change.sepOfi').on('change.sepOfi', '#sep-oficina', async function () {
-        const idOficina = $(this).val();
-        if (!idOficina) {
-            $('#sep-responsable').html('<option value="">— Mantener el del acta original —</option>');
-            return;
+        function obtenerParametrosFiltro() {
+            return {
+                buscar: $raiz.find('.js-buscar').val() || '',
+                sincronizacion: $raiz.find('.js-filtro-sinc').val() || 'SUBIDAS',
+                gestion: $raiz.find('.js-filtro-gestion').val() || '',
+                mes: $raiz.find('.js-filtro-mes').val() || '',
+                tipo: $raiz.find('.js-filtro-tipo').val() || '',
+                estado: $raiz.find('.js-filtro-estado').val() || '',
+                idGrupoContable: $raiz.find('.js-filtro-grupo').val() || '',
+                desde: $raiz.find('.js-filtro-desde').val() || '',
+                hasta: $raiz.find('.js-filtro-hasta').val() || '',
+                soloConError: $raiz.find('.js-filtro-error').is(':checked')
+            };
         }
-        $('#sep-responsable').html('<option value="">Cargando…</option>');
-        const resps = await getJson(`/api/buscar_responsable?q=&page=1&oficinaId=${idOficina}`);
-        const lista = Array.isArray(resps) ? resps : (resps.items || resps.results || []);
-        $('#sep-responsable').html('<option value="">— Mantener el del acta original —</option>' +
-            lista.map(r => `<option value="${r.idResponsable ?? r.id}">${escHtml(r.nombreCompleto ?? r.text ?? r.nombre)}</option>`).join(''));
-    });
 
-    $(document).off('click.sepConfirmar').on('click.sepConfirmar', '#btn-confirmar-separar', function () {
-        const seleccion = bienesSeleccionados();
-        const motivo = ($('#sep-motivo').val() || '').trim();
-
-        if (!$('#sep-config').val()) { Swal.fire('Falta un dato', 'Elegí el tipo de documento.', 'warning'); return; }
-        if (!($('#sep-nrodoc').val() || '').trim()) { Swal.fire('Falta un dato', 'Cargá el número de documento: es el que identifica al acta.', 'warning'); return; }
-        if (motivo.length < 10) { Swal.fire('Falta el motivo', 'Explicá por qué se separan estos bienes (mínimo 10 caracteres). Queda en el historial.', 'warning'); return; }
-
-        const $btn = $(this).prop('disabled', true);
-        $('#sep-footer-info').text('Separando…');
-
-        $.ajax({
-            url: `/administracion/asignacion/asignaciones/${_asigActual}/separar`,
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({
-                idsActivos: seleccion,
-                idConfigGestion: parseInt($('#sep-config').val(), 10),
-                nroDocumento: ($('#sep-nrodoc').val() || '').trim(),
-                idOficinaDestino: $('#sep-oficina').val() ? parseInt($('#sep-oficina').val(), 10) : null,
-                idResponsableDestino: $('#sep-responsable').val() ? parseInt($('#sep-responsable').val(), 10) : null,
-                motivo: motivo
-            })
-        }).done(function (j) {
-            if (!j.ok) {
-                $('#sep-avisos').removeClass('d-none')
-                    .html(`<div class="alert alert-warning py-2 mb-0 small">${escHtml(j.msg)}</div>`);
-                return;
-            }
-            bootstrap.Modal.getInstance(document.getElementById('modalSepararActa')).hide();
-
-            // Los avisos del VSIAF no se muestran como un éxito liso: la separación salió,
-            // pero puede haber quedado un bien sin reflejar en el sistema legacy.
-            const avisos = j.avisos || [];
-            Swal.fire({
-                icon: avisos.length ? 'warning' : 'success',
-                title: avisos.length ? 'Separado, con advertencias' : 'Acta separada',
-                html: `<p>${escHtml(j.msg)}</p>` + (avisos.length
-                    ? `<ul class="text-start small">${avisos.map(a => `<li>${escHtml(a)}</li>`).join('')}</ul>` : '')
+        // ═══════════════════════════════════════════════════════════════
+        // EXPORTAR EXCEL (mismo filtro + orden actual)
+        // ═══════════════════════════════════════════════════════════════
+        $raiz.on('click', '.js-exportar', function () {
+            const params = Object.assign({}, obtenerParametrosFiltro(), {
+                orden: estadoTabla.orden,
+                desc: estadoTabla.desc
             });
+            window.location.href = URL + '/exportar-excel?' + $.param(params);
+        });
 
-            bootstrap.Modal.getInstance(document.getElementById('modalDetalleAsignacion')).hide();
+        // ═══════════════════════════════════════════════════════════════
+        // ORDEN / PAGINACIÓN / TAMAÑO (llamados desde la tabla/paginador)
+        // ═══════════════════════════════════════════════════════════════
+        window.ordenarPor = function (columna) {
+            if (estadoTabla.orden === columna) {
+                estadoTabla.desc = !estadoTabla.desc;
+            } else {
+                estadoTabla.orden = columna;
+                estadoTabla.desc = ORDEN_DESC_PRIMERO.includes(columna);
+            }
+            estadoTabla.pagina = 0;
             cargarTabla();
-        }).fail(function (xhr) {
-            const msg = xhr.responseJSON?.msg || 'No se pudo separar el acta.';
-            $('#sep-avisos').removeClass('d-none')
-                .html(`<div class="alert alert-danger py-2 mb-0 small">${escHtml(msg)}</div>`);
-        }).always(function () {
-            $btn.prop('disabled', false);
-            $('#sep-footer-info').text('');
-        });
-    });
-
-    /* ══════════════════════════════════════════════════════════════════════════
-       EDITAR CABECERA
-
-       Corrige responsable y/o oficina del acta ya emitida, sin mover bienes ni crear
-       un acta nueva. Los combos arrancan con los valores actuales seleccionados —a
-       diferencia de "Separar", acá no hay un acta original de la que "mantener" nada.
-       ══════════════════════════════════════════════════════════════════════════ */
-
-    async function abrirModalEditarCabecera() {
-        if (!_cabeceraActual) return;
-
-        $('#cab-resumen').text(_asigActual ? `Acta #${_asigActual}` : '—');
-        $('#cab-motivo').val('');
-        $('#cab-propagar').prop('checked', false);
-        $('#cab-avisos').addClass('d-none').empty();
-        $('#cab-footer-info').text('');
-        $('#btn-confirmar-cabecera').prop('disabled', false);
-
-        const idPredio = _cabeceraActual.idPredioOficina;
-
-        if (!idPredio) {
-            $('#cab-sin-predio').removeClass('d-none');
-            $('#cab-oficina').empty().prop('disabled', true);
-            $('#cab-responsable').empty().prop('disabled', true);
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarCabecera')).show();
-            return;
-        }
-
-        $('#cab-sin-predio').addClass('d-none');
-        $('#cab-oficina, #cab-responsable').prop('disabled', false);
-
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarCabecera')).show();
-
-        const oficinas = await getJson(`/api/buscar_oficinas?predioId=${idPredio}`);
-        $('#cab-oficina').html((oficinas || []).map(o =>
-            `<option value="${o.idOficina ?? o.id}">${escHtml(
-                ((o.codigo ?? o.codOfi) != null ? (o.codigo ?? o.codOfi) + ' — ' : '') + (o.nombre ?? ''))}</option>`).join(''));
-        $('#cab-oficina').val(_cabeceraActual.idOficinaDestino ?? '');
-
-        await cargarResponsablesCabecera($('#cab-oficina').val(), _cabeceraActual.idResponsable);
-    }
-
-    async function cargarResponsablesCabecera(idOficina, idResponsableSeleccionar) {
-        if (!idOficina) { $('#cab-responsable').html(''); return; }
-        $('#cab-responsable').html('<option value="">Cargando…</option>');
-        const resps = await getJson(`/api/buscar_responsable?q=&page=1&oficinaId=${idOficina}`);
-        const lista = Array.isArray(resps) ? resps : (resps.items || resps.results || []);
-        $('#cab-responsable').html(lista.map(r =>
-            `<option value="${r.idResponsable ?? r.id}">${escHtml(r.nombreCompleto ?? r.text ?? r.nombre)}</option>`).join(''));
-        if (idResponsableSeleccionar) $('#cab-responsable').val(idResponsableSeleccionar);
-    }
-
-    /* Al cambiar de oficina se recarga la lista de responsables de esa oficina. */
-    $(document).off('change.cabOfi').on('change.cabOfi', '#cab-oficina', function () {
-        cargarResponsablesCabecera($(this).val(), null);
-    });
-
-    $(document).off('click.cabConfirmar').on('click.cabConfirmar', '#btn-confirmar-cabecera', function () {
-        const motivo = ($('#cab-motivo').val() || '').trim();
-        if (motivo.length < 10) { Swal.fire('Falta el motivo', 'Explicá por qué se corrige la cabecera (mínimo 10 caracteres).', 'warning'); return; }
-
-        const $btn = $(this).prop('disabled', true);
-        $('#cab-footer-info').text('Guardando…');
-
-        $.ajax({
-            url: `/administracion/asignacion/asignaciones/${_asigActual}/editar-cabecera`,
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({
-                idOficinaDestino: $('#cab-oficina').val() ? parseInt($('#cab-oficina').val(), 10) : null,
-                idResponsableDestino: $('#cab-responsable').val() ? parseInt($('#cab-responsable').val(), 10) : null,
-                propagarABienes: $('#cab-propagar').is(':checked'),
-                motivo: motivo
-            })
-        }).done(function (j) {
-            if (!j.ok) {
-                $('#cab-avisos').removeClass('d-none')
-                    .html(`<div class="alert alert-warning py-2 mb-0 small">${escHtml(j.msg)}</div>`);
-                return;
-            }
-            bootstrap.Modal.getInstance(document.getElementById('modalEditarCabecera')).hide();
-
-            const avisos = j.avisos || [];
-            Swal.fire({
-                icon: avisos.length ? 'warning' : 'success',
-                title: avisos.length ? 'Cabecera actualizada, con advertencias' : 'Cabecera actualizada',
-                html: `<p>${escHtml(j.msg)}</p>` + (avisos.length
-                    ? `<ul class="text-start small">${avisos.map(a => `<li>${escHtml(a)}</li>`).join('')}</ul>` : '')
-            });
-
-            bootstrap.Modal.getInstance(document.getElementById('modalDetalleAsignacion')).hide();
+        };
+        window.irAPagina = function (n) {
+            if (n < 0) return;
+            estadoTabla.pagina = n;
             cargarTabla();
-        }).fail(function (xhr) {
-            const msg = xhr.responseJSON?.msg || 'No se pudo editar la cabecera.';
-            $('#cab-avisos').removeClass('d-none')
-                .html(`<div class="alert alert-danger py-2 mb-0 small">${escHtml(msg)}</div>`);
-        }).always(function () {
-            $btn.prop('disabled', false);
-            $('#cab-footer-info').text('');
-        });
-    });
-
-    /* ══════════════════════════════════════════════════════════════════════════
-       DATOS DE REPORTE (hoja de ruta, certificación, sistematizado por, comprobante,
-       observación) — paperwork del acta para el reporte Excel, no toca bienes ni VSIAF.
-       ══════════════════════════════════════════════════════════════════════════ */
-
-    /** Refleja los datos de reporte de la cabecera en la tarjeta "Datos del Documento". */
-    function pintarDatosReporte(cabecera) {
-        const c = cabecera || {};
-        $('#d-hoja-ruta').text(c.hojaRuta || '—');
-        $('#d-certificacion').text(c.certificacion || '—');
-        $('#d-sistematizado-por').text(c.sistematizadoPor || '—');
-        $('#d-comprobante').html(
-            c.comprobante === true  ? '<span class="badge bg-success">SI</span>' :
-            c.comprobante === false ? '<span class="badge bg-danger">NO</span>' :
-            '<span class="text-muted">—</span>'
-        );
-    }
-
-    function abrirModalEditarReporte() {
-        if (!_cabeceraActual) return;
-        const c = _cabeceraActual;
-        $('#rep-hoja-ruta').val(c.hojaRuta || '');
-        $('#rep-certificacion').val(c.certificacion || '');
-        $('#rep-observacion').val(c.observacion || '');
-        $('input[name="rep-comprobante"]').prop('checked', false);
-        if (c.comprobante === true)  $('#rep-comprobante-si').prop('checked', true);
-        if (c.comprobante === false) $('#rep-comprobante-no').prop('checked', true);
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarReporte')).show();
-    }
-
-    $(document).off('click.repConfirmar').on('click.repConfirmar', '#btn-confirmar-reporte', function () {
-        const $btn = $(this).prop('disabled', true);
-        const comprobanteVal = $('input[name="rep-comprobante"]:checked').val();
-
-        $.ajax({
-            url: `/administracion/asignacion/asignaciones/${_asigActual}/editar-reporte`,
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({
-                hojaRuta: $('#rep-hoja-ruta').val().trim(),
-                certificacion: $('#rep-certificacion').val().trim(),
-                comprobante: comprobanteVal === undefined ? null : (comprobanteVal === 'true'),
-                observacion: $('#rep-observacion').val().trim()
-            })
-        }).done(function (j) {
-            if (!j.ok) { Swal.fire('Error', j.msg || 'No se pudo guardar.', 'error'); return; }
-
-            // Refresca la cabecera en memoria y repinta, sin recargar toda la tabla:
-            // esto no cambia nada de lo que la tabla muestra.
-            _cabeceraActual = Object.assign({}, _cabeceraActual, {
-                hojaRuta: $('#rep-hoja-ruta').val().trim() || null,
-                certificacion: $('#rep-certificacion').val().trim() || null,
-                comprobante: comprobanteVal === undefined ? null : (comprobanteVal === 'true'),
-                observacion: $('#rep-observacion').val().trim() || null
-            });
-            pintarDatosReporte(_cabeceraActual);
-
-            bootstrap.Modal.getInstance(document.getElementById('modalEditarReporte')).hide();
-        }).fail(function (xhr) {
-            Swal.fire('Error', xhr.responseJSON?.msg || 'No se pudo guardar.', 'error');
-        }).always(function () {
-            $btn.prop('disabled', false);
-        });
-    });
-
-    /* ══════════════════════════════════════════════════════════════════════════
-       TRASLADAR / INCORPORAR
-
-       Son la misma operación vista desde las dos puntas y comparten endpoint: se
-       elige el acta destino y los bienes; de dónde sale cada uno lo sabe el sistema,
-       porque un bien está en una sola acta vigente.
-       ══════════════════════════════════════════════════════════════════════════ */
-
-    var _actaDestinoElegida = null;
-    var _bienesIncorporar = [];
-    var _tempBusqueda = null;
-
-    /* -------- Trasladar (salgo desde el acta que los tiene) -------- */
-
-    function abrirModalTrasladar() {
-        const seleccion = bienesSeleccionados();
-        if (seleccion.length === 0) return;
-
-        _actaDestinoElegida = null;
-        $('#tras-resumen').text(`${seleccion.length} bien(es) a mover`);
-        $('#tras-buscar, #tras-motivo').val('');
-        $('#tras-resultados').empty();
-        $('#tras-elegida').addClass('d-none').empty();
-        $('#tras-avisos').addClass('d-none').empty();
-        $('#tras-adoptar').prop('checked', false);
-        $('#btn-confirmar-trasladar').prop('disabled', true);
-
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTrasladar')).show();
-    }
-
-    $(document).off('input.trasBuscar').on('input.trasBuscar', '#tras-buscar', function () {
-        clearTimeout(_tempBusqueda);
-        const q = $(this).val().trim();
-        if (q.length < 2) { $('#tras-resultados').empty(); return; }
-
-        _tempBusqueda = setTimeout(async function () {
-            $('#tras-resultados').html('<div class="list-group-item text-muted small">Buscando…</div>');
-            const r = await getJson(`/administracion/asignacion/buscar-acta?q=${encodeURIComponent(q)}&excluir=${_asigActual}`);
-            const actas = r.actas || [];
-            if (actas.length === 0) {
-                $('#tras-resultados').html('<div class="list-group-item text-muted small">Ninguna acta coincide.</div>');
-                return;
-            }
-            $('#tras-resultados').html(actas.map(a => `
-                <button type="button" class="list-group-item list-group-item-action py-2 acta-opcion"
-                        data-id="${a.id}" data-numero="${escHtml(a.numero || '')}">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="fw-semibold small text-primary">${escHtml(a.numero || 'Sin número')}</div>
-                            <div class="text-muted" style="font-size:.75rem">
-                                ${escHtml(a.documento || '')} · ${escHtml(a.responsable || 'sin responsable')}
-                            </div>
-                        </div>
-                        <span class="text-muted" style="font-size:.72rem">${escHtml(a.fecha || '')}</span>
-                    </div>
-                </button>`).join(''));
-        }, 350);
-    });
-
-    $(document).off('click.trasElegir').on('click.trasElegir', '.acta-opcion', function () {
-        _actaDestinoElegida = { id: $(this).data('id'), numero: $(this).data('numero') };
-        $('#tras-elegida').removeClass('d-none')
-            .html(`<i class="bx bx-check-circle me-1"></i>Destino: <b>${escHtml(_actaDestinoElegida.numero)}</b>`);
-        $('#tras-resultados').empty();
-        $('#tras-buscar').val('');
-        $('#btn-confirmar-trasladar').prop('disabled', false);
-    });
-
-    /* Cuando no hay una acta clara a la que mandar el bien: la de regularización de esta
-       gestión se consigue o se crea sola, la primera vez que hace falta. */
-    $(document).off('click.regularizacion').on('click.regularizacion', '#btn-regularizacion', function () {
-        const $btn = $(this).prop('disabled', true);
-        $.ajax({
-            url: '/administracion/asignacion/acta-regularizacion',
-            method: 'POST'
-        }).done(function (j) {
-            if (!j.ok) { Swal.fire('No se pudo', j.msg || 'No se pudo conseguir el acta de regularización.', 'warning'); return; }
-            _actaDestinoElegida = { id: j.id, numero: j.numero };
-            $('#tras-elegida').removeClass('d-none')
-                .html(`<i class="bx bx-check-circle me-1"></i>Destino: <b>${escHtml(_actaDestinoElegida.numero)}</b>`);
-            $('#tras-resultados').empty();
-            $('#tras-buscar').val('');
-            $('#btn-confirmar-trasladar').prop('disabled', false);
-        }).fail(function (xhr) {
-            Swal.fire('Error', xhr.responseJSON?.msg || 'No se pudo conseguir el acta de regularización.', 'error');
-        }).always(function () { $btn.prop('disabled', false); });
-    });
-
-    $(document).off('click.trasConfirmar').on('click.trasConfirmar', '#btn-confirmar-trasladar', function () {
-        if (!_actaDestinoElegida) { Swal.fire('Falta el destino', 'Elegí el acta a la que van los bienes.', 'warning'); return; }
-        const motivo = ($('#tras-motivo').val() || '').trim();
-        if (motivo.length < 10) { Swal.fire('Falta el motivo', 'Explicá por qué se mueven (mínimo 10 caracteres).', 'warning'); return; }
-
-        enviarTraslado({
-            idActaDestino: _actaDestinoElegida.id,
-            idsActivos: bienesSeleccionados(),
-            adoptarDestino: $('#tras-adoptar').is(':checked'),
-            motivo: motivo
-        }, $(this), '#tras-avisos', 'modalTrasladar');
-    });
-
-    /* -------- Incorporar (entro desde el acta que los quiere) -------- */
-
-    function abrirModalIncorporar() {
-        _bienesIncorporar = [];
-        $('#inc-buscar, #inc-motivo').val('');
-        $('#inc-resultados').empty();
-        $('#inc-avisos').addClass('d-none').empty();
-        $('#inc-adoptar').prop('checked', false);
-        $('#inc-contador').text('Ningún bien seleccionado');
-        $('#btn-confirmar-incorporar').prop('disabled', true);
-        $('#inc-resumen').text('Buscá los bienes por código o descripción');
-
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalIncorporar')).show();
-    }
-
-    $(document).off('input.incBuscar').on('input.incBuscar', '#inc-buscar', function () {
-        clearTimeout(_tempBusqueda);
-        const q = $(this).val().trim();
-        if (q.length < 3) { $('#inc-resultados').empty(); return; }
-
-        _tempBusqueda = setTimeout(async function () {
-            $('#inc-resultados').html('<div class="list-group-item text-muted small">Buscando…</div>');
-            const r = await getJson(`/administracion/asignacion/buscar-bien?q=${encodeURIComponent(q)}&excluirActa=${_asigActual}`);
-            const bienes = r.bienes || [];
-            if (bienes.length === 0) {
-                $('#inc-resultados').html('<div class="list-group-item text-muted small">'
-                    + 'Ningún bien coincide, o los que coinciden ya están en esta acta.</div>');
-                return;
-            }
-            // Se muestra SIEMPRE el acta de la que saldría: incorporar acá es sacar de allá.
-            $('#inc-resultados').html(bienes.map(b => `
-                <label class="list-group-item py-2 d-flex gap-2 align-items-start">
-                    <input class="form-check-input mt-1 chk-inc" type="checkbox" value="${b.idActivo}">
-                    <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between">
-                            <code class="small fw-semibold text-primary">${escHtml(b.codigo)}</code>
-                            <span class="badge bg-label-secondary" style="font-size:.68rem">
-                                sale de ${escHtml(b.acta || b.documento || 'acta sin número')}
-                            </span>
-                        </div>
-                        <div class="text-muted" style="font-size:.75rem">${escHtml(b.descripcion)}</div>
-                    </div>
-                </label>`).join(''));
-        }, 350);
-    });
-
-    $(document).off('change.incSel').on('change.incSel', '.chk-inc', function () {
-        // La selección se acumula entre búsquedas: se pueden sumar bienes de a uno
-        // buscando distinto cada vez, sin perder lo elegido antes.
-        const id = parseInt(this.value, 10);
-        if (this.checked) {
-            if (!_bienesIncorporar.includes(id)) _bienesIncorporar.push(id);
-        } else {
-            _bienesIncorporar = _bienesIncorporar.filter(x => x !== id);
-        }
-        const n = _bienesIncorporar.length;
-        $('#inc-contador').text(n === 0 ? 'Ningún bien seleccionado' : `${n} bien(es) seleccionado(s)`);
-        $('#btn-confirmar-incorporar').prop('disabled', n === 0);
-    });
-
-    $(document).off('click.incConfirmar').on('click.incConfirmar', '#btn-confirmar-incorporar', function () {
-        const motivo = ($('#inc-motivo').val() || '').trim();
-        if (motivo.length < 10) { Swal.fire('Falta el motivo', 'Explicá por qué se incorporan (mínimo 10 caracteres).', 'warning'); return; }
-
-        enviarTraslado({
-            idActaDestino: _asigActual,
-            idsActivos: _bienesIncorporar,
-            adoptarDestino: $('#inc-adoptar').is(':checked'),
-            motivo: motivo
-        }, $(this), '#inc-avisos', 'modalIncorporar');
-    });
-
-    /** Una sola llamada para las dos operaciones: cambia el acta destino, nada más. */
-    function enviarTraslado(datos, $boton, selectorAvisos, idModal) {
-        $boton.prop('disabled', true);
-
-        $.ajax({
-            url: `/administracion/asignacion/asignaciones/${datos.idActaDestino}/trasladar`,
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({
-                idsActivos: datos.idsActivos,
-                adoptarDestino: datos.adoptarDestino,
-                motivo: datos.motivo
-            })
-        }).done(function (j) {
-            if (!j.ok) {
-                $(selectorAvisos).removeClass('d-none')
-                    .html(`<div class="alert alert-warning py-2 mb-0 small">${escHtml(j.msg)}</div>`);
-                return;
-            }
-            bootstrap.Modal.getInstance(document.getElementById(idModal)).hide();
-
-            const avisos = j.avisos || [];
-            Swal.fire({
-                icon: avisos.length ? 'info' : 'success',
-                title: 'Bienes movidos',
-                html: `<p>${escHtml(j.msg)}</p>` + (avisos.length
-                    ? `<ul class="text-start small">${avisos.map(a => `<li>${escHtml(a)}</li>`).join('')}</ul>` : '')
-            });
-
-            bootstrap.Modal.getInstance(document.getElementById('modalDetalleAsignacion')).hide();
+        };
+        window.cambiarTamano = function (n) {
+            estadoTabla.tamano = parseInt(n, 10) || 25;
+            estadoTabla.pagina = 0;
             cargarTabla();
-        }).fail(function (xhr) {
-            const msg = xhr.responseJSON?.msg || 'No se pudieron mover los bienes.';
-            $(selectorAvisos).removeClass('d-none')
-                .html(`<div class="alert alert-danger py-2 mb-0 small">${escHtml(msg)}</div>`);
-        }).always(function () {
-            $boton.prop('disabled', false);
-        });
-    }
-
-    /* -------- HISTORIAL DEL ACTA -------- */
-
-    function cargarHistorialActa(idActa) {
-        $('#historial-acta').html('<div class="text-center py-4 text-muted">'
-            + '<div class="spinner-border spinner-border-sm me-2"></div>Cargando historial…</div>');
-        $('#badge-num-movimientos').addClass('d-none');
-
-        $.getJSON(`/administracion/asignacion/asignaciones/${idActa}/historial-json`)
-            .done(function (j) {
-                const movs = (j && j.movimientos) || [];
-                if (movs.length === 0) {
-                    $('#historial-acta').html('<div class="text-center text-muted py-4">'
-                        + '<i class="bx bx-git-branch fs-1 d-block mb-2 opacity-50"></i>'
-                        + 'Esta acta no fue modificada desde que se emitió.</div>');
-                    return;
-                }
-                $('#badge-num-movimientos').text(movs.length).removeClass('d-none');
-
-                const etiquetas = {
-                    SEPARACION: ['bx-git-branch', 'primary', 'Separación'],
-                    INCORPORACION: ['bx-import', 'success', 'Incorporación'],
-                    TRASLADO: ['bx-transfer', 'warning', 'Traslado'],
-                    EDICION_CABECERA: ['bx-edit', 'secondary', 'Edición de cabecera'],
-                    ANULACION: ['bx-x-circle', 'danger', 'Anulación']
-                };
-
-                $('#historial-acta').html(movs.map(m => {
-                    const [icono, color, titulo] = etiquetas[m.tipo] || ['bx-info-circle', 'secondary', m.tipo];
-                    // Edición de cabecera no tiene acta destino: no es la misma operación
-                    // vista al revés, es un cambio dentro de la propia acta.
-                    let frase;
-                    if (m.tipo === 'EDICION_CABECERA') {
-                        frase = m.bienes.length > 0
-                            ? `Se editó el responsable/oficina y se propagó a ${m.bienes.length} bien(es)`
-                            : 'Se editó el responsable/oficina de la cabecera (sin propagar a los bienes)';
-                    } else {
-                        // La misma operación se cuenta al revés según de qué acta se la mire.
-                        frase = m.rol === 'ORIGEN'
-                            ? `Salieron ${m.bienes.length} bien(es) hacia <b>${escHtml(m.actaDestino || '—')}</b>`
-                            : `Entraron ${m.bienes.length} bien(es) desde <b>${escHtml(m.actaOrigen || '—')}</b>`;
-                    }
-                    const vsiaf = m.resultadoVsiaf === 'ERROR'
-                        ? '<span class="badge bg-danger ms-1">Error VSIAF</span>'
-                        : (m.resultadoVsiaf === 'ENCOLADO'
-                            ? '<span class="badge bg-info text-dark ms-1">Enviado al VSIAF</span>'
-                            : '<span class="badge bg-light text-muted ms-1">Sin efecto en VSIAF</span>');
-
-                    return `<div class="hist-card mb-2">
-                        <div class="p-3">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="hist-icon c-${color}"><i class="bx ${icono}"></i></div>
-                                <div class="flex-grow-1">
-                                    <div class="d-flex flex-wrap align-items-center gap-2">
-                                        <span class="hist-titulo">${titulo}</span>${vsiaf}
-                                        <span class="hist-meta ms-auto">
-                                            ${formatearFechaHora(m.fecha) || '—'} · ${escHtml(m.usuario || 'Sistema')}
-                                        </span>
-                                    </div>
-                                    <div class="hist-frase mt-1">${frase}</div>
-                                    <div class="hist-meta mt-1">
-                                        ${m.bienes.map(b => `<code>${escHtml(b)}</code>`).join(' ')}
-                                    </div>
-                                    <div class="mt-2 hist-frase fst-italic">“${escHtml(m.motivo)}”</div>
-                                    ${m.mensajeVsiaf ? `<div class="alert alert-warning py-1 px-2 mt-2 mb-0" style="font-size:.8rem">${escHtml(m.mensajeVsiaf)}</div>` : ''}
-                                </div>
-                            </div>
-                        </div>
-                    </div>`;
-                }).join(''));
-            })
-            .fail(function () {
-                $('#historial-acta').html('<div class="alert alert-danger py-2 mb-0 small">'
-                    + 'No se pudo cargar el historial del acta.</div>');
-            });
-    }
-
-    /* "45 — ALMACÉN": el código delante del nombre, que es como se lo busca en el VSIAF. */
-    function conCod(cod, nombre) {
-        const n = (nombre == null || nombre === '') ? '—' : String(nombre);
-        if (cod == null || cod === '' || n === '—') return n;
-        return cod + ' — ' + n;
-    }
-
-    function escHtml(s) {
-        if (s == null) return '—';
-        return String(s)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
-
-    /*
-       Los botones de exportar se sacaron de la barra: apuntaban a
-       /administracion/asignacion/exportar-pdf y /exportar-excel, dos rutas que no
-       existen en ningún controlador, así que devolvían 404. Vuelven cuando estén
-       implementadas y exporten el resultado filtrado.
-    */
-
-    /* -------- HELPERS -------- */
-    function formatearFecha(f) {
-        if (!f) return null;
-        try {
-            const d = new Date(f);
-            return d.toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        } catch (e) { return f; }
-    }
-    function formatearFechaHora(f) {
-        if (!f) return null;
-        try {
-            const d = new Date(f);
-            return d.toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                + ' ' + d.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' });
-        } catch (e) { return f; }
-    }
-    function renderBadgeTipo(tipo) {
-        const map = { NUEVA: 'primary', REASIGNACION: 'warning', DEVOLUCION: 'secondary',
-            SEPARACION: 'info', REGULARIZACION: 'dark' };
-        return `<span class="badge bg-${map[tipo] || 'secondary'}">${tipo || '—'}</span>`;
-    }
-    function renderBadgeEstado(estado) {
-        const map = { ACTIVA: 'success', ANULADA: 'danger', DEVUELTA: 'info', MODIFICADA: 'warning text-dark' };
-        return `<span class="badge bg-${map[estado] || 'secondary'}">${estado || '—'}</span>`;
-    }
-
-    /* ══════════════════════════════════════════════════════════════════════
-       CORREGIR UN ACTIVO YA REGISTRADO
-       Reusa los mismos catálogos y el mismo formato "código - nombre" que el
-       modal de Activos Pendientes, pero apunta a /api/editar-registrado, que
-       exige rol, propaga al VSIAF y deja constancia en historial_activo.
-       ══════════════════════════════════════════════════════════════════════ */
-    var _asigActual = null;     // para refrescar el detalle después de guardar
-    var _cabeceraActual = null; // ids de responsable/oficina/predio del acta abierta
-    var _corrIdEnc  = null;
-
-    /* Etiqueta "código - nombre" y regla de código de grupo: compartidas en
-       /assets/js/sciaf-catalogos.js con la pantalla de Activos Pendientes. */
-    var etiquetaCod = window.SciafCatalogos.etiquetaCodigo;
-    var codigoGrupo = window.SciafCatalogos.codigoGrupoVisible;
-
-    function opciones(lista, idFn, txtFn, sel, vacio) {
-        let h = `<option value="">${vacio}</option>`;
-        (lista || []).forEach(it => {
-            const id = idFn(it), txt = txtFn(it);
-            h += `<option value="${id}"${String(id) === String(sel ?? '') ? ' selected' : ''}>${escHtml(txt)}</option>`;
-        });
-        return h;
-    }
-
-    var arr = r => Array.isArray(r) ? r : (Array.isArray(r?.results) ? r.results : []);
-    var getJson = u => fetch(u).then(r => r.json()).catch(() => []);
-
-    /* Reintento manual de la subida al VSIAF: mismo endpoint para la fila suelta y para
-       el lote de la selección, solo cambia la lista de ids que se manda. */
-    function subirAlVsiaf(idsActivos, $btn) {
-        if (!idsActivos.length) return;
-        $btn.prop('disabled', true);
-        $.ajax({
-            url: `/administracion/asignacion/asignaciones/${_asigActual}/subir-vsiaf`,
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ idsActivos: idsActivos })
-        }).done(function (j) {
-            if (!j.ok) { Swal.fire('No se pudo', j.msg || 'No se pudo subir al VSIAF.', 'warning'); return; }
-            const avisos = j.avisos || [];
-            Swal.fire({
-                icon: avisos.length ? 'warning' : 'success',
-                title: avisos.length ? 'Enviado, con advertencias' : 'Enviado al VSIAF',
-                html: `<p>${escHtml(j.msg)}</p>` + (avisos.length
-                    ? `<ul class="text-start small">${avisos.map(a => `<li>${escHtml(a)}</li>`).join('')}</ul>` : '')
-            });
-            if (_asigActual) cargarActivosModal(_asigActual);
-        }).fail(function (xhr) {
-            Swal.fire('Error', xhr.responseJSON?.msg || 'No se pudo subir al VSIAF.', 'error');
-        }).always(function () { $btn.prop('disabled', false); });
-    }
-
-    $(document).off('click.subirVsiafFila').on('click.subirVsiafFila', '.btn-subir-vsiaf', function () {
-        subirAlVsiaf([parseInt($(this).data('idactivo'), 10)], $(this));
-    });
-
-    $(document).off('click.subirVsiafLote').on('click.subirVsiafLote', '#btn-subir-vsiaf-lote', function () {
-        subirAlVsiaf(bienesSeleccionados(), $(this));
-    });
-
-    /* Ver detalle: mismo dato que ya se tiene en memoria por fila (window._detallePorActivo),
-       para cualquier usuario — no solo para quien puede corregir. */
-    function renderDetalleActivo(d) {
-        const fechaTexto = d.fechaAdquisicion && d.fechaAdquisicion !== '—'
-            ? (formatearFecha(d.fechaAdquisicion) || d.fechaAdquisicion) : '—';
-        const costoFmt = fmtBs(d.costo);
-        const costoActualFmt = fmtBs(d.costoActual);
-        const difiere = costoFmt !== null && costoActualFmt !== null && costoFmt !== costoActualFmt;
-
-        const sync = (d.estadoRegistro || '—').toUpperCase();
-        const conf = (d.sincVsiaf || '').toUpperCase();
-        let vsiafTexto = '<span class="text-muted">—</span>';
-        if (conf === 'ERROR') {
-            vsiafTexto = `<span class="badge bg-danger"><i class="bx bx-error-circle"></i> Error VSIAF</span>`
-                + `<div class="text-danger small mt-1">${escHtml(d.sincVsiafMensaje || 'El VSIAF rechazó el último cambio enviado.')}</div>`;
-        } else if (conf === 'EN_COLA') {
-            vsiafTexto = '<span class="badge bg-info text-dark"><i class="bx bx-loader-circle"></i> En cola</span>';
-        } else if (conf === 'CONFIRMADO' || sync === 'ACTIVO') {
-            vsiafTexto = '<span class="badge bg-success"><i class="bx bx-check"></i> En VSIAF</span>';
-        } else if (sync === 'PENDIENTE') {
-            vsiafTexto = '<span class="badge bg-warning text-dark"><i class="bx bx-time-five"></i> Pendiente</span>';
-        } else if (sync === 'CANCELADO') {
-            vsiafTexto = '<span class="badge bg-secondary">Cancelado</span>';
-        }
-
-        const fila = (etiqueta, valor) => `
-            <dt class="col-sm-5 text-muted">${etiqueta}</dt>
-            <dd class="col-sm-7">${valor}</dd>`;
-
-        return `<dl class="row mb-0 small">
-            ${fila('Código', `<code class="fw-semibold text-primary">${escHtml(d.codigo)}</code>`)}
-            ${fila('Descripción', escHtml(d.descripcion))}
-            ${fila('Grupo contable', escHtml(d.grupoContable))}
-            ${fila('Responsable', escHtml(conCod(d.responsableCod, d.responsable)))}
-            ${fila('Oficina', escHtml(conCod(d.oficinaCod, d.oficina)))}
-            ${fila('Predio', escHtml(d.predio))}
-            ${fila('Estado físico', escHtml(d.estadoActivo))}
-            ${fila('Fecha adquisición', fechaTexto)}
-            ${fila('Costo en el acta', costoFmt ?? '<span class="text-warning fst-italic">sin costo</span>')}
-            ${difiere ? fila('Costo actual del activo', `${costoActualFmt} <i class="bx bx-info-circle text-warning" title="Cambió después de asignarse"></i>`) : ''}
-            ${fila('Estado en el VSIAF', vsiafTexto)}
-        </dl>`;
-    }
-
-    $(document).off('click.verDetalleActivo').on('click.verDetalleActivo', '.btn-ver-detalle-activo', function () {
-        const id = parseInt($(this).data('idactivo'), 10);
-        const d = (window._detallePorActivo || {})[id];
-        if (!d) return;
-
-        $('#ver-det-codigo').text(d.codigo || '—');
-        $('#ver-det-body').html(renderDetalleActivo(d));
-
-        const puedeCorregir = window._puedeEditarActual === true && d.editable && d.idEnc;
-        $('#ver-det-btn-corregir').toggleClass('d-none', !puedeCorregir)
-            .attr('data-idenc', d.idEnc || '').attr('data-codigo', d.codigo || '');
-
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVerDetalleActivo')).show();
-    });
-
-    /* Al pasar a "Corregir" desde el detalle, el handler genérico de .btn-corregir (más
-       abajo) abre modalCorregirActivo solo — acá solo se cierra este modal de paso. */
-    $(document).off('click.verDetCorregir').on('click.verDetCorregir', '#ver-det-btn-corregir', function () {
-        bootstrap.Modal.getInstance(document.getElementById('modalVerDetalleActivo'))?.hide();
-    });
-
-    $(document).off('click.corregir').on('click.corregir', '.btn-corregir', async function () {
-        _corrIdEnc = $(this).data('idenc');
-        const codigo = $(this).data('codigo');
-
-        $('#corr-codigo').text(codigo || '—');
-        $('#corr-footer-info').text('');
-        $('#btn-guardar-correccion').prop('disabled', true);
-        $('#corr-body').html('<div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Cargando datos…</div>');
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCorregirActivo')).show();
-
-        try {
-            const d = await fetch(`/administracion/activo/api/detalle/${encodeURIComponent(_corrIdEnc)}`)
-                .then(r => { if (!r.ok) throw new Error('No se pudo cargar el activo'); return r.json(); });
-
-            const munId  = d.municipioId ?? null;
-            const predId = d.predioId ?? null;
-            const ofiId  = d.oficina?.idOficina ?? null;
-            const grpId  = d.grupoContable?.idGrupoContable ?? null;
-
-            const [municipios, grupos, orgFin, predios, oficinas, resps, auxs] = await Promise.all([
-                getJson('/api/municipios/listar'),
-                getJson('/api/grupos/listar'),
-                getJson('/api/organismos/listar'),
-                munId  ? getJson(`/api/buscar_predios?municipioId=${munId}`) : [],
-                predId ? getJson(`/api/buscar_oficinas?predioId=${predId}`) : [],
-                ofiId  ? getJson(`/api/buscar_responsable?q=&page=1&oficinaId=${ofiId}`) : [],
-                (grpId && predId) ? getJson(`/api/buscar_auxiliar_lista?grupoId=${grpId}&predioId=${predId}`) : []
-            ]);
-
-            $('#corr-body').html(renderFormCorreccion(d, {
-                municipios: arr(municipios), grupos: arr(grupos), orgFin: arr(orgFin),
-                predios: arr(predios), oficinas: arr(oficinas), resps: arr(resps), auxs: arr(auxs)
-            }));
-            cablearCascadasCorreccion();
-            $('#btn-guardar-correccion').prop('disabled', false);
-            $('#corr-footer-info').text(
-                (d.estado || '').toUpperCase() === 'ACTIVO'
-                    ? 'Este activo ya está en el VSIAF: al guardar se enviará la corrección.'
-                    : 'Activo PENDIENTE: la corrección no se envía al VSIAF.');
-
-        } catch (e) {
-            $('#corr-body').html(`<div class="alert alert-danger py-2 mb-0">${escHtml(e.message)}</div>`);
-        }
-    });
-
-    function renderFormCorreccion(d, cat) {
-        const v = x => (x != null && x !== 'null') ? x : '';
-        const munId  = d.municipioId ?? null;
-        const predId = d.predioId ?? null;
-        const ofiId  = d.oficina?.idOficina ?? null;
-
-        return `
-        <div class="row g-3">
-            <div class="col-md-3">
-                <label class="form-label small fw-semibold text-muted mb-1">Municipio</label>
-                <select id="corr-mun" class="form-select form-select-sm">
-                    ${opciones(cat.municipios, m => m.idMunicipio, m => m.nombre, munId, '— Seleccione —')}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label small fw-semibold text-muted mb-1">Predio</label>
-                <select id="corr-pred" class="form-select form-select-sm" ${!munId ? 'disabled' : ''}>
-                    ${opciones(cat.predios, p => p.id || p.idPredio, p => etiquetaCod(p.codigo, p.descrip || p.nombre), predId, '— Seleccione —')}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label small fw-semibold text-muted mb-1">Oficina</label>
-                <select id="corr-ofi" class="form-select form-select-sm" ${!predId ? 'disabled' : ''}>
-                    ${opciones(cat.oficinas, o => o.id || o.idOficina, o => etiquetaCod(o.codigo ?? o.codOfi, o.nombre), ofiId, '— Seleccione —')}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label small fw-semibold text-muted mb-1">Responsable</label>
-                <select id="corr-resp" class="form-select form-select-sm" ${!ofiId ? 'disabled' : ''}>
-                    ${opciones(cat.resps, r => r.id, r => r.text, d.responsable?.idResponsable ?? null, '— Seleccione —')}
-                </select>
-            </div>
-
-            <div class="col-md-4">
-                <label class="form-label small fw-semibold text-muted mb-1">Grupo contable</label>
-                <select id="corr-grupo" class="form-select form-select-sm">
-                    ${opciones(cat.grupos, g => g.idGrupoContable, g => etiquetaCod(codigoGrupo(g), g.nombre), d.grupoContable?.idGrupoContable ?? null, '— Seleccione —')}
-                </select>
-            </div>
-            <div class="col-md-4">
-                <label class="form-label small fw-semibold text-muted mb-1">Auxiliar <span class="fw-normal">(opcional)</span></label>
-                <select id="corr-aux" class="form-select form-select-sm">
-                    ${opciones(cat.auxs, a => a.idAuxiliar ?? a.id, a => a.nombre ?? a.text, d.auxiliar?.idAuxiliar ?? d.auxiliar?.id ?? null, '— Sin auxiliar —')}
-                </select>
-            </div>
-            <div class="col-md-4">
-                <label class="form-label small fw-semibold text-muted mb-1">Financiador</label>
-                <select id="corr-orgfin" class="form-select form-select-sm">
-                    ${opciones(cat.orgFin, o => o.idOrganismoFinanciero,
-                               o => etiquetaCod(o.codOf, (o.sigla ? o.sigla + ' - ' : '') + o.descripcion),
-                               d.organismoFinanciero?.idOrganismoFinanciero ?? null, '— Seleccione —')}
-                </select>
-            </div>
-
-            <div class="col-md-3">
-                <label class="form-label small fw-semibold text-muted mb-1">Fecha adquisición</label>
-                <input type="date" id="corr-fecha" class="form-control form-control-sm" value="${v(d.fechaAdquisicion)}">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label small fw-semibold text-muted mb-1">Costo (Bs.)</label>
-                <input type="number" step="0.01" min="0" id="corr-costo"
-                       class="form-control form-control-sm text-end fw-bold" value="${v(d.costo)}">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label small fw-semibold text-muted mb-1">Vida útil (años)</label>
-                <input type="number" step="0.5" min="0" id="corr-vida"
-                       class="form-control form-control-sm text-center" value="${v(d.vidaUtil)}">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label small fw-semibold text-muted mb-1">Código</label>
-                <input type="text" class="form-control form-control-sm bg-light" value="${escHtml(d.codigo)}"
-                       readonly title="El código no se cambia acá: es la llave del registro en el VSIAF">
-            </div>
-
-            <div class="col-12">
-                <label class="form-label small fw-semibold text-muted mb-1">Descripción</label>
-                <textarea id="corr-desc" class="form-control form-control-sm" rows="2" maxlength="1024">${v(d.descripcion)}</textarea>
-                <div class="d-flex justify-content-between align-items-center mt-1">
-                    <div class="form-check mb-0">
-                        <input class="form-check-input" type="checkbox" id="corr-accesorios"
-                               ${/INCLUYE ACCESORIOS$/i.test((d.descripcion || '').trim()) ? 'checked' : ''}>
-                        <label class="form-check-label small" for="corr-accesorios" style="cursor:pointer">
-                            Incluye accesorios
-                        </label>
-                    </div>
-                    <small class="text-warning d-none" id="corr-aviso250">
-                        <i class="bx bx-error"></i> El VSIAF guarda solo los primeros 250 caracteres.
-                    </small>
-                </div>
-            </div>
-        </div>`;
-    }
-
-    function cablearCascadasCorreccion() {
-        const reset = ($s, ph, dis) => $s.html(`<option value="">${ph}</option>`).prop('disabled', !!dis);
-
-        $('#corr-mun').off('change').on('change', async function () {
-            const id = this.value;
-            reset($('#corr-pred'), '— Seleccione —', !id);
-            reset($('#corr-ofi'), '— Seleccione predio primero —', true);
-            reset($('#corr-resp'), '— Seleccione oficina primero —', true);
-            if (!id) return;
-            const l = arr(await getJson(`/api/buscar_predios?municipioId=${id}`));
-            $('#corr-pred').html(opciones(l, p => p.id || p.idPredio,
-                p => etiquetaCod(p.codigo, p.descrip || p.nombre), null, '— Seleccione —')).prop('disabled', false);
-        });
-
-        $('#corr-pred').off('change').on('change', async function () {
-            const id = this.value;
-            reset($('#corr-ofi'), '— Seleccione —', !id);
-            reset($('#corr-resp'), '— Seleccione oficina primero —', true);
-            await recargarAuxCorreccion();
-            if (!id) return;
-            const l = arr(await getJson(`/api/buscar_oficinas?predioId=${id}`));
-            $('#corr-ofi').html(opciones(l, o => o.id || o.idOficina,
-                o => etiquetaCod(o.codigo ?? o.codOfi, o.nombre), null, '— Seleccione —')).prop('disabled', false);
-        });
-
-        $('#corr-ofi').off('change').on('change', async function () {
-            const id = this.value;
-            reset($('#corr-resp'), '— Seleccione —', !id);
-            if (!id) return;
-            const l = arr(await getJson(`/api/buscar_responsable?q=&page=1&oficinaId=${id}`));
-            $('#corr-resp').html(opciones(l, r => r.id, r => r.text, null, '— Seleccione —')).prop('disabled', false);
-        });
-
-        $('#corr-grupo').off('change').on('change', recargarAuxCorreccion);
-
-        // Descripción: marca de accesorios + aviso del corte del VSIAF
-        const marca = window.SciafCatalogos.MARCA_ACCESORIOS;
-        const quitar = window.SciafCatalogos.quitarAccesorios;
-
-        function avisar250() {
-            $('#corr-aviso250').toggleClass('d-none', ($('#corr-desc').val() || '').length <= 250);
-        }
-        $('#corr-desc').off('input').on('input', avisar250);
-        $('#corr-accesorios').off('change').on('change', function () {
-            const t = $('#corr-desc').val();
-            if ((t || '').trim() === '') return;
-            $('#corr-desc').val(this.checked ? (quitar(t) + ' ' + marca).trim() : quitar(t));
-            avisar250();
-        });
-        avisar250();
-    }
-
-    async function recargarAuxCorreccion() {
-        const g = $('#corr-grupo').val(), p = $('#corr-pred').val();
-        const $a = $('#corr-aux');
-        $a.html('<option value="">— Sin auxiliar —</option>');
-        if (!g || !p) return;
-        const l = arr(await getJson(`/api/buscar_auxiliar_lista?grupoId=${g}&predioId=${p}`));
-        $a.html(opciones(l, x => x.idAuxiliar ?? x.id, x => x.nombre ?? x.text, null, '— Sin auxiliar —'));
-    }
-
-    $(document).off('click.guardarCorr').on('click.guardarCorr', '#btn-guardar-correccion', function () {
-        const $btn = $(this);
-        const ofi = $('#corr-ofi').val(), resp = $('#corr-resp').val();
-
-        if (!ofi || !resp) {
-            Swal.fire('Faltan datos', 'Oficina y responsable son obligatorios.', 'warning');
-            return;
-        }
-
-        const payload = {
-            descripcion: ($('#corr-desc').val() || '').trim() || null,
-            incluyeAccesorios: $('#corr-accesorios').is(':checked'),
-            costo: parseFloat($('#corr-costo').val()) || null,
-            vidaUtil: parseFloat($('#corr-vida').val()) || null,
-            fechaAdquisicion: $('#corr-fecha').val() || null,
-            idGrupoContable: $('#corr-grupo').val() || null,
-            idAuxiliar: $('#corr-aux').val() || null,
-            idOficina: ofi,
-            idResponsable: resp,
-            idOrganismoFinanciero: $('#corr-orgfin').val() || null
         };
 
-        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Guardando…');
+        // ═══════════════════════════════════════════════════════════════
+        // FILTROS (debounce en buscador, cambio inmediato en selects)
+        // ═══════════════════════════════════════════════════════════════
+        function inicializarFiltros() {
+            $raiz.find('.js-buscar').on('input', function () {
+                clearTimeout(temporizadorBusqueda);
+                temporizadorBusqueda = setTimeout(() => cargarTabla(true), 350);
+            }).on('keypress', function (e) {
+                if (e.which === 13) { clearTimeout(temporizadorBusqueda); cargarTabla(true); }
+            });
+            $raiz.find('.js-filtro-sinc, .js-filtro-gestion, .js-filtro-mes, .js-filtro-tipo, .js-filtro-estado, .js-filtro-grupo, .js-filtro-desde, .js-filtro-hasta, .js-filtro-error')
+                .on('change', function () { cargarTabla(true); });
+        }
 
-        $.ajax({
-            url: `/administracion/activo/api/editar-registrado/${encodeURIComponent(_corrIdEnc)}`,
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(payload)
-        }).done(function (j) {
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCorregirActivo')).hide();
-
-            // El backend distingue si la corrección llegó o no al VSIAF. Cuando NO llegó
-            // esto no se anuncia como éxito: los dos sistemas quedaron distintos.
-            if (j.vsiaf === 'ERROR') {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Guardado, pero el VSIAF no se actualizó',
-                    text: j.msg,
-                    confirmButtonColor: '#ff9f43'
-                });
-            } else {
-                Swal.fire({
-                    toast: true, position: 'top-end', icon: 'success',
-                    title: j.msg || 'Corrección guardada',
-                    showConfirmButton: false, timer: 3000
-                });
-            }
-
-            if (_asigActual) cargarActivosModal(_asigActual);
-            cargarTabla();
-        }).fail(function (xhr) {
-            Swal.fire('No se pudo guardar',
-                xhr.responseJSON?.msg || 'Error al aplicar la corrección.', 'error');
-        }).always(function () {
-            $btn.prop('disabled', false).html('<i class="bx bx-save me-1"></i>Guardar corrección');
+        $raiz.on('click', '.js-limpiar', function () {
+            $raiz.find('.js-buscar, .js-filtro-desde, .js-filtro-hasta').val('');
+            $raiz.find('.js-filtro-sinc').val('SUBIDAS');
+            $raiz.find('.js-filtro-gestion, .js-filtro-mes, .js-filtro-tipo, .js-filtro-estado, .js-filtro-grupo').val('');
+            $raiz.find('.js-filtro-error').prop('checked', false);
+            cargarTabla(true);
         });
-    });
+        $raiz.on('click', '.js-actualizar', function () { cargarTabla(); });
+
+        // Chips de filtros activos (se inyectan desde el servidor en tabla_registro)
+        window.quitarFiltro = function (cual) {
+            switch (cual) {
+                case 'buscar':         $raiz.find('.js-buscar').val(''); break;
+                case 'sincronizacion': $raiz.find('.js-filtro-sinc').val('SUBIDAS'); break;
+                case 'soloConError':   $raiz.find('.js-filtro-error').prop('checked', false); break;
+                case 'gestion':        $raiz.find('.js-filtro-gestion').val(''); break;
+                case 'tipo':           $raiz.find('.js-filtro-tipo').val(''); break;
+                case 'estado':         $raiz.find('.js-filtro-estado').val(''); break;
+                case 'fechas':         $raiz.find('.js-filtro-desde, .js-filtro-hasta').val(''); break;
+                case 'mes':            $raiz.find('.js-filtro-mes').val(''); break;
+                case 'idGrupoContable':$raiz.find('.js-filtro-grupo').val(''); break;
+            }
+            cargarTabla(true);
+        };
+        window.filtrarPorSincronizacion = function (valor) {
+            $raiz.find('.js-filtro-sinc').val(valor);
+            $raiz.find('.js-filtro-error').prop('checked', false);
+            cargarTabla(true);
+        };
+        window.filtrarSoloConError = function () {
+            $raiz.find('.js-filtro-error').prop('checked', true);
+            cargarTabla(true);
+        };
+
+        // ═══════════════════════════════════════════════════════════════
+        // URL STATE (persistir filtros en la URL)
+        // ═══════════════════════════════════════════════════════════════
+        function sincronizarUrl(filtros) {
+            const q = new URLSearchParams();
+            Object.entries(filtros).forEach(([k, v]) => {
+                if (v === '' || v === false || v == null) return;
+                if (k === 'sincronizacion' && v === 'SUBIDAS') return;
+                q.set(k, v);
+            });
+            history.replaceState(null, '', q.toString() ? '?' + q.toString() : location.pathname);
+        }
+        function restaurarDesdeUrl() {
+            const q = new URLSearchParams(location.search);
+            const map = {
+                buscar: '.js-buscar', desde: '.js-filtro-desde', hasta: '.js-filtro-hasta',
+                tipo: '.js-filtro-tipo', estado: '.js-filtro-estado', gestion: '.js-filtro-gestion',
+                mes: '.js-filtro-mes', idGrupoContable: '.js-filtro-grupo', sincronizacion: '.js-filtro-sinc'
+            };
+            Object.entries(map).forEach(([param, sel]) => { if (q.has(param)) $raiz.find(sel).val(q.get(param)); });
+            if (q.get('soloConError') === 'true') $raiz.find('.js-filtro-error').prop('checked', true);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // MODAL DETALLE DE ACTA (carga fragmento detalle_asignacion.html)
+        // ═══════════════════════════════════════════════════════════════
+        function abrirModalDetalle(id) {
+            _asigActual = id;
+            // Primero obtener datos JSON, LUEGO cargar fragmento (para que el script del fragmento encuentre los datos)
+            SciafModulo.pedirJson(URL + '/asignaciones/' + id + '/detalles-json')
+                .then(function (resp) {
+                    if (!resp.ok) throw new Error(resp.msg || 'Error cargando detalle');
+                    window._detalleActaData = {
+                        cabecera: resp.cabecera,
+                        detalles: resp.detalles,
+                        resumen: resp.resumen,
+                        puedeEditar: resp.puedeEditar,
+                        historial: resp.historial
+                    };
+                    // Ahora cargar el fragmento (su script leerá window._detalleActaData)
+                    return SciafModulo.abrirFormulario($modalDetalle, $contenidoDetalle, URL + '/asignaciones/' + id + '/detalle-fragment');
+                })
+                .catch(function (e) {
+                    SciafModulo.avisarError(e, 'No se pudo abrir el detalle');
+                });
+        }
+
+        // Al cerrar el modal detalle, limpiar referencia
+        $modalDetalle.on('hidden.bs.modal', function () { _asigActual = null; _cabeceraActual = null; });
+
+        // Exponer funciones que usan los modales hijos (se llaman desde los fragmentos cargados)
+        window._getAsigActual = () => _asigActual;
+        window._getCabeceraActual = () => _cabeceraActual;
+        window._setCabeceraActual = (c) => { _cabeceraActual = c; };
+        window._recargarTabla = () => cargarTabla();
+        window._cerrarModalDetalle = () => bootstrap.Modal.getInstance($modalDetalle[0])?.hide();
+
+        // Barra de selección (checkboxes en tabla del modal detalle)
+        window.actualizarBarraSeleccion = function () {
+            const n = $cont.find('.chk-bien:checked').length;
+            $('#sel-cantidad').text(n);
+            $('#barra-seleccion').toggleClass('d-none', n === 0).toggleClass('d-flex', n > 0);
+            const total = $cont.find('.chk-bien').length;
+            $('#chk-todos').prop('checked', n > 0 && n === total).prop('indeterminate', n > 0 && n < total);
+        };
+        window.limpiarSeleccion = function () {
+            $cont.find('.chk-bien, #chk-todos').prop('checked', false);
+            $('#chk-todos').prop('indeterminate', false);
+            actualizarBarraSeleccion();
+        };
+
+        // Auto-refresco por SSE
+        if (window.registrarTablaSse) window.registrarTablaSse('asignacion', cargarTabla);
+
+    })();
 </script>

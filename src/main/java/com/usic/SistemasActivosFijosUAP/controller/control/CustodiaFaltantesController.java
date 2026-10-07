@@ -90,6 +90,12 @@ public class CustodiaFaltantesController {
     }
 
     @ValidarUsuarioAutenticado
+    @GetMapping("/actas/{idActa}")
+    public ResponseEntity<?> actaPorId(@PathVariable Long idActa) {
+        return ResponseEntity.ok(actaService.porId(idActa));
+    }
+
+    @ValidarUsuarioAutenticado
     @GetMapping("/actas/{idActa}/pdf")
     public ResponseEntity<?> pdf(@PathVariable Long idActa) throws Exception {
         ActaFaltanteDTO acta = actaService.porId(idActa);

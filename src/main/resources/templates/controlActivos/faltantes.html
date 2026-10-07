@@ -333,6 +333,27 @@
                                 <input type="text" class="form-control form-control-sm" id="cf-reg-obs" maxlength="500">
                             </div>
                         </div>
+                        <!-- Datos del responsable para el documento (solo afectan al PDF, no a la BD) -->
+                        <div class="row g-2 mt-2">
+                            <div class="col-md-4">
+                                <label class="form-label mb-1" style="font-size:.8rem;">Nombre del responsable (para el documento)</label>
+                                <input type="text" class="form-control form-control-sm" id="cf-reg-resp-nombre" maxlength="160"
+                                       placeholder="Ing. Juan Pérez, Lic. María López, etc. (opcional, solo para el PDF)">
+                                <div class="form-text" style="font-size:.7rem;">Permite agregar título profesional: Ing., Lic., MsC., Dr., etc. No cambia la BD.</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label mb-1" style="font-size:.8rem;">Cargo del responsable (para el documento)</label>
+                                <input type="text" class="form-control form-control-sm" id="cf-reg-resp-cargo" maxlength="120"
+                                       placeholder="Jefe de Unidad, Analista, etc. (opcional, solo para el PDF)">
+                                <div class="form-text" style="font-size:.7rem;">Sobreescribe el cargo calculado. No cambia la BD.</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label mb-1" style="font-size:.8rem;">Unidad/Oficina (para el documento)</label>
+                                <input type="text" class="form-control form-control-sm" id="cf-reg-resp-unidad" maxlength="120"
+                                       placeholder="Unidad Funcional, Dirección, etc. (opcional, solo para el PDF)">
+                                <div class="form-text" style="font-size:.7rem;">Sobreescribe la unidad calculada (oficina con más bienes). No cambia la BD.</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="sm-modal-pie">
@@ -397,6 +418,27 @@
                                    placeholder="Vacío: se conserva la actual">
                         </div>
                     </div>
+                    <!-- Datos del responsable para el documento (solo afectan al PDF, no a la BD) -->
+                    <div class="row g-2 mt-2">
+                        <div class="col-md-4">
+                            <label class="sm-label" for="np-resp-nombre">Nombre del responsable (para el documento)</label>
+                            <input type="text" class="form-control form-control-sm" id="np-resp-nombre" maxlength="160"
+                                   placeholder="Ing. Juan Pérez, Lic. María López, etc. (opcional, solo para el PDF)">
+                            <div class="form-text" style="font-size:.7rem;">Permite agregar título profesional: Ing., Lic., MsC., Dr., etc. No cambia la BD.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="sm-label" for="np-resp-cargo">Cargo del responsable (para el documento)</label>
+                            <input type="text" class="form-control form-control-sm" id="np-resp-cargo" maxlength="120"
+                                   placeholder="Jefe de Unidad, Analista, etc. (opcional, solo para el PDF)">
+                            <div class="form-text" style="font-size:.7rem;">Sobreescribe el cargo actual del acta. No cambia la BD.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="sm-label" for="np-resp-unidad">Unidad/Oficina (para el documento)</label>
+                            <input type="text" class="form-control form-control-sm" id="np-resp-unidad" maxlength="120"
+                                   placeholder="Unidad Funcional, Dirección, etc. (opcional, solo para el PDF)">
+                            <div class="form-text" style="font-size:.7rem;">Sobreescribe la unidad actual del acta. No cambia la BD.</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="sm-modal-pie">
                     <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">Cancelar</button>
@@ -439,6 +481,27 @@
                             <label class="sm-label" for="rn-obs">Observación</label>
                             <input type="text" class="form-control form-control-sm" id="rn-obs" maxlength="500"
                                    placeholder="Vacío: se conserva la actual">
+                        </div>
+                    </div>
+                    <!-- Datos del responsable para el documento (solo afectan al PDF, no a la BD) -->
+                    <div class="row g-2 mt-2">
+                        <div class="col-md-4">
+                            <label class="sm-label" for="rn-resp-nombre">Nombre del responsable (para el documento)</label>
+                            <input type="text" class="form-control form-control-sm" id="rn-resp-nombre" maxlength="160"
+                                   placeholder="Ing. Juan Pérez, Lic. María López, etc. (opcional, solo para el PDF)">
+                            <div class="form-text" style="font-size:.7rem;">Permite agregar título profesional: Ing., Lic., MsC., Dr., etc. No cambia la BD.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="sm-label" for="rn-resp-cargo">Cargo del responsable (para el documento)</label>
+                            <input type="text" class="form-control form-control-sm" id="rn-resp-cargo" maxlength="120"
+                                   placeholder="Jefe de Unidad, Analista, etc. (opcional, solo para el PDF)">
+                            <div class="form-text" style="font-size:.7rem;">Sobreescribe el cargo actual del acta. No cambia la BD.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="sm-label" for="rn-resp-unidad">Unidad/Oficina (para el documento)</label>
+                            <input type="text" class="form-control form-control-sm" id="rn-resp-unidad" maxlength="120"
+                                   placeholder="Unidad Funcional, Dirección, etc. (opcional, solo para el PDF)">
+                            <div class="form-text" style="font-size:.7rem;">Sobreescribe la unidad actual del acta. No cambia la BD.</div>
                         </div>
                     </div>
                     <div class="sm-aviso sm-aviso-aviso small mt-2 mb-0"><i class="ti ti-info-circle"></i>
@@ -495,6 +558,27 @@
                             <label class="sm-label" for="gr-obs">Observación</label>
                             <input type="text" class="form-control form-control-sm" id="gr-obs" maxlength="500"
                                    placeholder="Información adicional (opcional)">
+                        </div>
+                    </div>
+                    <!-- Datos del responsable para el documento (solo afectan al PDF, no a la BD) -->
+                    <div class="row g-2 mt-2">
+                        <div class="col-md-4">
+                            <label class="sm-label" for="gr-resp-nombre">Nombre del responsable (para el documento)</label>
+                            <input type="text" class="form-control form-control-sm" id="gr-resp-nombre" maxlength="160"
+                                   placeholder="Ing. Juan Pérez, Lic. María López, etc. (opcional, solo para el PDF)">
+                            <div class="form-text" style="font-size:.7rem;">Permite agregar título profesional: Ing., Lic., MsC., Dr., etc. No cambia la BD.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="sm-label" for="gr-resp-cargo">Cargo del responsable (para el documento)</label>
+                            <input type="text" class="form-control form-control-sm" id="gr-resp-cargo" maxlength="120"
+                                   placeholder="Jefe de Unidad, Analista, etc. (opcional, solo para el PDF)">
+                            <div class="form-text" style="font-size:.7rem;">Sobreescribe el cargo del acta anterior. No cambia la BD.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="sm-label" for="gr-resp-unidad">Unidad/Oficina (para el documento)</label>
+                            <input type="text" class="form-control form-control-sm" id="gr-resp-unidad" maxlength="120"
+                                   placeholder="Unidad Funcional, Dirección, etc. (opcional, solo para el PDF)">
+                            <div class="form-text" style="font-size:.7rem;">Sobreescribe la unidad del acta anterior. No cambia la BD.</div>
                         </div>
                     </div>
                 </div>
@@ -1273,13 +1357,14 @@
             $('#cf-reg-num-datos').text('3');
             $('#cf-reg-sumar-buscar').val('');
             $('#cf-reg-sumar-panel').hide();
+            $('#cf-reg-resp-nombre, #cf-reg-resp-cargo, #cf-reg-resp-unidad').val('');
         }
 
         function abrirRegistro(persona, filtroUnico) {
             reg = regVacio(filtroUnico);
             limpiarExtrasRegistro();
             $('#cf-reg-buscar').val(''); $('#cf-reg-personas').empty();
-            $('#cf-reg-doc, #cf-reg-fecha-doc, #cf-reg-obs, #cf-reg-filtro, #cf-reg-plazo').val('');
+            $('#cf-reg-doc, #cf-reg-fecha-doc, #cf-reg-obs, #cf-reg-filtro, #cf-reg-plazo, #cf-reg-resp-nombre, #cf-reg-resp-cargo, #cf-reg-resp-unidad').val('');
             $('#cf-reg-plazo').removeClass('is-invalid');
             $('#cf-reg-previa').html('<i class="ti ti-eye me-1"></i> Vista previa');
             $('#cf-reg-paso2').hide(); $('#cf-reg-paso1').show();
@@ -1347,6 +1432,10 @@
             $('#cf-reg-persona-sub').html(ciHtml(p.ci) +
                 (p.cargoPrincipal ? ' · ' + esc(p.cargoPrincipal) : '') +
                 (p.oficinaPrincipal ? ' · ' + esc(p.oficinaPrincipal) : ''));
+            // Pre-llenar campos de override con datos de la persona (se pueden editar)
+            $('#cf-reg-resp-nombre').val(p.nombre || '');
+            $('#cf-reg-resp-cargo').val(p.cargoPrincipal || '');
+            $('#cf-reg-resp-unidad').val(p.oficinaPrincipal || '');
             $('#cf-reg-vinculadas').html(reg.vinculadas.length
                 ? '<div class="small mt-1" style="color:var(--sm-exito);"><i class="ti ti-link me-1"></i>Se juntó con su otro registro: ' +
                   'la notificación sale a nombre del registro con C.I. e incluye también estos bienes.</div>' +
@@ -1941,7 +2030,10 @@
                 observacion: $('#cf-reg-obs').val() || null,
                 plazoDias: plazo,
                 idsPersonasVinculadas: reg.vinculadas.map(function (v) { return v.idPersona; }),
-                destinos: destinosDelPedido()
+                destinos: destinosDelPedido(),
+                personaNombreOverride: $('#cf-reg-resp-nombre').val() || null,
+                personaCargoOverride: $('#cf-reg-resp-cargo').val() || null,
+                personaUnidadOverride: $('#cf-reg-resp-unidad').val() || null
             };
         }
 
@@ -2197,6 +2289,12 @@
             $('#np-fecha-doc').val(n.fechaDocumento);
             $('#np-plazo').removeClass('is-invalid');
             $('#np-guardar, #np-previa').prop('disabled', true);
+            // Pre-llenar nombre (disponible) y cargar cargo/unidad de la acta
+            $('#np-resp-nombre').val(n.persona || '');
+            $.get(CUS + '/actas/' + n.idActa).done(function (acta) {
+                $('#np-resp-cargo').val(acta.personaCargo || '');
+                $('#np-resp-unidad').val(acta.unidad || '');
+            });
             actualizarContadoresPlazo();
             bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-notif-plazo')).show();
             setTimeout(function () { $('#np-plazo').trigger('focus'); }, 300);
@@ -2207,7 +2305,10 @@
         function datosNP(plazo) {
             return { idActa: notifActual.idActa, plazoDias: plazo,
                      documentoRespaldo: $('#np-doc').val() || null, fechaDocumento: $('#np-fecha-doc').val() || null,
-                     observacion: $('#np-obs').val() || null };
+                     observacion: $('#np-obs').val() || null,
+                     personaNombreOverride: $('#np-resp-nombre').val() || null,
+                     personaCargoOverride: $('#np-resp-cargo').val() || null,
+                     personaUnidadOverride: $('#np-resp-unidad').val() || null };
         }
         $('#np-previa').on('click', function () {
             var plazo = leerPlazoDe($('#np-plazo'));
@@ -2241,12 +2342,21 @@
             $('#rn-doc').val(n.documentoRespaldo);
             $('#rn-fecha-doc').val(n.fechaDocumento);
             $('#rn-guardar, #rn-previa').prop('disabled', false);
+            // Pre-llenar nombre (disponible) y cargar cargo/unidad de la acta
+            $('#rn-resp-nombre').val(n.persona || '');
+            $.get(CUS + '/actas/' + n.idActa).done(function (acta) {
+                $('#rn-resp-cargo').val(acta.personaCargo || '');
+                $('#rn-resp-unidad').val(acta.unidad || '');
+            });
             bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-regenerar-notif')).show();
             setTimeout(function () { $('#rn-doc').trigger('focus'); }, 300);
         });
         function datosRN() {
             return { idActa: notifActual.idActa, documentoRespaldo: $('#rn-doc').val() || null,
-                     fechaDocumento: $('#rn-fecha-doc').val() || null, observacion: $('#rn-obs').val() || null };
+                     fechaDocumento: $('#rn-fecha-doc').val() || null, observacion: $('#rn-obs').val() || null,
+                     personaNombreOverride: $('#rn-resp-nombre').val() || null,
+                     personaCargoOverride: $('#rn-resp-cargo').val() || null,
+                     personaUnidadOverride: $('#rn-resp-unidad').val() || null };
         }
         $('#rn-previa').on('click', function () {
             if (notifActual) vistaPreviaN(CUS + '/actas/regenerar-notificacion/vista-previa', datosRN(), $(this),
@@ -2281,6 +2391,12 @@
             $('#gr-plazo, #gr-doc, #gr-fecha-doc, #gr-obs').val('');
             $('#gr-plazo').removeClass('is-invalid');
             $('#gr-guardar, #gr-previa').prop('disabled', true);
+            // Pre-llenar nombre (disponible) y cargar cargo/unidad de la acta anterior
+            $('#gr-resp-nombre').val(n.persona || '');
+            $.get(CUS + '/actas/' + n.idActa).done(function (acta) {
+                $('#gr-resp-cargo').val(acta.personaCargo || '');
+                $('#gr-resp-unidad').val(acta.unidad || '');
+            });
             actualizarContadoresPlazo();
             bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-generar-reiterativa')).show();
             setTimeout(function () { $('#gr-plazo').trigger('focus'); }, 300);
@@ -2291,7 +2407,10 @@
         function datosGR(plazo) {
             return { idActaAnterior: notifActual.idActa, numeroReiterativa: notifActual.numeroReiterativa + 1,
                      plazoDias: plazo, documentoRespaldo: $('#gr-doc').val() || null,
-                     fechaDocumento: $('#gr-fecha-doc').val() || null, observacion: $('#gr-obs').val() || null };
+                     fechaDocumento: $('#gr-fecha-doc').val() || null, observacion: $('#gr-obs').val() || null,
+                     personaNombreOverride: $('#gr-resp-nombre').val() || null,
+                     personaCargoOverride: $('#gr-resp-cargo').val() || null,
+                     personaUnidadOverride: $('#gr-resp-unidad').val() || null };
         }
         $('#gr-previa').on('click', function () {
             var plazo = leerPlazoDe($('#gr-plazo'));

@@ -985,4 +985,110 @@ public class CAsignacionActivoController {
                     .body(Map.of("ok", false, "msg", "Error al cargar detalles: " + e.getMessage()));
         }
     }
+
+    /**
+     * Fragmento HTML del modal de detalle (multi-tab) para cargar vía AJAX.
+     * Usa la plantilla sm-modal (sciaf-modulo.css).
+     */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/asignaciones/{id}/detalle-fragment")
+    public String detalleFragment(@PathVariable Long id, Model model) {
+        model.addAttribute("idAsignacion", id);
+        return "/seguimiento/asignacion/detalle_asignacion :: fragment";
+    }
+
+    /**
+     * Fragmento de la tabla de actas (para recargas AJAX).
+     * Devuelve solo el fragmento 'tabla' que incluye tarjetas resumen + tabla + paginador.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/tabla-registros-fragment")
+    public String tablaRegistrosFragment(
+            @RequestParam(required = false) String tipo,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) String buscar,
+            @RequestParam(required = false) String desde,
+            @RequestParam(required = false) String hasta,
+            @RequestParam(required = false) String sincronizacion,
+            @RequestParam(required = false) Integer gestion,
+            @RequestParam(required = false) Long idResponsable,
+            @RequestParam(required = false) Boolean soloConError,
+            @RequestParam(required = false) Integer mes,
+            @RequestParam(required = false) Long idGrupoContable,
+            @RequestParam(required = false) String orden,
+            @RequestParam(defaultValue = "true") boolean desc,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "25") int tamano,
+            Model model) {
+
+        // Reutilizar la lógica de tabla_activos_nuevos pero devolviendo el fragmento
+        FiltrosAsignacionDTO filtros = FiltrosAsignacionDTO.normalizar(
+                tipo, estado, buscar, desde, hasta, sincronizacion, gestion, idResponsable, soloConError,
+                null, null, null, mes, idGrupoContable);
+
+        if (!TAMANOS_PAGINA.contains(tamano)) tamano = TAMANO_POR_DEFECTO;
+        if (pagina < 0) pagina = 0;
+
+        Page<AsignacionActivo> paginaActual = asignacionActivoService.buscarConFiltros(
+                filtros, orden, desc, PageRequest.of(pagina, tamano));
+
+        if (paginaActual.isEmpty() && paginaActual.getTotalElements() > 0) {
+            pagina = Math.max(0, paginaActual.getTotalPages() - 1);
+            paginaActual = asignacionActivoService.buscarConFiltros(
+                    filtros, orden, desc, PageRequest.of(pagina, tamano));
+        }
+
+        List<AsignacionActivo> asignaciones = paginaActual.getContent();
+
+        Set<Long> idsUsuarios = new HashSet<>();
+        for (AsignacionActivo asig : asignaciones) {
+            if (asig.getRegistroIdUsuario() != null) idsUsuarios.add(asig.getRegistroIdUsuario());
+            if (asig.getModificacionIdUsuario() != null) idsUsuarios.add(asig.getModificacionIdUsuario());
+        }
+
+        List<Usuario> usuariosAuditores = usuarioService.findAllByIdUsuarioIn(idsUsuarios);
+        Map<Long, String> mapaUsuarios = usuariosAuditores.stream()
+            .collect(Collectors.toMap(
+                Usuario::getIdUsuario,
+                u -> u.getPersona() != null ? u.getPersona().getNombreCompleto() : u.getUsuario()
+            ));
+
+        Set<Integer> gestiones = new HashSet<>();
+        for (AsignacionActivo asig : asignaciones) {
+            if (asig.getFechaAsignacion() != null) gestiones.add(asig.getFechaAsignacion().getYear());
+        }
+        Map<Integer, String> carpetasPorGestion = new HashMap<>();
+        for (Integer g : gestiones) {
+            configuracionGestionService.findByGestion(g)
+                .map(ConfiguracionGestion::getCarpetaDrive)
+                .filter(id -> id != null && !id.isBlank())
+                .ifPresent(id -> carpetasPorGestion.put(g, id));
+        }
+
+        List<Long> idsPagina = asignaciones.stream().map(AsignacionActivo::getIdAsignacionActivo).toList();
+        Map<Long, ResumenAsignacionDTO> resumenes = asignacionActivoService.resumenPorAsignacion(idsPagina);
+        Map<Long, List<RubroAsignacionDTO>> rubros = asignacionActivoService.rubrosPorAsignacion(idsPagina);
+
+        Map<String, Long> actasPorMes = asignaciones.stream()
+                .filter(a -> a.getFechaAsignacion() != null)
+                .collect(Collectors.groupingBy(
+                        a -> a.getFechaAsignacion().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM")),
+                        LinkedHashMap::new, Collectors.counting()));
+
+        model.addAttribute("asignaciones", asignaciones);
+        model.addAttribute("mapaUsuarios", mapaUsuarios);
+        model.addAttribute("carpetasPorGestion", carpetasPorGestion);
+        model.addAttribute("resumenes", resumenes);
+        model.addAttribute("rubros", rubros);
+        model.addAttribute("paginaActual", paginaActual);
+        model.addAttribute("paginasVisibles", ventanaDePaginas(paginaActual.getNumber(), paginaActual.getTotalPages()));
+        model.addAttribute("tamanosPagina", TAMANOS_PAGINA);
+        model.addAttribute("orden", orden != null ? orden : "fecha");
+        model.addAttribute("desc", desc);
+        model.addAttribute("filtros", filtros);
+        model.addAttribute("stats", asignacionActivoService.resumenListado(filtros));
+        model.addAttribute("actasPorMes", actasPorMes);
+
+        return "/seguimiento/asignacion/tabla_registro :: tabla_completa";
+    }
 }

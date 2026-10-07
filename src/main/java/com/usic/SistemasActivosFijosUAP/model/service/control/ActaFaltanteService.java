@@ -185,6 +185,10 @@ public class ActaFaltanteService {
         // Antes de tomar el turno y de insertar: si falta el firmante, no se toca nada.
         Map<String, Object> notificacion = datosNotificacion(req.plazoDias(), ahora, ordenados);
         notificacion.put("inicioPlazo", ahora.withNano(0).toString());
+        // Aplicar override de unidad si se proporciona (para el documento, no actualiza BD)
+        if (vacioANull(req.personaUnidadOverride()) != null) {
+            notificacion.put("unidad", req.personaUnidadOverride());
+        }
 
         // Turno para el correlativo de la gestión: lo tiene esta transacción hasta confirmar.
         actaDao.turnoNumeracion(TURNO_NUMERACION);
@@ -395,9 +399,17 @@ public class ActaFaltanteService {
         ActaFaltante acta = new ActaFaltante();
         acta.setToken(nuevoToken());
         acta.setPersona(p.persona());
-        acta.setPersonaNombre(recortar(p.persona().getNombreCompleto(), 160));
+        // Usar override si se proporciona, si no, el nombre de la persona en BD
+        String nombreParaDocumento = vacioANull(req.personaNombreOverride()) != null
+                ? req.personaNombreOverride()
+                : p.persona().getNombreCompleto();
+        acta.setPersonaNombre(recortar(nombreParaDocumento, 160));
         acta.setPersonaCi(recortar(p.persona().getCi(), 20));
-        acta.setPersonaCargo(recortar(cargoPrincipal(p.ordenados()), 120));
+        // Usar override si se proporciona, si no, el cargo calculado
+        String cargoParaDocumento = vacioANull(req.personaCargoOverride()) != null
+                ? req.personaCargoOverride()
+                : cargoPrincipal(p.ordenados());
+        acta.setPersonaCargo(recortar(cargoParaDocumento, 120));
         acta.setFechaEmision(ahora);
         acta.setUsuarioEmision(autor != null ? autor.getUsuario() : "SISTEMA");
         acta.setDocumentoRespaldo(recortar(vacioANull(req.documentoRespaldo()), 120));
@@ -434,6 +446,10 @@ public class ActaFaltanteService {
             Preparado p = preparar(req, "Estos bienes no se pueden incluir en la notificación:");
             LocalDateTime ahora = LocalDateTime.now();
             Map<String, Object> notificacion = datosNotificacion(req.plazoDias(), ahora, p.ordenados());
+            // Aplicar override de unidad si se proporciona (para el documento, no actualiza BD)
+            if (vacioANull(req.personaUnidadOverride()) != null) {
+                notificacion.put("unidad", req.personaUnidadOverride());
+            }
             ActaFaltante acta = armarActa(req, p, autor, ahora);
             acta.setNumero(ActaFaltante.PREFIJO_NOTIFICACION + "___/" + ahora.getYear());
             acta.setContenido(contenido(acta, p.persona(), p.ordenados(), ActaFaltante.TIPO_FALTANTES,
@@ -586,7 +602,7 @@ public class ActaFaltanteService {
             ActaFaltante acta = nv.acta();
             Integer anterior = nv.notificacion().path("plazoDiasHabiles").asInt();
             aplicarPlazo(acta, nv, req.plazoDias(), req.documentoRespaldo(), req.fechaDocumento(), req.observacion(),
-                    LocalDateTime.now());
+                    req.personaNombreOverride(), req.personaCargoOverride(), req.personaUnidadOverride(), LocalDateTime.now());
             if (autor != null) acta.setModificacionIdUsuario(autor.getIdUsuario());
             actaDao.save(acta);
             respaldoEnHallazgos(nv.pendientes(), acta);
@@ -608,17 +624,21 @@ public class ActaFaltanteService {
             NotificacionVigente nv = notificacionVigente(req.idActa(), false);
             ActaFaltante previa = copia(nv.acta());
             aplicarPlazo(previa, nv, req.plazoDias(), req.documentoRespaldo(), req.fechaDocumento(), req.observacion(),
-                    LocalDateTime.now());
+                    req.personaNombreOverride(), req.personaCargoOverride(), req.personaUnidadOverride(), LocalDateTime.now());
             return aDto(previa, VISTA_PREVIA);
         });
     }
 
     private void aplicarPlazo(ActaFaltante acta, NotificacionVigente nv, int plazo, String doc,
-                              java.time.LocalDate fechaDoc, String obs, LocalDateTime ahora) {
+                              java.time.LocalDate fechaDoc, String obs, String nombreOverride, String cargoOverride, String unidadOverride, LocalDateTime ahora) {
         // Se conserva lo demás de la notificación (firmante, ciudad, unidad, a quién reitera).
         Map<String, Object> not = comoMapa(nv.notificacion());
         not.put("plazoDiasHabiles", plazo);
         not.put("inicioPlazo", ahora.withNano(0).toString());
+        // Aplicar overrides para el documento (no actualizan BD)
+        if (vacioANull(nombreOverride) != null) acta.setPersonaNombre(recortar(nombreOverride, 160));
+        if (vacioANull(cargoOverride) != null) acta.setPersonaCargo(recortar(cargoOverride, 120));
+        if (vacioANull(unidadOverride) != null) not.put("unidad", unidadOverride);
         conservarOReemplazar(acta, doc, fechaDoc, obs);
         acta.setContenido(contenidoReemitido(acta, not));
         acta.setHashContenido(sha256(acta.getContenido()));
@@ -636,7 +656,8 @@ public class ActaFaltanteService {
             turnoNotificaciones();
             NotificacionVigente nv = notificacionVigente(req.idActa(), true);
             ActaFaltante acta = nv.acta();
-            aplicarCorreccion(acta, nv, req.documentoRespaldo(), req.fechaDocumento(), req.observacion());
+            aplicarCorreccion(acta, nv, req.documentoRespaldo(), req.fechaDocumento(), req.observacion(),
+                    req.personaNombreOverride(), req.personaCargoOverride(), req.personaUnidadOverride());
             if (autor != null) acta.setModificacionIdUsuario(autor.getIdUsuario());
             actaDao.save(acta);
             respaldoEnHallazgos(nv.pendientes(), acta);
@@ -656,7 +677,8 @@ public class ActaFaltanteService {
         return soloLectura(() -> {
             NotificacionVigente nv = notificacionVigente(req.idActa(), false);
             ActaFaltante previa = copia(nv.acta());
-            aplicarCorreccion(previa, nv, req.documentoRespaldo(), req.fechaDocumento(), req.observacion());
+            aplicarCorreccion(previa, nv, req.documentoRespaldo(), req.fechaDocumento(), req.observacion(),
+                    req.personaNombreOverride(), req.personaCargoOverride(), req.personaUnidadOverride());
             return aDto(previa, VISTA_PREVIA);
         });
     }
@@ -672,7 +694,17 @@ public class ActaFaltanteService {
     }
 
     private void aplicarCorreccion(ActaFaltante acta, NotificacionVigente nv, String doc,
-                                   java.time.LocalDate fechaDoc, String obs) {
+                                   java.time.LocalDate fechaDoc, String obs, String nombreOverride, String cargoOverride, String unidadOverride) {
+        // Aplicar overrides para el documento (no actualizan BD)
+        if (vacioANull(nombreOverride) != null) acta.setPersonaNombre(recortar(nombreOverride, 160));
+        if (vacioANull(cargoOverride) != null) acta.setPersonaCargo(recortar(cargoOverride, 120));
+        if (vacioANull(unidadOverride) != null) {
+            Map<String, Object> not = comoMapa(nv.notificacion());
+            not.put("unidad", unidadOverride);
+            acta.setContenido(contenidoReemitido(acta, not));
+            acta.setHashContenido(sha256(acta.getContenido()));
+            return;
+        }
         conservarOReemplazar(acta, doc, fechaDoc, obs);
         acta.setContenido(contenidoReemitido(acta, comoMapa(nv.notificacion())));
         acta.setHashContenido(sha256(acta.getContenido()));
@@ -712,7 +744,7 @@ public class ActaFaltanteService {
             nueva.setHashContenido("-");
             actaDao.saveAndFlush(nueva);
             nueva.setNumero(numero);
-            completarReiterativa(nueva, nv, req.plazoDias(), ahora);
+            completarReiterativa(nueva, nv, req.plazoDias(), ahora, req.personaUnidadOverride());
             actaDao.save(nueva);
 
             for (HallazgoInventario h : nv.pendientes()) {
@@ -743,7 +775,10 @@ public class ActaFaltanteService {
             LocalDateTime ahora = LocalDateTime.now();
             ActaFaltante previa = armarReiterativa(nv, req, autor, ahora);
             previa.setNumero(ActaFaltante.PREFIJO_NOTIFICACION + "___/" + ahora.getYear());
-            completarReiterativa(previa, nv, req.plazoDias(), ahora);
+            // Aplicar overrides para la vista previa
+            if (vacioANull(req.personaNombreOverride()) != null) previa.setPersonaNombre(recortar(req.personaNombreOverride(), 160));
+            if (vacioANull(req.personaCargoOverride()) != null) previa.setPersonaCargo(recortar(req.personaCargoOverride(), 120));
+            completarReiterativa(previa, nv, req.plazoDias(), ahora, req.personaUnidadOverride());
             return aDto(previa, VISTA_PREVIA);
         });
     }
@@ -765,9 +800,17 @@ public class ActaFaltanteService {
         ActaFaltante a = new ActaFaltante();
         a.setToken(nuevoToken());
         a.setPersona(nv.persona());
-        a.setPersonaNombre(recortar(nv.persona().getNombreCompleto(), 160));
+        // Usar override si se proporciona, si no, el nombre de la persona en BD
+        String nombreParaDocumento = vacioANull(req.personaNombreOverride()) != null
+                ? req.personaNombreOverride()
+                : nv.persona().getNombreCompleto();
+        a.setPersonaNombre(recortar(nombreParaDocumento, 160));
         a.setPersonaCi(recortar(nv.persona().getCi(), 20));
-        a.setPersonaCargo(ant.getPersonaCargo());
+        // Usar override si se proporciona, si no, el cargo del acta anterior
+        String cargoParaDocumento = vacioANull(req.personaCargoOverride()) != null
+                ? req.personaCargoOverride()
+                : ant.getPersonaCargo();
+        a.setPersonaCargo(recortar(cargoParaDocumento, 120));
         a.setFechaEmision(ahora);
         a.setUsuarioEmision(autor != null ? autor.getUsuario() : "SISTEMA");
         a.setDocumentoRespaldo(recortar(vacioANull(req.documentoRespaldo()), 120));
@@ -789,7 +832,7 @@ public class ActaFaltanteService {
      * están en custodia figuran hoy en la oficina de faltantes, que no es de donde faltan) y la
      * referencia a la notificación que reitera.
      */
-    private void completarReiterativa(ActaFaltante nueva, NotificacionVigente nv, int plazo, LocalDateTime ahora) {
+    private void completarReiterativa(ActaFaltante nueva, NotificacionVigente nv, int plazo, LocalDateTime ahora, String unidadOverride) {
         Map<Long, Oficina> origen = new java.util.HashMap<>();
         List<Activo> bienes = new ArrayList<>();
         for (HallazgoInventario h : nv.pendientes()) {
@@ -803,6 +846,10 @@ public class ActaFaltanteService {
 
         ActaFaltante ant = nv.acta();
         Map<String, Object> not = datosNotificacion(plazo, ahora, ordenados, deOrigen);
+        // Aplicar override de unidad si se proporciona
+        if (vacioANull(unidadOverride) != null) {
+            not.put("unidad", unidadOverride);
+        }
         not.put("inicioPlazo", ahora.withNano(0).toString());
         not.put("numeroReiterativa", nueva.getNumeroReiterativa());
         Map<String, Object> reitera = new LinkedHashMap<>();

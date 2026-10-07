@@ -1,0 +1,367 @@
+<!-- ═══════════════════════════════════════════════════════════════
+     FRAGMENTO: Modal detalle de acta (multi-tab) — estructura sm-modal
+     Se carga en #contenidoModalDetalle vía SciafModulo.abrirFormulario()
+     Los datos vienen de /asignaciones/{id}/detalles-json y se pueblan en JS.
+     ═══════════════════════════════════════════════════════════════ -->
+<div th:fragment="fragment">
+    <div class="sm-modal-cab">
+        <div class="sm-cabecera-icono"><i class="ti ti-clipboard"></i></div>
+        <div class="flex-grow-1 min-width-0">
+            <h5 class="sm-modal-titulo mb-1" id="modal-numero-asignacion">—</h5>
+            <small class="text-muted" id="modal-fecha-asignacion">—</small>
+        </div>
+        <div class="d-flex align-items-center gap-2 ms-auto">
+            <span class="badge fs-6 px-3 py-2" id="modal-badge-tipo">—</span>
+            <span class="badge fs-6 px-3 py-2" id="modal-badge-estado">—</span>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+    </div>
+
+    <div class="sm-modal-cuerpo">
+        <!-- Tabs -->
+        <ul class="nav nav-tabs nav-tabs-bordered" id="modalTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active d-flex align-items-center gap-1" data-bs-toggle="tab" data-bs-target="#tab-general" role="tab">
+                    <i class="ti ti-info-circle"></i> Información General
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab" data-bs-target="#tab-activos" role="tab">
+                    <i class="ti ti-box"></i> Activos Asignados
+                    <span class="badge bg-primary rounded-pill ms-1" id="badge-num-activos">0</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab" data-bs-target="#tab-historial" role="tab" id="tab-historial-link">
+                    <i class="ti ti-git-branch"></i> Historial
+                    <span class="badge bg-secondary rounded-pill ms-1 d-none" id="badge-num-movimientos">0</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab" data-bs-target="#tab-auditoria" role="tab">
+                    <i class="ti ti-time-five"></i> Auditoría
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content p-3" id="modalTabContent">
+
+            <!-- TAB GENERAL -->
+            <div class="tab-pane fade show active" id="tab-general" role="tabpanel">
+                <div class="row g-4">
+
+                    <!-- Columna izquierda: Datos del documento -->
+                    <div class="col-md-6">
+                        <div class="info-card">
+                            <div class="info-card-header doc">
+                                <span><i class="ti ti-file-text me-1"></i>Datos del Documento</span>
+                                <button type="button" class="btn btn-sm btn-outline-light" id="btn-editar-reporte" title="Hoja de ruta, certificación y comprobante — para el reporte Excel">
+                                    <i class="ti ti-edit me-1"></i>Datos de reporte
+                                </button>
+                            </div>
+                            <div class="info-card-body">
+                                <div class="info-row"><span class="lbl">N° Asignación</span><span class="val text-primary" id="d-numero">—</span></div>
+                                <div class="info-row"><span class="lbl">Código Documento</span><span class="val" id="d-codigo-doc">—</span></div>
+                                <div class="info-row"><span class="lbl">Código Completo</span><span class="val" id="d-codigo-completo">—</span></div>
+                                <div class="info-row"><span class="lbl">Fecha Asignación</span><span class="val" id="d-fecha">—</span></div>
+                                <div class="info-row"><span class="lbl">Tipo</span><span class="val" id="d-tipo">—</span></div>
+                                <div class="info-row"><span class="lbl">Estado</span><span class="val" id="d-estado">—</span></div>
+                                <div class="info-row"><span class="lbl">Doc. Referencia</span><span class="val" id="d-doc-referencia">—</span></div>
+                                <div class="info-row"><span class="lbl">Hoja de Ruta / ARD</span><span class="val" id="d-hoja-ruta">—</span></div>
+                                <div class="info-row"><span class="lbl">Certificación</span><span class="val" id="d-certificacion">—</span></div>
+                                <div class="info-row"><span class="lbl">Sistematizado por</span><span class="val" id="d-sistematizado-por">—</span></div>
+                                <div class="info-row"><span class="lbl">Comprobante</span><span class="val" id="d-comprobante">—</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Columna derecha: Responsables -->
+                    <div class="col-md-6">
+                        <div class="info-card">
+                            <div class="info-card-header resp">
+                                <span><i class="ti ti-user-check me-1"></i>Responsables</span>
+                                <button type="button" class="btn btn-sm btn-outline-light d-none" id="btn-editar-cabecera" title="Corregir responsable u oficina del acta">
+                                    <i class="ti ti-edit me-1"></i>Editar cabecera
+                                </button>
+                            </div>
+                            <div class="info-card-body">
+                                <div class="info-row d-none" id="fila-resp-origen"><span class="lbl">Resp. Origen</span><span class="val" id="d-resp-origen">—</span></div>
+                                <div class="info-row"><span class="lbl">Resp. Destino</span><span class="val" id="d-resp-destino">—</span></div>
+                                <div class="info-row"><span class="lbl">Oficina Destino</span><span class="val" id="d-oficina-destino">—</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Observación -->
+                    <div class="col-12" id="container-observacion" style="display:none">
+                        <div class="obs-box">
+                            <i class="ti ti-comment"></i>
+                            <div><strong class="d-block mb-1">OBSERVACIÓN</strong><span id="d-observacion"></span></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB ACTIVOS -->
+            <div class="tab-pane fade" id="tab-activos" role="tabpanel">
+                <!-- Resumen superior -->
+                <div class="row g-3 mb-3">
+                    <div class="col-6 col-md-3">
+                        <div class="stat-card c-indigo">
+                            <div class="stat-label">Total Activos</div>
+                            <div class="stat-value" id="resumen-total-activos">0</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="stat-card c-slate">
+                            <div class="stat-label">Estado en el VSIAF</div>
+                            <div class="stat-value" id="resumen-sync">—</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="stat-card c-green">
+                            <div class="stat-label">Costo total (Bs.)</div>
+                            <div class="stat-value" id="resumen-costo" style="font-variant-numeric: tabular-nums;">0,00</div>
+                            <div class="text-warning d-none" id="resumen-costo-aviso" style="font-size:0.72rem; font-weight:700;"></div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3 d-flex align-items-center justify-content-end">
+                        <input type="text" id="buscar-activo" class="form-control" placeholder="Buscar activo..." style="max-width:240px">
+                    </div>
+                </div>
+
+                <!-- Barra de selección (aparece al marcar checkboxes) -->
+                <div class="alert alert-primary d-none align-items-center gap-3 py-2 mb-3" id="barra-seleccion">
+                    <i class="ti ti-check-square fs-5"></i>
+                    <span><strong id="sel-cantidad">0</strong> bien(es) seleccionado(s)</span>
+                    <button class="btn btn-sm btn-primary ms-auto" onclick="abrirModalSeparar()"><i class="ti ti-git-branch me-1"></i>Separar a acta nueva</button>
+                    <button class="btn btn-sm btn-warning" onclick="abrirModalTrasladar()"><i class="ti ti-share me-1"></i>Trasladar a otra acta</button>
+                    <button class="btn btn-sm btn-info text-white" id="btn-subir-vsiaf-lote"><i class="ti ti-upload me-1"></i>Subir al VSIAF</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="limpiarSeleccion()">Quitar selección</button>
+                </div>
+
+                <!-- Botón incorporar (solo si puedeEditar) -->
+                <div class="d-flex justify-content-end mb-2 d-none" id="fila-incorporar">
+                    <button class="btn btn-sm btn-outline-success" onclick="abrirModalIncorporar()"><i class="ti ti-import me-1"></i>Incorporar bienes a esta acta</button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm align-middle" id="tabla-activos-modal">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center col-seleccion d-none" style="width:36px"><input type="checkbox" class="form-check-input" id="chk-todos" title="Seleccionar todos"></th>
+                                <th class="text-center" style="width:40px">#</th>
+                                <th>Código</th>
+                                <th style="min-width:260px">Descripción</th>
+                                <th>Responsable</th>
+                                <th>Oficina</th>
+                                <th class="text-end">Costo (Bs.)</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">VSIAF</th>
+                                <th class="text-center" style="width:110px">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-activos">
+                            <tr><td colspan="11" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Cargando activos...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB HISTORIAL -->
+            <div class="tab-pane fade" id="tab-historial" role="tabpanel">
+                <div id="historial-acta">
+                    <div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Cargando historial…</div>
+                </div>
+            </div>
+
+            <!-- TAB AUDITORÍA -->
+            <div class="tab-pane fade" id="tab-auditoria" role="tabpanel">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="audit-card c-blue">
+                            <div class="audit-title"><i class="ti ti-plus-circle"></i>Registro del acta</div>
+                            <div class="info-row"><span class="lbl">Fecha de registro</span><span class="val" id="aud-fecha-reg">—</span></div>
+                            <div class="info-row"><span class="lbl">Usuario</span><span class="val" id="aud-usuario-reg">—</span></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="audit-card c-amber">
+                            <div class="audit-title"><i class="ti ti-edit"></i>Última modificación</div>
+                            <div class="info-row"><span class="lbl">Fecha de modificación</span><span class="val" id="aud-fecha-mod">—</span></div>
+                            <div class="info-row"><span class="lbl">Usuario</span><span class="val" id="aud-usuario-mod">—</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="sm-modal-pie">
+        <a id="btn-modal-word" href="#" target="_blank" class="btn btn-primary"><i class="ti ti-file-text me-1"></i>Descargar Word</a>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="ti ti-x me-1"></i>Cerrar</button>
+    </div>
+</div>
+
+<script>
+    /* Este script se ejecuta cuando el fragmento se inyecta en el modal.
+       Recibe los datos vía window._detalleActaData (puesto por vista.html antes de abrir). */
+    (function () {
+        const data = window._detalleActaData;
+        if (!data) return;
+        delete window._detalleActaData;
+
+        const { cabecera, detalles, resumen, puedeEditar, historial } = data;
+
+        // Header badges
+        const coloresTipo = { NUEVA: 'bg-primary', REASIGNACION: 'bg-warning text-dark', DEVOLUCION: 'bg-secondary', SEPARACION: 'bg-info text-dark', REGULARIZACION: 'bg-dark' };
+        const coloresEstado = { ACTIVA: 'bg-success', ANULADA: 'bg-danger', DEVUELTA: 'bg-info', MODIFICADA: 'bg-warning text-dark' };
+        $('#modal-badge-tipo').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresTipo[cabecera.tipoAsignacion] || 'bg-secondary')).text(cabecera.tipoAsignacion || '—');
+        $('#modal-badge-estado').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresEstado[cabecera.estadoAsignacion] || 'bg-secondary')).text(cabecera.estadoAsignacion || '—');
+        $('#modal-numero-asignacion').text(cabecera.numeroAsignacion || '—');
+        $('#modal-fecha-asignacion').text(cabecera.fechaAsignacion ? cabecera.fechaAsignacion.split('T')[0].split('-').reverse().join('/') : '—');
+
+        // Tab General
+        $('#d-numero').text(cabecera.numeroAsignacion || '—');
+        $('#d-codigo-doc').text(cabecera.codigoDocumento || '—');
+        $('#d-codigo-completo').html(`<span class="fw-bold text-primary">${SciafModulo.escapar(cabecera.codigoCompletoNormalizado || '—')}</span>`);
+        $('#d-fecha').text(cabecera.fechaAsignacion ? cabecera.fechaAsignacion.split('T')[0].split('-').reverse().join('/') : '—');
+        $('#d-tipo').html(`<span class="badge ${coloresTipo[cabecera.tipoAsignacion] || 'bg-secondary'}">${SciafModulo.escapar(cabecera.tipoAsignacion || '—')}</span>`);
+        $('#d-estado').html(`<span class="badge ${coloresEstado[cabecera.estadoAsignacion] || 'bg-secondary'}">${SciafModulo.escapar(cabecera.estadoAsignacion || '—')}</span>`);
+        $('#d-doc-referencia').text(cabecera.documentoReferencia || '—');
+        $('#fila-resp-origen').toggleClass('d-none', !cabecera.responsableOrigen);
+        $('#d-resp-origen').text(cabecera.responsableOrigen ? (cabecera.responsableOrigenCodigo + ' — ' + cabecera.responsableOrigen) : '—');
+        $('#d-resp-destino').text(cabecera.responsable ? (cabecera.responsableCodigo + ' — ' + cabecera.responsable) : '—');
+        $('#d-oficina-destino').text(cabecera.oficinaDestino ? (cabecera.oficinaDestinoCodigo + ' — ' + cabecera.oficinaDestino) : '—');
+
+        if (cabecera.observacion) { $('#d-observacion').text(cabecera.observacion); $('#container-observacion').show(); } else { $('#container-observacion').hide(); }
+
+        // Auditoría
+        $('#aud-fecha-reg').text(cabecera.fechaRegistro ? cabecera.fechaRegistro.split('T')[0].split('-').reverse().join('/') + ' ' + cabecera.fechaRegistro.split('T')[1]?.substring(0,5) : '—');
+        $('#aud-usuario-reg').text(cabecera.usuarioRegistro || '—');
+        $('#aud-fecha-mod').text(cabecera.fechaModificacion ? cabecera.fechaModificacion.split('T')[0].split('-').reverse().join('/') + ' ' + cabecera.fechaModificacion.split('T')[1]?.substring(0,5) : '—');
+        $('#aud-usuario-mod').text(cabecera.usuarioModificacion || '—');
+
+        // Botones de edición (solo si puedeEditar)
+        $('#btn-editar-cabecera').toggleClass('d-none', !puedeEditar);
+        if (cabecera.tipoAsignacion === 'REGULARIZACION') {
+            $('#btn-modal-word').addClass('disabled').removeAttr('href').attr('title', 'El acta de regularización no tiene responsable: no hay acta que imprimir.');
+        } else {
+            $('#btn-modal-word').removeClass('disabled').removeAttr('title').attr('href', '/administracion/asignacion/asignaciones/' + cabecera.idAsignacionActivo + '/word');
+        }
+
+        // Tab Activos - poblar tabla
+        poblarTablaActivos(detalles, resumen, puedeEditar);
+
+        // Tab Historial
+        poblarHistorial(historial);
+
+        // Eventos delegados para botones de fila
+        $('#tabla-activos-modal').off('click.verDetalle').on('click.verDetalle', '.btn-ver-detalle-activo', function () {
+            const idActivo = $(this).data('idactivo');
+            if (idActivo && window.abrirModalVerDetalle) window.abrirModalVerDetalle(idActivo);
+        });
+        $('#tabla-activos-modal').off('click.corregir').on('click.corregir', '.btn-corregir', function () {
+            const idEnc = $(this).data('idenc'), codigo = $(this).data('codigo');
+            if (idEnc && window.abrirModalCorregir) window.abrirModalCorregir(idEnc, codigo);
+        });
+        $('#tabla-activos-modal').off('click.subirVsiaf').on('click.subirVsiaf', '.btn-subir-vsiaf', function () {
+            const idActivo = $(this).data('idactivo'), codigo = $(this).data('codigo');
+            if (idActivo && window.subirVsiafIndividual) window.subirVsiafIndividual(idActivo, codigo);
+        });
+
+        // Búsqueda en tiempo real
+        $('#buscar-activo').off('input.modalBusq').on('input.modalBusq', function () {
+            const q = $(this).val().toLowerCase();
+            $('#tabla-activos-modal tbody tr').each(function () { $(this).toggle($(this).text().toLowerCase().indexOf(q) > -1); });
+        });
+
+        // Helpers
+        function fmtBs(n) { if (n === null || n === undefined || n === '') return null; const v = Number(n); if (isNaN(v)) return null; return v.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+        function escHtml(s) { return String(s || '').replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"').replace(/'/g,'&#039;'); }
+        function conCod(cod, nom) { return (cod ? cod + ' — ' : '') + (nom || '—'); }
+        function badgeEstado(estado) {
+            const v = (estado || '').toUpperCase();
+            if (v === 'BUENO' || v === 'NUEVO') return 'bg-success';
+            if (v === 'REGULAR' || v === 'DETERIORADO') return 'bg-warning text-dark';
+            if (v === 'MALO' || v === 'OBSOLETO') return 'bg-danger';
+            return 'bg-secondary';
+        }
+        function badgeSinc(sync, conf, msg) {
+            if (conf === 'ERROR') return `<span class="badge bg-danger" title="${escHtml(msg)}"><i class="bx bx-error-circle"></i> Error VSIAF</span>`;
+            if (conf === 'EN_COLA') return `<span class="badge bg-info text-dark" title="La orden está escrita y espera al worker del VSIAF."><i class="bx bx-loader-circle"></i> En cola</span>`;
+            if (conf === 'CONFIRMADO') return `<span class="badge bg-success" title="El worker confirmó la escritura en el VSIAF"><i class="bx bx-check-double"></i> En VSIAF</span>`;
+            if (sync === 'ACTIVO') return `<span class="badge bg-success" title="Subido antes de que se registrara la confirmación"><i class="bx bx-check"></i> En VSIAF</span>`;
+            if (sync === 'PENDIENTE') return `<span class="badge bg-warning text-dark" title="Todavía no se subió al VSIAF"><i class="bx bx-time-five"></i> Pendiente</span>`;
+            if (sync === 'CANCELADO') return `<span class="badge bg-secondary">Cancelado</span>`;
+            if (sync === '—') return `<span class="text-muted">—</span>`;
+            return `<span class="badge bg-secondary">${escHtml(sync)}</span>`;
+        }
+
+        function poblarTablaActivos(detalles, resumen, puedeEditar) {
+            $('#badge-num-activos, #resumen-total-activos').text(resumen.total ?? detalles.length ?? 0);
+            const subidos = resumen.subidos ?? 0, pendientes = resumen.pendientes ?? 0, enCola = resumen.enCola ?? 0, conError = resumen.conError ?? 0;
+            $('#resumen-sync').html((subidos === 0 && pendientes === 0) ? '<span class="text-muted">—</span>' :
+                `<span class="text-success">${subidos} subido${subidos !== 1 ? 's' : ''}</span>` +
+                (pendientes > 0 ? ` <span class="text-muted">/</span> <span class="text-warning">${pendientes} pend.</span>` : '') +
+                (enCola > 0 ? ` <span class="text-muted">/</span> <span class="text-info" title="Esperando al worker">${enCola} en cola</span>` : '') +
+                (conError > 0 ? ` <span class="text-muted">/</span> <span class="text-danger fw-bold" title="El VSIAF rechazó el cambio">${conError} con error</span>` : ''));
+            $('#resumen-costo').text(fmtBs(resumen.costoTotal) ?? '0,00');
+            $('#resumen-costo-aviso').toggleClass('d-none', !resumen.sinCosto).text(resumen.sinCosto ? `parcial · ${resumen.sinCosto} sin costo` : '');
+
+            if (!detalles.length) {
+                $('#tbody-activos').html('<tr><td colspan="11" class="text-center text-muted py-4">Sin activos registrados</td></tr>');
+                return;
+            }
+
+            let html = '';
+            detalles.forEach((d, i) => {
+                const estadoVal = (d.estadoActivo || '').toUpperCase();
+                const estadoCls = badgeEstado(estadoVal);
+                let fechaFmt = '—';
+                if (d.fechaAdquisicion && d.fechaAdquisicion !== '—') {
+                    try { const p = d.fechaAdquisicion.split('-'); if (p.length === 3) fechaFmt = `${p[2]}/${p[1]}/${p[0]}`; } catch (_) { fechaFmt = d.fechaAdquisicion; }
+                }
+                const sync = (d.estadoRegistro || '—').toUpperCase();
+                const conf = (d.sincVsiaf || '').toUpperCase();
+                const motivo = escHtml(d.sincVsiafMensaje || 'El VSIAF rechazó el último cambio enviado.');
+                const costoFmt = fmtBs(d.costo);
+                const costoActualFmt = fmtBs(d.costoActual);
+                const difiere = costoFmt !== null && costoActualFmt !== null && costoFmt !== costoActualFmt;
+                const costoCell = costoFmt === null ? '<span class="text-warning small fst-italic" title="Sin costo cargado">falta</span>' : `<span style="font-variant-numeric:tabular-nums">${costoFmt}</span>` + (difiere ? ` <i class="bx bx-info-circle text-warning" title="En acta: ${costoFmt} · Actual: ${costoActualFmt}"></i>` : '');
+                const btnVer = d.idActivo ? `<button class="btn btn-sm btn-icon btn-outline-primary py-0 px-1 btn-ver-detalle-activo" data-idactivo="${d.idActivo}" title="Ver detalle"><i class="bx bx-show small"></i></button>` : '';
+                const btnCorr = (puedeEditar && d.editable && d.idEnc) ? `<button class="btn btn-sm btn-icon btn-outline-warning py-0 px-1 btn-corregir" data-idenc="${escHtml(d.idEnc)}" data-codigo="${escHtml(d.codigo)}" title="Corregir"><i class="bx bx-edit-alt small"></i></button>` : '';
+                const btnSubir = (puedeEditar && d.idActivo && sync === 'ACTIVO') ? `<button class="btn btn-sm btn-icon btn-outline-info py-0 px-1 btn-subir-vsiaf" data-idactivo="${d.idActivo}" data-codigo="${escHtml(d.codigo)}" title="Reintentar subida VSIAF"><i class="bx bx-upload small"></i></button>` : '';
+                const casilla = (puedeEditar && d.idActivo) ? `<input type="checkbox" class="form-check-input chk-bien" value="${d.idActivo}" data-predio="${d.idPredio ?? ''}">` : '';
+                html += `<tr><td class="text-center col-seleccion ${puedeEditar ? '' : 'd-none'}">${casilla}</td><td class="text-center text-muted small">${i+1}</td><td><code class="small fw-semibold text-primary">${escHtml(d.codigo)}</code></td><td class="descripcion-clamp" style="font-size:0.82rem" title="${escHtml(d.descripcion)}">${escHtml(d.descripcion)}</td><td class="small text-truncate" style="max-width:160px">${escHtml(conCod(d.responsableCod, d.responsable))}</td><td class="small text-truncate" style="max-width:160px">${escHtml(conCod(d.oficinaCod, d.oficina))}<div class="text-muted" style="font-size:0.7rem">${escHtml(d.predio)}</div></td><td class="text-end small">${costoCell}</td><td class="text-center">${estadoVal !== '—' ? `<span class="badge ${estadoCls}">${escHtml(d.estadoActivo)}</span>` : '<span class="text-muted">—</span>'}</td><td class="text-center" style="font-size:0.72rem">${badgeSinc(sync, conf, motivo)}</td><td class="text-center">${btnVer} ${btnCorr} ${btnSubir}</td></tr>`;
+            });
+            $('#tbody-activos').html(html);
+            $('#tabla-activos-modal .col-seleccion').toggleClass('d-none', !puedeEditar);
+            $('#fila-incorporar').toggleClass('d-none', !puedeEditar);
+            limpiarSeleccion();
+        }
+
+        function poblarHistorial(historial) {
+            if (!historial || !historial.movimientos?.length) {
+                $('#historial-acta').html('<div class="text-center text-muted py-4"><i class="ti ti-history ti-lg d-block mb-2"></i><small>Sin movimientos registrados</small></div>');
+                $('#badge-num-movimientos').addClass('d-none').text(0);
+                return;
+            }
+            $('#badge-num-movimientos').removeClass('d-none').text(historial.movimientos.length);
+            const iconMap = { SEPARACION: 'c-primary', TRASLADO: 'c-warning', INCORPORACION: 'c-success', EDICION_CABECERA: 'c-secondary', EDICION_REPORTE: 'c-secondary', CORRECCION: 'c-danger', SUBIDA_VSIAF: 'c-primary' };
+            const iconName = { SEPARACION: 'git-branch', TRASLADO: 'transfer', INCORPORACION: 'import', EDICION_CABECERA: 'edit', EDICION_REPORTE: 'spreadsheet', CORRECCION: 'edit-alt', SUBIDA_VSIAF: 'upload' };
+            let html = '';
+            historial.movimientos.forEach(m => {
+                const tipo = m.tipo || 'OTRO';
+                const ic = iconMap[tipo] || 'c-secondary';
+                const iname = iconName[tipo] || 'history';
+                const rol = m.rol || 'DESTINO';
+                const esOrigen = rol === 'ORIGEN';
+                html += `<div class="hist-card mb-3"><div class="card-body p-3"><div class="d-flex gap-3"><div class="hist-icon ${ic}"><i class="bx bx-${iname}"></i></div><div class="flex-grow-1"><div class="d-flex justify-content-between"><span class="hist-titulo">${esOrigen ? 'Salida: ' : 'Entrada: '}${tipo.replace(/_/g, ' ')}</span><small class="hist-meta">${m.fecha ? m.fecha.replace('T', ' ').substring(0,16) : '—'} · ${escHtml(m.usuario || '—')}</small></div><div class="hist-frase">${escHtml(m.motivo || '—')}</div><div class="text-muted small mt-1">Bienes: ${(m.bienes || []).join(', ') || '—'}</div><div class="text-muted small">Acta ${esOrigen ? 'origen' : 'destino'}: ${escHtml(esOrigen ? m.actaOrigen : m.actaDestino) || '—'}</div><div class="text-muted small">VSIAF: ${escHtml(m.resultadoVsiaf || '—')}${m.mensajeVsiaf ? ' — ' + escHtml(m.mensajeVsiaf) : ''}</div></div></div></div>`;
+            });
+            $('#historial-acta').html(html);
+        }
+    })();
+</script>
