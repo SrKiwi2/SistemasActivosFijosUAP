@@ -9,11 +9,13 @@
  *   2. se avisa qué se habilitó y qué se quitó;
  *   3. las pestañas abiertas de módulos que ya no corresponden (sin permiso o
  *      bloqueados) se cierran, avisando antes si es la que el usuario está mirando;
- *   4. si el administrador cerró la sesión (usuario desactivado, contraseña cambiada),
+ *   4. se recargan las vistas de las pestañas permitidas para actualizar también
+ *      sus botones y datos condicionados por permisos;
+ *   5. si el administrador cerró la sesión (usuario desactivado, contraseña cambiada),
  *      se vuelve al inicio de sesión.
  *
- * La sesión del servidor ya se puso al día sola (SesionPermisosInterceptor): esto es
- * solo la parte visible.
+ * La sesión del servidor se pone al día en la siguiente petición
+ * (SesionPermisosInterceptor); las vistas se piden después de esa actualización.
  */
 (function () {
     'use strict';
@@ -22,25 +24,94 @@
     let enCurso = false;
     let repetir = null;
 
+    const estilo = document.createElement('style');
+    estilo.textContent = `
+        .sciaf-aviso-permisos.swal2-popup { max-width: calc(100vw - 24px); padding: 1.1rem 1.2rem; border-radius: 14px; box-shadow: 0 14px 38px rgba(26, 35, 60, .18); }
+        .sciaf-aviso-permisos .swal2-title { font-size: 1.05rem; line-height: 1.3; text-align: left; padding-right: 1.4rem; }
+        .sciaf-aviso-permisos .swal2-html-container { margin: .45rem 0 0; text-align: left; font-size: .88rem; max-height: min(48vh, 360px); overflow-y: auto; }
+        .sciaf-aviso-permisos .swal2-close { font-size: 1.35rem; }
+        .sciaf-aviso-texto { color: #697a8d; margin-bottom: .65rem; line-height: 1.4; }
+        .sciaf-aviso-bloque { border-top: 1px solid #e6e9ef; padding-top: .55rem; margin-top: .55rem; }
+        .sciaf-aviso-bloque > strong { display: block; font-size: .8rem; letter-spacing: .02em; margin-bottom: .35rem; }
+        .sciaf-aviso-bloque.habilitados > strong { color: #198754; }
+        .sciaf-aviso-bloque.retirados > strong { color: #b94343; }
+        .sciaf-aviso-items { display: grid; gap: .35rem; }
+        .sciaf-aviso-item { padding: .4rem .55rem; border-radius: 7px; background: #f7f8fb; }
+        .sciaf-aviso-item span, .sciaf-aviso-item small { display: block; overflow-wrap: anywhere; }
+        .sciaf-aviso-item span { font-weight: 600; line-height: 1.3; }
+        .sciaf-aviso-item small { color: #6b7280; font-size: .74rem; margin-top: .1rem; }
+    `;
+    document.head.appendChild(estilo);
+
     function $inner() {
         return document.querySelector('#layout-menu .menu-inner');
     }
 
-    function urlsNavegables() {
+    function accesosNavegables() {
         return Array.from(document.querySelectorAll('#layout-menu .menu-item[data-url]'))
-            .map(li => li.getAttribute('data-url')).filter(Boolean);
+            .map(li => {
+                const grupo = li.closest('.menu-sub')?.parentElement;
+                return {
+                    url: li.getAttribute('data-url'),
+                    nombre: li.querySelector('.menu-link > div')?.textContent.trim() || 'Módulo',
+                    modulo: grupo?.querySelector(':scope > .menu-link > div')?.textContent.trim() || '',
+                    tipo: 'MODULO'
+                };
+            }).filter(item => item.url);
     }
 
-    function tituloDe(url) {
-        const li = document.querySelector(`#layout-menu .menu-item[data-ruta="${CSS.escape(url)}"]`);
-        const t = li && li.querySelector('.menu-link > div');
-        return t ? t.textContent.trim() : url;
+    function cambiosVisibles(antes, despues) {
+        const porUrlAntes = new Map(antes.map(a => [a.url, a]));
+        const urlsAntes = new Set(porUrlAntes.keys());
+        const urlsDespues = new Set(despues.map(a => a.url));
+        return {
+            habilitados: despues.filter(a => !urlsAntes.has(a.url)),
+            retirados: antes.filter(a => !urlsDespues.has(a.url)),
+            actualizados: despues.filter(a => {
+                const previo = porUrlAntes.get(a.url);
+                return previo && (previo.nombre !== a.nombre || previo.modulo !== a.modulo);
+            }).map(a => ({ ...a, anterior: porUrlAntes.get(a.url).nombre }))
+        };
     }
 
-    function toast(icono, titulo, texto, ms) {
+    function listaCambios(titulo, items, clase) {
+        if (!items.length) return '';
+        return `<div class="sciaf-aviso-bloque ${clase}">
+            <strong>${titulo} <small>(${items.length})</small></strong>
+            <div class="sciaf-aviso-items">${items.map(item => {
+                const nombre = escapar(item.nombre || 'Acceso');
+                const ubicacion = [item.modulo, item.seccion].filter(Boolean).map(escapar).join(' · ');
+                const tipo = item.tipo === 'ACCION' ? 'Acción' : 'Módulo';
+                return `<div class="sciaf-aviso-item"><span>${nombre}</span>
+                    <small>${escapar(tipo)}${ubicacion ? ' · ' + ubicacion : ''}${item.anterior ? ' · Antes: ' + escapar(item.anterior) : ''}</small></div>`;
+            }).join('')}</div>
+        </div>`;
+    }
+
+    function avisarCambios(tipo, detalle, cambios) {
         if (!window.Swal) return;
-        Swal.fire({ toast: true, position: 'top-end', icon: icono, title: titulo,
-            text: texto || undefined, showConfirmButton: false, timer: ms || 5000, timerProgressBar: true });
+        const habilitados = Array.isArray(cambios.habilitados) ? cambios.habilitados : [];
+        const retirados = Array.isArray(cambios.retirados) ? cambios.retirados : [];
+        const actualizados = Array.isArray(cambios.actualizados) ? cambios.actualizados : [];
+        const total = habilitados.length + retirados.length + actualizados.length;
+        const mensaje = detalle?.mensaje || (tipo === 'permisos' ? 'Sus permisos fueron actualizados' : 'El menú se actualizó');
+        if (!total && tipo === 'menu') return;
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: total ? 'info' : 'success',
+            title: tipo === 'permisos' ? 'Accesos actualizados' : 'Opciones del menú actualizadas',
+            html: `<div class="sciaf-aviso-texto">${escapar(mensaje)}</div>`
+                + listaCambios('Habilitados', habilitados, 'habilitados')
+                + listaCambios('Retirados', retirados, 'retirados')
+                + listaCambios('Actualizados', actualizados, 'actualizados'),
+            width: 480,
+            showConfirmButton: false,
+            showCloseButton: true,
+            timer: Math.min(16000, 6500 + total * 650),
+            timerProgressBar: true,
+            customClass: { popup: 'sciaf-aviso-permisos' }
+        });
     }
 
     function sesionCerrada(mensaje) {
@@ -79,7 +150,8 @@
         if (!r.ok) return null;
         const html = await r.text();
 
-        const antes = urlsNavegables();
+        const accesosAntes = accesosNavegables();
+        const antes = accesosAntes.map(a => a.url);
         const abiertos = Array.from(inner.querySelectorAll('.menu-item.open[data-codigo]'))
             .map(li => li.getAttribute('data-codigo'));
         const activo = inner.querySelector('.menu-item.active[data-url]');
@@ -95,7 +167,8 @@
             const li = inner.querySelector(`.menu-item[data-url="${CSS.escape(urlActiva)}"]`);
             if (li) li.classList.add('active');
         }
-        const despues = urlsNavegables();
+        const accesosDespues = accesosNavegables();
+        const despues = accesosDespues.map(a => a.url);
         despues.filter(u => !antes.includes(u)).forEach(u => {
             const li = inner.querySelector(`.menu-item[data-url="${CSS.escape(u)}"]`);
             if (li) {
@@ -111,7 +184,7 @@
             if (m && m.menuInstance && typeof m.menuInstance.update === 'function') m.menuInstance.update();
         } catch (e) { /* no es crítico */ }
 
-        return { antes, despues };
+        return { antes, despues, accesosAntes, accesosDespues };
     }
 
     /**
@@ -119,7 +192,7 @@
      * del cambio y ya no (sin permiso o bloqueados). Lo que se abrió desde dentro de otra
      * pantalla y nunca fue una opción del menú no se toca.
      */
-    async function cerrarPestanasSinAcceso(antes, despues) {
+    async function cerrarPestanasSinAcceso(antes, despues, accesosAntes) {
         const P = window.sciafPestanas;
         if (!P || typeof P.lista !== 'function') return;
         const perdidas = new Set(antes.filter(u => !despues.includes(u)));
@@ -133,7 +206,10 @@
         const motivo = url => document.querySelector(
             `#layout-menu .menu-item[data-bloqueado][data-ruta="${CSS.escape(sinQuery(url))}"]`)
             ? 'bloqueado por el administrador' : 'ya no está entre sus permisos';
-        const nombres = sinAcceso.map(p => `«${p.titulo || tituloDe(p.url)}» (${motivo(p.url)})`);
+        const nombres = sinAcceso.map(p => {
+            const nombre = accesosAntes.find(a => a.url === sinQuery(p.url))?.nombre || 'Módulo';
+            return `«${nombre}» (${motivo(p.url)})`;
+        });
 
         if (window.Swal) {
             await Swal.fire({
@@ -166,21 +242,18 @@
             const cambio = await recargarMenu();
             if (!cambio) return;
 
-            const nuevas = cambio.despues.filter(u => !cambio.antes.includes(u)).map(tituloDe);
-            const quitadas = cambio.antes.filter(u => !cambio.despues.includes(u)).map(tituloDe);
+            const cambios = detalle?.cambios || cambiosVisibles(cambio.accesosAntes, cambio.accesosDespues);
+            await cerrarPestanasSinAcceso(cambio.antes, cambio.despues, cambio.accesosAntes);
 
-            if (tipo === 'permisos') {
-                let texto = '';
-                if (nuevas.length) texto += 'Nuevo: ' + nuevas.join(', ') + '. ';
-                if (quitadas.length) texto += 'Quitado: ' + quitadas.join(', ') + '.';
-                toast('info', (detalle && detalle.mensaje) || 'Sus permisos fueron actualizados',
-                    texto || 'Su menú ya está al día.', 6500);
-            } else if (nuevas.length || quitadas.length) {
-                toast('info', 'El menú se actualizó',
-                    (nuevas.length ? 'Nuevo: ' + nuevas.join(', ') + '. ' : '')
-                    + (quitadas.length ? 'Ya no disponible: ' + quitadas.join(', ') + '.' : ''), 6000);
+            // El sidebar nuevo no cambia el HTML ya cargado dentro de una pestaña.
+            // Volver a pedir la vista activa aplica los th:if de botones (Editar,
+            // Desaprobar, subir al VSIAF, etc.). Las demás se vuelven a pedir al abrirlas.
+            let recargandoPagina = false;
+            if (tipo === 'permisos' && window.sciafPestanas
+                    && typeof window.sciafPestanas.actualizarPorPermisos === 'function') {
+                recargandoPagina = window.sciafPestanas.actualizarPorPermisos({ tipo, detalle, cambios });
             }
-            await cerrarPestanasSinAcceso(cambio.antes, cambio.despues);
+            if (!recargandoPagina) avisarCambios(tipo, detalle, cambios);
 
             // La gestión de menú, si está abierta, se redibuja para reflejar el cambio
             // hecho desde otra máquina.
@@ -197,6 +270,16 @@
 
     document.addEventListener('sciaf:permisos', e => aplicar('permisos', e.detail || {}));
     document.addEventListener('sciaf:menu', e => aplicar('menu', e.detail || {}));
+
+    // Inicio necesita una recarga de página completa; mostrar el aviso al volver.
+    try {
+        const guardado = sessionStorage.getItem('sciaf.aviso.permisos');
+        if (guardado) {
+            sessionStorage.removeItem('sciaf.aviso.permisos');
+            const aviso = JSON.parse(guardado);
+            setTimeout(() => avisarCambios(aviso.tipo, aviso.detalle, aviso.cambios), 450);
+        }
+    } catch (_) { /* el navegador puede bloquear sessionStorage */ }
 
     // Para probar desde la consola o forzar desde otra pantalla.
     window.sciafMenuVivo = { recargar: () => aplicar('menu', {}) };

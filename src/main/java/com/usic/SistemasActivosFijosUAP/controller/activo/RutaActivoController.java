@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ReglaNegocioException;
 import com.usic.SistemasActivosFijosUAP.model.service.seguimiento.RutaActivoService;
+import com.usic.SistemasActivosFijosUAP.model.service.seguridad.PermisosDatosActivos;
+import jakarta.servlet.http.HttpServletRequest;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -44,9 +46,9 @@ public class RutaActivoController {
     @ValidarUsuarioAutenticado
     @GetMapping("/datos")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> datos(@RequestParam("codigo") String codigo) {
+    public ResponseEntity<Map<String, Object>> datos(@RequestParam("codigo") String codigo, HttpServletRequest request) {
         try {
-            return ResponseEntity.ok(rutaActivoService.ruta(codigo));
+            return ResponseEntity.ok(rutaActivoService.ruta(codigo, PermisosDatosActivos.puedeVerFinanzas(request)));
         } catch (ReglaNegocioException e) {
             return ResponseEntity.ok(Map.of("ok", false, "msg", e.getMessage()));
         } catch (Exception e) {

@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 
 import com.usic.SistemasActivosFijosUAP.model.IService.IOpcionMenuService;
 import com.usic.SistemasActivosFijosUAP.model.dto.MenuNodoDto;
+import com.usic.SistemasActivosFijosUAP.model.service.seguridad.PermisosDatosActivos;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 /**
@@ -17,6 +19,11 @@ import jakarta.servlet.http.HttpSession;
  */
 @ControllerAdvice
 public class MenuModelAdvice {
+
+    @ModelAttribute("puedeVerFinanzasActivo")
+    public boolean puedeVerFinanzasActivo(HttpServletRequest request) {
+        return PermisosDatosActivos.puedeVerFinanzas(request);
+    }
 
     private final IOpcionMenuService opcionMenuService;
 

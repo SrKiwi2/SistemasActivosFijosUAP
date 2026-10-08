@@ -93,10 +93,12 @@ import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
 import com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncService;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ReglasCustodia;
 import com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService;
+import com.usic.SistemasActivosFijosUAP.model.service.seguridad.PermisosDatosActivos;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -150,6 +152,8 @@ public class ActivosController {
     /** Habilita el botón/acción "Desaprobar activo" (baja-activo) en el formulario. */
     private static final String PERMISO_DESAPROBAR_ACTIVO = "opcion_activo_desaprobar";
 
+    private static final String PERMISO_SUBIR_PENDIENTES_VSIAF = PermisosDatosActivos.SUBIR_PENDIENTES_VSIAF;
+
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -163,7 +167,9 @@ public class ActivosController {
     @PostMapping("/datatables")
     @ResponseBody
     @Transactional(readOnly = true)
-    public DataTablesResponse<ActivoDTO> listarActivosDatatables(@RequestParam Map<String, String> params) {
+    public DataTablesResponse<ActivoDTO> listarActivosDatatables(@RequestParam Map<String, String> params,
+            HttpServletRequest request) {
+        boolean verFinanzas = PermisosDatosActivos.puedeVerFinanzas(request);
         int start = Integer.parseInt(params.get("start"));
         int length = Integer.parseInt(params.get("length"));
         String searchValue = params.get("search[value]");
@@ -196,8 +202,8 @@ public class ActivosController {
                     per.getPaterno() == null ? "" : per.getPaterno(),
                     per.getMaterno() == null ? "" : per.getMaterno()).trim());
             dto.setOficina(activo.getOficina() != null ? etiquetaOficina(activo.getOficina()) : "");
-            dto.setCosto(activo.getCosto());
-            dto.setVidaUtil(activo.getVidaUtil());
+            dto.setCosto(verFinanzas ? activo.getCosto() : null);
+            dto.setVidaUtil(verFinanzas ? activo.getVidaUtil() : null);
             dto.setFechaAdquisicion(activo.getFechaAdquisicion() != null ? activo.getFechaAdquisicion().toString() : "");
             dto.setEstado(activo.getEstadoActivo() != null ? activo.getEstadoActivo().getNombre() : "Sin estado");
 
@@ -264,6 +270,14 @@ public class ActivosController {
             return set.contains(codigoPermiso);
         }
         return false;
+    }
+
+    private boolean puedeSubirPendientesAlVsiaf(HttpServletRequest request) {
+        Usuario usuario = RolesSciaf.usuarioDe(request);
+        return usuario != null
+                && "ACTIVO".equals(usuario.getEstado())
+                && tienePermiso(request, "opcion_activop")
+                && PermisosDatosActivos.tiene(request, PERMISO_SUBIR_PENDIENTES_VSIAF);
     }
 
     @ValidarUsuarioAutenticado
@@ -2915,8 +2929,9 @@ public class ActivosController {
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vistap")
-    public String vista_activo_pendiente(Model model) {
+    public String vista_activo_pendiente(Model model, HttpServletRequest request) {
         model.addAttribute("grupos", grupoContableService.listarGruposContables());
+        model.addAttribute("puedeSubirPendientesVsiaf", puedeSubirPendientesAlVsiaf(request));
         return "activo/vista_pendientes";
     }
 
@@ -3016,7 +3031,7 @@ public class ActivosController {
     @ValidarUsuarioAutenticado
     @GetMapping("/api/detalle/{idEnc}")
     @ResponseBody
-    public ResponseEntity<?> detalleActivo(@PathVariable String idEnc) {
+    public ResponseEntity<?> detalleActivo(@PathVariable String idEnc, HttpServletRequest request) {
         try {
             // 1. Desencriptación y búsqueda
             Long id = Long.valueOf(Encriptar.decrypt(idEnc));
@@ -3034,8 +3049,8 @@ public class ActivosController {
             r.put("codigo",           a.getCodigo());
             r.put("codigoSec",        a.getCodigoSec()); // <-- Agregado
             r.put("descripcion",      a.getDescripcion());
-            r.put("costo",            a.getCosto());
-            r.put("vidaUtil",         a.getVidaUtil());
+            r.put("costo",            PermisosDatosActivos.puedeVerFinanzas(request) ? a.getCosto() : null);
+            r.put("vidaUtil",         PermisosDatosActivos.puedeVerFinanzas(request) ? a.getVidaUtil() : null);
             r.put("fechaAdquisicion", a.getFechaAdquisicion() != null 
                                     ? a.getFechaAdquisicion().toString() : null);
             r.put("estado",           a.getEstado());
@@ -3109,7 +3124,12 @@ public class ActivosController {
     @PostMapping("/api/aprobar/{idEnc}")
     @ResponseBody
     public Map<String, Object> aprobarActivo(@PathVariable String idEnc,
-            HttpServletRequest request) {
+            HttpServletRequest request, HttpServletResponse response) {
+
+        if (!puedeSubirPendientesAlVsiaf(request)) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return Map.of("ok", false, "message", "No tiene permiso para subir activos al VSIAF.");
+        }
         
         try{
             Long id = Long.valueOf(Encriptar.decrypt(idEnc));
@@ -3194,6 +3214,11 @@ public class ActivosController {
     @PostMapping("/api/aprobar-masivo")
     @ResponseBody
     public ResponseEntity<?> aprobarMasivo(@RequestBody List<String> idsEnc, HttpServletRequest request) {
+
+        if (!puedeSubirPendientesAlVsiaf(request)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("ok", false, "msg", "No tiene permiso para subir activos al VSIAF."));
+        }
     
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
         String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
@@ -3629,14 +3654,15 @@ public class ActivosController {
     @GetMapping(value = "/buscar-por-codigo", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     @Transactional(readOnly = true)
-    public ResponseEntity<ActivoFormDTO> buscarPorCodigo(@RequestParam("codigo") String codigo) {
+    public ResponseEntity<ActivoFormDTO> buscarPorCodigo(@RequestParam("codigo") String codigo,
+            HttpServletRequest request) {
         return activoService.fetchFullByCodigo(codigo)
-                .map(this::toDto)
+                .map(a -> toDto(a, PermisosDatosActivos.puedeVerFinanzas(request)))
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    private ActivoFormDTO toDto(Activo a) {
+    private ActivoFormDTO toDto(Activo a, boolean verFinanzas) {
         System.out.println("oficina=" + (a.getOficina() != null) +
                 ", predio=" + (a.getOficina() != null && a.getOficina().getPredio() != null) +
                 ", municipio="
@@ -3654,8 +3680,8 @@ public class ActivosController {
         dto.setCodigo(a.getCodigo());
         dto.setDescripcion(a.getDescripcion());
         dto.setFechaAdquisicion(a.getFechaAdquisicion() != null ? a.getFechaAdquisicion().toString() : null);
-        dto.setVidaUtil(a.getVidaUtil());
-        dto.setCosto(a.getCosto());
+        dto.setVidaUtil(verFinanzas ? a.getVidaUtil() : null);
+        dto.setCosto(verFinanzas ? a.getCosto() : null);
 
         if (a.getGrupoContable() != null)
             dto.setGrupoContableId(a.getGrupoContable().getIdGrupoContable());

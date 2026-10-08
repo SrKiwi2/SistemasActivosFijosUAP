@@ -52,6 +52,7 @@ import com.usic.SistemasActivosFijosUAP.model.service.asignacion.ResultadoOperac
 import com.usic.SistemasActivosFijosUAP.model.service.asignacion.SeparacionActaDTO;
 import com.usic.SistemasActivosFijosUAP.model.service.asignacion.TrasladoActaDTO;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
+import com.usic.SistemasActivosFijosUAP.model.service.seguridad.PermisosDatosActivos;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -108,7 +109,12 @@ public class CAsignacionActivoController {
             @RequestParam(required = false) Long idResponsable,
             @RequestParam(required = false) Boolean soloConError,
             @RequestParam(required = false) String orden,
-            @RequestParam(defaultValue = "true") boolean desc) {
+            @RequestParam(defaultValue = "true") boolean desc,
+            HttpServletRequest request) {
+
+        if (!PermisosDatosActivos.puedeVerFinanzas(request)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
 
         try {
             FiltrosAsignacionDTO filtros = FiltrosAsignacionDTO.normalizar(
@@ -153,7 +159,9 @@ public class CAsignacionActivoController {
         @RequestParam(defaultValue = "true") boolean desc,
         @RequestParam(defaultValue = "0") int pagina,
         @RequestParam(defaultValue = "25") int tamano,
-        Model model) {
+        Model model, HttpServletRequest request) {
+
+        if ("costo".equalsIgnoreCase(orden) && !PermisosDatosActivos.puedeVerFinanzas(request)) orden = "fecha";
 
         FiltrosAsignacionDTO filtros = FiltrosAsignacionDTO.normalizar(
                 tipo, estado, buscar, desde, hasta, sincronizacion, gestion, idResponsable, soloConError,
@@ -807,6 +815,7 @@ public class CAsignacionActivoController {
     @ResponseBody
     public ResponseEntity<?> obtenerDetallesAsignacionJson(@PathVariable Long id, HttpServletRequest httpReq) {
         try {
+            boolean verFinanzas = PermisosDatosActivos.puedeVerFinanzas(httpReq);
             Optional<AsignacionActivo> asigOpt = asignacionActivoService.findByIdConDetalles(id);
 
             if (asigOpt.isEmpty()) {
@@ -889,8 +898,8 @@ public class CAsignacionActivoController {
                 BigDecimal costoSnap = d.getCostoActivoSnapshot();
                 BigDecimal costoHoy  = (activo != null && activo.getCosto() != null)
                     ? BigDecimal.valueOf(activo.getCosto()) : null;
-                map.put("costo",       costoSnap != null ? costoSnap : costoHoy);
-                map.put("costoActual", costoHoy);
+                map.put("costo",       verFinanzas ? (costoSnap != null ? costoSnap : costoHoy) : null);
+                map.put("costoActual", verFinanzas ? costoHoy : null);
 
                 // Estado de SINCRONIZACIÓN (no confundir con estadoActivo, que es la
                 // condición física del bien: BUENO / MALO / …).
@@ -930,19 +939,19 @@ public class CAsignacionActivoController {
                 .filter(m -> "ACTIVO".equals(m.get("estadoRegistro"))).count());
             resumen.put("pendientes", listaDetalles.stream()
                 .filter(m -> "PENDIENTE".equals(m.get("estadoRegistro"))).count());
-            resumen.put("sinCosto", listaDetalles.stream()
-                .filter(m -> m.get("costo") == null).count());
+            resumen.put("sinCosto", verFinanzas ? listaDetalles.stream()
+                .filter(m -> m.get("costo") == null).count() : null);
             // Lo que el worker todavía no resolvió y lo que rechazó: es la diferencia
             // entre "lo mandamos" y "está en el VSIAF", que antes no se distinguía.
             resumen.put("enCola", listaDetalles.stream()
                 .filter(m -> "EN_COLA".equals(m.get("sincVsiaf"))).count());
             resumen.put("conError", listaDetalles.stream()
                 .filter(m -> "ERROR".equals(m.get("sincVsiaf"))).count());
-            resumen.put("costoTotal", listaDetalles.stream()
+            resumen.put("costoTotal", verFinanzas ? listaDetalles.stream()
                 .map(m -> (BigDecimal) m.get("costo"))
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .setScale(2, RoundingMode.HALF_UP));
+                .setScale(2, RoundingMode.HALF_UP) : null);
 
             // El botón de corregir se dibuja solo para quien puede usarlo. La barrera
             // real está en el endpoint que aplica el cambio; esto es solo la interfaz.
@@ -975,6 +984,7 @@ public class CAsignacionActivoController {
             return ResponseEntity.ok(Map.of(
                 "ok", true,
                 "puedeEditar", puedeEditar,
+                "puedeVerFinanzas", verFinanzas,
                 "detalles", listaDetalles,
                 "resumen", resumen,
                 "cabecera", cabecera));

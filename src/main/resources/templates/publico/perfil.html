@@ -63,7 +63,7 @@
           <i class="ti ti-currency-dollar fs-4 text-success"></i>
           <div>
             <div class="small text-muted">Costo total</div>
-            <div class="fs-5 fw-bold" th:text="${#numbers.formatDecimal(costoTotal,1,'COMMA',2,'POINT')}">0,00</div>
+            <div class="fs-5 fw-bold" th:text="${puedeVerFinanzasActivo ? #numbers.formatDecimal(costoTotal,1,'COMMA',2,'POINT') : 'Reservado'}">0,00</div>
           </div>
         </div>
       </div>
@@ -147,7 +147,7 @@
               <span class="fw-semibold" th:text="${a.nombre}">Nombre</span>
               <small class="d-block text-muted" th:text="${a.codigo}">COD-0000</small>
             </span>
-            <span class="badge bg-light text-dark border" th:text="${#numbers.formatDecimal(a.costo,1,'COMMA',2,'POINT')}">0,00</span>
+            <span class="badge bg-light text-dark border" th:text="${puedeVerFinanzasActivo ? #numbers.formatDecimal(a.costo,1,'COMMA',2,'POINT') : 'Reservado'}">0,00</span>
           </a>
           <div th:if="${activosRecientes == null or #lists.isEmpty(activosRecientes)}" class="text-muted small">No hay recientes.</div>
         </div>

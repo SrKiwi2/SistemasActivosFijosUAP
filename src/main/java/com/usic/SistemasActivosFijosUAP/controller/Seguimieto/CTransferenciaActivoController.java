@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import jakarta.servlet.http.HttpServletRequest;
 
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.model.IService.ITransferenciaService;
@@ -31,6 +32,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
 import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaDetalle;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.seguridad.PermisosDatosActivos;
 
 import lombok.RequiredArgsConstructor;
 
@@ -97,7 +99,7 @@ public class CTransferenciaActivoController {
     @GetMapping("/{id}/detalles-json")
     @ResponseBody
     @Transactional(readOnly = true)
-    public ResponseEntity<?> detallesJson(@PathVariable Long id) {
+    public ResponseEntity<?> detallesJson(@PathVariable Long id, HttpServletRequest request) {
         Transferencia trf = transferenciaService.findById(id);
         if (trf == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -119,7 +121,7 @@ public class CTransferenciaActivoController {
             // Snapshot de la transferencia primero; si no quedó guardado, el activo vivo.
             m.put("codigoActivo", primero(d.getCodigoActivo(), a != null ? a.getCodigo() : null));
             m.put("descripcionActivo", primero(d.getDescripcionActivo(), a != null ? a.getDescripcion() : null));
-            m.put("costoActivo", d.getCostoActivo() != null
+            m.put("costoActivo", !PermisosDatosActivos.puedeVerFinanzas(request) ? null : d.getCostoActivo() != null
                     ? d.getCostoActivo()
                     : (a != null ? a.getCosto() : null));
 
@@ -144,7 +146,7 @@ public class CTransferenciaActivoController {
                 actual.put("responsable", datosResponsable(a.getResponsable()));
                 actual.put("fechaAdquisicion", a.getFechaAdquisicion() != null
                         ? a.getFechaAdquisicion().toString() : null);
-                actual.put("vidaUtil", a.getVidaUtil());
+                actual.put("vidaUtil", PermisosDatosActivos.puedeVerFinanzas(request) ? a.getVidaUtil() : null);
                 actual.put("observ", a.getObserv());
                 actual.put("sincVsiaf", a.getSincVsiaf());
                 actual.put("sincVsiafMensaje", a.getSincVsiafMensaje());

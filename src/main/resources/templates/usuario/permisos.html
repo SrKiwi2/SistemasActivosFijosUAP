@@ -52,7 +52,12 @@
 
         <div class="sm-aviso sm-aviso-aviso" th:if="${esAdministrador}">
             <i class="ti ti-shield-check"></i>
-            <div>Es <strong>ADMINISTRADOR</strong>: ve siempre todo el menú, sin importar lo que se marque acá.</div>
+            <div>Es <strong>ADMINISTRADOR</strong>: conserva todo el menú. Las casillas de acciones especiales, como «Desaprobar activo» y «Subir activos pendientes al VSIAF», sí controlan sus botones y operaciones.</div>
+        </div>
+
+        <div class="sm-aviso">
+            <i class="ti ti-info-circle"></i>
+            <div><strong>Datos financieros:</strong> Registro y Pendientes los requieren para completar bienes. Para verlos desde los demás módulos, marque «Ver información financiera completa». «Subir activos pendientes al VSIAF» requiere siempre su propia casilla, además del acceso a Pendientes.</div>
         </div>
 
         <!-- Desactivado: sin acceso. Sus permisos están en el respaldo, no acá. -->
@@ -125,7 +130,7 @@
                             <input class="form-check-input chk-permiso" type="checkbox" name="codigos"
                                    th:value="${o.codigo}" th:id="${'chk_' + o.codigo}"
                                    th:checked="${marcados.contains(o.codigo)}"
-                                   th:attr="data-inicial=${marcados.contains(o.codigo)}">
+                                   th:attr="data-inicial=${marcados.contains(o.codigo)},data-especial=${o.codigo == 'opcion_activo_ver_finanzas' or o.codigo == 'opcion_activop_subir_vsiaf'}">
                             <span class="sm-si" th:classappend="${'si-' + o.colorClase}" style="width:22px;height:22px;font-size:.8rem;">
                                 <i th:class="${o.icono}"></i></span>
                             <label class="form-check-label" th:for="${'chk_' + o.codigo}" th:text="${o.descripcion}"></label>
@@ -204,9 +209,9 @@
         form.addEventListener('change', function (e) {
             const t = e.target;
             if (t.classList.contains('pm-todo-grupo')) {
-                t.closest('.pm-grupo').querySelectorAll('.chk-permiso').forEach(c => c.checked = t.checked);
+                t.closest('.pm-grupo').querySelectorAll('.chk-permiso').forEach(c => { if (c.dataset.especial !== 'true' || !t.checked) c.checked = t.checked; });
             } else if (t.classList.contains('pm-todo-seccion')) {
-                t.closest('.pm-seccion').querySelectorAll('.chk-permiso').forEach(c => c.checked = t.checked);
+                t.closest('.pm-seccion').querySelectorAll('.chk-permiso').forEach(c => { if (c.dataset.especial !== 'true' || !t.checked) c.checked = t.checked; });
             }
             contar();
         });
@@ -216,7 +221,7 @@
             contar();
         };
         window.marcarTodosPermisos = function (valor) {
-            chks().forEach(c => c.checked = valor);
+            chks().forEach(c => { if (c.dataset.especial !== 'true' || !valor) c.checked = valor; });
             contar();
         };
 

@@ -65,6 +65,11 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         "opcion_rol", "opcion_persona", "opcion_usuario", "opcion_responsable", "opcion_menu_admin"
     );
 
+    /** Estas capacidades requieren una asignación individual; ningún rol las hereda. */
+    private static final Set<String> CODIGOS_ASIGNACION_EXPLICITA = Set.of(
+        "opcion_activo_ver_finanzas", "opcion_activop_subir_vsiaf"
+    );
+
     /**
      * Transferencia interna y externa se unificaron en {@code opcion_transferencia}: quien
      * tuviera cualquiera de las dos sigue entrando, sin volver a asignarle permisos.
@@ -215,6 +220,7 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
     public Set<String> plantillaPorRol(String nombreRol) {
         String rol = nombreRol == null ? "" : nombreRol.toUpperCase();
         Set<String> todos = todosLosCodigos();
+        todos.removeAll(CODIGOS_ASIGNACION_EXPLICITA);
 
         switch (rol) {
             case "ADMINISTRADOR":
@@ -259,9 +265,24 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
                 ? usuario.getRol().getNombre().toUpperCase()
                 : "";
 
-        // ADMINISTRADOR siempre ve todo (evita autobloqueo).
+        // ADMINISTRADOR conserva el menú completo. Si tiene una selección propia,
+        // los permisos puros (botones/acciones) sí siguen sus casillas: quitar
+        // "Desaprobar activo" debe quitar también el botón y la autorización.
         if ("ADMINISTRADOR".equals(rol)) {
-            return todosLosCodigos();
+            Set<String> efectivos = todosLosCodigos();
+            efectivos.removeAll(CODIGOS_ASIGNACION_EXPLICITA);
+            if (usuario != null && usuario.getIdUsuario() != null) {
+                Set<String> propios = codigosPorUsuario(usuario.getIdUsuario());
+                if (!propios.isEmpty()) {
+                    Set<String> puros = listarItems().stream()
+                            .filter(o -> o.getUrl() == null || o.getUrl().isBlank())
+                            .map(OpcionMenu::getCodigo)
+                            .collect(Collectors.toSet());
+                    efectivos.removeAll(puros);
+                    propios.stream().filter(puros::contains).forEach(efectivos::add);
+                }
+            }
+            return efectivos;
         }
 
         // Permisos asignados explícitamente.

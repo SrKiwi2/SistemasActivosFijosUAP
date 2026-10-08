@@ -465,7 +465,7 @@
                                             <!-- Estado como texto (JS lo transformará a badge) -->
                                             <td th:text="${a.estadoActivo?.nombre}" class="text-center"></td>
 
-                                            <td th:text="${a.vidaUtil}" class="text-center"></td>
+                                            <td th:text="${puedeVerFinanzasActivo ? a.vidaUtil : 'Reservado'}" class="text-center"></td>
                                             <td th:text="${a.fechaAdquisicion}" class="text-center"></td>
                                         </tr>
                                     </tbody>

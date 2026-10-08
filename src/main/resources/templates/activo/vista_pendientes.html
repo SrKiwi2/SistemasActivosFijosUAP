@@ -566,7 +566,8 @@
             <i class="ti ti-box"></i> Administración de activos <i class="ti ti-chevron-right"></i> Activos pendientes
         </nav>
         <h1 class="sm-titulo">Activos pendientes de aprobación</h1>
-        <p class="sm-subtitulo">Agrupados por asignación: complete sus datos, asígneles el documento y súbalos al VSIAF.</p>
+        <p class="sm-subtitulo" th:if="${puedeSubirPendientesVsiaf}">Agrupados por asignación: complete sus datos, asígneles el documento y súbalos al VSIAF.</p>
+        <p class="sm-subtitulo" th:unless="${puedeSubirPendientesVsiaf}">Agrupados por asignación: complete sus datos y asígneles el documento.</p>
     </div>
     <div class="sm-cabecera-acciones">
         <button type="button" class="sm-btn sm-btn-neutro" id="pendBtnRecargar" title="Volver a cargar la lista">
@@ -599,7 +600,7 @@
         <button id="btnAsignarPrev" class="btn-barra btn-barra-doc">
             <i class="fa-solid fa-file-signature"></i> Asignar Doc.
         </button>
-        <button id="btnProcesarMasivo" class="btn-barra btn-barra-sync">
+        <button id="btnProcesarMasivo" class="btn-barra btn-barra-sync" th:if="${puedeSubirPendientesVsiaf}">
             <i class="fa-solid fa-cloud-arrow-up"></i> Subir al VSIAF
         </button>
         <button id="btnCancelarSeleccionados" class="btn-barra btn-barra-cancel"
@@ -1008,7 +1009,8 @@
             </div>
             <div class="modal-footer border-0 bg-light rounded-bottom">
                 <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" id="btnAprobarModal" class="btn btn-success px-4" disabled>
+                <button type="button" id="btnAprobarModal" class="btn btn-success px-4"
+                        th:if="${puedeSubirPendientesVsiaf}" disabled>
                     <i class="fa-solid fa-check-circle me-2"></i> Confirmar y Aprobar
                 </button>
             </div>
@@ -1777,6 +1779,7 @@
 
         /** Sincroniza todos los PENDIENTES de un grupo (idx numérico o 'sin') */
         function sincronizarGrupo(idx) {
+            if (!document.getElementById('btnProcesarMasivo')) return;
             const $chks = $(`.chk-item[data-grupo="${idx}"][data-estado="PENDIENTE"]`);
             if ($chks.length === 0) {
                 Swal.fire('Información', 'No hay activos pendientes en este grupo.', 'info');
@@ -2068,6 +2071,7 @@
         // SINCRONIZAR AL DBF
         // ────────────────────────────────────────────────
         function confirmarSincronizar(ids) {
+            if (!document.getElementById('btnProcesarMasivo')) return;
             Swal.fire({
                 title: `¿Registrar ${ids.length} activo${ids.length > 1 ? 's' : ''}?`,
                 html: `¡Importante! Se procedera a registrar los activos selecionados al <b>VSIAF</b>.`,

@@ -46,6 +46,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.ExcelAsignacionReportService;
 import com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService;
+import com.usic.SistemasActivosFijosUAP.model.service.seguridad.PermisosDatosActivos;
 
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import jakarta.servlet.http.HttpServletRequest;
@@ -376,7 +377,8 @@ public class ReportesController {
     /** Excel de todas las actas que cumplen el filtro — sin filtros, es "todo"; con filtros, es "por rango". */
     @ValidarUsuarioAutenticado
     @GetMapping("/asignaciones/exportar")
-    public ResponseEntity<byte[]> exportarReporteAsignaciones(@ModelAttribute FiltroReporteParams p) {
+    public ResponseEntity<byte[]> exportarReporteAsignaciones(@ModelAttribute FiltroReporteParams p, HttpServletRequest request) {
+        if (!PermisosDatosActivos.puedeVerFinanzas(request)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         try {
             List<AsignacionActivo> actas = asignacionActivoService
                     .buscarConFiltrosConDetalles(filtrosDe(p), p.getOrden(), descOrDefault(p));
@@ -399,7 +401,8 @@ public class ReportesController {
     /** Excel de una sola acta, con el mismo layout que el reporte general. */
     @ValidarUsuarioAutenticado
     @GetMapping("/asignaciones/{idEnc}/exportar")
-    public ResponseEntity<byte[]> exportarUnaAsignacion(@PathVariable String idEnc) {
+    public ResponseEntity<byte[]> exportarUnaAsignacion(@PathVariable String idEnc, HttpServletRequest request) {
+        if (!PermisosDatosActivos.puedeVerFinanzas(request)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         try {
             Long id = Long.parseLong(Encriptar.decrypt(idEnc));
             List<AsignacionActivo> actas = asignacionActivoService.findAllByIdInConDetalles(List.of(id));

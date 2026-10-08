@@ -73,12 +73,24 @@ public class SesionPermisosService {
      * recalculan en la próxima petición y el navegador se entera ya.
      */
     public void usuarioCambio(Long idUsuario, String mensaje) {
+        usuarioCambio(idUsuario, mensaje, List.of(), List.of());
+    }
+
+    /** Envía nombres y ubicación de los accesos que cambiaron, incluidos permisos de botones. */
+    public void usuarioCambio(Long idUsuario, String mensaje, List<AccesoAviso> habilitados,
+            List<AccesoAviso> retirados) {
         if (idUsuario == null) return;
         alConfirmar(() -> {
             versionPorUsuario.merge(idUsuario, 1L, Long::sum);
-            sse.enviarAUsuario(idUsuario, EVENTO_PERMISOS, payload(mensaje, false));
+            Map<String, Object> aviso = payload(mensaje, false);
+            if (!habilitados.isEmpty() || !retirados.isEmpty()) {
+                aviso.put("cambios", Map.of("habilitados", habilitados, "retirados", retirados));
+            }
+            sse.enviarAUsuario(idUsuario, EVENTO_PERMISOS, aviso);
         });
     }
+
+    public record AccesoAviso(String nombre, String modulo, String seccion, String tipo) {}
 
     /**
      * Cambiaron los datos personales (nombre, C.I.) de una persona: las sesiones de sus

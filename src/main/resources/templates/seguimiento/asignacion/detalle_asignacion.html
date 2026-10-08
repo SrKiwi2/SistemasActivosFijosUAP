@@ -253,7 +253,7 @@
         }
 
         // Tab Activos - poblar tabla
-        poblarTablaActivos(detalles, resumen, puedeEditar);
+        poblarTablaActivos(detalles, resumen, puedeEditar, data.puedeVerFinanzas === true);
 
         // Tab Historial
         poblarHistorial(historial);
@@ -300,7 +300,7 @@
             return `<span class="badge bg-secondary">${escHtml(sync)}</span>`;
         }
 
-        function poblarTablaActivos(detalles, resumen, puedeEditar) {
+        function poblarTablaActivos(detalles, resumen, puedeEditar, puedeVerFinanzas) {
             $('#badge-num-activos, #resumen-total-activos').text(resumen.total ?? detalles.length ?? 0);
             const subidos = resumen.subidos ?? 0, pendientes = resumen.pendientes ?? 0, enCola = resumen.enCola ?? 0, conError = resumen.conError ?? 0;
             $('#resumen-sync').html((subidos === 0 && pendientes === 0) ? '<span class="text-muted">—</span>' :
@@ -308,8 +308,8 @@
                 (pendientes > 0 ? ` <span class="text-muted">/</span> <span class="text-warning">${pendientes} pend.</span>` : '') +
                 (enCola > 0 ? ` <span class="text-muted">/</span> <span class="text-info" title="Esperando al worker">${enCola} en cola</span>` : '') +
                 (conError > 0 ? ` <span class="text-muted">/</span> <span class="text-danger fw-bold" title="El VSIAF rechazó el cambio">${conError} con error</span>` : ''));
-            $('#resumen-costo').text(fmtBs(resumen.costoTotal) ?? '0,00');
-            $('#resumen-costo-aviso').toggleClass('d-none', !resumen.sinCosto).text(resumen.sinCosto ? `parcial · ${resumen.sinCosto} sin costo` : '');
+            $('#resumen-costo').text(puedeVerFinanzas ? (fmtBs(resumen.costoTotal) ?? '0,00') : 'Reservado');
+            $('#resumen-costo-aviso').toggleClass('d-none', !puedeVerFinanzas || !resumen.sinCosto).text(puedeVerFinanzas && resumen.sinCosto ? `parcial · ${resumen.sinCosto} sin costo` : '');
 
             if (!detalles.length) {
                 $('#tbody-activos').html('<tr><td colspan="11" class="text-center text-muted py-4">Sin activos registrados</td></tr>');
@@ -330,7 +330,7 @@
                 const costoFmt = fmtBs(d.costo);
                 const costoActualFmt = fmtBs(d.costoActual);
                 const difiere = costoFmt !== null && costoActualFmt !== null && costoFmt !== costoActualFmt;
-                const costoCell = costoFmt === null ? '<span class="text-warning small fst-italic" title="Sin costo cargado">falta</span>' : `<span style="font-variant-numeric:tabular-nums">${costoFmt}</span>` + (difiere ? ` <i class="bx bx-info-circle text-warning" title="En acta: ${costoFmt} · Actual: ${costoActualFmt}"></i>` : '');
+                const costoCell = !puedeVerFinanzas ? '<span class="text-muted small">Reservado</span>' : costoFmt === null ? '<span class="text-warning small fst-italic" title="Sin costo cargado">falta</span>' : `<span style="font-variant-numeric:tabular-nums">${costoFmt}</span>` + (difiere ? ` <i class="bx bx-info-circle text-warning" title="En acta: ${costoFmt} · Actual: ${costoActualFmt}"></i>` : '');
                 const btnVer = d.idActivo ? `<button class="btn btn-sm btn-icon btn-outline-primary py-0 px-1 btn-ver-detalle-activo" data-idactivo="${d.idActivo}" title="Ver detalle"><i class="bx bx-show small"></i></button>` : '';
                 const btnCorr = (puedeEditar && d.editable && d.idEnc) ? `<button class="btn btn-sm btn-icon btn-outline-warning py-0 px-1 btn-corregir" data-idenc="${escHtml(d.idEnc)}" data-codigo="${escHtml(d.codigo)}" title="Corregir"><i class="bx bx-edit-alt small"></i></button>` : '';
                 const btnSubir = (puedeEditar && d.idActivo && sync === 'ACTIVO') ? `<button class="btn btn-sm btn-icon btn-outline-info py-0 px-1 btn-subir-vsiaf" data-idactivo="${d.idActivo}" data-codigo="${escHtml(d.codigo)}" title="Reintentar subida VSIAF"><i class="bx bx-upload small"></i></button>` : '';

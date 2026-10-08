@@ -53,6 +53,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.AuxiliarRegistroService;
+import com.usic.SistemasActivosFijosUAP.model.service.seguridad.PermisosDatosActivos;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -662,7 +663,8 @@ public class CatalogoRestController {
 
     @GetMapping("/activos/por-responsable")
     @ResponseBody
-    public ResponseEntity<?> activosPorResponsable(@RequestParam Long responsableId) {
+    public ResponseEntity<?> activosPorResponsable(@RequestParam Long responsableId,
+            HttpServletRequest request) {
         try {
             // Solo los ACTIVO: los PENDIENTE todavía no están aprobados y no existen en el
             // VSIAF, y los CANCELADO están dados de baja. Reasignar cualquiera de los dos
@@ -677,8 +679,8 @@ public class CatalogoRestController {
                 m.put("idActivo",    a.getIdActivo());
                 m.put("codigo",      a.getCodigo());
                 m.put("descripcion", a.getDescripcion());
-                m.put("vidaUtil",    a.getVidaUtil());
-                m.put("costo",       a.getCosto());
+                m.put("vidaUtil",    PermisosDatosActivos.puedeVerFinanzas(request) ? a.getVidaUtil() : null);
+                m.put("costo",       PermisosDatosActivos.puedeVerFinanzas(request) ? a.getCosto() : null);
                 m.put("estadoActivo", a.getEstadoActivo() != null
                     ? Map.of("nombre", a.getEstadoActivo().getNombre()) : null);
                 m.put("grupoContable", a.getGrupoContable() != null

@@ -156,9 +156,10 @@
                     <th class="th-orden text-end" onclick="ordenarPor('activos')">
                         BIENES <i class="bx" th:classappend="${orden == 'activos'} ? (${desc} ? 'bx-chevron-down' : 'bx-chevron-up') : 'bx-minus opacity-25'"></i>
                     </th>
-                    <th class="th-orden text-end" onclick="ordenarPor('costo')">
+                    <th th:if="${puedeVerFinanzasActivo}" class="th-orden text-end" onclick="ordenarPor('costo')">
                         COSTO (BS.) <i class="bx" th:classappend="${orden == 'costo'} ? (${desc} ? 'bx-chevron-down' : 'bx-chevron-up') : 'bx-minus opacity-25'"></i>
                     </th>
+                    <th th:unless="${puedeVerFinanzasActivo}" class="text-end">COSTO (BS.)</th>
                     <th class="text-center">VSIAF</th>
                     <th class="text-end" style="width:110px">ACCIONES</th>
                 </tr>
@@ -175,18 +176,6 @@
                                                ? #temporals.format(asignaciones[it.index - 1].fechaAsignacion, 'yyyy-MM')
                                                : null)}">
 
-                <tr th:if="${agrupaPorMes and asig.fechaAsignacion != null and claveMes != claveMesPrevia}"
-                    class="fila-mes">
-                    <td colspan="10">
-                        <span class="mes-nombre"
-                              th:text="${mesesNombre[asig.fechaAsignacion.monthValue] + ' ' + asig.fechaAsignacion.year}">MES</span>
-                        <span class="mes-conteo"
-                              th:if="${actasPorMes != null and actasPorMes.containsKey(claveMes)}"
-                              th:title="'Actas de este mes visibles en esta página'"
-                              th:text="${actasPorMes.get(claveMes)} + ' acta(s) en esta página'">0</span>
-                    </td>
-                </tr>
-
                 <tr th:id="'asig-row-' + ${asig.idAsignacionActivo}"
                     class="asig-row"
                     th:attr="data-idAsignacionActivo=${asig.idAsignacionActivo},
@@ -201,8 +190,8 @@
                              data-totalActivos=${res != null ? res.total : 0},
                              data-subidos=${res != null ? res.subidos : 0},
                              data-total=${res != null ? res.total : 0},
-                             data-costoTotal=${res != null ? res.costoTotal : 0},
-                             data-totalParcial=${res != null ? res.totalParcial : 0},
+                             data-costoTotal=${puedeVerFinanzasActivo and res != null ? res.costoTotal : ''},
+                             data-totalParcial=${puedeVerFinanzasActivo and res != null ? res.totalParcial : ''},
                              data-sincronizacion=${sinc},
                              data-carpetaDrive=${carpetasPorGestion != null and asig.fechaAsignacion != null and carpetasPorGestion.containsKey(asig.fechaAsignacion.year) ? carpetasPorGestion.get(asig.fechaAsignacion.year) : ''}"
                     th:with="res=${resumenes != null ? resumenes.get(asig.idAsignacionActivo) : null},
@@ -217,7 +206,15 @@
 
                     <th:block th:if="${mesClave != mesClavePrevia}" th:attr="data-mes-clave=${mesClave}"></th:block>
 
+                    <!-- DataTables exige nueve celdas en cada fila del tbody. El mes va dentro de la primera. -->
                     <td>
+                        <div th:if="${agrupaPorMes and asig.fechaAsignacion != null and claveMes != claveMesPrevia}"
+                             class="small fw-semibold text-primary mb-1">
+                            <span th:text="${mesesNombre[asig.fechaAsignacion.monthValue] + ' ' + asig.fechaAsignacion.year}">MES</span>
+                            <span th:if="${actasPorMes != null and actasPorMes.containsKey(claveMes)}"
+                                  class="text-muted fw-normal"
+                                  th:text="' · ' + ${actasPorMes.get(claveMes)} + ' acta(s)'"> · 1 acta</span>
+                        </div>
                         <div class="fw-semibold text-primary" style="font-size:.85rem" th:text="${asig.numeroAsignacion ?: 'Sin documento'}">—</div>
                         <div class="text-muted" style="font-size:.72rem">
                             <span th:text="${asig.codigoCompletoNormalizado ?: 'sin documento'}">—</span>
@@ -261,12 +258,13 @@
                     <td class="text-end num" th:text="${res != null ? res.total : 0}">0</td>
 
                     <td class="text-end num">
-                        <span th:if="${res != null}"
+                        <span th:if="${puedeVerFinanzasActivo and res != null}"
                               th:classappend="${res.totalParcial} ? 'text-warning' : ''"
                               th:title="${res.totalParcial ? 'Total parcial: ' + res.sinCosto + ' bien(es) sin costo cargado' : 'Costo total del acta'}"
                               th:text="${#numbers.formatDecimal(res.costoTotal, 1, 'POINT', 2, 'COMMA')}">0,00</span>
-                        <span th:if="${res != null and res.totalParcial}" class="text-warning" title="Total parcial">≈</span>
-                        <span th:unless="${res != null}" class="text-muted">—</span>
+                        <span th:if="${puedeVerFinanzasActivo and res != null and res.totalParcial}" class="text-warning" title="Total parcial">≈</span>
+                        <span th:unless="${puedeVerFinanzasActivo}" class="text-muted">Reservado</span>
+                        <span th:if="${puedeVerFinanzasActivo and res == null}" class="text-muted">—</span>
                     </td>
 
                     <td class="text-center">

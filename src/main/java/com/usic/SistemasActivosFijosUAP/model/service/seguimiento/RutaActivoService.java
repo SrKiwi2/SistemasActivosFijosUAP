@@ -100,7 +100,7 @@ public class RutaActivoService {
     // ── Ruta completa ──────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public Map<String, Object> ruta(String codigoBuscado) {
+    public Map<String, Object> ruta(String codigoBuscado, boolean verFinanzas) {
         String codigo = codigoBuscado == null ? "" : codigoBuscado.trim().toUpperCase();
         if (codigo.isEmpty()) throw new ReglaNegocioException("Escriba el código del activo.");
 
@@ -111,7 +111,7 @@ public class RutaActivoService {
         Long id = a.getIdActivo();
 
         List<Evento> eventos = new ArrayList<>();
-        eventosAlta(a, eventos);
+        eventosAlta(a, eventos, verFinanzas);
         eventosTransferencias(id, eventos);
         eventosActas(id, eventos);
         eventosMovimientosActa(id, eventos);
@@ -129,7 +129,7 @@ public class RutaActivoService {
         r.put("ok", true);
         r.put("codigoBuscado", codigo);
         r.put("codigoCambiado", !codigo.equalsIgnoreCase(a.getCodigo()));
-        r.put("activo", datosActivo(a));
+        r.put("activo", datosActivo(a, verFinanzas));
         List<Map<String, Object>> evs = new ArrayList<>();
         for (int i = eventos.size() - 1; i >= 0; i--) evs.add(eventos.get(i).aMapa()); // más reciente primero
         r.put("eventos", evs);
@@ -159,12 +159,12 @@ public class RutaActivoService {
 
     // ── Fuentes ────────────────────────────────────────────────────────────
 
-    private void eventosAlta(Activo a, List<Evento> eventos) {
+    private void eventosAlta(Activo a, List<Evento> eventos, boolean verFinanzas) {
         if (a.getFechaAdquisicion() != null) {
             Evento e = new Evento("ADQUISICION", "Adquisición del bien", inicioDelDia(a.getFechaAdquisicion()), true);
             e.icono = "ti ti-shopping-cart";
             e.color = "secondary";
-            e.detalle = a.getCosto() != null ? "Costo: Bs " + String.format("%,.2f", a.getCosto()) : null;
+            e.detalle = verFinanzas && a.getCosto() != null ? "Costo: Bs " + String.format("%,.2f", a.getCosto()) : null;
             e.orden = -2;
             eventos.add(e);
         }
@@ -512,7 +512,7 @@ public class RutaActivoService {
 
     // ── Datos de presentación ──────────────────────────────────────────────
 
-    private Map<String, Object> datosActivo(Activo a) {
+    private Map<String, Object> datosActivo(Activo a, boolean verFinanzas) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", a.getIdActivo());
         m.put("codigo", a.getCodigo());
@@ -520,7 +520,7 @@ public class RutaActivoService {
         m.put("estado", a.getEstadoActivo() != null ? a.getEstadoActivo().getNombre() : null);
         m.put("grupoContable", a.getGrupoContable() != null ? a.getGrupoContable().getNombre() : null);
         m.put("auxiliar", a.getAuxiliar() != null ? a.getAuxiliar().getNombre() : null);
-        m.put("costo", a.getCosto());
+        m.put("costo", verFinanzas ? a.getCosto() : null);
         m.put("fechaAdquisicion", a.getFechaAdquisicion() != null ? a.getFechaAdquisicion().toString() : null);
         m.put("oficina", oficina(a.getOficina()));
         m.put("responsable", responsable(a.getResponsable()));

@@ -23,6 +23,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.movil.ActivoDetalleMovilService;
 import com.usic.SistemasActivosFijosUAP.model.service.movil.EscaneoMovilService;
 import com.usic.SistemasActivosFijosUAP.model.service.movil.PermisosMovil;
+import com.usic.SistemasActivosFijosUAP.model.service.seguridad.PermisosDatosActivos;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -54,18 +55,18 @@ public class ActivoMovilController {
     /** Ficha completa: datos, historial, transferencias, asignaciones y mantenimientos. */
     @GetMapping("/activos/{codigo}/detalle")
     public ResponseEntity<ActivoDetalleDTO> detalle(@PathVariable String codigo) {
-        permisos.exigir(PermisosMovil.ESCANER);
+        UsuarioMovilPrincipal principal = permisos.exigir(PermisosMovil.ESCANER);
         return detalleService.detallePorCodigo(normalizar(codigo))
-                .map(ResponseEntity::ok)
+                .map(d -> ResponseEntity.ok(verFinanzas(principal) ? d : ocultarFinanzas(d)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     /** Solo la ficha, sin los listados. */
     @GetMapping("/activos/{codigo}")
     public ResponseEntity<ActivoFichaMovilDTO> ficha(@PathVariable String codigo) {
-        permisos.exigir(PermisosMovil.ESCANER);
+        UsuarioMovilPrincipal principal = permisos.exigir(PermisosMovil.ESCANER);
         return detalleService.fichaPorCodigo(normalizar(codigo))
-                .map(ResponseEntity::ok)
+                .map(f -> ResponseEntity.ok(verFinanzas(principal) ? f : ocultarFinanzas(f)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
@@ -78,7 +79,7 @@ public class ActivoMovilController {
      */
     @PostMapping("/activos/lote")
     public ResponseEntity<Map<String, Object>> lote(@RequestBody Map<String, List<String>> cuerpo) {
-        permisos.exigir(PermisosMovil.ESCANER);
+        UsuarioMovilPrincipal principal = permisos.exigir(PermisosMovil.ESCANER);
 
         List<String> pedidos = cuerpo.getOrDefault("codigos", List.of()).stream()
                 .map(this::normalizar)
@@ -94,7 +95,7 @@ public class ActivoMovilController {
 
         Map<String, Object> respuesta = new LinkedHashMap<>();
         respuesta.put("ok", true);
-        respuesta.put("activos", encontrados);
+        respuesta.put("activos", verFinanzas(principal) ? encontrados : encontrados.stream().map(this::ocultarFinanzas).toList());
         respuesta.put("noEncontrados", faltantes);
         return ResponseEntity.ok(respuesta);
     }
@@ -108,5 +109,26 @@ public class ActivoMovilController {
         if (codigo == null) return null;
         String limpio = codigo.trim();
         return limpio.replaceFirst("^\\d{2,4}-(?=\\d{2}-\\d{2}-\\d{2}-\\d{3,6}$)", "");
+    }
+
+    private boolean verFinanzas(UsuarioMovilPrincipal principal) {
+        return principal.tienePermiso(PermisosDatosActivos.VER_FINANZAS)
+                || principal.tienePermiso("opcion_activo")
+                || principal.tienePermiso("opcion_activop");
+    }
+
+    private ActivoFichaMovilDTO ocultarFinanzas(ActivoFichaMovilDTO f) {
+        return new ActivoFichaMovilDTO(f.idActivo(), f.codigo(), f.codigoVisual(), f.descripcion(),
+                f.estado(), f.estadoFisico(), null, null, null, f.fechaAdquisicion(),
+                f.observaciones(), f.grupoContable(), f.auxiliar(), f.organismoFinanciero(),
+                f.ubicacion(), f.responsable(), f.fechaUltimaModificacion(), f.usuarioUltimaModificacion());
+    }
+
+    private ActivoDetalleDTO ocultarFinanzas(ActivoDetalleDTO d) {
+        return new ActivoDetalleDTO(ocultarFinanzas(d.ficha()), d.historial(), d.transferencias(),
+                d.asignaciones(), d.mantenimientos().stream().map(m ->
+                    new ActivoDetalleDTO.MantenimientoResumen(m.idMantenimiento(), m.tipo(), m.fecha(),
+                        m.responsableTecnico(), m.problema(), m.solucion(), null,
+                        m.proximaFecha(), m.numeroTicket())).toList());
     }
 }

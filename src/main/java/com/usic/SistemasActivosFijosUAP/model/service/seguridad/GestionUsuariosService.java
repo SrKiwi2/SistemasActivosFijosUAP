@@ -36,6 +36,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.SesionUsuario;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ReglaNegocioException;
 import com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService;
+import com.usic.SistemasActivosFijosUAP.model.service.seguridad.SesionPermisosService.AccesoAviso;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -223,12 +224,13 @@ public class GestionUsuariosService {
         if (cambiaRol && RolesSciaf.ADMINISTRADOR.equals(rolAntes)) {
             exigirOtroAdministrador(u);
         }
+        Set<String> accesosAntes = cambiaRol ? opcionMenuService.opcionesEfectivas(u) : Set.of();
         String nombreAntes = u.getUsuario();
 
         u.setUsuario(nombre);
         u.setPersona(persona);
         u.setRol(rol);
-        Usuario guardado = usuarioDao.save(u);
+        Usuario guardado = cambiaRol ? usuarioDao.saveAndFlush(u) : usuarioDao.save(u);
 
         StringBuilder d = new StringBuilder("Modificó el usuario «" + nombre + "»");
         if (!nombre.equals(nombreAntes)) d.append(" (antes «").append(nombreAntes).append("»)");
@@ -242,7 +244,7 @@ public class GestionUsuariosService {
                             + (propios.isEmpty() ? ". Usa la plantilla del rol: su menú pasa a ser el del rol nuevo" : ""));
         }
         if (cambiaRol) {
-            sesionPermisos.usuarioCambio(u.getIdUsuario(), "Su rol cambió a " + rol.getNombre());
+            avisarCambioAccesos(u, "Su rol cambió a " + rol.getNombre(), accesosAntes);
         } else {
             sesionPermisos.usuarioCambio(u.getIdUsuario(), "Sus datos de usuario fueron actualizados");
         }
@@ -431,15 +433,16 @@ public class GestionUsuariosService {
                     + "(puede restaurar su respaldo) y después ajuste sus permisos.");
         }
         Set<String> antes = codigosPropios(u);
+        Set<String> accesosAntes = opcionMenuService.opcionesEfectivas(u);
 
         if (usarPlantilla) {
             u.getOpciones().clear();
-            usuarioDao.save(u);
+            usuarioDao.saveAndFlush(u);
             auditoria.registrar(u, HistorialPermisoUsuario.PLANTILLA_ROL, ORIGEN_PERMISOS, antes, Set.of(), null,
                     "Vuelve a la plantilla del rol " + RolesSciaf.rolDe(u));
             registrarActividad(actor, ActividadService.ACC_MODIFICACION, u,
                     "Dejó a «" + u.getUsuario() + "» con la plantilla de su rol (" + RolesSciaf.rolDe(u) + ")");
-            sesionPermisos.usuarioCambio(u.getIdUsuario(), "Sus permisos ahora son los de su rol");
+            avisarCambioAccesos(u, "Sus permisos ahora son los de su rol", accesosAntes);
             return "«" + u.getUsuario() + "» vuelve a ver el menú de su rol (" + RolesSciaf.rolDe(u) + ")";
         }
 
@@ -456,15 +459,35 @@ public class GestionUsuariosService {
             return "No hubo cambios en los permisos";
         }
         u.setOpciones(new HashSet<>(opciones));
-        usuarioDao.save(u);
+        usuarioDao.saveAndFlush(u);
         HistorialPermisoUsuario h = auditoria.registrar(u, HistorialPermisoUsuario.ASIGNACION, ORIGEN_PERMISOS,
                 antes, despues, null, antes.isEmpty() ? "Antes usaba la plantilla de su rol" : null);
         int mas = AuditoriaPermisosService.separar(h.getAgregados()).size();
         int menos = AuditoriaPermisosService.separar(h.getQuitados()).size();
         registrarActividad(actor, ActividadService.ACC_MODIFICACION, u,
                 "Permisos de «" + u.getUsuario() + "»: +" + mas + " / −" + menos + " (" + despues.size() + " en total)");
-        sesionPermisos.usuarioCambio(u.getIdUsuario(), "El administrador actualizó sus permisos");
+        avisarCambioAccesos(u, "Sus permisos fueron actualizados", accesosAntes);
         return "Permisos actualizados: +" + mas + " agregado(s), −" + menos + " quitado(s) (" + despues.size() + " en total)";
+    }
+
+    private void avisarCambioAccesos(Usuario usuario, String mensaje, Set<String> anteriores) {
+        Set<String> actuales = opcionMenuService.opcionesEfectivas(usuario);
+        Set<String> agregados = new HashSet<>(actuales);
+        agregados.removeAll(anteriores);
+        Set<String> quitados = new HashSet<>(anteriores);
+        quitados.removeAll(actuales);
+        sesionPermisos.usuarioCambio(usuario.getIdUsuario(), mensaje,
+                describirAccesos(agregados), describirAccesos(quitados));
+    }
+
+    private List<AccesoAviso> describirAccesos(Set<String> codigos) {
+        return opcionMenuService.buscarPorCodigos(codigos).stream()
+                .map(o -> new AccesoAviso(o.getDescripcion(), o.getGrupo(), o.getSeccion(),
+                        o.getUrl() == null || o.getUrl().isBlank() ? "ACCION" : "MODULO"))
+                .sorted(Comparator.comparing(AccesoAviso::seccion, Comparator.nullsLast(String::compareToIgnoreCase))
+                        .thenComparing(AccesoAviso::modulo, Comparator.nullsLast(String::compareToIgnoreCase))
+                        .thenComparing(AccesoAviso::nombre, Comparator.nullsLast(String::compareToIgnoreCase)))
+                .toList();
     }
 
     /**

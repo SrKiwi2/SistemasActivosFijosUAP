@@ -236,6 +236,7 @@
         repararInicioInyectado();
         // El Inicio, tal como vino en la página: se reinyecta cuando hace falta, nunca se pide.
         let inicioHtml = $contenido.html();
+        let inicioDesactualizado = false;
 
         // El layout puede terminar su carga mucho después que este gestor (y en algunos
         // despliegues tarda): se vigila un rato en vez de mirar solo un par de veces.
@@ -373,6 +374,11 @@
 
         function activar(i, forzarRecarga) {
             if (i < 0 || i >= pestanas.length) return;
+            if (pestanas[i].url === INICIO && inicioDesactualizado) {
+                guardarEstado(false);
+                window.location.reload();
+                return;
+            }
             if (activa === i && !forzarRecarga && pestanas[i].cargada) { marcarMenu(pestanas[i].url); return; }
 
             // Guardar y desprender la pestaña que se deja.
@@ -784,6 +790,23 @@
                 window.location.href = INICIO;
             },
             recargarActiva: () => activar(activa, true),
+            /** Un cambio de permisos afecta también botones y datos de pestañas ya cargadas. */
+            actualizarPorPermisos: aviso => {
+                inicioDesactualizado = true;
+                pestanas.forEach((p, i) => {
+                    if (i === activa || p.url === INICIO) return;
+                    p.$dom = null;
+                    p.cargada = false;
+                });
+                if (activa >= 0 && pestanas[activa] && pestanas[activa].url !== INICIO) {
+                    activar(activa, true);
+                } else if (activa >= 0 && pestanas[activa] && pestanas[activa].url === INICIO) {
+                    try { sessionStorage.setItem('sciaf.aviso.permisos', JSON.stringify(aviso)); } catch (_) {}
+                    window.location.reload();
+                    return true;
+                }
+                return false;
+            },
             abrir: url => abrir(url),
             cerrarActiva: () => cerrar(activa),
             guardarAhora: () => guardarEstado(false),

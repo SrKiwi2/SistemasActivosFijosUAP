@@ -145,6 +145,8 @@ public class OpcionMenuSeeder {
         { "opcion_activo_editar_codigo", "grp_adminactivos", "Editar código de activo (urgente)", "ti ti-barcode-off", "red" },
         { "opcion_activo_editar",        "grp_adminactivos", "Editar activo",                     "ti ti-pencil",      "amber" },
         { "opcion_activo_desaprobar",    "grp_adminactivos", "Desaprobar activo (VSIAF)",          "ti ti-arrow-down-circle", "red" },
+        { "opcion_activo_ver_finanzas",  "grp_adminactivos", "Ver información financiera completa de activos", "ti ti-coins", "amber" },
+        { "opcion_activop_subir_vsiaf", "grp_adminactivos", "Subir activos pendientes al VSIAF",  "ti ti-cloud-upload", "red" },
 
         // Cerrar un faltante es la acción sensible del módulo de control: da por
         // zanjado un bien que no apareció. Mirar el mapa no la requiere.
