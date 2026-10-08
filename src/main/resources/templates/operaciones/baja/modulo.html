@@ -14,7 +14,7 @@
     <div class="sm-cabecera-icono"><i class="ti ti-trash"></i></div>
     <div class="sm-cabecera-texto">
         <nav class="sm-migas" aria-label="Ubicación">
-            <i class="ti ti-box-multiple"></i> Bajas e ingresos <i class="ti ti-chevron-right"></i> Baja de activos
+            <i class="ti ti-route"></i> Movimientos <i class="ti ti-chevron-right"></i> Bajas
         </nav>
         <h1 class="sm-titulo">Baja de activos</h1>
         <p class="sm-subtitulo">Registre la baja con el informe de la unidad de hardware. El activo pasa a BAJA en el SCIAF;
@@ -64,6 +64,22 @@
     </div>
     <div id="bajaTablaContainer"></div>
 </section>
+
+<style>
+    #modBaja .bja-detalle-dialog { width: min(1060px, calc(100vw - 32px)); }
+    #modBaja #modalDetalleBaja .sm-detalle-content { height: auto; min-height: 420px; max-height: calc(100dvh - 32px); }
+    #modBaja .bja-detalle-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+    #modBaja .bja-justificacion { display: flex; align-items: flex-start; gap: .65rem; margin-top: 1rem; padding: .9rem 1rem; border: 1px solid var(--sm-borde); border-radius: 10px; background: var(--sm-superficie-2); }
+    #modBaja .bja-justificacion > i { color: var(--sm-primario); font-size: 1.2rem; }
+    #modBaja .bja-justificacion .sm-detalle-valor { font-weight: 500; white-space: pre-wrap; }
+    #modBaja #modalPdfBaja .sm-detalle-scroll { padding: 0 !important; }
+    #modBaja #bja-iframe-pdf { display: block; width: 100%; height: 100%; border: 0; }
+    @media (max-width: 767px) {
+        #modBaja .bja-detalle-dialog { width: calc(100vw - 16px); }
+        #modBaja #modalDetalleBaja .sm-detalle-content { height: calc(100dvh - 16px); }
+        #modBaja .bja-detalle-grid { grid-template-columns: 1fr; }
+    }
+</style>
 
 <!-- ═══ Registrar baja ═══ -->
 <div class="modal fade" id="modalRegistrarBaja" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
@@ -163,69 +179,62 @@
 </div>
 
 <!-- ═══ Detalle ═══ -->
-<div class="modal fade" id="modalDetalleBaja" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content sm-modal">
-            <div class="sm-modal-cab">
+<div class="modal fade" id="modalDetalleBaja" tabindex="-1" aria-hidden="true" aria-labelledby="det-numero">
+    <div class="modal-dialog modal-dialog-centered sm-detalle-dialog bja-detalle-dialog">
+        <div class="modal-content sm-modal sm-detalle-content">
+            <div class="sm-modal-cab sm-detalle-head">
                 <div class="sm-cabecera-icono"><i class="ti ti-file-description"></i></div>
-                <div>
+                <div class="flex-grow-1">
+                    <span class="sm-detalle-kicker">Movimientos · Baja de activos</span>
                     <h5 class="sm-modal-titulo" id="det-numero">—</h5>
                     <p class="sm-modal-sub" id="det-fecha">—</p>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="sm-modal-cuerpo">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="sm-seccion h-100 mb-0">
-                            <div class="sm-seccion-cab"><i class="ti ti-alert-triangle"></i> Baja</div>
-                            <div class="sm-seccion-cuerpo small">
-                                <div><span class="sm-sub">Motivo:</span> <b id="det-motivo">—</b></div>
-                                <div><span class="sm-sub">Fecha:</span> <b id="det-fecha2">—</b></div>
-                                <div><span class="sm-sub">N° documento:</span> <b id="det-doc">—</b></div>
-                            </div>
+            <div class="sm-detalle-scroll">
+                <div class="bja-detalle-grid">
+                    <section class="sm-detalle-panel">
+                        <div class="sm-detalle-panel-cab"><i class="ti ti-alert-triangle"></i> Datos de la baja</div>
+                        <div class="sm-detalle-grid">
+                            <div class="sm-detalle-campo"><span class="sm-detalle-label">Motivo</span><strong class="sm-detalle-valor" id="det-motivo">—</strong></div>
+                            <div class="sm-detalle-campo"><span class="sm-detalle-label">Fecha</span><strong class="sm-detalle-valor" id="det-fecha2">—</strong></div>
+                            <div class="sm-detalle-campo wide"><span class="sm-detalle-label">N° de documento</span><strong class="sm-detalle-valor" id="det-doc">—</strong></div>
                         </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="sm-seccion h-100 mb-0">
-                            <div class="sm-seccion-cab"><i class="ti ti-box"></i> Activo</div>
-                            <div class="sm-seccion-cuerpo small">
-                                <div><span class="sm-sub">Código:</span> <b class="sm-codigo" id="det-codigo">—</b></div>
-                                <div><span class="sm-sub">Descripción:</span> <span id="det-activo">—</span></div>
-                                <div><span class="sm-sub">Responsable:</span> <span id="det-resp">—</span></div>
-                                <div><span class="sm-sub">Oficina:</span> <span id="det-ofi">—</span></div>
-                            </div>
+                    </section>
+                    <section class="sm-detalle-panel">
+                        <div class="sm-detalle-panel-cab"><i class="ti ti-box"></i> Bien dado de baja</div>
+                        <div class="sm-detalle-grid">
+                            <div class="sm-detalle-campo"><span class="sm-detalle-label">Código</span><strong class="sm-detalle-valor sm-codigo" id="det-codigo">—</strong></div>
+                            <div class="sm-detalle-campo wide"><span class="sm-detalle-label">Descripción</span><span class="sm-detalle-valor" id="det-activo">—</span></div>
+                            <div class="sm-detalle-campo"><span class="sm-detalle-label">Responsable</span><span class="sm-detalle-valor" id="det-resp">—</span></div>
+                            <div class="sm-detalle-campo"><span class="sm-detalle-label">Oficina</span><span class="sm-detalle-valor" id="det-ofi">—</span></div>
                         </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="sm-aviso mb-0">
-                            <i class="ti ti-notes"></i>
-                            <div><b class="d-block small">Justificación</b><span id="det-descripcion">—</span></div>
-                        </div>
-                    </div>
+                    </section>
                 </div>
+                <div class="bja-justificacion"><i class="ti ti-notes"></i><div><span class="sm-detalle-label">Justificación registrada</span><span class="sm-detalle-valor" id="det-descripcion">—</span></div></div>
             </div>
-            <div class="sm-modal-pie">
-                <a id="det-informe" href="#" target="_blank" class="sm-btn sm-btn-peligro d-none">
-                    <i class="ti ti-file-type-pdf"></i> Ver informe adjunto
+            <div class="sm-detalle-footer">
+                <span class="sm-detalle-hint">El informe adjunto respalda el registro de la baja.</span>
+                <a id="det-informe" href="#" target="_blank" rel="noopener" class="sm-btn sm-btn-sm sm-btn-peligro d-none">
+                    <i class="ti ti-file-download"></i> Ver informe adjunto
                 </a>
-                <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal"><i class="ti ti-x"></i> Cerrar</button>
+                <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro" data-bs-dismiss="modal"><i class="ti ti-x"></i> Cerrar</button>
             </div>
         </div>
     </div>
 </div>
 
 <!-- ═══ Acta generada ═══ -->
-<div class="modal fade" id="modalPdfBaja" tabindex="-1">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content sm-modal">
-            <div class="sm-modal-cab">
-                <div class="sm-cabecera-icono"><i class="ti ti-file-type-pdf"></i></div>
-                <div><h5 class="sm-modal-titulo">Acta de baja generada</h5></div>
+<div class="modal fade" id="modalPdfBaja" tabindex="-1" aria-hidden="true" aria-labelledby="bja-pdf-titulo">
+    <div class="modal-dialog modal-dialog-centered sm-detalle-dialog">
+        <div class="modal-content sm-modal sm-detalle-content">
+            <div class="sm-modal-cab sm-detalle-head">
+                <div class="sm-cabecera-icono"><i class="ti ti-file-download"></i></div>
+                <div class="flex-grow-1"><span class="sm-detalle-kicker">Documento generado</span><h5 class="sm-modal-titulo" id="bja-pdf-titulo">Acta de baja</h5></div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="p-0">
-                <iframe id="bja-iframe-pdf" style="width:100%;height:70vh;border:none"></iframe>
+            <div class="sm-detalle-scroll">
+                <iframe id="bja-iframe-pdf" title="Vista previa del acta de baja"></iframe>
             </div>
         </div>
     </div>
@@ -332,6 +341,11 @@
             if (d.informe) $inf.attr('href', d.informe).removeClass('d-none');
             else $inf.addClass('d-none');
             bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalleBaja')).show();
+        });
+        $raiz.on('keydown', 'tr.baja-row', function (e) {
+            if (e.target !== this || (e.key !== 'Enter' && e.key !== ' ')) return;
+            e.preventDefault();
+            $(this).trigger('click');
         });
 
         /* ── Registrar ──────────────────────────────────────────────────── */

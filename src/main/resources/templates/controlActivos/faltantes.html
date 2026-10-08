@@ -687,9 +687,14 @@
             if (h.estadoHallazgo === 'EN_CUSTODIA') return '<span class="badge est-custodia">En custodia</span>';
             var msg = h.mensajeEnvio ? ' title="' + esc(h.mensajeEnvio) + '"' : '';
             switch (h.estadoEnvio) {
-                case 'ESPERANDO_ALTA': return '<span class="badge est-camino"' + msg + '>Preparando custodia</span>';
-                case 'ENVIADO':        return '<span class="badge est-camino"' + msg + '>Trasladando en VSIAF</span>';
-                case 'ERROR':          return '<span class="badge est-error"' + msg + '>Error de traslado <i class="ti ti-info-circle"></i></span>';
+                case 'ESPERANDO_ALTA': return '<span class="badge est-camino"' + msg + '>Preparando custodia</span>' +
+                    '<div class="small text-muted mt-1" style="max-width:280px;white-space:normal;">' +
+                    esc(h.mensajeEnvio || 'Esperando confirmación del alta de oficina y responsable en VSIAF.') + '</div>';
+                case 'ENVIADO': return '<span class="badge est-camino"' + msg + '>Trasladando en VSIAF</span>' +
+                    '<div class="small text-muted mt-1" style="max-width:280px;white-space:normal;">' +
+                    esc(h.mensajeEnvio || 'Esperando confirmación de la orden ACTUAL del bien.') + '</div>';
+                case 'ERROR': return '<span class="badge est-error"' + msg + '>Error de traslado <i class="ti ti-info-circle"></i></span>' +
+                    (h.mensajeEnvio ? '<div class="small text-danger mt-1" style="max-width:280px;white-space:normal;">' + esc(h.mensajeEnvio) + '</div>' : '');
             }
             return '<span class="badge est-abierto">Abierto · sin notificar</span>';
         }
@@ -928,8 +933,12 @@
                 // Resuelto dentro de un acta: no se reabre (si vuelve a faltar, va en un acta nueva).
                 acciones = h.idActa ? '' : '<button class="sm-btn sm-btn-sm sm-btn-neutro cf-reabrir" data-id="' +
                            h.idHallazgo + '" title="Reabrir"><i class="ti ti-rotate"></i></button>';
-            } else if (h.estadoEnvio === 'ENVIADO' || h.estadoEnvio === 'ESPERANDO_ALTA') {
-                acciones = '<span class="text-muted" style="font-size:.75rem;">en traslado…</span>';
+            } else if (h.estadoEnvio === 'ENVIADO') {
+                acciones = '<span class="text-muted" style="font-size:.75rem;">Esperando confirmación del traslado</span>';
+            } else if (h.estadoEnvio === 'ESPERANDO_ALTA') {
+                acciones = '<button class="sm-btn sm-btn-sm sm-btn-suave cf-resolver" data-id="' + h.idHallazgo +
+                           '" title="Si el bien apareció, puede resolverlo antes de trasladarlo a custodia">' +
+                           '<i class="ti ti-check me-1"></i>Resolver si apareció</button>';
             } else {
                 acciones = '<button class="sm-btn sm-btn-sm sm-btn-suave cf-resolver" data-id="' + h.idHallazgo +
                            '"><i class="ti ti-check me-1"></i>Resolver</button>';
@@ -943,6 +952,11 @@
                                 'data-codigo="' + esc(h.codigo || '') + '" ' +
                                 'title="Emitir la notificación de faltante por primera vez"><i class="ti ti-file-alert me-1"></i>Notificar falta</button>';
                 }
+            }
+            if (!resuelto && (h.estadoEnvio === 'ENVIADO' || h.estadoEnvio === 'ESPERANDO_ALTA') &&
+                    document.getElementById('btn-monitor-cola-vsiaf')) {
+                acciones += ' <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro cf-ver-cola ms-1" ' +
+                           'title="Ver las órdenes y errores del worker VSIAF"><i class="ti ti-list-details"></i> Ver cola</button>';
             }
             var detalleRes = resuelto
                 ? '<div style="font-size:.74rem;" class="text-success"><i class="ti ti-circle-check"></i> ' +
@@ -979,6 +993,9 @@
                 }
                 dialogoResolver(s);
             }).fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudo leer el faltante.'), 'error'); });
+        });
+        $(document).on('click.cf', '#cf-wrap .cf-ver-cola', function () {
+            document.getElementById('btn-monitor-cola-vsiaf')?.click();
         });
 
         function dialogoResolver(s) {

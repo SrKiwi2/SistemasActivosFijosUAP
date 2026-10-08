@@ -528,7 +528,7 @@ public class CustodiaFaltantesService {
             mensaje = String.join(" ", fallas);
         } else if (encolo) {
             mensaje = "Custodia lista en " + OficinaGestionService.referencia(oficina)
-                    + ". Enviada al VSIAF: el worker la aplica en unos segundos.";
+                    + ". Alta encolada: se espera la confirmación del worker VSIAF.";
         } else {
             mensaje = "Custodia existente: " + ResponsableGestionService.referencia(custodio) + ".";
         }

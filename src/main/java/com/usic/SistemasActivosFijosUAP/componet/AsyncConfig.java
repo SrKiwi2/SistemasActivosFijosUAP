@@ -1,9 +1,8 @@
 package com.usic.SistemasActivosFijosUAP.componet;
 
-import java.util.concurrent.Executor;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -20,7 +19,8 @@ public class AsyncConfig {
      * - queue=10: máximo 10 tareas esperando
      */
     @Bean(name = "syncTaskExecutor")
-    public Executor syncTaskExecutor() {
+    @Primary
+    public ThreadPoolTaskExecutor syncTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(2);
         executor.setMaxPoolSize(4);

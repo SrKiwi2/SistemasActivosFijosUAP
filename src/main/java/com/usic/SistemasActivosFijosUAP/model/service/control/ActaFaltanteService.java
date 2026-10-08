@@ -165,7 +165,7 @@ public class ActaFaltanteService {
 
         return new Registro(creada.idActa(), numero, creada.idsHallazgo().size(),
                 "Notificación " + numero + " registrada con " + creada.idsHallazgo().size()
-                        + " bien(es). El traslado a la custodia se aplica en el VSIAF en unos segundos.");
+                        + " bien(es). El traslado a la custodia continuará cuando el worker confirme el alta de la oficina y del responsable.");
     }
 
     /**

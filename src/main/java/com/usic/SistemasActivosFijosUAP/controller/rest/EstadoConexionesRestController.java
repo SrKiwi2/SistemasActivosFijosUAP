@@ -7,14 +7,20 @@ import java.util.Map;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.usic.SistemasActivosFijosUAP.componet.MonitorConexionesService;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.EstadoConexionDto;
 import com.usic.SistemasActivosFijosUAP.model.service.ColaVsiafDiagnosticoService;
+import com.usic.SistemasActivosFijosUAP.model.dao.IDbfColaOrdenDao;
+import com.usic.SistemasActivosFijosUAP.model.entity.DbfColaOrden;
 
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +40,7 @@ public class EstadoConexionesRestController {
 
     private final MonitorConexionesService monitor;
     private final ColaVsiafDiagnosticoService colaDiagnostico;
+    private final IDbfColaOrdenDao colaOrdenDao;
 
     /**
      * Latido para el preloader de las pantallas (sciaf-precarga.js): no toca disco, base ni
@@ -71,6 +78,42 @@ public class EstadoConexionesRestController {
     public ResponseEntity<?> colaVsiaf(HttpSession session) {
         if (!esAdministrador(session)) return denegado();
         return ResponseEntity.ok(colaDiagnostico.diagnostico());
+    }
+
+    /** Órdenes reales de la cola, con filtros y paginación para revisar errores y confirmaciones. */
+    @GetMapping("/cola-vsiaf/ordenes")
+    public ResponseEntity<?> ordenesVsiaf(@RequestParam(defaultValue = "TODAS") String estado,
+                                          @RequestParam(defaultValue = "0") int pagina,
+                                          HttpSession session) {
+        if (!esAdministrador(session)) return denegado();
+        String filtro = estado.trim().toUpperCase();
+        if (!List.of("TODAS", DbfColaOrden.ENCOLADA, DbfColaOrden.OK,
+                DbfColaOrden.ERROR, DbfColaOrden.REINTENTADA).contains(filtro)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Estado de orden no válido."));
+        }
+        PageRequest paginacion = PageRequest.of(Math.max(0, Math.min(pagina, 100000)), 25,
+                Sort.by(Sort.Direction.DESC, "idOrden"));
+        Page<DbfColaOrden> ordenes = "TODAS".equals(filtro)
+                ? colaOrdenDao.findAll(paginacion)
+                : colaOrdenDao.findByEstadoOrderByIdOrdenDesc(filtro, paginacion);
+        List<Map<String, Object>> filas = ordenes.getContent().stream().map(o -> {
+            Map<String, Object> fila = new LinkedHashMap<>();
+            fila.put("id", o.getIdOrden());
+            fila.put("tabla", o.getTabla());
+            fila.put("operacion", o.getOperacion());
+            fila.put("referencia", o.getReferencia());
+            fila.put("clave", o.getClave());
+            fila.put("archivo", o.getArchivo());
+            fila.put("usuario", o.getUsuario());
+            fila.put("estado", o.getEstado());
+            fila.put("mensaje", o.getMensaje());
+            fila.put("intentos", o.getIntentos());
+            fila.put("fechaEncolado", o.getFechaEncolado());
+            fila.put("fechaResuelto", o.getFechaResuelto());
+            return fila;
+        }).toList();
+        return ResponseEntity.ok(Map.of("ordenes", filas, "pagina", ordenes.getNumber(),
+                "paginas", ordenes.getTotalPages(), "total", ordenes.getTotalElements()));
     }
 
     // =========================================================================

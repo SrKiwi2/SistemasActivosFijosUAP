@@ -22,6 +22,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -336,7 +337,7 @@ public class CAsignacionActivoController {
 
         try {
             ResultadoOperacionActa resultado = asignacionEdicionService.trasladar(
-                    new TrasladoActaDTO(id, req.getIdsActivos(), req.isAdoptarDestino(), req.getMotivo()),
+                    new TrasladoActaDTO(id, req.getIdsActivos(), req.isAdoptarDestino(), req.getMotivo(), req.getIdActaOrigen()),
                     usuario);
 
             Map<String, Object> cuerpo = new LinkedHashMap<>();
@@ -634,6 +635,7 @@ public class CAsignacionActivoController {
     @ValidarUsuarioAutenticado
     @GetMapping("/buscar-acta")
     @ResponseBody
+    @Transactional(readOnly = true)
     public ResponseEntity<?> buscarActa(@RequestParam String q,
                                         @RequestParam(required = false) Long excluir) {
         if (q == null || q.trim().length() < 2) {
@@ -664,6 +666,7 @@ public class CAsignacionActivoController {
     @lombok.Getter @lombok.Setter
     public static class TrasladoActaRequest {
         private List<Long> idsActivos;
+        private Long idActaOrigen;
         private boolean adoptarDestino;
         private String motivo;
     }
@@ -813,6 +816,7 @@ public class CAsignacionActivoController {
     @ValidarUsuarioAutenticado
     @GetMapping("/asignaciones/{id}/detalles-json")
     @ResponseBody
+    @Transactional(readOnly = true)
     public ResponseEntity<?> obtenerDetallesAsignacionJson(@PathVariable Long id, HttpServletRequest httpReq) {
         try {
             boolean verFinanzas = PermisosDatosActivos.puedeVerFinanzas(httpReq);
@@ -829,6 +833,7 @@ public class CAsignacionActivoController {
                 Map<String, Object> map = new LinkedHashMap<>();
 
                 Activo activo = d.getActivo();
+                map.put("estadoDetalle", d.getEstadoDetalle());
 
                 // Código — primero snapshot, luego entidad viva
                 map.put("codigo",
@@ -960,10 +965,30 @@ public class CAsignacionActivoController {
                 && usuario.getRol().getNombre() != null
                 && ROLES_EDICION.contains(usuario.getRol().getNombre().trim().toUpperCase());
 
-            // Ids planos de la cabecera, para precargar el modal de "Editar cabecera"
-            // sin pedir otro endpoint: esta ruta ya se llama cada vez que se abre el
-            // detalle del acta.
+            // La ficha del movimiento y los formularios de edición usan la misma
+            // cabecera: entregar aquí los datos visibles evita otra consulta al abrir.
             Map<String, Object> cabecera = new LinkedHashMap<>();
+            cabecera.put("idAsignacionActivo", asig.getIdAsignacionActivo());
+            cabecera.put("numeroAsignacion", asig.getNumeroAsignacion());
+            cabecera.put("codigoDocumento", asig.getCodigoDocumento());
+            cabecera.put("codigoCompletoNormalizado", asig.getCodigoCompletoNormalizado());
+            cabecera.put("fechaAsignacion", asig.getFechaAsignacion() != null ? asig.getFechaAsignacion().toString() : null);
+            cabecera.put("tipoAsignacion", asig.getTipoAsignacion());
+            cabecera.put("estadoAsignacion", asig.getEstadoAsignacion());
+            cabecera.put("documentoReferencia", asig.getDocumentoReferencia());
+            cabecera.put("responsableOrigen", asig.getResponsableOrigen() != null && asig.getResponsableOrigen().getPersona() != null
+                    ? asig.getResponsableOrigen().getPersona().getNombreCompleto() : null);
+            cabecera.put("responsableOrigenCodigo", asig.getResponsableOrigen() != null
+                    ? asig.getResponsableOrigen().getCodigoFuncionario() : null);
+            cabecera.put("responsable", asig.getResponsable() != null && asig.getResponsable().getPersona() != null
+                    ? asig.getResponsable().getPersona().getNombreCompleto() : null);
+            cabecera.put("responsableCodigo", asig.getResponsable() != null ? asig.getResponsable().getCodigoFuncionario() : null);
+            cabecera.put("oficinaDestino", asig.getOficinaDestino() != null ? asig.getOficinaDestino().getNombre() : null);
+            cabecera.put("oficinaDestinoCodigo", asig.getOficinaDestino() != null ? asig.getOficinaDestino().getCodOfi() : null);
+            cabecera.put("fechaRegistro", asig.getRegistro() != null ? asig.getRegistro().toInstant().toString() : null);
+            cabecera.put("usuarioRegistro", resolverNombreUsuario(asig.getRegistroIdUsuario()));
+            cabecera.put("fechaModificacion", asig.getModificacion() != null ? asig.getModificacion().toInstant().toString() : null);
+            cabecera.put("usuarioModificacion", resolverNombreUsuario(asig.getModificacionIdUsuario()));
             cabecera.put("idResponsable", asig.getResponsable() != null
                     ? asig.getResponsable().getIdResponsable() : null);
             cabecera.put("idOficinaDestino", asig.getOficinaDestino() != null

@@ -248,6 +248,10 @@ public class AsignacionEdicionService {
 
         List<DetalleAsignacionActivo> vigentes = detalleDao.vigentesDeActivos(solicitud.idsActivos());
         validarQueTodosTenganActa(solicitud.idsActivos(), vigentes, destino);
+        if (solicitud.idActaOrigenEsperada() != null && vigentes.stream().anyMatch(d ->
+                !solicitud.idActaOrigenEsperada().equals(d.getAsignacionActivo().getIdAsignacionActivo()))) {
+            throw new IllegalArgumentException("Algún bien ya no pertenece al acta de origen. Vuelva a abrir el detalle antes de trasladar.");
+        }
 
         Responsable responsableDestino = destino.getResponsable();
         Oficina oficinaDestino = destino.getOficinaDestino();

@@ -191,6 +191,10 @@ correo, extensión, nacionalidad, género y la auditoría de registro).
 | Activos › Pendientes | grupos | SOLO cabecera y preloader. Bugs: abría su propio EventSource (ahora escucha sciaf:pendientes-cambio que reemite head.html) y, en segundo plano, cargarTabla escribía en el #tablaRegistro de OTRA pestaña |
 | Transferencias › Transferencia de activos | propia (tf-) | conserva su diseño y lógica; cabecera de la plantilla, colores tf- atados a los tokens --sm-* (modo oscuro), alto ajustado a la ventana. Bugs: predio podía mostrar "null", quitar fila armaba el código en un onclick, aviso de personas parecidas sin escapar, mayúsculas en el alta de responsable |
 | Movimientos › Asignación de activos | propia (aa-) | conserva diseño y lógica; cabecera de la plantilla, alto ajustado. Bugs: tokens en :root y ~15 reglas de Select2 GLOBALES (cambiaban todo el sistema con la pantalla abierta) → acotados a .aa-pantalla con dropdownParent; registrar un responsable nuevo vaciaba los activos cargados; predio con "null"; aviso sin escapar; mayúsculas |
+| Movimientos › Asignaciones | servidor + modal de consulta | `seguimiento/asignacion/`: detalle de acta con `sm-detalle-*`, campos en rejilla, pestañas y pie fijos, tabla de bienes y auditoría; separación y traslado de bienes vigentes mediante selección y formulario guiado; valores de bienes e historial escapados al dibujarse |
+| Movimientos › Transferencias | navegador + modal de consulta | `seguimiento/transferencia/`: barra y tabla `sm-*`, filtros en servidor, detalle de transferencia por pestañas y ficha comparativa del bien; retorno al modal principal al cerrar la ficha |
+| Movimientos › Ingresos | lista + detalle + visor | `seguimiento/ingreso/` conserva el panel dividido; visor de fotografías con título, cierre visible, teclado y foco; el comprobante usa `sm-detalle-*` |
+| Movimientos › Bajas | navegador + modal de consulta | `operaciones/baja/modulo.html`: detalle con paneles de documento y bien, justificación destacada y visor PDF con cabecera fija; el registro conserva su formulario `sm-*` |
 | Bajas e ingresos › Baja de activos | navegador | operaciones/baja/modulo.html con la plantilla (tabla con SciafModulo.tabla + filtroFila). Bugs: /baja/registro sin sesión y permitía dar de baja dos veces el mismo activo; fecha por defecto en UTC (de noche daba mañana); listado con 4 consultas por fila. seguimiento/baja/vista.html borrada (rota: otro modelo de bajas, endpoints inexistentes); /administracion/baja/vista apunta al módulo |
 | Bajas e ingresos › Ingreso de bienes ajenos | propia (ia-) + plantilla | modulo con la plantilla; seguimiento (ia-) con tokens acotados (antes :root), cabecera solo cuando se abre sola (ingresoModulo). Bugs: fecha de retiro +3 meses mal calculada por zona horaria y usada en el PDF (ahora la calcula el servidor); fechas del seguimiento un día antes; filtro de responsables con TODOS + N+1; datos de Londra sin escapar; sin sesión → NPE |
 | Hojas de ruta › Búsqueda y Seguimiento | navegador + detalle | hojaRuta/seguimiento.html (lista a la izquierda, hoja elegida con su trayectoria a la derecha) + fragmento hojaRuta/tabla.html; llega con la vista (gestión actual); gestión y unidad vuelven a pedir la tabla, estado con segmento y contadores; columna nueva «Dónde está» (destino del último movimiento). Solo ADMINISTRADOR / SUPER USUARIO, validado en el controlador. Bugs: listado repetía cada hoja por cada movimiento (JOIN sin DISTINCT) y hacía 3-4 consultas por hoja; estado salía «1/2/3»; «estado actual» con dos movimientos el mismo día al azar (ahora fecha, hora, id); /listar respondía sin sesión; /buscar de una hoja inexistente daba 500; registrar no era transaccional; doble clic duplicaba hojas y solicitantes (turno pg_advisory_xact_lock + botón bloqueado); escrituras abiertas a cualquier rol (ahora RECEPCION y ADMINISTRADOR) y lecturas a cualquier sesión con el permiso. La página de **Recepción** (hojaRuta/vista.html + script-hoja-ruta.js) conserva su diseño: solo bugs (XSS en descripción/solicitante/unidades, fecha de mañana desde las 20:00, modal nuevo sin fecha/hora/gestión, abría por tipo+N°+gestión en vez de por id) |
@@ -211,6 +215,41 @@ le da scroll a `.modal-body`; la plantilla lo hace también con `.sm-modal-cuerp
 quedan siempre a la vista, y el cuerpo se desplaza. No ponerle `overflow: visible` al cuerpo.
 Una tabla larga dentro del modal lleva su propio `max-height` (unos 40vh) para no empujar lo que
 viene después.
+
+## Modales de consulta de movimientos
+
+Referencia: Movimientos → Transferencias (`seguimiento/transferencia/vista.html`). Para
+Asignaciones, Ingresos y Bajas, usar la misma jerarquía visual cuando se consultan datos:
+
+- Cabecera fija con ícono, contexto, número o código destacado, fecha y estados visibles.
+- Pestañas si hay conjuntos distintos (resumen, bienes, historial, auditoría). Mantener la
+  cabecera, las pestañas y las acciones a la vista; solo el contenido central se desplaza.
+- Documento y responsables en paneles separados. Mostrar etiquetas pequeñas sobre valores
+  legibles que puedan envolver líneas; evitar pares etiqueta/valor comprimidos en una fila.
+- Para un bien, comparar en dos columnas el dato registrado en el movimiento y su situación
+  actual. Mostrar el estado VSIAF y su mensaje al pie; ocultar importes si el API no los autoriza.
+- Tabla de bienes con encabezado fijo, búsqueda y una acción clara de «Ver ficha». Cada fila
+  que abre un detalle debe responder también a Enter y Espacio.
+- Usar los tokens `--sm-*` para superficies, texto, bordes y estados. Los colores de estado
+  conservan su significado; un aviso crítico se destaca sin teñir todo el modal.
+- En móvil, apilar columnas y usar casi todo el alto disponible, con acciones siempre visibles.
+
+La plantilla global aporta `sm-detalle-dialog`, `sm-detalle-content`, `sm-detalle-head`,
+`sm-detalle-body`, `sm-detalle-tabs`, `sm-detalle-scroll`, `sm-detalle-panel`,
+`sm-detalle-grid`, `sm-detalle-campo` y `sm-detalle-footer` en `sciaf-modulo.css`.
+Acotar los selectores y eventos al módulo; al pasar de un modal padre a la ficha de un bien,
+cerrar el primero y volver a abrirlo al regresar, para mantener un solo backdrop.
+
+En **Movimientos → Asignaciones**, las acciones «Separar a acta nueva» y «Trasladar a otra
+acta» parten de bienes vigentes seleccionados en la pestaña Activos. El formulario muestra
+los bienes antes de confirmar, exige un motivo y valida el documento o el acta destino.
+Si el usuario elige cambiar responsable y oficina durante el traslado, debe marcarlo de
+forma explícita porque puede generar órdenes nuevas para el worker VSIAF.
+
+El monitor global de esas órdenes está en **Estado de conexiones → Ver órdenes de la cola
+VSIAF** (barra superior, solo administradores). Usa `/api/estado/cola-vsiaf` para el
+diagnóstico del worker y `/api/estado/cola-vsiaf/ordenes` para la lista paginada por estado;
+se puede revisar toda la cola, las órdenes pendientes, confirmadas, fallidas y reintentadas.
 
 ## Modales con decisiones (pasos guiados)
 

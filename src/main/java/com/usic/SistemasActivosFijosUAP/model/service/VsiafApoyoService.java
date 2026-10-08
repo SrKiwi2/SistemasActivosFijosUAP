@@ -294,6 +294,13 @@ public class VsiafApoyoService {
             }
         } catch (Exception e) {
             log.warn("[VSIAF] No se pudo leer la cola para {}: {}", tabla, e.getMessage());
+            // Sin la consulta no sabemos si el worker confirmó el alta. Tratarla como
+            // VSIAF permitiría mover un bien hacia una oficina aún inexistente allí.
+            for (Long id : pendiente.keySet()) {
+                out.put(id, new EstadoVsiaf(EST_EN_COLA, "Sin confirmación",
+                        "No se pudo consultar la cola del VSIAF. El traslado espera hasta poder verificarla."));
+            }
+            return out;
         }
 
         for (Map.Entry<Long, Boolean> e : pendiente.entrySet()) {

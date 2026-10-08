@@ -1,517 +1,425 @@
-<!-- /seguimiento/transferencia/vista.html -->
-<h4 class="py-3 mb-4">
-    <span class="text-muted fw-light">Seguimiento /</span> Transferencia de Activos
-</h4>
+<!-- Movimientos / Transferencias: plantilla compartida sm-* -->
+<div class="sm-pagina" id="modTransferencias">
+    <header class="sm-cabecera">
+        <div class="sm-cabecera-icono"><i class="ti ti-arrows-exchange-2"></i></div>
+        <div class="sm-cabecera-texto">
+            <nav class="sm-migas" aria-label="Ubicación"><i class="ti ti-route"></i> Movimientos <i class="ti ti-chevron-right"></i> Transferencias</nav>
+            <h1 class="sm-titulo">Transferencias de activos</h1>
+            <p class="sm-subtitulo">Consulta de transferencias internas y externas, sus bienes y su estado en VSIAF.</p>
+        </div>
+        <div class="sm-cabecera-acciones">
+            <span class="sm-dato"><strong id="stat-total">—</strong> total</span>
+            <span class="sm-dato"><strong id="stat-internas">—</strong> internas</span>
+            <span class="sm-dato"><strong id="stat-externas">—</strong> externas</span>
+            <span class="sm-dato"><strong id="stat-completadas">—</strong> completadas</span>
+            <span class="sm-dato sm-dato-faltantes d-none" id="stat-faltantes"><i class="ti ti-alert-circle"></i><strong>0</strong> por faltante</span>
+        </div>
+    </header>
 
-<!-- Tarjetas de resumen: mismo formato que las de Asignación -->
+    <section class="sm-card">
+        <div class="sm-toolbar">
+            <div class="sm-buscador">
+                <i class="ti ti-search"></i>
+                <input type="text" id="filtro-buscar" class="sm-input" data-sm-mayus="no"
+                       placeholder="Buscar N° transferencia, documento, responsable…" autocomplete="off" aria-label="Buscar transferencia">
+                <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+            </div>
+            <select id="filtro-tipo" class="sm-select trf-filtro" aria-label="Tipo de transferencia">
+                <option value="">Todos los tipos</option><option value="INTERNA">Interna</option><option value="EXTERNA">Externa</option>
+            </select>
+            <select id="filtro-motivo" class="sm-select trf-filtro trf-filtro-motivo" aria-label="Motivo de transferencia">
+                <option value="">Todos los motivos</option><option value="NORMAL">Transferencia normal</option>
+                <option value="FALTANTES">Faltantes (ida y vuelta)</option><option value="FALTANTE">Envío a faltantes</option>
+                <option value="DEVOLUCION_FALTANTE">Faltante devuelto</option>
+            </select>
+            <select id="filtro-estado" class="sm-select trf-filtro" aria-label="Estado de transferencia">
+                <option value="">Todos los estados</option><option value="PENDIENTE">Pendiente</option>
+                <option value="EN_PROCESO">En proceso</option><option value="COMPLETADA">Completada</option><option value="ANULADA">Anulada</option>
+            </select>
+            <label class="trf-fecha">Desde <input type="date" id="filtro-desde" class="sm-input" aria-label="Fecha desde"></label>
+            <label class="trf-fecha">Hasta <input type="date" id="filtro-hasta" class="sm-input" aria-label="Fecha hasta"></label>
+            <div class="sm-toolbar-espacio"></div>
+            <label class="sm-filas"><i class="ti ti-list-numbers"></i> Filas
+                <select class="sm-select js-largo" aria-label="Filas por página">
+                    <option value="auto">Ajustar a pantalla</option><option value="10">10</option>
+                    <option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="-1">Todas</option>
+                </select>
+            </label>
+            <div class="sm-toolbar-grupo">
+                <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-limpiar"><i class="ti ti-filter-x"></i> Limpiar</button>
+                <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-actualizar"><i class="ti ti-refresh"></i> Actualizar</button>
+                <button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-exportar-pdf"><i class="ti ti-file-export"></i> PDF</button>
+                <button type="button" class="sm-btn sm-btn-sm sm-btn-exito js-exportar-excel"><i class="ti ti-file-spreadsheet"></i> Excel</button>
+            </div>
+        </div>
+        <div id="tablaRegistro" class="js-tabla"></div>
+    </section>
+
 <style>
-    /* Íconos centrados dentro del avatar (mismo arreglo que en Asignación). */
-    .avatar i { display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; }
-</style>
-<div class="row g-3 mb-3">
-    <div class="col-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body py-3 d-flex align-items-center gap-3">
-                <div class="avatar avatar-sm bg-label-primary rounded"><i class="bx bx-transfer"></i></div>
-                <div>
-                    <div class="fs-5 fw-bold lh-1" id="stat-total">—</div>
-                    <small class="text-muted">Total transferencias</small>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body py-3 d-flex align-items-center gap-3">
-                <div class="avatar avatar-sm bg-label-info rounded"><i class="bx bx-building"></i></div>
-                <div>
-                    <div class="fs-5 fw-bold lh-1" id="stat-internas">—</div>
-                    <small class="text-muted">Internas</small>
-                    <small class="d-block text-danger fw-semibold" id="stat-faltantes" style="display:none !important">
-                        <i class="bx bx-error-circle"></i> <span>0</span> por faltante
-                    </small>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body py-3 d-flex align-items-center gap-3">
-                <div class="avatar avatar-sm bg-label-warning rounded"><i class="bx bx-globe"></i></div>
-                <div>
-                    <div class="fs-5 fw-bold lh-1" id="stat-externas">—</div>
-                    <small class="text-muted">Externas</small>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body py-3 d-flex align-items-center gap-3">
-                <div class="avatar avatar-sm bg-label-success rounded"><i class="bx bx-check-double"></i></div>
-                <div>
-                    <div class="fs-5 fw-bold lh-1 text-success" id="stat-completadas">—</div>
-                    <small class="text-muted">Completadas</small>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+    #modTransferencias .trf-filtro { width: auto; min-width: 145px; flex: 0 1 180px; }
+    #modTransferencias .trf-filtro-motivo { flex-basis: 220px; }
+    #modTransferencias .trf-fecha { display: flex; align-items: center; gap: .35rem; margin: 0; color: var(--sm-texto-2); font-size: .85rem; }
+    #modTransferencias .trf-fecha .sm-input { width: 145px; }
+    #modTransferencias .sm-dato-faltantes { color: var(--sm-peligro); }
+    #modTransferencias .sm-dato-faltantes strong { color: var(--sm-peligro); }
+    #modTransferencias .tabla-transferencias .trf-row { cursor: pointer; }
+    #modTransferencias .tabla-transferencias .trf-row > td { font-size: .86rem; }
+    #modTransferencias .tabla-transferencias .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    #modTransferencias .tabla-transferencias .trf-faltante > td { background: rgba(var(--sm-peligro-rgb), .08); }
+    #modTransferencias .tabla-transferencias .trf-faltante:hover > td { background: rgba(var(--sm-peligro-rgb), .15); }
+    #modTransferencias .tabla-transferencias .trf-faltante > td:first-child { box-shadow: inset 4px 0 0 var(--sm-peligro); }
+    #modTransferencias .tabla-transferencias .trf-devolucion > td:first-child { box-shadow: inset 4px 0 0 var(--sm-peligro-claro); }
+    #modTransferencias .badge-devolucion { background: var(--sm-superficie); color: var(--sm-peligro); border: 1px solid var(--sm-peligro-claro); }
+    #modTransferencias .trf-descargar { width: 36px; padding: 0; }
 
-<!-- Filtros -->
-<div class="card mb-4 border-0 shadow-sm">
-    <div class="card-body py-3">
-        <div class="row g-2 align-items-end">
-
-            <div class="col-12 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted">BUSCAR</label>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text"><i class="bx bx-search"></i></span>
-                    <input type="text" id="filtro-buscar" class="form-control form-control-sm"
-                        placeholder="N° transferencia, responsable...">
-                </div>
-            </div>
-
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted">TIPO</label>
-                <select id="filtro-tipo" class="form-select form-select-sm">
-                    <option value="">Todos</option>
-                    <option value="INTERNA">Interna</option>
-                    <option value="EXTERNA">Externa</option>
-                </select>
-            </div>
-
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted">MOTIVO</label>
-                <select id="filtro-motivo" class="form-select form-select-sm">
-                    <option value="">Todos</option>
-                    <option value="NORMAL">Transferencia normal</option>
-                    <option value="FALTANTES">Faltantes (ida y vuelta)</option>
-                    <option value="FALTANTE">Envío a faltantes</option>
-                    <option value="DEVOLUCION_FALTANTE">Faltante devuelto</option>
-                </select>
-            </div>
-
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted">ESTADO</label>
-                <select id="filtro-estado" class="form-select form-select-sm">
-                    <option value="">Todos</option>
-                    <option value="PENDIENTE">Pendiente</option>
-                    <option value="EN_PROCESO">En Proceso</option>
-                    <option value="COMPLETADA">Completada</option>
-                    <option value="ANULADA">Anulada</option>
-                </select>
-            </div>
-
-            <div class="col-6 col-md-2">
-                <label class="form-label mb-1 small fw-semibold text-muted">DESDE</label>
-                <input type="date" id="filtro-desde" class="form-control form-control-sm">
-            </div>
-
-            <div class="col-6 col-md-1">
-                <label class="form-label mb-1 small fw-semibold text-muted">HASTA</label>
-                <input type="date" id="filtro-hasta" class="form-control form-control-sm">
-            </div>
-
-            <div class="col-12 col-md-1 d-flex gap-1 justify-content-end justify-content-md-start">
-                <button class="btn btn-sm btn-primary" onclick="aplicarFiltros()" title="Filtrar">
-                    <i class="bx bx-filter-alt"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="limpiarFiltros()" title="Limpiar">
-                    <i class="bx bx-x"></i>
-                </button>
-            </div>
-
-        </div>
-
-        <div class="row mt-2">
-            <div class="col-12 d-flex align-items-center gap-2">
-                <span class="text-muted small me-1"><i class="bx bx-export me-1"></i>Exportar:</span>
-                <button class="btn btn-sm btn-outline-danger" onclick="exportarPDF()">
-                    <i class="bx bxs-file-pdf me-1"></i>PDF
-                </button>
-                <button class="btn btn-sm btn-outline-success" onclick="exportarExcel()">
-                    <i class="bx bxs-file-export me-1"></i>Excel
-                </button>
-                <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="cargarTabla()">
-                    <i class="bx bx-refresh me-1"></i>Actualizar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Tabla -->
-<div id="tablaRegistro"></div>
-
-<!-- ======================= MODAL DETALLE TRANSFERENCIA ======================= -->
-<!--
-    Mismo diseño que el detalle de Asignación (seguimiento/asignacion/vista.html): alto fijo,
-    colores fijos en hex en vez de las clases de opacidad del tema (bg-opacity-10 /
-    bg-label-*, que dejaban el texto casi invisible sobre su propio fondo) y la ficha de cada
-    activo en un modal interno en vez de desplegarse dentro de la tabla.
--->
-<style>
-    #modalDetalleTransferencia .modal-dialog { max-width: 1360px; }
-    #modalDetalleTransferencia .modal-content { height: 86vh; max-height: 880px; display: flex; flex-direction: column; }
-    #modalDetalleTransferencia .modal-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 0; }
-    #modalDetalleTransferencia #trfModalTabs { flex: 0 0 auto; border-bottom: 1px solid #e2e8f0; }
-    #modalDetalleTransferencia .tab-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-
-    #modalDetalleTransferencia .modal-header { padding: 1.1rem 1.5rem; }
-    #modalDetalleTransferencia .modal-header .modal-title { font-size: 1.3rem; }
-    #modalDetalleTransferencia .modal-header small { font-size: .85rem; }
-    #modalDetalleTransferencia .modal-header .badge {
-        background: rgba(255, 255, 255, .22) !important; color: #fff !important;
-        border: 1px solid rgba(255, 255, 255, .45); font-size: .8rem !important;
+    /* Modales de consulta: jerarquía clara, superficies del tema y espacio útil. */
+    #modTransferencias .trf-modal-dialog { width: min(1540px, calc(100vw - 32px)); max-width: none; margin: 16px auto; }
+    #modTransferencias .trf-modal-content { height: min(920px, calc(100dvh - 32px)); display: flex; flex-direction: column; color: var(--sm-texto); }
+    #modTransferencias .trf-modal-header { --trf-acento: var(--sm-primario); display: flex; align-items: center; gap: 1rem; padding: 1rem 1.35rem; flex-shrink: 0; border-bottom: 1px solid var(--sm-borde); background: linear-gradient(105deg, rgba(var(--sm-primario-rgb), .13), var(--sm-superficie) 58%); }
+    #modTransferencias .trf-modal-header.is-faltante { --trf-acento: var(--sm-peligro); background: linear-gradient(105deg, rgba(var(--sm-peligro-rgb), .13), var(--sm-superficie) 58%); }
+    #modTransferencias .trf-modal-icon { width: 48px; height: 48px; flex: 0 0 48px; border-radius: 13px; display: grid; place-items: center; background: var(--trf-acento); color: #fff; font-size: 1.5rem; box-shadow: 0 5px 14px rgba(var(--sm-primario-rgb), .16); }
+    #modTransferencias .trf-kicker { display: block; color: var(--sm-texto-2); font-size: .7rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    #modTransferencias .trf-modal-header > .min-w-0 { min-width: 0; flex: 1 1 auto; }
+    #modTransferencias .trf-modal-title { margin: .08rem 0; color: var(--sm-texto); font-size: clamp(1.12rem, 1.6vw, 1.55rem); font-weight: 800; line-height: 1.18; overflow-wrap: anywhere; }
+    #modTransferencias .trf-modal-sub { color: var(--sm-texto-2); font-size: .86rem; }
+    #modTransferencias .trf-header-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .45rem; margin-left: auto; }
+    #modTransferencias .trf-header-meta .badge { padding: .48rem .7rem; font-size: .75rem; letter-spacing: .02em; }
+    #modTransferencias .trf-close { width: 36px; height: 36px; flex: 0 0 36px; border: 1px solid var(--sm-borde-fuerte); border-radius: 10px; background: var(--sm-superficie); color: var(--sm-texto-2); display: grid; place-items: center; font-size: 1.2rem; cursor: pointer; }
+    #modTransferencias .trf-close:hover { color: var(--sm-peligro); border-color: var(--sm-peligro); }
+    #modTransferencias .trf-modal-body { display: flex; flex: 1 1 auto; min-height: 0; flex-direction: column; padding: 0; }
+    #modTransferencias .trf-alerta { flex-shrink: 0; display: flex; gap: .8rem; align-items: flex-start; margin: .85rem 1.3rem 0; padding: .8rem 1rem; border: 1px solid rgba(var(--sm-peligro-rgb), .4); border-left: 4px solid var(--sm-peligro); border-radius: 10px; background: rgba(var(--sm-peligro-rgb), .08); color: var(--sm-texto); }
+    #modTransferencias .trf-alerta i { color: var(--sm-peligro); font-size: 1.25rem; }
+    #modTransferencias .trf-alerta strong { display: block; color: var(--sm-peligro); font-size: .82rem; }
+    #modTransferencias .trf-alerta span { display: block; font-size: .86rem; line-height: 1.4; }
+    #modTransferencias .trf-tabs { display: flex; flex-shrink: 0; gap: .3rem; padding: .6rem 1.3rem 0; margin: 0; border-bottom: 1px solid var(--sm-borde); overflow-x: auto; }
+    #modTransferencias .trf-tabs .nav-link { display: inline-flex; align-items: center; gap: .45rem; padding: .67rem .9rem; color: var(--sm-texto-2); font-weight: 700; font-size: .88rem; white-space: nowrap; border: 0; border-bottom: 3px solid transparent; border-radius: 8px 8px 0 0; background: transparent; }
+    #modTransferencias .trf-tabs .nav-link:hover { color: var(--sm-primario); background: rgba(var(--sm-primario-rgb), .06); }
+    #modTransferencias .trf-tabs .nav-link.active { color: var(--sm-primario); border-bottom-color: var(--sm-primario); background: rgba(var(--sm-primario-rgb), .08); }
+    #modTransferencias .trf-tabs .nav-link i { font-size: 1.05rem; }
+    #modTransferencias .trf-tabs .badge { background: var(--sm-primario); color: #fff; font-size: .7rem; }
+    #modTransferencias .trf-tab-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 1.1rem 1.3rem 1.4rem; }
+    #modTransferencias .trf-panel { border: 1px solid var(--sm-borde); border-radius: 12px; background: var(--sm-superficie); overflow: hidden; height: 100%; }
+    #modTransferencias .trf-panel-title { display: flex; align-items: center; gap: .55rem; padding: .75rem 1rem; border-bottom: 1px solid var(--sm-borde); color: var(--sm-texto); background: var(--sm-superficie-2); font-weight: 800; font-size: .93rem; }
+    #modTransferencias .trf-panel-title i { color: var(--sm-primario); font-size: 1.18rem; }
+    #modTransferencias .trf-panel-body { padding: .85rem 1rem; }
+    #modTransferencias .trf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem 1.15rem; }
+    #modTransferencias .trf-field { min-width: 0; }
+    #modTransferencias .trf-field.wide { grid-column: 1 / -1; }
+    #modTransferencias .trf-label { display: block; margin-bottom: .16rem; color: var(--sm-texto-2); font-size: .71rem; font-weight: 800; letter-spacing: .045em; text-transform: uppercase; }
+    #modTransferencias .trf-value { display: block; color: var(--sm-texto); font-size: .95rem; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
+    #modTransferencias .trf-value.emphasis { color: var(--sm-primario); font-size: 1.05rem; font-weight: 800; }
+    #modTransferencias .trf-subvalue { display: block; margin-top: .18rem; color: var(--sm-texto-2); font-size: .8rem; font-weight: 500; }
+    #modTransferencias .trf-route { display: grid; grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr); align-items: stretch; gap: .65rem; }
+    #modTransferencias .trf-route-card { padding: 1rem; border-radius: 10px; border: 1px solid var(--sm-borde); background: var(--sm-superficie-2); }
+    #modTransferencias .trf-route-card.destination { border-color: rgba(var(--sm-exito-rgb), .28); background: rgba(var(--sm-exito-rgb), .05); }
+    #modTransferencias .trf-route-card .trf-label { margin-bottom: .5rem; }
+    #modTransferencias .trf-route-card .trf-field + .trf-field { margin-top: .7rem; }
+    #modTransferencias .trf-route-arrow { display: grid; place-items: center; color: var(--sm-primario); font-size: 1.25rem; }
+    #modTransferencias .trf-observacion { display: flex; align-items: flex-start; gap: .7rem; margin-top: .9rem; padding: .8rem 1rem; border-radius: 10px; border: 1px solid rgba(247, 144, 9, .3); background: rgba(247, 144, 9, .07); }
+    #modTransferencias .trf-observacion i { color: #b45309; font-size: 1.1rem; }
+    #modTransferencias .trf-observacion .trf-value { font-weight: 500; }
+    #modTransferencias .trf-summary { display: flex; flex-wrap: wrap; gap: .55rem; align-items: stretch; margin-bottom: .95rem; }
+    #modTransferencias .trf-summary-item { min-width: 125px; flex: 1 1 125px; display: flex; align-items: center; gap: .55rem; padding: .7rem .8rem; border: 1px solid var(--sm-borde); border-radius: 10px; background: var(--sm-superficie-2); }
+    #modTransferencias .trf-summary-item i { font-size: 1.2rem; color: var(--sm-primario); }
+    #modTransferencias .trf-summary-item.success i { color: var(--sm-exito); }
+    #modTransferencias .trf-summary-item.warning i { color: #b45309; }
+    #modTransferencias .trf-summary-item.danger i { color: var(--sm-peligro); }
+    #modTransferencias .trf-summary-item .trf-label { margin: 0; }
+    #modTransferencias .trf-summary-item strong { display: block; color: var(--sm-texto); font-size: 1.1rem; line-height: 1.15; }
+    #modTransferencias .trf-active-search { position: relative; flex: 1 1 240px; max-width: 330px; }
+    #modTransferencias .trf-active-search > i { position: absolute; left: .8rem; top: 50%; transform: translateY(-50%); color: var(--sm-texto-2); }
+    #modTransferencias .trf-active-search .sm-input { height: 40px; padding-left: 2.4rem; font-size: .88rem; }
+    #modTransferencias #trf-tabla-activos { font-size: .86rem; }
+    #modTransferencias #trf-tabla-activos th { position: sticky; top: 0; z-index: 1; }
+    #modTransferencias #trf-tabla-activos td { font-size: .85rem; }
+    #modTransferencias .trf-activo-row { cursor: pointer; }
+    #modTransferencias .trf-activo-row:focus-visible { outline: 2px solid var(--sm-primario); outline-offset: -2px; }
+    #modTransferencias .trf-btn-ver { width: 36px; padding: 0; margin: 0; }
+    #modTransferencias .trf-tabla-scroll { max-height: calc(100dvh - 315px); overflow: auto; border: 1px solid var(--sm-borde); border-radius: 10px; }
+    #modTransferencias .trf-audit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+    #modTransferencias .trf-audit-note { color: var(--sm-texto-2); font-size: .9rem; }
+    #modTransferencias .trf-modal-footer { display: flex; align-items: center; gap: .6rem; padding: .75rem 1.3rem; flex-shrink: 0; border-top: 1px solid var(--sm-borde); background: var(--sm-superficie-2); }
+    #modTransferencias .trf-modal-footer .trf-footer-hint { margin-right: auto; color: var(--sm-texto-2); font-size: .8rem; }
+    #modTransferencias #modalTrfDetalleActivo .trf-modal-dialog { width: min(1240px, calc(100vw - 32px)); }
+    #modTransferencias #modalTrfDetalleActivo .trf-modal-content { height: min(820px, calc(100dvh - 32px)); }
+    #modTransferencias #trf-ver-det-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 1.1rem 1.3rem 1.4rem; }
+    #modTransferencias .trf-asset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+    #modTransferencias .trf-asset-section { border: 1px solid var(--sm-borde); border-radius: 12px; overflow: hidden; }
+    #modTransferencias .trf-asset-section .trf-panel-body { padding: 1rem; }
+    #modTransferencias .trf-asset-section .trf-fields { gap: .8rem; }
+    #modTransferencias .trf-status-block { display: flex; flex-wrap: wrap; align-items: center; gap: .8rem; padding: .8rem 1rem; margin-top: 1rem; border-radius: 10px; border: 1px solid var(--sm-borde); background: var(--sm-superficie-2); }
+    #modTransferencias .trf-status-block > i { color: var(--sm-primario); font-size: 1.35rem; }
+    #modTransferencias .trf-status-block .trf-status-message { flex: 1 1 250px; min-width: 0; font-size: .84rem; overflow-wrap: anywhere; }
+    #modTransferencias .trf-status-block .trf-status-message .text-danger { color: var(--sm-peligro) !important; }
+    @media (max-width: 767px) {
+        #modTransferencias .trf-modal-dialog, #modTransferencias #modalTrfDetalleActivo .trf-modal-dialog { width: calc(100vw - 16px); margin: 8px auto; }
+        #modTransferencias .trf-modal-content, #modTransferencias #modalTrfDetalleActivo .trf-modal-content { height: calc(100dvh - 16px); }
+        #modTransferencias .trf-modal-header { padding: .75rem; gap: .6rem; }
+        #modTransferencias .trf-modal-icon { width: 38px; height: 38px; flex-basis: 38px; font-size: 1.2rem; }
+        #modTransferencias .trf-header-meta { order: 3; justify-content: flex-start; width: 100%; margin-left: 0; padding-left: 0; }
+        #modTransferencias .trf-modal-header { flex-wrap: wrap; }
+        #modTransferencias .trf-close { order: 2; margin-left: auto; }
+        #modTransferencias .trf-tab-content, #modTransferencias #trf-ver-det-body { padding: .85rem; }
+        #modTransferencias .trf-tabs { padding: .4rem .85rem 0; }
+        #modTransferencias .trf-route, #modTransferencias .trf-audit-grid, #modTransferencias .trf-asset-grid { grid-template-columns: 1fr; }
+        #modTransferencias .trf-route-arrow { transform: rotate(90deg); }
+        #modTransferencias .trf-modal-footer .trf-footer-hint { display: none; }
+        #modTransferencias .trf-modal-footer { justify-content: flex-end; }
     }
-    #modalDetalleTransferencia .modal-header .btn-close { flex-shrink: 0; margin-left: .75rem; }
-
-    #modalDetalleTransferencia #trfModalTabs .nav-link {
-        font-size: 1rem; font-weight: 600; padding: .9rem 1.4rem; color: #64748b !important;
-        border: none; border-bottom: 3px solid transparent; background: transparent !important;
+    @media (max-width: 575px) {
+        #modTransferencias .trf-fields { grid-template-columns: 1fr; }
+        #modTransferencias .trf-summary-item { flex-basis: calc(50% - .55rem); }
+        #modTransferencias .trf-active-search { max-width: none; }
+        #modTransferencias .trf-modal-footer .sm-btn { font-size: .8rem; padding: 0 .55rem; }
     }
-    #modalDetalleTransferencia #trfModalTabs .nav-link i.bx { font-size: 1.15rem; }
-    #modalDetalleTransferencia #trfModalTabs .nav-link.active { color: #0d6efd !important; border-bottom-color: #0d6efd; }
-    #modalDetalleTransferencia #trfModalTabs .nav-link .badge { font-size: .72rem; }
-
-    #modalDetalleTransferencia .info-card { border: 1px solid #e2e8f0; border-radius: .6rem; background: #fff; height: 100%; overflow: hidden; }
-    #modalDetalleTransferencia .info-card-header {
-        padding: .85rem 1.25rem; display: flex; align-items: center; gap: .75rem;
-        font-weight: 700; font-size: 1.02rem; color: #fff !important;
-    }
-    #modalDetalleTransferencia .info-card-header.doc  { background: #0d6efd; }
-    #modalDetalleTransferencia .info-card-header.resp { background: #198754; }
-    #modalDetalleTransferencia .info-card-body { padding: 1.1rem 1.25rem; }
-    #modalDetalleTransferencia .info-row {
-        display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
-        padding: .55rem 0; border-bottom: 1px solid #f1f5f9; font-size: .95rem;
-    }
-    #modalDetalleTransferencia .info-row:last-child { border-bottom: none; padding-bottom: 0; }
-    #modalDetalleTransferencia .info-row .lbl { color: #64748b; font-weight: 600; flex-shrink: 0; }
-    #modalDetalleTransferencia .info-row .val { color: #1e293b; font-weight: 700; text-align: right; }
-    #modalDetalleTransferencia .info-row .val .sub { display: block; color: #64748b; font-weight: 500; font-size: .8rem; }
-    #modalDetalleTransferencia .ubic-titulo {
-        font-size: .78rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
-        color: #475569; margin: .35rem 0 .1rem;
-    }
-    #modalDetalleTransferencia .obs-box {
-        background: #fffbeb; border: 1px solid #fde68a; border-radius: .6rem;
-        padding: 1rem 1.25rem; display: flex; gap: .75rem; align-items: flex-start;
-    }
-    #modalDetalleTransferencia .obs-box i { color: #b45309; font-size: 1.3rem; }
-    #modalDetalleTransferencia .obs-box strong { color: #92400e; font-size: .78rem; letter-spacing: .04em; }
-    #modalDetalleTransferencia .obs-box span { color: #451a03; font-size: .95rem; }
-
-    #modalDetalleTransferencia .stat-card { border-radius: .6rem; padding: 1.1rem; text-align: center; height: 100%; }
-    #modalDetalleTransferencia .stat-card .stat-label {
-        font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #475569;
-    }
-    #modalDetalleTransferencia .stat-card .stat-value { font-size: 1.6rem; font-weight: 800; margin-top: .3rem; line-height: 1.1; }
-    #modalDetalleTransferencia .stat-card.c-indigo { background: #eef2ff; }
-    #modalDetalleTransferencia .stat-card.c-indigo .stat-value { color: #4338ca; }
-    #modalDetalleTransferencia .stat-card.c-green  { background: #ecfdf5; }
-    #modalDetalleTransferencia .stat-card.c-green  .stat-value { color: #047857; }
-    #modalDetalleTransferencia .stat-card.c-amber  { background: #fff7ed; }
-    #modalDetalleTransferencia .stat-card.c-amber  .stat-value { color: #c2410c; }
-    #modalDetalleTransferencia .stat-card.c-red    { background: #fef2f2; }
-    #modalDetalleTransferencia .stat-card.c-red    .stat-value { color: #b91c1c; }
-
-    #modalDetalleTransferencia .audit-card { border-radius: .6rem; padding: 1.5rem; height: 100%; }
-    #modalDetalleTransferencia .audit-card.c-blue  { background: #eff6ff; border: 1px solid #bfdbfe; }
-    #modalDetalleTransferencia .audit-card.c-amber { background: #fff7ed; border: 1px solid #fed7aa; }
-    #modalDetalleTransferencia .audit-card .audit-title {
-        display: flex; align-items: center; gap: .5rem; font-weight: 700; font-size: 1rem; margin-bottom: 1.1rem;
-    }
-    #modalDetalleTransferencia .audit-card.c-blue .audit-title  { color: #1d4ed8; }
-    #modalDetalleTransferencia .audit-card.c-amber .audit-title { color: #c2410c; }
-    #modalDetalleTransferencia .audit-card .audit-title i { font-size: 1.3rem; }
-    #modalDetalleTransferencia .audit-card .info-row { border-bottom-color: rgba(0,0,0,.06); font-size: 1rem; }
-
-    #modalDetalleTransferencia .modal-footer { padding: 1rem 1.5rem; }
-    #modalDetalleTransferencia .modal-footer .btn { font-size: .95rem; padding: .55rem 1.3rem; font-weight: 600; }
-
-    #trf-tabla-activos { font-size: .88rem; }
-    #trf-tabla-activos thead th { position: sticky; top: 0; z-index: 1; font-size: .82rem; }
-    #trf-tabla-activos .descripcion-clamp {
-        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    }
-
-    /* El tema fija el z-index de todo .modal en 1090: el modal interno debe ir por encima
-       del detalle, que queda después en el DOM (mismo arreglo que en Asignación). */
-    #modalTrfDetalleActivo { z-index: 1100; }
 </style>
 
-<div class="modal fade" id="modalDetalleTransferencia" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-
-            <div class="modal-header bg-primary text-white py-3 flex-nowrap">
-                <div class="d-flex align-items-center gap-3" style="min-width:0">
-                    <div class="avatar bg-white bg-opacity-25 rounded-2 p-2 flex-shrink-0">
-                        <i class="bx bx-transfer fs-4 text-white"></i>
-                    </div>
-                    <div class="text-truncate">
-                        <h5 class="modal-title mb-0 fw-bold text-truncate" id="trf-modal-numero">—</h5>
-                        <small class="opacity-75" id="trf-modal-fecha">—</small>
-                    </div>
+<div class="modal fade" id="modalDetalleTransferencia" tabindex="-1" aria-hidden="true" aria-labelledby="trf-modal-numero">
+    <div class="modal-dialog modal-dialog-centered trf-modal-dialog">
+        <div class="modal-content sm-modal trf-modal-content">
+            <div class="trf-modal-header" id="trf-modal-header">
+                <div class="trf-modal-icon"><i class="ti ti-arrows-exchange-2"></i></div>
+                <div class="min-w-0">
+                    <span class="trf-kicker">Movimientos · Transferencia de activos</span>
+                    <h2 class="trf-modal-title" id="trf-modal-numero">—</h2>
+                    <span class="trf-modal-sub"><i class="ti ti-calendar-event me-1"></i><span id="trf-modal-fecha">—</span></span>
                 </div>
-                <div class="d-flex align-items-center gap-2 ms-auto">
-                    <span class="badge fs-6 px-3 py-2" id="trf-modal-badge-tipo">—</span>
-                    <span class="badge fs-6 px-3 py-2" id="trf-modal-badge-estado">—</span>
+                <div class="trf-header-meta">
+                    <span class="badge" id="trf-modal-badge-tipo">—</span>
+                    <span class="badge" id="trf-modal-badge-estado">—</span>
                 </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="trf-close" data-bs-dismiss="modal" aria-label="Cerrar detalle"><i class="ti ti-x"></i></button>
             </div>
-
-            <div class="modal-body p-0">
-                <!-- Aviso de faltante: lo primero que se ve al abrir una transferencia de este tipo -->
-                <div id="trf-aviso-faltante" class="d-none mx-4 mt-3 mb-0 p-3 rounded-3 d-flex align-items-start gap-3"
-                     style="background:#fef2f2; border:1px solid #fca5a5; border-left:5px solid #dc2626;">
-                    <i class="bx bx-error-circle fs-3" style="color:#dc2626"></i>
-                    <div>
-                        <div class="fw-bold" style="color:#991b1b" id="trf-aviso-faltante-titulo">TRANSFERENCIA POR FALTANTE</div>
-                        <div class="small" style="color:#7f1d1d" id="trf-aviso-faltante-texto"></div>
-                    </div>
+            <div class="trf-modal-body">
+                <div id="trf-aviso-faltante" class="trf-alerta d-none" role="status">
+                    <i class="ti ti-alert-triangle"></i>
+                    <div><strong id="trf-aviso-faltante-titulo">TRANSFERENCIA POR FALTANTE</strong><span id="trf-aviso-faltante-texto"></span></div>
                 </div>
-                <ul class="nav nav-tabs nav-tabs-bordered px-4 pt-3" id="trfModalTabs">
-                    <li class="nav-item">
-                        <a class="nav-link active d-flex align-items-center gap-1" data-bs-toggle="tab"
-                            href="#trf-tab-general">
-                            <i class="bx bx-info-circle"></i> Información General
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab"
-                            href="#trf-tab-activos">
-                            <i class="bx bx-box"></i> Activos Transferidos
-                            <span class="badge bg-primary rounded-pill ms-1" id="trf-badge-num-activos">0</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-1" data-bs-toggle="tab"
-                            href="#trf-tab-auditoria">
-                            <i class="bx bx-time-five"></i> Auditoría
-                        </a>
-                    </li>
+                <ul class="nav trf-tabs" id="trfModalTabs" role="tablist">
+                    <li class="nav-item" role="presentation"><a class="nav-link active" data-bs-toggle="tab" href="#trf-tab-general" role="tab"><i class="ti ti-file-description"></i> Resumen</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" data-bs-toggle="tab" href="#trf-tab-activos" role="tab"><i class="ti ti-box"></i> Bienes transferidos <span class="badge rounded-pill" id="trf-badge-num-activos">0</span></a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" data-bs-toggle="tab" href="#trf-tab-auditoria" role="tab"><i class="ti ti-history"></i> Auditoría</a></li>
                 </ul>
-
-                <div class="tab-content p-4">
-
-                    <!-- TAB GENERAL -->
-                    <div class="tab-pane fade show active" id="trf-tab-general">
-                        <div class="row g-4">
-
-                            <div class="col-md-6">
-                                <div class="info-card">
-                                    <div class="info-card-header doc">
-                                        <span><i class="bx bx-file-blank me-1"></i>Datos del Documento</span>
+                <div class="tab-content trf-tab-content">
+                    <div class="tab-pane fade show active" id="trf-tab-general" role="tabpanel">
+                        <div class="row g-3">
+                            <div class="col-12 col-xl-5">
+                                <section class="trf-panel">
+                                    <div class="trf-panel-title"><i class="ti ti-file-text"></i> Documento y fechas</div>
+                                    <div class="trf-panel-body trf-fields">
+                                        <div class="trf-field wide"><span class="trf-label">N° de transferencia</span><span class="trf-value emphasis" id="trf-d-numero">—</span></div>
+                                        <div class="trf-field"><span class="trf-label">Tipo</span><span class="trf-value" id="trf-d-tipo">—</span></div>
+                                        <div class="trf-field"><span class="trf-label">Estado</span><span class="trf-value" id="trf-d-estado">—</span></div>
+                                        <div class="trf-field"><span class="trf-label">Fecha de transferencia</span><span class="trf-value" id="trf-d-fecha">—</span></div>
+                                        <div class="trf-field"><span class="trf-label">Fecha de recepción</span><span class="trf-value" id="trf-d-fecha-recepcion">—</span></div>
+                                        <div class="trf-field wide"><span class="trf-label">Documento de referencia</span><span class="trf-value" id="trf-d-doc-ref">—</span></div>
+                                        <div class="trf-field wide d-none" id="trf-lbl-institucion"><span class="trf-label">Institución destino</span><span class="trf-value" id="trf-d-institucion">—</span></div>
                                     </div>
-                                    <div class="info-card-body">
-                                        <div class="info-row"><span class="lbl">N° Transferencia</span><span class="val text-primary" id="trf-d-numero">—</span></div>
-                                        <div class="info-row"><span class="lbl">Tipo</span><span class="val" id="trf-d-tipo">—</span></div>
-                                        <div class="info-row"><span class="lbl">Estado</span><span class="val" id="trf-d-estado">—</span></div>
-                                        <div class="info-row"><span class="lbl">Fecha Transferencia</span><span class="val" id="trf-d-fecha">—</span></div>
-                                        <div class="info-row"><span class="lbl">Fecha Recepción</span><span class="val" id="trf-d-fecha-recepcion">—</span></div>
-                                        <div class="info-row"><span class="lbl">Doc. Referencia</span><span class="val" id="trf-d-doc-ref">—</span></div>
-                                        <div class="info-row" id="trf-lbl-institucion" style="display:none">
-                                            <span class="lbl">Institución Destino</span><span class="val" id="trf-d-institucion">—</span>
+                                </section>
+                            </div>
+                            <div class="col-12 col-xl-7">
+                                <section class="trf-panel">
+                                    <div class="trf-panel-title"><i class="ti ti-route"></i> Recorrido y responsables</div>
+                                    <div class="trf-panel-body trf-route">
+                                        <div class="trf-route-card">
+                                            <span class="trf-label"><i class="ti ti-circle-arrow-up-right me-1"></i> Origen</span>
+                                            <div class="trf-field"><span class="trf-label">Responsable</span><span class="trf-value" id="trf-d-resp-origen">—</span></div>
+                                            <div class="trf-field"><span class="trf-label">Oficina</span><span class="trf-value" id="trf-d-oficina-origen">—</span><span class="trf-subvalue" id="trf-d-predio-origen"></span></div>
+                                        </div>
+                                        <div class="trf-route-arrow"><i class="ti ti-arrow-right"></i></div>
+                                        <div class="trf-route-card destination">
+                                            <span class="trf-label"><i class="ti ti-circle-check me-1"></i> Destino</span>
+                                            <div class="trf-field"><span class="trf-label">Responsable</span><span class="trf-value" id="trf-d-resp-destino">—</span></div>
+                                            <div class="trf-field"><span class="trf-label">Oficina / institución</span><span class="trf-value" id="trf-d-oficina-destino">—</span><span class="trf-subvalue" id="trf-d-predio-destino"></span></div>
                                         </div>
                                     </div>
-                                </div>
+                                </section>
                             </div>
-
-                            <div class="col-md-6">
-                                <div class="info-card">
-                                    <div class="info-card-header resp">
-                                        <span><i class="bx bx-transfer-alt me-1"></i>Origen → Destino</span>
-                                    </div>
-                                    <div class="info-card-body">
-                                        <div class="ubic-titulo">Origen</div>
-                                        <div class="info-row"><span class="lbl">Responsable</span>
-                                            <span class="val"><span id="trf-d-resp-origen">—</span><span class="sub" id="trf-d-resp-origen-cod"></span></span></div>
-                                        <div class="info-row"><span class="lbl">Oficina</span>
-                                            <span class="val"><span id="trf-d-oficina-origen">—</span><span class="sub" id="trf-d-predio-origen"></span></span></div>
-                                        <div class="ubic-titulo mt-3">Destino</div>
-                                        <div class="info-row"><span class="lbl">Responsable</span>
-                                            <span class="val"><span id="trf-d-resp-destino">—</span><span class="sub" id="trf-d-resp-destino-cod"></span></span></div>
-                                        <div class="info-row"><span class="lbl">Oficina</span>
-                                            <span class="val"><span id="trf-d-oficina-destino">—</span><span class="sub" id="trf-d-predio-destino"></span></span></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-12" id="trf-container-observacion" style="display:none">
-                                <div class="obs-box">
-                                    <i class="bx bx-comment-detail"></i>
-                                    <div>
-                                        <strong class="d-block mb-1">OBSERVACIÓN</strong>
-                                        <span id="trf-d-observacion"></span>
-                                    </div>
-                                </div>
-                            </div>
-
                         </div>
+                        <div class="trf-observacion d-none" id="trf-container-observacion"><i class="ti ti-message-circle"></i><div><span class="trf-label">Observación</span><span class="trf-value" id="trf-d-observacion"></span></div></div>
                     </div>
-
-                    <!-- TAB ACTIVOS -->
-                    <div class="tab-pane fade" id="trf-tab-activos">
-                        <div class="row g-3 mb-3">
-                            <div class="col-6 col-md">
-                                <div class="stat-card c-indigo">
-                                    <div class="stat-label">Total Activos</div>
-                                    <div class="stat-value" id="trf-resumen-total">0</div>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md">
-                                <div class="stat-card c-green">
-                                    <div class="stat-label">En el VSIAF</div>
-                                    <div class="stat-value" id="trf-stat-confirmados">0</div>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md">
-                                <div class="stat-card c-amber">
-                                    <div class="stat-label">En cola</div>
-                                    <div class="stat-value" id="trf-stat-encola">0</div>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md">
-                                <div class="stat-card c-red">
-                                    <div class="stat-label">Con error</div>
-                                    <div class="stat-value" id="trf-stat-error">0</div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-3 d-flex align-items-center justify-content-end">
-                                <input type="text" id="trf-buscar-activo" class="form-control"
-                                    placeholder="Buscar activo..." style="max-width:240px">
-                            </div>
+                    <div class="tab-pane fade" id="trf-tab-activos" role="tabpanel">
+                        <div class="trf-summary">
+                            <div class="trf-summary-item"><i class="ti ti-box"></i><div><span class="trf-label">Total de bienes</span><strong id="trf-resumen-total">0</strong></div></div>
+                            <div class="trf-summary-item success"><i class="ti ti-circle-check"></i><div><span class="trf-label">En VSIAF</span><strong id="trf-stat-confirmados">0</strong></div></div>
+                            <div class="trf-summary-item warning"><i class="ti ti-clock-hour-4"></i><div><span class="trf-label">En cola</span><strong id="trf-stat-encola">0</strong></div></div>
+                            <div class="trf-summary-item danger"><i class="ti ti-alert-circle"></i><div><span class="trf-label">Con error</span><strong id="trf-stat-error">0</strong></div></div>
+                            <div class="trf-active-search"><i class="ti ti-search"></i><input type="text" id="trf-buscar-activo" class="sm-input" data-sm-mayus="no" placeholder="Buscar código, bien u oficina…" aria-label="Buscar entre los bienes transferidos"></div>
                         </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-hover table-sm align-middle" id="trf-tabla-activos">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="text-center" style="width:40px">#</th>
-                                        <th>Código</th>
-                                        <th style="min-width:240px">Descripción</th>
-                                        <th>Origen</th>
-                                        <th>Destino</th>
-                                        <th class="text-center">VSIAF</th>
-                                        <th class="text-center" style="width:70px">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="trf-tbody-activos">
-                                    <tr>
-                                        <td colspan="7" class="text-center text-muted py-4">Sin activos registrados</td>
-                                    </tr>
-                                </tbody>
+                        <div class="trf-tabla-scroll">
+                            <table class="table sm-tabla align-middle" id="trf-tabla-activos">
+                                <thead><tr><th style="width:44px">#</th><th>Código</th><th style="min-width:250px">Descripción</th><th>Origen</th><th>Destino</th><th>VSIAF</th><th style="width:98px">Detalle</th></tr></thead>
+                                <tbody id="trf-tbody-activos"><tr><td colspan="7" class="text-center text-muted py-4">Sin bienes registrados</td></tr></tbody>
                             </table>
                         </div>
                     </div>
-
-                    <!-- TAB AUDITORÍA -->
-                    <div class="tab-pane fade" id="trf-tab-auditoria">
-                        <div class="row g-4">
-                            <div class="col-md-6">
-                                <div class="audit-card c-blue">
-                                    <div class="audit-title"><i class="bx bx-plus-circle"></i>Registro de la transferencia</div>
-                                    <div class="info-row"><span class="lbl">Fecha de registro</span><span class="val" id="trf-aud-fecha-reg">—</span></div>
-                                    <div class="info-row"><span class="lbl">Usuario</span><span class="val" id="trf-aud-usuario-reg">—</span></div>
-                                    <div class="info-row"><span class="lbl">ID interno</span><span class="val" id="trf-aud-id">—</span></div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="audit-card c-amber">
-                                    <div class="audit-title"><i class="bx bx-edit"></i>Última modificación</div>
-                                    <div id="trf-aud-bloque-mod">
-                                        <div class="info-row"><span class="lbl">Fecha de modificación</span><span class="val" id="trf-aud-fecha-mod">—</span></div>
-                                        <div class="info-row"><span class="lbl">Usuario</span><span class="val" id="trf-aud-usuario-mod">—</span></div>
-                                    </div>
-                                    <p class="mb-0 d-none" id="trf-aud-sin-mod" style="color:#9a3412;">
-                                        Esta transferencia no se modificó después de registrarse.
-                                    </p>
-                                </div>
-                            </div>
+                    <div class="tab-pane fade" id="trf-tab-auditoria" role="tabpanel">
+                        <div class="trf-audit-grid">
+                            <section class="trf-panel"><div class="trf-panel-title"><i class="ti ti-user-plus"></i> Registro</div><div class="trf-panel-body trf-fields">
+                                <div class="trf-field"><span class="trf-label">Fecha y hora</span><span class="trf-value" id="trf-aud-fecha-reg">—</span></div>
+                                <div class="trf-field"><span class="trf-label">Usuario</span><span class="trf-value" id="trf-aud-usuario-reg">—</span></div>
+                                <div class="trf-field wide"><span class="trf-label">ID interno</span><span class="trf-value" id="trf-aud-id">—</span></div>
+                            </div></section>
+                            <section class="trf-panel"><div class="trf-panel-title"><i class="ti ti-edit"></i> Última modificación</div><div class="trf-panel-body">
+                                <div class="trf-fields" id="trf-aud-bloque-mod"><div class="trf-field"><span class="trf-label">Fecha y hora</span><span class="trf-value" id="trf-aud-fecha-mod">—</span></div><div class="trf-field"><span class="trf-label">Usuario</span><span class="trf-value" id="trf-aud-usuario-mod">—</span></div></div>
+                                <p class="trf-audit-note d-none mb-0" id="trf-aud-sin-mod">Esta transferencia no tiene modificaciones posteriores al registro.</p>
+                            </div></section>
                         </div>
                     </div>
-
                 </div>
             </div>
-
-            <div class="modal-footer bg-light border-top">
-                <a id="trf-btn-modal-pdf" href="#" target="_blank" class="btn btn-primary">
-                    <i class="bx bxs-file-doc me-1"></i>Descargar Word
-                </a>
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                    <i class="bx bx-x me-1"></i>Cerrar
-                </button>
+            <div class="trf-modal-footer">
+                <span class="trf-footer-hint"><i class="ti ti-info-circle me-1"></i>Selecciona un bien para ver su ficha completa.</span>
+                <a id="trf-btn-modal-pdf" href="#" target="_blank" rel="noopener" class="sm-btn sm-btn-sm"><i class="ti ti-file-download"></i> Descargar Word</a>
+                <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro" data-bs-dismiss="modal"><i class="ti ti-x"></i> Cerrar</button>
             </div>
-
         </div>
     </div>
 </div>
 
-<!-- ======================= MODAL INTERNO: FICHA DEL ACTIVO ======================= -->
-<div class="modal fade" id="modalTrfDetalleActivo" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white py-3">
-                <div>
-                    <h6 class="modal-title mb-0 fw-bold text-white"><i class="bx bx-box me-1"></i>Detalle del activo</h6>
-                    <small class="opacity-75" id="trf-ver-det-codigo">—</small>
+<div class="modal fade" id="modalTrfDetalleActivo" tabindex="-1" aria-hidden="true" aria-labelledby="trf-ver-det-codigo">
+    <div class="modal-dialog modal-dialog-centered trf-modal-dialog">
+        <div class="modal-content sm-modal trf-modal-content">
+            <div class="trf-modal-header">
+                <div class="trf-modal-icon"><i class="ti ti-package"></i></div>
+                <div class="min-w-0">
+                    <span class="trf-kicker">Ficha del bien transferido</span>
+                    <h2 class="trf-modal-title" id="trf-ver-det-codigo">—</h2>
+                    <span class="trf-modal-sub" id="trf-ver-det-descripcion">—</span>
                 </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <div class="trf-header-meta"><span id="trf-ver-det-estado" class="badge bg-secondary">—</span></div>
+                <button type="button" class="trf-close" data-bs-dismiss="modal" aria-label="Cerrar ficha del bien"><i class="ti ti-x"></i></button>
             </div>
-            <div class="modal-body p-4" id="trf-ver-det-body"></div>
-            <div class="modal-footer py-2">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
-                    <i class="bx bx-x me-1"></i>Cerrar
-                </button>
+            <div id="trf-ver-det-body"></div>
+            <div class="trf-modal-footer">
+                <span class="trf-footer-hint">Datos registrados en el movimiento y ubicación actual del bien.</span>
+                <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro" data-bs-dismiss="modal"><i class="ti ti-arrow-left"></i> Volver a la transferencia</button>
             </div>
         </div>
     </div>
+</div>
+
 </div>
 
 <script>
-    $(document).ready(function () {
-        cargarTabla();
-        $('#filtro-buscar').on('keypress', function (e) { if (e.which === 13) cargarTabla(); });
+    (function () {
+    const $raiz = $('#modTransferencias');
+    const $cont = $raiz.find('.js-tabla');
+    const $tarjeta = $raiz.find('.sm-card');
+    let peticionTabla = null;
+    let peticionActivos = null;
+    let esperaBusqueda = null;
+    let volverDesdeActivo = false;
+
+    $raiz.find('#modalTrfDetalleActivo').on('hidden.bs.modal', function () {
+        if (!volverDesdeActivo) return;
+        volverDesdeActivo = false;
+        bootstrap.Modal.getOrCreateInstance($raiz.find('#modalDetalleTransferencia')[0]).show();
     });
 
+    function destruirTablaAnterior() {
+        const $tablaAnterior = $cont.find('table');
+        if ($tablaAnterior.length && $.fn.DataTable.isDataTable($tablaAnterior[0])) {
+            $tablaAnterior.DataTable().destroy();
+        }
+    }
+
+    $raiz.on('change', '#filtro-tipo, #filtro-motivo, #filtro-estado, #filtro-desde, #filtro-hasta', cargarTabla);
+    $raiz.on('input', '#filtro-buscar', function () {
+        $raiz.find('.sm-buscador').toggleClass('con-texto', !!this.value);
+        clearTimeout(esperaBusqueda);
+        esperaBusqueda = setTimeout(cargarTabla, 350);
+    });
+    $raiz.on('keydown', '#filtro-buscar', function (e) {
+        if (e.key === 'Enter') { clearTimeout(esperaBusqueda); cargarTabla(); }
+        if (e.key === 'Escape') { $(this).val('').trigger('input'); }
+    });
+    $raiz.on('click', '.sm-buscador-limpiar', function () {
+        $raiz.find('#filtro-buscar').val('').trigger('input').trigger('focus');
+    });
+    $raiz.on('click', '.js-limpiar', limpiarFiltros);
+    $raiz.on('click', '.js-actualizar', cargarTabla);
+    $raiz.on('click', '.js-exportar-pdf', exportarPDF);
+    $raiz.on('click', '.js-exportar-excel', exportarExcel);
+    $raiz.on('click', '.trf-row', function (e) {
+        if ($(e.target).closest('a, button').length) return;
+        abrirModalTransferencia($(this).data('id'));
+    });
+    $raiz.on('keydown', '.trf-row', function (e) {
+        if (e.target !== this || (e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault();
+        abrirModalTransferencia($(this).data('id'));
+    });
+    $raiz.on('click', '.trf-activo-row', function () {
+        abrirFichaActivo($(this).data('detalle'));
+    });
+    $raiz.on('keydown', '.trf-activo-row', function (e) {
+        if (e.target !== this || (e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault();
+        abrirFichaActivo($(this).data('detalle'));
+    });
+    $raiz.on('click', '.js-reintentar-tabla', cargarTabla);
+    $raiz.on('click', '.js-reintentar-activos', function () { cargarActivosTransferencia($(this).data('id')); });
+    $raiz.on('click', '.js-ruta-activo', function () {
+        volverDesdeActivo = false;
+        const codigo = $(this).data('codigo');
+        const $ficha = $raiz.find('#modalTrfDetalleActivo');
+        $ficha.one('hidden.bs.modal', function () {
+            window.cargarContenido('/administracion/ruta-activo/vista?codigo=' + encodeURIComponent(codigo));
+        });
+        bootstrap.Modal.getInstance($ficha[0])?.hide();
+    });
+    cargarTabla();
+
     function cargarTabla() {
-        showGlobalLoader({ imgUrl: '/assets/img/logo/activofijos.png', axis: 'y', speed: 1.2, texto: 'Cargando...' });
-        $.ajax({
+        if (peticionTabla) peticionTabla.abort();
+        $tarjeta.addClass('sm-procesando');
+        if (!$cont.find('table').length) $cont.html('<div class="sm-cargando"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">Cargando transferencias…</div></div>');
+        const solicitud = $.ajax({
             type: 'POST',
             url: "/administracion/transferencia/tabla_transferencias",
             data: obtenerFiltros(),
             success: function (response) {
-                $("#tablaRegistro").html(response);
-                calcularEstadisticas();
+                destruirTablaAnterior();
+                $cont.html(response);
+                SciafModulo.tabla({
+                    tabla: $cont.find('table'),
+                    largo: $raiz.find('.js-largo'), orden: [ [1, 'desc'] ],
+                    noOrdenables: [7],
+                    alDibujar: calcularEstadisticas
+                });
             },
-            error: function () {
-                $("#tablaRegistro").html(`<div class="alert alert-danger d-flex gap-2">
-        <i class="bx bx-error-circle fs-4"></i>Error al cargar registros.
-        <button class="btn btn-sm btn-outline-danger ms-2" onclick="cargarTabla()">Reintentar</button>
-      </div>`);
+            error: function (xhr) {
+                if (xhr.statusText === 'abort') return;
+                destruirTablaAnterior();
+                $cont.html('<div class="alert alert-danger m-3">No se pudieron cargar las transferencias. ' +
+                    '<button type="button" class="sm-btn sm-btn-sm sm-btn-peligro js-reintentar-tabla">Reintentar</button></div>');
             },
-            complete: function () { hideGlobalLoader(); }
+            complete: function () {
+                if (peticionTabla === solicitud) {
+                    $tarjeta.removeClass('sm-procesando');
+                    peticionTabla = null;
+                }
+            }
         });
+        peticionTabla = solicitud;
     }
 
     function obtenerFiltros() {
         return {
-            tipo: $('#filtro-tipo').val(), estado: $('#filtro-estado').val(), motivo: $('#filtro-motivo').val(),
-            buscar: $('#filtro-buscar').val(), desde: $('#filtro-desde').val(), hasta: $('#filtro-hasta').val()
+            tipo: $raiz.find('#filtro-tipo').val(), estado: $raiz.find('#filtro-estado').val(), motivo: $raiz.find('#filtro-motivo').val(),
+            buscar: $raiz.find('#filtro-buscar').val(), desde: $raiz.find('#filtro-desde').val(), hasta: $raiz.find('#filtro-hasta').val()
         };
     }
-    function aplicarFiltros() { cargarTabla(); }
     function limpiarFiltros() {
-        $('#filtro-tipo, #filtro-estado, #filtro-motivo').val('');
-        $('#filtro-buscar, #filtro-desde, #filtro-hasta').val('');
+        clearTimeout(esperaBusqueda);
+        $raiz.find('#filtro-tipo, #filtro-estado, #filtro-motivo, #filtro-buscar, #filtro-desde, #filtro-hasta').val('');
+        $raiz.find('.sm-buscador').removeClass('con-texto');
         cargarTabla();
     }
 
-    function calcularEstadisticas() {
-        const filas = $('.trf-row');
+    function calcularEstadisticas(api) {
+        const filas = api ? $(api.rows({ search: 'applied' }).nodes()) : $cont.find('.trf-row');
         let total = filas.length, internas = 0, externas = 0, completadas = 0, faltantes = 0;
         filas.each(function () {
             if ($(this).data('tipo') === 'INTERNA') internas++;
@@ -519,92 +427,90 @@
             if ($(this).data('estado') === 'COMPLETADA') completadas++;
             if ($(this).data('motivo')) faltantes++;
         });
-        $('#stat-total').text(total);
-        $('#stat-internas').text(internas);
-        $('#stat-faltantes span').text(faltantes);
-        $('#stat-faltantes').attr('style', faltantes ? '' : 'display:none !important');
-        $('#stat-externas').text(externas);
-        $('#stat-completadas').text(completadas);
+        $raiz.find('#stat-total').text(total);
+        $raiz.find('#stat-internas').text(internas);
+        $raiz.find('#stat-faltantes strong').text(faltantes);
+        $raiz.find('#stat-faltantes').toggleClass('d-none', !faltantes);
+        $raiz.find('#stat-externas').text(externas);
+        $raiz.find('#stat-completadas').text(completadas);
     }
 
     function abrirModalTransferencia(id) {
-        const $row = $(`#trf-row-${id}`);
+        const $row = $cont.find(`#trf-row-${id}`);
         const data = $row.data();
         const coloresTipo = { INTERNA: 'bg-info', EXTERNA: 'bg-warning text-dark' };
         const coloresEstado = { PENDIENTE: 'bg-secondary', EN_PROCESO: 'bg-warning text-dark', COMPLETADA: 'bg-success', ANULADA: 'bg-danger' };
 
-        $('#trf-modal-numero').text(data.numero || '—');
-        $('#trf-modal-fecha').text(data.fecha || '—');
-        $('#trf-modal-badge-tipo').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresTipo[data.tipo] || 'bg-secondary')).text(data.tipo || '—');
+        $raiz.find('#trf-modal-numero').text(data.numero || '—');
+        $raiz.find('#trf-modal-fecha').text(fechaSolo(data.fecha));
+        $raiz.find('#trf-modal-badge-tipo').attr('class', 'badge ' + (coloresTipo[data.tipo] || 'bg-secondary')).text(data.tipo || '—');
 
         // Faltantes: cabecera roja y aviso arriba de todo, para que no pase por una transferencia común.
         const motivo = data.motivo || '';
-        $('#modalDetalleTransferencia .modal-header')
-            .toggleClass('bg-primary', !motivo)
-            .toggleClass('bg-danger', !!motivo);
+        $raiz.find('#trf-modal-header').toggleClass('is-faltante', !!motivo);
         if (motivo === 'FALTANTE') {
-            $('#trf-aviso-faltante-titulo').text('TRANSFERENCIA POR FALTANTE');
-            $('#trf-aviso-faltante-texto').text('No es una transferencia normal: los bienes no se encontraron y se enviaron '
+            $raiz.find('#trf-aviso-faltante-titulo').text('TRANSFERENCIA POR FALTANTE');
+            $raiz.find('#trf-aviso-faltante-texto').text('No es una transferencia normal: los bienes no se encontraron y se enviaron '
                 + 'a la oficina de faltantes del predio, a nombre de la misma persona. '
                 + (data.docRef ? 'Documento: ' + data.docRef + '.' : ''));
-            $('#trf-aviso-faltante').removeClass('d-none');
+            $raiz.find('#trf-aviso-faltante').removeClass('d-none');
         } else if (motivo === 'DEVOLUCION_FALTANTE') {
-            $('#trf-aviso-faltante-titulo').text('DEVOLUCIÓN DE UN FALTANTE');
-            $('#trf-aviso-faltante-texto').text('El bien había sido registrado como faltante, apareció y salió de la oficina '
+            $raiz.find('#trf-aviso-faltante-titulo').text('DEVOLUCIÓN DE UN FALTANTE');
+            $raiz.find('#trf-aviso-faltante-texto').text('El bien había sido registrado como faltante, apareció y salió de la oficina '
                 + 'de faltantes hacia el responsable indicado. ' + (data.docRef ? 'Documento: ' + data.docRef + '.' : ''));
-            $('#trf-aviso-faltante').removeClass('d-none');
+            $raiz.find('#trf-aviso-faltante').removeClass('d-none');
         } else {
-            $('#trf-aviso-faltante').addClass('d-none');
+            $raiz.find('#trf-aviso-faltante').addClass('d-none');
         }
-        $('#trf-modal-badge-estado').attr('class', 'badge fs-6 px-3 py-2 ' + (coloresEstado[data.estado] || 'bg-secondary')).text(data.estado || '—');
+        $raiz.find('#trf-modal-badge-estado').attr('class', 'badge ' + (coloresEstado[data.estado] || 'bg-secondary')).text((data.estado || '—').replaceAll('_', ' '));
 
-        $('#trf-d-numero').text(data.numero || '—');
-        $('#trf-d-tipo').html(`<span class="badge ${coloresTipo[data.tipo] || 'bg-secondary'}">${data.tipo || '—'}</span>`
+        $raiz.find('#trf-d-numero').text(data.numero || '—');
+        $raiz.find('#trf-d-tipo').html(`<span class="badge ${coloresTipo[data.tipo] || 'bg-secondary'}">${esc(data.tipo || '—')}</span>`
             + (motivo === 'FALTANTE' ? ' <span class="badge bg-danger"><i class="bx bx-error-circle"></i> FALTANTE</span>' : '')
             + (motivo === 'DEVOLUCION_FALTANTE' ? ' <span class="badge bg-white text-danger border border-danger"><i class="bx bx-undo"></i> FALTANTE DEVUELTO</span>' : ''));
-        $('#trf-d-estado').html(`<span class="badge ${coloresEstado[data.estado] || 'bg-secondary'}">${data.estado || '—'}</span>`);
-        $('#trf-d-fecha').text(data.fecha || '—');
-        $('#trf-d-fecha-recepcion').text(data.fechaRecepcion || '—');
-        $('#trf-d-doc-ref').text(data.docRef || '—');
-        $('#trf-d-resp-origen').text(conCod(data.respOrigenCod, data.respOrigen));
-        $('#trf-d-resp-origen-cod').text('');
-        $('#trf-d-oficina-origen').text(conCod(data.oficinaOrigenCod, data.oficinaOrigen));
-        $('#trf-d-predio-origen').text(data.predioOrigen || '');
-        $('#trf-d-resp-destino').text(conCod(data.respDestinoCod, data.respDestino));
-        $('#trf-d-resp-destino-cod').text('');
-        $('#trf-d-oficina-destino').text(conCod(data.oficinaDestinoCod, data.oficinaDestino));
-        $('#trf-d-predio-destino').text(data.predioDestino || '');
+        $raiz.find('#trf-d-estado').html(`<span class="badge ${coloresEstado[data.estado] || 'bg-secondary'}">${esc((data.estado || '—').replaceAll('_', ' '))}</span>`);
+        $raiz.find('#trf-d-fecha').text(fechaSolo(data.fecha));
+        $raiz.find('#trf-d-fecha-recepcion').text(fechaSolo(data.fechaRecepcion));
+        $raiz.find('#trf-d-doc-ref').text(data.docRef || '—');
+        $raiz.find('#trf-d-resp-origen').text(conCod(data.respOrigenCod, data.respOrigen));
+        $raiz.find('#trf-d-oficina-origen').text(conCod(data.oficinaOrigenCod, data.oficinaOrigen));
+        $raiz.find('#trf-d-predio-origen').text(data.predioOrigen || '');
+        $raiz.find('#trf-d-resp-destino').text(conCod(data.respDestinoCod, data.respDestino));
+        $raiz.find('#trf-d-oficina-destino').text(data.oficinaDestino
+            ? conCod(data.oficinaDestinoCod, data.oficinaDestino) : (data.institucion || '—'));
+        $raiz.find('#trf-d-predio-destino').text(data.predioDestino || '');
 
-        if (data.tipo === 'EXTERNA' && data.institucion) {
-            $('#trf-d-institucion').text(data.institucion);
-            $('#trf-lbl-institucion, #trf-d-institucion').show();
-        } else { $('#trf-lbl-institucion, #trf-d-institucion').hide(); }
+        if (data.tipo === 'EXTERNA') {
+            $raiz.find('#trf-d-institucion').text(data.institucion || '—');
+            $raiz.find('#trf-lbl-institucion').removeClass('d-none');
+        } else { $raiz.find('#trf-lbl-institucion').addClass('d-none'); }
 
         if (data.observacion && data.observacion.trim()) {
-            $('#trf-d-observacion').text(data.observacion);
-            $('#trf-container-observacion').show();
-        } else { $('#trf-container-observacion').hide(); }
+            $raiz.find('#trf-d-observacion').text(data.observacion);
+            $raiz.find('#trf-container-observacion').removeClass('d-none');
+        } else { $raiz.find('#trf-container-observacion').addClass('d-none'); }
 
-        $('#trf-aud-fecha-reg').text(fechaHora(data.fechaReg));
-        $('#trf-aud-usuario-reg').text(data.usuarioReg || 'Sistema');
-        $('#trf-aud-id').text('#' + id);
+        $raiz.find('#trf-aud-fecha-reg').text(fechaHora(data.fechaReg));
+        $raiz.find('#trf-aud-usuario-reg').text(data.usuarioReg || 'Sistema');
+        $raiz.find('#trf-aud-id').text('#' + id);
 
         // La modificación solo se muestra si realmente hubo una: la auditoría sella
         // "modificacion" al crear el registro, así que una fecha sin usuario no es un cambio.
         const huboCambio = data.usuarioMod && String(data.usuarioMod).trim() !== '';
-        $('#trf-aud-bloque-mod').toggleClass('d-none', !huboCambio);
-        $('#trf-aud-sin-mod').toggleClass('d-none', huboCambio);
+        $raiz.find('#trf-aud-bloque-mod').toggleClass('d-none', !huboCambio);
+        $raiz.find('#trf-aud-sin-mod').toggleClass('d-none', huboCambio);
         if (huboCambio) {
-            $('#trf-aud-fecha-mod').text(fechaHora(data.fechaMod));
-            $('#trf-aud-usuario-mod').text(data.usuarioMod);
+            $raiz.find('#trf-aud-fecha-mod').text(fechaHora(data.fechaMod));
+            $raiz.find('#trf-aud-usuario-mod').text(data.usuarioMod);
         }
-        $('#trf-btn-modal-pdf').attr('href', `/seguimiento-activo/transferencia/${id}/pdf`);
+        $raiz.find('#trf-btn-modal-pdf').attr('href', `/seguimiento-activo/transferencia/${id}/pdf`);
+        $raiz.find('#trf-badge-num-activos, #trf-resumen-total').text(data.numActivos || 0);
 
         cargarActivosTransferencia(id);
 
-        const tab = new bootstrap.Tab(document.querySelector('#trfModalTabs .nav-link'));
+        const tab = new bootstrap.Tab($raiz.find('#trfModalTabs .nav-link')[0]);
         tab.show();
-        new bootstrap.Modal(document.getElementById('modalDetalleTransferencia')).show();
+        bootstrap.Modal.getOrCreateInstance($raiz.find('#modalDetalleTransferencia')[0]).show();
     }
 
     /* ── Helpers de presentación ────────────────────────────────────────────── */
@@ -621,6 +527,29 @@
         const d = new Date(valor);
         if (isNaN(d.getTime())) return String(valor);
         return d.toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' });
+    }
+
+    function fechaSolo(valor) {
+        if (!valor) return '—';
+        const partes = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(valor));
+        return partes ? `${partes[3]}/${partes[2]}/${partes[1]}` : String(valor);
+    }
+
+    function abrirFichaActivo(idDetalle) {
+        const d = _trfDetalles[idDetalle];
+        if (!d) return;
+        $raiz.find('#trf-ver-det-codigo').text(d.codigoActivo || '—');
+        $raiz.find('#trf-ver-det-descripcion').text(d.descripcionActivo || 'Sin descripción');
+        const estado = d.activoActual?.sincVsiaf;
+        const clase = { CONFIRMADO: 'bg-success', EN_COLA: 'bg-warning text-dark', ERROR: 'bg-danger' }[estado] || 'bg-secondary';
+        const texto = { CONFIRMADO: 'En VSIAF', EN_COLA: 'En cola', ERROR: 'Con error' }[estado] || 'Sin enviar';
+        $raiz.find('#trf-ver-det-estado').attr('class', 'badge ' + clase).text(texto);
+        $raiz.find('#trf-ver-det-body').html(fichaActivo(d));
+        volverDesdeActivo = true;
+        $raiz.find('#modalDetalleTransferencia').one('hidden.bs.modal', function () {
+            bootstrap.Modal.getOrCreateInstance($raiz.find('#modalTrfDetalleActivo')[0]).show();
+        });
+        bootstrap.Modal.getOrCreateInstance($raiz.find('#modalDetalleTransferencia')[0]).hide();
     }
 
     /* "45 — ALMACÉN CENTRAL": el código delante del nombre, como se lo identifica en el VSIAF. */
@@ -647,9 +576,11 @@
         return '<span class="badge bg-secondary">Sin enviar</span>';
     }
 
-    function fila(etiqueta, valorHtml) {
-        if (!valorHtml || valorHtml === '—') return '';
-        return `<dt class="col-sm-4 text-muted">${etiqueta}</dt><dd class="col-sm-8">${valorHtml}</dd>`;
+    function campo(etiqueta, valorHtml, anchoCompleto) {
+        return `<div class="trf-field${anchoCompleto ? ' wide' : ''}">
+            <span class="trf-label">${esc(etiqueta)}</span>
+            <span class="trf-value">${valorHtml || '—'}</span>
+        </div>`;
     }
 
     /* ── Activos de la transferencia ────────────────────────────────────────── */
@@ -657,18 +588,19 @@
     let _trfDetalles = {};
 
     function cargarActivosTransferencia(id) {
-        $('#trf-tbody-activos').html(`<tr><td colspan="7" class="text-center py-4">
+        if (peticionActivos) peticionActivos.abort();
+        $raiz.find('#trf-tbody-activos').html(`<tr><td colspan="7" class="text-center py-4">
     <div class="spinner-border spinner-border-sm text-primary me-2"></div>Cargando...</td></tr>`);
-        $('#trf-stat-confirmados, #trf-stat-encola, #trf-stat-error').text('0');
+        $raiz.find('#trf-stat-confirmados, #trf-stat-encola, #trf-stat-error').text('0');
         _trfDetalles = {};
 
-        $.ajax({
+        const solicitud = $.ajax({
             type: 'GET',
             url: `/administracion/transferencia/${id}/detalles-json`,
             success: function (detalles) {
                 if (!detalles || detalles.length === 0) {
-                    $('#trf-tbody-activos').html('<tr><td colspan="7" class="text-center text-muted py-4">Sin activos registrados</td></tr>');
-                    $('#trf-badge-num-activos, #trf-resumen-total').text('0');
+                    $raiz.find('#trf-tbody-activos').html('<tr><td colspan="7" class="text-center text-muted py-4">Sin activos registrados</td></tr>');
+                    $raiz.find('#trf-badge-num-activos, #trf-resumen-total').text('0');
                     return;
                 }
 
@@ -682,7 +614,7 @@
                     else if (sinc === 'ERROR') conError++;
                     _trfDetalles[d.idDetalle] = d;
 
-                    html += `<tr class="trf-activo-row" data-detalle="${d.idDetalle}" style="cursor:pointer">
+                    html += `<tr class="trf-activo-row" data-detalle="${d.idDetalle}" tabindex="0" role="button" aria-label="Ver ficha del bien ${esc(d.codigoActivo || '')}">
           <td class="text-center text-muted small">${i + 1}</td>
           <td><code class="small fw-semibold text-primary">${esc(d.codigoActivo || '—')}</code></td>
           <td class="descripcion-clamp" style="font-size:.82rem" title="${esc(d.descripcionActivo || '')}">${esc(d.descripcionActivo || '—')}</td>
@@ -696,109 +628,100 @@
           </td>
           <td class="text-center">${badgeVsiaf(sinc)}</td>
           <td class="text-center">
-            <button type="button" class="btn btn-sm btn-icon btn-outline-primary py-0 px-1 trf-btn-ver" title="Ver detalle">
-              <i class="bx bx-show"></i>
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-suave trf-btn-ver" title="Ver ficha completa" aria-label="Ver ficha completa">
+              <i class="ti ti-eye"></i>
             </button>
           </td>
         </tr>`;
                 });
 
-                $('#trf-tbody-activos').html(html);
-                $('#trf-badge-num-activos, #trf-resumen-total').text(detalles.length);
-                $('#trf-stat-confirmados').text(confirmados);
-                $('#trf-stat-encola').text(enCola);
-                $('#trf-stat-error').text(conError);
+                $raiz.find('#trf-tbody-activos').html(html);
+                $raiz.find('#trf-badge-num-activos, #trf-resumen-total').text(detalles.length);
+                $raiz.find('#trf-stat-confirmados').text(confirmados);
+                $raiz.find('#trf-stat-encola').text(enCola);
+                $raiz.find('#trf-stat-error').text(conError);
 
-                $('#trf-buscar-activo').val('').off('input').on('input', function () {
+                $raiz.find('#trf-buscar-activo').val('').off('input').on('input', function () {
                     const q = $(this).val().toLowerCase();
-                    $('#trf-tabla-activos tbody tr.trf-activo-row').each(function () {
+                    $raiz.find('#trf-tabla-activos tbody tr.trf-activo-row').each(function () {
                         $(this).toggle($(this).text().toLowerCase().includes(q));
                     });
                 });
             },
             error: function (xhr) {
+                if (xhr.statusText === 'abort') return;
                 const msg = xhr.status === 404
                     ? 'No se encontró la transferencia.'
                     : 'No se pudieron cargar los activos.';
-                $('#trf-tbody-activos').html(`<tr><td colspan="7" class="text-center text-danger py-3">
+                $raiz.find('#trf-tbody-activos').html(`<tr><td colspan="7" class="text-center text-danger py-3">
             <i class="bx bx-error-circle me-1"></i>${msg}
-            <button class="btn btn-sm btn-outline-danger ms-2" onclick="cargarActivosTransferencia(${id})">Reintentar</button>
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-peligro js-reintentar-activos" data-id="${id}">Reintentar</button>
         </td></tr>`);
-            }
+            },
+            complete: function () { if (peticionActivos === solicitud) peticionActivos = null; }
         });
+        peticionActivos = solicitud;
     }
 
-    /* Ficha completa del bien: lo que quedó registrado en la transferencia y dónde está hoy. */
+    /* La ficha compara el dato registrado en la transferencia con el estado actual. */
     function fichaActivo(d) {
         const act = d.activoActual || {};
+        const costo = d.costoActivo != null && Number.isFinite(Number(d.costoActivo))
+            ? 'Bs. ' + Number(d.costoActivo).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            : null;
+        const fechaVsiaf = act.sincVsiafFecha
+            ? fechaHora(act.sincVsiafFecha)
+            : 'Sin fecha de confirmación';
+        const mensajeVsiaf = act.sincVsiafMensaje
+            ? `<span class="text-danger">${esc(act.sincVsiafMensaje)}</span>`
+            : 'Sin observaciones de sincronización';
 
-        const movimiento = `
-        <div class="col-md-6">
-            <h6 class="text-muted small text-uppercase mb-2"><i class="bx bx-transfer-alt me-1"></i>Movimiento</h6>
-            <dl class="row mb-0 small">
-                ${fila('Oficina origen', oficinaTexto(d.oficinaAnterior))}
-                ${fila('Responsable origen', responsableTexto(d.responsableAnterior))}
-                ${fila('Oficina destino', oficinaTexto(d.oficinaDestino))}
-                ${fila('Responsable destino', responsableTexto(d.responsableDestino))}
-                ${fila('Ubicación origen', esc(d.ubicacionOrigen))}
-                ${fila('Ubicación destino', esc(d.ubicacionActual))}
-                ${fila('Observación', esc(d.observacionDetalle))}
-            </dl>
-        </div>`;
-
-        const costo = d.costoActivo != null
-            ? 'Bs. ' + parseFloat(d.costoActivo).toLocaleString('es-BO', { minimumFractionDigits: 2 })
-            : '';
-
-        let sincDetalle = badgeVsiaf(act.sincVsiaf);
-        if (act.sincVsiafFecha) {
-            sincDetalle += `<div class="text-muted" style="font-size:.72rem">${new Date(act.sincVsiafFecha).toLocaleString('es-BO')}</div>`;
-        }
-        if (act.sincVsiafMensaje) {
-            sincDetalle += `<div class="text-danger" style="font-size:.72rem">${esc(act.sincVsiafMensaje)}</div>`;
-        }
-
-        const ficha = `
-        <div class="col-md-6">
-            <h6 class="text-muted small text-uppercase mb-2"><i class="bx bx-box me-1"></i>El bien hoy</h6>
-            <dl class="row mb-0 small">
-                ${fila('Código actual', act.codigo ? '<code>' + esc(act.codigo) + '</code>' : '')}
-                ${fila('Descripción', esc(act.descripcion))}
-                ${fila('Estado', esc(act.estado))}
-                ${fila('Grupo contable', esc(act.grupoContable))}
-                ${fila('Auxiliar', esc(act.auxiliar))}
-                ${fila('Oficina actual', oficinaTexto(act.oficina))}
-                ${fila('Responsable actual', responsableTexto(act.responsable))}
-                ${fila('Costo', costo)}
-                ${fila('Fecha adquisición', esc(act.fechaAdquisicion))}
-                ${fila('Vida útil', act.vidaUtil != null ? esc(act.vidaUtil) + ' año(s)' : '')}
-                ${fila('Observación', esc(act.observ))}
-                ${fila('VSIAF', sincDetalle)}
-            </dl>
-        </div>`;
-
-        // Atajo al Seguimiento de Activo, solo si el usuario lo tiene en su menú.
         const codigo = act.codigo || d.codigoActivo;
         const hayRuta = codigo && $('#layout-menu .menu-item[data-url="/administracion/ruta-activo/vista"]').length;
-        const ruta = hayRuta ? `<div class="col-12 text-end">
-            <button type="button" class="btn btn-sm btn-outline-danger"
-                    onclick="bootstrap.Modal.getInstance(document.getElementById('modalTrfDetalleActivo'))?.hide();
-                             bootstrap.Modal.getInstance(document.getElementById('modalDetalleTransferencia'))?.hide();
-                             window.cargarContenido('/administracion/ruta-activo/vista?codigo=${encodeURIComponent(codigo)}')">
-                <i class="ti ti-route me-1"></i> Ver todas las oficinas por las que pasó
+        const ruta = hayRuta ? `<div class="text-end mt-3">
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-ruta-activo" data-codigo="${esc(codigo)}">
+                <i class="ti ti-route"></i> Ver historial completo del bien
             </button></div>` : '';
 
-        return `<div class="row g-4 py-2 px-1">${movimiento}${ficha}${ruta}</div>`;
+        return `<div class="trf-asset-grid">
+            <section class="trf-asset-section">
+                <div class="trf-panel-title"><i class="ti ti-arrows-exchange-2"></i> Registrado en esta transferencia</div>
+                <div class="trf-panel-body trf-fields">
+                    ${campo('Código en el movimiento', esc(d.codigoActivo), true)}
+                    ${campo('Descripción registrada', esc(d.descripcionActivo), true)}
+                    ${campo('Oficina de origen', oficinaTexto(d.oficinaAnterior))}
+                    ${campo('Responsable de origen', responsableTexto(d.responsableAnterior))}
+                    ${campo('Oficina de destino', oficinaTexto(d.oficinaDestino))}
+                    ${campo('Responsable de destino', responsableTexto(d.responsableDestino))}
+                    ${campo('Ubicación de origen', esc(d.ubicacionOrigen))}
+                    ${campo('Ubicación de destino', esc(d.ubicacionActual))}
+                    ${campo('Observación del movimiento', esc(d.observacionDetalle), true)}
+                    ${costo ? campo('Costo registrado', esc(costo)) : ''}
+                </div>
+            </section>
+            <section class="trf-asset-section">
+                <div class="trf-panel-title"><i class="ti ti-box"></i> Situación actual del bien</div>
+                <div class="trf-panel-body trf-fields">
+                    ${campo('Código actual', esc(act.codigo))}
+                    ${campo('Estado', esc(act.estado))}
+                    ${campo('Descripción actual', esc(act.descripcion), true)}
+                    ${campo('Grupo contable', esc(act.grupoContable))}
+                    ${campo('Auxiliar', esc(act.auxiliar))}
+                    ${campo('Oficina actual', oficinaTexto(act.oficina))}
+                    ${campo('Responsable actual', responsableTexto(act.responsable))}
+                    ${campo('Fecha de adquisición', esc(act.fechaAdquisicion))}
+                    ${act.vidaUtil != null ? campo('Vida útil', esc(act.vidaUtil) + ' años') : ''}
+                    ${campo('Observación actual', esc(act.observ), true)}
+                </div>
+            </section>
+        </div>
+        <div class="trf-status-block">
+            <i class="ti ti-refresh" aria-hidden="true"></i>
+            <div><span class="trf-label">Estado de sincronización con VSIAF</span>${badgeVsiaf(act.sincVsiaf)}</div>
+            <div class="trf-status-message"><span class="trf-label">Último envío</span>${esc(fechaVsiaf)}</div>
+            <div class="trf-status-message"><span class="trf-label">Resultado</span>${mensajeVsiaf}</div>
+        </div>${ruta}`;
     }
-
-    /* Ficha del activo en un modal interno, igual que en Asignación. */
-    $(document).off('click.trfActivo').on('click.trfActivo', '.trf-activo-row', function () {
-        const d = _trfDetalles[$(this).data('detalle')];
-        if (!d) return;
-        $('#trf-ver-det-codigo').text(d.codigoActivo || '—');
-        $('#trf-ver-det-body').html(fichaActivo(d));
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTrfDetalleActivo')).show();
-    });
 
     function exportarPDF() {
         window.open(`/administracion/transferencia/exportar-pdf?${new URLSearchParams(obtenerFiltros())}`, '_blank');
@@ -806,4 +729,5 @@
     function exportarExcel() {
         window.location.href = `/administracion/transferencia/exportar-excel?${new URLSearchParams(obtenerFiltros())}`;
     }
+    })();
 </script>

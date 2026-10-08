@@ -134,7 +134,8 @@ public class EnvioCustodiaService {
 
     // ── Ciclo ──────────────────────────────────────────────────────────────
 
-    @Scheduled(fixedDelayString = "${custodia.envio.interval.ms:30000}", initialDelay = 60000)
+    @Scheduled(fixedDelayString = "${custodia.envio.interval.ms:30000}", initialDelay = 60000,
+            scheduler = "custodiaTaskScheduler")
     public void ciclo() {
         if (!vsiaf.dbf("envío de custodias")) return;
         try {
@@ -144,9 +145,23 @@ public class EnvioCustodiaService {
                 prepararCustodias(esperando, null, Set.of());
                 despachar(esperando);
             }
-            if (actualDbfWriterService.esModoCola()) confirmarTraslados();
         } catch (Exception e) {
             log.error("[CUSTODIA] Falló el ciclo de envío: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * La confirmación solo consulta la base: no debe esperar a que terminen las lecturas
+     * CIFS o las altas de otras custodias del ciclo de envío.
+     */
+    @Scheduled(fixedDelayString = "${custodia.confirmacion.interval.ms:10000}", initialDelay = 15000,
+            scheduler = "custodiaTaskScheduler")
+    public void confirmarPendientes() {
+        if (!actualDbfWriterService.esModoCola()) return;
+        try {
+            confirmarTraslados();
+        } catch (Exception e) {
+            log.error("[CUSTODIA] Falló la confirmación de traslados: {}", e.getMessage(), e);
         }
     }
 

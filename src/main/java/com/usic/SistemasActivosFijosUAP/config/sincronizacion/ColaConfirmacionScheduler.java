@@ -3,6 +3,7 @@ package com.usic.SistemasActivosFijosUAP.config.sincronizacion;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -81,15 +82,21 @@ public class ColaConfirmacionScheduler {
     @Value("${sync.cola.confirmacion.horas-extravio:6}")
     private long horasExtravio;
 
-    @Scheduled(fixedDelayString = "${sync.cola.confirmacion.interval.ms:20000}", initialDelay = 30000)
+    private long ultimoAvisoDemoraMs;
+
+    @Scheduled(fixedDelayString = "${sync.cola.confirmacion.interval.ms:10000}", initialDelay = 30000,
+            scheduler = "colaConfirmacionTaskScheduler")
     @Transactional
     public void confirmarOrdenes() {
         if (!"cola".equalsIgnoreCase(writeMode)) return;   // en modo bytes no hay worker que responda
         if (!vsiaf.dbf("confirmación de la cola")) return;
 
+        long inicio = System.nanoTime();
+
         List<DbfColaOrden> pendientes = colaDao.findByEstadoOrderByIdOrdenAsc(
                 DbfColaOrden.ENCOLADA, PageRequest.of(0, Math.max(1, lote)));
         if (pendientes.isEmpty()) return;
+        avisarSiDemorada(pendientes.get(0), pendientes.size());
 
         Path cola    = Path.of(colaPath, "_cola");
         Path hechos  = Path.of(colaPath, "_hechos");
@@ -127,6 +134,11 @@ public class ColaConfirmacionScheduler {
             }
         }
 
+        long duracionMs = Duration.ofNanos(System.nanoTime() - inicio).toMillis();
+        if (duracionMs > 5000) {
+            log.warn("[COLA] La comprobación de {} orden(es) tardó {} ms; revisar latencia del montaje de cola.",
+                    pendientes.size(), duracionMs);
+        }
         if (ok + fallidas + extraviadas == 0) return;
 
         colaDao.flush();
@@ -144,10 +156,29 @@ public class ColaConfirmacionScheduler {
         }
     }
 
+    private void avisarSiDemorada(DbfColaOrden primera, int tamañoLote) {
+        if (primera.getFechaEncolado() == null) return;
+        long edadSegundos = Duration.between(primera.getFechaEncolado(), LocalDateTime.now()).toSeconds();
+        long ahora = System.currentTimeMillis();
+        if (edadSegundos < 120 || ahora - ultimoAvisoDemoraMs < 60000) return;
+        ultimoAvisoDemoraMs = ahora;
+        log.warn("[COLA] Orden {} lleva {} s sin confirmar ({} pendientes en el lote). "
+                        + "Comprobar si sigue en _cola o si el worker la movió a _hechos/_errores.",
+                primera.getArchivo(), edadSegundos, tamañoLote);
+    }
+
     private void resolver(DbfColaOrden orden, String estado, String mensaje) {
+        LocalDateTime ahora = LocalDateTime.now();
+        if (orden.getFechaEncolado() != null) {
+            long esperaSegundos = Duration.between(orden.getFechaEncolado(), ahora).toSeconds();
+            if (esperaSegundos >= 60) {
+                log.warn("[COLA] Orden {} resuelta como {} tras {} s desde el encolado.",
+                        orden.getArchivo(), estado, esperaSegundos);
+            }
+        }
         orden.setEstado(estado);
         orden.setMensaje(mensaje);
-        orden.setFechaResuelto(LocalDateTime.now());
+        orden.setFechaResuelto(ahora);
         colaDao.save(orden);
     }
 

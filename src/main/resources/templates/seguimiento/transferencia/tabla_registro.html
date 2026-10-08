@@ -1,36 +1,6 @@
-<!-- /seguimiento/transferencia/tabla_registro.html
-     Mismo lenguaje visual que el listado de actas de asignación: tabla sobria, un solo
-     acento para lo interactivo y el color reservado al estado, que es lo único que
-     puede exigir una acción. -->
-
-<div th:if="${#lists.isEmpty(transferencias)}" class="card border-0 shadow-sm">
-    <div class="card-body text-center py-5">
-        <i class="bx bx-transfer fs-1 text-muted mb-3 d-block"></i>
-        <h6 class="text-muted">No se encontraron registros de transferencia</h6>
-        <p class="text-muted small mb-0">Las transferencias internas y externas aparecen acá
-            apenas se registran.</p>
-    </div>
-</div>
-
-<div th:if="${!#lists.isEmpty(transferencias)}" class="card border-0 shadow-sm">
-
-    <div class="card-header bg-transparent border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2 py-3">
-        <div class="d-flex align-items-center gap-2">
-            <i class="bx bx-transfer text-primary fs-5"></i>
-            <span class="fw-semibold">Transferencias de activos</span>
-            <span class="badge bg-primary rounded-pill" th:text="${#lists.size(transferencias)}">0</span>
-        </div>
-        <div class="d-none d-md-flex align-items-center gap-3 small text-muted">
-            <span><span class="badge bg-success me-1">●</span>Completada</span>
-            <span><span class="badge bg-warning me-1">●</span>En proceso</span>
-            <span><span class="badge bg-secondary me-1">●</span>Pendiente</span>
-            <span><span class="badge bg-danger me-1">●</span>Anulada</span>
-            <span class="ms-2 ps-2 border-start"><span class="badge bg-danger me-1"><i class="bx bx-error-circle"></i></span>Por faltante</span>
-        </div>
-    </div>
-
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0 tabla-transferencias">
+<!-- El fragmento contiene solo la tabla; la barra y los estilos viven en vista.html. -->
+<div class="table-responsive">
+        <table class="table sm-tabla align-middle tabla-transferencias" id="tabla-transferencias">
             <thead>
                 <tr>
                     <th>TRANSFERENCIA</th>
@@ -44,26 +14,12 @@
                 </tr>
             </thead>
 
-            <tbody th:with="mesesNombre=${ {'','ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO',
-                                            'AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'} }">
-            <th:block th:each="trf, it : ${transferencias}"
-                      th:with="claveMes=${trf.fechaTransferencia != null
-                                          ? #temporals.format(trf.fechaTransferencia, 'yyyy-MM') : null},
-                               claveMesPrevia=${it.index == 0 ? '' :
-                                          (transferencias[it.index - 1].fechaTransferencia != null
-                                           ? #temporals.format(transferencias[it.index - 1].fechaTransferencia, 'yyyy-MM')
-                                           : null)}">
-
-                <!-- Corte por mes: el listado viene ordenado por fecha descendente. -->
-                <tr th:if="${trf.fechaTransferencia != null and claveMes != claveMesPrevia}" class="fila-mes">
-                    <td colspan="8">
-                        <span class="mes-nombre"
-                              th:text="${mesesNombre[trf.fechaTransferencia.monthValue] + ' ' + trf.fechaTransferencia.year}">MES</span>
-                    </td>
-                </tr>
-
+            <tbody>
+            <th:block th:each="trf : ${transferencias}">
                 <tr th:id="'trf-row-' + ${trf.idTransferencia}"
                     class="trf-row"
+                    tabindex="0" role="button"
+                    th:aria-label="${'Ver detalle de transferencia ' + (trf.numeroTransferencia ?: trf.idTransferencia)}"
                     th:with="motivo=${trf.motivoFaltante}"
                     th:classappend="${motivo == 'FALTANTE'} ? 'trf-faltante' : (${motivo == 'DEVOLUCION_FALTANTE'} ? 'trf-devolucion' : '')"
                     th:data-id="${trf.idTransferencia}"
@@ -96,8 +52,7 @@
                         ? mapaUsuarios.get(trf.registroIdUsuario) : 'Sistema'}"
                     th:data-fecha-mod="${trf.modificacion}"
                     th:data-usuario-mod="${trf.modificacionIdUsuario != null and mapaUsuarios.containsKey(trf.modificacionIdUsuario)
-                        ? mapaUsuarios.get(trf.modificacionIdUsuario) : ''}"
-                    style="cursor:pointer">
+                        ? mapaUsuarios.get(trf.modificacionIdUsuario) : ''}">
 
                     <!-- Número y documento de referencia -->
                     <td>
@@ -110,7 +65,7 @@
                     </td>
 
                     <!-- Fecha de transferencia y de recepción -->
-                    <td>
+                    <td th:attr="data-order=${trf.fechaTransferencia}">
                         <div class="small" th:text="${trf.fechaTransferencia != null
                              ? #temporals.format(trf.fechaTransferencia, 'dd/MM/yyyy') : '—'}">—</div>
                         <div class="text-muted" style="font-size:.72rem" th:if="${trf.fechaRecepcion != null}"
@@ -171,9 +126,9 @@
                     <!-- Acciones -->
                     <td class="text-end text-nowrap">
                         <a th:href="@{/seguimiento-activo/transferencia/{id}/pdf(id=${trf.idTransferencia})}"
-                           target="_blank" class="btn btn-sm btn-icon btn-outline-primary py-0 px-1"
-                           title="Descargar Word" onclick="event.stopPropagation()">
-                            <i class="bx bxs-file-doc small"></i>
+                           target="_blank" rel="noopener" class="sm-btn sm-btn-sm sm-btn-suave trf-descargar"
+                           title="Descargar Word" aria-label="Descargar Word">
+                            <i class="ti ti-file-download"></i>
                         </a>
                         <i class="bx bx-chevron-right text-muted ms-1" title="Ver detalle"></i>
                     </td>
@@ -182,78 +137,3 @@
             </tbody>
         </table>
     </div>
-
-    <div class="card-footer bg-transparent border-top py-2 px-3">
-        <small class="text-muted">
-            <i class="bx bx-info-circle me-1"></i>
-            Mostrando <strong th:text="${#lists.size(transferencias)}">0</strong> transferencias.
-            Hacé clic en una fila para ver el detalle.
-        </small>
-    </div>
-
-</div>
-
-<style>
-    .tabla-transferencias thead th {
-        font-size: .68rem;
-        letter-spacing: .06em;
-        text-transform: uppercase;
-        white-space: nowrap;
-        color: var(--bs-secondary-color, #697a8d);
-        font-weight: 600;
-    }
-
-    /* Separador de mes: una banda sobria que corta la lista sin competir con el
-       color del estado ni parecer una fila más de datos. */
-    .tabla-transferencias tr.fila-mes td {
-        background: #f5f6f8;
-        border-top: 2px solid #d9dee3;
-        padding: .45rem .75rem;
-    }
-    .tabla-transferencias tr.fila-mes:hover td { background: #f5f6f8; }
-    .tabla-transferencias .mes-nombre {
-        font-weight: 700;
-        font-size: .78rem;
-        letter-spacing: .06em;
-        color: #566a7f;
-    }
-
-    .tabla-transferencias td.num {
-        font-variant-numeric: tabular-nums;
-        white-space: nowrap;
-    }
-
-    .tabla-transferencias tbody tr.trf-row:hover {
-        background-color: rgba(var(--bs-primary-rgb), .05);
-    }
-
-    /* Transferencias del ciclo de faltantes: franja roja a la izquierda y fondo
-       rosado, para distinguirlas de un movimiento normal de un vistazo. */
-    .tabla-transferencias tbody tr.trf-faltante > td {
-        background-color: #fef2f2;
-    }
-    .tabla-transferencias tbody tr.trf-faltante > td:first-child {
-        box-shadow: inset 4px 0 0 #dc2626;
-    }
-    .tabla-transferencias tbody tr.trf-faltante:hover > td {
-        background-color: #fee2e2;
-    }
-    .tabla-transferencias tbody tr.trf-devolucion > td:first-child {
-        box-shadow: inset 4px 0 0 #f87171;
-    }
-    .tabla-transferencias .badge-faltante { letter-spacing: .04em; }
-    .tabla-transferencias .badge-devolucion {
-        background: #fff; color: #b91c1c; border: 1px solid #fca5a5; letter-spacing: .03em;
-    }
-    html[data-theme="dark"] .tabla-transferencias tbody tr.trf-faltante > td { background-color: rgba(220, 38, 38, .12); }
-    html[data-theme="dark"] .tabla-transferencias tbody tr.trf-faltante:hover > td { background-color: rgba(220, 38, 38, .2); }
-    html[data-theme="dark"] .tabla-transferencias .badge-devolucion { background: transparent; color: #fca5a5; }
-</style>
-
-<script>
-    /* El clic en la fila abre el detalle; los botones de acción lo detienen con stopPropagation. */
-    $(document).off('click.trfRow').on('click.trfRow', '.trf-row', function () {
-        const id = $(this).data('id');
-        if (typeof abrirModalTransferencia === 'function') abrirModalTransferencia(id);
-    });
-</script>

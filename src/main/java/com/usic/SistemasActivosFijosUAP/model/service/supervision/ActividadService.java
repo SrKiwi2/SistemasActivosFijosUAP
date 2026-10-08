@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.config.RolesSciaf;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActividadSistemaDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IUsuarioDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.ActividadSistema;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 
@@ -58,6 +59,7 @@ public class ActividadService {
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 
     private final IActividadSistemaDao dao;
+    private final IUsuarioDao usuarioDao;
     private final SseEmitterRegistry sseRegistry;
 
     /** Acción sobre un solo registro. */
@@ -77,7 +79,12 @@ public class ActividadService {
             if (u != null) {
                 a.setIdUsuario(u.getIdUsuario());
                 a.setUsuario(recortar(u.getUsuario(), 60));
-                a.setRol(recortar(RolesSciaf.rolDe(u), 40));
+                // El autor de un trabajo programado puede venir de otra transacción;
+                // su asociación LAZY con rol ya no tiene sesión. Leerla aquí, donde
+                // REQUIRES_NEW mantiene una sesión activa para la bitácora.
+                Usuario autorActual = u.getIdUsuario() == null ? null
+                        : usuarioDao.findById(u.getIdUsuario()).orElse(null);
+                a.setRol(recortar(RolesSciaf.rolDe(autorActual), 40));
             } else {
                 a.setUsuario("SISTEMA");
             }

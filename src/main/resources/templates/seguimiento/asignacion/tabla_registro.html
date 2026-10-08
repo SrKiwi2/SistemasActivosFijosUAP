@@ -177,7 +177,7 @@
                                                : null)}">
 
                 <tr th:id="'asig-row-' + ${asig.idAsignacionActivo}"
-                    class="asig-row"
+                    class="asig-row" tabindex="0" role="button" aria-label="Ver detalle de asignación"
                     th:attr="data-idAsignacionActivo=${asig.idAsignacionActivo},
                              data-numeroAsignacion=${asig.numeroAsignacion},
                              data-codigoCompletoNormalizado=${asig.codigoCompletoNormalizado},

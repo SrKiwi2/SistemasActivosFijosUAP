@@ -21,10 +21,12 @@ import java.util.List;
  *                        escrituras al VSIAF que nadie pidió, y no propagar nunca dejaría
  *                        la cabecera diciendo una cosa y los bienes otra
  * @param motivo          por qué se mueven; obligatorio
+ * @param idActaOrigenEsperada si se eligieron desde un acta, exige que sigan ahí al guardar
  */
 public record TrasladoActaDTO(
         Long idActaDestino,
         List<Long> idsActivos,
         boolean adoptarDestino,
-        String motivo) {
+        String motivo,
+        Long idActaOrigenEsperada) {
 }

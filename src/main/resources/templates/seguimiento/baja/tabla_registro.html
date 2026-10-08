@@ -17,7 +17,7 @@
         </tr>
     </thead>
     <tbody>
-        <tr th:each="baja : ${bajas}" class="baja-row" style="cursor:pointer;"
+        <tr th:each="baja : ${bajas}" class="baja-row" style="cursor:pointer;" tabindex="0" role="button" aria-label="Ver detalle de baja"
             th:with="motivoLabel=${baja.causa == 'ROBO' ? 'Robo' : (baja.causa == 'EXTRAVIO' ? 'Extravío' : (baja.causa == 'DANADO' ? 'Dañado' : (baja.causa == 'FIN_VIDA_UTIL' ? 'Cumplió vida útil' : baja.causa)))}"
             th:data-id="${baja.idBajaActivo}"
             th:data-numero="${baja.hr}"

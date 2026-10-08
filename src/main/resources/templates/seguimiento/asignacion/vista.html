@@ -13,7 +13,7 @@
     <div class="sm-cabecera-icono"><i class="ti ti-clipboard"></i></div>
     <div class="sm-cabecera-texto">
         <nav class="sm-migas" aria-label="Ubicación">
-            <i class="ti ti-route"></i> Seguimiento <i class="ti ti-chevron-right"></i> Asignación de Activos
+            <i class="ti ti-route"></i> Movimientos <i class="ti ti-chevron-right"></i> Asignaciones
         </nav>
         <h1 class="sm-titulo">Asignación de Activos</h1>
         <p class="sm-subtitulo">Actas de asignación, reasignación y devolución de bienes.</p>
@@ -129,16 +129,16 @@
 <!-- Cada modal se carga por AJAX cuando se necesita; aquí solo el contenedor vacío -->
 
 <!-- Modal DETALLE DE ACTA (multi-tab) -->
-<div class="modal fade" id="modalDetalleAsignacion" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content sm-modal" id="contenidoModalDetalle"></div>
+<div class="modal fade" id="modalDetalleAsignacion" tabindex="-1" aria-hidden="true" aria-labelledby="modal-numero-asignacion">
+    <div class="modal-dialog modal-dialog-centered sm-detalle-dialog">
+        <div class="modal-content sm-modal sm-detalle-content" id="contenidoModalDetalle"></div>
     </div>
 </div>
 
 <!-- Modal VER DETALLE ACTIVO (solo lectura) -->
 <div class="modal fade" id="modalVerDetalleActivo" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content sm-modal" id="contenidoModalVerDetalle"></div>
+    <div class="modal-dialog modal-dialog-centered sm-detalle-dialog sm-detalle-bien-dialog">
+        <div class="modal-content sm-modal sm-detalle-content" id="contenidoModalVerDetalle"></div>
     </div>
 </div>
 
@@ -149,17 +149,60 @@
     </div>
 </div>
 
-<!-- Modal SEPARAR ACTA -->
-<div class="modal fade" id="modalSepararActa" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content sm-modal" id="contenidoModalSeparar"></div>
-    </div>
-</div>
-
-<!-- Modal TRASLADAR -->
-<div class="modal fade" id="modalTrasladar" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content sm-modal" id="contenidoModalTrasladar"></div>
+<!-- Separar a un acta nueva o trasladar a otra acta existente -->
+<div class="modal fade" id="modalOperacionActa" tabindex="-1" aria-hidden="true" aria-labelledby="op-acta-titulo">
+    <div class="modal-dialog modal-dialog-centered sm-detalle-dialog sm-detalle-bien-dialog">
+        <form class="modal-content sm-modal sm-detalle-content" id="formOperacionActa">
+            <div class="sm-detalle-head">
+                <div class="sm-cabecera-icono"><i class="ti ti-git-branch" id="op-acta-icono"></i></div>
+                <div class="flex-grow-1"><span class="sm-detalle-kicker">Movimientos · Asignaciones</span>
+                    <h5 class="sm-modal-titulo" id="op-acta-titulo">Mover bienes</h5>
+                    <small id="op-acta-subtitulo">—</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="sm-detalle-scroll">
+                <div class="row g-3">
+                    <div class="col-12 col-lg-5"><section class="sm-detalle-panel">
+                        <div class="sm-detalle-panel-cab"><i class="ti ti-boxes"></i> Bienes seleccionados</div>
+                        <div class="p-3" id="op-acta-bienes"></div>
+                    </section></div>
+                    <div class="col-12 col-lg-7"><section class="sm-detalle-panel">
+                        <div class="sm-detalle-panel-cab"><i class="ti ti-file-description"></i> Destino del movimiento</div>
+                        <div class="p-3">
+                            <div id="op-acta-nueva">
+                                <label class="sm-label" for="op-acta-config">Tipo de documento y gestión <span class="sm-req">*</span></label>
+                                <select class="sm-select w-100 mb-3" id="op-acta-config"><option value="">Cargando opciones…</option></select>
+                                <label class="sm-label" for="op-acta-numero">Número de documento <span class="sm-req">*</span></label>
+                                <input class="sm-input w-100" id="op-acta-numero" maxlength="60" autocomplete="off" placeholder="Ej.: 025/2026">
+                                <small class="text-muted d-block mt-2">La nueva acta conservará el responsable y la oficina de esta acta.</small>
+                            </div>
+                            <div id="op-acta-existente" class="d-none">
+                                <label class="sm-label" for="op-acta-buscar">Buscar acta destino <span class="sm-req">*</span></label>
+                                <input class="sm-input w-100" id="op-acta-buscar" autocomplete="off" placeholder="Escriba número o documento (mín. 2 caracteres)">
+                                <div id="op-acta-resultados" class="list-group mt-2" style="max-height:180px;overflow-y:auto" aria-live="polite"></div>
+                                <div class="sm-aviso mt-2 d-none" id="op-acta-destino-elegido"></div>
+                                <label class="form-check mt-3"><input class="form-check-input" type="checkbox" id="op-acta-adoptar">
+                                    <span class="form-check-label">Actualizar el responsable y la oficina del bien según el acta destino</span></label>
+                                <small class="text-muted d-block mt-1">Al marcar esta opción se enviará el cambio al worker VSIAF. Si los predios son distintos, corresponde usar Transferencias.</small>
+                            </div>
+                        </div>
+                    </section></div>
+                    <div class="col-12"><section class="sm-detalle-panel">
+                        <div class="sm-detalle-panel-cab"><i class="ti ti-notes"></i> Motivo del movimiento</div>
+                        <div class="p-3"><label class="sm-label" for="op-acta-motivo">Explique por qué se mueve este bien <span class="sm-req">*</span></label>
+                            <textarea class="sm-input w-100" id="op-acta-motivo" rows="3" minlength="10" maxlength="500" placeholder="Mínimo 10 caracteres. Este motivo quedará en el historial de las actas."></textarea>
+                        </div>
+                    </section></div>
+                </div>
+                <div class="sm-aviso sm-aviso-peligro d-none mt-3" id="op-acta-error" role="alert"></div>
+            </div>
+            <div class="sm-detalle-footer">
+                <span class="sm-detalle-hint">Revise los bienes y el destino antes de confirmar.</span>
+                <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="sm-btn sm-btn-sm" id="op-acta-confirmar"><i class="ti ti-check"></i> Confirmar movimiento</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -193,17 +236,7 @@
         const $cont = $raiz.find('.js-tabla');
         const $modalDetalle = $raiz.find('#modalDetalleAsignacion');
         const $contenidoDetalle = $raiz.find('#contenidoModalDetalle');
-
-        // Referencias a los otros modales (se usan desde el detalle)
-        const modales = {
-            verDetalle: { modal: $raiz.find('#modalVerDetalleActivo'), cont: $raiz.find('#contenidoModalVerDetalle') },
-            corregir:   { modal: $raiz.find('#modalCorregirActivo'),   cont: $raiz.find('#contenidoModalCorregir') },
-            separar:    { modal: $raiz.find('#modalSepararActa'),    cont: $raiz.find('#contenidoModalSeparar') },
-            trasladar:  { modal: $raiz.find('#modalTrasladar'),      cont: $raiz.find('#contenidoModalTrasladar') },
-            incorporar: { modal: $raiz.find('#modalIncorporar'),     cont: $raiz.find('#contenidoModalIncorporar') },
-            editarCab:  { modal: $raiz.find('#modalEditarCabecera'), cont: $raiz.find('#contenidoModalEditarCabecera') },
-            editarRep:  { modal: $raiz.find('#modalEditarReporte'),  cont: $raiz.find('#contenidoModalEditarReporte') }
-        };
+        const $modalOperacion = $raiz.find('#modalOperacionActa');
 
         // Estado de la tabla (orden, página, tamaño) — var para re-entrada por AJAX
         var estadoTabla = { orden: 'fecha', desc: true, pagina: 0, tamano: 25 };
@@ -211,6 +244,11 @@
         var temporizadorBusqueda = null;
         var _asigActual = null;
         var _cabeceraActual = null;
+        var _detalleData = null;
+        var _operacion = null;
+        var _resultadoOperacion = null;
+        var _busquedaActaTimer = null;
+        var _busquedaActaVersion = 0;
 
         $(document).ready(function () {
             restaurarDesdeUrl();
@@ -246,17 +284,17 @@
 
             // Click en fila → abrir detalle
             $cont.off('click.asigRow').on('click.asigRow', '.asig-row', function (e) {
-                if ($(e.target).closest('a, button, .btn, .chk-bien, #chk-todos').length) return;
+                if ($(e.target).closest('a, button, .btn').length) return;
+                const id = $(this).data('idAsignacionActivo');
+                if (id) abrirModalDetalle(id);
+            });
+            $cont.off('keydown.asigRow').on('keydown.asigRow', '.asig-row', function (e) {
+                if (e.target !== this || (e.key !== 'Enter' && e.key !== ' ')) return;
+                e.preventDefault();
                 const id = $(this).data('idAsignacionActivo');
                 if (id) abrirModalDetalle(id);
             });
 
-            // Checkboxes de selección (para barra de acciones en el modal detalle)
-            $cont.off('change.selBien').on('change.selBien', '.chk-bien', actualizarBarraSeleccion);
-            $cont.off('change.selTodos').on('change.selTodos', '#chk-todos', function () {
-                $cont.find('.chk-bien').prop('checked', this.checked);
-                actualizarBarraSeleccion();
-            });
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -412,13 +450,148 @@
             if (q.get('soloConError') === 'true') $raiz.find('.js-filtro-error').prop('checked', true);
         }
 
+        // ══ Separar / trasladar bienes entre actas ═════════════════════
+        const $formOperacion = $raiz.find('#formOperacionActa');
+        function errorOperacion(mensaje) {
+            $formOperacion.find('#op-acta-error').text(mensaje).removeClass('d-none');
+        }
+        function limpiarErrorOperacion() {
+            $formOperacion.find('#op-acta-error').addClass('d-none').text('');
+        }
+        function cargarConfiguraciones() {
+            const $select = $formOperacion.find('#op-acta-config');
+            $select.prop('disabled', true).empty().append($('<option>').val('').text('Cargando tipos de documento…'));
+            SciafModulo.pedirJson('/api/configuracion/listar', { metodo: 'GET' })
+                .then(function (configs) {
+                    $select.empty().append($('<option>').val('').text('Seleccione tipo y gestión'));
+                    (Array.isArray(configs) ? configs : []).forEach(function (c) {
+                        $select.append($('<option>').val(c.idConfig).text((c.prefijoDocumento || 'Documento') + ' · ' + (c.ciudad || 'Sin ciudad') + ' · ' + c.gestion));
+                    });
+                    if (!configs.length) errorOperacion('No hay tipos de documento configurados para crear el acta.');
+                    $select.prop('disabled', false);
+                })
+                .catch(function () { errorOperacion('No se pudieron cargar los tipos de documento. Vuelva a abrir este formulario.'); });
+        }
+        $raiz.on('sciaf:abrir-operacion-acta', function (_, pedido) {
+            if (!_detalleData || !pedido || !pedido.ids?.length) return;
+            const vigentes = _detalleData.detalles.filter(d => (!d.estadoDetalle || d.estadoDetalle === 'VIGENTE') && d.idActivo);
+            const elegidos = vigentes.filter(d => pedido.ids.includes(Number(d.idActivo)));
+            if (elegidos.length !== pedido.ids.length) {
+                SciafModulo.avisarError(new Error('La selección cambió. Vuelva a abrir el acta.'), 'No se pudo iniciar el movimiento');
+                return;
+            }
+            if (pedido.tipo === 'separar' && elegidos.length === vigentes.length) return;
+            _operacion = { tipo: pedido.tipo, ids: pedido.ids, destinoId: null };
+            _resultadoOperacion = null;
+            _busquedaActaVersion++;
+            $formOperacion[0].reset();
+            limpiarErrorOperacion();
+            $formOperacion.find('#op-acta-titulo').text(pedido.tipo === 'separar' ? 'Separar a una nueva acta' : 'Trasladar a otra acta');
+            $formOperacion.find('#op-acta-subtitulo').text('Acta origen: ' + (_detalleData.cabecera.numeroAsignacion || '—'));
+            $formOperacion.find('#op-acta-icono').attr('class', 'ti ' + (pedido.tipo === 'separar' ? 'ti-git-branch' : 'ti-arrows-exchange'));
+            $formOperacion.find('#op-acta-nueva').toggleClass('d-none', pedido.tipo !== 'separar');
+            $formOperacion.find('#op-acta-existente').toggleClass('d-none', pedido.tipo !== 'trasladar');
+            $formOperacion.find('#op-acta-destino-elegido').addClass('d-none').empty();
+            $formOperacion.find('#op-acta-resultados').empty();
+            $formOperacion.find('#op-acta-confirmar').prop('disabled', false).html('<i class="ti ti-check"></i> Confirmar movimiento');
+            const $lista = $formOperacion.find('#op-acta-bienes').empty();
+            elegidos.forEach(function (d) {
+                $('<div class="border-bottom py-2"></div>')
+                    .append($('<strong class="d-block sm-codigo"></strong>').text(d.codigo || '—'))
+                    .append($('<small class="text-muted"></small>').text(d.descripcion || 'Sin descripción'))
+                    .appendTo($lista);
+            });
+            if (pedido.tipo === 'separar') cargarConfiguraciones();
+            $modalDetalle.data('smVolverOperacion', true).one('hidden.bs.modal.operacion', function () {
+                bootstrap.Modal.getOrCreateInstance($modalOperacion[0]).show();
+            });
+            bootstrap.Modal.getOrCreateInstance($modalDetalle[0]).hide();
+        });
+        $modalOperacion.on('hidden.bs.modal', function () {
+            if (!$modalDetalle.data('smVolverOperacion')) return;
+            $modalDetalle.removeData('smVolverOperacion');
+            if (_resultadoOperacion) {
+                const resultado = _resultadoOperacion;
+                _resultadoOperacion = null;
+                cargarTabla();
+                abrirModalDetalle(_asigActual);
+                Swal.fire({ icon: resultado.avisos?.length ? 'warning' : 'success', title: 'Movimiento registrado',
+                    text: resultado.msg + (resultado.vsiaf ? ' VSIAF: ' + resultado.vsiaf + '.' : '') +
+                        (resultado.avisos?.length ? ' Avisos: ' + resultado.avisos.join(' · ') : '') });
+            } else {
+                bootstrap.Modal.getOrCreateInstance($modalDetalle[0]).show();
+            }
+            _operacion = null;
+        });
+        $formOperacion.on('input change', 'input, textarea, select', limpiarErrorOperacion);
+        $formOperacion.on('input', '#op-acta-buscar', function () {
+            const q = this.value.trim();
+            _operacion.destinoId = null;
+            const version = ++_busquedaActaVersion;
+            const $resultados = $formOperacion.find('#op-acta-resultados').empty();
+            $formOperacion.find('#op-acta-destino-elegido').addClass('d-none').empty();
+            clearTimeout(_busquedaActaTimer);
+            if (q.length < 2) return;
+            $resultados.text('Buscando actas…');
+            _busquedaActaTimer = setTimeout(function () {
+                const params = new URLSearchParams({ q, excluir: String(_asigActual) });
+                SciafModulo.pedirJson(URL + '/buscar-acta?' + params, { metodo: 'GET' })
+                    .then(function (r) {
+                        if (version !== _busquedaActaVersion) return;
+                        $resultados.empty();
+                        if (!r.ok) throw new Error(r.msg || 'No se pudo buscar');
+                        if (!r.actas?.length) { $resultados.text('No se encontraron actas.'); return; }
+                        r.actas.forEach(function (a) {
+                            const texto = (a.numero || a.documento || 'Acta') + ' · ' + (a.responsable || 'Sin responsable') + ' · ' + (a.oficina || 'Sin oficina');
+                            $('<button type="button" class="list-group-item list-group-item-action"></button>')
+                                .text(texto).on('click', function () {
+                                    _operacion.destinoId = a.id;
+                                    $formOperacion.find('#op-acta-destino-elegido').removeClass('d-none').text('Destino elegido: ' + texto);
+                                    $resultados.empty();
+                                }).appendTo($resultados);
+                        });
+                    })
+                    .catch(function (e) { if (version === _busquedaActaVersion) $resultados.text(e.message || 'Error al buscar actas.'); });
+            }, 300);
+        });
+        $formOperacion.on('submit', function (e) {
+            e.preventDefault();
+            if (!_operacion) return;
+            limpiarErrorOperacion();
+            const motivo = $formOperacion.find('#op-acta-motivo').val().trim();
+            if (motivo.length < 10) { errorOperacion('Explique el motivo con al menos 10 caracteres.'); return; }
+            const separar = _operacion.tipo === 'separar';
+            const cuerpo = { idsActivos: _operacion.ids, motivo };
+            if (separar) {
+                cuerpo.idConfigGestion = Number($formOperacion.find('#op-acta-config').val());
+                cuerpo.nroDocumento = $formOperacion.find('#op-acta-numero').val().trim();
+                if (!cuerpo.idConfigGestion || !cuerpo.nroDocumento) { errorOperacion('Seleccione el tipo de documento y escriba el número de la nueva acta.'); return; }
+            } else {
+                if (!_operacion.destinoId) { errorOperacion('Busque y elija el acta de destino.'); return; }
+                cuerpo.idActaOrigen = _asigActual;
+                cuerpo.adoptarDestino = $formOperacion.find('#op-acta-adoptar').is(':checked');
+            }
+            const $btn = $formOperacion.find('#op-acta-confirmar').prop('disabled', true).text('Guardando movimiento…');
+            const idRuta = separar ? _asigActual : _operacion.destinoId;
+            SciafModulo.pedirJson(URL + '/asignaciones/' + idRuta + '/' + _operacion.tipo, { json: cuerpo })
+                .then(function (r) {
+                    if (!r.ok) { errorOperacion(r.msg || 'No se pudo registrar el movimiento.'); return; }
+                    _resultadoOperacion = r;
+                    bootstrap.Modal.getOrCreateInstance($modalOperacion[0]).hide();
+                })
+                .catch(function (e) { errorOperacion(e.message || 'No se pudo registrar el movimiento.'); })
+                .finally(function () { $btn.prop('disabled', false).html('<i class="ti ti-check"></i> Confirmar movimiento'); });
+        });
+
         // ═══════════════════════════════════════════════════════════════
         // MODAL DETALLE DE ACTA (carga fragmento detalle_asignacion.html)
         // ═══════════════════════════════════════════════════════════════
         function abrirModalDetalle(id) {
             _asigActual = id;
+            _detalleData = null;
+            SciafModulo.abrirModal($modalDetalle, $contenidoDetalle, 'Cargando detalle de asignación…');
             // Primero obtener datos JSON, LUEGO cargar fragmento (para que el script del fragmento encuentre los datos)
-            SciafModulo.pedirJson(URL + '/asignaciones/' + id + '/detalles-json')
+            SciafModulo.pedirJson(URL + '/asignaciones/' + id + '/detalles-json', { metodo: 'GET' })
                 .then(function (resp) {
                     if (!resp.ok) throw new Error(resp.msg || 'Error cargando detalle');
                     window._detalleActaData = {
@@ -426,18 +599,27 @@
                         detalles: resp.detalles,
                         resumen: resp.resumen,
                         puedeEditar: resp.puedeEditar,
-                        historial: resp.historial
+                        puedeVerFinanzas: resp.puedeVerFinanzas
                     };
+                    _detalleData = window._detalleActaData;
                     // Ahora cargar el fragmento (su script leerá window._detalleActaData)
-                    return SciafModulo.abrirFormulario($modalDetalle, $contenidoDetalle, URL + '/asignaciones/' + id + '/detalle-fragment');
+                    return SciafModulo.cargar($contenidoDetalle, URL + '/asignaciones/' + id + '/detalle-fragment', null, 'GET');
                 })
                 .catch(function (e) {
+                    delete window._detalleActaData;
+                    _detalleData = null;
+                    bootstrap.Modal.getInstance($modalDetalle[0])?.hide();
                     SciafModulo.avisarError(e, 'No se pudo abrir el detalle');
                 });
         }
 
         // Al cerrar el modal detalle, limpiar referencia
-        $modalDetalle.on('hidden.bs.modal', function () { _asigActual = null; _cabeceraActual = null; });
+        $modalDetalle.on('hidden.bs.modal', function () {
+            if ($modalDetalle.data('smVolverBien') || $modalDetalle.data('smVolverOperacion')) return;
+            _asigActual = null;
+            _cabeceraActual = null;
+            _detalleData = null;
+        });
 
         // Exponer funciones que usan los modales hijos (se llaman desde los fragmentos cargados)
         window._getAsigActual = () => _asigActual;
@@ -445,20 +627,6 @@
         window._setCabeceraActual = (c) => { _cabeceraActual = c; };
         window._recargarTabla = () => cargarTabla();
         window._cerrarModalDetalle = () => bootstrap.Modal.getInstance($modalDetalle[0])?.hide();
-
-        // Barra de selección (checkboxes en tabla del modal detalle)
-        window.actualizarBarraSeleccion = function () {
-            const n = $cont.find('.chk-bien:checked').length;
-            $('#sel-cantidad').text(n);
-            $('#barra-seleccion').toggleClass('d-none', n === 0).toggleClass('d-flex', n > 0);
-            const total = $cont.find('.chk-bien').length;
-            $('#chk-todos').prop('checked', n > 0 && n === total).prop('indeterminate', n > 0 && n < total);
-        };
-        window.limpiarSeleccion = function () {
-            $cont.find('.chk-bien, #chk-todos').prop('checked', false);
-            $('#chk-todos').prop('indeterminate', false);
-            actualizarBarraSeleccion();
-        };
 
         // Auto-refresco por SSE
         if (window.registrarTablaSse) window.registrarTablaSse('asignacion', cargarTabla);

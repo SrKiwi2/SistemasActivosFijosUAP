@@ -610,28 +610,57 @@
         line-height: 1.6;
     }
 
-    /* Modal de foto ampliada */
+    /* Visor de fotos: título y cierre visibles sobre cualquier imagen. */
     .ia-photo-modal {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, .85);
-        z-index: 500;
+        background: rgba(10, 16, 30, .88);
+        z-index: 1500;
         display: none;
         align-items: center;
         justify-content: center;
-        cursor: zoom-out;
+        padding: 16px;
     }
 
     .ia-photo-modal.open {
         display: flex;
     }
 
+    .ia-photo-panel {
+        width: min(1280px, 100%);
+        max-height: calc(100dvh - 32px);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, .18);
+        border-radius: 14px;
+        background: #111827;
+        box-shadow: 0 28px 70px rgba(0, 0, 0, .48);
+    }
+
+    .ia-photo-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, .13);
+        color: #fff;
+    }
+
+    .ia-photo-head i { color: #93c5fd; font-size: 21px; }
+    .ia-photo-head strong { display: block; font-size: 15px; }
+    .ia-photo-head span { display: block; color: #cbd5e1; font-size: 12px; }
+    .ia-photo-close { margin-left: auto; width: 36px; height: 36px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 9px; background: rgba(255, 255, 255, .08); color: #fff; cursor: pointer; }
+    .ia-photo-close:hover { background: rgba(255, 255, 255, .18); }
+    .ia-photo-frame { min-height: 0; display: grid; place-items: center; overflow: auto; padding: 12px; }
     .ia-photo-modal img {
-        max-width: 90vw;
-        max-height: 90vh;
+        max-width: 100%;
+        max-height: calc(100dvh - 130px);
         object-fit: contain;
         border-radius: var(--r-md);
     }
+    .ia-foto-wrap:focus-visible { outline: 2px solid var(--sm-primario); outline-offset: 2px; }
+    .ia-card:focus-visible { outline: 2px solid var(--sm-primario); outline-offset: 2px; }
 
     /* Overlay */
     .ia-overlay {
@@ -906,8 +935,13 @@
 </div>
 
 <!-- Modal foto ampliada -->
-<div class="ia-photo-modal" id="ia-photo-modal" onclick="iaClosePhoto()">
-    <img id="ia-photo-img" src="" alt="Foto activo" />
+<div class="ia-photo-modal" id="ia-photo-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ia-photo-title">
+    <div class="ia-photo-panel">
+        <div class="ia-photo-head"><i class="ti ti-photo"></i><div><strong id="ia-photo-title">Fotografía del bien</strong><span id="ia-photo-caption">—</span></div>
+            <button type="button" class="ia-photo-close" aria-label="Cerrar fotografía"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="ia-photo-frame"><img id="ia-photo-img" src="" alt="Fotografía ampliada del bien" /></div>
+    </div>
 </div>
 
 <div class="ia-toasts" id="ia-toasts"></div>
@@ -919,6 +953,9 @@
         'use strict';
 
         let iaIngresoActivo = null;
+        const iaRaiz = document.getElementById('modIngresosSeg');
+        const iaFotoModal = iaRaiz.querySelector('#ia-photo-modal');
+        let iaFotoOrigen = null;
 
         /* Reloj */
         clearInterval(window._iaClock);
@@ -987,8 +1024,11 @@
                 div.className = 'ia-card';
                 div.style.animationDelay = `${Math.min(idx * .04, .4)}s`;
                 div.dataset.id = ing.idIngreso;
+                div.tabIndex = 0;
+                div.setAttribute('role', 'button');
+                div.setAttribute('aria-label', `Ver ingreso ${ing.numeroIngreso || ''}`);
 
-                const pillClass = `ia-pill-${(ing.estadoIngreso || 'vigente').toLowerCase()}`;
+                const pillClass = `ia-pill-${String(ing.estadoIngreso || 'vigente').toLowerCase().replace(/[^a-z0-9_-]/g, '')}`;
                 const estadoLabel = (ing.estadoIngreso || 'VIGENTE');
 
                 div.innerHTML = `
@@ -996,13 +1036,17 @@
                     <span class="ia-card-num">${x(ing.numeroIngreso || '—')}</span>
                     <span class="ia-card-date">${iaFecha(ing.fechaIngreso)}</span>
                 </div>
-                <div class="ia-card-resp">👤 ${x(ing.responsablePropietario || '—')}</div>
+                <div class="ia-card-resp"><i class="ti ti-user me-1" aria-hidden="true"></i> ${x(ing.responsablePropietario || '—')}</div>
                 <div class="ia-card-footer">
-                    <span class="ia-card-pill ${pillClass}">${estadoLabel}</span>
+                    <span class="ia-card-pill ${pillClass}">${x(estadoLabel)}</span>
                     <span class="ia-card-cnt">${ing.totalActivos || 0} activo(s)</span>
                 </div>`;
 
                 div.addEventListener('click', () => iaSeleccionar(ing, div));
+                div.addEventListener('keydown', e => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    e.preventDefault(); iaSeleccionar(ing, div);
+                });
                 container.appendChild(div);
             });
         }
@@ -1077,7 +1121,7 @@
 
             const fotosHTML = fotos.length
                 ? fotos.map(f => `
-                <div class="ia-foto-wrap" data-foto="${x(f.urlFoto || f.url || f)}" title="Ver foto ampliada">
+                <div class="ia-foto-wrap" data-foto="${x(f.urlFoto || f.url || f)}" data-caption="${x(d.nombreActivo || d.descripcion || 'Bien sin descripción')}" tabindex="0" role="button" aria-label="Ampliar fotografía de ${x(d.nombreActivo || d.descripcion || 'bien')}">
                     <img src="${x(f.urlFoto || f.url || f)}" alt="Foto activo" loading="lazy"
                          onerror="this.parentElement.innerHTML='<span style=font-size:24px;padding:10px>📷</span>'"/>
                 </div>`).join('')
@@ -1106,17 +1150,29 @@
         }
 
         /* ── FOTO MODAL ──────────────────────────────────────────────── */
-        $('#ia-detail-content').off('click.iaFoto').on('click.iaFoto', '.ia-foto-wrap[data-foto]', function () {
-            window.iaOpenPhoto(this.dataset.foto);
+        function abrirFoto(origen) {
+            iaFotoOrigen = origen;
+            iaFotoModal.querySelector('#ia-photo-img').src = origen.dataset.foto;
+            iaFotoModal.querySelector('#ia-photo-caption').textContent = origen.dataset.caption || 'Bien sin descripción';
+            iaFotoModal.classList.add('open');
+            iaFotoModal.setAttribute('aria-hidden', 'false');
+            iaFotoModal.querySelector('.ia-photo-close').focus();
+        }
+        function cerrarFoto() {
+            iaFotoModal.classList.remove('open');
+            iaFotoModal.setAttribute('aria-hidden', 'true');
+            iaFotoModal.querySelector('#ia-photo-img').removeAttribute('src');
+            if (iaFotoOrigen?.isConnected) iaFotoOrigen.focus();
+            iaFotoOrigen = null;
+        }
+        $(iaRaiz).off('.iaFoto').on('click.iaFoto', '.ia-foto-wrap[data-foto]', function () { abrirFoto(this); });
+        $(iaRaiz).on('keydown.iaFoto', '.ia-foto-wrap[data-foto]', function (e) {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault(); abrirFoto(this);
         });
-        window.iaOpenPhoto = function (url) {
-            document.getElementById('ia-photo-img').src = url;
-            document.getElementById('ia-photo-modal').classList.add('open');
-        };
-        window.iaClosePhoto = function () {
-            document.getElementById('ia-photo-modal').classList.remove('open');
-            document.getElementById('ia-photo-img').src = '';
-        };
+        iaFotoModal.querySelector('.ia-photo-close').addEventListener('click', cerrarFoto);
+        iaFotoModal.addEventListener('click', function (e) { if (e.target === iaFotoModal) cerrarFoto(); });
+        $(iaRaiz).on('keydown.iaFoto', function (e) { if (e.key === 'Escape' && iaFotoModal.classList.contains('open')) cerrarFoto(); });
 
         /* ── HELPERS ─────────────────────────────────────────────────── */
         function iaResetDetalle() {

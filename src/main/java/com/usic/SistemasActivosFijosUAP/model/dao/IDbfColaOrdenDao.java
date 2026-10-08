@@ -3,6 +3,7 @@ package com.usic.SistemasActivosFijosUAP.model.dao;
 import java.util.List;
 
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +16,9 @@ public interface IDbfColaOrdenDao extends JpaRepository<DbfColaOrden, Long> {
     List<DbfColaOrden> findByEstadoOrderByIdOrdenAsc(String estado, Pageable pageable);
 
     long countByEstado(String estado);
+
+    /** Consulta paginada del monitor del worker, orden más reciente primero. */
+    Page<DbfColaOrden> findByEstadoOrderByIdOrdenDesc(String estado, Pageable pageable);
 
     /**
      * Estado agregado de la cola por activo, para recalcular su marca de sincronización
