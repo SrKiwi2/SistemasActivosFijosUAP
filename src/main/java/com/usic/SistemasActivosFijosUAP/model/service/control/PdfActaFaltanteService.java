@@ -345,7 +345,7 @@ public class PdfActaFaltanteService {
         for (ActaFaltanteDTO.Bien b : o.bienes()) {
             n++;
             t.addCell(celdaTabla(String.format("%02d", n), N_TABLA, Element.ALIGN_CENTER));
-            t.addCell(celdaTabla(nvl(b.codigo(), ""), N_TABLA, Element.ALIGN_CENTER));
+            t.addCell(celdaTabla(nvl(com.usic.SistemasActivosFijosUAP.model.entity.Activo.codigoDocumento(b.codigo()), ""), N_TABLA, Element.ALIGN_CENTER));
             t.addCell(celdaTabla(nvl(b.descripcionCorta(), nvl(b.descripcion(), "")), N_TABLA, Element.ALIGN_LEFT));
             t.addCell(celdaTabla(nvl(b.marca(), "—"), N_TABLA, Element.ALIGN_CENTER));
             t.addCell(celdaTabla(nvl(b.modelo(), "—"), N_TABLA, Element.ALIGN_CENTER));
@@ -515,7 +515,7 @@ public class PdfActaFaltanteService {
                     cn.setHorizontalAlignment(Element.ALIGN_CENTER);
                     cn.setPadding(3);
                     t.addCell(cn);
-                    PdfPCell cc = new PdfPCell(new Phrase(nvl(b.codigo(), ""), F_CODIGO));
+                    PdfPCell cc = new PdfPCell(new Phrase(nvl(com.usic.SistemasActivosFijosUAP.model.entity.Activo.codigoDocumento(b.codigo()), ""), F_CODIGO));
                     cc.setPadding(3);
                     t.addCell(cc);
                     PdfPCell cd = new PdfPCell(new Phrase(nvl(b.descripcion(), ""), F_CELDA));

@@ -17,9 +17,13 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Fotografía de un bien donado. Es del <b>ítem</b> del acta (una tarjeta del asistente: un
- * tipo de bien), no de cada unidad: las N unidades de «10 sillas iguales» comparten sus
- * fotos. Hasta {@code DonacionService.MAX_FOTOS_ITEM} por ítem.
+ * Fotografía de un bien donado: de un <b>activo</b> (una unidad, un código), hasta
+ * {@code DonacionService.MAX_FOTOS_ITEM} por activo. Al registrar, la foto de una tarjeta se
+ * pone a cada una de sus unidades (una fila por unidad, mismo archivo); después cada activo
+ * cambia las suyas.
+ * <p>
+ * Las primeras fotos (13-oct) eran del ítem, compartidas por sus unidades ({@code activo}
+ * null): se reparten a cada unidad la primera vez que se tocan las fotos de ese ítem.
  * <p>
  * El archivo vive en {@code uploads/donaciones/fotos/} ({@code ArchivoStorageService}) y se
  * sirve en {@code /uploads/...}. Quitar una foto la marca ELIMINADO; el archivo queda.
@@ -39,6 +43,11 @@ public class DonacionFoto extends AuditoriaConfig {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_donacion", nullable = false, foreignKey = @ForeignKey(name = "fk_donacion_foto_acta"))
     private DonacionActa donacion;
+
+    /** El activo de la foto; null solo en las fotos por ítem del formato inicial. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_activo", foreignKey = @ForeignKey(name = "fk_donacion_foto_activo"))
+    private Activo activo;
 
     /** Número del ítem del acta (DonacionBien.item). */
     @Column(name = "item", nullable = false)

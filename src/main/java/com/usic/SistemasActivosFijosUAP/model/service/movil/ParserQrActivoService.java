@@ -41,10 +41,10 @@ public class ParserQrActivoService {
      * su propia serie {@code 01-04-06-D00001}.
      */
     private static final Pattern CODIGO = Pattern.compile(
-            "(?:(\\d{2,4})-)?(\\d{2})-(\\d{2})-(\\d{2})-(D?\\d{3,6})");
+            "(?:(\\d{2,4})-)?(\\d{2})-(\\d{2})-(\\d{2})-(D?\\d{3,6}D?)");
 
-    /** Solo el correlativo de una donación, tecleado: D1, D00001… */
-    private static final Pattern SOLO_CORRELATIVO_DONACION = Pattern.compile("^D(\\d{1,5})$");
+    /** Solo el correlativo de una donación, tecleado: 1D, 00001D (o D1, el formato inicial). */
+    private static final Pattern SOLO_CORRELATIVO_DONACION = Pattern.compile("^(?:D(\\d{1,5})|(\\d{1,5})D)$");
 
     private static final Pattern CODIGO_COMPLETO = Pattern.compile("^\\s*" + CODIGO.pattern() + "\\s*$");
 
@@ -166,7 +166,8 @@ public class ParserQrActivoService {
 
         Matcher don = SOLO_CORRELATIVO_DONACION.matcher(limpio);
         if (don.matches()) {
-            String correlativo = "D" + String.format("%05d", Long.parseLong(don.group(1)));
+            String numero = don.group(1) != null ? don.group(1) : don.group(2);
+            String correlativo = String.format("%05d", Long.parseLong(numero)) + "D";
             return new PayloadQr(texto, List.of(), null, null, null, null, null,
                     null, null, null, null, null, null, correlativo, true, true);
         }

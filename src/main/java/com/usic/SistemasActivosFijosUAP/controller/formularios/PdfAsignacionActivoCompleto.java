@@ -136,7 +136,7 @@ public class PdfAsignacionActivoCompleto {
         int item = 1;
         for (DetalleAsignacionActivo det : asignacion.getDetalles()) {
             Activo a = det.getActivo();
-            String codigoVisual = "148-" + a.getCodigo();
+            String codigoVisual = "148-" + com.usic.SistemasActivosFijosUAP.model.entity.Activo.codigoDocumento(a.getCodigo());
             String ubicacion = (a.getOficina() != null) ? a.getOficina().getNombre() : "S/N";
 
             agregarCeldaBody(table, String.valueOf(item++), fontTablaBody, Element.ALIGN_CENTER);

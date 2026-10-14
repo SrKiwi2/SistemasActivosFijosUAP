@@ -301,10 +301,10 @@ public class DonacionService {
     private String siguienteCodigo(Map<String, Integer> siguientePorPrefijo, String prefijo) {
         int siguiente = siguientePorPrefijo.computeIfAbsent(prefijo, p -> actaDao.maxCorrelativoDonacion(p) + 1);
         if (siguiente > MAX_CORRELATIVO) {
-            throw new IllegalStateException("La serie de donaciones del prefijo " + prefijo + " llegó a D99999.");
+            throw new IllegalStateException("La serie de donaciones del prefijo " + prefijo + " llegó a 99999D.");
         }
         siguientePorPrefijo.put(prefijo, siguiente + 1);
-        return prefijo + "-D" + String.format("%05d", siguiente);
+        return prefijo + "-" + String.format("%05d", siguiente) + "D";
     }
 
     /** Crea una unidad (activo + su detalle de donación). */
@@ -706,6 +706,8 @@ public class DonacionService {
         if (bienes.isEmpty()) return;
         List<Activo> activos = bienes.stream().map(DonacionBien::getActivo).toList();
         List<Long> ids = activos.stream().map(Activo::getIdActivo).toList();
+        fotoDao.flush();                 // lo pendiente de las fotos, antes del UPDATE nativo
+        fotoDao.soltarDeActivos(ids);
         bienDao.deleteAll(bienes);
         bienDao.flush();
         bienDao.borrarHistorialAlta(ids);
@@ -788,7 +790,9 @@ public class DonacionService {
         }
 
         // ── Plan: qué unidades se conservan, cuáles se borran y cuántas se crean ──
-        record Paso(BienValidado b, int item, List<DonacionBien> conservar, int crear) {}
+        // reemplaza: al rehacer (otro grupo o predio), las unidades viejas cuyas fotos pasan,
+        // por posición, a las nuevas.
+        record Paso(BienValidado b, int item, List<DonacionBien> conservar, int crear, List<DonacionBien> reemplaza) {}
         List<Paso> pasos = new ArrayList<>();
         List<DonacionBien> aBorrar = new ArrayList<>();
         Map<Integer, Integer> nuevoItemDe = new HashMap<>();
@@ -812,13 +816,13 @@ public class DonacionService {
             if (!mismoPrefijo) {
                 exigirSinVida(viejas, vida, "cambiar el grupo contable o el predio del bien " + item);
                 aBorrar.addAll(viejas);
-                pasos.add(new Paso(b, item, List.of(), b.cantidad));
+                pasos.add(new Paso(b, item, List.of(), b.cantidad, viejas));
             } else {
                 int quedan = Math.min(viejas.size(), b.cantidad);
                 List<DonacionBien> sobran = new ArrayList<>(viejas.subList(quedan, viejas.size()));
                 exigirSinVida(sobran, vida, "bajar la cantidad del bien " + item);
                 aBorrar.addAll(sobran);
-                pasos.add(new Paso(b, item, new ArrayList<>(viejas.subList(0, quedan)), b.cantidad - quedan));
+                pasos.add(new Paso(b, item, new ArrayList<>(viejas.subList(0, quedan)), b.cantidad - quedan, List.of()));
             }
         }
         for (Map.Entry<Integer, List<DonacionBien>> e : porItem.entrySet()) {
@@ -840,6 +844,18 @@ public class DonacionService {
         if (!aBorrar.isEmpty() && !RolesSciaf.esAdministrativo(usuario)) {
             throw new IllegalArgumentException("Quitar bienes, bajar cantidades o cambiar el grupo contable o el predio (rehace los códigos) "
                     + "borra activos: lo hace un ADMINISTRADOR o SUPER USUARIO. Corrija solo los datos o pídaselo.");
+        }
+
+        // Fotos de las unidades que se rehacen: se anotan antes de borrar para dárselas a las nuevas.
+        Map<Paso, List<List<com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto>>> fotosQuePasan = new HashMap<>();
+        for (Paso paso : pasos) {
+            if (paso.reemplaza().isEmpty()) continue;
+            repartirFotosDeItem(acta, paso.reemplaza().get(0).getItem());
+            List<List<com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto>> porPosicion = new ArrayList<>();
+            for (DonacionBien vieja : paso.reemplaza()) {
+                porPosicion.add(fotoDao.findByActivoIdActivoAndEstado(vieja.getActivo().getIdActivo(), "ACTIVO"));
+            }
+            fotosQuePasan.put(paso, porPosicion);
         }
 
         // ── Aplicar: primero lo que se borra (libera sus códigos), después el resto ──
@@ -877,6 +893,20 @@ public class DonacionService {
                 String codigo = siguienteCodigo(siguientePorPrefijo, prefijoDe(c, b));
                 Activo a = crearUnidad(acta, c, b, codigo, b.serie(u++), paso.item(), usuarioNombre, hoy);
                 historiales.add(historialAlta(a, acta, c.oficina(), c.responsable(), nombreDe(c.responsable()), usuarioNombre, usuario.getIdUsuario()));
+                List<List<com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto>> pasan = fotosQuePasan.get(paso);
+                if (pasan != null && k < pasan.size()) {
+                    for (var foto : pasan.get(k)) {
+                        com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto copia = new com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto();
+                        copia.setDonacion(acta);
+                        copia.setActivo(a);
+                        copia.setItem(paso.item());
+                        copia.setRuta(foto.getRuta());
+                        copia.setNombreOriginal(foto.getNombreOriginal());
+                        copia.setUsuario(foto.getUsuario());
+                        copia.setEstado("ACTIVO");
+                        fotoDao.save(copia);
+                    }
+                }
                 creadas++;
             }
             valorTotal += b.valor * b.cantidad;
@@ -931,8 +961,8 @@ public class DonacionService {
             siguiente.put(prefijo, hasta + 1);
             r.put("ok", true);
             r.put("prefijo", prefijo);
-            r.put("desde", prefijo + "-D" + String.format("%05d", desde));
-            r.put("hasta", prefijo + "-D" + String.format("%05d", hasta));
+            r.put("desde", prefijo + "-" + String.format("%05d", desde) + "D");
+            r.put("hasta", prefijo + "-" + String.format("%05d", hasta) + "D");
             r.put("cantidad", cantidad);
             out.add(r);
         }
@@ -974,6 +1004,7 @@ public class DonacionService {
             Activo a = b.getActivo();
             Map<String, Object> f = new LinkedHashMap<>();
             f.put("item", b.getItem());
+            f.put("idActivo", a.getIdActivo());
             f.put("codigo", a.getCodigo() != null ? a.getCodigo() : a.getCodigoAnulado());
             f.put("descripcion", a.getDescripcion());
             f.put("descripcionBase", b.getDescripcionBase());
@@ -1000,12 +1031,21 @@ public class DonacionService {
         }
         out.put("bienes", filas);
 
-        Map<Integer, List<Map<String, Object>>> fotos = new LinkedHashMap<>();
+        // Fotos por activo; las del formato inicial (del ítem) se muestran en cada unidad del ítem.
+        Map<Long, List<Map<String, Object>>> porActivo = new HashMap<>();
+        Map<Integer, List<Map<String, Object>>> porItem = new HashMap<>();
         for (com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto f
                 : fotoDao.findByDonacionIdDonacionAndEstadoOrderByItemAscIdFotoAsc(idDonacion, "ACTIVO")) {
-            fotos.computeIfAbsent(f.getItem(), k -> new ArrayList<>()).add(Map.of("id", f.getIdFoto(), "url", f.getRuta()));
+            Map<String, Object> m = Map.of("id", f.getIdFoto(), "url", f.getRuta());
+            if (f.getActivo() != null) porActivo.computeIfAbsent(f.getActivo().getIdActivo(), k -> new ArrayList<>()).add(m);
+            else porItem.computeIfAbsent(f.getItem(), k -> new ArrayList<>()).add(m);
         }
-        out.put("fotos", fotos);
+        for (int k = 0; k < filas.size(); k++) {
+            Map<String, Object> fila = filas.get(k);
+            List<Map<String, Object>> lista = new ArrayList<>(porActivo.getOrDefault((Long) fila.get("idActivo"), List.of()));
+            lista.addAll(porItem.getOrDefault((Integer) fila.get("item"), List.of()));
+            fila.put("fotos", lista);
+        }
         out.put("maxFotos", MAX_FOTOS_ITEM);
 
         java.util.Set<Long> vida = unidadesConVida(d, unidades, DonacionActa.ANULADA.equals(d.getEstado()));
@@ -1101,12 +1141,18 @@ public class DonacionService {
     // ════════════════════════════════════════════════════════════════════════
 
     /**
-     * Agrega fotos a un ítem del acta: JPG, PNG o WEBP (se mira el contenido, no solo la
-     * extensión), hasta {@link #MAX_FOTOS_ITEM} por ítem. Bajo el turno de donaciones, para
-     * que dos pestañas a la vez no pasen el tope.
+     * Agrega fotos (JPG, PNG o WEBP; se mira el contenido, no solo la extensión), hasta
+     * {@link #MAX_FOTOS_ITEM} por activo:
+     * <ul>
+     *   <li>con {@code idActivo}: a ese activo (detalle del acta);</li>
+     *   <li>con {@code item}: a cada unidad de ese bien (tras registrar, la foto de la tarjeta).
+     *       El archivo se guarda una vez y cada unidad tiene su fila.</li>
+     * </ul>
+     * Bajo el turno de donaciones, para que dos pestañas a la vez no pasen el tope.
      */
     @Transactional
-    public List<Map<String, Object>> subirFotos(Long idDonacion, Integer item, List<org.springframework.web.multipart.MultipartFile> archivosSubidos,
+    public List<Map<String, Object>> subirFotos(Long idDonacion, Integer item, Long idActivo,
+                                               List<org.springframework.web.multipart.MultipartFile> archivosSubidos,
                                                Usuario usuario, Object opcionesSesion) {
         if (!puede(usuario, opcionesSesion)) throw new SecurityException("No tiene permiso para Donaciones.");
         List<org.springframework.web.multipart.MultipartFile> lista = archivosSubidos == null ? List.of()
@@ -1116,12 +1162,22 @@ public class DonacionService {
         actaDao.turno(TURNO_DONACIONES);
         DonacionActa acta = actaDao.findById(idDonacion).orElseThrow(() -> new IllegalArgumentException("La donación no existe."));
         if (DonacionActa.ANULADA.equals(acta.getEstado())) throw new IllegalArgumentException("La donación está anulada.");
-        if (item == null || !bienDao.existsByDonacionIdDonacionAndItem(idDonacion, item)) {
-            throw new IllegalArgumentException("El bien " + item + " no es de esta donación.");
+        List<DonacionBien> unidades;
+        if (idActivo != null) {
+            unidades = bienDao.listarDeActa(idDonacion).stream()
+                    .filter(d -> d.getActivo().getIdActivo().equals(idActivo)).toList();
+            if (unidades.isEmpty()) throw new IllegalArgumentException("Ese activo no es de esta donación.");
+        } else {
+            unidades = bienDao.listarDeActa(idDonacion).stream().filter(d -> d.getItem().equals(item)).toList();
+            if (item == null || unidades.isEmpty()) throw new IllegalArgumentException("El bien " + item + " no es de esta donación.");
         }
-        long ya = fotoDao.countByDonacionIdDonacionAndItemAndEstado(idDonacion, item, "ACTIVO");
-        if (ya + lista.size() > MAX_FOTOS_ITEM) {
-            throw new IllegalArgumentException("Cada bien admite hasta " + MAX_FOTOS_ITEM + " fotos (ya tiene " + ya + ").");
+        repartirFotosDeItem(acta, unidades.get(0).getItem());
+        for (DonacionBien d : unidades) {
+            long ya = fotoDao.countByActivoIdActivoAndEstado(d.getActivo().getIdActivo(), "ACTIVO");
+            if (ya + lista.size() > MAX_FOTOS_ITEM) {
+                throw new IllegalArgumentException("Cada activo admite hasta " + MAX_FOTOS_ITEM + " fotos; "
+                        + d.getActivo().getCodigo() + " ya tiene " + ya + ".");
+            }
         }
         for (var f : lista) {
             if (f.getSize() > MAX_BYTES_FOTO) throw new IllegalArgumentException("La foto «" + f.getOriginalFilename() + "» pasa de 6 MB.");
@@ -1134,20 +1190,47 @@ public class DonacionService {
             // Un sufijo al azar por foto: el nombre lleva milisegundos y dos fotos del mismo
             // pedido podían caer en el mismo y pisarse (el guardado usa REPLACE_EXISTING).
             String sufijo = java.util.UUID.randomUUID().toString().substring(0, 8);
-            String ruta = archivos.guardar(f, "donaciones/fotos", acta.getNumero() + "_" + item + "_" + sufijo);
+            String ruta = archivos.guardar(f, "donaciones/fotos", acta.getNumero() + "_" + unidades.get(0).getItem() + "_" + sufijo);
             escritas.add(ruta);
-            com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto foto = new com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto();
-            foto.setDonacion(acta);
-            foto.setItem(item);
-            foto.setRuta(ruta);
             String nombre = f.getOriginalFilename();
-            foto.setNombreOriginal(nombre != null && nombre.length() > 200 ? nombre.substring(0, 200) : nombre);
-            foto.setUsuario(usuario.getUsuario());
-            foto.setEstado("ACTIVO");
-            fotoDao.save(foto);
-            out.add(Map.of("id", foto.getIdFoto(), "url", ruta));
+            for (DonacionBien d : unidades) {
+                com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto foto = nuevaFoto(acta, d, ruta, nombre, usuario.getUsuario());
+                fotoDao.save(foto);
+                out.add(Map.of("id", foto.getIdFoto(), "url", ruta, "idActivo", d.getActivo().getIdActivo()));
+            }
         }
         return out;
+    }
+
+    private static com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto nuevaFoto(DonacionActa acta, DonacionBien d,
+                                                                                    String ruta, String nombre, String usuario) {
+        com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto foto = new com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto();
+        foto.setDonacion(acta);
+        foto.setActivo(d.getActivo());
+        foto.setItem(d.getItem());
+        foto.setRuta(ruta);
+        foto.setNombreOriginal(nombre != null && nombre.length() > 200 ? nombre.substring(0, 200) : nombre);
+        foto.setUsuario(usuario);
+        foto.setEstado("ACTIVO");
+        return foto;
+    }
+
+    /**
+     * Fotos del formato inicial (del ítem, sin activo): las pasa a cada unidad del ítem (una
+     * fila por unidad, mismo archivo) y da de baja la fila compartida. Así cada activo puede
+     * quitar o agregar las suyas sin tocar las de los demás.
+     */
+    private void repartirFotosDeItem(DonacionActa acta, Integer item) {
+        List<com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto> viejas =
+                fotoDao.findByDonacionIdDonacionAndItemAndEstadoAndActivoIsNull(acta.getIdDonacion(), item, "ACTIVO");
+        if (viejas.isEmpty()) return;
+        List<DonacionBien> unidades = bienDao.listarDeActa(acta.getIdDonacion()).stream()
+                .filter(d -> d.getItem().equals(item)).toList();
+        for (var v : viejas) {
+            for (DonacionBien d : unidades) fotoDao.save(nuevaFoto(acta, d, v.getRuta(), v.getNombreOriginal(), v.getUsuario()));
+            v.setEstado(ELIMINADO);
+        }
+        fotoDao.flush();
     }
 
     /**
@@ -1187,13 +1270,29 @@ public class DonacionService {
         }
     }
 
+    /**
+     * Quita una foto de un activo. Si es una foto del formato inicial (del ítem), primero se
+     * reparte a cada unidad y se quita solo la del activo indicado.
+     */
     @Transactional
-    public void quitarFoto(Long idFoto, Usuario usuario, Object opcionesSesion) {
+    public void quitarFoto(Long idFoto, Long idActivo, Usuario usuario, Object opcionesSesion) {
         if (!puede(usuario, opcionesSesion)) throw new SecurityException("No tiene permiso para Donaciones.");
+        actaDao.turno(TURNO_DONACIONES);
         com.usic.SistemasActivosFijosUAP.model.entity.DonacionFoto f = fotoDao.findById(idFoto)
                 .orElseThrow(() -> new IllegalArgumentException("La foto no existe."));
         if (DonacionActa.ANULADA.equals(f.getDonacion().getEstado())) throw new IllegalArgumentException("La donación está anulada.");
-        f.setEstado(ELIMINADO);   // el archivo queda: la baja es lógica
+        if (f.getActivo() != null) {
+            f.setEstado(ELIMINADO);   // el archivo queda: la baja es lógica
+            return;
+        }
+        // Foto del formato inicial (compartida por el ítem): se quita solo la del activo indicado.
+        if (idActivo == null) throw new IllegalArgumentException("Indique de qué activo se quita la foto (recargue la pantalla).");
+        String ruta = f.getRuta();
+        repartirFotosDeItem(f.getDonacion(), f.getItem());
+        fotoDao.findByActivoIdActivoAndEstado(idActivo, "ACTIVO").stream()
+                .filter(x -> ruta.equals(x.getRuta())).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Esa foto no es de este activo."))
+                .setEstado(ELIMINADO);
     }
 
     /** Firma de los primeros bytes: JPEG (FF D8 FF), PNG (89 50 4E 47) o WEBP (RIFF....WEBP). */

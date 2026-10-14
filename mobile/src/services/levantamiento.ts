@@ -217,5 +217,9 @@ export function claveCodigo(codigo: string | null | undefined): string {
   // Cinco tramos = lleva prefijo de entidad; el código de la base tiene cuatro.
   const cuerpo = partes.length >= 5 ? partes.slice(1) : partes;
 
-  return cuerpo.map((p) => String(Number(p.replace(/\D/g, '')) || 0)).join('-');
+  // La D de un bien donado (00001D, o D00001 en los primeros) es parte del código: sin
+  // ella la clave del donado sería la misma que la del activo normal del mismo número.
+  return cuerpo
+    .map((p, i) => String(Number(p.replace(/\D/g, '')) || 0) + (i === cuerpo.length - 1 && /d/i.test(p) ? 'D' : ''))
+    .join('-');
 }

@@ -3,6 +3,52 @@
   var BASE = '/administracion/mapa-espacial/api';
   var ZOOM_MIN = .1, ZOOM_MAX = 32;
   var FIGURAS = ['MESA', 'SILLA', 'EQUIPO', 'ESTANTE', 'ARCHIVADOR', 'OTRO'];
+  var ICONOS = ['CPU', 'MONITOR', 'MESA', 'SILLA', 'ROUTER', 'AIRE', 'CAMARA', 'IMPRESORA', 'PORTATIL', 'PROYECTOR', 'ESTANTE', 'ARCHIVADOR', 'BIOMETRICO', 'TELEFONO', 'ESCANER', 'UPS', 'TELEVISOR', 'PIZARRA', 'VENTILADOR', 'EXTINTOR', 'OTRO'];
+  var NOMBRES_ICONO = { CPU: 'CPU / torre', MONITOR: 'Monitor', MESA: 'Mesa / escritorio', SILLA: 'Silla', ROUTER: 'Router / red', AIRE: 'Aire acondicionado', CAMARA: 'Cámara', IMPRESORA: 'Impresora', PORTATIL: 'Portátil', PROYECTOR: 'Proyector', ESTANTE: 'Estante', ARCHIVADOR: 'Archivador', BIOMETRICO: 'Lector biométrico', TELEFONO: 'Teléfono', ESCANER: 'Escáner', UPS: 'UPS / respaldo', TELEVISOR: 'Televisor', PIZARRA: 'Pizarra', VENTILADOR: 'Ventilador', EXTINTOR: 'Extintor', OTRO: 'Genérico' };
+  var TRAZOS_ICONO = {
+    CPU: 'M6 2h12v20H6z M9 6h6 M9 10h6 M12 17h.01', MONITOR: 'M3 4h18v13H3z M8 21h8 M12 17v4',
+    MESA: 'M2 8h20v5H2z M5 13v8 M19 13v8', SILLA: 'M5 3v8h14V3 M5 11v5h14v-5 M7 16v5 M17 16v5',
+    ROUTER: 'M3 13h18v7H3z M7 13V7 M17 13V7 M5 4l3 3 M19 4l-3 3 M7 17h.01 M11 17h.01',
+    AIRE: 'M2 5h20v9H2z M5 10h14 M6 17c2-2 4-2 6 0 M12 17c2-2 4-2 6 0',
+    CAMARA: 'M2 8h14v9H2z M16 11l6-4v11l-6-4 M7 17v4 M4 21h9',
+    IMPRESORA: 'M6 3h12v5H6z M4 8h16a2 2 0 0 1 2 2v6h-4v-6a2 2 0 0 1 2-2z M6 14h12v7H6z M16 11h.01',
+    PORTATIL: 'M5 4h14v12H5z M2 20h20l-3-4H5z', PROYECTOR: 'M3 8h18v9H3z M8 12h.01 M14 12a2 2 0 1 0 4 0a2 2 0 1 0-4 0 M6 17v4 M18 17v4',
+    ESTANTE: 'M4 2v20 M20 2v20 M4 8h16 M4 15h16 M8 3v5 M13 9v6 M17 16v6',
+    ARCHIVADOR: 'M4 3h16v18H4z M4 9h16 M4 15h16 M10 6h4 M10 12h4 M10 18h4',
+    BIOMETRICO: 'M5 2h14v20H5z M8 6h8v5H8z M9 15c0-2 6-2 6 0 M9 18c0-3 6-3 6 0 M12 14v5',
+    TELEFONO: 'M7 2h10v20H7z M10 5h4 M10 18h4',
+    ESCANER: 'M3 9h18v11H3z M6 5h12l2 4H4z M7 14h10 M7 17h10',
+    UPS: 'M6 2h12v20H6z M9 6h6 M9 12l3-3v3h3l-3 4v-3H9z',
+    TELEVISOR: 'M2 4h20v14H2z M8 22h8 M12 18v4 M6 8h12',
+    PIZARRA: 'M3 3h18v15H3z M8 22h8 M12 18v4 M6 14h6 M6 11l3-3 3 2',
+    VENTILADOR: 'M12 10a2 2 0 1 0 0 4a2 2 0 1 0 0-4 M12 10c-4-7 5-9 4-2 M14 13c8-1 8 8 1 6 M10 13c-6 6-10-2-3-6 M12 14v8 M8 22h8',
+    EXTINTOR: 'M8 7h8v14H8z M9 7V4h6v3 M12 4V2h5 M17 2l3 2 M9 11h6 M10 21h4',
+    OTRO: 'M12 2l9 5v10l-9 5l-9-5V7z M8 9h8 M8 13h8'
+  };
+  function sugerirIcono(nombre) {
+    var t = String(nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    if (/BIOMETR|HUELLA|CONTROL DE ACCESO/.test(t)) return 'BIOMETRICO';
+    if (/EXTINTOR/.test(t)) return 'EXTINTOR';
+    if (/VENTILADOR/.test(t)) return 'VENTILADOR';
+    if (/PIZARRA/.test(t)) return 'PIZARRA';
+    if (/TELEVISOR|TV LED|SMART TV/.test(t)) return 'TELEVISOR';
+    if (/TELEFONO|CELULAR|MOVIL/.test(t)) return 'TELEFONO';
+    if (/ESCANER|SCANNER|DIGITALIZADOR/.test(t)) return 'ESCANER';
+    if (/UPS|NO BREAK|REGULADOR DE VOLTAJE/.test(t)) return 'UPS';
+    if (/CAMARA|CCTV|VIDEOVIGILANCIA/.test(t)) return 'CAMARA';
+    if (/AIRE ACONDICIONADO|CLIMATIZADOR|SPLIT/.test(t)) return 'AIRE';
+    if (/ROUTER|SWITCH|PUNTO DE ACCESO|ACCESS POINT|MODEM|RED/.test(t)) return 'ROUTER';
+    if (/IMPRESORA|MULTIFUNCIONAL|PLOTTER/.test(t)) return 'IMPRESORA';
+    if (/PROYECTOR|DATA SHOW/.test(t)) return 'PROYECTOR';
+    if (/PORTATIL|LAPTOP|NOTEBOOK/.test(t)) return 'PORTATIL';
+    if (/MONITOR|PANTALLA|DISPLAY/.test(t)) return 'MONITOR';
+    if (/CPU|COMPUTADOR|ORDENADOR|SERVIDOR|TORRE/.test(t)) return 'CPU';
+    if (/SILLA|SILLON|BUTACA/.test(t)) return 'SILLA';
+    if (/MESA|ESCRITORIO|MESON/.test(t)) return 'MESA';
+    if (/ARCHIVADOR|GAVETERO/.test(t)) return 'ARCHIVADOR';
+    if (/ESTANTE|ESTANTERIA|LIBRERO/.test(t)) return 'ESTANTE';
+    return 'OTRO';
+  }
   function zoomDelControl(valor) { return ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, Number(valor) / 1000); }
   function valorDelZoom(zoom) { return Math.round(1000 * Math.log(zoom / ZOOM_MIN) / Math.log(ZOOM_MAX / ZOOM_MIN)); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -64,10 +110,10 @@
     var sel = root.querySelector('.me-predio'), canvas = root.querySelector('.me-canvas');
     var panel = root.querySelector('.me-panel-contenido'), estado = root.querySelector('.me-estado');
     var filtro = root.querySelector('.me-filtro');
-    var s = { predioId: null, escena: { edificios: [] }, version: -1, modoEdicion: edita, puedePublicar: false, numeroPublicacion: 0, oficinas: {}, activos: {}, edificio: null, piso: null, espacio: null, vista3d: false, cargaVista3d: 0, dirty: false, q: '', inventario: null, consultaInventario: 0,
+    var s = { predioId: null, escena: { edificios: [] }, version: -1, modoEdicion: edita, puedePublicar: false, numeroPublicacion: 0, oficinas: {}, activos: {}, iconosAuxiliares: {}, iconoRevision: {}, edificio: null, piso: null, espacio: null, vista3d: false, cargaVista3d: 0, dirty: false, q: '', inventario: null, consultaInventario: 0,
       historial: [], indice: 0, guardado: '', modo: '', dibujo: [], tipoDibujo: 'EDIFICIO', editarEdificio: null, editarEspacio: null, vertice: -1,
       snap: false, cuadricula: true, capas: { edificios: true, espacios: true, detalles: true, fondo: true },
-      zoom: 1, panX: 0, panY: 0, camara: 38, inclinacion: 38, techo3d: true, tieneFondo: false, fondoRevision: 0, detallesCargados: {}, cargaEdificio: 0, espacioPulsado: false, enfoqueInicial: false, marco3dFijo: null, cuartoSeleccionado: null, muebleSeleccionado: null, detallesActivos: {}, destacadoEdificio: null, busquedaSeleccionada: null, resultadosBusqueda: [], panelTab: 'editar', panelSelectionKey: '', filtroConstrucciones: '', publicacionEnCarga: 0 };
+      zoom: 1, panX: 0, panY: 0, camara: 38, inclinacion: 38, techo3d: true, tieneFondo: false, fondoRevision: 0, detallesCargados: {}, cargaEdificio: 0, espacioPulsado: false, enfoqueInicial: false, marco3dFijo: null, cuartoSeleccionado: null, muebleSeleccionado: null, detallesActivos: {}, destacadoEdificio: null, destacados: {}, ubicacionDestacada: null, busquedaSeleccionada: null, resultadosBusqueda: [], panelTab: 'editar', panelSelectionKey: '', filtroConstrucciones: '', publicacionEnCarga: 0 };
     function avisar(msg, error) { if (estado) { estado.textContent = msg; estado.className = 'sm-dato me-estado ' + (error ? 'me-status-error' : 'me-status-ok'); } else if (error) panel.insertAdjacentHTML('afterbegin', '<p class="me-status-error">' + esc(msg) + '</p>'); }
     function activarPanel(tab) {
       if (!edita) return;
@@ -92,6 +138,37 @@
       var q = s.filtroConstrucciones.trim().toLocaleLowerCase();
       Array.prototype.forEach.call(lista.children, function (item) { item.hidden = item.textContent.toLocaleLowerCase().indexOf(q) < 0; });
     }
+    function iconoActivo(info) {
+      var configurado = info && info.auxiliarId != null && s.iconosAuxiliares[info.auxiliarId];
+      return configurado && (TRAZOS_ICONO[configurado] || configurado === 'PERSONALIZADO') ? configurado : sugerirIcono((info && info.auxiliarNombre) || (info && info.descripcion));
+    }
+    function urlIconoAuxiliar(auxiliarId) {
+      return BASE + '/predios/' + s.predioId + '/auxiliares/' + auxiliarId + '/icono-imagen' +
+        (s.iconoRevision[auxiliarId] ? '?v=' + s.iconoRevision[auxiliarId] : '');
+    }
+    function iconoMini(icono, auxiliarId) {
+      if (icono === 'PERSONALIZADO' && auxiliarId)
+        return '<img src="' + esc(urlIconoAuxiliar(auxiliarId)) + '" width="26" height="26" alt="">';
+      return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="' + (TRAZOS_ICONO[icono] || TRAZOS_ICONO.OTRO) + '"></path></svg>';
+    }
+    function selectorIconoAuxiliar(info) {
+      if (!info || info.auxiliarId == null) return '<p class="me-muted">Este activo no tiene auxiliar contable vinculado; se muestra un símbolo sugerido.</p>';
+      var actual = iconoActivo(info);
+      return '<details class="me-details"><summary>Icono del auxiliar · ' + esc(info.auxiliarNombre || info.auxiliarId) + '</summary><label class="me-field">Elegir icono' +
+        '<select class="me-icono-auxiliar" data-auxiliar-id="' + info.auxiliarId + '">' +
+        ICONOS.map(function (tipo) { return '<option value="' + tipo + '"' + (tipo === actual ? ' selected' : '') + '>' + NOMBRES_ICONO[tipo] + '</option>'; }).join('') +
+        (actual === 'PERSONALIZADO' ? '<option value="PERSONALIZADO" selected>Icono propio</option>' : '') +
+        '</select></label><label class="me-field">¿No aparece el tipo de activo? Subir icono propio (PNG o JPG, hasta 150 KB)<input type="file" class="me-icono-file" data-auxiliar-id="' + info.auxiliarId + '" accept="image/png,image/jpeg"></label>' +
+        '<p class="me-muted">Se aplica a todos los activos de este auxiliar en este predio. Se guarda al elegirlo.</p></details>';
+    }
+    function cambiarTamanoMarcador(a, z, tamano) {
+      if (!a || !z || !isFinite(tamano) || tamano < .1 || tamano > Math.min(12, a.ancho, a.fondo)) return false;
+      var centroX = z.x + z.ancho / 2, centroY = z.y + z.fondo / 2;
+      z.ancho = z.fondo = redondearFino(tamano);
+      z.x = redondearFino(Math.max(0, Math.min(a.ancho - z.ancho, centroX - z.ancho / 2)));
+      z.y = redondearFino(Math.max(0, Math.min(a.fondo - z.fondo, centroY - z.fondo / 2)));
+      return true;
+    }
     function organizarPanel(e, p, a, stageKey) {
       if (!edita) return;
       var paginas = {}, nombres = ['editar', 'elementos', 'activos', 'ajustes'];
@@ -108,7 +185,7 @@
         } else if (!a) {
           if (n.classList.contains('me-resumen')) grupo = 'elementos';
         } else {
-          if (n.classList.contains('me-interior-section')) grupo = titulo.indexOf('Activos ubicados') >= 0 ? 'activos' : 'elementos';
+          if (n.classList.contains('me-interior-section')) grupo = n.classList.contains('me-assets-section') ? 'activos' : 'elementos';
           else if (n.tagName === 'H3' && titulo.indexOf('Inventario de esta oficina') === 0) grupo = 'activos';
         }
         paginas[grupo].appendChild(n);
@@ -117,12 +194,14 @@
       panel.innerHTML = '';
       nombres.forEach(function (nombre) { panel.appendChild(paginas[nombre]); });
       var seleccion = stageKey + '|' + (s.editarEdificio || s.editarEspacio || s.cuartoSeleccionado || s.muebleSeleccionado || s.activoSeleccionado || '');
+      var cambioSeleccion = s.panelSelectionKey !== seleccion;
       if (s.panelSelectionKey !== seleccion) {
         s.panelSelectionKey = seleccion;
         s.panelTab = s.activoSeleccionado ? 'activos' : s.cuartoSeleccionado || s.muebleSeleccionado ? 'elementos' :
           (s.editarEdificio || s.editarEspacio || (a && !a.oficinaId)) ? 'editar' : a ? 'activos' : 'elementos';
       }
       activarPanel(s.panelTab);
+      if (cambioSeleccion && s.panelTab === 'activos') panel.scrollTop = 0;
       if (!e) aplicarFiltroConstrucciones();
     }
     function confirmarModal(titulo, mensaje, accion) {
@@ -153,6 +232,77 @@
           }
         }
         modal.addEventListener('click', clic); modal.addEventListener('keydown', teclado);
+      });
+    }
+    var modalDatos = root.querySelector('.me-data-modal'), focoAnteriorModal = null, modalDatosVersion = 0;
+    function abrirModalDatos(titulo, contenido) {
+      if (!modalDatos) return null;
+      focoAnteriorModal = document.activeElement;
+      modalDatosVersion++;
+      modalDatos.querySelector('#me-data-modal-titulo').textContent = titulo;
+      modalDatos.querySelector('.me-data-modal-body').innerHTML = contenido;
+      modalDatos.hidden = false;
+      modalDatos.querySelector('[data-data-modal-close]').focus();
+      return modalDatos.querySelector('.me-data-modal-body');
+    }
+    function cerrarModalDatos() {
+      if (!modalDatos || modalDatos.hidden) return;
+      modalDatosVersion++;
+      modalDatos.hidden = true;
+      modalDatos.querySelector('.me-data-modal-body').innerHTML = '';
+      if (focoAnteriorModal && focoAnteriorModal.isConnected) focoAnteriorModal.focus();
+    }
+    function mostrarActivosUbicados() {
+      var a = espacio(); if (!a) return;
+      var contenido = '<p class="me-muted">' + a.activos.length + ' activos con posición en este espacio. Selecciona uno para moverlo o ajustar su tamaño.</p>' +
+        '<input class="me-modal-filtro" type="search" placeholder="Filtrar por código, descripción o cuarto" aria-label="Filtrar activos ubicados"><div class="me-modal-lista">' +
+        a.activos.map(function (z) {
+          var info = Object.assign({}, s.activos[z.activoId] || {}, s.detallesActivos[z.activoId] || {}), sala = cuartoDeElemento(a, z);
+          return '<button type="button" class="me-modal-activo" data-modal-select-asset="' + z.activoId + '"><span class="me-asset-symbol">' + iconoMini(iconoActivo(info), info.auxiliarId) + '</span><span><strong>' + esc(info.codigo || z.activoId) + '</strong><small>' + esc(info.descripcion || 'Activo') + (sala ? ' · ' + esc(sala.nombre) : '') + '</small></span></button>';
+        }).join('') + (a.activos.length ? '' : '<p class="me-muted">Todavía no se ubicaron activos. Usa «+ Ubicar» desde el inventario.</p>') + '</div>';
+      abrirModalDatos('Activos ubicados', contenido);
+    }
+    function mostrarFichaActivo(id) {
+      var info = s.detallesActivos[id] || s.activos[id] || {};
+      var cuerpo = abrirModalDatos('Ficha del activo ' + (info.codigo || id), '<p class="me-muted">Cargando datos actuales…</p>');
+      if (!cuerpo) return;
+      var versionFicha = modalDatosVersion;
+      request(BASE + '/activos/' + id + '/detalle').then(function (dato) {
+        if (modalDatos.hidden || versionFicha !== modalDatosVersion) return;
+        s.detallesActivos[id] = dato;
+        cuerpo.innerHTML = '<p class="me-modal-descripcion">' + esc(dato.descripcion || 'Sin descripción') + '</p>' +
+          '<dl class="me-asset-details"><dt>Código</dt><dd>' + esc(dato.codigo || 'Sin dato') + '</dd>' +
+          '<dt>Auxiliar</dt><dd>' + esc(dato.auxiliarNombre || 'Sin dato') + '</dd>' +
+          '<dt>Responsable</dt><dd>' + esc(dato.responsable || 'Sin dato') + '</dd>' +
+          '<dt>Estado físico</dt><dd>' + esc(dato.estadoFisico || 'Sin dato') + '</dd>' +
+          '<dt>Situación</dt><dd>' + esc(dato.estado || 'Sin dato') + '</dd>' +
+          '<dt>Oficina actual</dt><dd>' + esc(dato.oficinaNombre || nombreOficina(dato.oficinaId)) + '</dd></dl>';
+      }).catch(function (error) { if (!modalDatos.hidden && versionFicha === modalDatosVersion) cuerpo.textContent = 'No se pudo cargar la ficha: ' + error.message; });
+    }
+    if (modalDatos) {
+      modalDatos.addEventListener('click', function (ev) {
+        if (ev.target === modalDatos || ev.target.closest('[data-data-modal-close]')) { cerrarModalDatos(); return; }
+        var item = ev.target.closest('[data-modal-select-asset]');
+        if (item) {
+          s.activoSeleccionado = Number(item.dataset.modalSelectAsset);
+          s.cuartoSeleccionado = s.muebleSeleccionado = null;
+          cerrarModalDatos(); cargarDetalleActivo(s.activoSeleccionado); pintar();
+        }
+      });
+      modalDatos.addEventListener('input', function (ev) {
+        if (!ev.target.classList.contains('me-modal-filtro')) return;
+        var q = ev.target.value.trim().toLocaleLowerCase();
+        Array.prototype.forEach.call(modalDatos.querySelectorAll('.me-modal-activo'), function (item) {
+          item.hidden = item.textContent.toLocaleLowerCase().indexOf(q) < 0;
+        });
+      });
+      modalDatos.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') { ev.preventDefault(); cerrarModalDatos(); return; }
+        if (ev.key !== 'Tab') return;
+        var controles = Array.prototype.slice.call(modalDatos.querySelectorAll('button:not([hidden]),input:not([hidden])'));
+        if (!controles.length) return;
+        if (ev.shiftKey && document.activeElement === controles[0]) { ev.preventDefault(); controles[controles.length - 1].focus(); }
+        else if (!ev.shiftKey && document.activeElement === controles[controles.length - 1]) { ev.preventDefault(); controles[0].focus(); }
       });
     }
     function actualizarPublicacion() {
@@ -259,7 +409,8 @@
           ? 'Marca el inicio y el final del detalle.' : s.editarEdificio ? 'Puntos naranjas: forma · azul: escala · verde: giro. Mayús fija un eje; desactiva Ajustar puntos para precisión libre.' : s.modo === 'vertices' || s.editarEspacio || s.cuartoSeleccionado ? 'Arrastra puntos naranjas con precisión libre; Mayús fija un eje. Los círculos blancos añaden lados.' : s.modo === 'pan' ? 'Arrastra el plano.' : '';
       var guia = root.querySelector('.me-canvas-hint');
       if (guia) guia.textContent = s.vista3d ? 'Arrastra: girar · Botón derecho, rueda pulsada o Mayús + arrastrar: mover vista · Rueda: zoom · Flechas: cámara · Clic: abrir edificio' :
-        'Rueda: zoom bajo el cursor · Espacio + arrastrar o rueda pulsada: mover plano · Clic: seleccionar · Arrastra un punto naranja: cambiar contorno';
+        edita ? 'Rueda: zoom bajo el cursor · Espacio + arrastrar o rueda pulsada: mover plano · Clic: seleccionar · Arrastra un punto naranja: cambiar contorno' :
+          'Arrastra el fondo para mover el plano · Rueda: zoom bajo el cursor · Clic en una figura para entrar';
       Array.prototype.forEach.call(barra.querySelectorAll('[data-3d]'), function (b) { b.hidden = !s.vista3d; });
       var techo = barra.querySelector('.me-techo3d'); if (techo) techo.checked = s.techo3d;
       actualizarZoomIndicador();
@@ -332,7 +483,7 @@
     function cambiarPredio(id) {
       if (s.dirty && !confirm('Hay cambios sin guardar. ¿Cambiar de predio?')) { sel.value = s.predioId; return; }
       s.cargaVista3d++;
-      s.predioId = Number(id); s.edificio = s.piso = s.espacio = null; s.vista3d = false; s.inventario = null; s.consultaInventario++; s.detallesCargados = {}; s.detallesActivos = {}; s.cuartoSeleccionado = s.muebleSeleccionado = s.activoSeleccionado = null; s.cargaEdificio++; s.viewport = null; s.enfoqueInicial = edita; s.marco3dFijo = null; s.destacadoEdificio = s.busquedaSeleccionada = null; s.resultadosBusqueda = []; s.filtroConstrucciones = '';
+    s.predioId = Number(id); s.edificio = s.piso = s.espacio = null; s.vista3d = false; s.inventario = null; s.consultaInventario++; s.detallesCargados = {}; s.detallesActivos = {}; s.iconosAuxiliares = {}; s.iconoRevision = {}; s.cuartoSeleccionado = s.muebleSeleccionado = s.activoSeleccionado = null; s.cargaEdificio++; s.viewport = null; s.enfoqueInicial = edita; s.marco3dFijo = null; s.destacadoEdificio = s.busquedaSeleccionada = null; s.destacados = {}; s.ubicacionDestacada = null; s.resultadosBusqueda = []; s.filtroConstrucciones = '';
       if (filtro) filtro.value = '';
       var resultadosAnteriores = root.querySelector('.me-search-results'); if (resultadosAnteriores) resultadosAnteriores.hidden = true;
       s.modo = ''; s.dibujo = []; s.tipoDibujo = 'EDIFICIO'; s.editarEdificio = null; s.editarEspacio = null; s.zoom = 1; s.panX = s.panY = 0; s.camara = 38; s.inclinacion = 38;
@@ -343,6 +494,15 @@
         s.puedePublicar = !!d.puedePublicar; s.numeroPublicacion = Number(d.numeroPublicacion || 0);
         s.publicacionEnCarga = 0;
         s.oficinas = d.oficinas || {}; s.activos = d.activos || {}; s.dirty = false;
+        request(BASE + '/predios/' + predioSolicitado + '/iconos-auxiliares').then(function (iconos) {
+          if (predioSolicitado === s.predioId) {
+            s.iconosAuxiliares = iconos || {};
+            Object.keys(s.iconosAuxiliares).forEach(function (auxiliarId) {
+              if (s.iconosAuxiliares[auxiliarId] === 'PERSONALIZADO') s.iconoRevision[auxiliarId] = Date.now();
+            });
+            pintar();
+          }
+        }).catch(function () { /* Se mantienen los iconos sugeridos. */ });
         s.tieneFondo = !!d.tieneFondo; s.fondoRevision = edita ? Date.now() : s.numeroPublicacion;
         s.guardado = JSON.stringify(s.escena); s.historial = [s.guardado]; s.indice = 0;
         if (edita) { avisar('Borrador cargado', false); actualizarPublicacion(); cargarPublicaciones(); pintar(); return; }
@@ -373,13 +533,14 @@
       window.dispatchEvent(new CustomEvent('mapaEspacialPublicado', { detail: dato }));
       try { window.localStorage.setItem('mapaEspacialPublicado', JSON.stringify(dato)); } catch (ignorado) { /* almacenamiento deshabilitado */ }
     }
-    function abrirEdificio(id, pisoId, espacioId) {
+    function abrirEdificio(id, pisoId, espacioId, activoId) {
       var edificioActual = s.escena.edificios.find(function (b) { return b.id === id; });
       var pisoDestino = pisoId || (!edita && edificioActual && edificioActual.pisos.length === 1 ? edificioActual.pisos[0].id : null);
       function seleccionar() { limpiarHerramienta(); if (s.espacio !== (espacioId || null)) s.cuartoSeleccionado = s.muebleSeleccionado = s.activoSeleccionado = null;
         var elegido = s.escena.edificios.find(function (b) { return b.id === id; });
         var planta = pisoId || (!edita && elegido && elegido.pisos.length === 1 ? elegido.pisos[0].id : null);
         s.edificio = id; s.piso = planta; s.espacio = espacioId || null; s.destacadoEdificio = null; s.marco3dFijo = null;
+        if (activoId && espacioId) { s.activoSeleccionado = Number(activoId); cargarDetalleActivo(activoId); }
         if (!edita) s.vista3d = !planta;
         pintar(); }
       var solicitud = ++s.cargaEdificio;
@@ -472,17 +633,16 @@
       if (!a || !a.oficinaId) return;
       if (!inv || inv.oficinaId !== a.oficinaId || inv.cargando) { cont.innerHTML = '<p class="me-muted">Cargando activos de la oficina…</p>'; return; }
       if (inv.error) { cont.innerHTML = '<p class="me-status-error">' + esc(inv.error) + '</p>'; return; }
-      var h = '<p class="me-muted">' + inv.total + ' activo(s) vigentes en esta oficina. Se muestran ' + inv.items.length + ' por página.</p>';
+      var h = '<p class="me-muted">' + inv.total + ' activos vigentes · ' + inv.items.length + ' en esta página. Pulsa Ubicar y arrastra el símbolo en el plano.</p>';
       if (!inv.items.length) h += '<p class="me-muted">' + (inv.q ? 'Sin resultados para esa búsqueda.' : 'Esta oficina no tiene activos vigentes registrados.') + '</p>';
       h += '<div class="me-inventory-list">' + inv.items.map(function (it) {
         var u = ubicacionActivo(it.id), mismo = u && u.espacioId === a.id;
         var ubicacion = mismo ? 'Ubicado en este espacio' : u ? 'Ubicado en ' + u.espacio + ' · ' + u.piso : 'Sin posición dibujada';
-        return '<article class="me-activo-fila"><strong>' + esc(it.codigo || 'Sin código') + '</strong>' +
+        var icono = iconoActivo(it);
+        return '<article class="me-activo-fila me-inventory-compact"><div class="me-asset-symbol" aria-hidden="true">' + iconoMini(icono, it.auxiliarId) + '</div><div class="me-inventory-main"><strong>' + esc(it.codigo || 'Sin código') + '</strong>' +
           '<div>' + esc(it.descripcion || 'Sin descripción') + '</div>' +
-          '<small>Responsable: ' + esc(it.responsable && it.responsable.trim() ? it.responsable : 'Sin responsable registrado') + '</small>' +
-          '<small>Estado físico: ' + esc(it.estadoFisico || 'Sin dato') + '</small>' +
-          '<small class="me-ubicacion">' + esc(ubicacion) + '</small>' +
-          (edita && !u ? '<button type="button" class="me-mini me-action-primary" data-place-asset="' + it.id + '">Ubicar en este espacio</button>' : '') +
+          '<small>' + esc(it.auxiliarNombre || NOMBRES_ICONO[icono]) + ' · ' + esc(ubicacion) + '</small>' +
+          (edita && !u ? '<button type="button" class="me-mini me-action-primary" data-place-asset="' + it.id + '">+ Ubicar</button>' : '') + '</div>' +
           '</article>';
       }).join('') + '</div>';
       if (inv.paginas > 1) h += '<div class="me-paginacion"><button type="button" class="me-mini" data-inventory-page="' + (inv.pagina - 1) + '"' + (inv.pagina === 0 ? ' disabled' : '') + '>← Anterior</button><span>Página ' + (inv.pagina + 1) + ' de ' + inv.paginas + '</span><button type="button" class="me-mini" data-inventory-page="' + (inv.pagina + 1) + '"' + (inv.pagina + 1 >= inv.paginas ? ' disabled' : '') + '>Siguiente →</button></div>';
@@ -508,11 +668,18 @@
       s.detallesActivos[id] = { cargando: true };
       request(BASE + '/activos/' + id + '/detalle').then(function (dato) {
         s.detallesActivos[id] = dato;
-        s.activos[id] = { codigo: dato.codigo, descripcion: dato.descripcion, oficinaId: dato.oficinaId };
-        if (Number(s.activoSeleccionado) === Number(id)) pintar();
+        s.activos[id] = { codigo: dato.codigo, descripcion: dato.descripcion, oficinaId: dato.oficinaId,
+          auxiliarId: dato.auxiliarId, auxiliarNombre: dato.auxiliarNombre };
+        if (Number(s.activoSeleccionado) === Number(id)) {
+          if (drag && drag.kind === 'asset') drag.detalleActualizado = true;
+          else pintar();
+        }
       }).catch(function (error) {
         s.detallesActivos[id] = { error: error.message };
-        if (Number(s.activoSeleccionado) === Number(id)) pintar();
+        if (Number(s.activoSeleccionado) === Number(id)) {
+          if (drag && drag.kind === 'asset') drag.detalleActualizado = true;
+          else pintar();
+        }
       });
     }
     function renderPanel() {
@@ -573,9 +740,20 @@
         if (edita) h += '<div class="me-list">' + s.escena.edificios.map(function (b) { return '<button class="me-item" data-open-building="' + esc(b.id) + '"><strong>' + esc(b.nombre) + '</strong><small>' + (b.tipo === 'EDIFICIO' ? 'Edificio' : 'Oficina independiente') + ' · ' + b.pisos.length + ' nivel(es) · ' + (b.resumenOficinas == null ? contarOficinas(b.pisos.reduce(function (todos, n) { return todos.concat(n.espacios); }, [])) : b.resumenOficinas) + ' oficina(s)</small></button>'; }).join('') + '</div>';
         else if (s.busquedaSeleccionada) {
           var lugar = s.busquedaSeleccionada;
-          h += '<section class="me-search-selection"><span class="me-tag">' + (lugar.tipo === 'OFICINA' ? 'OFICINA ENCONTRADA' : 'EDIFICIO ENCONTRADO') + '</span><h3>' + esc(lugar.etiqueta) + '</h3>' +
-            '<p>' + esc(lugar.edificioNombre) + (lugar.pisoNombre ? ' · ' + esc(lugar.pisoNombre) : '') + '</p>' +
-            boton(lugar.tipo === 'OFICINA' ? 'Abrir plano de la oficina' : 'Entrar al edificio', 'openSearchResult', 'me-action-primary') + '</section>';
+          h += '<section class="me-search-selection"><span class="me-tag">' + esc(lugar.tipo === 'ACTIVO' ? 'ACTIVO' : lugar.tipo === 'RESPONSABLE' ? 'RESPONSABLE' : lugar.tipo === 'OFICINA' ? 'OFICINA' : 'EDIFICIO') + '</span><h3>' + esc(lugar.etiqueta) + '</h3>' +
+            '<p>' + esc(lugar.oficinaNombre || lugar.edificioNombre || lugar.detalle || 'Sin ubicación dibujada') +
+            (lugar.edificioNombre && lugar.oficinaNombre ? ' · ' + esc(lugar.edificioNombre) : '') + (lugar.pisoNombre ? ' · ' + esc(lugar.pisoNombre) : '') +
+            (lugar.lugar && lugar.lugar.etiqueta ? ' · ' + esc(lugar.lugar.etiqueta) : '') + '</p>' +
+            (lugar.detalle ? '<p class="me-muted">' + esc(lugar.detalle) + '</p>' : '') +
+            (lugar.edificioId ? boton(lugar.espacioId ? 'Abrir oficina' : 'Entrar al edificio', 'openSearchResult', 'me-action-primary') : '<p class="me-muted">Esta oficina aún no se ha vinculado al plano publicado.</p>') + '</section>';
+          if (lugar.tipo === 'RESPONSABLE' && lugar.personaId) {
+            var otras = s.resultadosBusqueda.map(function (r, i) { return { dato: r, indice: i }; }).filter(function (r) {
+              return r.dato.personaId === lugar.personaId && r.dato !== lugar;
+            });
+            if (otras.length) h += '<h3>Otras ubicaciones de esta persona</h3><div class="me-list">' + otras.map(function (r) {
+              return '<button class="me-item" data-search-index="' + r.indice + '"><strong>' + esc(r.dato.lugar && r.dato.lugar.etiqueta || 'Oficina sin plano') + '</strong><small>' + esc(r.dato.edificioNombre || 'Sin ubicación dibujada') + (r.dato.pisoNombre ? ' · ' + esc(r.dato.pisoNombre) : '') + '</small></button>';
+            }).join('') + '</div>';
+          }
         } else h += '<p class="me-muted">Busca un edificio u oficina arriba, o selecciona una construcción en el mapa. El plano interior se abre al entrar.</p>';
       } else if (!p) {
         h = '<h2>' + esc(e.nombre) + '</h2><span class="me-tag">' + (e.tipo === 'EDIFICIO' ? 'EDIFICIO' : 'OFICINA INDEPENDIENTE') + '</span>';
@@ -584,6 +762,7 @@
         h += '<h3>Pisos de este edificio</h3><div class="me-list">' + e.pisos.map(function (n) { return '<button class="me-item" data-open-floor="' + esc(n.id) + '"><strong>' + (s.vista3d ? 'Ver en 3D: ' : 'Entrar a ') + esc(n.nombre) + ' →</strong><small>Altura ' + esc(n.altura) + ' · ' + contarOficinas(n.espacios) + ' oficinas · ' + n.espacios.length + ' espacios</small></button>'; }).join('') + '</div>';
       } else if (!a) {
         h = '<h2>' + esc(p.nombre) + '</h2><p>' + esc(e.nombre) + '</p>';
+        h += controlesPlanoReferencia(p, 'piso');
         if (s.vista3d) h += '<p class="me-muted">Altura del piso: ' + esc(p.altura) + ' unidades visuales. Al elegir un piso se ocultan los superiores para ver sus oficinas.</p>' +
           '<div class="me-floor-tabs" aria-label="Elegir piso">' + e.pisos.map(function (n) {
             return '<button type="button" class="me-mini' + (n.id === p.id ? ' me-floor-active' : '') + '" data-open-floor="' + esc(n.id) + '">' + esc(n.nombre) + '</button>';
@@ -605,6 +784,7 @@
         h += '<h3>Espacios de esta planta</h3><div class="me-list">' + p.espacios.map(function (r) { return '<button class="me-item" data-open-space="' + esc(r.id) + '"><strong>' + esc(r.nombre) + '</strong><small>' + esc(r.oficinaId ? nombreOficina(r.oficinaId) : r.tipo + ' · sin oficina vinculada') + '</small></button>'; }).join('') + '</div>';
       } else {
         h = '<h2>' + esc(a.nombre) + '</h2><p>' + esc(p.nombre) + ' · ' + esc(e.nombre) + '</p>';
+        h += controlesPlanoReferencia(a, 'espacio');
         h += '<h3>Oficina registrada</h3><p>' + esc(nombreOficina(a.oficinaId)) + '</p>';
         if (edita) {
           h += '<details class="me-config"' + (!a.oficinaId ? ' open' : '') + '><summary>Editar este espacio y su oficina</summary>' +
@@ -633,16 +813,23 @@
           campo('Giro (grados)', 'muebleGiro', mueble().giro || 0, 'number', 0, 360) +
           boton('Eliminar figura', 'removeFurniture', 'me-danger') + '</div>';
         h += '</section>';
-        if (a.oficinaId) h += '<h3>Inventario de esta oficina</h3><label class="me-field">Buscar en el inventario<input class="me-filtro-inventario" placeholder="Código o descripción" value="' + esc(s.inventario && s.inventario.oficinaId === a.oficinaId ? s.inventario.q : '') + '"></label><div class="me-inventario"></div>';
-        h += '<section class="me-interior-section"><h3>Activos ubicados <span class="me-count">' + a.activos.length + '</span></h3><div class="me-list">' + a.activos.map(function (z) { var info = s.detallesActivos[z.activoId] || s.activos[z.activoId] || {}; var sala = cuartoDeElemento(a, z); return '<button class="me-item' + (Number(s.activoSeleccionado) === Number(z.activoId) ? ' me-item-selected' : '') + '" data-open-asset="' + z.activoId + '"><strong>' + esc((info.codigo || z.activoId) + ' · ' + (info.descripcion || 'Activo')) + '</strong><small>' + esc(z.figura || 'OTRO') + (sala ? ' · ' + esc(sala.nombre) : '') + (info.oficinaId != null && Number(info.oficinaId) !== Number(a.oficinaId) ? ' · ⚠ Cambió de oficina' : '') + '</small></button>'; }).join('') + (a.activos.length ? '' : '<p class="me-muted">Ubica un activo desde el inventario.</p>') + '</div>';
-        if (s.activoSeleccionado) { var z = a.activos.find(function (t) { return Number(t.activoId) === Number(s.activoSeleccionado); }); if (z) { var d = s.detallesActivos[z.activoId] || s.activos[z.activoId] || {};
-          h += '<div class="me-selected-editor"><h4>Activo ' + esc(d.codigo || z.activoId) + '</h4><p>' + esc(d.error ? 'No se pudo cargar la ficha: ' + d.error : d.descripcion || 'Cargando ficha…') + '</p>' +
-            '<dl class="me-asset-details"><dt>Responsable</dt><dd>' + esc(d.responsable || 'Sin dato') + '</dd><dt>Estado físico</dt><dd>' + esc(d.estadoFisico || 'Sin dato') + '</dd><dt>Situación</dt><dd>' + esc(d.estado || 'Sin dato') + '</dd><dt>Oficina actual</dt><dd>' + esc(d.oficinaNombre || nombreOficina(d.oficinaId)) + '</dd></dl>' +
-            (d.oficinaId != null && Number(d.oficinaId) !== Number(a.oficinaId) ? '<p class="me-asset-warning">La oficina oficial cambió. Reubica o quita esta figura del plano.</p>' : '') +
-            boton('Actualizar ficha', 'refreshAsset') + (edita ? selectorFigura('figuraActivo', z.figura || 'OTRO') +
-              campo('Ancho visual', 'anchoActivo', z.ancho, 'number', .1, a.ancho) + campo('Fondo visual', 'fondoActivo', z.fondo, 'number', .1, a.fondo) +
-              campo('Giro (grados)', 'giro', z.giro, 'number', 0, 360) + boton('Quitar figura', 'removeAsset', 'me-danger') : '') + '</div>'; } }
+        h += '<section class="me-interior-section me-assets-section"><div class="me-asset-panel-title"><h3>Ubicación de activos</h3><button type="button" class="me-mini" data-show-placed>Ubicados (' + a.activos.length + ')</button></div>' +
+          '<p class="me-muted">Arrastra un símbolo para moverlo. Mayús + arrastrar mantiene un eje.</p>';
+        if (edita && a.oficinaId) {
+          var maxTamano = Math.min(12, a.ancho, a.fondo), minTamano = Math.min(.5, maxTamano);
+          var tamanoGeneral = Math.min(maxTamano, Number(a.tamanoMarcador) || 3);
+          h += '<label class="me-field me-size-field">Tamaño general de los marcadores<input type="range" data-prop="tamanoGeneral" min="' + minTamano + '" max="' + maxTamano + '" step="0.25" value="' + tamanoGeneral + '"><output>' + tamanoGeneral + '</output></label>' +
+            '<p class="me-muted">El cambio ajusta todos los activos de esta oficina; también será el tamaño inicial de los próximos.</p>';
+        }
+        if (s.activoSeleccionado) { var z = a.activos.find(function (t) { return Number(t.activoId) === Number(s.activoSeleccionado); }); if (z) { var d = Object.assign({}, s.activos[z.activoId] || {}, s.detallesActivos[z.activoId] || {});
+          h += '<div class="me-selected-editor me-asset-editor"><div class="me-asset-editor-head"><span class="me-asset-symbol" aria-hidden="true">' + iconoMini(iconoActivo(d), d.auxiliarId) + '</span><div><h4>Seleccionado: ' + esc(d.codigo || z.activoId) + '</h4><button type="button" class="me-mini" data-show-asset-detail="' + z.activoId + '">Ver ficha del activo</button></div></div><p class="me-muted">X ' + esc(z.x) + ' · Y ' + esc(z.y) + ' · Para afinar, enfoca el plano y usa las flechas (Mayús: paso grande).</p>' +
+            (d.oficinaId != null && Number(d.oficinaId) !== Number(a.oficinaId) ? '<p class="me-asset-warning">La oficina oficial cambió. Reubica o quita este marcador.</p>' : '') +
+            (edita ? '<label class="me-field">Tamaño de este activo<input type="number" data-prop="tamanoIndividual" min="0.1" max="' + Math.min(12, a.ancho, a.fondo) + '" step="0.25" value="' + esc(z.ancho) + '"></label>' +
+              selectorIconoAuxiliar(d) + '<details class="me-details"><summary>Giro opcional</summary>' + campo('Giro (grados)', 'giro', z.giro, 'number', 0, 360) + '</details>' + boton('Quitar del plano', 'removeAsset', 'me-danger') : '') + '</div>'; }
+          else h += '<button type="button" class="me-mini" data-show-asset-detail="' + s.activoSeleccionado + '">Ver ficha del activo seleccionado</button>';
+        }
         h += '</section>';
+        if (a.oficinaId) h += '<h3>Inventario de esta oficina</h3><label class="me-field">Buscar en el inventario<input class="me-filtro-inventario" placeholder="Código o descripción" value="' + esc(s.inventario && s.inventario.oficinaId === a.oficinaId ? s.inventario.q : '') + '"></label><div class="me-inventario"></div>';
       }
       panel.innerHTML = h;
       s.panelStageKey = stageKey;
@@ -650,6 +837,22 @@
       if (medidasAbiertas && panel.querySelector('.me-details')) panel.querySelector('.me-details').open = true;
       organizarPanel(e, p, a, stageKey);
       mostrarInventario();
+    }
+    function referenciaActual() { return espacio() || piso(); }
+    function controlesPlanoReferencia(objeto, nombre) {
+      var ref = objeto.planoReferencia;
+      if (!edita && !ref) return '';
+      var h = '<details class="me-details me-reference-settings"><summary>Plano de referencia del ' + nombre + '</summary>';
+      h += '<p class="me-muted">Imagen visual para calcar; las posiciones y medidas siguen siendo referenciales.</p>';
+      if (edita) h += boton(ref ? 'Sustituir imagen' : 'Subir PNG o JPG', 'uploadReference') +
+        (ref ? boton('Quitar imagen', 'removeReference', 'me-danger') : '');
+      if (ref && edita) h += campo('Posición horizontal X', 'refX', ref.x, 'number', -2000, 2000) +
+        campo('Posición vertical Y', 'refY', ref.y, 'number', -2000, 2000) +
+        campo('Ancho visual', 'refAncho', ref.ancho, 'number', .1, 2000) +
+        campo('Fondo visual', 'refFondo', ref.fondo, 'number', .1, 2000) +
+        campo('Opacidad (0 a 1)', 'refOpacidad', ref.opacidad, 'number', 0, 1) +
+        campo('Giro (grados)', 'refGiro', ref.giro, 'number', 0, 360);
+      return h + '</details>';
     }
     function medidas(o, building) { return '<details class="me-details"><summary>Posición y tamaño (opcional)</summary><p>Unidades visuales referenciales, sin metros reales. También puedes arrastrar la figura para moverla.</p>' +
       campo('Posición horizontal (X) ' + (building ? 'en el predio' : 'en el piso'), 'x', o.x, 'number', 0, 2000) +
@@ -695,8 +898,11 @@
     function dibujarRect(parent, obj, kind, fill, title) {
       var color = obj.color || fill;
       var attrs = { x: obj.x, y: obj.y, width: obj.ancho, height: obj.fondo, rx: 2, fill: color,
-        'fill-opacity': kind === 'building' && s.editarEdificio === obj.id && s.tieneFondo ? .42 : 1,
-        stroke: '#477088', 'stroke-width': 1.6, 'vector-effect': 'non-scaling-stroke', class: 'me-shape' + ((kind === 'building' && (s.edificio === obj.id || s.editarEdificio === obj.id)) || (kind === 'space' && (s.espacio === obj.id || s.editarEspacio === obj.id)) || (kind === 'room' && s.cuartoSeleccionado === obj.id) ? ' me-selected' : ''), 'data-kind': kind, 'data-id': obj.id || obj.activoId };
+        'fill-opacity': kind === 'building' && s.editarEdificio === obj.id && s.tieneFondo ? .42 :
+          kind === 'space' && piso() && piso().planoReferencia && s.capas.fondo ? .48 :
+          kind === 'room' && espacio() && espacio().planoReferencia && s.capas.fondo ? .48 : 1,
+        stroke: '#477088', 'stroke-width': 1.6, 'vector-effect': 'non-scaling-stroke', class: 'me-shape' + ((kind === 'building' && (s.edificio === obj.id || s.editarEdificio === obj.id)) || (kind === 'space' && (s.espacio === obj.id || s.editarEspacio === obj.id)) || (kind === 'room' && s.cuartoSeleccionado === obj.id) ? ' me-selected' : '') +
+          (kind === 'space' && s.ubicacionDestacada && s.ubicacionDestacada.espacioId === obj.id ? ' me-found-space' : ''), 'data-kind': kind, 'data-id': obj.id || obj.activoId };
       if (kind === 'asset' && obj.giro) attrs.transform = 'rotate(' + obj.giro + ' ' + (obj.x + obj.ancho / 2) + ' ' + (obj.y + obj.fondo / 2) + ')';
       var puntos = (kind !== 'asset' && obj.puntos && obj.puntos.length >= 3) ? obj.puntos : null;
       if (puntos) attrs.points = puntos.map(function (pt) { return pt.x + ',' + pt.y; }).join(' ');
@@ -738,6 +944,7 @@
     function dibujarElemento(obj, vinculado, titulo, alerta) {
       var tipo = FIGURAS.indexOf(obj.figura) >= 0 ? obj.figura : 'OTRO';
       var x = obj.x, y = obj.y, w = obj.ancho, h = obj.fondo;
+      var infoActivo = vinculado ? Object.assign({}, s.activos[obj.activoId] || {}, s.detallesActivos[obj.activoId] || {}) : null;
       var color = alerta ? '#f5adb0' : vinculado ? '#7dc7e2' : '#f5bf77';
       var seleccionado = vinculado ? Number(obj.activoId) === Number(s.activoSeleccionado) : obj.id === s.muebleSeleccionado;
       var grupo = svg('g', { class: 'me-shape me-elemento' + (vinculado ? ' me-elemento-activo' : ' me-elemento-mueble') + (seleccionado ? ' me-elemento-seleccionado' : ''),
@@ -747,7 +954,22 @@
         fill: color, stroke: seleccionado ? '#ec8737' : '#30677f', 'stroke-width': seleccionado ? 2.5 : 1.5,
         'vector-effect': 'non-scaling-stroke' }));
       var trazo = { stroke: '#265870', 'stroke-width': 1, 'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none' };
-      if (tipo === 'SILLA') grupo.appendChild(svg('rect', { x: x + w * .2, y: y + h * .23, width: w * .6, height: h * .55, rx: Math.min(w, h) * .12,
+      if (vinculado) {
+        var icono = iconoActivo(infoActivo);
+        if (icono === 'PERSONALIZADO' && infoActivo.auxiliarId) {
+          var urlImagen = urlIconoAuxiliar(infoActivo.auxiliarId);
+          var imagenIcono = svg('image', { x: x + w * .1, y: y + h * .1, width: w * .8, height: h * .8,
+            href: urlImagen, preserveAspectRatio: 'xMidYMid meet', 'pointer-events': 'none' });
+          imagenIcono.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', urlImagen);
+          grupo.appendChild(imagenIcono);
+        } else {
+          var marca = svg('svg', { x: x + w * .12, y: y + h * .12, width: w * .76, height: h * .76,
+            viewBox: '0 0 24 24', preserveAspectRatio: 'xMidYMid meet', 'pointer-events': 'none' });
+          marca.appendChild(svg('path', { d: TRAZOS_ICONO[icono] || TRAZOS_ICONO.OTRO, fill: 'none', stroke: '#16465e',
+            'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+          grupo.appendChild(marca);
+        }
+      } else if (tipo === 'SILLA') grupo.appendChild(svg('rect', { x: x + w * .2, y: y + h * .23, width: w * .6, height: h * .55, rx: Math.min(w, h) * .12,
         fill: '#fff', 'fill-opacity': .65, stroke: '#30677f', 'stroke-width': 1, 'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none' }));
       else if (tipo === 'MESA') grupo.appendChild(svg('rect', { x: x + w * .1, y: y + h * .12, width: w * .8, height: h * .76, rx: Math.min(w, h) * .08,
         fill: '#fff', 'fill-opacity': .55, stroke: '#30677f', 'stroke-width': 1, 'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none' }));
@@ -812,6 +1034,17 @@
       var urlFondo = BASE + '/predios/' + s.predioId + '/fondo' + (edita ? '' : '/publicado') + '?v=' + s.fondoRevision;
       img.setAttribute('href', urlFondo);
       img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', urlFondo);
+      canvas.appendChild(img);
+    }
+    function dibujarPlanoReferencia(objeto) {
+      if (!objeto || !objeto.planoReferencia || !s.capas.fondo) return;
+      var f = objeto.planoReferencia;
+      var img = svg('image', { x: f.x, y: f.y, width: f.ancho, height: f.fondo,
+        opacity: f.opacidad, preserveAspectRatio: 'none', 'pointer-events': 'none',
+        transform: 'rotate(' + f.giro + ' ' + (f.x + f.ancho / 2) + ' ' + (f.y + f.fondo / 2) + ')' });
+      var url = BASE + '/predios/' + s.predioId + '/planos/' + encodeURIComponent(f.archivo);
+      img.setAttribute('href', url);
+      img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', url);
       canvas.appendChild(img);
     }
     function dibujarVertices(o) {
@@ -957,7 +1190,7 @@
       if (window.MapaEspacial3DCarga) return window.MapaEspacial3DCarga;
       window.MapaEspacial3DCarga = new Promise(function (resolve, reject) {
         var script = document.createElement('script');
-        script.src = '/assets/js/mapa-espacial-3d.js';
+        script.src = '/assets/js/mapa-espacial-3d.js?v=20261014-localizar';
         script.onload = function () { window.MapaEspacial3D ? resolve() : reject(new Error('No se pudo iniciar la vista 3D.')); };
         script.onerror = function () { reject(new Error('No se pudo cargar la vista 3D.')); };
         document.head.appendChild(script);
@@ -983,6 +1216,9 @@
         paso.classList.toggle('me-actual', nombre === (a ? 'espacio' : p ? 'piso' : e ? 'edificio' : 'predio'));
       });
       if (root.querySelector('.me-vista')) root.querySelector('.me-vista').textContent = s.vista3d ? 'Volver a 2D' : 'Abrir modelo 3D';
+      var guiaExplorar = root.querySelector('.me-explore-guide');
+      if (guiaExplorar) guiaExplorar.textContent = s.vista3d ? 'Arrastra para girar · Rueda para acercar · Botón derecho para mover' :
+        'Arrastra el fondo para mover · Rueda para acercar · Clic para entrar';
       if (s.vista3d) dibujar3d();
       else if (!e) {
         ajustarVistaPredio();
@@ -1000,6 +1236,7 @@
         if (p.espacios.length > 24 && s.zoom > 3) s.regionDibujo = regionConMargen(canvas.viewBox.baseVal);
         var local = (e.puntos || puntosRect(e)).map(function (pt) { return { x: redondearFino(pt.x - e.x), y: redondearFino(pt.y - e.y) }; });
         canvas.appendChild(svg('polygon', { points: puntosTexto(local), fill: '#f7fafb', stroke: e.color || '#678298', 'stroke-width': 1.8, 'vector-effect': 'non-scaling-stroke' }));
+        dibujarPlanoReferencia(p);
         cuadricula();
         if (s.capas.espacios) p.espacios.forEach(function (r) {
           if (!s.regionDibujo || cruzaRegion(r, s.regionDibujo)) dibujarRect(canvas, r, 'space', r.oficinaId ? '#cde9ee' : '#e6e9e8', r.nombre);
@@ -1010,6 +1247,7 @@
         canvas.setAttribute('viewBox', '-2 -2 ' + (a.ancho + 4) + ' ' + (a.fondo + 4));
         var puntosLocal = (a.puntos || puntosRect(a)).map(function (pt) { return { x: redondearFino(pt.x - a.x), y: redondearFino(pt.y - a.y) }; });
         canvas.appendChild(svg('polygon', { points: puntosTexto(puntosLocal), fill: '#fbfaf6', stroke: a.color || '#678298', 'stroke-width': 1.8, 'vector-effect': 'non-scaling-stroke' }));
+        dibujarPlanoReferencia(a);
         cuadricula();
         (a.cuartos || []).forEach(function (c) { dibujarRect(canvas, c, 'room', '#edf5df', c.nombre); });
         (a.mobiliario || []).forEach(function (m) { dibujarElemento(m, false, m.nombre + ' · mobiliario de referencia', false); });
@@ -1029,8 +1267,8 @@
     function volver() { limpiarHerramienta(); if (s.espacio) { s.espacio = null; s.activoSeleccionado = s.cuartoSeleccionado = s.muebleSeleccionado = null; } else if (s.piso) { s.piso = null; if (!edita) s.vista3d = true; } else { s.edificio = null; if (!edita) s.vista3d = true; } if (!s.edificio) { s.enfoqueInicial = edita; s.destacadoEdificio = s.busquedaSeleccionada && s.busquedaSeleccionada.edificioId; } pintar(); }
     root.querySelector('.me-volver').addEventListener('click', volver);
     var botonEstudio = root.querySelector('.me-ampliar');
-    if (edita && window.matchMedia && window.matchMedia('(min-width: 900px)').matches) {
-      root.classList.add('me-ampliado'); botonEstudio.textContent = '✕ Salir del estudio';
+    if (window.matchMedia && window.matchMedia('(min-width: 900px)').matches) {
+      root.classList.add('me-ampliado'); botonEstudio.textContent = edita ? '✕ Salir del estudio' : '✕ Salir de vista ampliada';
     }
     botonEstudio.addEventListener('click', function () {
       root.classList.toggle('me-ampliado');
@@ -1128,30 +1366,69 @@
     root.querySelector('.me-predio').addEventListener('change', function () { cambiarPredio(this.value); });
     var consultaMapa = 0, tiempoMapa;
     var resultadosMapa = root.querySelector('.me-search-results');
+    var tipoBusqueda = root.querySelector('.me-search-type');
     if (filtro && resultadosMapa) {
+      function seleccionarResultado(indice) {
+        var elegido = s.resultadosBusqueda[Number(indice)]; if (!elegido) return;
+        ++consultaMapa; resultadosMapa.hidden = true; filtro.value = elegido.etiqueta;
+        s.busquedaSeleccionada = elegido; s.destacadoEdificio = elegido.edificioId || null; s.ubicacionDestacada = elegido;
+        s.destacados = {};
+        var relacionados = elegido.tipo === 'RESPONSABLE' && elegido.personaId ? s.resultadosBusqueda.filter(function (r) { return r.personaId === elegido.personaId; }) : [elegido];
+        relacionados.forEach(function (r) {
+          if (!r.edificioId) return;
+          if (!s.destacados[r.edificioId]) s.destacados[r.edificioId] = [];
+          if (r.pisoId && s.destacados[r.edificioId].indexOf(r.pisoId) < 0) s.destacados[r.edificioId].push(r.pisoId);
+        });
+        s.q = ''; s.edificio = s.piso = s.espacio = null; s.marco3dFijo = null; s.panX = s.panY = 0; s.viewport = null;
+        if (elegido.tipo === 'RESPONSABLE' && elegido.personaId) {
+          var predioPersona = s.predioId;
+          request(BASE + '/predios/' + predioPersona + '/localizar?tipo=RESPONSABLE&personaId=' + encodeURIComponent(elegido.personaId)).then(function (datos) {
+            if (s.predioId !== predioPersona || s.busquedaSeleccionada !== elegido) return;
+            s.resultadosBusqueda = datos.map(function (r) { return Object.assign({}, r.lugar || {}, r); });
+            s.busquedaSeleccionada = s.resultadosBusqueda.find(function (r) {
+              return r.responsableId === elegido.responsableId && r.espacioId === elegido.espacioId;
+            }) || elegido;
+            s.destacados = {};
+            s.resultadosBusqueda.forEach(function (r) {
+              if (!r.edificioId) return;
+              if (!s.destacados[r.edificioId]) s.destacados[r.edificioId] = [];
+              if (r.pisoId && s.destacados[r.edificioId].indexOf(r.pisoId) < 0) s.destacados[r.edificioId].push(r.pisoId);
+            });
+            pintar();
+          }).catch(function (error) { avisar(error.message, true); });
+        }
+        if (!elegido.edificioId) { pintar(); avisar('La oficina oficial todavía no tiene ubicación en el plano publicado.', false); return; }
+        cargar3d().then(function () { s.vista3d = true; pintar(); }).catch(function (error) { avisar(error.message, true); });
+      }
       filtro.addEventListener('input', function () {
-        var q = this.value.trim(), token = ++consultaMapa, predio = s.predioId;
+        var q = this.value.trim(), token = ++consultaMapa, predio = s.predioId, tipo = tipoBusqueda ? tipoBusqueda.value : 'LUGAR';
         clearTimeout(tiempoMapa);
         if (!q || !predio) { resultadosMapa.hidden = true; s.resultadosBusqueda = []; return; }
+        if (tipo !== 'LUGAR' && q.length < 2) { resultadosMapa.hidden = false; resultadosMapa.innerHTML = '<p class="me-muted">Escribe al menos dos caracteres.</p>'; return; }
         resultadosMapa.hidden = false; resultadosMapa.innerHTML = '<p class="me-muted">Buscando en este predio…</p>';
         tiempoMapa = setTimeout(function () {
-          request(BASE + '/predios/' + predio + '/ubicaciones?q=' + encodeURIComponent(q)).then(function (datos) {
+          var url = BASE + '/predios/' + predio + (tipo === 'LUGAR' ? '/ubicaciones?q=' : '/localizar?tipo=' + encodeURIComponent(tipo) + '&q=') + encodeURIComponent(q);
+          request(url).then(function (datos) {
             if (token !== consultaMapa || predio !== s.predioId) return;
-            s.resultadosBusqueda = datos; resultadosMapa.hidden = false;
-            resultadosMapa.innerHTML = datos.map(function (r, i) { return '<button type="button" data-search-index="' + i + '"><strong>' + esc(r.etiqueta) + '</strong><small>' +
-              esc(r.tipo === 'OFICINA' ? r.edificioNombre + ' · ' + r.pisoNombre : 'Edificio del predio') + '</small></button>'; }).join('') || '<p class="me-muted">No hay edificios u oficinas dibujados con ese nombre o código.</p>';
+            s.resultadosBusqueda = datos.map(function (r) { return Object.assign({}, r.lugar || {}, r); }); resultadosMapa.hidden = false;
+            resultadosMapa.innerHTML = s.resultadosBusqueda.map(function (r, i) { return '<button type="button" data-search-index="' + i + '"><strong>' + esc(r.etiqueta) + '</strong><small>' +
+              esc([r.oficinaNombre, r.edificioNombre, r.pisoNombre, r.lugar && r.lugar.etiqueta, r.detalle].filter(Boolean).join(' · ') || 'Edificio del predio') + '</small></button>'; }).join('') || '<p class="me-muted">No se encontraron coincidencias en este predio.</p>';
           }).catch(function (error) { if (token === consultaMapa) resultadosMapa.innerHTML = '<p class="me-status-error">' + esc(error.message) + '</p>'; });
         }, 200);
+      });
+      if (tipoBusqueda) tipoBusqueda.addEventListener('change', function () {
+        ++consultaMapa; clearTimeout(tiempoMapa); resultadosMapa.hidden = true; s.resultadosBusqueda = [];
+        filtro.value = ''; filtro.placeholder = this.value === 'ACTIVO' ? 'Código o descripción del activo' : this.value === 'RESPONSABLE' ? 'Nombre, CI o código' : 'Nombre o código de oficina';
+        filtro.focus();
       });
       filtro.addEventListener('focus', function () { if (this.value.trim()) this.dispatchEvent(new Event('input', { bubbles: true })); });
       filtro.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') { resultadosMapa.hidden = true; this.blur(); } });
       resultadosMapa.addEventListener('click', function (ev) {
         var botonResultado = ev.target.closest('[data-search-index]'); if (!botonResultado) return;
-        var elegido = s.resultadosBusqueda[Number(botonResultado.dataset.searchIndex)]; if (!elegido) return;
-        ++consultaMapa; resultadosMapa.hidden = true; filtro.value = elegido.etiqueta;
-        s.busquedaSeleccionada = elegido; s.destacadoEdificio = elegido.edificioId; s.q = '';
-        s.edificio = s.piso = s.espacio = null; s.marco3dFijo = null; s.panX = s.panY = 0; s.viewport = null;
-        cargar3d().then(function () { s.vista3d = true; pintar(); }).catch(function (error) { avisar(error.message, true); });
+        seleccionarResultado(botonResultado.dataset.searchIndex);
+      });
+      panel.addEventListener('click', function (ev) {
+        var otra = ev.target.closest('[data-search-index]'); if (otra) seleccionarResultado(otra.dataset.searchIndex);
       });
       root.addEventListener('click', function (ev) { if (!ev.target.closest('.me-map-search')) resultadosMapa.hidden = true; });
     }
@@ -1215,8 +1492,8 @@
     function actualizarNavegacion(ev) {
       if (!drag) return;
       if (drag.kind === 'orbit') {
-        s.camara = ((drag.angulo + (ev.clientX - drag.x) * .14) % 360 + 360) % 360;
-        s.inclinacion = Math.max(edita ? 12 : 8, Math.min(edita ? 78 : 85, drag.inclinacion + (ev.clientY - drag.y) * .1));
+        s.camara = ((drag.angulo + (ev.clientX - drag.x) * (edita ? .14 : .1)) % 360 + 360) % 360;
+        s.inclinacion = Math.max(edita ? 12 : 8, Math.min(edita ? 78 : 85, drag.inclinacion + (ev.clientY - drag.y) * (edita ? .1 : .08)));
         repintarMovimiento();
       } else if (drag.kind === 'pan') {
         if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > 2) drag.movio = true;
@@ -1253,7 +1530,9 @@
       var limites = caja(o.puntos);
       o.ancho = redondear(limites.ancho); o.fondo = redondear(limites.fondo);
       (o.pisos || []).forEach(function (p) {
+        escalarReferencia(p.planoReferencia, factor);
         p.espacios.forEach(function (r) {
+          escalarReferencia(r.planoReferencia, factor);
           r.x = redondear(r.x * factor); r.y = redondear(r.y * factor);
           r.ancho = redondear(r.ancho * factor); r.fondo = redondear(r.fondo * factor);
           (r.puntos || []).forEach(function (pt) { pt.x = redondear(pt.x * factor); pt.y = redondear(pt.y * factor); });
@@ -1288,6 +1567,10 @@
         pintar(); return;
       }
       dirty(); pintar();
+    }
+    function escalarReferencia(ref, factor) {
+      if (!ref) return;
+      ['x', 'y', 'ancho', 'fondo'].forEach(function (clave) { ref[clave] = redondearFino(ref[clave] * factor); });
     }
     function modificarVertice(o, indice, pt) {
       if (o.puntos[indice].x === pt.x && o.puntos[indice].y === pt.y) return;
@@ -1327,6 +1610,12 @@
       e.puntos.forEach(function (pt) { pt.x = redondear(pt.x + mx); pt.y = redondear(pt.y + my); });
       bb = caja(e.puntos); e.x = bb.x; e.y = bb.y; e.ancho = redondear(bb.ancho); e.fondo = redondear(bb.fondo);
       e.pisos.forEach(function (p) {
+        if (p.planoReferencia) {
+          var fp = p.planoReferencia, centroP = rotar({ x: ox + fp.x + fp.ancho / 2, y: oy + fp.y + fp.fondo / 2 });
+          fp.x = redondearFino(centroP.x + mx - e.x - fp.ancho / 2);
+          fp.y = redondearFino(centroP.y + my - e.y - fp.fondo / 2);
+          fp.giro = ((Number(fp.giro || 0) + grados) % 360 + 360) % 360;
+        }
         (p.trazos || []).forEach(function (t) {
           var a = rotar({ x: ox + t.x1, y: oy + t.y1 }), b = rotar({ x: ox + t.x2, y: oy + t.y2 });
           t.x1 = redondear(a.x + mx - e.x); t.y1 = redondear(a.y + my - e.y);
@@ -1334,11 +1623,18 @@
         });
         p.espacios.forEach(function (r) {
           var rx = r.x, ry = r.y;
+          var ref = r.planoReferencia;
+          var centroRef = ref && rotar({ x: ox + rx + ref.x + ref.ancho / 2, y: oy + ry + ref.y + ref.fondo / 2 });
           var elementos = r.activos.concat(r.mobiliario || []);
           var centros = elementos.map(function (z) { return rotar({ x: ox + rx + z.x + z.ancho / 2, y: oy + ry + z.y + z.fondo / 2 }); });
           var cuartosRotados = (r.cuartos || []).map(function (c) { return c.puntos.map(function (pt) { return rotar({ x: ox + rx + pt.x, y: oy + ry + pt.y }); }); });
           r.puntos = r.puntos.map(function (pt) { var nuevo = rotar({ x: ox + pt.x, y: oy + pt.y }); return { x: redondear(nuevo.x + mx - e.x), y: redondear(nuevo.y + my - e.y) }; });
           var cajaR = caja(r.puntos); r.x = cajaR.x; r.y = cajaR.y; r.ancho = redondear(cajaR.ancho); r.fondo = redondear(cajaR.fondo);
+          if (ref) {
+            ref.x = redondearFino(centroRef.x + mx - e.x - r.x - ref.ancho / 2);
+            ref.y = redondearFino(centroRef.y + my - e.y - r.y - ref.fondo / 2);
+            ref.giro = ((Number(ref.giro || 0) + grados) % 360 + 360) % 360;
+          }
           elementos.forEach(function (z, i) {
             z.x = redondear(centros[i].x + mx - e.x - r.x - z.ancho / 2);
             z.y = redondear(centros[i].y + my - e.y - r.y - z.fondo / 2);
@@ -1363,11 +1659,18 @@
       var cx = ox + r.ancho / 2, cy = oy + r.fondo / 2;
       var rad = grados * Math.PI / 180, co = Math.cos(rad), si = Math.sin(rad);
       function rotar(pt) { var dx = pt.x - cx, dy = pt.y - cy; return { x: redondear(cx + dx * co - dy * si), y: redondear(cy + dx * si + dy * co) }; }
+      var ref = r.planoReferencia;
+      var centroRef = ref && rotar({ x: ox + ref.x + ref.ancho / 2, y: oy + ref.y + ref.fondo / 2 });
       var elementos = r.activos.concat(r.mobiliario || []);
       var centros = elementos.map(function (z) { return rotar({ x: ox + z.x + z.ancho / 2, y: oy + z.y + z.fondo / 2 }); });
       var cuartosRotados = (r.cuartos || []).map(function (c) { return c.puntos.map(function (pt) { return rotar({ x: ox + pt.x, y: oy + pt.y }); }); });
       r.puntos = r.puntos.map(rotar);
       var bb = caja(r.puntos); r.x = bb.x; r.y = bb.y; r.ancho = redondear(bb.ancho); r.fondo = redondear(bb.fondo);
+      if (ref) {
+        ref.x = redondearFino(centroRef.x - r.x - ref.ancho / 2);
+        ref.y = redondearFino(centroRef.y - r.y - ref.fondo / 2);
+        ref.giro = ((Number(ref.giro || 0) + grados) % 360 + 360) % 360;
+      }
       elementos.forEach(function (z, i) {
         z.x = redondear(centros[i].x - r.x - z.ancho / 2);
         z.y = redondear(centros[i].y - r.y - z.fondo / 2);
@@ -1430,13 +1733,14 @@
       }
       if (kind === 'room') { s.cuartoSeleccionado = id; s.muebleSeleccionado = s.activoSeleccionado = null; s.vertice = -1; }
       if (kind === 'furniture') { s.muebleSeleccionado = id; s.cuartoSeleccionado = s.activoSeleccionado = null; }
-      if (kind === 'asset') { s.activoSeleccionado = Number(id); s.cuartoSeleccionado = s.muebleSeleccionado = null; cargarDetalleActivo(id); }
+      if (kind === 'asset') { s.activoSeleccionado = Number(id); s.cuartoSeleccionado = s.muebleSeleccionado = null; cargarDetalleActivo(id); canvas.focus(); }
       pintar();
     });
     canvas.addEventListener('mousedown', function (ev) {
       if (ev.button !== 0 && ev.button !== 1 && ev.button !== 2) return;
       canvas.focus({ preventScroll: true });
-      if (ev.button === 1 || ev.button === 2 || s.espacioPulsado || s.modo === 'pan' || (!edita && s.vista3d && ev.shiftKey)) {
+      if (ev.button === 1 || ev.button === 2 || s.espacioPulsado || s.modo === 'pan' ||
+          (!edita && (s.vista3d && ev.shiftKey || !s.vista3d && !ev.target.closest('.me-shape')))) {
         ev.preventDefault();
         var matrizVista = canvas.getScreenCTM();
         drag = { kind: 'pan', x: ev.clientX, y: ev.clientY, panX: s.panX, panY: s.panY,
@@ -1518,7 +1822,18 @@
       if (kind === 'building' && contexto() === 'predio') s.editarEdificio = id;
       if (kind === 'space') s.editarEspacio = id;
       var pos = puntoSvg(ev);
-      drag = { o: o, x: pos.x, y: pos.y, ox: o.x, oy: o.y, kind: kind };
+      drag = { o: o, x: pos.x, y: pos.y, ox: o.x, oy: o.y, kind: kind,
+        clientX: ev.clientX, clientY: ev.clientY };
+      if (kind === 'asset') {
+        ev.preventDefault();
+        drag.elemento = n;
+        drag.transformacion = n.getAttribute('transform') || '';
+        drag.matrizInversa = canvas.getScreenCTM().inverse();
+        drag.inicio = puntoConMatriz(ev, drag.matrizInversa);
+        drag.guia = root.querySelector('.me-canvas-hint');
+        if (drag.guia) drag.guiaAnterior = drag.guia.textContent;
+        canvas.classList.add('me-dragging-asset');
+      }
     });
     canvas.addEventListener('mousemove', function (ev) {
       if (drag && drag.kind === 'pan' || !s.dibujo.length || (s.modo !== 'polygonBuilding' && s.modo !== 'polygonOffice' && s.modo !== 'polygonRoom')) return;
@@ -1531,6 +1846,26 @@
     document.addEventListener('mousemove', function (ev) {
       if (!drag || !root.isConnected) return;
       if (drag.kind === 'orbit' || drag.kind === 'pan') { actualizarNavegacion(ev); return; }
+      if (drag.kind === 'asset') {
+        var movimientoActivo = drag;
+        movimientoActivo.ultimoEvento = { clientX: ev.clientX, clientY: ev.clientY, shiftKey: ev.shiftKey };
+        if (movimientoActivo.pendiente) return;
+        movimientoActivo.pendiente = true;
+        (window.requestAnimationFrame || function (fn) { return setTimeout(fn, 16); })(function () {
+          movimientoActivo.pendiente = false;
+          if (drag !== movimientoActivo || !movimientoActivo.elemento.isConnected) return;
+          var puntoActual = puntoConMatriz(movimientoActivo.ultimoEvento, movimientoActivo.matrizInversa);
+          var dxActivo = puntoActual.x - movimientoActivo.inicio.x, dyActivo = puntoActual.y - movimientoActivo.inicio.y;
+          if (movimientoActivo.ultimoEvento.shiftKey) {
+            if (Math.abs(dxActivo) >= Math.abs(dyActivo)) dyActivo = 0; else dxActivo = 0;
+          }
+          var destinoX = Math.max(0, Math.min(espacio().ancho - movimientoActivo.o.ancho, movimientoActivo.ox + dxActivo));
+          var destinoY = Math.max(0, Math.min(espacio().fondo - movimientoActivo.o.fondo, movimientoActivo.oy + dyActivo));
+          movimientoActivo.elemento.setAttribute('transform', 'translate(' + (destinoX - movimientoActivo.ox) + ' ' + (destinoY - movimientoActivo.oy) + ') ' + movimientoActivo.transformacion);
+          if (movimientoActivo.guia) movimientoActivo.guia.textContent = 'Activo · X ' + destinoX.toFixed(2) + ' · Y ' + destinoY.toFixed(2) + ' · Mayús: un solo eje';
+        });
+        return;
+      }
       if (drag.kind === 'rotateBuilding') {
         var grados = anguloArrastrado(drag, ev);
         drag.preview.setAttribute('transform', 'rotate(' + grados + ' ' + drag.centro.x + ' ' + drag.centro.y + ')');
@@ -1565,6 +1900,27 @@
     });
     function finalizarArrastre(ev) {
       if (!drag) return;
+      if (drag.kind === 'asset') {
+        var movimiento = drag;
+        drag = null;
+        canvas.classList.remove('me-dragging-asset');
+        movimiento.elemento.setAttribute('transform', movimiento.transformacion);
+        if (movimiento.guia) movimiento.guia.textContent = movimiento.guiaAnterior || '';
+        if (Math.hypot(ev.clientX - movimiento.clientX, ev.clientY - movimiento.clientY) >= 1) {
+          var puntoFinal = puntoConMatriz(ev, movimiento.matrizInversa);
+          var deltaX = puntoFinal.x - movimiento.inicio.x, deltaY = puntoFinal.y - movimiento.inicio.y;
+          if (ev.shiftKey) { if (Math.abs(deltaX) >= Math.abs(deltaY)) deltaY = 0; else deltaX = 0; }
+          var nuevoX = redondearFino(Math.max(0, Math.min(espacio().ancho - movimiento.o.ancho, movimiento.ox + deltaX)));
+          var nuevoY = redondearFino(Math.max(0, Math.min(espacio().fondo - movimiento.o.fondo, movimiento.oy + deltaY)));
+          if (nuevoX !== movimiento.o.x || nuevoY !== movimiento.o.y) {
+            movimiento.o.x = nuevoX; movimiento.o.y = nuevoY;
+            s.activoSeleccionado = Number(movimiento.o.activoId); dirty(); pintar();
+          } else if (movimiento.detalleActualizado) pintar();
+          ignorarClick = true; setTimeout(function () { ignorarClick = false; }, 0);
+        }
+        else if (movimiento.detalleActualizado) pintar();
+        return;
+      }
       if (drag.kind === 'floorHeight') {
         if (Math.abs(ev.clientY - drag.clientY) > 2) {
           var deltaAltura = (drag.inicio.y - puntoSvg(ev).y) /
@@ -1708,6 +2064,18 @@
         if (tecla === 's') { ev.preventDefault(); var guardar = root.querySelector('.me-guardar'); if (guardar) guardar.click(); return; }
       }
       if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      if (edita && ev.target === canvas && !s.vista3d && espacio() && s.activoSeleccionado && /^Arrow(Left|Right|Up|Down)$/.test(ev.key)) {
+        var activoFino = espacio().activos.find(function (z) { return Number(z.activoId) === Number(s.activoSeleccionado); });
+        if (activoFino) {
+          ev.preventDefault();
+          var pasoFino = ev.shiftKey ? 1 : .1;
+          var deltaFinoX = ev.key === 'ArrowLeft' ? -pasoFino : ev.key === 'ArrowRight' ? pasoFino : 0;
+          var deltaFinoY = ev.key === 'ArrowUp' ? -pasoFino : ev.key === 'ArrowDown' ? pasoFino : 0;
+          activoFino.x = redondearFino(Math.max(0, Math.min(espacio().ancho - activoFino.ancho, activoFino.x + deltaFinoX)));
+          activoFino.y = redondearFino(Math.max(0, Math.min(espacio().fondo - activoFino.fondo, activoFino.y + deltaFinoY)));
+          dirty(); pintar(); canvas.focus(); return;
+        }
+      }
       if (ev.code === 'Space' && ev.target === canvas) { ev.preventDefault(); s.espacioPulsado = true; canvas.style.cursor = 'grab'; return; }
       if (ev.key === 'Escape') {
         if (s.modo || s.dibujo.length || s.editarEdificio || s.editarEspacio) { limpiarHerramienta(); pintar(); }
@@ -1739,6 +2107,13 @@
         drag.preview.remove(); drag.previewNode.remove();
         if (drag.guia) drag.guia.textContent = drag.guiaAnterior || '';
         canvas.classList.remove('me-dragging-vertex'); drag = null;
+      }
+      else if (drag && drag.kind === 'asset') {
+        var arrastreActivo = drag;
+        arrastreActivo.elemento.setAttribute('transform', arrastreActivo.transformacion);
+        if (arrastreActivo.guia) arrastreActivo.guia.textContent = arrastreActivo.guiaAnterior || '';
+        canvas.classList.remove('me-dragging-asset'); drag = null;
+        if (arrastreActivo.detalleActualizado) pintar();
       }
     });
     var barra = root.querySelector('.me-herramientas');
@@ -1812,9 +2187,32 @@
           avisar('Imagen optimizada; ajusta su posición y guarda el plano.', false);
         }).catch(function (error) { avisar(error.message, true); });
       });
+      var archivoPlano = barra.querySelector('.me-plano-file');
+      if (archivoPlano) archivoPlano.addEventListener('change', function () {
+        if (!this.files.length) return;
+        var archivo = this.files[0], objetivo = referenciaActual();
+        var objetivoId = objetivo && objetivo.id, predio = s.predioId;
+        this.value = '';
+        if (!objetivoId || s.vista3d) { avisar('Abre un piso u oficina en 2D para añadir su plano.', true); return; }
+        if (archivo.size > 20_000_000 || !/^image\/(png|jpeg)$/.test(archivo.type)) { avisar('Usa PNG o JPG de hasta 20 MB.', true); return; }
+        var datos = new FormData(); datos.append('archivo', archivo);
+        avisar('Optimizando el plano de referencia…', false);
+        request(BASE + '/predios/' + predio + '/planos', { method: 'POST', body: datos }).then(function (res) {
+          var actual = referenciaActual();
+          if (s.predioId !== predio || !actual || actual.id !== objetivoId) return;
+          var ancho = actual.ancho, fondo = actual.fondo, relacion = res.ancho / res.alto;
+          var anchoImagen = Math.min(ancho, fondo * relacion), fondoImagen = anchoImagen / relacion;
+          actual.planoReferencia = { archivo: res.archivo, x: redondearFino((ancho - anchoImagen) / 2),
+            y: redondearFino((fondo - fondoImagen) / 2), ancho: redondearFino(anchoImagen),
+            fondo: redondearFino(fondoImagen), opacidad: .55, giro: 0 };
+          dirty(); pintar(); avisar('Plano añadido al borrador. Ajusta la imagen y guarda.', false);
+        }).catch(function (error) { avisar(error.message, true); });
+      });
     }
     panel.addEventListener('click', function (ev) {
-      var n = ev.target.closest('[data-act],[data-color],[data-open-building],[data-open-floor],[data-open-space],[data-open-room],[data-open-furniture],[data-add-furniture],[data-open-asset],[data-office-id],[data-place-asset],[data-inventory-page],[data-scale-building],[data-rotate-building]'); if (!n) return;
+      var n = ev.target.closest('[data-act],[data-color],[data-open-building],[data-open-floor],[data-open-space],[data-open-room],[data-open-furniture],[data-add-furniture],[data-open-asset],[data-office-id],[data-place-asset],[data-inventory-page],[data-scale-building],[data-rotate-building],[data-show-placed],[data-show-asset-detail]'); if (!n) return;
+      if (n.hasAttribute('data-show-placed')) { mostrarActivosUbicados(); return; }
+      if (n.dataset.showAssetDetail) { mostrarFichaActivo(Number(n.dataset.showAssetDetail)); return; }
       if (n.dataset.rotateBuilding) { girarEdificio(Number(n.dataset.rotateBuilding)); return; }
       if (n.dataset.scaleBuilding) {
         escalarEdificio(s.escena.edificios.find(function (b) { return b.id === s.editarEdificio; }), Number(n.dataset.scaleBuilding));
@@ -1849,12 +2247,14 @@
       if (n.dataset.placeAsset) {
         var a = espacio(), id = Number(n.dataset.placeAsset), it = s.inventario.items.find(function (v) { return v.id === id; });
         if (!it || ubicacionActivo(id)) return;
-        var w = Math.min(9, Math.max(.1, a.ancho - 2)), d = Math.min(6, Math.max(.1, a.fondo - 2)), cuenta = a.activos.length;
+        var tamanoInicial = Math.max(.1, Math.min(Number(a.tamanoMarcador) || 3, a.ancho, a.fondo));
+        var w = redondearFino(tamanoInicial), d = w, cuenta = a.activos.length;
         var descripcion = (it.descripcion || '').toUpperCase();
         var figura = /SILLA|SILLON/.test(descripcion) ? 'SILLA' : /MESA|ESCRITORIO/.test(descripcion) ? 'MESA' : /ESTANTE|ESTANTERIA/.test(descripcion) ? 'ESTANTE' : /ARCHIVADOR|GAVETERO/.test(descripcion) ? 'ARCHIVADOR' : /COMPUTADOR|MONITOR|IMPRESORA|EQUIPO/.test(descripcion) ? 'EQUIPO' : 'OTRO';
-        a.activos.push({ activoId: id, x: Math.min(Math.max(0, a.ancho - w), 2 + (cuenta % 4) * 12),
-          y: Math.min(Math.max(0, a.fondo - d), 2 + Math.floor(cuenta / 4) * 9), ancho: w, fondo: d, giro: 0, figura: figura });
-        s.activos[id] = { codigo: it.codigo, descripcion: it.descripcion, oficinaId: a.oficinaId };
+        a.activos.push({ activoId: id, x: redondearFino(Math.min(Math.max(0, a.ancho - w), 2 + (cuenta % 4) * 6)),
+          y: redondearFino(Math.min(Math.max(0, a.fondo - d), 2 + Math.floor(cuenta / 4) * 6)), ancho: w, fondo: d, giro: 0, figura: figura });
+        s.activos[id] = { codigo: it.codigo, descripcion: it.descripcion, oficinaId: a.oficinaId,
+          auxiliarId: it.auxiliarId, auxiliarNombre: it.auxiliarNombre };
         limpiarHerramienta(); s.activoSeleccionado = id; s.cuartoSeleccionado = s.muebleSeleccionado = null; cargarDetalleActivo(id); dirty(); pintar(); return;
       }
       if (n.dataset.act && n.dataset.act.indexOf('deleteLine:') === 0) {
@@ -1863,9 +2263,11 @@
         dirty(); pintar(); return;
       }
       switch (n.dataset.act) {
+        case 'uploadReference': { var inputPlano = root.querySelector('.me-plano-file'); if (inputPlano) inputPlano.click(); break; }
+        case 'removeReference': if (referenciaActual()) { delete referenciaActual().planoReferencia; dirty(); pintar(); } break;
         case 'openSearchResult': if (s.busquedaSeleccionada) { var lugar = s.busquedaSeleccionada;
-          abrirEdificio(lugar.edificioId, lugar.tipo === 'OFICINA' ? lugar.pisoId : null,
-            lugar.tipo === 'OFICINA' ? lugar.espacioId : null); } break;
+          abrirEdificio(lugar.edificioId, lugar.espacioId ? lugar.pisoId : null,
+            lugar.espacioId || null, lugar.activoId); } break;
         case 'autoView': delete s.escena.vista; s.zoom = 1; s.panX = s.panY = 0; dirty(); pintar(); break;
         case 'openSelectedBuilding': s.edificio = s.editarEdificio; limpiarHerramienta(); pintar(); break;
         case 'openSelectedSpace': s.espacio = s.editarEspacio; limpiarHerramienta(); pintar(); break;
@@ -1902,6 +2304,49 @@
       }
     });
     panel.addEventListener('change', function (ev) {
+      if (ev.target.classList.contains('me-icono-file')) {
+        var archivoIcono = ev.target.files && ev.target.files[0];
+        var auxiliarArchivo = Number(ev.target.dataset.auxiliarId), predioArchivo = s.predioId;
+        if (!archivoIcono || !auxiliarArchivo) return;
+        if (!/^image\/(png|jpeg)$/.test(archivoIcono.type) || archivoIcono.size > 150000) {
+          avisar('Usa PNG o JPG de hasta 150 KB.', true); ev.target.value = ''; return;
+        }
+        var datosIcono = new FormData(); datosIcono.append('archivo', archivoIcono);
+        ev.target.disabled = true;
+        request(BASE + '/predios/' + predioArchivo + '/auxiliares/' + auxiliarArchivo + '/icono-imagen',
+          { method: 'POST', body: datosIcono }).then(function () {
+          if (s.predioId !== predioArchivo) return;
+          s.iconosAuxiliares[auxiliarArchivo] = 'PERSONALIZADO'; s.iconoRevision[auxiliarArchivo] = Date.now();
+          avisar('Icono propio guardado para este auxiliar.', false); pintar();
+        }).catch(function (error) { avisar(error.message, true); pintar(); });
+        return;
+      }
+      if (ev.target.dataset.prop === 'tamanoGeneral') {
+        var oficinaTamano = espacio(), valorGeneral = Number(ev.target.value);
+        if (!oficinaTamano || !isFinite(valorGeneral) || valorGeneral < .1 || valorGeneral > Math.min(12, oficinaTamano.ancho, oficinaTamano.fondo)) {
+          avisar('Tamaño fuera del espacio.', true); pintar(); return;
+        }
+        oficinaTamano.tamanoMarcador = valorGeneral;
+        oficinaTamano.activos.forEach(function (z) { cambiarTamanoMarcador(oficinaTamano, z, valorGeneral); });
+        dirty(); pintar(); return;
+      }
+      if (ev.target.dataset.prop === 'tamanoIndividual') {
+        var oficinaIndividual = espacio(), elegidoIndividual = oficinaIndividual && oficinaIndividual.activos.find(function (z) { return Number(z.activoId) === Number(s.activoSeleccionado); });
+        if (!cambiarTamanoMarcador(oficinaIndividual, elegidoIndividual, Number(ev.target.value))) {
+          avisar('Tamaño fuera del espacio.', true); pintar(); return;
+        }
+        dirty(); pintar(); return;
+      }
+      if (ev.target.classList.contains('me-icono-auxiliar')) {
+        var auxiliarId = Number(ev.target.dataset.auxiliarId), icono = ev.target.value;
+        if (!edita || !auxiliarId || !TRAZOS_ICONO[icono]) return;
+        ev.target.disabled = true;
+        request(BASE + '/predios/' + s.predioId + '/auxiliares/' + auxiliarId + '/icono', {
+          method: 'PUT', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify({ icono: icono })
+        }).then(function () { s.iconosAuxiliares[auxiliarId] = icono; avisar('Icono del auxiliar guardado.', false); pintar(); })
+          .catch(function (error) { avisar(error.message, true); pintar(); });
+        return;
+      }
       var key = ev.target.dataset.prop; if (!key) return;
       if (key === 'cuartoNombre' || /^mueble/.test(key) || key === 'figuraActivo' || key === 'anchoActivo' || key === 'fondoActivo' || key === 'giro') {
         var objetivo = key === 'cuartoNombre' ? cuarto() : /^mueble/.test(key) ? mueble() : espacio() && espacio().activos.find(function (z) { return Number(z.activoId) === Number(s.activoSeleccionado); });
@@ -1958,6 +2403,16 @@
         }
         fondo[subcampo] = valor; dirty(); pintar(); return;
       }
+      if (['refX', 'refY', 'refAncho', 'refFondo', 'refOpacidad', 'refGiro'].indexOf(key) >= 0) {
+        var objetivoPlano = referenciaActual(), imagen = objetivoPlano && objetivoPlano.planoReferencia;
+        if (!imagen) return;
+        var clavePlano = { refX: 'x', refY: 'y', refAncho: 'ancho', refFondo: 'fondo', refOpacidad: 'opacidad', refGiro: 'giro' }[key];
+        var nuevoValor = Number(ev.target.value), limite = clavePlano === 'opacidad' ? 1 : clavePlano === 'giro' ? 360 : 2000;
+        if (!isFinite(nuevoValor) || nuevoValor < (clavePlano === 'x' || clavePlano === 'y' ? -2000 : clavePlano === 'ancho' || clavePlano === 'fondo' ? .1 : 0) || nuevoValor > limite) {
+          avisar('Valor fuera del tamaño del plano.', true); pintar(); return;
+        }
+        imagen[clavePlano] = nuevoValor; dirty(); pintar(); return;
+      }
       var seleccionado = /^sel[A-Z]/.test(key);
       var edificioSeleccionado = /^be[A-Z]/.test(key);
       var o = edificioSeleccionado ? s.escena.edificios.find(function (b) { return b.id === s.editarEdificio; }) :
@@ -2007,6 +2462,11 @@
     });
     var buscarTimer;
     panel.addEventListener('input', function (ev) {
+      if (ev.target.dataset.prop === 'tamanoGeneral') {
+        var salidaTamano = ev.target.parentElement.querySelector('output');
+        if (salidaTamano) salidaTamano.textContent = ev.target.value;
+        return;
+      }
       var office = ev.target.classList.contains('me-buscar-oficina'), inventario = ev.target.classList.contains('me-filtro-inventario');
       if (!office && !inventario) return;
       clearTimeout(buscarTimer);

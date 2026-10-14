@@ -70,9 +70,11 @@
       <span>Mayús + arrastrar punto o lado</span><span>Restringir el movimiento a un eje</span><span>Cuadrícula</span><span>Activa «Ajustar puntos» para colocar vértices cada 5 unidades</span>
       <span>Arrastrar en 3D</span><span>Girar la cámara con precisión</span><span>Mayús + arrastrar edificio en 3D</span><span>Mover el edificio</span>
       <span>Ctrl + Z / Ctrl + Y</span><span>Deshacer / rehacer</span><span>Ctrl + S</span><span>Guardar el plano</span>
+      <span>Activo + flechas</span><span>Mover 0,1 unidades; con Mayús, 1 unidad</span><span>Activo + arrastrar</span><span>Mover con vista previa; Mayús fija un eje</span>
       <span>+ / − / F</span><span>Acercar / alejar / ajustar</span><span>Esc</span><span>Salir de la herramienta o volver</span>
     </div></details>
     <input type="file" class="me-fondo-file" accept="image/png,image/jpeg" hidden>
+    <input type="file" class="me-plano-file" accept="image/png,image/jpeg" hidden>
     <span class="me-tool-status" aria-live="polite"></span>
   </div>
   <div class="me-layout">
@@ -91,7 +93,8 @@
   </div>
   </div>
   <div class="me-modal" role="dialog" aria-modal="true" aria-labelledby="me-modal-titulo" aria-describedby="me-modal-texto" hidden><div class="me-modal-card"><span class="me-modal-icono">◎</span><h2 id="me-modal-titulo"></h2><p id="me-modal-texto"></p><div class="me-modal-acciones"><button type="button" class="sm-btn sm-btn-suave" data-modal-cancelar>Cancelar</button><button type="button" class="sm-btn" data-modal-aceptar>Continuar</button></div></div></div>
+  <div class="me-data-modal" role="dialog" aria-modal="true" aria-labelledby="me-data-modal-titulo" hidden><div class="me-data-modal-card"><header><h2 id="me-data-modal-titulo"></h2><button type="button" class="me-mini" data-data-modal-close aria-label="Cerrar ventana">✕ Cerrar</button></header><div class="me-data-modal-body"></div></div></div>
 </div>
-<link rel="stylesheet" href="/assets/css/mapa-espacial.css?v=20261014-vista2d" />
-<script src="/assets/js/mapa-espacial.js?v=20261014-vista2d"></script>
+<link rel="stylesheet" href="/assets/css/mapa-espacial.css?v=20261014-ubicacion" />
+<script src="/assets/js/mapa-espacial.js?v=20261014-ubicacion"></script>
 <script>window.MapaEspacial.iniciar(document.getElementById('mapaDiseno'));</script>

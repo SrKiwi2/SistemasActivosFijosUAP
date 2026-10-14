@@ -157,6 +157,40 @@ estética (todo morado, íconos sólidos sin degradado ni relieve).
 - Pendiente fuera del módulo (no tocado): en `activo/formulario.html` cambiar el grupo al
   modificar un activo arma un código `…-XXXXX` y `modificar-activo` lo guarda sin validarlo.
 
+## Quinta tanda (14-oct): D al final, documentos sin D, fotos por activo
+
+- **Formato del código:** `MUN-PRED-GRP-00001D` (la D al final, decisión del usuario tras
+  consultarlo). Serie propia por prefijo desde 00001. Se descartó quitar la D: el código es único
+  (`uk_activo_codigo`) y todo el sistema (buscador, QR, app, levantamientos, sincronización con el
+  VSIAF) identifica al bien solo por el código; un 00001 de donación chocaría con el 00001 normal.
+  El sistema reconoce también el formato inicial `…-D00001` y la numeración sigue después de los
+  números usados en cualquiera de los dos. Migración opcional de los ya registrados:
+  `scripts/sql/donaciones_codigo_d_al_final.sql` (la corre el usuario; reimprimir etiquetas).
+- **Documentos sin la D:** `Activo.codigoDocumento(…)` en actas y reportes (faltantes, custodia,
+  Word de control, transferencias, bajas, asignaciones, Excel de asignaciones) y en el acta de
+  donación impresa. La D sigue en la base, las pantallas y las **etiquetas** (identifican al bien).
+- **Fotos por activo** (hasta 3 por activo, antes 3 por ítem compartidas): `donacion_foto.id_activo`.
+  En el detalle, columna Fotos en cada fila. En el asistente, la foto de una tarjeta se pone a cada
+  unidad (una fila por unidad, mismo archivo). Las fotos del formato inicial (por ítem) se
+  reparten a cada unidad la primera vez que se tocan (`repartirFotosDeItem`).
+
+**Arreglos del `revisor` a la quinta tanda:**
+- **App móvil (grave):** `mobile/src/services/qr.ts` no conocía la D y leía `01-04-06-00001D`
+  como `01-04-06-00001` (otro activo): en un levantamiento marcaba encontrado al normal o creaba
+  un sobrante sobre él. Corregido el patrón (D al final o adelante), `claveCodigo` conserva la D
+  (`mobile/src/services/levantamiento.ts`) y el ingreso manual acepta la D. **Hay que compilar y
+  publicar un APK nuevo antes de hacer levantamientos con etiquetas de donaciones.**
+- Los **Excel** conservan la D (custodia por predio, reporte de asignaciones): son datos que pueden
+  volver a cargarse (Transferencias → importar Excel) y sin la D el número es el de otro activo.
+  Sin D quedan los PDF y Word.
+- Al editar, si se rehacen unidades (otro grupo o predio), sus fotos pasan a las nuevas por posición.
+- Las fotos del formato inicial se reparten a todas las unidades del ítem (también las que no están
+  ACTIVO); quitar una de ellas exige indicar el activo.
+- Migración: suma `detalle_asignacion`, `transferencia_detalle`, `asignacion_movimiento_detalle` y
+  `hallazgo_inventario`; ya no hace COMMIT solo.
+- Ojo con lo impreso sin D: `01-02-04-00001` en papel es también el código de un activo normal.
+  Decisión del usuario; si un papel se usa para buscar el bien, buscar con la D.
+
 ## Riesgo abierto (explicado al usuario)
 
 **Una oficina o un responsable «pendiente» por días puede chocar con uno creado directo en el VSIAF.**

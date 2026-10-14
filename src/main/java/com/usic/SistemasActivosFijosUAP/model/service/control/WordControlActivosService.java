@@ -172,7 +172,7 @@ public class WordControlActivosService {
                 XWPFTableRow fila = tabla.createRow();
                 anchosFila(fila, anchos);
                 celda(fila.getCell(0), String.valueOf(n++),               false, ParagraphAlignment.CENTER, 8, null);
-                celda(fila.getCell(1), texto(f.codigo()),                 true,  ParagraphAlignment.LEFT,   8, null);
+                celda(fila.getCell(1), texto(com.usic.SistemasActivosFijosUAP.model.entity.Activo.codigoDocumento(f.codigo())),                 true,  ParagraphAlignment.LEFT,   8, null);
                 celda(fila.getCell(2), texto(f.descripcion()),            false, ParagraphAlignment.LEFT,   7, null);
                 celda(fila.getCell(3), texto(f.oficina()) + "\n" + texto(f.responsable()),
                                                                           false, ParagraphAlignment.LEFT,   7, null);
@@ -300,7 +300,7 @@ public class WordControlActivosService {
             XWPFTableRow f = tabla.createRow();
             anchosFila(f, anchos);
             celda(f.getCell(0), String.valueOf(n++),        false, ParagraphAlignment.CENTER, 8, null);
-            celda(f.getCell(1), texto(a.codigo()),          true,  ParagraphAlignment.LEFT,   8, null);
+            celda(f.getCell(1), texto(com.usic.SistemasActivosFijosUAP.model.entity.Activo.codigoDocumento(a.codigo())),          true,  ParagraphAlignment.LEFT,   8, null);
             celda(f.getCell(2), texto(a.descripcion()),     false, ParagraphAlignment.LEFT,   8, null);
             celda(f.getCell(3), a.ubicacion(),              false, ParagraphAlignment.LEFT,   7, null);
             celda(f.getCell(4), texto(a.estadoActivo()),    false, ParagraphAlignment.CENTER, 8, null);

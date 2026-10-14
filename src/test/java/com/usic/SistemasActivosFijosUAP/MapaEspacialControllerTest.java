@@ -35,9 +35,11 @@ import com.usic.SistemasActivosFijosUAP.model.dao.IMapaEspacialDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IMapaEspacialPublicacionDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IOficinaDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IPredioDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.MapaEspacial;
 import com.usic.SistemasActivosFijosUAP.model.entity.MapaEspacialPublicacion;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
@@ -49,8 +51,11 @@ class MapaEspacialControllerTest {
     private final IPredioDao predios = mock(IPredioDao.class);
     private final IOficinaDao oficinas = mock(IOficinaDao.class);
     private final IActivoDao activos = mock(IActivoDao.class);
+    private final IResposableDao responsables = mock(IResposableDao.class);
     private final ObjectMapper json = new ObjectMapper();
-    private final MapaEspacialController controller = new MapaEspacialController(mapas, publicaciones, eventos, predios, oficinas, activos, json);
+    private final com.usic.SistemasActivosFijosUAP.model.dao.IAuxiliarDao auxiliares = mock(com.usic.SistemasActivosFijosUAP.model.dao.IAuxiliarDao.class);
+    private final com.usic.SistemasActivosFijosUAP.model.dao.IMapaEspacialIconoAuxiliarDao iconosAuxiliares = mock(com.usic.SistemasActivosFijosUAP.model.dao.IMapaEspacialIconoAuxiliarDao.class);
+    private final MapaEspacialController controller = new MapaEspacialController(mapas, publicaciones, eventos, predios, oficinas, activos, responsables, auxiliares, iconosAuxiliares, json);
 
     private MockHttpServletRequest editor() {
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -203,6 +208,49 @@ class MapaEspacialControllerTest {
     }
 
     @Test
+    void planoDePisoSeOptimizaYExploradorLeeVersionPublicada() throws Exception {
+        long predioId = Long.MAX_VALUE - 306;
+        when(predios.existsById(predioId)).thenReturn(true);
+        BufferedImage imagen = new BufferedImage(120, 80, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream salida = new ByteArrayOutputStream();
+        ImageIO.write(imagen, "png", salida);
+        var archivo = new MockMultipartFile("archivo", "piso.png", "image/png", salida.toByteArray());
+        var subida = controller.subirPlano(predioId, archivo, editor());
+        String id = (String) subida.get("archivo");
+        Path ruta = Path.of("uploads", "mapa-espacial", "planos", Long.toString(predioId), id + ".jpg");
+        try {
+            assertEquals(120, subida.get("ancho"));
+            assertEquals(80, subida.get("alto"));
+            assertEquals("image/jpeg", controller.verPlano(predioId, id, lector()).getHeaders().getContentType().toString());
+            MapaEspacial mapa = new MapaEspacial(); mapa.setVersion(2L); mapa.setPublicada(true);
+            mapa.setNumeroPublicacion(1L); mapa.setEscena("{\"edificios\":[]}");
+            mapa.setEscenaPublicada("{\"edificios\":[{\"id\":\"b1\",\"nombre\":\"BLOQUE\",\"pisos\":[{\"id\":\"pb\",\"nombre\":\"PLANTA BAJA\",\"espacios\":[],\"planoReferencia\":{\"archivo\":\"" + id + "\",\"x\":0,\"y\":0,\"ancho\":80,\"fondo\":60,\"opacidad\":0.55,\"giro\":0}}]}]}");
+            when(mapas.findByPredioIdPredio(predioId)).thenReturn(Optional.of(mapa));
+            assertEquals(id, ((com.fasterxml.jackson.databind.JsonNode) controller.resumen(predioId, lector()).get("escena"))
+                    .path("edificios").get(0).path("pisos").get(0).path("planoReferencia").path("archivo").asText());
+            assertEquals(id, ((com.fasterxml.jackson.databind.JsonNode) controller.detallePiso(predioId, "b1", "pb", lector()).get("piso"))
+                    .path("planoReferencia").path("archivo").asText());
+        } finally {
+            Files.deleteIfExists(ruta);
+            Files.deleteIfExists(ruta.getParent());
+        }
+    }
+
+    @Test
+    void rechazaPlanoReferencialInexistente() throws Exception {
+        Predio predio = new Predio(); predio.setIdPredio(1L);
+        when(predios.findById(1L)).thenReturn(Optional.of(predio));
+        String escena = """
+            {"version":-1,"escena":{"edificios":[{"id":"b1","nombre":"BLOQUE","tipo":"EDIFICIO",
+            "x":0,"y":0,"ancho":80,"fondo":60,"altura":4,"pisos":[{"id":"pb","nombre":"PLANTA BAJA",
+            "altura":4,"planoReferencia":{"archivo":"00000000-0000-0000-0000-000000000000",
+            "x":0,"y":0,"ancho":80,"fondo":60,"opacidad":0.5,"giro":0},"espacios":[]}]}]}}
+            """;
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> controller.guardar(1L, json.readTree(escena), editor())).getStatusCode().value());
+    }
+
+    @Test
     void exploradorCargaOficinasSoloAlAbrirEdificio() {
         when(predios.existsById(1L)).thenReturn(true);
         MapaEspacial mapa = new MapaEspacial();
@@ -250,6 +298,47 @@ class MapaEspacialControllerTest {
         assertEquals(1, ((java.util.Map<?, ?>) detalle.get("oficinas")).size());
         verify(oficinas).findAllById(Set.of(7L));
         verify(oficinas, never()).findAllById(Set.of(8L));
+    }
+
+    @Test
+    void localizaActivoYResponsableEnElPlanoPublicado() {
+        when(predios.existsById(1L)).thenReturn(true);
+        MapaEspacial mapa = new MapaEspacial(); mapa.setPublicada(true); mapa.setVersion(1L);
+        mapa.setEscena("{\"edificios\":[]}");
+        mapa.setEscenaPublicada("""
+            {"edificios":[{"id":"b1","nombre":"BLOQUE A","pisos":[
+              {"id":"pb","nombre":"PLANTA BAJA","espacios":[
+                {"id":"s1","nombre":"LABORATORIO","oficinaId":7,"activos":[{"activoId":99}]},
+                {"id":"s2","nombre":"SALA","oficinaId":8,"activos":[]}]}
+            ]}]}
+            """);
+        when(mapas.findByPredioIdPredio(1L)).thenReturn(Optional.of(mapa));
+        var activo = mock(IActivoDao.ActivoBusquedaMapa.class);
+        when(activo.getId()).thenReturn(99L); when(activo.getCodigo()).thenReturn("AF-99");
+        when(activo.getDescripcion()).thenReturn("MESA"); when(activo.getOficinaId()).thenReturn(7L);
+        when(activos.buscarEnMapa(eq(1L), eq("AF-99"), any())).thenReturn(java.util.List.of(activo));
+        var hallado = controller.localizar(1L, "ACTIVO", "AF-99", null, lector());
+        assertEquals(1, hallado.size());
+        assertEquals("b1", hallado.get(0).lugar().edificioId());
+        assertEquals("pb", hallado.get(0).lugar().pisoId());
+        assertEquals(true, hallado.get(0).figuraUbicada());
+
+        var responsable = mock(IResposableDao.ResponsableBusquedaMapa.class);
+        when(responsable.getId()).thenReturn(15L); when(responsable.getPersonaId()).thenReturn(5L);
+        when(responsable.getNombre()).thenReturn("ANA ROJAS"); when(responsable.getOficinaId()).thenReturn(8L);
+        var segundaOficina = mock(IResposableDao.ResponsableBusquedaMapa.class);
+        when(segundaOficina.getId()).thenReturn(16L); when(segundaOficina.getPersonaId()).thenReturn(5L);
+        when(segundaOficina.getNombre()).thenReturn("ANA ROJAS"); when(segundaOficina.getOficinaId()).thenReturn(9L);
+        when(responsables.buscarEnMapa(eq(1L), eq("ANA"), any())).thenReturn(java.util.List.of(responsable, segundaOficina));
+        var hallada = controller.localizar(1L, "RESPONSABLE", "ANA", null, lector());
+        assertEquals(2, hallada.size());
+        assertEquals("s2", hallada.get(0).lugar().espacioId());
+        assertEquals(5L, hallada.get(0).personaId());
+        assertEquals(null, hallada.get(1).lugar());
+        when(responsables.oficinasDePersonaEnMapa(1L, 5L)).thenReturn(java.util.List.of(responsable, segundaOficina));
+        assertEquals(2, controller.localizar(1L, "RESPONSABLE", "", 5L, lector()).size());
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> controller.localizar(1L, "INVALIDO", "ANA", null, lector())).getStatusCode().value());
     }
 
     @Test
@@ -472,6 +561,73 @@ class MapaEspacialControllerTest {
         when(activos.detalleMapa(99L)).thenReturn(Optional.of(ficha));
         assertEquals("AF-99", controller.detalleActivo(99L, editor()).getCodigo());
         assertEquals("ANA PEREZ", controller.detalleActivo(99L, editor()).getResponsable());
+    }
+
+    @Test
+    void guardaIconoDelAuxiliarSoloEnSuPredio() {
+        Predio predio = new Predio(); predio.setIdPredio(1L);
+        Auxiliar auxiliar = new Auxiliar(); auxiliar.setIdAuxiliar(8L); auxiliar.setPredio(predio);
+        when(auxiliares.findById(8L)).thenReturn(Optional.of(auxiliar));
+        when(iconosAuxiliares.findByAuxiliarIdAuxiliar(8L)).thenReturn(Optional.empty());
+        var respuesta = controller.configurarIconoAuxiliar(1L, 8L,
+                new MapaEspacialController.IconoAuxiliarRequest("MONITOR"), editor());
+        assertEquals("MONITOR", respuesta.get("icono"));
+        verify(iconosAuxiliares).save(org.mockito.ArgumentMatchers.argThat(c ->
+                c.getAuxiliar() == auxiliar && "MONITOR".equals(c.getIcono())));
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> controller.configurarIconoAuxiliar(2L, 8L,
+                        new MapaEspacialController.IconoAuxiliarRequest("CPU"), editor())).getStatusCode().value());
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> controller.configurarIconoAuxiliar(1L, 8L,
+                        new MapaEspacialController.IconoAuxiliarRequest("SCRIPT"), editor())).getStatusCode().value());
+    }
+
+    @Test
+    void entregaIconosConfiguradosDelPredio() {
+        Predio predio = new Predio(); predio.setIdPredio(1L);
+        Auxiliar auxiliar = new Auxiliar(); auxiliar.setIdAuxiliar(8L); auxiliar.setPredio(predio);
+        var config = mock(com.usic.SistemasActivosFijosUAP.model.dao.IMapaEspacialIconoAuxiliarDao.IconoConfigurado.class);
+        when(config.getAuxiliarId()).thenReturn(8L); when(config.getIcono()).thenReturn("CAMARA");
+        when(predios.existsById(1L)).thenReturn(true);
+        when(iconosAuxiliares.listarPorPredio(1L)).thenReturn(java.util.List.of(config));
+        assertEquals("CAMARA", controller.iconosAuxiliares(1L, lector()).get(8L));
+    }
+
+    @Test
+    void rechazaImagenDeIconoInvalidaYOtroPredio() {
+        Predio predio = new Predio(); predio.setIdPredio(1L);
+        Auxiliar auxiliar = new Auxiliar(); auxiliar.setIdAuxiliar(8L); auxiliar.setPredio(predio);
+        when(auxiliares.findById(8L)).thenReturn(Optional.of(auxiliar));
+        MockMultipartFile invalida = new MockMultipartFile("archivo", "icono.png", "image/png",
+                "no es una imagen".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> controller.subirIconoAuxiliar(1L, 8L, invalida, editor())).getStatusCode().value());
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> controller.subirIconoAuxiliar(2L, 8L, invalida, editor())).getStatusCode().value());
+        verify(iconosAuxiliares, never()).save(any());
+    }
+
+    @Test
+    void reduceIconoPropioYPermiteVerloEnSuPredio() throws Exception {
+        long predioId = Long.MAX_VALUE - 418, auxiliarId = Long.MAX_VALUE - 419;
+        Predio predio = new Predio(); predio.setIdPredio(predioId);
+        Auxiliar auxiliar = new Auxiliar(); auxiliar.setIdAuxiliar(auxiliarId); auxiliar.setPredio(predio);
+        when(auxiliares.findById(auxiliarId)).thenReturn(Optional.of(auxiliar));
+        when(iconosAuxiliares.findByAuxiliarIdAuxiliar(auxiliarId)).thenReturn(Optional.empty());
+        BufferedImage imagen = new BufferedImage(120, 60, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream salida = new ByteArrayOutputStream(); ImageIO.write(imagen, "png", salida);
+        MockMultipartFile archivo = new MockMultipartFile("archivo", "biometrico.png", "image/png", salida.toByteArray());
+        Path ruta = Path.of("uploads", "mapa-espacial", "iconos", Long.toString(predioId), auxiliarId + ".png");
+        try {
+            assertEquals("PERSONALIZADO", controller.subirIconoAuxiliar(predioId, auxiliarId, archivo, editor()).get("icono"));
+            var respuesta = controller.obtenerIconoAuxiliar(predioId, auxiliarId, lector());
+            BufferedImage icono = ImageIO.read(new java.io.ByteArrayInputStream(respuesta.getBody()));
+            assertEquals(64, icono.getWidth()); assertEquals(64, icono.getHeight());
+            assertEquals(404, assertThrows(ResponseStatusException.class,
+                    () -> controller.obtenerIconoAuxiliar(predioId - 1, auxiliarId, lector())).getStatusCode().value());
+        } finally {
+            Files.deleteIfExists(ruta); Files.deleteIfExists(ruta.getParent());
+        }
     }
 
     @Test

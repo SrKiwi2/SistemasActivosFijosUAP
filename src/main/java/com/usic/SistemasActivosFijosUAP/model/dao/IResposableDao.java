@@ -16,6 +16,42 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 
 public interface IResposableDao extends JpaRepository<Responsable, Long>{
+
+    interface ResponsableBusquedaMapa {
+        Long getId();
+        Long getPersonaId();
+        String getNombre();
+        String getCodigo();
+        Long getOficinaId();
+    }
+
+    @Query("""
+        SELECT r.idResponsable AS id, p.idPersona AS personaId,
+               TRIM(CONCAT(COALESCE(p.nombre, ''), ' ', COALESCE(p.paterno, ''), ' ', COALESCE(p.materno, ''))) AS nombre,
+               r.codigoFuncionario AS codigo, o.idOficina AS oficinaId
+        FROM Responsable r JOIN r.oficina o LEFT JOIN r.persona p
+        WHERE o.predio.idPredio = :predioId AND r.estado = 'ACTIVO'
+          AND (UPPER(COALESCE(p.nombre, '')) LIKE UPPER(CONCAT('%', :q, '%'))
+               OR UPPER(TRIM(CONCAT(COALESCE(p.nombre, ''), ' ', COALESCE(p.paterno, ''), ' ', COALESCE(p.materno, '')))) LIKE UPPER(CONCAT('%', :q, '%'))
+               OR UPPER(COALESCE(p.paterno, '')) LIKE UPPER(CONCAT('%', :q, '%'))
+               OR UPPER(COALESCE(p.materno, '')) LIKE UPPER(CONCAT('%', :q, '%'))
+               OR UPPER(COALESCE(p.ci, '')) LIKE UPPER(CONCAT('%', :q, '%'))
+               OR UPPER(COALESCE(r.codigoFuncionario, '')) LIKE UPPER(CONCAT('%', :q, '%')))
+        ORDER BY p.nombre, p.paterno, p.materno
+        """)
+    List<ResponsableBusquedaMapa> buscarEnMapa(@Param("predioId") Long predioId,
+                                                @Param("q") String q, Pageable pageable);
+
+    @Query("""
+        SELECT r.idResponsable AS id, p.idPersona AS personaId,
+               TRIM(CONCAT(COALESCE(p.nombre, ''), ' ', COALESCE(p.paterno, ''), ' ', COALESCE(p.materno, ''))) AS nombre,
+               r.codigoFuncionario AS codigo, o.idOficina AS oficinaId
+        FROM Responsable r JOIN r.oficina o JOIN r.persona p
+        WHERE o.predio.idPredio = :predioId AND p.idPersona = :personaId AND r.estado = 'ACTIVO'
+        ORDER BY o.nombre
+        """)
+    List<ResponsableBusquedaMapa> oficinasDePersonaEnMapa(@Param("predioId") Long predioId,
+                                                            @Param("personaId") Long personaId);
     
     @Query("SELECT r FROM Responsable r WHERE r.codigoApi = ?1 AND r.estado = 'ACTIVO'")
     Responsable buscarPorCodigo(String codigoApi);

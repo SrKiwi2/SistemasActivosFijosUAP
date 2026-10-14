@@ -120,7 +120,7 @@ public class ReportesCustodiaService {
                 for (CustodiaDTOs.BienCustodia b : e.getValue()) {
                     n++;
                     t.addCell(celda(String.valueOf(n), F_CELDA, Element.ALIGN_CENTER));
-                    t.addCell(celda(b.codigo(), F_CODIGO, Element.ALIGN_LEFT));
+                    t.addCell(celda(com.usic.SistemasActivosFijosUAP.model.entity.Activo.codigoDocumento(b.codigo()), F_CODIGO, Element.ALIGN_LEFT));
                     t.addCell(celda(b.descripcion(), F_CELDA, Element.ALIGN_LEFT));
                     t.addCell(celda(b.oficinaOrigen() != null ? b.codOfiOrigen() + " — " + b.oficinaOrigen() : "—",
                             F_CELDA, Element.ALIGN_LEFT));
@@ -147,7 +147,7 @@ public class ReportesCustodiaService {
                 Row r = s.createRow(fila++);
                 texto(r, 0, b.persona());
                 texto(r, 1, b.ci());
-                texto(r, 2, b.codigo());
+                texto(r, 2, b.codigo());   // Excel: con la D (puede volver a cargarse)
                 texto(r, 3, b.descripcion());
                 texto(r, 4, b.codOfiOrigen() != null ? String.valueOf(b.codOfiOrigen()) : null);
                 texto(r, 5, b.oficinaOrigen());

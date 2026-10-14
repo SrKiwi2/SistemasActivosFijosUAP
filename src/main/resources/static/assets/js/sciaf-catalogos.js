@@ -20,9 +20,9 @@
      * Registro de Activos; se mantiene para que todas las pantallas se lean igual.
      * Si el catálogo no trae código devuelve solo el nombre, sin separador colgando.
      */
-    /** ¿Código de un bien donado (serie D, solo SCIAF): 01-04-06-D00001? */
+    /** ¿Código de un bien donado (serie D, solo SCIAF): 01-04-06-00001D (o el formato inicial D00001)? */
     function esCodigoDonacion(cod) {
-        return /-D\d{5}$/i.test(String(cod == null ? '' : cod).trim());
+        return /-(\d{5}D|D\d{5})$/i.test(String(cod == null ? '' : cod).trim());
     }
 
     /**

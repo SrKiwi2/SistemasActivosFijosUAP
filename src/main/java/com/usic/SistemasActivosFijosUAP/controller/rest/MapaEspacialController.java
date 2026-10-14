@@ -57,12 +57,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.usic.SistemasActivosFijosUAP.config.RolesSciaf;
 import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActivoDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IAuxiliarDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IMapaEspacialDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IMapaEspacialIconoAuxiliarDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IMapaEspacialPublicacionDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IOficinaDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IPredioDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.MapaEspacial;
+import com.usic.SistemasActivosFijosUAP.model.entity.MapaEspacialIconoAuxiliar;
 import com.usic.SistemasActivosFijosUAP.model.entity.MapaEspacialPublicacion;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
@@ -81,8 +86,13 @@ public class MapaEspacialController {
     private final IPredioDao predios;
     private final IOficinaDao oficinas;
     private final IActivoDao activos;
+    private final IResposableDao responsables;
+    private final IAuxiliarDao auxiliares;
+    private final IMapaEspacialIconoAuxiliarDao iconosAuxiliares;
     private final ObjectMapper json;
     private static final Path FONDOS = Path.of("uploads", "mapa-espacial");
+    private static final Path PLANOS = FONDOS.resolve("planos");
+    private static final Path ICONOS = FONDOS.resolve("iconos");
 
     private void exigirSesion(HttpServletRequest request) {
         if (RolesSciaf.usuarioDe(request) == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
@@ -285,6 +295,8 @@ public class MapaEspacialController {
             Map<String, Object> dato = new HashMap<>();
             dato.put("codigo", a.getCodigo()); dato.put("descripcion", a.getDescripcion());
             dato.put("oficinaId", a.getOficina() == null ? null : a.getOficina().getIdOficina());
+            dato.put("auxiliarId", a.getAuxiliar() == null ? null : a.getAuxiliar().getIdAuxiliar());
+            dato.put("auxiliarNombre", a.getAuxiliar() == null ? null : a.getAuxiliar().getNombre());
             nombresActivo.put(a.getIdActivo(), dato);
         }
         Map<String, Object> respuesta = new HashMap<>();
@@ -318,6 +330,62 @@ public class MapaEspacialController {
                     .cacheControl(publicado ? CacheControl.maxAge(Duration.ofDays(7)).cachePrivate() :
                             CacheControl.noCache().cachePrivate()).body(Files.readAllBytes(ruta));
         } catch (IOException e) { throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo leer el fondo"); }
+    }
+
+    @GetMapping(value = "/api/predios/{predioId}/planos/{archivo}", produces = MediaType.IMAGE_JPEG_VALUE)
+    @ResponseBody
+    public ResponseEntity<byte[]> verPlano(@PathVariable Long predioId, @PathVariable String archivo,
+            HttpServletRequest request) {
+        exigirSesion(request);
+        if (!archivo.matches("[0-9a-fA-F-]{36}")) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        return responderFondo(PLANOS.resolve(predioId.toString()).resolve(archivo + ".jpg"), true);
+    }
+
+    @PostMapping(value = "/api/predios/{predioId}/planos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseBody
+    public Map<String, Object> subirPlano(@PathVariable Long predioId,
+            @RequestParam("archivo") MultipartFile archivo, HttpServletRequest request) {
+        exigirEdicion(request);
+        if (!predios.existsById(predioId)) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        if (archivo.isEmpty() || archivo.getSize() > 20_000_000)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usa PNG o JPG de hasta 20 MB");
+        String id = UUID.randomUUID().toString();
+        Path destino = PLANOS.resolve(predioId.toString()).resolve(id + ".jpg");
+        try (ImageInputStream input = ImageIO.createImageInputStream(archivo.getInputStream())) {
+            if (input == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Imagen inválida");
+            var lectores = ImageIO.getImageReaders(input);
+            if (!lectores.hasNext()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Formato de imagen no admitido");
+            ImageReader lector = lectores.next();
+            try {
+                if (!Set.of("JPEG", "PNG").contains(lector.getFormatName().toUpperCase(Locale.ROOT)))
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Solo PNG o JPG");
+                lector.setInput(input, true, true);
+                int ancho = lector.getWidth(0), alto = lector.getHeight(0);
+                if (ancho < 10 || alto < 10 || (long) ancho * alto > 50_000_000)
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dimensiones de imagen no admitidas");
+                int paso = Math.max(1, (int) Math.ceil(Math.max(ancho, alto) / 3200.0));
+                ImageReadParam lectura = lector.getDefaultReadParam();
+                lectura.setSourceSubsampling(paso, paso, 0, 0);
+                BufferedImage origen = lector.read(0, lectura);
+                BufferedImage rgb = new BufferedImage(origen.getWidth(), origen.getHeight(), BufferedImage.TYPE_INT_RGB);
+                Graphics2D g = rgb.createGraphics();
+                try { g.setColor(Color.WHITE); g.fillRect(0, 0, rgb.getWidth(), rgb.getHeight()); g.drawImage(origen, 0, 0, null); }
+                finally { g.dispose(); }
+                Files.createDirectories(destino.getParent());
+                ImageWriter escritor = ImageIO.getImageWritersByFormatName("jpg").next();
+                try (ImageOutputStream salida = ImageIO.createImageOutputStream(destino.toFile())) {
+                    escritor.setOutput(salida);
+                    ImageWriteParam calidad = escritor.getDefaultWriteParam();
+                    calidad.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                    calidad.setCompressionQuality(.88f);
+                    escritor.write(null, new javax.imageio.IIOImage(rgb, null, null), calidad);
+                } finally { escritor.dispose(); }
+                return Map.of("archivo", id, "ancho", rgb.getWidth(), "alto", rgb.getHeight());
+            } finally { lector.dispose(); }
+        } catch (IOException e) {
+            try { Files.deleteIfExists(destino); } catch (IOException ignored) { }
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No se pudo procesar la imagen");
+        }
     }
 
     @PostMapping(value = "/api/predios/{predioId}/fondo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -400,6 +468,96 @@ public class MapaEspacialController {
     public record UbicacionMapa(String tipo, String edificioId, String edificioNombre,
             String pisoId, String pisoNombre, String espacioId, String etiqueta) {}
 
+    public record ResultadoBusquedaMapa(String tipo, String etiqueta, String detalle, String oficinaNombre,
+            Long oficinaId, Long activoId, Long responsableId, Long personaId,
+            UbicacionMapa lugar, boolean figuraUbicada) {}
+
+    @GetMapping("/api/predios/{predioId}/localizar") @ResponseBody
+    @Transactional(readOnly = true)
+    public List<ResultadoBusquedaMapa> localizar(@PathVariable Long predioId,
+            @RequestParam String tipo, @RequestParam(defaultValue = "") String q,
+            @RequestParam(required = false) Long personaId,
+            HttpServletRequest request) {
+        exigirSesion(request);
+        String filtro = termino(q);
+        if (filtro.length() < 2 && personaId == null) return List.of();
+        if (!Set.of("ACTIVO", "RESPONSABLE").contains(tipo))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipo de búsqueda inválido");
+        if (personaId != null && (!"RESPONSABLE".equals(tipo) || personaId < 1))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Persona inválida");
+        if (!predios.existsById(predioId)) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        MapaEspacial mapa = mapas.findByPredioIdPredio(predioId).orElse(null);
+        Map<Long, List<UbicacionMapa>> lugares = new HashMap<>();
+        Map<String, Set<Long>> figuras = new HashMap<>();
+        if (mapa != null) for (JsonNode edificio : leer(escenaPublicada(mapa)).path("edificios"))
+            for (JsonNode piso : edificio.path("pisos"))
+                for (JsonNode espacio : piso.path("espacios")) {
+                    if (!espacio.path("oficinaId").canConvertToLong()) continue;
+                    long oficinaId = espacio.path("oficinaId").asLong();
+                    UbicacionMapa lugar = new UbicacionMapa("OFICINA", edificio.path("id").asText(),
+                            edificio.path("nombre").asText(), piso.path("id").asText(),
+                            piso.path("nombre").asText(), espacio.path("id").asText(),
+                            espacio.path("nombre").asText());
+                    lugares.computeIfAbsent(oficinaId, k -> new ArrayList<>()).add(lugar);
+                    Set<Long> colocados = new HashSet<>();
+                    for (JsonNode figura : espacio.path("activos"))
+                        if (figura.path("activoId").canConvertToLong()) colocados.add(figura.path("activoId").asLong());
+                    figuras.put(lugar.edificioId() + ":" + lugar.pisoId() + ":" + lugar.espacioId(), colocados);
+                }
+        List<ResultadoBusquedaMapa> respuesta = new ArrayList<>();
+        if ("ACTIVO".equals(tipo)) {
+            List<IActivoDao.ActivoBusquedaMapa> hallados = activos.buscarEnMapa(predioId, filtro, PageRequest.of(0, 20));
+            Set<Long> ids = new HashSet<>();
+            for (IActivoDao.ActivoBusquedaMapa a : hallados) if (a.getOficinaId() != null) ids.add(a.getOficinaId());
+            Map<Long, String> nombres = nombresOficinasMapa(ids);
+            for (IActivoDao.ActivoBusquedaMapa activo : hallados) {
+                List<UbicacionMapa> destinos = lugares.getOrDefault(activo.getOficinaId(), List.of());
+                List<UbicacionMapa> ubicados = destinos.stream().filter(l ->
+                        figuras.getOrDefault(l.edificioId() + ":" + l.pisoId() + ":" + l.espacioId(), Set.of())
+                                .contains(activo.getId())).toList();
+                if (!ubicados.isEmpty()) destinos = ubicados;
+                if (destinos.isEmpty()) destinos = java.util.Collections.singletonList(null);
+                for (UbicacionMapa lugar : destinos) {
+                    boolean dibujado = lugar != null && !ubicados.isEmpty();
+                    respuesta.add(new ResultadoBusquedaMapa(tipo, activo.getCodigo() + " · " + activo.getDescripcion(),
+                            dibujado ? "Activo ubicado en el plano" : lugar == null ? "Oficina sin plano publicado" : "Activo sin posición dibujada en esta oficina",
+                            nombres.getOrDefault(activo.getOficinaId(), "Oficina sin nombre"),
+                            activo.getOficinaId(), activo.getId(), null, null, lugar, dibujado));
+                    if (respuesta.size() >= 50) return respuesta;
+                }
+            }
+        } else {
+            List<IResposableDao.ResponsableBusquedaMapa> hallados = personaId == null ?
+                    responsables.buscarEnMapa(predioId, filtro, PageRequest.of(0, 30)) :
+                    responsables.oficinasDePersonaEnMapa(predioId, personaId);
+            Set<Long> ids = new HashSet<>();
+            for (IResposableDao.ResponsableBusquedaMapa r : hallados) if (r.getOficinaId() != null) ids.add(r.getOficinaId());
+            Map<Long, String> nombres = nombresOficinasMapa(ids);
+            for (IResposableDao.ResponsableBusquedaMapa responsable : hallados) {
+                List<UbicacionMapa> destinos = lugares.getOrDefault(responsable.getOficinaId(), List.of());
+                if (destinos.isEmpty()) destinos = java.util.Collections.singletonList(null);
+                for (UbicacionMapa lugar : destinos) {
+                    respuesta.add(new ResultadoBusquedaMapa(tipo,
+                            responsable.getNombre() == null || responsable.getNombre().isBlank() ? responsable.getCodigo() : responsable.getNombre(),
+                            lugar == null ? "Oficina sin plano publicado" : "Responsable asignado a esta oficina",
+                            nombres.getOrDefault(responsable.getOficinaId(), "Oficina sin nombre"),
+                            responsable.getOficinaId(), null, responsable.getId(), responsable.getPersonaId(), lugar, false));
+                    if (respuesta.size() >= (personaId == null ? 50 : 200)) return respuesta;
+                }
+            }
+        }
+        return respuesta;
+    }
+
+    private Map<Long, String> nombresOficinasMapa(Set<Long> ids) {
+        Map<Long, String> nombres = new HashMap<>();
+        if (ids.isEmpty()) return nombres;
+        for (Oficina oficina : oficinas.findAllById(ids))
+            nombres.put(oficina.getIdOficina(),
+                    (oficina.getCodOfi() == null ? "" : oficina.getCodOfi() + " · ") + oficina.getNombre());
+        return nombres;
+    }
+
     @GetMapping("/api/predios/{predioId}/ubicaciones") @ResponseBody
     @Transactional(readOnly = true)
     public List<UbicacionMapa> buscarUbicaciones(@PathVariable Long predioId,
@@ -446,7 +604,8 @@ public class MapaEspacialController {
                 .replaceAll("\\p{M}+", "").toUpperCase(Locale.ROOT);
     }
 
-    public record ActivoInventarioItem(Long id, String codigo, String descripcion, String responsable, String estadoFisico) {}
+    public record ActivoInventarioItem(Long id, String codigo, String descripcion, String responsable,
+            String estadoFisico, Long auxiliarId, String auxiliarNombre) {}
     public record PaginaInventario(long total, int pagina, int totalPaginas, List<ActivoInventarioItem> items) {}
 
     @GetMapping("/api/oficinas/{oficinaId}/activos") @ResponseBody
@@ -459,7 +618,113 @@ public class MapaEspacialController {
         Page<IActivoDao.ActivoInventarioMapa> resultado = activos.inventarioMapa(oficinaId, termino(q), PageRequest.of(pagina, 10));
         return new PaginaInventario(resultado.getTotalElements(), resultado.getNumber(), resultado.getTotalPages(),
                 resultado.getContent().stream().map(a -> new ActivoInventarioItem(
-                        a.getId(), a.getCodigo(), a.getDescripcion(), a.getResponsable(), a.getEstadoFisico())).toList());
+                        a.getId(), a.getCodigo(), a.getDescripcion(), a.getResponsable(), a.getEstadoFisico(),
+                        a.getAuxiliarId(), a.getAuxiliarNombre())).toList());
+    }
+
+    private static final Set<String> ICONOS_MAPA = Set.of("CPU", "MONITOR", "MESA", "SILLA", "ROUTER",
+            "AIRE", "CAMARA", "IMPRESORA", "PORTATIL", "PROYECTOR", "ESTANTE", "ARCHIVADOR",
+            "BIOMETRICO", "TELEFONO", "ESCANER", "UPS", "TELEVISOR", "PIZARRA", "VENTILADOR", "EXTINTOR", "OTRO");
+
+    @GetMapping("/api/predios/{predioId}/iconos-auxiliares") @ResponseBody
+    @Transactional(readOnly = true)
+    public Map<Long, String> iconosAuxiliares(@PathVariable Long predioId, HttpServletRequest request) {
+        exigirSesion(request);
+        if (!predios.existsById(predioId)) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        Map<Long, String> resultado = new HashMap<>();
+        // Solo se envían preferencias del predio abierto.
+        for (IMapaEspacialIconoAuxiliarDao.IconoConfigurado icono : iconosAuxiliares.listarPorPredio(predioId))
+            resultado.put(icono.getAuxiliarId(), icono.getIcono());
+        return resultado;
+    }
+
+    public record IconoAuxiliarRequest(String icono) {}
+
+    @PutMapping("/api/predios/{predioId}/auxiliares/{auxiliarId}/icono") @ResponseBody
+    @Transactional
+    public Map<String, Object> configurarIconoAuxiliar(@PathVariable Long predioId, @PathVariable Long auxiliarId,
+            @RequestBody IconoAuxiliarRequest body, HttpServletRequest request) {
+        exigirEdicion(request);
+        if (body == null || body.icono() == null || !ICONOS_MAPA.contains(body.icono()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Icono inválido");
+        Auxiliar auxiliar = auxiliares.findById(auxiliarId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (!predioId.equals(auxiliar.getPredio().getIdPredio()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El auxiliar pertenece a otro predio");
+        MapaEspacialIconoAuxiliar config = iconosAuxiliares.findByAuxiliarIdAuxiliar(auxiliarId)
+                .orElseGet(MapaEspacialIconoAuxiliar::new);
+        config.setAuxiliar(auxiliar);
+        config.setIcono(body.icono());
+        iconosAuxiliares.save(config);
+        return Map.of("auxiliarId", auxiliarId, "icono", config.getIcono());
+    }
+
+    private Path archivoIcono(Long predioId, Long auxiliarId) {
+        return ICONOS.resolve(predioId.toString()).resolve(auxiliarId + ".png");
+    }
+
+    @PostMapping(value = "/api/predios/{predioId}/auxiliares/{auxiliarId}/icono-imagen",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE) @ResponseBody
+    @Transactional
+    public Map<String, Object> subirIconoAuxiliar(@PathVariable Long predioId, @PathVariable Long auxiliarId,
+            @RequestParam("archivo") MultipartFile archivo, HttpServletRequest request) {
+        exigirEdicion(request);
+        Auxiliar auxiliar = auxiliares.findById(auxiliarId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (!predioId.equals(auxiliar.getPredio().getIdPredio()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El auxiliar pertenece a otro predio");
+        if (archivo == null || archivo.isEmpty() || archivo.getSize() > 150_000)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usa una imagen PNG o JPG de hasta 150 KB");
+        Path destino = archivoIcono(predioId, auxiliarId), temporal = null;
+        try (ImageInputStream entrada = ImageIO.createImageInputStream(archivo.getInputStream())) {
+            if (entrada == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Imagen inválida");
+            var lectores = ImageIO.getImageReaders(entrada);
+            if (!lectores.hasNext()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Imagen inválida");
+            ImageReader lector = lectores.next();
+            try {
+                String formato = lector.getFormatName();
+                lector.setInput(entrada, true, true);
+                int ancho = lector.getWidth(0), alto = lector.getHeight(0);
+                if (!("png".equalsIgnoreCase(formato) || "jpeg".equalsIgnoreCase(formato) || "jpg".equalsIgnoreCase(formato))
+                        || ancho < 1 || alto < 1 || ancho > 2048 || alto > 2048)
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usa PNG o JPG de hasta 2048 píxeles por lado");
+                BufferedImage origen = lector.read(0);
+                BufferedImage reducido = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
+                Graphics2D g = reducido.createGraphics();
+                try {
+                    g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                    double escala = Math.min(64.0 / ancho, 64.0 / alto);
+                    int w = Math.max(1, (int) Math.round(ancho * escala)), h = Math.max(1, (int) Math.round(alto * escala));
+                    g.drawImage(origen, (64 - w) / 2, (64 - h) / 2, w, h, null);
+                } finally { g.dispose(); }
+                Files.createDirectories(destino.getParent());
+                temporal = Files.createTempFile(destino.getParent(), "icono-", ".png");
+                if (!ImageIO.write(reducido, "png", temporal.toFile())) throw new IOException("No se pudo codificar el icono");
+                Files.move(temporal, destino, StandardCopyOption.REPLACE_EXISTING);
+            } finally { lector.dispose(); }
+        } catch (ResponseStatusException e) { throw e; }
+        catch (IOException e) { throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo guardar el icono"); }
+        finally { if (temporal != null) try { Files.deleteIfExists(temporal); } catch (IOException ignored) { } }
+        MapaEspacialIconoAuxiliar config = iconosAuxiliares.findByAuxiliarIdAuxiliar(auxiliarId)
+                .orElseGet(MapaEspacialIconoAuxiliar::new);
+        config.setAuxiliar(auxiliar); config.setIcono("PERSONALIZADO"); iconosAuxiliares.save(config);
+        return Map.of("auxiliarId", auxiliarId, "icono", "PERSONALIZADO");
+    }
+
+    @GetMapping(value = "/api/predios/{predioId}/auxiliares/{auxiliarId}/icono-imagen",
+            produces = MediaType.IMAGE_PNG_VALUE) @ResponseBody
+    public ResponseEntity<byte[]> obtenerIconoAuxiliar(@PathVariable Long predioId, @PathVariable Long auxiliarId,
+            HttpServletRequest request) {
+        exigirSesion(request);
+        Auxiliar auxiliar = auxiliares.findById(auxiliarId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (!predioId.equals(auxiliar.getPredio().getIdPredio())) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        try {
+            Path archivo = archivoIcono(predioId, auxiliarId);
+            if (!Files.isRegularFile(archivo)) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+            return ResponseEntity.ok().cacheControl(CacheControl.maxAge(Duration.ofDays(1))).contentType(MediaType.IMAGE_PNG)
+                    .body(Files.readAllBytes(archivo));
+        } catch (IOException e) { throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo leer el icono"); }
     }
 
     @GetMapping("/api/activos/{activoId}/detalle") @ResponseBody
@@ -606,6 +871,7 @@ public class MapaEspacialController {
             if (!pisos.isArray() || pisos.size() < 1 || pisos.size() > 40) malo("Un edificio requiere pisos");
             for (JsonNode p : pisos) {
                 id(p, ids); nombre(p, "nombre"); numero(p, "altura", 1, 20);
+                validarPlano(p.path("planoReferencia"), predioId);
                 JsonNode trazos = p.path("trazos");
                 if (!trazos.isMissingNode()) {
                     if (!trazos.isArray() || trazos.size() > 500) malo("Demasiados detalles de plano");
@@ -626,6 +892,7 @@ public class MapaEspacialController {
                 if (!espacios.isArray() || espacios.size() > 300) malo("Demasiados espacios");
                 for (JsonNode s : espacios) {
                     id(s, ids); nombre(s, "nombre"); rect(s, Math.max(e.path("ancho").asDouble(), e.path("fondo").asDouble()));
+                    validarPlano(s.path("planoReferencia"), predioId);
                     poligono(s, e.path("ancho").asDouble(), e.path("fondo").asDouble());
                     estilo(s);
                     if (s.path("x").asDouble() + s.path("ancho").asDouble() > e.path("ancho").asDouble() + .001
@@ -687,6 +954,19 @@ public class MapaEspacialController {
                 if (actual.getOficina() == null || actual.getOficina().getIdOficina() != s.path("oficinaId").asLong()
                         || !"ACTIVO".equals(actual.getEstado())) malo("El activo cambió de oficina o de estado");
             }
+    }
+
+    private void validarPlano(JsonNode plano, Long predioId) {
+        if (plano.isMissingNode() || plano.isNull()) return;
+        String archivo = plano.path("archivo").asText("");
+        if (!archivo.matches("[0-9a-fA-F-]{36}") || !Files.isRegularFile(PLANOS.resolve(predioId.toString()).resolve(archivo + ".jpg")))
+            malo("Plano de referencia inválido");
+        numero(plano, "x", -2000, 2000);
+        numero(plano, "y", -2000, 2000);
+        numero(plano, "ancho", .1, 2000);
+        numero(plano, "fondo", .1, 2000);
+        numero(plano, "opacidad", 0, 1);
+        numero(plano, "giro", 0, 360);
     }
 
     private void id(JsonNode node, Set<String> ids) {

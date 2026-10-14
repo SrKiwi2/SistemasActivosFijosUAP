@@ -26,9 +26,10 @@ public interface IDonacionActaDao extends JpaRepository<DonacionActa, Long> {
     int maxCorrelativo(@Param("gestion") int gestion);
 
     /**
-     * Último correlativo D usado en un prefijo {@code MUN-PRED-GRP}: solo cuenta códigos
-     * con la forma exacta {@code <prefijo>-D} + 5 dígitos, igual que el generador normal
-     * solo cuenta los de 5 dígitos.
+     * Último correlativo de donación usado en un prefijo {@code MUN-PRED-GRP}: cuenta los
+     * códigos {@code <prefijo>-00001D} y también los del formato inicial
+     * {@code <prefijo>-D00001}, para que el cambio de formato no repita números. El generador
+     * normal solo cuenta 5 dígitos sin letra, así que las dos series no se tocan.
      * <p>
      * A diferencia de la serie normal, un código D <b>no se reutiliza</b>: también cuenta
      * {@code codigo_anulado} de las donaciones anuladas. Sus etiquetas con QR pudieron
@@ -36,11 +37,11 @@ public interface IDonacionActaDao extends JpaRepository<DonacionActa, Long> {
      * etiqueta vieja o un evento viejo apunten a otro bien.
      */
     @Query(value = """
-            select coalesce(max(cast(substring(c from char_length(:prefijo) + 3) as integer)), 0)
-            from (select codigo as c from activo where codigo like concat(:prefijo, '-D%')
+            select coalesce(max(cast(substring(substring(t.c from char_length(:prefijo) + 2) from '([0-9]{5})') as integer)), 0)
+            from (select codigo as c from activo where codigo like concat(:prefijo, '-%')
                   union all
-                  select codigo_anulado from activo where codigo_anulado like concat(:prefijo, '-D%')) t
-            where substring(c from char_length(:prefijo) + 2) ~ '^D[0-9]{5}$'
+                  select codigo_anulado from activo where codigo_anulado like concat(:prefijo, '-%')) t
+            where substring(t.c from char_length(:prefijo) + 2) ~ '^([0-9]{5}D|D[0-9]{5})$'
             """, nativeQuery = true)
     int maxCorrelativoDonacion(@Param("prefijo") String prefijo);
 

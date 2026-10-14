@@ -1,6 +1,6 @@
 <!-- ═══════════════════════════════════════════════════════════════
      PANTALLA: Registro de donaciones — plantilla de pantallas (docs/PLANTILLA_MODULOS.md)
-     Bienes donados con correlativo propio D (MUN-PRED-GRP-D00001) que existen SOLO en el
+     Bienes donados con correlativo propio con D al final (MUN-PRED-GRP-00001D) que existen SOLO en el
      SCIAF: no se registran en el VSIAF (la barrera está en ActualDbfWriterService).
      Cada registro es un ACTA (donante + documento + destino) con sus bienes.
 
@@ -73,6 +73,11 @@
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .2rem; font-size: .78rem; font-weight: 700; cursor: pointer; margin: 0; }
     .dn-foto-add i { font-size: 1.4rem; }
     .dn-foto-add.oculto { display: none; }
+    .dn-fotos-mini { display: flex; flex-wrap: wrap; gap: .3rem; min-width: 150px; }
+    .dn-fotos-mini .dn-foto, .dn-fotos-mini .dn-foto-add { width: 46px; height: 46px; border-radius: 8px; }
+    .dn-fotos-mini .dn-foto-add { font-size: .6rem; border-width: 1.5px; }
+    .dn-fotos-mini .dn-foto-add i { font-size: 1rem; }
+    .dn-fotos-mini .dn-foto-quitar { width: 18px; height: 18px; top: 2px; right: 2px; font-size: .65rem; }
     .dn-foto-item { border: 1px solid var(--sm-borde); border-radius: 12px; padding: .6rem .75rem; margin-bottom: .6rem; }
     .dn-foto-item-tit { font-weight: 700; font-size: .88rem; margin-bottom: .45rem; color: var(--sm-texto); }
 
@@ -238,7 +243,7 @@
             <i class="ti ti-box"></i> Administración de activos <i class="ti ti-chevron-right"></i> Registro de donaciones
         </nav>
         <h1 class="sm-titulo">Registro de donaciones <span class="dn-sello"><i class="ti ti-shield-check"></i> SOLO SCIAF</span></h1>
-        <p class="sm-subtitulo">Bienes donados con código propio <span class="dn-codigo">01-04-06-<span class="dn-d">D</span>00001</span>.
+        <p class="sm-subtitulo">Bienes donados con código propio <span class="dn-codigo">01-04-06-00001<span class="dn-d">D</span></span>.
             Quedan activos en el SCIAF y <b>no se registran en el VSIAF</b>.</p>
     </div>
     <div class="sm-cabecera-acciones">
@@ -440,7 +445,7 @@
                         <div>
                             <div class="small text-muted">Los códigos de esta donación empezarán así:</div>
                             <div class="dn-codigo js-prefijo-muestra">—</div>
-                            <div class="small text-muted">El grupo contable de cada bien completa el prefijo; la serie D arranca en D00001 por cada prefijo.</div>
+                            <div class="small text-muted">El grupo contable de cada bien completa el prefijo; la serie de donaciones arranca en 00001D por cada prefijo.</div>
                         </div>
                     </div>
                 </div>
@@ -558,7 +563,7 @@
                     <textarea class="sm-input js-caract" rows="2" style="min-height:64px" maxlength="4000" placeholder="Accesorios, capacidad, estado al recibirlo…"></textarea>
                 </div>
             </div>
-            <div class="dn-sub"><i class="ti ti-photo"></i> Fotos <small class="fw-normal text-muted text-lowercase">(hasta 3; las comparten todas las unidades)</small></div>
+            <div class="dn-sub"><i class="ti ti-photo"></i> Fotos <small class="fw-normal text-muted text-lowercase">(hasta 3; se ponen a cada unidad de este bien, después cada activo cambia las suyas en el detalle)</small></div>
             <div class="small text-muted d-none js-fotos-nota"><i class="ti ti-info-circle"></i> Las fotos de este bien se agregan o quitan en el detalle del acta.</div>
             <div class="sm-aviso sm-aviso-aviso py-2 mb-2 d-none js-nota-vida"></div>
             <div class="dn-fotos js-fotos">
@@ -628,9 +633,15 @@
     /** Código con la D destacada: 01-04-06-[D]00001. */
     function codigoHtml(c) {
         if (!c) return '—';
-        const i = c.lastIndexOf('-D');
-        if (i < 0) return '<span class="dn-codigo">' + esc(c) + '</span>';
-        return '<span class="dn-codigo">' + esc(c.substring(0, i + 1)) + '<span class="dn-d">D</span>' + esc(c.substring(i + 2)) + '</span>';
+        const m = /^(.*-)(\d{5})D$/i.exec(c) || /^(.*-)D(\d{5})$/i.exec(c);
+        if (!m) return '<span class="dn-codigo">' + esc(c) + '</span>';
+        return '<span class="dn-codigo">' + esc(m[1] + m[2]) + '<span class="dn-d">D</span></span>';
+    }
+    /** Código para actas y documentos: sin la D (01-02-04-00001D → 01-02-04-00001). */
+    function codigoDocumento(c) {
+        if (!c) return c;
+        const m = /^(.*-)(\d{5})D$/i.exec(c) || /^(.*-)D(\d{5})$/i.exec(c);
+        return m ? m[1] + m[2] : c;
     }
     /** Series por posición: la línea N es la unidad N; una línea vacía = esa unidad sin serie. */
     function series(texto) {
@@ -896,7 +907,7 @@
     }
     function pintarPrefijo() {
         const pref = prefijoPredio();
-        $form.find('.js-prefijo-muestra').html(pref ? esc(pref) + '-<span class="text-muted">GG</span>-<span class="dn-d">D</span>00001' : '—');
+        $form.find('.js-prefijo-muestra').html(pref ? esc(pref) + '-<span class="text-muted">GG</span>-00001<span class="dn-d">D</span>' : '—');
     }
 
     async function cargarOficinas(idPredio, elegir) {
@@ -1579,10 +1590,25 @@
         }
     }
 
+    /** Fotos de un activo (hasta MAX_FOTOS): miniaturas, quitar y agregar. */
+    function fotosDeActivo(b, anulada) {
+        const lista = b.fotos || [];
+        let h = '';
+        lista.forEach(function (f) {
+            h += '<div class="dn-foto"><img src="' + esc(f.url) + '" alt="Foto ' + esc(b.codigo) + '" class="js-foto-ver" data-url="' + esc(f.url) + '" loading="lazy">'
+                + (anulada ? '' : '<button type="button" class="dn-foto-quitar js-foto-quitar" data-id="' + esc(f.id) + '" data-activo="' + esc(b.idActivo)
+                    + '" title="Quitar foto"><i class="ti ti-x"></i></button>') + '</div>';
+        });
+        if (!anulada && b.estado === 'ACTIVO' && lista.length < MAX_FOTOS) {
+            h += '<label class="dn-foto-add" title="Agregar fotos a ' + esc(b.codigo) + '"><input type="file" class="d-none js-foto-detalle" data-activo="'
+                + esc(b.idActivo) + '" data-ya="' + lista.length + '" accept="image/jpeg,image/png,image/webp" multiple><i class="ti ti-camera-plus"></i></label>';
+        }
+        return '<div class="dn-fotos-mini">' + (h || '<span class="text-muted small">—</span>') + '</div>';
+    }
+
     function pintarActa(d) {
         const campo = function (et, v) { return '<div class="dn-campo"><small>' + et + '</small><span>' + (v != null && v !== '' ? esc(v) : '—') + '</span></div>'; };
         const anulada = d.estado === 'ANULADA';
-        const fotos = d.fotos || {};
         let filas = '';
         // Unidades de un mismo bien comparten el número de ítem: se muestran 1·1, 1·2…
         const porItem = {}, vistos = {}, base = {};
@@ -1592,37 +1618,18 @@
             const nro = porItem[b.item] > 1 ? b.item + '·' + vistos[b.item] : String(b.item);
             const detalle = [b.material ? 'Material: ' + b.material : null, b.dimensiones ? 'Medidas: ' + b.dimensiones : null]
                 .filter(Boolean).map(esc).join(' · ');
-            const nf = (fotos[b.item] || []).length;
             filas += '<tr style="animation-delay:' + Math.min(i, 20) * 25 + 'ms">'
                 + '<td class="text-nowrap">' + esc(nro) + '</td>'
                 + '<td>' + codigoHtml(b.codigo) + (b.estado && b.estado !== 'ACTIVO' ? '<br><span class="sm-pastilla sm-pastilla-peligro">' + esc(b.estado) + '</span>' : '') + '</td>'
                 + '<td><div class="fw-semibold">' + esc(b.descripcion) + '</div>'
                 + (detalle ? '<small class="text-muted">' + detalle + '</small>' : '')
-                + (b.caracteristicas ? '<div class="small text-muted" style="white-space:pre-line">' + esc(b.caracteristicas) + '</div>' : '')
-                + (nf ? '<div class="small text-muted"><i class="ti ti-photo"></i> ' + nf + ' foto(s)</div>' : '') + '</td>'
+                + (b.caracteristicas ? '<div class="small text-muted" style="white-space:pre-line">' + esc(b.caracteristicas) + '</div>' : '') + '</td>'
                 + '<td>' + esc(b.grupo || '—') + (b.auxiliar ? '<br><small class="text-muted">' + esc(b.auxiliar) + '</small>' : '') + '</td>'
                 + '<td>' + esc(b.conservacion || '—') + '</td>'
                 + '<td class="text-end">' + esc(bs(b.valor)) + '</td>'
                 + '<td><small>' + esc(b.oficinaActual || '—') + '<br>' + esc(b.responsableActual || '') + '</small>'
-                + (b.movido ? '<br><span class="dn-movido"><i class="ti ti-arrows-exchange"></i> movido desde el alta</span>' : '') + '</td></tr>';
-        });
-
-        // Fotos por ítem (las comparten sus unidades); se agregan o quitan aquí mismo.
-        let galeria = '';
-        Object.keys(porItem).sort(function (a, b) { return a - b; }).forEach(function (item) {
-            const lista = fotos[item] || [];
-            let html = '';
-            lista.forEach(function (f) {
-                html += '<div class="dn-foto"><img src="' + esc(f.url) + '" alt="Foto del bien ' + esc(item) + '" class="js-foto-ver" data-url="' + esc(f.url) + '" loading="lazy">'
-                    + (anulada ? '' : '<button type="button" class="dn-foto-quitar js-foto-quitar" data-id="' + esc(f.id) + '" title="Quitar foto"><i class="ti ti-x"></i></button>') + '</div>';
-            });
-            if (!anulada && lista.length < MAX_FOTOS) {
-                html += '<label class="dn-foto-add" title="Agregar fotos"><input type="file" class="d-none js-foto-detalle" data-item="' + esc(item)
-                    + '" accept="image/jpeg,image/png,image/webp" multiple><i class="ti ti-camera-plus"></i><span>Agregar</span></label>';
-            }
-            if (!html) html = '<span class="text-muted small">Sin fotos.</span>';
-            galeria += '<div class="dn-foto-item"><div class="dn-foto-item-tit">Bien ' + esc(item) + ' · ' + esc(base[item] || '')
-                + ' <small class="text-muted fw-normal">(' + lista.length + ' de ' + MAX_FOTOS + ')</small></div><div class="dn-fotos">' + html + '</div></div>';
+                + (b.movido ? '<br><span class="dn-movido"><i class="ti ti-arrows-exchange"></i> movido desde el alta</span>' : '') + '</td>'
+                + '<td>' + fotosDeActivo(b, anulada) + '</td></tr>';
         });
 
         $detalle.html(
@@ -1654,10 +1661,8 @@
             + (d.observacion ? '<div class="dn-tarjeta"><div class="dn-tarjeta-cab"><i class="ti ti-notes"></i> Observación</div><div style="white-space:pre-line">' + esc(d.observacion) + '</div></div>' : '')
             + '</div>'
             + '<div class="dn-sub"><i class="ti ti-package"></i> Bienes</div>'
-            + '<div class="dn-tabla-caja"><table class="dn-tabla"><thead><tr><th>#</th><th>Código</th><th>Descripción</th><th>Grupo / auxiliar</th><th>Conservación</th><th class="text-end">Valor</th><th>Dónde está hoy</th></tr></thead><tbody>'
+            + '<div class="dn-tabla-caja"><table class="dn-tabla"><thead><tr><th>#</th><th>Código</th><th>Descripción</th><th>Grupo / auxiliar</th><th>Conservación</th><th class="text-end">Valor</th><th>Dónde está hoy</th><th>Fotos <small class="fw-normal text-lowercase">(hasta ' + MAX_FOTOS + ')</small></th></tr></thead><tbody>'
             + filas + '</tbody></table></div>'
-            + '<div class="dn-sub"><i class="ti ti-photo"></i> Fotografías</div>'
-            + galeria
             + '</div>');
         $detalle.data('acta', d);
     }
@@ -1741,9 +1746,11 @@
                     width: 'min(92vw, 1000px)', padding: '0.5rem', background: 'var(--sm-superficie)' });
     });
 
-    async function enviarFotos(idDonacion, item, fotos) {
+    /** destino: { item } (a cada unidad de ese bien) o { idActivo } (a ese activo). */
+    async function enviarFotos(idDonacion, destino, fotos) {
         const fd = new FormData();
-        fd.append('item', item);
+        if (destino.idActivo) fd.append('idActivo', destino.idActivo);
+        else fd.append('item', destino.item);
         fotos.forEach(function (f) { fd.append('fotos', f.blob, f.nombre); });
         const res = await SciafModulo.pedirJson(URL + '/api/acta/' + idDonacion + '/fotos', { datos: fd });
         if (!res.ok) throw new Error(res.msg || 'No se pudieron guardar las fotos.');
@@ -1758,7 +1765,7 @@
         const fallas = [];
         $e.html('<div class="sm-aviso sm-aviso-info d-inline-flex"><span class="spinner-border spinner-border-sm"></span><div class="js-fotos-txt">Subiendo fotos 0 de ' + total + '…</div></div>');
         for (const x of porItem) {
-            try { await enviarFotos(idDonacion, x.item, x.fotos); hechas += x.fotos.length; }
+            try { await enviarFotos(idDonacion, { item: x.item }, x.fotos); hechas += x.fotos.length; }
             catch (err) { fallas.push('Bien ' + x.item + ': ' + (err.sesionPerdida ? 'la sesión se cerró' : (err.message || 'error'))); }
             $e.find('.js-fotos-txt').text('Subiendo fotos ' + hechas + ' de ' + total + '…');
             x.fotos.forEach(function (f) { if (f.propia) { try { URL_OBJ.revokeObjectURL(f.url); } catch (e2) { /* ya liberada */ } } });
@@ -1772,17 +1779,17 @@
     // ── En el detalle del acta: agregar o quitar sobre lo ya registrado ──
     $raiz.on('change', '.js-foto-detalle', async function () {
         const d = $detalle.data('acta');
-        const item = Number($(this).data('item'));
+        const idActivo = Number($(this).data('activo'));
         const archivos = Array.from(this.files || []).filter(esImagenValida);
         this.value = '';
         if (!d || !archivos.length) { avisoFalta('Solo se aceptan fotos JPG, PNG o WEBP.'); return; }
-        const ya = ((d.fotos || {})[item] || []).length;
-        if (ya + archivos.length > MAX_FOTOS) { avisoFalta('Cada bien admite hasta ' + MAX_FOTOS + ' fotos (ya tiene ' + ya + ').'); return; }
+        const ya = Number($(this).data('ya')) || 0;
+        if (ya + archivos.length > MAX_FOTOS) { avisoFalta('Cada activo admite hasta ' + MAX_FOTOS + ' fotos (ya tiene ' + ya + ').'); return; }
         const $lbl = $(this).closest('.dn-foto-add').css('opacity', .5);
         try {
             const fotos = [];
             for (const f of archivos) fotos.push(await reducirImagen(f));
-            await enviarFotos(d.id, item, fotos);
+            await enviarFotos(d.id, { idActivo: idActivo }, fotos);
             abrirActa(d.id);
         } catch (e) {
             $lbl.css('opacity', 1);
@@ -1795,7 +1802,8 @@
         const ok = await sciafConfirmar({ titulo: '¿Quitar esta foto?', texto: 'Deja de mostrarse en el acta.', aceptar: 'Quitar', peligrosa: true });
         if (!ok) return;
         try {
-            const res = await SciafModulo.pedirJson(URL + '/api/foto/' + encodeURIComponent($(this).data('id')) + '/quitar', {});
+            const res = await SciafModulo.pedirJson(URL + '/api/foto/' + encodeURIComponent($(this).data('id')) + '/quitar',
+                { datos: { idActivo: $(this).data('activo') } });
             if (!res.ok) throw new Error(res.msg);
             abrirActa(d.id);
         } catch (e) {
@@ -1948,7 +1956,7 @@
         const d = $detalle.data('acta');
         if (!d) return;
         const filas = (d.bienes || []).map(function (b) {
-            return '<tr><td>' + esc(b.item) + '</td><td style="white-space:nowrap"><b>' + esc(b.codigo) + '</b></td><td>' + esc(b.descripcion)
+            return '<tr><td>' + esc(b.item) + '</td><td style="white-space:nowrap"><b>' + esc(codigoDocumento(b.codigo)) + '</b></td><td>' + esc(b.descripcion)
                 + (b.caracteristicas ? '<br><small>' + esc(b.caracteristicas) + '</small>' : '') + '</td><td>' + esc(b.conservacion || '') + '</td><td style="text-align:right">' + esc(bs(b.valor)) + '</td></tr>';
         }).join('');
         const w = window.open('', '_blank');

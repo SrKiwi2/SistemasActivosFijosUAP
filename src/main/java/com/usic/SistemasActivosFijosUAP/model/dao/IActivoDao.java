@@ -28,6 +28,8 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
         String getDescripcion();
         String getResponsable();
         String getEstadoFisico();
+        Long getAuxiliarId();
+        String getAuxiliarNombre();
     }
 
     interface ActivoDetalleMapa {
@@ -39,14 +41,36 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
         String getEstado();
         Long getOficinaId();
         String getOficinaNombre();
+        Long getAuxiliarId();
+        String getAuxiliarNombre();
+    }
+
+    interface ActivoBusquedaMapa {
+        Long getId();
+        String getCodigo();
+        String getDescripcion();
+        Long getOficinaId();
     }
 
     @Query("""
         SELECT a.idActivo AS id, a.codigo AS codigo, a.descripcion AS descripcion,
+               o.idOficina AS oficinaId
+        FROM Activo a JOIN a.oficina o
+        WHERE o.predio.idPredio = :predioId AND a.estado = 'ACTIVO'
+          AND (UPPER(COALESCE(a.codigo, '')) LIKE UPPER(CONCAT('%', :q, '%'))
+               OR UPPER(COALESCE(a.descripcion, '')) LIKE UPPER(CONCAT('%', :q, '%')))
+        ORDER BY a.codigo
+        """)
+    List<ActivoBusquedaMapa> buscarEnMapa(@Param("predioId") Long predioId,
+                                           @Param("q") String q, Pageable pageable);
+
+    @Query("""
+        SELECT a.idActivo AS id, a.codigo AS codigo, a.descripcion AS descripcion,
                TRIM(CONCAT(COALESCE(per.nombre, ''), ' ', COALESCE(per.paterno, ''), ' ', COALESCE(per.materno, ''))) AS responsable,
-               ea.nombre AS estadoFisico, a.estado AS estado, o.idOficina AS oficinaId, o.nombre AS oficinaNombre
+               ea.nombre AS estadoFisico, a.estado AS estado, o.idOficina AS oficinaId, o.nombre AS oficinaNombre,
+               aux.idAuxiliar AS auxiliarId, aux.nombre AS auxiliarNombre
         FROM Activo a LEFT JOIN a.oficina o LEFT JOIN a.responsable r
-             LEFT JOIN r.persona per LEFT JOIN a.estadoActivo ea
+             LEFT JOIN r.persona per LEFT JOIN a.estadoActivo ea LEFT JOIN a.auxiliar aux
         WHERE a.idActivo = :activoId
         """)
     Optional<ActivoDetalleMapa> detalleMapa(@Param("activoId") Long activoId);
@@ -54,8 +78,9 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
     @Query(value = """
         SELECT a.idActivo AS id, a.codigo AS codigo, a.descripcion AS descripcion,
                TRIM(CONCAT(COALESCE(per.nombre, ''), ' ', COALESCE(per.paterno, ''), ' ', COALESCE(per.materno, ''))) AS responsable,
-               ea.nombre AS estadoFisico
+               ea.nombre AS estadoFisico, aux.idAuxiliar AS auxiliarId, aux.nombre AS auxiliarNombre
         FROM Activo a LEFT JOIN a.responsable r LEFT JOIN r.persona per LEFT JOIN a.estadoActivo ea
+             LEFT JOIN a.auxiliar aux
         WHERE a.oficina.idOficina = :oficinaId AND a.estado = 'ACTIVO'
           AND (UPPER(COALESCE(a.codigo, '')) LIKE UPPER(CONCAT('%', :q, '%'))
                OR UPPER(a.descripcion) LIKE UPPER(CONCAT('%', :q, '%')))

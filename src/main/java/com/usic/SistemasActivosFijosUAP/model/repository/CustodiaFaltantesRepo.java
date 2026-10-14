@@ -157,7 +157,7 @@ public class CustodiaFaltantesRepo {
                             where r.id_acta_anterior = af.id_acta and r.estado_acta <> 'ANULADA')    as reiterada,
                    count(*) filter (where (h.fecha_envio_custodia is not null or h.estado_hallazgo in ('EN_CUSTODIA', 'RESUELTO'))
                                       and (ac.id_activo is null or (coalesce(ac.procedencia, '') <> 'DONACION'
-                                                                    and coalesce(ac.codigo, '') !~ '-D[0-9]{5}$'))) as movidos_vsiaf
+                                                                    and coalesce(ac.codigo, '') !~ '-([0-9]{5}D|D[0-9]{5})$'))) as movidos_vsiaf
             from acta_faltante af
             left join hallazgo_inventario h on h.id_acta = af.id_acta
             left join activo ac on ac.id_activo = h.id_activo

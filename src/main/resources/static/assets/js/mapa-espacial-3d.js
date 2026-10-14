@@ -32,7 +32,9 @@
         titulo: titulo, opacidad: opacidad || 1 });
     }
     function datosEdificio(e, tipo, piso) {
-      var atributos = { class: 'me-shape me-3d-face' + (estado.edificio === e.id || estado.destacadoEdificio === e.id ? ' me-selected-3d' : ''),
+      var marcas = estado.destacados && estado.destacados[e.id];
+      var atributos = { class: 'me-shape me-3d-face' + (estado.edificio === e.id || estado.destacadoEdificio === e.id ? ' me-selected-3d' : '') +
+          (marcas ? ' me-found-building' : '') + (piso && marcas && marcas.indexOf(piso.id) >= 0 ? ' me-found-floor' : ''),
         'data-kind': tipo, 'data-id': e.id, 'data-building-id': e.id };
       if (piso) atributos['data-floor-id'] = piso.id;
       return atributos;
@@ -42,7 +44,7 @@
       var inicioPuntos = puntosVista.length;
       var huella = (e.puntos || util.puntosRect(e)).map(function (p) { return [Number(p.x), Number(p.y)]; });
       if (huella.length < 3 || !(e.pisos || []).length) return;
-      var seleccionado = estado.edificio === e.id || estado.destacadoEdificio === e.id;
+      var seleccionado = estado.edificio === e.id || estado.destacadoEdificio === e.id || !!(estado.destacados && estado.destacados[e.id]);
       var simplificar = detalleReducido && !seleccionado;
       var indicePiso = seleccionado && estado.piso ? e.pisos.findIndex(function (p) { return p.id === estado.piso; }) : -1;
       var limite = indicePiso < 0 ? e.pisos.length - 1 : indicePiso;

@@ -168,12 +168,14 @@ public class DonacionController {
     @ValidarUsuarioAutenticado
     @PostMapping("/api/acta/{id}/fotos")
     @ResponseBody
-    public ResponseEntity<?> subirFotos(@PathVariable Long id, @RequestParam Integer item,
+    public ResponseEntity<?> subirFotos(@PathVariable Long id,
+                                        @RequestParam(required = false) Integer item,
+                                        @RequestParam(required = false) Long idActivo,
                                         @RequestParam(name = "fotos", required = false) List<org.springframework.web.multipart.MultipartFile> fotos,
                                         HttpServletRequest request) {
         try {
             return ResponseEntity.ok(Map.of("ok", true, "fotos",
-                    donacionService.subirFotos(id, item, fotos, RolesSciaf.usuarioDe(request), opciones(request))));
+                    donacionService.subirFotos(id, item, idActivo, fotos, RolesSciaf.usuarioDe(request), opciones(request))));
         } catch (SecurityException e) {
             return sinPermiso();
         } catch (IllegalArgumentException e) {
@@ -188,9 +190,10 @@ public class DonacionController {
     @ValidarUsuarioAutenticado
     @PostMapping("/api/foto/{id}/quitar")
     @ResponseBody
-    public ResponseEntity<?> quitarFoto(@PathVariable Long id, HttpServletRequest request) {
+    public ResponseEntity<?> quitarFoto(@PathVariable Long id, @RequestParam(required = false) Long idActivo,
+                                        HttpServletRequest request) {
         try {
-            donacionService.quitarFoto(id, RolesSciaf.usuarioDe(request), opciones(request));
+            donacionService.quitarFoto(id, idActivo, RolesSciaf.usuarioDe(request), opciones(request));
             return ResponseEntity.ok(Map.of("ok", true, "msg", "Foto quitada."));
         } catch (SecurityException e) {
             return sinPermiso();

@@ -247,7 +247,7 @@ public class PdfTransferenciaService {
             itemDataCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
             tablaActivo.addCell(itemDataCell);
         
-            PdfPCell codigoDataCell = new PdfPCell(new Phrase(dto.getCodigo(), normal_tabla));
+            PdfPCell codigoDataCell = new PdfPCell(new Phrase(com.usic.SistemasActivosFijosUAP.model.entity.Activo.codigoDocumento(dto.getCodigo()), normal_tabla));
             codigoDataCell.setHorizontalAlignment(Element.ALIGN_CENTER);
             codigoDataCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
             tablaActivo.addCell(codigoDataCell);

@@ -138,6 +138,14 @@ assert(elementosExplorador.some((n) => n.attrs['data-face'] === 'roof'));
 assert(!elementosExplorador.some((n) => n.attrs['data-kind'] === 'space3d'));
 assert(elementosExplorador.some((n) => String(n.attrs.class || '').includes('me-selected-3d')));
 
+const localizado = canvas();
+const vistaLocalizada = estado(null, true);
+vistaLocalizada.destacados = { edificio: ['pb'] };
+render(localizado, vistaLocalizada, { ...util, edita: false });
+const carasLocalizadas = todos(localizado).filter((n) => n.attrs['data-kind'] === 'floor3d');
+assert(carasLocalizadas.some((n) => n.attrs['data-floor-id'] === 'pb' && String(n.attrs.class).includes('me-found-floor')));
+assert(carasLocalizadas.some((n) => n.attrs['data-floor-id'] === 'p1' && !String(n.attrs.class).includes('me-found-floor')));
+
 const campus = canvas();
 const numerosos = estado(null, false);
 numerosos.escena.edificios = Array.from({ length: 36 }, (_, i) => ({ ...edificio, id: 'ed-' + i }));

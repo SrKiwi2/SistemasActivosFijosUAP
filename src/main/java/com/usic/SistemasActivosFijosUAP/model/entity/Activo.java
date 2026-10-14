@@ -218,16 +218,33 @@ public class Activo extends AuditoriaConfig{
      */
     public static final String PROCEDENCIA_DONACION = "DONACION";
 
-    /** Correlativo de donación: el último tramo del código es D + 5 dígitos. */
+    /**
+     * Correlativo de donación: 5 dígitos con la D al final ({@code 01-02-04-00001D}). También
+     * reconoce el formato inicial, con la D adelante ({@code 01-02-04-D00001}).
+     */
     private static final java.util.regex.Pattern CODIGO_DONACION =
-            java.util.regex.Pattern.compile("^.+-D\\d{5}$");
+            java.util.regex.Pattern.compile("^.+-(\\d{5}D|D\\d{5})$");
 
     @Column(name = "procedencia", length = 20)
     private String procedencia;
 
-    /** ¿El código tiene la forma de un correlativo de donación (…-D00001)? */
+    /** ¿El código tiene la forma de un correlativo de donación (…-00001D)? */
     public static boolean esCodigoDonacion(String codigo) {
         return codigo != null && CODIGO_DONACION.matcher(codigo.trim().toUpperCase()).matches();
+    }
+
+    /**
+     * Código tal como va en actas y documentos impresos (PDF, Word): sin la D de las
+     * donaciones ({@code 01-02-04-00001D} → {@code 01-02-04-00001}). La D sigue en la base, las
+     * etiquetas, las pantallas y los <b>Excel</b> (son datos que pueden volver a cargarse, y sin
+     * la D el número es el de otro activo). Cualquier otro código vuelve igual.
+     */
+    public static String codigoDocumento(String codigo) {
+        if (codigo == null || !esCodigoDonacion(codigo)) return codigo;
+        String c = codigo.trim();
+        int i = c.lastIndexOf('-');
+        String correlativo = c.substring(i + 1).replace("D", "").replace("d", "");
+        return c.substring(0, i + 1) + correlativo;
     }
 
     /**

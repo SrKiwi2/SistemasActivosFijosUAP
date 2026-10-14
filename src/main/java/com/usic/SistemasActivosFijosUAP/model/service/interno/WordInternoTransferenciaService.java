@@ -267,7 +267,7 @@ public class WordInternoTransferenciaService {
                 ActivoTransferenciaDTO dto = activos.get(i);
                 XWPFTableRow fila = filaConCeldas(t, 5, false);
                 celda(fila.getCell(0), String.valueOf(i + 1), false, 7, ParagraphAlignment.CENTER);
-                celda(fila.getCell(1), nvl(dto.getCodigo()), false, 7, ParagraphAlignment.CENTER);
+                celda(fila.getCell(1), nvl(com.usic.SistemasActivosFijosUAP.model.entity.Activo.codigoDocumento(dto.getCodigo())), false, 7, ParagraphAlignment.CENTER);
                 celda(fila.getCell(2), nvl(dto.getDescripcion()), false, 7, ParagraphAlignment.CENTER);
                 celda(fila.getCell(3), nvl(dto.getUbicacionOrigen()), false, 7, ParagraphAlignment.CENTER);
                 celda(fila.getCell(4), nvl(dto.getUbicacionActual()), false, 7, ParagraphAlignment.CENTER);

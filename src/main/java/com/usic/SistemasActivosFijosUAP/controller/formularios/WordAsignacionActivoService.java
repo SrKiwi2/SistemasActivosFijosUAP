@@ -155,7 +155,7 @@ public class WordAsignacionActivoService {
             int item = 1;
             for (DetalleAsignacionActivo det : asignacion.getDetalles()) {
                 Activo a = det.getActivo();
-                String codigoVisual = "148-" + a.getCodigo();
+                String codigoVisual = "148-" + com.usic.SistemasActivosFijosUAP.model.entity.Activo.codigoDocumento(a.getCodigo());
                 String ubicacion = ubicacionConCodigo(a.getOficina());
 
                 XWPFTableRow fila = table.createRow();

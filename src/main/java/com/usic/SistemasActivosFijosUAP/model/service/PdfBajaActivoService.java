@@ -133,7 +133,7 @@ public class PdfBajaActivoService {
         // Segunda fila: CÓDIGO
         Phrase codigoFrase = new Phrase();
         codigoFrase.add(new Chunk("CÓDIGO: ", new Font(Font.FontFamily.TIMES_ROMAN, 10, Font.BOLD)));
-        codigoFrase.add(new Chunk(descripcionActivo.getCodigo(), new Font(Font.FontFamily.TIMES_ROMAN, 10)));
+        codigoFrase.add(new Chunk(com.usic.SistemasActivosFijosUAP.model.entity.Activo.codigoDocumento(descripcionActivo.getCodigo()), new Font(Font.FontFamily.TIMES_ROMAN, 10)));
         PdfPCell celdaCodigo = new PdfPCell(codigoFrase);
         celdaCodigo.setPaddingTop(8f);
         celdaCodigo.setPaddingBottom(8f);
